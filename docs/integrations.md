@@ -1,66 +1,71 @@
-# Integrations
+# Integrations and messaging
 
-NeoAgent has two integration layers: official integrations for structured app tools, and messaging platforms for communicating with the agent.
+NeoAgent has two connection layers with different purposes.
 
-## Official Integrations
+**Integrations** give the agent structured tools for an account. **Messaging
+channels** let people talk to the agent and receive automation results.
+Connecting Slack or WhatsApp in one layer does not automatically configure the
+other.
 
-Structured OAuth-backed tools the agent can use in chat and automation. Connect accounts in the Flutter app under **Integrations**.
+## Official integrations
 
-| Provider | What the agent can do |
+Connect accounts in **Integrations**.
+
+| Provider | Available areas |
 |---|---|
-| **Google Workspace** | Search and send Gmail, read/create Calendar events, Drive upload/download/share, Docs create/append, Sheets read/write |
-| **Microsoft 365** | Outlook mail, Calendar, OneDrive, Teams messages, Graph API |
-| **Notion** | Search pages, read/write databases and blocks, manage comments |
-| **Slack** | Read and send messages, search conversations |
-| **Figma** | Read files and nodes, get rendered images, manage comments |
-| **Home Assistant** | Read entity state, call services |
-| **Trello** | Manage boards, lists, cards, comments, and search |
-| **Spotify** | Playback controls, search, queue management |
-| **Weather** | Current conditions and forecasts — no API key needed |
-| **Personal WhatsApp** | Per-account read and send with isolated access |
+| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets |
+| Microsoft 365 | Outlook, Calendar, OneDrive, Teams |
+| GitHub | Repositories, issues, pull requests, files, branches, workflows |
+| Notion | Pages, databases, blocks, search |
+| Slack | Conversations, history, search, messages |
+| Figma | Files, nodes, rendered images, comments |
+| Home Assistant | Entity state and service calls |
+| Trello | Boards, lists, cards, comments, search |
+| Spotify | Playback, history, search, queue |
+| Weather | Location search, current conditions, forecasts |
+| Personal WhatsApp | Private account chat history and send tools |
 
-### Access Modes
+Available operations are discovered from the current server implementation and
+connected account. They may differ by provider permissions.
 
-Each connected account can be set to **Read/Write** (default) or **Read Only**. Read-only blocks all write operations server-side — sending, creating, updating, and deleting.
+### Read-only accounts
 
-### OAuth Setup
+Connected accounts can be set to **Read Only**. NeoAgent blocks their write
+tools server-side. Use read-only mode unless an agent must create, send, update,
+or delete data.
 
-Most providers require OAuth app credentials in server config before users can connect. See [Configuration: Official Integrations](configuration.md#official-integrations) for the required environment variables.
+### Setup
 
-Home Assistant and Trello can be configured per-user in the **Integrations** UI without any server-side setup.
+Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth
+application credentials on the server. The default callback is:
 
-The default OAuth callback URL is `PUBLIC_URL + /api/integrations/oauth/callback`.
+```text
+PUBLIC_URL/api/integrations/oauth/callback
+```
 
-**If an OAuth connection fails:**
-1. Confirm `PUBLIC_URL` is reachable by the provider
-2. Confirm the redirect URI in your OAuth app matches NeoAgent's callback URL
-3. Confirm the client ID and secret are set in server config
-4. Restart after changing environment variables: `neoagent restart`
+Home Assistant and Trello can be configured for a user from the application.
+See [Configuration](configuration.md#official-integrations).
 
-## Messaging Platforms
+## Messaging channels
 
-Channels through which users and the agent communicate. Configure credentials in the Flutter app under **Settings → Messaging** — not in `.env`.
+Configure messaging under **Settings > Messaging**. Supported bridges include
+WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal,
+iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, Telnyx Voice, and
+several webhook-backed services.
 
-| Platform | Notes |
-|---|---|
-| **WhatsApp** | Messaging bridge for agent chat; separate official integration for structured read/send tools |
-| **Telegram** | Bot token plus approved chat IDs |
-| **Discord** | Bot token plus server or channel access |
-| **Slack** | Bot token sends, Events API callbacks |
-| **Google Chat** | Space webhook sends, app callback ingestion |
-| **Microsoft Teams** | Incoming webhook sends, outgoing webhook ingestion |
-| **Matrix** | Homeserver access token, room send, polling |
-| **Signal** | signal-cli REST API bridge |
-| **iMessage / BlueBubbles** | BlueBubbles-compatible bridge on a macOS host |
-| **IRC and Twitch** | IRC-style channel connections |
-| **LINE and Mattermost** | Native send, webhook ingestion |
-| **Telnyx Voice** | Inbound and outbound calls with text-to-speech |
-| **Webhook bridges** | Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, WeChat, WebChat |
+Each channel has its own authentication and allowlist behavior. Restrict which
+chats, rooms, groups, and senders may start agent runs.
 
-Inbound webhook path: `PUBLIC_URL + /api/messaging/webhook/:platform`
+Webhook-based channels require a reachable `PUBLIC_URL`. The generic inbound
+path is:
 
-`TELNYX_WEBHOOK_TOKEN` is the only messaging credential that goes in `.env` — all others are configured through the app messaging tab.
+```text
+PUBLIC_URL/api/messaging/webhook/:platform
+```
 
-## Security
+## Troubleshooting
 
-Keep OAuth client secrets, bot tokens, and API keys on the server. Don't put them in skill files, task prompts, screenshots, or logs. Rotate immediately if a credential is exposed.
+For failed OAuth connections, confirm the public URL, callback, client
+credentials, and provider scopes. For messaging failures, inspect **Runs** and
+server logs on the NeoAgent host, then verify the channel allowlist and webhook
+reachability.

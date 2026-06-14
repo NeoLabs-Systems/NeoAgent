@@ -1,94 +1,78 @@
-# Automation
+# Automation and triggers
 
-Tasks run on a schedule or integration trigger, use the same tools as chat, and can deliver results through any connected messaging platform.
+Automations run the same agent loop and tools used by chat. They can start on a
+schedule, from a supported account event, or through a webhook, and can deliver
+their result through a configured messaging channel.
 
-## Creating a Task
+## Create a task
 
-Open **Tasks** in the UI and fill in:
+Open **Tasks**, choose the owning agent, select a trigger, and write a
+self-contained instruction. A task can use the agent's model or a task-specific
+override.
 
-| Field | Description |
+The currently implemented trigger families are:
+
+| Trigger | Behavior |
 |---|---|
-| **Name** | Human-readable label |
-| **Cron** | Five-field schedule expression |
-| **Prompt** | Self-contained instruction for the future run |
-| **Enabled** | Active or paused |
-| **Model** | Optional per-task model override |
+| Schedule | Recurring cron expression or one-time timestamp |
+| Gmail | Run when a matching Gmail message is received |
+| Outlook | Run when a matching Outlook message is received |
+| Slack | Run when a matching Slack message is received |
+| Teams | Run when a matching Teams message is received |
+| Personal WhatsApp | Run when a matching personal-account message is received |
+| Weather | Run for configured forecast events such as rain or temperature thresholds |
+| Webhook | Run after an authenticated task webhook request |
 
-## Cron Expressions
+The Android app can also forward device notifications to
+`/api/triggers/notification`. Notification runs are evaluated by the agent and
+are separate from saved tasks.
 
+## Schedules
+
+Recurring tasks use five-field cron:
+
+```text
+minute hour day-of-month month day-of-week
 ```
-┌───── minute (0–59)
-│  ┌──── hour (0–23)
-│  │  ┌─── day of month (1–31)
-│  │  │  ┌── month (1–12)
-│  │  │  │  ┌─ day of week (0–7, both 0 and 7 = Sunday)
-│  │  │  │  │
-*  *  *  *  *
-```
 
-Common patterns:
+Examples:
 
 | Expression | Runs |
 |---|---|
-| `0 9 * * *` | Daily at 9:00 AM |
-| `0 9 * * 1-5` | Weekdays at 9:00 AM |
-| `0 8 * * 1` | Every Monday at 8:00 AM |
-| `0 18 * * 5` | Every Friday at 6:00 PM |
-| `0 9 1 * *` | First of every month at 9:00 AM |
-| `0 */4 * * *` | Every 4 hours |
+| `0 9 * * *` | Every day at 09:00 |
+| `0 9 * * 1-5` | Weekdays at 09:00 |
+| `0 8 * * 1` | Mondays at 08:00 |
 | `*/30 * * * *` | Every 30 minutes |
 
-## Writing Good Task Prompts
+Schedules use the server's configured time context. Confirm the next-run value
+shown in the UI when the server and user are in different time zones.
 
-Prompts run unattended. Be specific about what to check and when to notify — tasks that always send a message become noise, tasks that only notify on a condition are useful.
+## Write unattended instructions
 
-**Daily news digest**
-```
-Search Hacker News for the top 5 stories today. Send me a brief summary of each via Telegram, including the title and link.
-```
+A task prompt must contain enough context to run later without the current chat.
+State what to inspect, what counts as actionable, where to deliver the result,
+and when no message should be sent.
 
-**Price monitor**
-```
-Check the price of Bitcoin and Ethereum on CoinGecko. If either has changed more than 5% in the last 24 hours, send me a Telegram message with the current prices and percentage change. If there are no significant changes, do nothing.
-```
-
-**Server health check**
-```
-Run `df -h` and `free -m`. If disk usage on any partition is above 85% or available memory is below 500MB, send me a Telegram alert with the details. Otherwise do nothing.
+```text
+Search unread Gmail received since the previous run. Summarize messages that
+need a reply and send the summary to my Telegram chat. Do not send anything
+when no reply is needed.
 ```
 
-**Weekly email digest**
-```
-Search my Gmail for unread emails from the last 7 days. Group them by sender domain and summarize the main topics. Send the summary to my Telegram.
-```
+Prefer official integrations or MCP tools over browser automation when both
+can perform the action. Structured tools are easier to restrict and diagnose.
 
-## Tool Access
+## Runs and delivery
 
-Automation can use everything available in chat:
-
-| Capability | Examples |
-|---|---|
-| **Browser** | Navigate, extract content, screenshot, evaluate JavaScript |
-| **CLI** | Shell commands in a persistent terminal |
-| **Files** | Read, write, search host files |
-| **Memory** | Store and retrieve long-term facts |
-| **Messaging** | Send results through any connected platform |
-| **MCP** | Tools from configured remote MCP servers |
-| **Integrations** | Gmail, Calendar, Notion, Slack, and other OAuth tools |
-| **Recordings** | Search and read transcripts |
-| **Health** | Read synced Android Health Connect metrics |
-| **Android** | Control an emulator or device |
-| **Subagents** | Spawn parallel helpers inside a longer run |
-| **Outputs** | Artifacts, images, Mermaid graphs, markdown tables |
-
-Prefer official integrations and MCP tools over browser automation when both can do the job — they are more reliable and easier to audit.
+Open **Runs** to inspect the trigger, tool calls, approvals, output, and error
+for each execution. Delivery requires a configured messaging destination; a
+completed run can still have a delivery error.
 
 ## Safety
 
-NeoAgent runs on your server and can touch real files, messaging surfaces, connected accounts, and browser sessions. Keep prompts narrow.
-
-- Use messaging allowlists to restrict which chats receive automated messages
-- Keep secrets in server config, not in prompts or skill files
-- Prefer read-only checks unless the task explicitly needs to write data
-- Review run history in **Runs** and service logs in **Logs** when behavior is unexpected
-- Browser, CLI, Android, and file tools run on the NeoAgent server — not necessarily your current laptop
+- Start with read-only integration accounts.
+- Keep write, shell, Android, and desktop categories on approval unless the
+  task runs in a controlled environment.
+- Do not put secrets in prompts.
+- Restrict messaging allowlists so untrusted chats cannot trigger an agent.
+- Treat email, web pages, messages, and webhook bodies as untrusted input.

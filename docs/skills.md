@@ -1,59 +1,46 @@
-# Skills
+# Skills and MCP
 
-Skills are Markdown files that instruct the agent on how to use a local capability or follow a multi-step workflow. They load at runtime from `~/.neoagent/agent-data/skills/`, so edits take effect without restarting the service.
+Skills and MCP servers both extend the agent, but they solve different
+problems.
 
-## Built-in Skills
+## Skills
 
-| Skill | Description |
-|---|---|
-| `browser.md` | Web browsing and scraping with Puppeteer |
-| `cli.md` | Shell commands in a persistent PTY terminal |
-| `files.md` | Read, write, and search host files |
-| `memory.md` | Store and recall long-term facts |
-| `messaging.md` | Send via Telegram, WhatsApp, Discord, Slack, Matrix, Teams, Google Chat, or webhooks |
-| `system-stats.md` | CPU, memory, and disk usage |
-| `weather.md` | Current weather via wttr.in |
-| `ip-info.md` | Public IP and geolocation |
-| `port-check.md` | Check if a TCP port is open |
-| `ping-host.md` | Ping a host |
-| `process-monitor.md` | List running processes |
-| `disk-usage.md` | Directory size breakdown |
-| `find-large-files.md` | Locate large files |
-| `docker-status.md` | Docker container status |
-| `tail-log.md` | Tail any log file |
-| `news-hackernews.md` | Fetch top Hacker News stories |
-| `qr-code.md` | Generate QR codes |
-| `pdf-toolkit.md` | Inspect, extract, merge, split, compress PDFs |
-| `git-summary.md` | Summarize git status, branches, commits, and diffs |
-| `csv-toolkit.md` | Inspect and transform CSV or TSV files |
-| `markdown-workbench.md` | Clean up, outline, and convert Markdown documents |
+A skill is a Markdown instruction set for a repeatable workflow. Skills can
+teach an agent how to use existing tools, commands, file formats, or local
+conventions. They do not add a new security boundary or bypass tool approvals.
 
-## Creating a Custom Skill
+Manage skills in **Skills**. NeoAgent includes a catalog of system, network,
+document, data, creative, and development workflows. Installed skills are
+editable and removable.
 
-Add a Markdown file to `~/.neoagent/agent-data/skills/`:
+Custom skills live in the NeoAgent agent-data directory and are loaded without
+restarting the server. Keep them focused, name the actual tools they require,
+and never store secrets in them.
 
-```markdown
-# My Skill Name
+Use a skill when:
 
-Brief description of what this skill does and when to use it.
+- the workflow repeats;
+- the agent already has the required underlying tools; and
+- written procedure is enough to make the work reliable.
 
-## Usage
+## MCP servers
 
-Step-by-step instructions or exact commands the agent should follow.
-```
+The [Model Context Protocol](https://modelcontextprotocol.io/) connects NeoAgent
+to external tool servers. Configure servers in **MCP**, choose the supported
+authentication method, and inspect the connection state before assigning the
+tools to an agent.
 
-The agent reads all `.md` files in the skills directory on each turn. Keep skills focused. Include exact tool names or shell commands when precision matters. Don't store secrets in skill files.
+Use MCP when an external system exposes a maintained MCP server or when a
+capability requires a real API implementation rather than instructions.
 
-**When to use a custom skill** — repeated workflows involving specific local paths, commands, or multi-step procedures. For connecting to third-party services, prefer official integrations or MCP tools instead.
+## Choosing the right extension
 
-## Skill Store
+Prefer, in order:
 
-The **Skills** section in the UI includes a built-in catalog from `/api/store`. Skills install as Markdown files into the runtime skills directory — editable and removable after installation.
+1. An official NeoAgent integration for supported account services
+2. A maintained MCP server
+3. A skill using existing tools
+4. Browser or shell automation when no structured interface exists
 
-Catalog categories: system, network, info, document, data, and git helpers.
-
-## MCP Tools
-
-External tools connect via the [Model Context Protocol](https://modelcontextprotocol.io). Configure MCP servers in **Settings → MCP**. Connected tools appear alongside built-in skills automatically.
-
-Use official integrations or MCP tools when they exist — they are more reliable than browser automation or shell scraping and easier to audit.
+Structured integrations are easier to restrict, audit, and keep stable than UI
+automation.

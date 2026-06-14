@@ -6,7 +6,9 @@ sidebar_label: Migration
 
 # Migration Guide
 
-Migrate your existing agent setup from OpenClaw or Hermes to NeoAgent with a single command.
+NeoAgent can copy supported files and selected configuration from a default
+OpenClaw or Hermes installation. Run a dry run first and review imported
+content before using it with an agent.
 
 ## Quick Start
 
@@ -16,12 +18,12 @@ neoagent migrate dry-run   # preview what would be migrated
 neoagent migrate status    # check what's detected
 ```
 
-## What Gets Migrated
+## What gets migrated
 
 | Data | OpenClaw source | Hermes source | Destination |
 |---|---|---|---|
 | Skills | `~/.openclaw/skills/*.md` | `~/.hermes/skills/*.md` | `~/.neoagent/agent-data/skills/openclaw-imports/` or `hermes-imports/` |
-| Memory | `SOUL.md`, `MEMORY.md`, `USER.md` | `MEMORY.md`, `USER.md` | `~/.neoagent/agent-data/memory/openclaw/` or `hermes/` |
+| Memory files | `SOUL.md`, `MEMORY.md`, `USER.md` | `MEMORY.md`, `USER.md` | `~/.neoagent/agent-data/memory/openclaw/` or `hermes/` |
 | API keys | from `.env` | from `.env` | merged into `~/.neoagent/.env` |
 
 ## Prerequisites
@@ -113,13 +115,18 @@ Choice [1]:
 
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, `GOOGLE_AI_KEY`, `MINIMAX_API_KEY`, `BRAVE_SEARCH_API_KEY`, `DEEPGRAM_API_KEY`, `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`, `SLACK_BOT_TOKEN`, `DISCORD_BOT_TOKEN`
 
-## Post-Migration Steps
+Imported Markdown is preserved as source material. Copying it does not turn
+every line into a verified structured memory fact. Review it for stale,
+conflicting, or sensitive information.
+
+## Post-migration steps
 
 1. `neoagent status` — verify the installation
 2. `neoagent start` — start the server
 3. Review imported skills in `~/.neoagent/agent-data/skills/openclaw-imports/` and `hermes-imports/`
 4. Review imported memory in `~/.neoagent/agent-data/memory/`
-5. Reconfigure messaging channels in the NeoAgent UI if you had Telegram or Discord set up
+5. Reconfigure messaging channels and official integrations in the NeoAgent UI
+6. Test recall with non-sensitive facts before relying on imported memory
 
 ## Troubleshooting
 

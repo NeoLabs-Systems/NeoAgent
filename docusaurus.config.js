@@ -3,7 +3,7 @@
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'NeoAgent',
-  tagline: 'Self-hosted proactive AI agent docs',
+  tagline: 'Documentation for the self-hosted NeoAgent service',
 
   url: 'https://neolabs-systems.github.io',
   baseUrl: '/NeoAgent/docs/',
@@ -12,8 +12,13 @@ const config = {
   projectName: 'NeoAgent',
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
   trailingSlash: false,
+
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
+  },
 
   i18n: {
     defaultLocale: 'en',
@@ -53,18 +58,21 @@ const config = {
             label: 'Docs',
           },
           {
-            to: '/capabilities#android-control',
-            label: 'Android Control',
+            type: 'doc',
+            docId: 'getting-started',
+            label: 'User Guide',
             position: 'left',
           },
           {
-            to: '/capabilities#recordings',
-            label: 'Recordings',
+            type: 'doc',
+            docId: 'architecture',
+            label: 'Developer Guide',
             position: 'left',
           },
           {
-            to: '/why-neoagent',
-            label: 'Why NeoAgent',
+            type: 'doc',
+            docId: 'memory',
+            label: 'Memory',
             position: 'left',
           },
           {
@@ -84,10 +92,18 @@ const config = {
           {
             title: 'Docs',
             items: [
-              { label: 'Getting Started', to: '/getting-started' },
-              { label: 'Capabilities', to: '/capabilities' },
+              { label: 'Installation', to: '/getting-started' },
+              { label: 'Memory', to: '/memory' },
+              { label: 'Security', to: '/security-boundaries' },
               { label: 'Configuration', to: '/configuration' },
-              { label: 'Operations', to: '/operations' },
+            ],
+          },
+          {
+            title: 'Developers',
+            items: [
+              { label: 'Architecture', to: '/architecture' },
+              { label: 'Memory Architecture', to: '/memory-architecture' },
+              { label: 'Development', to: '/development' },
             ],
           },
           {
@@ -95,6 +111,7 @@ const config = {
             items: [
               { label: 'GitHub', href: 'https://github.com/NeoLabs-Systems/NeoAgent' },
               { label: 'Issues', href: 'https://github.com/NeoLabs-Systems/NeoAgent/issues' },
+              { label: 'Discussions', href: 'https://github.com/NeoLabs-Systems/NeoAgent/discussions' },
             ],
           },
         ],
