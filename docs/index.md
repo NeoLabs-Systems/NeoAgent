@@ -1,49 +1,60 @@
 ---
 slug: /
-title: NeoAgent
+title: NeoAgent documentation
 sidebar_label: Overview
 ---
 
-<p align="center">
-  <img src="/img/app_icon.png" width="72" alt="NeoAgent" />
-</p>
+# NeoAgent documentation
 
-# NeoAgent
+NeoAgent is a self-hosted AI agent that runs continuously on a macOS or Linux
+server. It provides an operator interface for chat, automation, integrations,
+memory, recordings, and connected devices.
 
-Self-hosted AI agent server. Runs as a system service, keeps all credentials on your machine, and provides a full operator UI for chat, automation, Android device control, recordings, integrations, and memory.
+NeoAgent is beta software. Install it on a machine you administer, start with
+restricted tool permissions, and read the security guide before connecting
+sensitive accounts.
 
-## Quick Start
+## 🚀 Start here
 
 ```bash
 npm install -g neoagent
 neoagent install
 ```
 
-Opens at `http://localhost:3333` when complete. See [Getting Started](getting-started.md) for prerequisites and first-run steps.
+The installer starts the service and prints any host-specific action items.
+Open `http://localhost:3333` when it finishes.
 
-## What You Can Do
+Continue with:
 
-| | |
+- [Install and complete the first run](getting-started.md)
+- [Choose and configure a model](models.md)
+- [Understand the security boundaries](security-boundaries.md)
+- [Migrate from OpenClaw or Hermes](migration.md)
+
+## 🧭 User guide
+
+| Guide | Use it for |
 |---|---|
-| **Chat with tools** | Browse the web, run shell commands, read/write files, call APIs, generate images |
-| **Automate** | Schedule tasks on cron, trigger from integrations or weather events, deliver results via messaging |
-| **Control Android** | Screenshot, observe UI, tap, type, swipe, launch apps, install APKs, run `adb shell` |
-| **Connect accounts** | Google Workspace, Microsoft 365, Notion, Slack, Figma, Home Assistant, Trello, Spotify |
-| **Message anywhere** | Telegram, WhatsApp, Discord, Signal, Matrix, iMessage, Teams, Telnyx Voice, and more |
-| **Record and transcribe** | Audio sessions from browser or Android, transcript search, AI-generated insights |
-| **Remember** | Long-term semantic memory, session logs, core facts, daily summaries |
+| [Installation](getting-started.md) | Host requirements, installation, first run |
+| [Models](models.md) | Local, API-key, and account-backed model providers |
+| [Agents and users](agents-and-users.md) | Specialist agents and multi-user administration |
+| [Automation](automation.md) | Schedules, event triggers, delivery, and run history |
+| [Memory](memory.md) | What NeoAgent remembers and how to manage it |
+| [Integrations](integrations.md) | Connected app accounts and messaging channels |
+| [Devices and interfaces](devices.md) | Android, desktop, Chrome, launcher, and wearable surfaces |
+| [Recordings and health](recordings-and-health.md) | Audio transcription and Health Connect |
+| [Skills and MCP](skills.md) | Reusable instructions and external tool servers |
+| [Operations](operations.md) | Updates, backups, logs, and recovery |
+| [Configuration](configuration.md) | Environment and runtime reference |
+| [Why NeoAgent](why-neoagent.md) | Factual comparison with OpenClaw and Hermes |
 
-## Documentation
+## 🛠️ Developer guide
 
-| | |
-|---|---|
-| [Getting Started](getting-started.md) | Install, first run, service commands |
-| [Capabilities](capabilities.md) | Full tool and feature inventory |
-| [Configuration](configuration.md) | Environment variables, provider keys, OAuth setup |
-| [Security Boundaries](security-boundaries.md) | Enforced isolation, prompt-injection limits, deployment guidance |
-| [Automation](automation.md) | Tasks, cron scheduling, integration triggers |
-| [Integrations](integrations.md) | OAuth accounts and messaging platforms |
-| [Skills](skills.md) | Built-in skills catalog, custom skills, MCP |
-| [Operations](operations.md) | Updates, logs, recovery |
-| [Why NeoAgent](why-neoagent.md) | Comparison with OpenClaw |
-| [Migration](migration.md) | Migrate from OpenClaw or Hermes |
+The developer guide explains the implementation rather than the product setup.
+Start with [Architecture](architecture.md), then follow the subsystem links in
+the developer section of the sidebar.
+
+Contributors must also follow
+[GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md)
+and
+[CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md).

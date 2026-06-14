@@ -1,95 +1,79 @@
-# Getting Started
+# Installation
 
-Install takes about 5 minutes. The first VM boot downloads and configures an Ubuntu guest image, which adds a few more minutes on first run.
+NeoAgent supports macOS and Linux hosts. It installs as a long-running service,
+so use a machine that remains online when you expect automations, messaging, or
+remote access to work.
 
 ## Requirements
 
-| | |
-|---|---|
-| Node.js | 20 or newer |
-| QEMU | installed automatically when supported; used for VM-isolated browser and Android |
-| AI provider key | Anthropic, OpenAI, Gemini, Grok, MiniMax, or local Ollama |
+- Node.js 20 or newer with npm
+- A macOS or Linux user account that can install packages
+- Enough disk and memory for the models and runtime you choose
+- QEMU for the isolated browser and terminal runtime
 
-No API key is required if you only use local Ollama.
-
-### Optional manual QEMU install
-
-`neoagent install` tries to install QEMU on supported macOS and Linux package
-managers. If the machine does not have a supported package manager yet, install
-QEMU manually and rerun `neoagent install`.
+The installer attempts to install QEMU with Homebrew, `apt`, `dnf`, or `yum`.
+If the host uses another package manager, install QEMU first.
 
 ```bash
 # macOS
 brew install qemu
 
-# Ubuntu / Debian
-sudo apt-get update && sudo apt-get install -y qemu-system qemu-utils
+# Ubuntu or Debian
+sudo apt-get update
+sudo apt-get install -y qemu-system qemu-utils
 ```
 
-## Install
+## Install NeoAgent
 
 ```bash
 npm install -g neoagent
 neoagent install
 ```
 
-This runs a preflight, creates or updates config, installs dependencies, builds
-or uses the bundled web client, starts the service, and prints any remaining
-machine-specific action items.
+`neoagent install` checks the host, creates the runtime configuration, installs
+application dependencies and supported system tools, prepares the isolated
+runtime, and registers a launchd or systemd user service when available.
 
-> **Permission error on macOS?** The official Node.js installer owns
-> `/usr/local` as root, so `npm install -g` may fail with `EACCES`. Two fixes:
-> - Quick: `sudo npm install -g neoagent`
-> - Proper (recommended): install Node via [nvm](https://github.com/nvm-sh/nvm)
->   so the global prefix lives in your home directory and never needs sudo.
+Read the post-install actions printed by the command. They describe anything
+the installer could not complete automatically.
 
-Open **http://localhost:3333** in your browser when the install finishes.
+Open `http://localhost:3333` on the server. For remote access, configure HTTPS
+and `PUBLIC_URL` before connecting integrations or mobile clients.
 
-## First Run
+## First run
 
-1. Create an account.
-2. Open **Settings → AI Providers** and add at least one API key.
-3. Send a message in **Chat** to confirm the agent responds.
+1. Create the first user account.
+2. Open **Settings > AI Providers**.
+3. Configure a hosted provider or connect local Ollama.
+4. Select a model and send a message in **Chat**.
+5. Open **Settings > Tool Permissions** and review the approval policy before
+   enabling browser, shell, file-write, desktop, or Android actions.
 
-Everything else — integrations, messaging, tasks, Android control — is configured inside the app.
+The first isolated-runtime boot downloads and prepares an Ubuntu image. It can
+take several minutes and is not required for a basic model-only chat.
 
-## Service Commands
-
-```bash
-neoagent status      # check install root, config path, and service state
-neoagent start
-neoagent stop
-neoagent restart
-neoagent logs        # first stop when something behaves unexpectedly
-```
-
-## Re-running Setup
-
-Run this to regenerate config or change provider keys:
+## Check the installation
 
 ```bash
-neoagent setup
+neoagent status
+neoagent logs
 ```
 
-The wizard prompts for port, public URL, release channel, AI keys, Ollama URL, and OAuth credentials.
+`status` reports the install path, configuration, release channel, service
+state, and server health. Use `logs` on the machine running NeoAgent; logs from
+another computer do not describe the remote server.
 
-## Updates and Recovery
+## Global npm permission errors
 
-```bash
-neoagent channel stable   # switch to stable releases
-neoagent channel beta     # switch to prerelease builds
-neoagent update           # update to latest on the current channel
-neoagent fix              # reset after a broken install or self-edit
-```
+If `npm install -g` fails with `EACCES` on macOS, install Node through
+[nvm](https://github.com/nvm-sh/nvm) so global packages live in your user
+directory. Running the npm command with `sudo` also works, but makes later
+package ownership harder to manage.
 
-`neoagent fix` backs up runtime data, resets source files, reinstalls dependencies, and restarts the service. Use it when `neoagent setup && neoagent restart` hasn't resolved an issue.
+## Next steps
 
-## Runtime Paths
-
-| Path | Contents |
-|---|---|
-| `~/.neoagent/.env` | Server config and secrets |
-| `~/.neoagent/data/` | Database, session data, logs |
-| `~/.neoagent/agent-data/` | Skills, memory, daily data |
-
-Set `NEOAGENT_HOME` to move the runtime root.
+- [Configure models](models.md)
+- [Create specialist agents](agents-and-users.md)
+- [Connect accounts and messaging](integrations.md)
+- [Set up automation](automation.md)
+- [Review deployment security](security-boundaries.md)
