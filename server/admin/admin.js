@@ -225,6 +225,7 @@ async function triggerUpdate() {
 async function loadConfig() {
   const el = document.getElementById('config-content');
   if (!el) return;
+  loadEmailConfig();
   try {
     const data = await api('/admin/api/config').then((r) => r.json());
     const cfg  = data.config || {};
@@ -244,6 +245,156 @@ async function loadConfig() {
       el.innerHTML = '<div class="empty">Failed to load configuration</div>';
     }
   }
+}
+
+async function loadEmailConfig() {
+  const el = document.getElementById('email-config-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/email').then((r) => r.json());
+    const s = data.settings || {};
+    const status = data.configured
+      ? '<span class="badge badge-ok">configured</span><span>Account emails are enabled.</span>'
+      : `<span class="badge badge-idle">not configured</span><span>Missing: ${esc((data.missing || []).join(', '))}</span>`;
+
+    el.innerHTML = `
+      <div class="email-settings-status">${status}</div>
+      <form id="email-settings-form" onsubmit="saveEmailConfig(event)">
+        <div class="email-settings-grid">
+          <div class="field field-wide">
+            <label for="email-from">Sender address</label>
+            <input type="text" id="email-from" value="${esc(s.from)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="email-smtp-host">SMTP host</label>
+            <input type="text" id="email-smtp-host" value="${esc(s.smtpHost)}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="email-smtp-port">SMTP port</label>
+            <input type="text" inputmode="numeric" id="email-smtp-port" value="${esc(s.smtpPort)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="email-smtp-user">SMTP username</label>
+            <input type="text" id="email-smtp-user" value="${esc(s.smtpUser)}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="email-smtp-password">SMTP password</label>
+            <input type="password" id="email-smtp-password" value="" autocomplete="new-password">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+              ${s.smtpPasswordConfigured ? 'A password is stored. Leave blank to keep it.' : 'No password is stored.'}
+            </div>
+          </div>
+          <div class="field">
+            <label for="email-reply-to">Reply-To address</label>
+            <input type="text" id="email-reply-to" value="${esc(s.replyTo)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="email-brand-name">Brand name</label>
+            <input type="text" id="email-brand-name" value="${esc(s.brandName)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="email-public-url">Public URL override</label>
+            <input type="text" id="email-public-url" value="${esc(s.publicUrl)}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="email-support-url">Support URL</label>
+            <input type="text" id="email-support-url" value="${esc(s.supportUrl)}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="email-token-ttl">Link lifetime (hours)</label>
+            <input type="text" inputmode="numeric" id="email-token-ttl" value="${esc(s.tokenTtlHours)}" autocomplete="off">
+          </div>
+        </div>
+        <div class="email-settings-checks">
+          ${emailConfigCheckbox('email-smtp-secure', 'Implicit TLS', s.smtpSecure)}
+          ${emailConfigCheckbox('email-smtp-require-tls', 'Require STARTTLS', s.smtpRequireTls)}
+          ${emailConfigCheckbox('email-smtp-reject-unauthorized', 'Reject invalid TLS certificates', s.smtpRejectUnauthorized)}
+          ${emailConfigCheckbox('email-signup-confirmation', 'Require signup confirmation', s.requireSignupConfirmation)}
+          ${emailConfigCheckbox('email-change-confirmation', 'Require email change confirmation', s.requireEmailChangeConfirmation)}
+          ${emailConfigCheckbox('email-notify-login', 'Notify on unusual login', s.notifyUnusualLogin)}
+          ${emailConfigCheckbox('email-notify-account', 'Notify on account changes', s.notifyAccountChanges)}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" type="submit">Save Email Settings</button>
+          ${s.smtpPasswordConfigured ? '<button class="btn btn-danger" type="button" onclick="clearEmailPassword(this)">Remove SMTP Password</button>' : ''}
+        </div>
+      </form>`;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load email configuration</div>';
+    }
+  }
+}
+
+function emailConfigCheckbox(id, label, checked) {
+  return `<label class="email-setting-check" for="${id}">
+    <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
+    <span>${esc(label)}</span>
+  </label>`;
+}
+
+function emailConfigValue(id) {
+  return document.getElementById(id)?.value?.trim() || '';
+}
+
+function collectEmailConfig(clearSmtpPassword = false) {
+  return {
+    from: emailConfigValue('email-from'),
+    smtpHost: emailConfigValue('email-smtp-host'),
+    smtpPort: emailConfigValue('email-smtp-port'),
+    smtpUser: emailConfigValue('email-smtp-user'),
+    smtpPassword: clearSmtpPassword ? '' : emailConfigValue('email-smtp-password'),
+    clearSmtpPassword,
+    smtpSecure: document.getElementById('email-smtp-secure')?.checked === true,
+    smtpRequireTls: document.getElementById('email-smtp-require-tls')?.checked === true,
+    smtpRejectUnauthorized: document.getElementById('email-smtp-reject-unauthorized')?.checked === true,
+    replyTo: emailConfigValue('email-reply-to'),
+    requireSignupConfirmation: document.getElementById('email-signup-confirmation')?.checked === true,
+    requireEmailChangeConfirmation: document.getElementById('email-change-confirmation')?.checked === true,
+    notifyUnusualLogin: document.getElementById('email-notify-login')?.checked === true,
+    notifyAccountChanges: document.getElementById('email-notify-account')?.checked === true,
+    brandName: emailConfigValue('email-brand-name'),
+    supportUrl: emailConfigValue('email-support-url'),
+    publicUrl: emailConfigValue('email-public-url'),
+    tokenTtlHours: emailConfigValue('email-token-ttl'),
+  };
+}
+
+async function persistEmailConfig(payload, btn) {
+  const original = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+  try {
+    const res = await api('/admin/api/config/email', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(body.error || 'Failed to save email settings');
+      return;
+    }
+    await loadEmailConfig();
+  } catch (err) {
+    if (err.message !== 'unauthorized') alert('Network error');
+  } finally {
+    if (btn?.isConnected) {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+}
+
+async function saveEmailConfig(event) {
+  event.preventDefault();
+  await persistEmailConfig(collectEmailConfig(), event.submitter);
+}
+
+async function clearEmailPassword(btn) {
+  await persistEmailConfig(collectEmailConfig(true), btn);
 }
 
 // ── Providers ──────────────────────────────────────────────────────────────

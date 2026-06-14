@@ -12,7 +12,7 @@ Do not open a public issue for a suspected vulnerability.
 
 Use GitHub's
 [private vulnerability reporting](https://github.com/NeoLabs-Systems/NeoAgent/security/advisories/new)
-to send the report to the maintainer. 
+to send the report to the maintainer.
 
 Include:
 

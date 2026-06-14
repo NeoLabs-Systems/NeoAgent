@@ -1421,15 +1421,29 @@ class BackendClient {
     return getList(baseUrl, '/api/memory/memories$query');
   }
 
-  Future<List<Map<String, dynamic>>> recallMemories(
+  Future<List<Map<String, dynamic>>> recallMemory(
     String baseUrl,
     String query, {
+    int limit = 8,
     String? agentId,
   }) async {
     return postList(
       baseUrl,
-      '/api/memory/memories/recall',
-      _withAgentId(<String, dynamic>{'query': query, 'limit': 8}, agentId),
+      _withAgentQuery('/api/memory/memories/recall', agentId),
+      {'query': query, 'limit': limit},
+    );
+  }
+
+  Future<Map<String, dynamic>> inspectMemory(
+    String baseUrl,
+    String query, {
+    int limit = 20,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/memory/memories/inspect', agentId),
+      {'query': query, 'limit': limit},
     );
   }
 
@@ -2003,6 +2017,49 @@ class BackendClient {
     } catch (_) {}
 
     throw BackendException(message, statusCode: response.statusCode);
+  }
+
+  // ── Tool security ──────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> fetchSecurityPolicies(String baseUrl) async {
+    return getMap(baseUrl, '/api/security/policies');
+  }
+
+  Future<Map<String, dynamic>> fetchSecurityMode(String baseUrl) async {
+    return getMap(baseUrl, '/api/security/mode');
+  }
+
+  Future<Map<String, dynamic>> saveSecurityMode(String baseUrl, String mode) async {
+    return putMap(baseUrl, '/api/security/mode', <String, dynamic>{'mode': mode});
+  }
+
+  Future<Map<String, dynamic>> saveSecurityPolicy(
+    String baseUrl, {
+    required String category,
+    required String policy,
+  }) async {
+    return putMap(baseUrl, '/api/security/policies', <String, dynamic>{
+      'category': category,
+      'policy': policy,
+    });
+  }
+
+  Future<Map<String, dynamic>> resolveToolApproval(
+    String baseUrl, {
+    required String approvalId,
+    required String decision,
+    required String scope,
+    String? runId,
+    String? toolName,
+    Map<String, dynamic>? toolArgs,
+  }) async {
+    return postMap(baseUrl, '/api/security/approvals/$approvalId', <String, dynamic>{
+      'decision': decision,
+      'scope': scope,
+      if (runId != null) 'runId': runId,
+      if (toolName != null) 'toolName': toolName,
+      if (toolArgs != null) 'toolArgs': toolArgs,
+    });
   }
 }
 

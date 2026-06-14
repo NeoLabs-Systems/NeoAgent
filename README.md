@@ -4,88 +4,97 @@
 
 <h1 align="center">NeoAgent</h1>
 
-<p align="center"><strong>Your agent. Your server. Your rules.</strong></p>
+<p align="center"><strong>A self-hosted AI agent that can keep working after the chat ends.</strong></p>
 
-<p align="center">A self-hosted AI agent that runs as a service, operates Android over ADB, and connects to 15+ messaging platforms while keeping credentials on your server.</p>
+<p align="center">
+  NeoAgent runs as a service on your server. It can use a browser and terminal,
+  control Android devices, connect to your accounts, remember useful context,
+  and run scheduled or event-triggered work.
+</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/neoagent"><img src="https://img.shields.io/npm/v/neoagent?style=flat-square&label=npm" alt="npm version"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20+-5fa04e?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
-  <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-WAL-003b57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"></a>
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-web%20%2B%20android-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-a855f7?style=flat-square" alt="License"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20%2B-5fa04e?style=flat-square" alt="Node.js 20 or newer"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-a855f7?style=flat-square" alt="AGPL-3.0 license"></a>
 </p>
 
 <p align="center">
-  <img src="demo.gif" alt="NeoAgent demo" width="100%">
+  <img src="demo.gif" alt="NeoAgent operator interface" width="100%">
 </p>
 
-## Why NeoAgent
+## 🚀 Install
 
-| Android that the agent can operate | Credentials that stay server-side |
-| --- | --- |
-| NeoAgent can inspect the UI, take screenshots, tap, swipe, type, launch apps, install APKs, and run `adb shell` against a connected device or emulator. | API keys, OAuth tokens, messaging credentials, history, and runtime data are stored under `~/.neoagent` on the server, never in the client. |
-
-## Quick Start
-
-Requires Node.js 20 or newer.
+NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer; the
+installer handles the rest of the application setup and attempts to install
+QEMU for the isolated browser and terminal runtime.
 
 ```bash
 npm install -g neoagent
 neoagent install
 ```
 
-`neoagent install` checks the host, creates secure runtime configuration,
-installs dependencies and supported system tools, and starts the service. Open
-**http://localhost:3333** when it finishes.
+Open `http://localhost:3333`, create the first account, and configure a model.
+Local models can run through [Ollama](https://ollama.com/); hosted providers
+can be configured in the application.
 
-No hosted-model key is required when using local [Ollama](https://ollama.com/).
-See [Getting Started](docs/getting-started.md) for prerequisites and first-run
-setup.
+Read the [installation guide](docs/getting-started.md) before exposing the
+service to a network.
 
-## What It Does
+## ✨ What makes it different
 
-- **15+ messaging platforms**: Telegram, WhatsApp, Discord, Signal, Slack, Matrix, iMessage, Teams, IRC, LINE, Mattermost, Telnyx Voice, and webhook bridges.
-- **Automation**: cron schedules, integration and weather triggers, reusable skills, MCP tools, and subagents.
-- **Browser and shell**: an isolated browser runtime plus a full PTY terminal on the NeoAgent server.
-- **Integrations**: Google Workspace, Microsoft 365, Notion, Home Assistant, Trello, Spotify, Slack, Figma, GitHub, and more.
-- **Recordings and memory**: audio capture, transcription, transcript search, long-term memory, session history, and health summaries.
-- **Model choice**: Anthropic, OpenAI, Gemini, Grok, MiniMax, NVIDIA NIM, OpenRouter, GitHub Copilot, OpenAI Codex, or local Ollama.
+**It is a service, not just a chat window.** NeoAgent keeps tasks, integrations,
+memory, connected devices, and messaging channels available between sessions.
 
-## Interfaces
+**Memory is stored as structured local data.** Durable facts are separated from
+conversation history, scoped by user and agent, and updated when newer
+information replaces older information. NeoAgent can also index supported
+integration content with source references. See [How memory works](docs/memory.md).
 
-| | | | |
-| --- | --- | --- | --- |
-| <img alt="WebUI" src="https://github.com/user-attachments/assets/3c76d59a-b6e3-4698-929b-9c94741ccf1e" height="420"> | <img height="494" alt="Android" src="https://github.com/user-attachments/assets/e8a0af7a-6881-485d-ad52-f3bc6f2023ca"> | <img alt="Mobile Telegram" src="https://github.com/user-attachments/assets/1fd41a9b-5452-4aa4-9478-888c8ad7363a" height="420"> | <img height="494" alt="image" src="https://github.com/user-attachments/assets/d5a57282-0851-4902-9588-d8de4b82d45c"> |
+**It operates real devices.** The agent can use an isolated browser and shell,
+control an Android device or emulator over ADB, or work through a paired Chrome
+extension and desktop companion.
 
-## Service Commands
+**Automation can start without a message.** Tasks can run on a schedule or from
+supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events.
+Android notifications can also start an agent run.
 
-```bash
-neoagent status
-neoagent start
-neoagent stop
-neoagent restart
-neoagent update
-neoagent fix
-neoagent logs
-```
+**Agents and users have separate state.** Specialist agents can have their own
+memory, settings, tools, account assignments, conversations, and task history.
+Multi-user deployments include administrative account controls and optional
+email confirmation.
 
-## Project Status
+**The same server has several interfaces.** NeoAgent includes web, Android,
+desktop, and Android launcher clients, messaging bridges, a Chrome extension,
+and firmware for a supported ESP32-S3 wearable.
 
-NeoAgent is beta software maintained by one person. Expect rough edges, and
-please report failures with enough detail to reproduce them. Contributions to
-the backend, Flutter clients, integrations, skills, tests, and documentation
-are welcome.
+## 🖥️ Interfaces
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security
-issues should be reported privately according to [SECURITY.md](SECURITY.md).
+| Operator interface | Memory | Remote devices |
+| --- | --- | --- |
+| ![NeoAgent dashboard](landing/images/dashboard-dark.png) | ![NeoAgent memory view](landing/images/memory-dark.png) | ![NeoAgent device controls](landing/images/remote-devices-dark.png) |
 
-## Documentation
+## 🔎 NeoAgent, OpenClaw, and Hermes
 
-[Docs](https://neolabs-systems.github.io/NeoAgent/) | [Getting Started](docs/getting-started.md) | [Configuration](docs/configuration.md) | [Capabilities](docs/capabilities.md) | [Skills and MCP](docs/skills.md) | [Operations](docs/operations.md) | [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) | [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+NeoAgent is aimed at people who want a UI-first, self-hosted agent with
+structured local memory, multi-user administration, automation, and direct
+Android control in one installation.
 
----
+OpenClaw has a broader gateway and node ecosystem. Hermes is oriented around a
+terminal-first agent workflow. NeoAgent is a different tradeoff rather than a
+blanket replacement for either project.
 
-<p align="center">
-  Made by <a href="https://github.com/neooriginal">Neo</a> | <a href="https://github.com/NeoLabs-Systems">NeoLabs Systems</a>
-</p>
+The [comparison page](docs/why-neoagent.md) records the concrete differences
+and links to the source material used.
+
+## 🧪 Project status
+
+NeoAgent is beta software maintained primarily by one person. Expect breaking
+changes and rough edges. Review the
+[security boundaries](docs/security-boundaries.md) before connecting sensitive
+accounts or giving the agent access to a personal workstation.
+
+Start with the [documentation](https://neolabs-systems.github.io/NeoAgent/docs/).
+Use [GitHub Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions)
+for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
+for reproducible bugs. Security reports belong in the process described by
+[SECURITY.md](SECURITY.md).

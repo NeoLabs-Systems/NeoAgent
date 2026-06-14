@@ -1,28 +1,33 @@
-# Operations
+# Operations and troubleshooting
 
-## Service State
+Run service commands on the machine hosting NeoAgent.
+
+## Service commands
 
 ```bash
-neoagent status      # install root, config path, runtime paths, release channel, service state
-neoagent logs        # first stop for unexpected behavior in UI, messaging, OAuth, or tasks
+neoagent status
+neoagent start
+neoagent stop
 neoagent restart
+neoagent logs
 ```
 
-## Release Channels
+`status` is the first check for install, service, configuration, and health
+problems. `logs` tails the server logs. Logs from a laptop or client do not
+describe a NeoAgent instance running on another server.
+
+## Release channels and updates
 
 ```bash
-neoagent channel           # show current channel
-neoagent channel stable    # switch to stable releases (recommended for most installs)
-neoagent channel beta      # switch to prerelease builds
-```
-
-## Updates
-
-```bash
+neoagent channel
+neoagent channel stable
+neoagent channel beta
 neoagent update
 ```
 
-Follows the configured release channel. On git installs, pulls the latest source and reinstalls dependencies when they change. On npm installs, reinstalls the global package from the matching npm tag. Verifies the bundled web client and restarts the service.
+Stable is intended for normal installations. Beta receives prerelease builds.
+`update` follows the selected channel, updates the package or Git checkout,
+verifies the bundled client, and restarts the service.
 
 ## Recovery
 
@@ -30,32 +35,43 @@ Follows the configured release channel. On git installs, pulls the latest source
 neoagent fix
 ```
 
-Use when NeoAgent is in a broken state after a self-edit or corrupted install. On git installs: backs up runtime data, saves local tracked changes, resets source files, reinstalls dependencies, and restarts.
+Use `fix` for a damaged installation or failed source update. It preserves
+runtime data, repairs application source and dependencies, and restarts the
+service. It is not a substitute for a backup.
 
-For configuration-only issues:
+For configuration problems:
 
 ```bash
 neoagent setup
 neoagent restart
 ```
 
-## Troubleshooting
+## Backups
 
-| Symptom | First step |
-|---|---|
-| Service won't start | `neoagent logs` — look for startup errors |
-| UI loads but agent doesn't respond | Confirm an AI provider key is set in **Settings → AI Providers** |
-| OAuth integration fails | Confirm `PUBLIC_URL` is reachable and the redirect URI matches |
-| Messaging not delivering | Check credentials in the messaging tab; confirm `PUBLIC_URL` for webhook-based platforms |
-| Tasks not running | Confirm the task is enabled; check **Runs** and **Logs** for error output |
-| Broken after update | `neoagent fix` — resets source, reinstalls, restarts |
-
-## Runtime Data
+Stop the service or take an application-consistent filesystem snapshot, then
+back up:
 
 | Path | Contents |
 |---|---|
-| `~/.neoagent/.env` | Server config and secrets |
-| `~/.neoagent/data/` | Database, session data, logs, update status |
-| `~/.neoagent/agent-data/` | Skills, memory, daily data |
+| `~/.neoagent/.env` | Server configuration and secrets |
+| `~/.neoagent/data/` | SQLite database, sessions, logs, update state |
+| `~/.neoagent/agent-data/` | Skills, memory files, daily data |
 
-Back up these paths before moving a server or doing manual repairs.
+If `NEOAGENT_HOME` is set, these paths live under that directory instead.
+Protect backups as credentials and personal data.
+
+## Common failures
+
+| Symptom | Check |
+|---|---|
+| Service does not start | `neoagent status`, then `neoagent logs` |
+| Chat has no response | Provider connection, selected model, provider quota |
+| Browser or shell unavailable | QEMU installation and first runtime boot |
+| OAuth fails | Reachable HTTPS `PUBLIC_URL` and exact callback URI |
+| Messaging receives nothing | Channel credentials, webhook, and allowlists |
+| Task does not run | Enabled state, trigger account, next run, **Runs** |
+| Android action fails | ADB visibility, selected device, tool approval |
+| Paired device unavailable | Companion or extension connection on that machine |
+
+When reporting a bug, include the NeoAgent version, server OS, installation
+type, runtime profile, exact reproduction steps, and sanitized server logs.
