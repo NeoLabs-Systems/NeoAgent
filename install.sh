@@ -57,6 +57,11 @@ else
 fi
 
 echo
-info "Running Node manager installer..."
+info "Installing Node.js dependencies..."
 cd "$INSTALL_DIR"
+npm install --omit=dev --no-audit --no-fund
+ok "Dependencies ready"
+
+echo
+info "Running Node manager installer..."
 exec node ./bin/neoagent.js install
