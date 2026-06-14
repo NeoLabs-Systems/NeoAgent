@@ -2033,6 +2033,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchTokenUsageSummary(backendUrl, agentId: agentId),
         const <String, dynamic>{},
       );
+      final rateLimitFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'rate_limits',
+        _backendClient.fetchAccountUsage(backendUrl),
+        const <String, dynamic>{},
+      );
       final updateFuture = _backendClient
           .fetchUpdateStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
@@ -2142,6 +2147,7 @@ class NeoAgentController extends ChangeNotifier {
       final runsResponse = await runsFuture;
       final versionResponse = await versionFuture;
       final tokenResponse = await tokenFuture;
+      final rateLimitResponse = await rateLimitFuture;
       final updateResponse = await updateFuture;
       final messagingResponse = await messagingFuture;
       final messagingMessagesResponse = await messagingMessagesFuture;
@@ -2193,6 +2199,7 @@ class NeoAgentController extends ChangeNotifier {
       versionInfo = versionResponse;
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
+      usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
       updateStatus = UpdateStatusSnapshot.fromJson(updateResponse);
       messagingStatuses = messagingResponse.map(
         (key, value) => MapEntry(
@@ -4640,20 +4647,24 @@ class NeoAgentController extends ChangeNotifier {
       }
       activeRun = null;
       await refreshRunsOnly();
+      await refreshRateLimitUsage();
     } catch (error) {
+      final friendlyError = _friendlyErrorMessage(error);
       chatMessages = <ChatEntry>[
         ...chatMessages,
         ChatEntry(
           id: '',
           role: 'assistant',
-          content:
-              'I could not complete that request right now. Please try again in a moment.',
+          content: friendlyError,
           platform: 'flutter',
           createdAt: DateTime.now(),
         ),
       ];
       activeRun = null;
-      errorMessage = _friendlyErrorMessage(error);
+      errorMessage = friendlyError;
+      if (error is BackendException && error.statusCode == 429) {
+        await refreshRateLimitUsage();
+      }
     } finally {
       if (_socket == null || !socketConnected) {
         isSendingMessage = false;
@@ -4784,6 +4795,16 @@ class NeoAgentController extends ChangeNotifier {
       isLoadingAccountSettings = false;
       notifyListeners();
     }
+  }
+
+  Future<void> refreshRateLimitUsage() async {
+    if (!isAuthenticated) return;
+    try {
+      usageAndLimits = AccountUsageAndLimits.fromJson(
+        await _backendClient.fetchAccountUsage(backendUrl),
+      );
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<bool> updateAccountEmail({
@@ -7292,11 +7313,13 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.remove(runId)) {
+        unawaited(refreshRateLimitUsage());
         return;
       }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
+        unawaited(refreshRateLimitUsage());
         notifyListeners();
         return;
       }
@@ -7320,6 +7343,7 @@ class NeoAgentController extends ChangeNotifier {
         );
       }
       unawaited(refreshRunsOnly());
+      unawaited(refreshRateLimitUsage());
       notifyListeners();
     });
     socket.on('run:stopped', (dynamic data) {
@@ -7370,8 +7394,18 @@ class NeoAgentController extends ChangeNotifier {
       streamingAssistant = '';
       activeRun = null;
       isSendingMessage = false;
-      errorMessage =
+      final message =
+          payload['error']?.toString().trim() ??
           'I could not complete that request right now. Please try again in a moment.';
+      errorMessage = _friendlyErrorMessage(
+        BackendException(
+          message,
+          statusCode: payload['code'] == 'RATE_LIMIT_EXCEEDED' ? 429 : null,
+        ),
+      );
+      if (payload['code'] == 'RATE_LIMIT_EXCEEDED') {
+        unawaited(refreshRateLimitUsage());
+      }
       notifyListeners();
     });
     socket.on('tasks:task_complete', (dynamic _) {

@@ -2233,9 +2233,6 @@ class MemoryManager {
   }
 
   updateCore(userId, key, value, options = {}) {
-    if (options.confirmed !== true) {
-      throw new Error('Core memory updates require explicit confirmation.');
-    }
     const agentId = this._agentId(userId, options);
     const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value);
     db.prepare(
