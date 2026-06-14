@@ -494,7 +494,7 @@ router.post('/transfer-import', transferImportLimiter, async (req, res) => {
     if (applyCoreMemory && parsed.coreEntries) {
       for (const [key, value] of Object.entries(parsed.coreEntries)) {
         if (!key || key === 'active_context') continue;
-        mm.updateCore(userId, key, value, { agentId, confirmed: true });
+        mm.updateCore(userId, key, value, { agentId });
         coreUpdatedCount += 1;
       }
     }
@@ -526,7 +526,7 @@ router.put('/core/:key', (req, res) => {
   if (req.params.key === 'active_context') {
     return res.status(400).json({ error: 'active_context is no longer a supported core memory key' });
   }
-  mm.updateCore(userId, req.params.key, value, { agentId, confirmed: true });
+  mm.updateCore(userId, req.params.key, value, { agentId });
   res.json({ success: true });
 });
 

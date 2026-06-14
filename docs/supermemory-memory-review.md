@@ -279,7 +279,7 @@ Supermemory can still be used as a benchmark comparison provider, not as NeoAgen
 5. Temporal fact columns.
 6. Integration ingestion jobs and freshness policies.
 7. Conversation summaries and working state.
-8. Manual core memory with confirmation.
+8. Manual core memory management.
 9. UI and API support for memory inspection.
 
 ### Critical Gaps Before This Review

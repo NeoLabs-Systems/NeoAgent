@@ -786,10 +786,9 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: concise durable notes for how the agent should behave for this user' },
-                    value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' },
-                    confirmed: { type: 'boolean', description: 'Must be true only when the user explicitly requested this core-memory change in the current conversation.' }
+                    value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' }
                 },
-                required: ['key', 'value', 'confirmed']
+                required: ['key', 'value']
             }
         },
         {
@@ -1895,7 +1894,8 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_save': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            const id = await mm.saveMemory(userId, args.content, args.category || 'episodic', args.importance || 5, { agentId });
+            const content = typeof args.content === 'string' ? args.content : args.value;
+            const id = await mm.saveMemory(userId, content, args.category || 'episodic', args.importance || 5, { agentId });
             if (!id) {
                 return {
                     success: true,
@@ -1926,12 +1926,15 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'memory_update_core': {
-            const { MemoryManager } = require('../memory/manager');
+            const { MemoryManager, CORE_KEYS } = require('../memory/manager');
             const mm = new MemoryManager();
-            if (args.confirmed !== true) {
-                return { error: 'Core memory updates require explicit current-session user confirmation.' };
+            if (!CORE_KEYS.includes(args.key)) {
+                return { error: `Core memory key must be one of: ${CORE_KEYS.join(', ')}.` };
             }
-            mm.updateCore(userId, args.key, args.value, { agentId, confirmed: true });
+            if (typeof args.value !== 'string' || !args.value.trim()) {
+                return { error: 'Core memory value must be a non-empty string.' };
+            }
+            mm.updateCore(userId, args.key, args.value, { agentId });
             return { success: true, key: args.key, message: 'Core memory updated' };
         }
 

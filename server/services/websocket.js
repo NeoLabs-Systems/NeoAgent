@@ -301,7 +301,11 @@ function setupWebSocket(io, services) {
         }
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
-        socket.emit('run:error', { error: sanitizeError(err) });
+        socket.emit('run:error', {
+          error: sanitizeError(err),
+          code: err?.code,
+          rateLimit: err?.rateLimit,
+        });
       }
     });
 
