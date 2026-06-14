@@ -9,5 +9,7 @@ module.exports = [
   require('./slack_message_received'),
   require('./teams_message_received'),
   require('./weather_event'),
+  require('./webhook'),
   require('./whatsapp_personal_message_received'),
+  require('./android_notification_received'),
 ];
