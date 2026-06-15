@@ -689,6 +689,8 @@ Color _runPhaseColor(String phase) {
 class _RunStatusPanel extends StatelessWidget {
   const _RunStatusPanel({required this.run, required this.tools});
 
+  static const double _timelineViewportHeight = 188;
+
   final ActiveRunState? run;
   final List<ToolEventItem> tools;
 
@@ -712,7 +714,8 @@ class _RunStatusPanel extends StatelessWidget {
                 if (phase.isNotEmpty) ...<Widget>[
                   _PulseHalo(
                     color: phaseColor,
-                    animate: phase.toLowerCase() != 'completed' &&
+                    animate:
+                        phase.toLowerCase() != 'completed' &&
                         phase.toLowerCase() != 'stopped',
                     child: Container(
                       width: 30,
@@ -802,14 +805,17 @@ class _RunStatusPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              ...tools.asMap().entries.map(
-                (entry) => Padding(
-                  padding: EdgeInsets.only(
-                    bottom: entry.key == tools.length - 1 ? 0 : 12,
-                  ),
-                  child: _ToolEventTimelineRow(
-                    tool: entry.value,
-                    isLast: entry.key == tools.length - 1,
+              SizedBox(
+                height: _timelineViewportHeight,
+                child: ListView.separated(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: tools.length,
+                  separatorBuilder: (context, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) => _ToolEventTimelineRow(
+                    tool: tools[index],
+                    isLast: index == tools.length - 1,
                   ),
                 ),
               ),
@@ -3697,27 +3703,32 @@ class _QuickReplyBar extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: payload.options.map((option) {
-        return GestureDetector(
-          onTap: () => onSelected(option.value),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: _accentMuted,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: _accent.withValues(alpha: 0.4)),
-            ),
-            child: Text(
-              option.label,
-              style: TextStyle(
-                fontSize: 13,
-                color: _accent,
-                fontWeight: FontWeight.w600,
+      children: payload.options
+          .map((option) {
+            return GestureDetector(
+              onTap: () => onSelected(option.value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentMuted,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _accent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  option.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ),
-        );
-      }).toList(growable: false),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }

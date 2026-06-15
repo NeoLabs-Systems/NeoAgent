@@ -9,6 +9,7 @@ const {
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
+const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const {
     executeIntegratedTool,
     getIntegratedToolDefinitions,
@@ -255,22 +256,32 @@ function hasAlreadySentProactiveMessage({ triggerSource, runState, deliveryState
 }
 
 function markProactiveMessageSent({ runState, deliveryState, content }) {
-    const message = String(content || '');
-    if (runState) {
-        runState.messagingSent = true;
-        runState.lastSentMessage = message;
-        if (Array.isArray(runState.sentMessages)) {
-            runState.sentMessages.push(message);
-        }
+  const message = String(content || '');
+  const sentAt = new Date().toISOString();
+  if (runState) {
+    runState.messagingSent = true;
+    runState.finalDeliverySent = true;
+    runState.lastFinalDeliveryAt = sentAt;
+    if (runState.progressLedger && typeof runState.progressLedger === 'object') {
+      runState.progressLedger.lastUserVisibleUpdateAt = sentAt;
+      runState.progressLedger.lastFinalDeliveryAt = sentAt;
+      runState.progressLedger.progressState = 'complete';
     }
+    runState.lastSentMessage = message;
+    if (Array.isArray(runState.sentMessages)) {
+      runState.sentMessages.push(message);
+    }
+  }
 
-    if (deliveryState) {
-        deliveryState.messagingSent = true;
-        deliveryState.lastSentMessage = message;
-        if (!Array.isArray(deliveryState.sentMessages)) {
-            deliveryState.sentMessages = [];
-        }
-        deliveryState.sentMessages.push(message);
+  if (deliveryState) {
+    deliveryState.messagingSent = true;
+    deliveryState.finalDeliverySent = true;
+    deliveryState.lastFinalDeliveryAt = sentAt;
+    deliveryState.lastSentMessage = message;
+    if (!Array.isArray(deliveryState.sentMessages)) {
+      deliveryState.sentMessages = [];
+    }
+    deliveryState.sentMessages.push(message);
     }
 }
 
@@ -308,6 +319,31 @@ function normalizeMessagingTarget(target = {}) {
     const to = normalizeStoredSettingString(target.to);
     if (!platform || !to) return null;
     return { platform, to };
+}
+
+function canonicalMessagingAddress(platform, value) {
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    const raw = String(value || '').trim();
+    if (!normalizedPlatform || !raw) return '';
+    if (normalizedPlatform !== 'whatsapp') return raw;
+
+    const lower = raw.toLowerCase();
+    const normalizedId = normalizeWhatsAppId(lower);
+    if (!normalizedId) return '';
+    if (lower.includes('@g.us')) return `group:${normalizedId}`;
+    if (lower.includes('@lid')) return `lid:${normalizedId}`;
+    return `direct:${normalizedId}`;
+}
+
+function isOriginMessagingDelivery({ triggerSource, source, chatId, platform, to }) {
+    if (triggerSource !== 'messaging') return true;
+    const originPlatform = String(source || '').trim().toLowerCase();
+    const targetPlatform = String(platform || '').trim().toLowerCase();
+    if (!originPlatform || !targetPlatform || originPlatform !== targetPlatform) return false;
+
+    const originAddress = canonicalMessagingAddress(originPlatform, chatId);
+    const targetAddress = canonicalMessagingAddress(targetPlatform, to);
+    return Boolean(originAddress && targetAddress && originAddress === targetAddress);
 }
 
 function buildAndroidUiMatchProperties(extra = {}) {
@@ -1111,7 +1147,7 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, or whatsapp_personal_message_received.' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, whatsapp_personal_message_received, or android_notification_received.' },
                     trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
@@ -1613,6 +1649,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_extract': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
+            if (!args.selector) return { error: 'browser_extract requires a "selector" argument' };
             return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
         }
 
@@ -1625,7 +1662,9 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_evaluate': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            return { ...await provider.evaluate(args.script), backend };
+            const script = args.script ?? args.javascript;
+            if (!script) return { error: 'browser_evaluate requires a "script" argument' };
+            return { ...await provider.evaluate(script), backend };
         }
 
         case 'android_start_emulator': {
@@ -2234,7 +2273,18 @@ async function executeTool(toolName, args, context, engine) {
                 persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks'
             });
             // Track that the agent explicitly sent a message during this run
-            if (!suppressReply && sendResult?.suppressed !== true) {
+            if (
+                !suppressReply
+                && sendResult?.success === true
+                && sendResult?.suppressed !== true
+                && isOriginMessagingDelivery({
+                    triggerSource,
+                    source: context.source,
+                    chatId: context.chatId,
+                    platform: args.platform,
+                    to: args.to,
+                })
+            ) {
                 markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 if (runState && triggerSource === 'messaging') {
                     runState.explicitMessageSent = true;

@@ -123,6 +123,7 @@ async function buildArtifactFromCandidate(candidate, fallbackKind = 'artifact') 
       artifact.size = (await fs.promises.stat(artifact.path)).size;
     } catch (error) {
       console.warn('[deliverables] Failed to stat artifact candidate:', artifact.path, error?.message || error);
+      return null;
     }
   }
   return artifact.path || artifact.uri ? artifact : null;
