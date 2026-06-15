@@ -123,7 +123,10 @@ describe('messaging progress supervisor', () => {
 
   test('interim progress does not suppress final fallback delivery', async () => {
     const messagingManager = createMessagingManager();
-    const engine = new AgentEngine(null, { messagingManager });
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
     const interimAt = new Date(Date.now() - 30_000).toISOString();
     const { runId } = seedMessagingRun(engine, {
       interimMessages: [{
@@ -159,13 +162,17 @@ describe('messaging progress supervisor', () => {
     assert.equal(result.sent, true);
     assert.equal(messagingManager.sent.length, 1);
     assert.equal(messagingManager.sent[0].content, 'Here is the finished answer.');
+    assert.equal(engine.getRunMeta(runId).messagingSent, true);
     assert.equal(engine.getRunMeta(runId).finalDeliverySent, true);
     assert.equal(engine.getRunMeta(runId).progressLedger.lastFinalDeliveryAt != null, true);
   });
 
   test('final fallback only sends once even when interim history exists', async () => {
     const messagingManager = createMessagingManager();
-    const engine = new AgentEngine(null, { messagingManager });
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
     const { runId } = seedMessagingRun(engine, {
       interimMessages: [{
         content: 'Still working on it',
@@ -198,6 +205,132 @@ describe('messaging progress supervisor', () => {
     assert.equal(messagingManager.sent.length, 1);
   });
 
+  test('failed final fallback delivery never records terminal delivery', async () => {
+    const messagingManager = createMessagingManager();
+    messagingManager.sendMessage = async () => ({
+      success: false,
+      error: 'transport unavailable',
+    });
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    await assert.rejects(
+      engine.deliverMessagingFinalFallback({
+        runId,
+        userId: user.userId,
+        agentId: null,
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        content: 'This must reach the user.',
+      }),
+      (error) => error.code === 'MESSAGING_DELIVERY_FAILED',
+    );
+
+    const runMeta = engine.getRunMeta(runId);
+    assert.equal(runMeta.finalDeliverySent, false);
+    assert.equal(runMeta.lastSentMessage, '');
+    assert.equal(runMeta.sentMessages.length, 0);
+    assert.equal(runMeta.progressLedger.lastFinalDeliveryAt, null);
+  });
+
+  test('thrown final fallback delivery never records terminal delivery', async () => {
+    const messagingManager = createMessagingManager();
+    messagingManager.sendMessage = async () => {
+      throw new Error('socket closed');
+    };
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    await assert.rejects(
+      engine.deliverMessagingFinalFallback({
+        runId,
+        userId: user.userId,
+        agentId: null,
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        content: 'This must reach the user.',
+      }),
+      /socket closed/,
+    );
+
+    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
+  });
+
+  test('final fallback retries delivery without replaying task work', async () => {
+    const messagingManager = createMessagingManager();
+    let attempts = 0;
+    messagingManager.sendMessage = async (...args) => {
+      attempts += 1;
+      if (attempts === 1) {
+        return { success: false, error: 'temporary transport failure' };
+      }
+      messagingManager.sent.push(args);
+      return { success: true };
+    };
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: {
+        maxAttempts: 2,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+      },
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    const result = await engine.deliverMessagingFinalFallback({
+      runId,
+      userId: user.userId,
+      agentId: null,
+      platform: 'whatsapp',
+      chatId: 'chat-1',
+      content: 'Completed result.',
+    });
+
+    assert.equal(result.sent, true);
+    assert.equal(attempts, 2);
+    assert.equal(engine.getRunMeta(runId).finalDeliverySent, true);
+  });
+
+  test('exhausted final delivery cannot trigger an autonomous task replay', async () => {
+    const messagingManager = createMessagingManager();
+    messagingManager.sendMessage = async () => ({
+      success: false,
+      error: 'transport unavailable',
+    });
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: {
+        maxAttempts: 2,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+      },
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    await assert.rejects(
+      engine.deliverMessagingFinalFallback({
+        runId,
+        userId: user.userId,
+        agentId: null,
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        content: 'Completed result.',
+      }),
+      (error) => (
+        error.code === 'MESSAGING_DELIVERY_FAILED'
+        && error.disableAutonomousRetry === true
+      ),
+    );
+
+    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
+  });
+
   test('explicit final messaging delivery suppresses auto fallback', () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
@@ -221,50 +354,34 @@ describe('messaging progress supervisor', () => {
     );
   });
 
-  test('messaging completion decision keeps working after visible progress until a final answer or blocker exists', async () => {
+  test('task_complete judge rejects a high-confidence progress-only candidate', async () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const interimAt = new Date(Date.now() - 45_000).toISOString();
-    const { runId } = seedMessagingRun(engine, {
-      interimMessages: [{
-        content: 'nope, noch nicht fertig. hatte angefangen zu recherchieren, hol ich jetzt nach.',
-        kind: 'progress',
-        expectsReply: false,
-        deferFollowUp: false,
-        createdAt: interimAt,
-      }],
-      progressLedger: {
-        lastUserVisibleUpdateAt: interimAt,
-      },
-    });
+    const { runId } = seedMessagingRun(engine);
 
     engine.requestStructuredJson = async () => ({
       value: {
         status: 'continue',
         reason: 'The draft is only a status update and more investigation is still possible.',
-        final_reply: '',
       },
       usage: 17,
     });
 
-    const messages = [{
-      role: 'assistant',
-      content: 'The checkout branch exists at the same commit as beta with no changes yet. Let me investigate properly.',
-    }];
-    const result = await engine.resolveMessagingCompletionDecision({
+    const result = await engine.evaluateTaskCompleteSignal({
       provider: {},
       providerName: 'test',
       model: 'test-model',
-      messages,
+      messages: [],
       analysis: { goal: 'Fix the requested issue.' },
       plan: { success_criteria: ['Confirm the bug', 'Implement the fix'] },
       tools: [],
       toolExecutions: [{ toolName: 'execute_command', error: 'owner_repo must be in format "owner/repo"' }],
-      lastReply: messages[0].content,
+      finalMessage: 'The branch has no changes yet. Let me investigate properly.',
+      confidence: 'high',
+      triggerSource: 'messaging',
+      messagingSent: false,
       iteration: 3,
       maxIterations: 8,
-      runId,
-      conversationId: null,
       options: {
         source: 'whatsapp',
         runId,
@@ -273,8 +390,7 @@ describe('messaging progress supervisor', () => {
       },
     });
 
-    assert.equal(result.action, 'continue');
-    assert.equal(result.content, '');
+    assert.equal(result.decision.status, 'continue');
     assert.equal(result.usage, 17);
   });
 
@@ -313,7 +429,31 @@ describe('messaging progress supervisor', () => {
     assert.deepEqual(persisted.goalContract.successCriteria, runMeta.goalContract.successCriteria);
   });
 
-  test('messaging completion prompt includes the persisted run goal contract', async () => {
+  test('the original run goal cannot be replaced by a later model summary', () => {
+    const engine = new AgentEngine(null, {
+      messagingManager: createMessagingManager(),
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    engine.updateRunGoalContract(runId, {
+      goal: 'Implement the complete user request and verify the result.',
+    });
+    engine.updateRunGoalContract(runId, {
+      goal: 'Send a short acknowledgement.',
+      successCriteria: ['The requested implementation is complete.'],
+    });
+
+    const goalContract = engine.getRunMeta(runId).goalContract;
+    assert.equal(
+      goalContract.goal,
+      'Implement the complete user request and verify the result.',
+    );
+    assert.deepEqual(goalContract.successCriteria, [
+      'The requested implementation is complete.',
+    ]);
+  });
+
+  test('shared completion judge includes the persisted run goal contract', async () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
     const { runId } = seedMessagingRun(engine);
@@ -334,13 +474,12 @@ describe('messaging progress supervisor', () => {
         value: {
           status: 'continue',
           reason: 'More work remains.',
-          final_reply: '',
         },
         usage: 0,
       };
     };
 
-    await engine.decideMessagingCompletionState({
+    await engine.decideLoopState({
       provider: {},
       providerName: 'test',
       model: 'test-model',
@@ -350,9 +489,10 @@ describe('messaging progress supervisor', () => {
       tools: [],
       toolExecutions: [],
       lastReply: 'Still checking this.',
+      triggerSource: 'messaging',
+      messagingSent: false,
       iteration: 2,
       maxIterations: 8,
-      runId,
       options: {
         source: 'whatsapp',
         runId,
@@ -366,59 +506,34 @@ describe('messaging progress supervisor', () => {
     assert.match(capturedPrompt, /completion_confidence_required=high/);
   });
 
-  test('messaging completion decision rewrites the latest assistant draft before final fallback delivery', async () => {
+  test('task_complete judge accepts a finished candidate', async () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const interimAt = new Date(Date.now() - 45_000).toISOString();
-    const conversationId = 'conv-1';
-    ctx.db.prepare(
-      `INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(conversationId, user.userId, null, 'whatsapp', 'chat-1', 'Messaging test conversation');
-    ctx.db.prepare(
-      'INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)'
-    ).run(conversationId, 'assistant', 'Still checking this.');
-
-    const { runId } = seedMessagingRun(engine, {
-      interimMessages: [{
-        content: 'Still checking this.',
-        kind: 'progress',
-        expectsReply: false,
-        deferFollowUp: false,
-        createdAt: interimAt,
-      }],
-      progressLedger: {
-        lastUserVisibleUpdateAt: interimAt,
-      },
-    });
+    const { runId } = seedMessagingRun(engine);
 
     engine.requestStructuredJson = async () => ({
       value: {
         status: 'complete',
         reason: 'The finished answer is now ready.',
-        final_reply: 'Here is the finished answer.',
       },
       usage: 9,
     });
 
-    const messages = [{
-      role: 'assistant',
-      content: 'Still checking this.',
-    }];
-    const result = await engine.resolveMessagingCompletionDecision({
+    const result = await engine.evaluateTaskCompleteSignal({
       provider: {},
       providerName: 'test',
       model: 'test-model',
-      messages,
+      messages: [],
       analysis: { goal: 'Fix the requested issue.' },
       plan: {},
       tools: [],
       toolExecutions: [],
-      lastReply: messages[0].content,
+      finalMessage: 'Here is the finished answer.',
+      confidence: 'high',
+      triggerSource: 'messaging',
+      messagingSent: false,
       iteration: 2,
       maxIterations: 8,
-      runId,
-      conversationId,
       options: {
         source: 'whatsapp',
         runId,
@@ -427,68 +542,52 @@ describe('messaging progress supervisor', () => {
       },
     });
 
-    const storedMessage = ctx.db.prepare(
-      'SELECT content FROM conversation_messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1'
-    ).get(conversationId);
-    assert.equal(result.action, 'complete');
-    assert.equal(result.content, 'Here is the finished answer.');
-    assert.equal(messages[messages.length - 1].content, 'Here is the finished answer.');
-    assert.equal(storedMessage.content, 'Here is the finished answer.');
+    assert.equal(result.decision.status, 'complete');
+    assert.equal(result.usage, 9);
   });
 
-  test('iteration-limit messaging run does not stop on a progress-only draft after visible progress', async () => {
+  test('task_complete still uses the judge at the iteration limit', async () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const interimAt = new Date(Date.now() - 45_000).toISOString();
-    const { runId } = seedMessagingRun(engine, {
-      interimMessages: [{
-        content: 'Still working on it',
-        kind: 'progress',
-        expectsReply: false,
-        deferFollowUp: false,
-        createdAt: interimAt,
-      }],
-      progressLedger: {
-        lastUserVisibleUpdateAt: interimAt,
-      },
-    });
+    const { runId } = seedMessagingRun(engine);
+    let judgeCalls = 0;
 
-    engine.requestStructuredJson = async () => ({
-      value: {
-        status: 'continue',
-        reason: 'More work is still possible in this run.',
-        final_reply: '',
-      },
-      usage: 4,
-    });
-
-    await assert.rejects(
-      engine.resolveMessagingCompletionDecision({
-        provider: {},
-        providerName: 'test',
-        model: 'test-model',
-        messages: [{
-          role: 'assistant',
-          content: 'Let me investigate that properly first.',
-        }],
-        analysis: { goal: 'Fix the requested issue.' },
-        plan: {},
-        tools: [],
-        toolExecutions: [],
-        lastReply: 'Let me investigate that properly first.',
-        iteration: 8,
-        maxIterations: 8,
-        runId,
-        conversationId: null,
-        options: {
-          source: 'whatsapp',
-          runId,
-          userId: user.userId,
-          agentId: null,
+    engine.requestStructuredJson = async () => {
+      judgeCalls += 1;
+      return {
+        value: {
+          status: 'continue',
+          reason: 'More work is still possible in this run.',
         },
-      }),
-      /iteration limit/,
-    );
+        usage: 4,
+      };
+    };
+
+    const result = await engine.evaluateTaskCompleteSignal({
+      provider: {},
+      providerName: 'test',
+      model: 'test-model',
+      messages: [],
+      analysis: { goal: 'Fix the requested issue.' },
+      plan: {},
+      tools: [],
+      toolExecutions: [],
+      finalMessage: 'Let me investigate that properly first.',
+      confidence: 'high',
+      triggerSource: 'messaging',
+      messagingSent: false,
+      iteration: 8,
+      maxIterations: 8,
+      options: {
+        source: 'whatsapp',
+        runId,
+        userId: user.userId,
+        agentId: null,
+      },
+    });
+
+    assert.equal(judgeCalls, 1);
+    assert.equal(result.decision.status, 'continue');
   });
 
   test('terminal interim question suppresses final fallback', () => {
@@ -567,6 +666,119 @@ describe('messaging progress supervisor', () => {
     assert.equal(messagingManager.sent.length, 1);
     assert.match(messagingManager.sent[0].content, /Run active 2m/);
     assert.match(messagingManager.sent[0].content, /current step 1s/);
+  });
+
+  test('blocked model calls receive factual runtime heartbeats', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+      progressLedger: {
+        currentPhase: 'model',
+        currentStep: 'model:2',
+        currentTool: null,
+        currentStepStartedAt: new Date(0).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(messagingManager.sent[0].content, /Still working on this/);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
+  });
+
+  test('structured model phases stay visible to the supervisor until they settle', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+    });
+    let resolveModel;
+    const modelResult = new Promise((resolve) => {
+      resolveModel = resolve;
+    });
+
+    const structuredCall = engine.requestStructuredJson({
+      provider: {
+        chat() {
+          return modelResult;
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [],
+      prompt: 'Return JSON.',
+      normalize: (value) => value,
+      telemetry: {
+        runId,
+        userId: user.userId,
+      },
+      phase: 'completion_decision',
+    });
+
+    assert.equal(engine.getRunMeta(runId).progressLedger.currentPhase, 'model');
+    assert.equal(
+      engine.getRunMeta(runId).progressLedger.currentStep,
+      'model:completion_decision',
+    );
+
+    t.mock.timers.setTime(60_001);
+    await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
+
+    resolveModel({
+      content: '{"status":"complete"}',
+      usage: { totalTokens: 3 },
+    });
+    await structuredCall;
+
+    assert.equal(engine.getRunMeta(runId).progressLedger.currentPhase, 'idle');
+    assert.equal(engine.getRunMeta(runId).progressLedger.currentStep, null);
+  });
+
+  test('failed runtime heartbeat is not recorded as visible progress', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    messagingManager.sendMessage = async () => ({
+      success: false,
+      reason: 'not connected',
+    });
+    const engine = new AgentEngine(null, { messagingManager });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+      progressLedger: {
+        currentPhase: 'tool',
+        currentStep: 'step-1',
+        currentTool: 'execute_command',
+        currentStepStartedAt: new Date(0).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    await assert.rejects(
+      engine.tickMessagingProgressSupervisor(runId),
+      (error) => error.code === 'MESSAGING_DELIVERY_FAILED',
+    );
+
+    const runMeta = engine.getRunMeta(runId);
+    assert.equal(Number(runMeta.progressLedger.heartbeatCount || 0), 0);
+    assert.equal(runMeta.progressLedger.lastUserVisibleUpdateAt || null, null);
+    assert.equal(runMeta.interimMessages.length, 0);
   });
 
   test('stalled tool-bound messaging run records stalled state and resumes on verified progress', async (t) => {

@@ -117,6 +117,7 @@ const MESSAGING_PROGRESS_REPEAT_MS = 90 * 1000;
 const MESSAGING_PROGRESS_STALL_MS = 240 * 1000;
 const MESSAGING_PROGRESS_TICK_MS = 15 * 1000;
 const GOAL_CONTRACT_SUCCESS_CRITERIA_LIMIT = 12;
+const MODEL_CALL_TIMEOUT_MS = 5 * 60 * 1000;
 
 function isoNow() {
   return new Date().toISOString();
@@ -134,6 +135,31 @@ function formatElapsedDuration(durationMs) {
   const seconds = totalSeconds % 60;
   if (seconds === 0) return `${minutes}m`;
   return `${minutes}m ${seconds}s`;
+}
+
+function resolveModelCallTimeoutMs(options = {}) {
+  const requested = Number(options?.modelCallTimeoutMs);
+  if (Number.isFinite(requested) && requested > 0) {
+    return Math.max(10, requested);
+  }
+  return MODEL_CALL_TIMEOUT_MS;
+}
+
+async function withModelCallTimeout(promise, options = {}, label = 'Model call') {
+  const timeoutMs = resolveModelCallTimeoutMs(options);
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${formatElapsedDuration(timeoutMs)}.`);
+      error.code = 'MODEL_CALL_TIMEOUT';
+      reject(error);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([Promise.resolve(promise), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function cloneInterimHistory(history = []) {
@@ -185,6 +211,23 @@ function hasVisibleInterimActivity(runMeta) {
     || (Array.isArray(runMeta?.interimMessages) && runMeta.interimMessages.length > 0)
     || Number(runMeta?.progressLedger?.heartbeatCount || 0) > 0
   );
+}
+
+function requireSuccessfulMessagingDelivery(result, label = 'Messaging delivery') {
+  if (result?.success === true && result?.suppressed !== true) {
+    return result;
+  }
+  const reason = String(
+    result?.error
+    || result?.reason
+    || result?.result?.error
+    || result?.result?.reason
+    || 'the platform did not confirm delivery',
+  ).trim();
+  const error = new Error(`${label} failed: ${reason}`);
+  error.code = 'MESSAGING_DELIVERY_FAILED';
+  error.deliveryResult = result || null;
+  throw error;
 }
 
 function normalizeGoalCriteria(value) {
@@ -257,7 +300,7 @@ function mergeGoalContracts(existing = null, patch = null) {
   const nextPatch = normalizeGoalContract(patch) || null;
   if (!current && !nextPatch) return null;
 
-  const goal = String(nextPatch?.goal || current?.goal || '').trim();
+  const goal = String(current?.goal || nextPatch?.goal || '').trim();
   const successCriteria = normalizeGoalCriteria([
     ...(current?.successCriteria || []),
     ...(nextPatch?.successCriteria || []),
@@ -363,7 +406,6 @@ function resolveRunGoalContext(runMeta, analysis = null, plan = null) {
 }
 
 function buildCompletionDecisionPrompt({
-  mode,
   triggerSource,
   messagingSent = false,
   goalContext,
@@ -373,51 +415,27 @@ function buildCompletionDecisionPrompt({
   lastReply,
   iteration,
   maxIterations,
-  progressSummary = '',
-  platform = null,
 }) {
-  const draftReply = mode === 'messaging'
-    ? (normalizeOutgoingMessage(lastReply || '', platform, { collapseWhitespace: false })
-      ? String(lastReply || '').trim()
-      : '')
-    : normalizeOutgoingMessage(lastReply) || '';
+  const draftReply = normalizeOutgoingMessage(lastReply) || '';
   const lines = [
     'Return JSON only.',
+    'Decide whether this run should continue autonomously or stop now.',
+    'Schema: {"status":"continue|complete|blocked","reason":"short concrete reason"}',
+    'Rules:',
+    '- Use "continue" whenever any safe next step remains in this same run.',
+    '- Use "complete" only when the requested outcome is actually achieved and the latest draft is the finished user-facing answer.',
+    '- Use "blocked" only when a specific external dependency, missing user input, or permission outside this run is required and the latest draft is the blocker reply.',
+    '- If the latest draft asks the user for a missing required value, confirmation, or choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
+    '- A progress note, next-step note, apology, plan, or promise to investigate is "continue", not "complete".',
+    '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
+    '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
+    `- If completion_confidence_required is ${goalContext.effectiveCompletionConfidence} and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.`,
+    triggerSource === 'messaging' && messagingSent
+      ? '- A final reply was already delivered via send_message. Use "complete" unless concrete task work remains.'
+      : triggerSource === 'messaging'
+        ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.'
+        : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
   ];
-
-  if (mode === 'messaging') {
-    lines.push(
-      'A messaging run is about to stop after sending user-visible progress, but no final delivery has happened yet.',
-      'Decide whether the run should keep working, finish with the completed result now, or stop with one blocker reply now.',
-      'Schema: {"status":"continue|complete|blocked","reason":"short concrete reason","final_reply":"string"}',
-      'Rules:',
-      '- Use "continue" whenever any safe next step remains in this same run.',
-      '- Use "complete" only when the requested outcome is actually achieved and final_reply is the finished user-facing answer to send now.',
-      '- Use "blocked" only when a specific external dependency, missing user input, or permission outside this run is required and final_reply is the concise blocker reply to send now.',
-      '- A progress note, next-step note, apology, plan, or "I will investigate" draft is "continue", not "complete" and not "blocked".',
-      '- If user-visible progress was already sent and no final delivery exists yet, do not stop silently and do not stop on a status-only draft.',
-      '- final_reply must be empty when status is "continue".',
-    );
-  } else {
-    lines.push(
-      'Decide whether this run should continue autonomously or stop now.',
-      'Schema: {"status":"continue|complete|blocked","reason":"short concrete reason"}',
-      'Rules:',
-      '- Use "continue" whenever any safe next step remains in this same run.',
-      '- Use "complete" only when the requested outcome is actually achieved or a truthful final user reply is already ready now.',
-      '- Use "blocked" only when a specific external dependency outside this run is required.',
-      '- If the latest draft asks the user for a missing required value, confirmation, or choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
-      '- A progress update is not complete.',
-      '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
-      '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
-      `- If completion_confidence_required is ${goalContext.effectiveCompletionConfidence} and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.`,
-      triggerSource === 'messaging' && messagingSent
-        ? '- A reply was already delivered to the user via send_message. Use "complete" unless there is concrete remaining work (e.g., a tool call you still need to make) before the task is truly done. Do not send follow-up elaborations or re-introductions.'
-        : triggerSource === 'messaging'
-          ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked. If you already asked for missing user input, choose "blocked" and wait.'
-          : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
-    );
-  }
 
   lines.push(
     goalContext.effectiveGoal ? `Goal: ${goalContext.effectiveGoal}` : '',
@@ -428,59 +446,19 @@ function buildCompletionDecisionPrompt({
       : '',
     `Current iteration: ${iteration} of ${maxIterations}.`,
     `Available tools in this run: ${summarizeAvailableTools(tools) || 'none'}`,
-    mode === 'messaging' && progressSummary ? `Progress ledger: ${progressSummary}` : '',
     `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 8) || 'none'}`,
     `Latest draft reply:\n${draftReply || '(empty)'}`,
-    mode === 'messaging' ? buildPlatformFormattingGuide(platform) : '',
   );
   return lines.filter(Boolean).join('\n');
 }
 
-function normalizeCompletionDecision(raw, {
-  mode,
-  fallbackStatus = 'continue',
-  platform = null,
-  draftReply = '',
-}) {
+function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
   const allowed = new Set(['continue', 'complete', 'blocked']);
-  if (mode === 'messaging') {
-    let status = allowed.has(String(raw.status || '').trim().toLowerCase())
-      ? String(raw.status || '').trim().toLowerCase()
-      : 'continue';
-    let finalReply = normalizeOutgoingMessage(raw.final_reply || '', platform, {
-      collapseWhitespace: false,
-    })
-      ? String(raw.final_reply || '').trim()
-      : '';
-    if (status === 'continue') {
-      finalReply = '';
-    } else if (!finalReply && draftReply) {
-      finalReply = draftReply;
-    } else if (!finalReply) {
-      status = 'continue';
-    }
-    return {
-      status,
-      reason: String(raw.reason || '').trim().slice(0, 400),
-      final_reply: finalReply,
-    };
-  }
-
   const requestedStatus = String(raw.status || '').trim().toLowerCase();
   return {
     status: allowed.has(requestedStatus) ? requestedStatus : fallbackStatus,
     reason: String(raw.reason || '').trim().slice(0, 400),
   };
-}
-
-function shouldRequireMessagingFinalityCheck(runMeta) {
-  return Boolean(
-    runMeta
-    && runMeta.triggerSource === 'messaging'
-    && runMeta.finalDeliverySent !== true
-    && !runMeta.terminalInterim
-    && hasVisibleInterimActivity(runMeta)
-  );
 }
 
 function planningDepthForForceMode(forceMode) {
@@ -706,6 +684,7 @@ class AgentEngine {
     this.taskRuntime = services.taskRuntime || null;
     this.memoryManager = services.memoryManager || null;
     this.voiceRuntimeManager = services.voiceRuntimeManager || null;
+    this.messagingDeliveryRetry = services.messagingDeliveryRetry || {};
   }
 
   async buildSystemPrompt(userId, context = {}) {
@@ -926,21 +905,6 @@ class AgentEngine {
       .run(JSON.stringify(next), runId);
   }
 
-  replaceLatestConversationAssistantMessage(conversationId, content) {
-    if (!conversationId) return false;
-    const messageId = db.prepare(
-      `SELECT id
-       FROM conversation_messages
-       WHERE conversation_id = ? AND role = 'assistant'
-       ORDER BY id DESC
-       LIMIT 1`
-    ).get(conversationId)?.id;
-    if (!messageId) return false;
-    db.prepare('UPDATE conversation_messages SET content = ? WHERE id = ?')
-      .run(content, messageId);
-    return true;
-  }
-
   updateRunGoalContract(runId, patch = {}, options = {}) {
     const runMeta = this.getRunMeta(runId);
     if (!runMeta) return null;
@@ -1031,6 +995,7 @@ class AgentEngine {
   markRunFinalDelivery(runId, content = '', timestamp = isoNow()) {
     const runMeta = this.getRunMeta(runId);
     if (!runMeta) return null;
+    runMeta.messagingSent = true;
     runMeta.finalDeliverySent = true;
     runMeta.lastSentMessage = String(content || '').trim() || runMeta.lastSentMessage || '';
     const ledger = this.updateRunProgress(runId, {
@@ -1142,13 +1107,14 @@ class AgentEngine {
       if (!platform || !chatId || !this.messagingManager) {
         return { sent: false, skipped: true, reason: 'Messaging context is not available.' };
       }
-      await this.messagingManager.sendMessage(userId, platform, chatId, normalizedContent, {
+      const deliveryResult = await this.messagingManager.sendMessage(userId, platform, chatId, normalizedContent, {
         agentId,
         runId,
         persistConversation: true,
         metadata,
         deliveryKind: 'interim',
       });
+      requireSuccessfulMessagingDelivery(deliveryResult, 'Interim messaging delivery');
     } else if (triggerSource === 'voice_live') {
       const voiceSessionId = runMeta.voiceSessionId || null;
       const manager = this.voiceRuntimeManager || this.app?.locals?.voiceRuntimeManager || null;
@@ -1242,42 +1208,72 @@ class AgentEngine {
     phase = 'structured',
   }) {
     const startedAt = Date.now();
-    const response = await withProviderRetry(
-      () => provider.chat(
-        sanitizeConversationMessages([
-          ...messages,
-          { role: 'system', content: prompt },
-        ]),
-        [],
-        {
-          model,
-          maxTokens,
-          reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
-        }
-      ),
-      { label: `Engine ${model} (structured)` }
-    );
-    if (telemetry?.runId && telemetry?.userId) {
-      recordModelUsage({
-        runId: telemetry.runId,
-        stepId: telemetry.stepId || null,
-        userId: telemetry.userId,
-        agentId: telemetry.agentId || null,
-        provider: providerName,
-        model,
-        phase,
-        usage: response.usage,
-        latencyMs: Date.now() - startedAt,
+    const structuredStep = `model:${phase}`;
+    if (telemetry?.runId) {
+      this.updateRunProgress(telemetry.runId, {
+        currentPhase: 'model',
+        currentStep: structuredStep,
+        currentTool: null,
+        currentStepStartedAt: isoNow(),
       });
     }
 
-    const parsed = parseJsonObject(response.content || '');
-    const normalizedUsage = normalizeUsage(response.usage);
-    return {
-      value: normalize(parsed || {}, fallback),
-      raw: response.content || '',
-      usage: normalizedUsage?.totalTokens || 0,
-    };
+    let completed = false;
+    try {
+      const response = await withProviderRetry(
+        () => withModelCallTimeout(
+          provider.chat(
+            sanitizeConversationMessages([
+              ...messages,
+              { role: 'system', content: prompt },
+            ]),
+            [],
+            {
+              model,
+              maxTokens,
+              reasoningEffort: reasoningEffort || this.getReasoningEffort(providerName, {}),
+            }
+          ),
+          telemetry || {},
+          `${phase} model call`,
+        ),
+        { label: `Engine ${model} (structured)` }
+      );
+      completed = true;
+      if (telemetry?.runId && telemetry?.userId) {
+        recordModelUsage({
+          runId: telemetry.runId,
+          stepId: telemetry.stepId || null,
+          userId: telemetry.userId,
+          agentId: telemetry.agentId || null,
+          provider: providerName,
+          model,
+          phase,
+          usage: response.usage,
+          latencyMs: Date.now() - startedAt,
+        });
+      }
+
+      const parsed = parseJsonObject(response.content || '');
+      const normalizedUsage = normalizeUsage(response.usage);
+      return {
+        value: normalize(parsed || {}, fallback),
+        raw: response.content || '',
+        usage: normalizedUsage?.totalTokens || 0,
+      };
+    } finally {
+      const runMeta = telemetry?.runId ? this.getRunMeta(telemetry.runId) : null;
+      if (runMeta?.progressLedger?.currentStep === structuredStep) {
+        this.updateRunProgress(telemetry.runId, {
+          currentPhase: 'idle',
+          currentStep: null,
+          currentTool: null,
+          currentStepStartedAt: null,
+        }, {
+          verified: completed,
+        });
+      }
+    }
   }
 
   async requestModelResponse({
@@ -1304,8 +1300,16 @@ class AgentEngine {
       if (options.stream !== false) {
         let emittedContent = false;
         const stream = provider.stream(requestMessages, tools, callOptions);
+        const iterator = stream[Symbol.asyncIterator]();
         try {
-          for await (const chunk of stream) {
+          while (true) {
+            const next = await withModelCallTimeout(
+              iterator.next(),
+              options,
+              `Model stream iteration ${iteration}`,
+            );
+            if (next.done) break;
+            const chunk = next.value;
             if (chunk.type === 'content') {
               emittedContent = true;
               streamContent += chunk.content;
@@ -1329,13 +1333,18 @@ class AgentEngine {
             }
           }
         } catch (err) {
+          Promise.resolve(iterator.return?.()).catch(() => {});
           // Once tokens have streamed to the client a retry would duplicate
           // output, so only the pre-stream window is safe to replay.
           if (emittedContent) err.__providerRetryUnsafe = true;
           throw err;
         }
       } else {
-        response = await provider.chat(requestMessages, tools, callOptions);
+        response = await withModelCallTimeout(
+          provider.chat(requestMessages, tools, callOptions),
+          options,
+          `Model iteration ${iteration}`,
+        );
       }
 
       return { response, streamContent };
@@ -1485,7 +1494,6 @@ class AgentEngine {
       model,
       messages,
       prompt: buildCompletionDecisionPrompt({
-        mode: 'loop',
         triggerSource,
         messagingSent,
         goalContext,
@@ -1497,10 +1505,7 @@ class AgentEngine {
         maxIterations,
       }),
       maxTokens: 320,
-      normalize: (raw) => normalizeCompletionDecision(raw, {
-        mode: 'loop',
-        fallbackStatus,
-      }),
+      normalize: (raw) => normalizeCompletionDecision(raw, fallbackStatus),
       fallback: { status: fallbackStatus },
       reasoningEffort: this.getReasoningEffort(providerName, options),
       telemetry: options,
@@ -1510,6 +1515,67 @@ class AgentEngine {
     return {
       decision: response.value,
       usage: response.usage,
+    };
+  }
+
+  async evaluateTaskCompleteSignal({
+    provider,
+    providerName,
+    model,
+    messages,
+    tools,
+    analysis,
+    plan,
+    toolExecutions,
+    finalMessage,
+    confidence,
+    triggerSource,
+    messagingSent,
+    iteration,
+    maxIterations,
+    options,
+  }) {
+    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
+    const requiredConfidence = resolveRunGoalContext(runMeta, analysis, plan)
+      .effectiveCompletionConfidence;
+    const confidenceDecision = shouldAcceptTaskComplete({
+      confidence,
+      requiredConfidence,
+      iteration,
+      maxIterations,
+    });
+    if (!confidenceDecision.accept) {
+      return {
+        decision: {
+          status: 'continue',
+          reason: confidenceDecision.reason,
+        },
+        requiredConfidence,
+        usage: 0,
+      };
+    }
+
+    const loopState = await this.decideLoopState({
+      provider,
+      providerName,
+      model,
+      messages,
+      tools,
+      analysis,
+      plan,
+      toolExecutions,
+      lastReply: finalMessage,
+      triggerSource,
+      messagingSent,
+      iteration,
+      maxIterations,
+      options,
+      fallbackStatus: 'continue',
+    });
+    return {
+      decision: loopState.decision,
+      requiredConfidence,
+      usage: loopState.usage || 0,
     };
   }
 
@@ -1623,11 +1689,15 @@ class AgentEngine {
       }
     ];
 
-    const response = await provider.chat(promptMessages, [], {
-      model,
-      maxTokens: 800,
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-    });
+    const response = await withModelCallTimeout(
+      provider.chat(promptMessages, [], {
+        model,
+        maxTokens: 800,
+        reasoningEffort: this.getReasoningEffort(providerName, options),
+      }),
+      options,
+      'Conversation state refresh',
+    );
     const parsed = parseJsonObject(response.content || '') || {};
     const nextState = {
       summary: String(parsed.summary || existingState?.summary || '').trim(),
@@ -1684,19 +1754,23 @@ class AgentEngine {
         `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} model=${model}`
       );
       try {
-        const response = await provider.chat(
-          sanitizeConversationMessages([
-            ...messages,
+        const response = await withModelCallTimeout(
+          provider.chat(
+            sanitizeConversationMessages([
+              ...messages,
+              {
+                role: 'system',
+                content: buildBlankMessagingReplyPrompt(attempt, options?.source || null)
+              }
+            ]),
+            [],
             {
-              role: 'system',
-              content: buildBlankMessagingReplyPrompt(attempt, options?.source || null)
+              model,
+              reasoningEffort: this.getReasoningEffort(providerName, options)
             }
-          ]),
-          [],
-          {
-            model,
-            reasoningEffort: this.getReasoningEffort(providerName, options)
-          }
+          ),
+          options,
+          `Blank messaging reply recovery ${attempt}`,
         );
         totalTokens += response.usage?.totalTokens || 0;
         recoveredContent = sanitizeModelOutput(response.content || '', { model });
@@ -2127,169 +2201,6 @@ class AgentEngine {
     return { messages, appliedCount: queued.length };
   }
 
-  async decideMessagingCompletionState({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    lastReply,
-    iteration,
-    maxIterations,
-    runId,
-    options,
-  }) {
-    const runMeta = this.getRunMeta(runId);
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-    const platform = options?.source || null;
-    const normalizedDraft = normalizeOutgoingMessage(lastReply || '', platform, {
-      collapseWhitespace: false,
-    });
-    const draftReply = normalizedDraft ? String(lastReply || '').trim() : '';
-    const ledger = runMeta?.progressLedger || null;
-    const progressSummary = [
-      `progress_state=${ledger?.progressState || 'active'}`,
-      `current_phase=${ledger?.currentPhase || 'idle'}`,
-      `current_tool=${ledger?.currentTool || 'none'}`,
-      `heartbeat_count=${Number(ledger?.heartbeatCount || 0)}`,
-      `last_visible_update=${ledger?.lastUserVisibleUpdateAt || 'none'}`,
-      `last_verified_progress=${ledger?.lastVerifiedProgressAt || 'none'}`,
-      `last_final_delivery=${ledger?.lastFinalDeliveryAt || 'none'}`,
-    ].join('; ');
-
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildCompletionDecisionPrompt({
-        mode: 'messaging',
-        goalContext,
-        parallelWork: analysis?.parallel_work === true,
-        tools,
-        toolExecutions,
-        lastReply: draftReply,
-        iteration,
-        maxIterations,
-        progressSummary,
-        platform,
-      }),
-      maxTokens: 480,
-      normalize: (raw) => normalizeCompletionDecision(raw, {
-        mode: 'messaging',
-        platform,
-        draftReply,
-      }),
-      fallback: {
-        status: 'continue',
-        reason: '',
-        final_reply: '',
-      },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'messaging_completion',
-    });
-
-    return {
-      decision: response.value,
-      usage: response.usage,
-    };
-  }
-
-  async resolveMessagingCompletionDecision({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    lastReply,
-    iteration,
-    maxIterations,
-    runId,
-    conversationId,
-    options,
-  }) {
-    const runMeta = this.getRunMeta(runId);
-    if (!shouldRequireMessagingFinalityCheck(runMeta)) {
-      return {
-        action: 'none',
-        content: lastReply,
-        reason: '',
-        usage: 0,
-      };
-    }
-
-    let completionDecision;
-    try {
-      completionDecision = await this.decideMessagingCompletionState({
-        provider,
-        providerName,
-        model,
-        messages,
-        analysis,
-        plan,
-        tools,
-        toolExecutions,
-        lastReply,
-        iteration,
-        maxIterations,
-        runId,
-        options,
-      });
-    } catch (error) {
-      if (iteration >= maxIterations) {
-        const wrapped = new Error(
-          `Messaging completion check failed after visible progress: ${error?.message || error}`,
-        );
-        wrapped.disableAutonomousRetry = error?.disableAutonomousRetry === true;
-        throw wrapped;
-      }
-      return {
-        action: 'continue',
-        content: '',
-        reason: 'The run still needs an explicit final result or blocker decision.',
-        usage: 0,
-      };
-    }
-
-    const decision = completionDecision.decision || { status: 'continue', reason: '' };
-    if (decision.status === 'continue') {
-      if (iteration >= maxIterations) {
-        throw new Error(
-          'Messaging run reached the iteration limit before producing a final answer or blocker after visible progress.',
-        );
-      }
-      return {
-        action: 'continue',
-        content: '',
-        reason: decision.reason || 'The current draft is still only progress.',
-        usage: completionDecision.usage || 0,
-      };
-    }
-
-    const finalContent = String(decision.final_reply || lastReply || '').trim();
-    if (finalContent && messages[messages.length - 1]?.role === 'assistant') {
-      messages[messages.length - 1] = {
-        ...messages[messages.length - 1],
-        content: finalContent,
-      };
-      this.replaceLatestConversationAssistantMessage(conversationId, finalContent);
-    }
-
-    return {
-      action: decision.status === 'blocked' ? 'blocked' : 'complete',
-      content: finalContent,
-      reason: decision.reason || '',
-      usage: completionDecision.usage || 0,
-    };
-  }
-
   buildMessagingHeartbeatText(runMeta, options = {}) {
     const stalled = options.stalled === true;
     const now = Date.now();
@@ -2327,7 +2238,7 @@ class AgentEngine {
 
     const createdAt = isoNow();
     const content = this.buildMessagingHeartbeatText(runMeta, options);
-    await this.messagingManager.sendMessage(
+    const deliveryResult = await this.messagingManager.sendMessage(
       runMeta.userId,
       runMeta.messagingContext.platform,
       runMeta.messagingContext.chatId,
@@ -2345,6 +2256,7 @@ class AgentEngine {
         deliveryKind: 'interim',
       },
     );
+    requireSuccessfulMessagingDelivery(deliveryResult, 'Messaging heartbeat delivery');
 
     runMeta.lastInterimMessage = content;
     if (!Array.isArray(runMeta.interimMessages)) {
@@ -2421,9 +2333,31 @@ class AgentEngine {
         await this.messagingManager.sendTyping(userId, platform, chatId, true, { agentId }).catch(() => {});
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
-      await this.messagingManager.sendMessage(userId, platform, chatId, chunks[i], { runId, agentId }).catch((err) =>
-        console.error('[Engine] Auto-reply fallback failed:', err.message)
-      );
+      try {
+        await withProviderRetry(async () => {
+          const deliveryResult = await this.messagingManager.sendMessage(
+            userId,
+            platform,
+            chatId,
+            chunks[i],
+            { runId, agentId },
+          );
+          return requireSuccessfulMessagingDelivery(deliveryResult, 'Final messaging delivery');
+        }, {
+          ...this.messagingDeliveryRetry,
+          label: `MessagingDelivery ${platform}`,
+          isRetryable: (error) => (
+            error?.retryable !== false
+            && (
+              error?.code === 'MESSAGING_DELIVERY_FAILED'
+              || isTransientError(error)
+            )
+          ),
+        });
+      } catch (error) {
+        error.disableAutonomousRetry = true;
+        throw error;
+      }
     }
 
     runMeta.lastSentMessage = chunks[chunks.length - 1] || cleanedContent;
@@ -2474,7 +2408,10 @@ class AgentEngine {
       return { sent: false, skipped: true };
     }
 
-    if (ledger.currentPhase === 'tool' && ledger.currentStepStartedAt) {
+    if (
+      (ledger.currentPhase === 'tool' || ledger.currentPhase === 'model')
+      && ledger.currentStepStartedAt
+    ) {
       return this.sendRuntimeMessagingHeartbeat(runId, { stalled });
     }
 
@@ -2788,7 +2725,12 @@ class AgentEngine {
     const carriedExplicitMessageSent = retryMessagingState.explicitMessageSent === true;
     const carriedInterimHistory = cloneInterimHistory(retryMessagingState.interimHistory);
     const carriedLastInterimMessage = carriedInterimHistory[carriedInterimHistory.length - 1]?.content || '';
-    const carriedGoalContract = normalizeGoalContract(retryMessagingState.goalContract);
+    const carriedGoalContract = mergeGoalContracts(
+      normalizeGoalContract({
+        goal: clampRunContext(userMessage, 1200),
+      }),
+      retryMessagingState.goalContract,
+    );
     const startedAtIso = isoNow();
     const progressLedger = buildInitialProgressLedger({
       startedAt: startedAtIso,
@@ -3223,6 +3165,37 @@ class AgentEngine {
           db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
             .run(conversationId, 'assistant', lastContent, analysisUsage);
         }
+        const directAnswerDecision = await runWithModelFallback(
+          'direct answer completion decision',
+          () => this.decideLoopState({
+            provider,
+            providerName,
+            model,
+            messages,
+            tools,
+            analysis,
+            plan,
+            toolExecutions,
+            lastReply: lastContent,
+            triggerSource,
+            messagingSent: false,
+            iteration,
+            maxIterations,
+            options: { ...options, runId, userId, agentId },
+            fallbackStatus: 'continue',
+          }),
+        );
+        totalTokens += directAnswerDecision.usage || 0;
+        if (directAnswerDecision.decision.status === 'continue') {
+          messages.push({
+            role: 'system',
+            content: directAnswerDecision.decision.reason
+              ? `Continue working: ${directAnswerDecision.decision.reason}.`
+              : 'The initial draft is not a finished answer. Continue working autonomously.',
+          });
+          lastContent = '';
+          directAnswerEligible = false;
+        }
       }
 
       // BUG FIX: consecutiveToolFailures was previously declared INSIDE the
@@ -3248,14 +3221,16 @@ class AgentEngine {
           currentStep: `model:${iteration}`,
           currentTool: null,
           currentStepStartedAt: isoNow(),
-        }, {
-          verified: true,
         });
 
         let metrics = this.estimatePromptMetrics(messages, tools);
         const contextWindow = provider.getContextWindow(model);
         if (metrics.totalEstimatedTokens > contextWindow * loopPolicy.compactionThreshold) {
-          messages = await compact(messages, provider, model, contextWindow);
+          messages = await withModelCallTimeout(
+            compact(messages, provider, model, contextWindow),
+            options,
+            `Context compaction before iteration ${iteration}`,
+          );
           messages = sanitizeConversationMessages(messages);
           this.emit(userId, 'run:compaction', { runId, iteration });
           metrics = this.estimatePromptMetrics(messages, tools);
@@ -3393,6 +3368,9 @@ class AgentEngine {
           toolCallCount: response.toolCalls?.length || 0,
           contentPreview: String(lastContent || streamContent || '').slice(0, 240),
         }, { agentId });
+        this.updateRunProgress(runId, {}, {
+          verified: true,
+        });
 
         const assistantMessage = { role: 'assistant', content: lastContent };
         if (response.toolCalls?.length) assistantMessage.tool_calls = response.toolCalls;
@@ -3416,8 +3394,6 @@ class AgentEngine {
             currentStep: null,
             currentTool: null,
             currentStepStartedAt: null,
-          }, {
-            verified: true,
           });
           const systemSteeringAfterResponse = this.applyQueuedSystemSteering(runId, messages);
           messages = systemSteeringAfterResponse.messages;
@@ -3446,88 +3422,54 @@ class AgentEngine {
           })) {
             break;
           }
-          const runMetaAfterResponse = this.getRunMeta(runId);
-          if (shouldRequireMessagingFinalityCheck(runMetaAfterResponse)) {
-            const messagingCompletion = await this.resolveMessagingCompletionDecision({
-              provider,
-              providerName,
-              model,
-              messages,
-              analysis,
-              plan,
-              tools,
-              toolExecutions,
-              lastReply: lastContent,
-              iteration,
-              maxIterations,
-              runId,
-              conversationId,
-              options: { ...options, runId, userId, agentId },
+          const proactiveRunNeedsDecision = (
+            (triggerSource === 'schedule' || triggerSource === 'tasks')
+            && this.activeRuns.get(runId)?.noResponse !== true
+            && options.deliveryState?.noResponse !== true
+          );
+          const visibleInterimActivity = hasVisibleInterimActivity(this.activeRuns.get(runId));
+          const fallbackStatus = (
+            proactiveRunNeedsDecision
+            || toolExecutions.length > 0
+            || failedStepCount > 0
+            || messagingSent
+            || visibleInterimActivity
+          ) ? 'continue' : 'complete';
+          const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
+            provider,
+            providerName,
+            model,
+            messages,
+            tools,
+            analysis,
+            plan,
+            toolExecutions,
+            lastReply: lastContent,
+            triggerSource,
+            messagingSent,
+            iteration,
+            maxIterations,
+            options: { ...options, runId, userId, agentId },
+            fallbackStatus,
+          }));
+          totalTokens += loopState.usage || 0;
+          if (loopState.decision.status === 'continue') {
+            if (iteration >= maxIterations) {
+              throw new Error(
+                `Completion judge found unfinished work at the iteration limit after ${maxIterations} iterations.`,
+              );
+            }
+            messages.push({
+              role: 'system',
+              content: [
+                loopState.decision.reason ? `Continue working: ${loopState.decision.reason}.` : 'Continue working autonomously.',
+                messagingSent
+                  ? 'You already sent a user-facing message in this run. Keep working silently unless you have a materially new finished result or a real external blocker.'
+                  : 'Use send_interim_update sparingly if a short real update or question would help. Otherwise keep working until you have the result or a real blocker.',
+              ].join(' ')
             });
-            totalTokens += messagingCompletion.usage || 0;
-            if (messagingCompletion.action === 'continue') {
-              messages.push({
-                role: 'system',
-                content: [
-                  messagingCompletion.reason
-                    ? `Continue working: ${messagingCompletion.reason}.`
-                    : 'Continue working autonomously.',
-                  'The messaging user has already seen progress. Do not stop until you either have the finished answer now or a concrete blocker reply now.',
-                ].join(' ')
-              });
-              lastContent = '';
-              continue;
-            }
-            if (typeof messagingCompletion.content === 'string') {
-              lastContent = messagingCompletion.content;
-            }
-            break;
-          }
-          if (iteration < maxIterations) {
-            const proactiveRunNeedsDecision = (
-              (triggerSource === 'schedule' || triggerSource === 'tasks')
-              && this.activeRuns.get(runId)?.noResponse !== true
-              && options.deliveryState?.noResponse !== true
-            );
-            const visibleInterimActivity = hasVisibleInterimActivity(this.activeRuns.get(runId));
-            const fallbackStatus = (
-              proactiveRunNeedsDecision
-              || toolExecutions.length > 0
-              || failedStepCount > 0
-              || messagingSent
-              || visibleInterimActivity
-            ) ? 'continue' : 'complete';
-            const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
-              provider,
-              providerName,
-              model,
-              messages,
-              tools,
-              analysis,
-              plan,
-              toolExecutions,
-              lastReply: lastContent,
-              triggerSource,
-              messagingSent,
-              iteration,
-              maxIterations,
-              options: { ...options, runId, userId, agentId },
-              fallbackStatus,
-            }));
-            totalTokens += loopState.usage || 0;
-            if (loopState.decision.status === 'continue') {
-              messages.push({
-                role: 'system',
-                content: [
-                  loopState.decision.reason ? `Continue working: ${loopState.decision.reason}.` : 'Continue working autonomously.',
-                  messagingSent
-                    ? 'You already sent a user-facing message in this run. Keep working silently unless you have a materially new finished result or a real external blocker.'
-                    : 'Use send_interim_update sparingly if a short real update or question would help. Otherwise keep working until you have the result or a real blocker.',
-                ].join(' ')
-              });
-              lastContent = '';
-              continue;
-            }
+            lastContent = '';
+            continue;
           }
           break;
         }
@@ -3537,6 +3479,15 @@ class AgentEngine {
           && response.toolCalls.every((toolCall) => this.isReadOnlyToolCall(toolCall))
         );
         if (canRunParallelBatch) {
+          const parallelToolNames = response.toolCalls
+            .map((toolCall) => toolCall.function?.name)
+            .filter(Boolean);
+          this.updateRunProgress(runId, {
+            currentPhase: 'tool',
+            currentStep: `parallel:${iteration}`,
+            currentTool: parallelToolNames.join(', ') || 'parallel tools',
+            currentStepStartedAt: isoNow(),
+          });
           const batch = await this.executeReadOnlyBatch(response.toolCalls, {
             userId,
             runId,
@@ -3588,6 +3539,14 @@ class AgentEngine {
             deliverableArtifacts,
             compactionMetrics: compactionMetrics.slice(-20),
           });
+          this.updateRunProgress(runId, {
+            currentPhase: 'idle',
+            currentStep: null,
+            currentTool: null,
+            currentStepStartedAt: null,
+          }, {
+            verified: true,
+          });
           continue;
         }
 
@@ -3610,23 +3569,51 @@ class AgentEngine {
           if (toolName === 'task_complete') {
             const finalMessage = String(toolArgs.message || '').trim();
             const confidence = normalizeCompletionConfidence(toolArgs.confidence || 'medium');
-            const completionDecision = shouldAcceptTaskComplete({
-              confidence,
-              requiredConfidence: analysis?.completion_confidence_required || 'medium',
-              iteration,
-              maxIterations,
-            });
+            const messagingSent = this.getRunMeta(runId)?.messagingSent === true;
+            const completionResult = await runWithModelFallback(
+              'task completion decision',
+              () => this.evaluateTaskCompleteSignal({
+                provider,
+                providerName,
+                model,
+                messages,
+                tools,
+                analysis,
+                plan,
+                toolExecutions,
+                finalMessage,
+                confidence,
+                triggerSource,
+                messagingSent,
+                iteration,
+                maxIterations,
+                options: { ...options, runId, userId, agentId },
+              }),
+            );
+            totalTokens += completionResult.usage || 0;
+            const completionDecision = completionResult.decision || {
+              status: 'continue',
+              reason: 'The completion signal could not be verified.',
+            };
+            const accepted = completionDecision.status !== 'continue';
             this.recordRunEvent(userId, runId, 'task_complete_signaled', {
               confidence,
-              requiredConfidence: analysis?.completion_confidence_required || 'medium',
-              accepted: completionDecision.accept,
+              requiredConfidence: completionResult.requiredConfidence,
+              accepted,
+              judgeStatus: completionDecision.status,
+              judgeReason: completionDecision.reason || '',
               iteration,
               messageLength: finalMessage.length,
             }, { agentId });
             console.info(
-              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${confidence} accepted=${completionDecision.accept}`
+              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${confidence} judge=${completionDecision.status} accepted=${accepted}`
             );
-            if (!completionDecision.accept) {
+            if (!accepted) {
+              if (iteration >= maxIterations) {
+                throw new Error(
+                  `Completion judge rejected task_complete at the iteration limit after ${maxIterations} iterations.`,
+                );
+              }
               messages.push({
                 role: 'tool',
                 name: toolName,
@@ -3634,13 +3621,14 @@ class AgentEngine {
                 content: JSON.stringify({
                   status: 'continue',
                   reason: completionDecision.reason,
-                  required_confidence: analysis?.completion_confidence_required || 'medium',
+                  required_confidence: completionResult.requiredConfidence,
                 }),
               });
               messages.push({
                 role: 'system',
                 content: `${completionDecision.reason} Do not ask the user to decide the next step unless external input is truly required.`
               });
+              lastContent = '';
               continue;
             }
             if (completionDecision.reason) {
@@ -3712,7 +3700,6 @@ class AgentEngine {
             currentTool: toolName,
             currentStepStartedAt: isoNow(),
           }, {
-            verified: true,
             stepId,
           });
 
@@ -4139,20 +4126,6 @@ class AgentEngine {
           refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
             console.error('[AI] Conversation summary refresh failed:', err.message);
           });
-          await this.refreshConversationState({
-            conversationId,
-            runId,
-            provider,
-            providerName,
-            model,
-            finalReply: finalResponseText,
-            analysis,
-            verification,
-            historyWindow,
-            options: { ...options, userId, agentId },
-          }).catch((err) => {
-            console.error('[AI] Conversation working state refresh failed:', err.message);
-          });
         }
       }
 
@@ -4184,6 +4157,23 @@ class AgentEngine {
             content: lastContent || '',
           });
         }
+      }
+
+      if (conversationId && options.skipConversationMaintenance !== true) {
+        await this.refreshConversationState({
+          conversationId,
+          runId,
+          provider,
+          providerName,
+          model,
+          finalReply: finalResponseText,
+          analysis,
+          verification,
+          historyWindow,
+          options: { ...options, userId, agentId },
+        }).catch((err) => {
+          console.error('[AI] Conversation working state refresh failed:', err.message);
+        });
       }
 
       console.info(
@@ -4272,6 +4262,8 @@ class AgentEngine {
         triggerSource === 'messaging'
         && options.source
         && options.chatId
+        && runMeta?.finalDeliverySent !== true
+        && runMeta?.messagingSent !== true
         && err?.disableAutonomousRetry !== true
         && !isRateLimitError
         && retryCount < this.getMessagingRetryLimit(maxIterations)
@@ -4342,7 +4334,7 @@ class AgentEngine {
       let messagingFailureContent = '';
       let sendSucceeded = false;
       if (triggerSource === 'messaging' && options.source && options.chatId) {
-        if (!runMeta?.messagingSent) {
+        if (!runMeta?.finalDeliverySent && !runMeta?.messagingSent) {
           const manager = this.messagingManager;
           if (manager) {
             const failureScenario = buildMessagingFailureScenario({
@@ -4359,10 +4351,14 @@ class AgentEngine {
                   content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.\n\n${buildPlatformFormattingGuide(options?.source || null)}`
                 }
               ]);
-              const modelReply = await provider.chat(failedMessage, [], {
-                model,
-                reasoningEffort: this.getReasoningEffort(providerName, options)
-              });
+              const modelReply = await withModelCallTimeout(
+                provider.chat(failedMessage, [], {
+                  model,
+                  reasoningEffort: this.getReasoningEffort(providerName, options)
+                }),
+                options,
+                'Messaging failure reply',
+              );
               const drafted = sanitizeModelOutput(modelReply.content || '', { model });
               if (normalizeOutgoingMessage(drafted, options?.source || null)) {
                 messagingFailureContent = drafted.trim();
@@ -4381,7 +4377,14 @@ class AgentEngine {
             }
 
             try {
-              await manager.sendMessage(userId, options.source, options.chatId, messagingFailureContent, { runId, agentId });
+              const deliveryResult = await manager.sendMessage(
+                userId,
+                options.source,
+                options.chatId,
+                messagingFailureContent,
+                { runId, agentId },
+              );
+              requireSuccessfulMessagingDelivery(deliveryResult, 'Messaging failure delivery');
               sendSucceeded = true;
               if (runMeta) {
                 runMeta.lastSentMessage = messagingFailureContent;
