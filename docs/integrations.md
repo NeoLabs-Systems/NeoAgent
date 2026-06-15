@@ -36,15 +36,19 @@ or delete data.
 
 ### Setup
 
-Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth
-application credentials on the server. The default callback is:
 
-```text
-PUBLIC_URL/api/integrations/oauth/callback
-```
+Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth application credentials on the server. The default callback is:
+`PUBLIC_URL/api/integrations/oauth/callback`
 
-Home Assistant and Trello can be configured for a user from the application.
-See [Configuration](configuration.md#official-integrations).
+**GitHub OAuth Configuration:**
+1. Navigate to your GitHub Developer Settings and create a new **OAuth App**.
+2. Set the Authorization callback URL to: `PUBLIC_URL/api/integrations/oauth/callback`.
+3. Generate a **Client ID** and **Client Secret**.
+4. Add these to your server environment configuration:
+   - `GITHUB_CLIENT_ID=your_id_here`
+   - `GITHUB_CLIENT_SECRET=your_secret_here`
+
+Home Assistant and Trello can be configured for a user from the application. See Configuration.
 
 ## Messaging channels
 
