@@ -20,6 +20,7 @@ const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 40;
 const DEFAULT_COMPACTION_THRESHOLD = 0.82;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
+const DEFAULT_MAX_STAGNANT_ITERATIONS = 15;
 
 // Hard ceilings — protect against runaway config values
 const MAX_ALLOWED_ITERATIONS = 200;
@@ -115,6 +116,7 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     maxIterations,
     maxConsecutiveToolFailures,
     maxModelFailureRecoveries,
+    maxStagnantIterations: DEFAULT_MAX_STAGNANT_ITERATIONS,
 
     // Fill ratio at which context compaction triggers (0–1)
     compactionThreshold,

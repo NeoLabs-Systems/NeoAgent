@@ -168,6 +168,16 @@ function buildErrorPatternGuidance(key, count) {
   return `REPEATED ERROR (${count}×): ${guide}`;
 }
 
+// Tools that definitely produce real output and reset the stagnation counter.
+// Everything NOT matched is treated as read/observe — conservative in the right
+// direction (under-counting stagnation is safer than over-counting it).
+const DEFINITELY_MUTATING_PATTERN = /^(write_file|create_file|append_file|patch_file|delete_file|move_file|copy_file|send_message|send_interim_update|make_call|memory_save|memory_update|memory_delete|create_task|update_task|delete_task|task_complete|save_widget_snapshot|github_create_|github_update_|github_merge_|github_close_|github_delete_|github_push_|github_create_branch|github_delete_branch|github_create_commit|subagent_create|subagent_cancel|create_|write_|update_|delete_|send_|push_|commit_|publish_|deploy_)/;
+
+function isDefinitelyMutating(toolName) {
+  if (!toolName) return false;
+  return DEFINITELY_MUTATING_PATTERN.test(toolName);
+}
+
 function resolveModelCallTimeoutMs(options = {}) {
   const requested = Number(options?.modelCallTimeoutMs);
   if (Number.isFinite(requested) && requested > 0) {
@@ -3029,10 +3039,12 @@ class AgentEngine {
       // full run so the failure guard fires correctly after 5 consecutive failures
       // regardless of which iteration they fall in.
       let consecutiveToolFailures = 0;
+      let stagnantIterations = 0;
 
       while (!directAnswerEligible && iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
+        let iterationHadMutatingTool = false;
 
         const systemSteeringAtLoopStart = this.applyQueuedSystemSteering(runId, messages);
         messages = systemSteeringAtLoopStart.messages;
@@ -3328,6 +3340,8 @@ class AgentEngine {
           }, {
             verified: true,
           });
+          // Parallel batch is always read-only — always counts as stagnant.
+          stagnantIterations++;
           continue;
         }
 
@@ -3646,6 +3660,10 @@ class AgentEngine {
             }
           }
 
+          if (!toolErrorMessage && isDefinitelyMutating(toolName)) {
+            iterationHadMutatingTool = true;
+          }
+
           if (toolName === 'save_widget_snapshot' && !toolErrorMessage) {
             lastContent = 'Widget snapshot updated.';
             break;
@@ -3653,6 +3671,35 @@ class AgentEngine {
 
           if (runMeta?.terminalInterim) {
             break;
+          }
+        }
+
+        // ── Stagnation detection ──────────────────────────────────────────────
+        if (iterationHadMutatingTool) {
+          stagnantIterations = 0;
+        } else {
+          stagnantIterations++;
+          if (stagnantIterations >= loopPolicy.maxStagnantIterations) {
+            stagnantIterations = 0;
+            console.warn(
+              `[Run ${shortenRunId(runId)}] stagnation at iteration=${iteration} — steering + compaction`
+            );
+            this.enqueueSystemSteering(
+              runId,
+              `You have spent ${loopPolicy.maxStagnantIterations} consecutive turns making only read/observe calls without writing, creating, or sending anything. Stop gathering information and take direct action now.`,
+              { reason: 'stagnation' },
+            );
+            const stagnantMetrics = this.estimatePromptMetrics(messages, tools);
+            const stagnantCtxWindow = provider.getContextWindow(model);
+            if (stagnantMetrics.totalEstimatedTokens > stagnantCtxWindow * 0.5) {
+              messages = await withModelCallTimeout(
+                compact(messages, provider, model, stagnantCtxWindow),
+                options,
+                `Context compaction on stagnation at iteration ${iteration}`,
+              );
+              messages = sanitizeConversationMessages(messages);
+              this.emit(userId, 'run:compaction', { runId, iteration });
+            }
           }
         }
 
