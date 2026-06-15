@@ -3785,7 +3785,7 @@ class AgentEngine {
             throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
           }
         }
-        if (stepIndex > 0 && !lastToolWasMessaging) {
+        if (stepIndex > 0 && !lastToolWasMessaging && iteration < maxIterations) {
           throw new Error('Run ended without an explicit completion or blocker reply.');
         }
       }
