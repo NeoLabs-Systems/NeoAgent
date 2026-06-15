@@ -515,6 +515,13 @@ class MessagingManager extends EventEmitter {
     }
 
     const result = await platform.sendMessage(to, normalizedContent, sendOptions);
+    if (result?.success === false) {
+      const reason = result.error || result.reason || 'platform rejected the message';
+      const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
+      error.code = 'MESSAGING_DELIVERY_FAILED';
+      error.deliveryResult = result;
+      throw error;
+    }
 
     db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath, metadata ? JSON.stringify(metadata) : null);

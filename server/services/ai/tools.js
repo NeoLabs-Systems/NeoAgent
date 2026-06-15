@@ -9,6 +9,7 @@ const {
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
+const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const {
     executeIntegratedTool,
     getIntegratedToolDefinitions,
@@ -318,6 +319,31 @@ function normalizeMessagingTarget(target = {}) {
     const to = normalizeStoredSettingString(target.to);
     if (!platform || !to) return null;
     return { platform, to };
+}
+
+function canonicalMessagingAddress(platform, value) {
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    const raw = String(value || '').trim();
+    if (!normalizedPlatform || !raw) return '';
+    if (normalizedPlatform !== 'whatsapp') return raw;
+
+    const lower = raw.toLowerCase();
+    const normalizedId = normalizeWhatsAppId(lower);
+    if (!normalizedId) return '';
+    if (lower.includes('@g.us')) return `group:${normalizedId}`;
+    if (lower.includes('@lid')) return `lid:${normalizedId}`;
+    return `direct:${normalizedId}`;
+}
+
+function isOriginMessagingDelivery({ triggerSource, source, chatId, platform, to }) {
+    if (triggerSource !== 'messaging') return true;
+    const originPlatform = String(source || '').trim().toLowerCase();
+    const targetPlatform = String(platform || '').trim().toLowerCase();
+    if (!originPlatform || !targetPlatform || originPlatform !== targetPlatform) return false;
+
+    const originAddress = canonicalMessagingAddress(originPlatform, chatId);
+    const targetAddress = canonicalMessagingAddress(targetPlatform, to);
+    return Boolean(originAddress && targetAddress && originAddress === targetAddress);
 }
 
 function buildAndroidUiMatchProperties(extra = {}) {
@@ -2244,7 +2270,18 @@ async function executeTool(toolName, args, context, engine) {
                 persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks'
             });
             // Track that the agent explicitly sent a message during this run
-            if (!suppressReply && sendResult?.suppressed !== true) {
+            if (
+                !suppressReply
+                && sendResult?.success === true
+                && sendResult?.suppressed !== true
+                && isOriginMessagingDelivery({
+                    triggerSource,
+                    source: context.source,
+                    chatId: context.chatId,
+                    platform: args.platform,
+                    to: args.to,
+                })
+            ) {
                 markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 if (runState && triggerSource === 'messaging') {
                     runState.explicitMessageSent = true;

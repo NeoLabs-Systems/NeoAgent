@@ -241,6 +241,92 @@ describe('scheduled task result delivery', () => {
     assert.equal(deliveryState.noResponse, true);
   });
 
+  test('failed explicit send_message does not mark terminal delivery', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const runState = {
+      messagingSent: false,
+      explicitMessageSent: false,
+      finalDeliverySent: false,
+      sentMessages: [],
+    };
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage() {
+          return { success: false, error: 'transport unavailable' };
+        },
+      },
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: 'recipient',
+      content: 'Finished result.',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'whatsapp',
+      chatId: 'recipient@s.whatsapp.net',
+    }, engine);
+
+    assert.equal(result.success, false);
+    assert.equal(runState.messagingSent, false);
+    assert.equal(runState.explicitMessageSent, false);
+    assert.equal(runState.finalDeliverySent, false);
+    assert.deepEqual(runState.sentMessages, []);
+  });
+
+  test('explicit messaging delivery is terminal only for the originating chat', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const runState = {
+      messagingSent: false,
+      explicitMessageSent: false,
+      finalDeliverySent: false,
+      sentMessages: [],
+    };
+    const sent = [];
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage(userId, platform, to, content) {
+          sent.push({ userId, platform, to, content });
+          return { success: true };
+        },
+      },
+    };
+    const context = {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'whatsapp',
+      chatId: '49123456789:7@s.whatsapp.net',
+    };
+
+    await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: '49987654321',
+      content: 'Side-effect notification.',
+    }, context, engine);
+
+    assert.equal(sent.length, 1);
+    assert.equal(runState.messagingSent, false);
+    assert.equal(runState.explicitMessageSent, false);
+    assert.equal(runState.finalDeliverySent, false);
+
+    await executeTool('send_message', {
+      platform: 'WHATSAPP',
+      to: '49123456789',
+      content: 'Finished result.',
+    }, context, engine);
+
+    assert.equal(sent.length, 2);
+    assert.equal(runState.messagingSent, true);
+    assert.equal(runState.explicitMessageSent, true);
+    assert.equal(runState.finalDeliverySent, true);
+    assert.deepEqual(runState.sentMessages, ['Finished result.']);
+  });
+
   test('task runtime start is idempotent and reports truthful state', async () => {
     const cronHarness = createCronHarness();
     runtime = new TaskRuntime(

@@ -166,3 +166,62 @@ test('requestModelResponse does not retry once stream content has been emitted',
   );
   assert.equal(calls, 1);
 });
+
+test('requestModelResponse times out a model call that never settles', async () => {
+  const engine = new AgentEngine(null);
+
+  await assert.rejects(
+    engine.requestModelResponse({
+      provider: {
+        async chat() {
+          return new Promise(() => {});
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Run the task.' }],
+      tools: [],
+      options: {
+        stream: false,
+        userId: 1,
+        modelCallTimeoutMs: 20,
+        retry: { maxAttempts: 1 },
+      },
+      runId: 'timeout-run',
+      iteration: 1,
+    }),
+    (error) => error.code === 'MODEL_CALL_TIMEOUT',
+  );
+});
+
+test('requestModelResponse times out a stalled stream without replaying partial output', async () => {
+  const engine = new AgentEngine(null);
+  let calls = 0;
+
+  await assert.rejects(
+    engine.requestModelResponse({
+      provider: {
+        async *stream() {
+          calls += 1;
+          yield { type: 'content', content: 'partial' };
+          await new Promise(() => {});
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Run the task.' }],
+      tools: [],
+      options: {
+        stream: true,
+        userId: 1,
+        modelCallTimeoutMs: 20,
+        retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 0 },
+      },
+      runId: 'stream-timeout-run',
+      iteration: 1,
+    }),
+    (error) => error.code === 'MODEL_CALL_TIMEOUT',
+  );
+
+  assert.equal(calls, 1);
+});
