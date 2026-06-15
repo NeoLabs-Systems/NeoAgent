@@ -354,44 +354,22 @@ describe('messaging progress supervisor', () => {
     );
   });
 
-  test('task_complete judge rejects a high-confidence progress-only candidate', async () => {
+  test('task_complete is accepted immediately without a judge call', async () => {
+    // decideLoopState / evaluateTaskCompleteSignal are deleted.
+    // task_complete now exits the loop directly — no separate LLM judge.
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine);
 
-    engine.requestStructuredJson = async () => ({
-      value: {
-        status: 'continue',
-        reason: 'The draft is only a status update and more investigation is still possible.',
-      },
-      usage: 17,
-    });
-
-    const result = await engine.evaluateTaskCompleteSignal({
-      provider: {},
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: { goal: 'Fix the requested issue.' },
-      plan: { success_criteria: ['Confirm the bug', 'Implement the fix'] },
-      tools: [],
-      toolExecutions: [{ toolName: 'execute_command', error: 'owner_repo must be in format "owner/repo"' }],
-      finalMessage: 'The branch has no changes yet. Let me investigate properly.',
-      confidence: 'high',
-      triggerSource: 'messaging',
-      messagingSent: false,
-      iteration: 3,
-      maxIterations: 8,
-      options: {
-        source: 'whatsapp',
-        runId,
-        userId: user.userId,
-        agentId: null,
-      },
-    });
-
-    assert.equal(result.decision.status, 'continue');
-    assert.equal(result.usage, 17);
+    assert.equal(
+      typeof engine.evaluateTaskCompleteSignal,
+      'undefined',
+      'evaluateTaskCompleteSignal must not exist on the engine',
+    );
+    assert.equal(
+      typeof engine.decideLoopState,
+      'undefined',
+      'decideLoopState must not exist on the engine',
+    );
   });
 
   test('run goal contract merges and persists durable success criteria', () => {
@@ -453,141 +431,90 @@ describe('messaging progress supervisor', () => {
     ]);
   });
 
-  test('shared completion judge includes the persisted run goal contract', async () => {
+  test('idle supervisor nudge demands send_interim_update with elapsed time', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine);
-    engine.updateRunGoalContract(runId, {
-      goal: 'Fix the WhatsApp reliability issue.',
-      successCriteria: [
-        'The final answer must be sent back to the original messaging chat.',
-        'A progress update must never count as completion.',
-      ],
-      completionConfidenceRequired: 'high',
-      progressUpdatePolicy: 'required',
-    });
-
-    let capturedPrompt = '';
-    engine.requestStructuredJson = async ({ prompt }) => {
-      capturedPrompt = prompt;
-      return {
-        value: {
-          status: 'continue',
-          reason: 'More work remains.',
-        },
-        usage: 0,
-      };
-    };
-
-    await engine.decideLoopState({
-      provider: {},
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: {},
-      plan: {},
-      tools: [],
-      toolExecutions: [],
-      lastReply: 'Still checking this.',
-      triggerSource: 'messaging',
-      messagingSent: false,
-      iteration: 2,
-      maxIterations: 8,
-      options: {
-        source: 'whatsapp',
-        runId,
-        userId: user.userId,
-        agentId: null,
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: Date.now(),
+      startedAtIso: new Date(Date.now()).toISOString(),
+      progressLedger: {
+        currentPhase: 'idle',
+        currentStep: null,
+        currentTool: null,
+        currentStepStartedAt: null,
       },
     });
 
-    assert.match(capturedPrompt, /Persistent run goal: Fix the WhatsApp reliability issue\./);
-    assert.match(capturedPrompt, /A progress update must never count as completion\./);
-    assert.match(capturedPrompt, /completion_confidence_required=high/);
+    t.mock.timers.setTime(61_000);
+    const result = await engine.tickMessagingProgressSupervisor(runId);
+
+    // Idle phase → enqueues steering, does not send a runtime message
+    assert.equal(result.queued, true);
+    assert.equal(messagingManager.sent.length, 0);
+
+    // Nudge must demand an update, not just suggest one
+    const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
+    const nudgeText = systemQueue.map((s) => s.content ?? s).join(' ');
+    assert.match(nudgeText, /RIGHT NOW/);
+    assert.match(nudgeText, /send_interim_update/);
   });
 
-  test('task_complete judge accepts a finished candidate', async () => {
+  test('runtime heartbeat injects ai-followup steering demanding send_interim_update', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine);
-
-    engine.requestStructuredJson = async () => ({
-      value: {
-        status: 'complete',
-        reason: 'The finished answer is now ready.',
-      },
-      usage: 9,
-    });
-
-    const result = await engine.evaluateTaskCompleteSignal({
-      provider: {},
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: { goal: 'Fix the requested issue.' },
-      plan: {},
-      tools: [],
-      toolExecutions: [],
-      finalMessage: 'Here is the finished answer.',
-      confidence: 'high',
-      triggerSource: 'messaging',
-      messagingSent: false,
-      iteration: 2,
-      maxIterations: 8,
-      options: {
-        source: 'whatsapp',
-        runId,
-        userId: user.userId,
-        agentId: null,
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: Date.now(),
+      startedAtIso: new Date(Date.now()).toISOString(),
+      progressLedger: {
+        currentPhase: 'tool',
+        currentStep: 'step-1',
+        currentTool: 'execute_command',
+        currentStepStartedAt: new Date(Date.now()).toISOString(),
       },
     });
 
-    assert.equal(result.decision.status, 'complete');
-    assert.equal(result.usage, 9);
+    t.mock.timers.setTime(61_000);
+    const result = await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(result.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+
+    // After the runtime heartbeat, steering must instruct the AI to follow up in its own words
+    const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
+    const steeringText = systemQueue.map((s) => s.content ?? s).join(' ');
+    assert.match(steeringText, /send_interim_update/);
+    assert.match(steeringText, /your own words/);
   });
 
-  test('task_complete still uses the judge at the iteration limit', async () => {
+  test('heartbeat text includes run title prefix when title is set', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine);
-    let judgeCalls = 0;
-
-    engine.requestStructuredJson = async () => {
-      judgeCalls += 1;
-      return {
-        value: {
-          status: 'continue',
-          reason: 'More work is still possible in this run.',
-        },
-        usage: 4,
-      };
-    };
-
-    const result = await engine.evaluateTaskCompleteSignal({
-      provider: {},
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: { goal: 'Fix the requested issue.' },
-      plan: {},
-      tools: [],
-      toolExecutions: [],
-      finalMessage: 'Let me investigate that properly first.',
-      confidence: 'high',
-      triggerSource: 'messaging',
-      messagingSent: false,
-      iteration: 8,
-      maxIterations: 8,
-      options: {
-        source: 'whatsapp',
-        runId,
-        userId: user.userId,
-        agentId: null,
+    const { runId } = seedMessagingRun(engine, {
+      title: 'Fix GitHub Issue #91',
+      startedAt: Date.now(),
+      startedAtIso: new Date(Date.now()).toISOString(),
+      progressLedger: {
+        currentPhase: 'tool',
+        currentStep: 'step-1',
+        currentTool: 'execute_command',
+        currentStepStartedAt: new Date(Date.now()).toISOString(),
       },
     });
 
-    assert.equal(judgeCalls, 1);
-    assert.equal(result.decision.status, 'continue');
+    t.mock.timers.setTime(61_000);
+    await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(messagingManager.sent[0].content, /\[Fix GitHub Issue #91\]/);
   });
 
   test('terminal interim question suppresses final fallback', () => {

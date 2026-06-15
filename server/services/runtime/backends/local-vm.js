@@ -250,8 +250,8 @@ class VmBrowserProvider {
   async typeText(text, options = {}) { return this.#materialize(await this.client.request('POST', '/browser/type-text', { text, ...options })); }
   async pressKey(key, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/press-key', { key, screenshot })); }
   async scroll(deltaX, deltaY, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/scroll', { deltaX, deltaY, screenshot })); }
-  extract(selector, attribute, all = false) { return this.client.request('POST', '/browser/extract', { selector, attribute, all }); }
-  evaluate(script) { return this.client.request('POST', '/browser/execute', { code: script }); }
+  async extract(selector, attribute, all = false) { return this.client.request('POST', '/browser/extract', { selector, attribute, all }); }
+  async evaluate(script) { return this.client.request('POST', '/browser/execute', { code: script }); }
   async screenshot(options = {}) { return this.#materialize(await this.client.request('POST', '/browser/screenshot', options)); }
   async screenshotJpeg(quality = 80, options = {}) {
     const result = await this.client.request('POST', '/browser/screenshot-jpeg', { ...options, quality });
@@ -259,11 +259,11 @@ class VmBrowserProvider {
     if (!content) throw new Error('VM browser screenshot-jpeg returned no data.');
     return Buffer.from(content, 'base64');
   }
-  launch(options = {}) { return this.client.request('POST', '/browser/launch', options); }
-  closeBrowser() { return this.client.request('POST', '/browser/close'); }
-  fill(selector, value) { return this.type(selector, value); }
-  extractContent(options = {}) { return this.client.request('POST', '/browser/extract', options); }
-  executeJS(code) { return this.evaluate(code); }
+  async launch(options = {}) { return this.client.request('POST', '/browser/launch', options); }
+  async closeBrowser() { return this.client.request('POST', '/browser/close'); }
+  async fill(selector, value) { return this.type(selector, value); }
+  async extractContent(options = {}) { return this.client.request('POST', '/browser/extract', options); }
+  async executeJS(code) { return this.evaluate(code); }
   async getPageInfo() {
     const status = await this.client.request('GET', '/browser/status');
     this.headless = status?.headless !== false;
