@@ -144,6 +144,7 @@ function normalizeErrorKey(errorMsg) {
   if (/enoent|no such file/i.test(msg)) return 'enoent';
   if (/can.?t cd to|no such directory/i.test(msg)) return 'bad_cwd';
   if (/not found/i.test(msg)) return 'not_found';
+  if (/owner_repo.*format|must be.*owner.*repo|owner.*repo.*string|owner.*repo.*combined/i.test(msg)) return 'owner_repo_format';
   return msg.slice(0, 60);
 }
 
@@ -155,10 +156,20 @@ function trackErrorPattern(errorMsg, runMeta) {
 }
 
 function buildErrorPatternGuidance(key, count) {
+  // Immediate guidance on first occurrence for high-signal patterns that waste
+  // multiple iterations before self-correcting.
+  const immediateGuides = {
+    eisdir: 'That path is a directory (or a VM-only path like /tmp that read_file cannot reach). Use execute_command with `cat <path>` to read files inside VMs, or list_directory to inspect a directory.',
+    owner_repo_format: 'The parameter "owner_repo" expects a single combined string like "NeoLabs-Systems/NeoAgent" — not separate owner/repo fields. Pass the full "owner/repo" as one value.',
+  };
+  if (immediateGuides[key]) {
+    const prefix = count > 1 ? `REPEATED ERROR (${count}×): ` : 'ERROR GUIDANCE: ';
+    return `${prefix}${immediateGuides[key]}`;
+  }
+
   if (count < 3) return null;
   const guides = {
     outside_workspace: 'read_file cannot access /tmp paths. Use execute_command with `cat <path>` instead.',
-    eisdir: 'That path is a directory, not a file. Use list_directory or execute_command with `ls` to inspect it.',
     enoent: 'That path does not exist. Use execute_command with `find . -name "..."` to locate the correct path first.',
     bad_cwd: 'The VM home directory is not ~/. Use absolute paths starting from /tmp or discover the workspace root first.',
     not_found: 'This path or resource was not found. Try listing the parent directory or checking with a broader search first.',
@@ -166,6 +177,19 @@ function buildErrorPatternGuidance(key, count) {
   const guide = guides[key];
   if (!guide) return null;
   return `REPEATED ERROR (${count}×): ${guide}`;
+}
+
+const OUTPUT_FINGERPRINT_TOOLS = /^(list_|search_|read_|get_|find_|github_list|github_get|github_search)/;
+
+function fingerprintOutput(toolName, result) {
+  if (!toolName || !OUTPUT_FINGERPRINT_TOOLS.test(toolName)) return null;
+  const raw = typeof result === 'string' ? result : JSON.stringify(result ?? '');
+  if (raw.length < 200) return null;
+  // djb2 hash over first 3000 chars — fast, collision-unlikely for our sizes
+  let h = 5381;
+  const limit = Math.min(raw.length, 3000);
+  for (let i = 0; i < limit; i++) h = ((h << 5) + h) ^ raw.charCodeAt(i);
+  return h >>> 0;
 }
 
 function resolveModelCallTimeoutMs(options = {}) {
@@ -2623,6 +2647,7 @@ class AgentEngine {
       systemSteeringQueue: [],
       toolPids: new Set(),
       repetitionGuard: new ToolRepetitionGuard(),
+      seenOutputHashes: new Map(),
       messagingContext: triggerSource === 'messaging'
         ? {
           platform: options.source || null,
@@ -3010,6 +3035,13 @@ class AgentEngine {
         }, { agentId });
       }
       messages = sanitizeConversationMessages(messages);
+
+      if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
+        messages.push({
+          role: 'system',
+          content: 'Research budget: after 3 read/list/search tool calls, you must take a concrete action (write, create, send, update) or explain clearly why you cannot. Work on one item at a time — do not queue up more reads.',
+        });
+      }
 
       directAnswerEligible = isDirectAnswerEligibleAnalysis(analysis)
         && Boolean(normalizeOutgoingMessage(analysis.draft_reply));
@@ -3595,6 +3627,22 @@ class AgentEngine {
             }
           } else {
             consecutiveToolFailures = 0;
+            // Output fingerprint guard: steer away from re-fetching data already seen.
+            if (!toolErrorMessage) {
+              const currentRunMeta = this.getRunMeta(runId);
+              const fp = fingerprintOutput(toolName, toolResult);
+              if (fp !== null && currentRunMeta?.seenOutputHashes) {
+                const prior = currentRunMeta.seenOutputHashes.get(fp);
+                if (prior) {
+                  messages.push({
+                    role: 'system',
+                    content: `DUPLICATE DATA: This response is identical to what "${prior.toolName}" returned in iteration ${prior.iteration}. You already have this information. Stop fetching and use what you have — proceed to the next concrete action.`,
+                  });
+                } else {
+                  currentRunMeta.seenOutputHashes.set(fp, { toolName, iteration });
+                }
+              }
+            }
           }
 
           if (toolName === 'send_interim_update') {
