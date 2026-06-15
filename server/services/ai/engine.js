@@ -3749,7 +3749,41 @@ class AgentEngine {
           );
         }
         if (iteration >= maxIterations) {
-          throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
+          // Grace call: budget exhausted but no content yet.
+          // Strip tools and ask the model to summarise what it accomplished.
+          // Mirrors the Hermes handle_max_iterations() pattern.
+          console.warn(`[Run ${shortenRunId(runId)}] iteration_limit runId=${shortenRunId(runId)} — making grace call`);
+          try {
+            const graceMessages = sanitizeConversationMessages([
+              ...messages,
+              {
+                role: 'user',
+                content: 'You have reached the maximum number of tool-calling iterations allowed. Please provide a final response summarising what you found and accomplished so far, without calling any more tools.',
+              },
+            ]);
+            const graceResponse = await withModelCallTimeout(
+              provider.chat(graceMessages, [], {
+                model,
+                reasoningEffort: this.getReasoningEffort(providerName, options),
+              }),
+              options,
+              `Grace call after ${maxIterations} iterations`,
+            );
+            totalTokens += graceResponse.usage?.totalTokens || 0;
+            lastContent = sanitizeModelOutput(graceResponse.content || '', { model });
+            if (lastContent) {
+              messages.push({ role: 'assistant', content: lastContent });
+              if (conversationId) {
+                db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+                  .run(conversationId, 'assistant', lastContent, graceResponse.usage?.totalTokens || 0);
+              }
+            }
+          } catch (graceErr) {
+            console.warn(`[Run ${shortenRunId(runId)}] grace call failed: ${graceErr?.message}`);
+          }
+          if (!normalizeOutgoingMessage(lastContent, options?.source || null)) {
+            throw new Error(`Iteration limit reached before explicit completion after ${maxIterations} iterations.`);
+          }
         }
         if (stepIndex > 0 && !lastToolWasMessaging) {
           throw new Error('Run ended without an explicit completion or blocker reply.');
