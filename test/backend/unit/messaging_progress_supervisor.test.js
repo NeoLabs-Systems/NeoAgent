@@ -610,14 +610,13 @@ describe('messaging progress supervisor', () => {
     assert.equal(listRunEvents(runId).some((event) => event.eventType === 'progress_resumed'), true);
   });
 
-  test('missing artifact stat warning path is non-fatal', async () => {
+  test('missing artifact stat warning path is non-fatal and drops invalid candidates', async () => {
     const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
 
     const artifacts = await extractArtifactsFromResult('execute_command', {
       stdout: '/tmp/neoagent-missing-artifact.txt',
     });
 
-    assert.equal(artifacts.length, 1);
-    assert.equal(artifacts[0].path, '/tmp/neoagent-missing-artifact.txt');
+    assert.equal(artifacts.length, 0);
   });
 });
