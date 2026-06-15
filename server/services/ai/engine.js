@@ -2228,7 +2228,7 @@ class AgentEngine {
     if (!runMeta || runMeta.aborted || runMeta.triggerSource !== 'messaging') {
       return { sent: false, skipped: true };
     }
-    if (runMeta.finalDeliverySent === true || runMeta.terminalInterim) {
+    if (runMeta.terminalInterim) {
       return { sent: false, skipped: true };
     }
 
@@ -2596,6 +2596,7 @@ class AgentEngine {
     this.activeRuns.set(runId, {
       userId,
       agentId,
+      title: runTitle,
       status: 'running',
       aborted: false,
       messagingSent: false,
