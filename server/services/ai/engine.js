@@ -3037,33 +3037,11 @@ class AgentEngine {
       // regardless of which iteration they fall in.
       let consecutiveToolFailures = 0;
       let stagnantIterations = 0;
-      const MILESTONE_PCTS = [0.40, 0.65, 0.85];
-      const firedMilestones = new Set();
 
       while (!directAnswerEligible && iteration < maxIterations) {
         if (this.isRunStopped(runId)) break;
         iteration++;
         let iterationHadMutatingTool = false;
-
-        // ── Iteration milestone steering ─────────────────────────────────────
-        // Warn the agent at 40/65/85 % of its budget so it stops exploring.
-        for (const pct of MILESTONE_PCTS) {
-          const threshold = Math.floor(maxIterations * pct);
-          if (iteration === threshold && !firedMilestones.has(pct)) {
-            firedMilestones.add(pct);
-            const remaining = maxIterations - iteration;
-            const pctLabel = Math.round(pct * 100);
-            let urgency;
-            if (pct >= 0.85) {
-              urgency = `CRITICAL: only ${remaining} turn(s) left. Wrap up immediately — call task_complete or send the final answer now.`;
-            } else if (pct >= 0.65) {
-              urgency = `Stop exploring. Take decisive action now: write code, send the answer, or call task_complete. ${remaining} turns remaining.`;
-            } else {
-              urgency = `${pctLabel}% of your turn budget used (${remaining} turns remaining). Start converging — avoid further research unless absolutely necessary.`;
-            }
-            this.enqueueSystemSteering(runId, urgency, { reason: `milestone_${pctLabel}pct` });
-          }
-        }
 
         const systemSteeringAtLoopStart = this.applyQueuedSystemSteering(runId, messages);
         messages = systemSteeringAtLoopStart.messages;
@@ -3364,10 +3342,8 @@ class AgentEngine {
           if (stagnantIterations >= loopPolicy.maxStagnantIterations) {
             stagnantIterations = 0;
             console.warn(
-              `[Run ${shortenRunId(runId)}] stagnation detected (parallel batch) at iteration=${iteration} — injecting steering`
+              `[Run ${shortenRunId(runId)}] stagnation detected (parallel batch) at iteration=${iteration} — compacting context`
             );
-            const stagnantMsg = `You have spent ${loopPolicy.maxStagnantIterations} consecutive turns making only read/observe calls without creating, writing, or sending anything concrete. Stop gathering information. In your very next turn, take direct action: write code, create a PR, update a file, or call task_complete if you are genuinely blocked. The user is waiting for real results, not more analysis.`;
-            this.enqueueSystemSteering(runId, stagnantMsg, { reason: 'stagnation_detected' });
             const stagnantMetrics = this.estimatePromptMetrics(messages, tools);
             const stagnantContextWindow = provider.getContextWindow(model);
             if (stagnantMetrics.totalEstimatedTokens > stagnantContextWindow * 0.5) {
@@ -3722,11 +3698,8 @@ class AgentEngine {
           if (stagnantIterations >= loopPolicy.maxStagnantIterations) {
             stagnantIterations = 0;
             console.warn(
-              `[Run ${shortenRunId(runId)}] stagnation detected at iteration=${iteration} — injecting steering`
+              `[Run ${shortenRunId(runId)}] stagnation detected at iteration=${iteration} — compacting context`
             );
-            const stagnantMsg = `You have spent ${loopPolicy.maxStagnantIterations} consecutive turns making only read/observe calls without creating, writing, or sending anything concrete. Stop gathering information. In your very next turn, take direct action: write code, create a PR, update a file, or call task_complete if you are genuinely blocked. The user is waiting for real results, not more analysis.`;
-            this.enqueueSystemSteering(runId, stagnantMsg, { reason: 'stagnation_detected' });
-            // Also compact context if it is more than 50 % full, to clear the noise.
             const metrics = this.estimatePromptMetrics(messages, tools);
             const contextWindow = provider.getContextWindow(model);
             if (metrics.totalEstimatedTokens > contextWindow * 0.5) {
