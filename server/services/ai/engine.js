@@ -192,6 +192,18 @@ function fingerprintOutput(toolName, result) {
   return h >>> 0;
 }
 
+// Tools that represent concrete forward progress (write, create, send, update, run).
+// Anything NOT in this set is considered read-only for the analysis-paralysis gate.
+// execute_command counts as progress — it can do anything, including modify state.
+function isProgressTool(toolName) {
+  if (!toolName) return false;
+  // Neutral / bookkeeping — don't count either way
+  if (toolName === 'activate_tools' || toolName === 'save_widget_snapshot') return false;
+  // Explicitly read-only patterns
+  if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(toolName)) return false;
+  return true;
+}
+
 function resolveModelCallTimeoutMs(options = {}) {
   const requested = Number(options?.modelCallTimeoutMs);
   if (Number.isFinite(requested) && requested > 0) {
@@ -2648,6 +2660,7 @@ class AgentEngine {
       toolPids: new Set(),
       repetitionGuard: new ToolRepetitionGuard(),
       seenOutputHashes: new Map(),
+      consecutiveReadOnlyIterations: 0,
       messagingContext: triggerSource === 'messaging'
         ? {
           platform: options.source || null,
@@ -3036,13 +3049,6 @@ class AgentEngine {
       }
       messages = sanitizeConversationMessages(messages);
 
-      if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
-        messages.push({
-          role: 'system',
-          content: 'Research budget: after 3 read/list/search tool calls, you must take a concrete action (write, create, send, update) or explain clearly why you cannot. Work on one item at a time — do not queue up more reads.',
-        });
-      }
-
       directAnswerEligible = isDirectAnswerEligibleAnalysis(analysis)
         && Boolean(normalizeOutgoingMessage(analysis.draft_reply));
 
@@ -3074,6 +3080,21 @@ class AgentEngine {
         });
         messages = steeringAtLoopStart.messages;
         messages = sanitizeConversationMessages(messages);
+
+        // Analysis-paralysis gate: fire at the start of every iteration where
+        // the agent has spent N turns only reading/listing/searching without
+        // taking any concrete action. Escalates in urgency each turn.
+        if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
+          const readOnlyCount = this.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
+          if (readOnlyCount >= 3) {
+            const urgency = readOnlyCount >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
+            messages.push({
+              role: 'system',
+              content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without writing, creating, sending, or running anything. You must take ONE concrete action this turn (create a file, open a PR, run a command that modifies state, send a message) or call task_complete to report what you found and why you cannot proceed. Do not read or list anything further.`,
+            });
+          }
+        }
+
         this.updateRunProgress(runId, {
           currentPhase: 'model',
           currentStep: `model:${iteration}`,
@@ -3640,6 +3661,24 @@ class AgentEngine {
                   });
                 } else {
                   currentRunMeta.seenOutputHashes.set(fp, { toolName, iteration });
+                  // External state: persist large read results to disk so the
+                  // model can reference them after context compaction without
+                  // re-fetching. Only for significant payloads.
+                  const persistRaw = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult ?? '');
+                  if (persistRaw.length >= 1000 && runId) {
+                    const persistPath = `/tmp/run-${runId.slice(0, 8)}-${toolName}.json`;
+                    try {
+                      require('fs').writeFileSync(persistPath, persistRaw.slice(0, 40000));
+                      if (!currentRunMeta.persistedDataPaths) currentRunMeta.persistedDataPaths = [];
+                      if (!currentRunMeta.persistedDataPaths.includes(persistPath)) {
+                        currentRunMeta.persistedDataPaths.push(persistPath);
+                        messages.push({
+                          role: 'system',
+                          content: `Data from "${toolName}" (iteration ${iteration}) persisted to ${persistPath}. If context compacts and you need this data again, use execute_command with \`cat ${persistPath}\` instead of re-fetching.`,
+                        });
+                      }
+                    } catch { /* non-fatal — disk full or permissions */ }
+                  }
                 }
               }
             }
@@ -3701,6 +3740,19 @@ class AgentEngine {
 
           if (runMeta?.terminalInterim) {
             break;
+          }
+        }
+
+        // Update analysis-paralysis counter after each iteration's tool calls.
+        // Resets to 0 when any progress tool was called; otherwise increments.
+        if (!directAnswerEligible && response?.toolCalls?.length > 0
+          && (analysis.mode === 'execute' || analysis.mode === 'plan_execute')) {
+          const iterMeta = this.getRunMeta(runId);
+          if (iterMeta) {
+            const calledProgress = response.toolCalls.some((tc) => isProgressTool(tc.function?.name || ''));
+            iterMeta.consecutiveReadOnlyIterations = calledProgress
+              ? 0
+              : (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
           }
         }
 
