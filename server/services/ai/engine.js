@@ -137,6 +137,37 @@ function formatElapsedDuration(durationMs) {
   return `${minutes}m ${seconds}s`;
 }
 
+function normalizeErrorKey(errorMsg) {
+  const msg = String(errorMsg || '').toLowerCase();
+  if (/outside.*(workspace|per-user)/i.test(msg)) return 'outside_workspace';
+  if (/eisdir|illegal operation on a directory/i.test(msg)) return 'eisdir';
+  if (/enoent|no such file/i.test(msg)) return 'enoent';
+  if (/can.?t cd to|no such directory/i.test(msg)) return 'bad_cwd';
+  if (/not found/i.test(msg)) return 'not_found';
+  return msg.slice(0, 60);
+}
+
+function trackErrorPattern(errorMsg, runMeta) {
+  if (!errorMsg) return;
+  const key = normalizeErrorKey(errorMsg);
+  if (!runMeta.errorPatterns) runMeta.errorPatterns = new Map();
+  runMeta.errorPatterns.set(key, (runMeta.errorPatterns.get(key) || 0) + 1);
+}
+
+function buildErrorPatternGuidance(key, count) {
+  if (count < 3) return null;
+  const guides = {
+    outside_workspace: 'read_file cannot access /tmp paths. Use execute_command with `cat <path>` instead.',
+    eisdir: 'That path is a directory, not a file. Use list_directory or execute_command with `ls` to inspect it.',
+    enoent: 'That path does not exist. Use execute_command with `find . -name "..."` to locate the correct path first.',
+    bad_cwd: 'The VM home directory is not ~/. Use absolute paths starting from /tmp or discover the workspace root first.',
+    not_found: 'This path or resource was not found. Try listing the parent directory or checking with a broader search first.',
+  };
+  const guide = guides[key];
+  if (!guide) return null;
+  return `REPEATED ERROR (${count}×): ${guide}`;
+}
+
 function resolveModelCallTimeoutMs(options = {}) {
   const requested = Number(options?.modelCallTimeoutMs);
   if (Number.isFinite(requested) && requested > 0) {
@@ -1468,117 +1499,6 @@ class AgentEngine {
     };
   }
 
-  async decideLoopState({
-    provider,
-    providerName,
-    model,
-    messages,
-    tools,
-    analysis,
-    plan,
-    toolExecutions,
-    lastReply,
-    triggerSource,
-    messagingSent,
-    iteration,
-    maxIterations,
-    options,
-    fallbackStatus,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildCompletionDecisionPrompt({
-        triggerSource,
-        messagingSent,
-        goalContext,
-        parallelWork: analysis?.parallel_work === true,
-        tools,
-        toolExecutions,
-        lastReply,
-        iteration,
-        maxIterations,
-      }),
-      maxTokens: 320,
-      normalize: (raw) => normalizeCompletionDecision(raw, fallbackStatus),
-      fallback: { status: fallbackStatus },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'loop_decision',
-    });
-
-    return {
-      decision: response.value,
-      usage: response.usage,
-    };
-  }
-
-  async evaluateTaskCompleteSignal({
-    provider,
-    providerName,
-    model,
-    messages,
-    tools,
-    analysis,
-    plan,
-    toolExecutions,
-    finalMessage,
-    confidence,
-    triggerSource,
-    messagingSent,
-    iteration,
-    maxIterations,
-    options,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const requiredConfidence = resolveRunGoalContext(runMeta, analysis, plan)
-      .effectiveCompletionConfidence;
-    const confidenceDecision = shouldAcceptTaskComplete({
-      confidence,
-      requiredConfidence,
-      iteration,
-      maxIterations,
-    });
-    if (!confidenceDecision.accept) {
-      return {
-        decision: {
-          status: 'continue',
-          reason: confidenceDecision.reason,
-        },
-        requiredConfidence,
-        usage: 0,
-      };
-    }
-
-    const loopState = await this.decideLoopState({
-      provider,
-      providerName,
-      model,
-      messages,
-      tools,
-      analysis,
-      plan,
-      toolExecutions,
-      lastReply: finalMessage,
-      triggerSource,
-      messagingSent,
-      iteration,
-      maxIterations,
-      options,
-      fallbackStatus: 'continue',
-    });
-    return {
-      decision: loopState.decision,
-      requiredConfidence,
-      usage: loopState.usage || 0,
-    };
-  }
-
   async verifyFinalResponse({
     provider,
     providerName,
@@ -1730,73 +1650,6 @@ class AgentEngine {
       invalidateSystemPromptCache(options.userId, options.agentId || null);
     }
     return nextState;
-  }
-
-  async recoverBlankMessagingReply({
-    userId,
-    runId,
-    messages,
-    provider,
-    model,
-    providerName,
-    options,
-    stepIndex,
-    failedStepCount,
-    toolExecutions = [],
-    tools = []
-  }) {
-    const attempts = 3;
-    let recoveredContent = '';
-    let totalTokens = 0;
-
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      console.warn(
-        `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} model=${model}`
-      );
-      try {
-        const response = await withModelCallTimeout(
-          provider.chat(
-            sanitizeConversationMessages([
-              ...messages,
-              {
-                role: 'system',
-                content: buildBlankMessagingReplyPrompt(attempt, options?.source || null)
-              }
-            ]),
-            [],
-            {
-              model,
-              reasoningEffort: this.getReasoningEffort(providerName, options)
-            }
-          ),
-          options,
-          `Blank messaging reply recovery ${attempt}`,
-        );
-        totalTokens += response.usage?.totalTokens || 0;
-        recoveredContent = sanitizeModelOutput(response.content || '', { model });
-        if (normalizeOutgoingMessage(recoveredContent)) {
-          console.info(
-            `[Run ${shortenRunId(runId)}] blank_reply_recovery succeeded attempt=${attempt}`
-          );
-          return { content: recoveredContent, tokens: totalTokens, recovered: true };
-        }
-      } catch (recoverErr) {
-        console.warn(
-          `[Run ${shortenRunId(runId)}] blank_reply_recovery attempt=${attempt} failed: ${summarizeForLog(recoverErr?.message || recoverErr, 180)}`
-        );
-      }
-    }
-
-    const error = new Error(
-      buildDeterministicMessagingFallback({
-        failedStepCount,
-        stepIndex,
-        toolExecutions,
-      })
-    );
-    error.code = 'BLANK_MESSAGING_REPLY';
-    error.recoveryTokens = totalTokens;
-    throw error;
   }
 
   getAvailableTools(app, options = {}) {
@@ -2216,14 +2069,16 @@ class AgentEngine {
       runStartedAtMs,
     ));
     const currentTool = String(runMeta?.progressLedger?.currentTool || '').trim();
+    const runTitle = String(runMeta?.title || '').trim().slice(0, 60);
+    const titlePrefix = runTitle ? `[${runTitle}] ` : '';
     if (currentTool) {
       return stalled
-        ? `Still working on ${currentTool}. Run active ${runElapsed}; no verified progress for ${unverifiedElapsed}.`
-        : `Still working on ${currentTool}. Run active ${runElapsed}; current step ${stepElapsed} so far.`;
+        ? `${titlePrefix}Still working on ${currentTool}. Run active ${runElapsed}; no verified progress for ${unverifiedElapsed}.`
+        : `${titlePrefix}Still working on ${currentTool}. Run active ${runElapsed}; current step ${stepElapsed} so far.`;
     }
     return stalled
-      ? `Still working on this. Run active ${runElapsed}; no verified progress for ${unverifiedElapsed}.`
-      : `Still working on this. Run active ${runElapsed}.`;
+      ? `${titlePrefix}Still working on this. Run active ${runElapsed}; no verified progress for ${unverifiedElapsed}.`
+      : `${titlePrefix}Still working on this. Run active ${runElapsed}.`;
   }
 
   async sendRuntimeMessagingHeartbeat(runId, options = {}) {
@@ -2281,8 +2136,8 @@ class AgentEngine {
     }, { agentId: runMeta.agentId });
     this.enqueueSystemSteering(
       runId,
-      'A runtime-generated progress update was already sent while the run was blocked. Do not repeat that same status. When control returns, either keep working silently, send a materially new update, or finish with the actual result.',
-      { reason: 'runtime_heartbeat' },
+      'A runtime progress update was just sent on your behalf because you were blocked in a tool. On your NEXT free turn: use send_interim_update to write 1-2 sentences in your own words describing what you are doing and why. Keep it short and concrete. Then continue toward the final answer.',
+      { reason: 'heartbeat_ai_followup' },
     );
     return { sent: true, content };
   }
@@ -2424,9 +2279,10 @@ class AgentEngine {
       return { sent: false, skipped: true };
     }
 
+    const elapsed = formatElapsedDuration(now - startedAtMs);
     const nudge = stalled
-      ? 'The messaging user has only seen progress updates so far, and the run now appears stalled. Decide explicitly whether to continue, send one concise blocker update, or finish with the final answer. Do not leave the run with only an interim status.'
-      : 'The messaging user has not received a final answer yet. Decide explicitly whether to keep working, send one concise progress update, or finish with the final answer. Do not stop with only an interim status.';
+      ? `You have been running for ${elapsed} and appear stalled. Use send_interim_update RIGHT NOW to write 1-2 sentences explaining the blocker in your own words, then either resolve it or call task_complete with what you have. Do not leave the user without an answer.`
+      : `You have been running for ${elapsed} without sending an update to the user. Use send_interim_update RIGHT NOW to write 1-2 sentences explaining what you are currently doing. Keep it short and concrete. Then continue working toward the final answer.`;
     const queued = this.enqueueSystemSteering(runId, nudge, {
       reason: stalled ? 'stalled_progress_check' : 'progress_check',
     });
@@ -3165,37 +3021,6 @@ class AgentEngine {
           db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
             .run(conversationId, 'assistant', lastContent, analysisUsage);
         }
-        const directAnswerDecision = await runWithModelFallback(
-          'direct answer completion decision',
-          () => this.decideLoopState({
-            provider,
-            providerName,
-            model,
-            messages,
-            tools,
-            analysis,
-            plan,
-            toolExecutions,
-            lastReply: lastContent,
-            triggerSource,
-            messagingSent: false,
-            iteration,
-            maxIterations,
-            options: { ...options, runId, userId, agentId },
-            fallbackStatus: 'continue',
-          }),
-        );
-        totalTokens += directAnswerDecision.usage || 0;
-        if (directAnswerDecision.decision.status === 'continue') {
-          messages.push({
-            role: 'system',
-            content: directAnswerDecision.decision.reason
-              ? `Continue working: ${directAnswerDecision.decision.reason}.`
-              : 'The initial draft is not a finished answer. Continue working autonomously.',
-          });
-          lastContent = '';
-          directAnswerEligible = false;
-        }
       }
 
       // BUG FIX: consecutiveToolFailures was previously declared INSIDE the
@@ -3395,6 +3220,9 @@ class AgentEngine {
             currentTool: null,
             currentStepStartedAt: null,
           });
+          // Check for queued steering first — if something was injected while the
+          // model was responding (e.g. a heartbeat nudge), give the model a chance
+          // to act on it before we treat this as a final answer.
           const systemSteeringAfterResponse = this.applyQueuedSystemSteering(runId, messages);
           messages = systemSteeringAfterResponse.messages;
           if (systemSteeringAfterResponse.appliedCount > 0) {
@@ -3412,65 +3240,17 @@ class AgentEngine {
             lastContent = '';
             continue;
           }
-          const messagingSent = this.activeRuns.get(runId)?.messagingSent || false;
           if (this.shouldFastCompleteVoiceReply({
             options,
             toolExecutions,
             failedStepCount,
-            messagingSent,
+            messagingSent: this.activeRuns.get(runId)?.messagingSent || false,
             lastReply: lastContent,
           })) {
             break;
           }
-          const proactiveRunNeedsDecision = (
-            (triggerSource === 'schedule' || triggerSource === 'tasks')
-            && this.activeRuns.get(runId)?.noResponse !== true
-            && options.deliveryState?.noResponse !== true
-          );
-          const visibleInterimActivity = hasVisibleInterimActivity(this.activeRuns.get(runId));
-          const fallbackStatus = (
-            proactiveRunNeedsDecision
-            || toolExecutions.length > 0
-            || failedStepCount > 0
-            || messagingSent
-            || visibleInterimActivity
-          ) ? 'continue' : 'complete';
-          const loopState = await runWithModelFallback('loop decision', () => this.decideLoopState({
-            provider,
-            providerName,
-            model,
-            messages,
-            tools,
-            analysis,
-            plan,
-            toolExecutions,
-            lastReply: lastContent,
-            triggerSource,
-            messagingSent,
-            iteration,
-            maxIterations,
-            options: { ...options, runId, userId, agentId },
-            fallbackStatus,
-          }));
-          totalTokens += loopState.usage || 0;
-          if (loopState.decision.status === 'continue') {
-            if (iteration >= maxIterations) {
-              throw new Error(
-                `Completion judge found unfinished work at the iteration limit after ${maxIterations} iterations.`,
-              );
-            }
-            messages.push({
-              role: 'system',
-              content: [
-                loopState.decision.reason ? `Continue working: ${loopState.decision.reason}.` : 'Continue working autonomously.',
-                messagingSent
-                  ? 'You already sent a user-facing message in this run. Keep working silently unless you have a materially new finished result or a real external blocker.'
-                  : 'Use send_interim_update sparingly if a short real update or question would help. Otherwise keep working until you have the result or a real blocker.',
-              ].join(' ')
-            });
-            lastContent = '';
-            continue;
-          }
+          // AI returned text with no tool calls → trust it as the final answer.
+          directAnswerEligible = true;
           break;
         }
 
@@ -3564,82 +3344,20 @@ class AgentEngine {
           }
 
           // ── task_complete: AI explicitly signals the task is fully done ──
-          // Handle before DB insert / before_tool_call hook — this is not a
-          // regular tool execution, it is a loop-exit signal.
+          // Trust the model — no separate judge LLM call needed.
           if (toolName === 'task_complete') {
             const finalMessage = String(toolArgs.message || '').trim();
-            const confidence = normalizeCompletionConfidence(toolArgs.confidence || 'medium');
-            const messagingSent = this.getRunMeta(runId)?.messagingSent === true;
-            const completionResult = await runWithModelFallback(
-              'task completion decision',
-              () => this.evaluateTaskCompleteSignal({
-                provider,
-                providerName,
-                model,
-                messages,
-                tools,
-                analysis,
-                plan,
-                toolExecutions,
-                finalMessage,
-                confidence,
-                triggerSource,
-                messagingSent,
-                iteration,
-                maxIterations,
-                options: { ...options, runId, userId, agentId },
-              }),
-            );
-            totalTokens += completionResult.usage || 0;
-            const completionDecision = completionResult.decision || {
-              status: 'continue',
-              reason: 'The completion signal could not be verified.',
-            };
-            const accepted = completionDecision.status !== 'continue';
             this.recordRunEvent(userId, runId, 'task_complete_signaled', {
-              confidence,
-              requiredConfidence: completionResult.requiredConfidence,
-              accepted,
-              judgeStatus: completionDecision.status,
-              judgeReason: completionDecision.reason || '',
+              accepted: true,
               iteration,
               messageLength: finalMessage.length,
             }, { agentId });
             console.info(
-              `[Run ${shortenRunId(runId)}] task_complete signaled at iteration=${iteration} confidence=${confidence} judge=${completionDecision.status} accepted=${accepted}`
+              `[Run ${shortenRunId(runId)}] task_complete accepted at iteration=${iteration}`
             );
-            if (!accepted) {
-              if (iteration >= maxIterations) {
-                throw new Error(
-                  `Completion judge rejected task_complete at the iteration limit after ${maxIterations} iterations.`,
-                );
-              }
-              messages.push({
-                role: 'tool',
-                name: toolName,
-                tool_call_id: toolCall.id,
-                content: JSON.stringify({
-                  status: 'continue',
-                  reason: completionDecision.reason,
-                  required_confidence: completionResult.requiredConfidence,
-                }),
-              });
-              messages.push({
-                role: 'system',
-                content: `${completionDecision.reason} Do not ask the user to decide the next step unless external input is truly required.`
-              });
-              lastContent = '';
-              continue;
-            }
-            if (completionDecision.reason) {
-              messages.push({
-                role: 'system',
-                content: completionDecision.reason,
-              });
-            }
-            lastContent = finalMessage; // empty string is valid; downstream handles it
+            lastContent = finalMessage;
             directAnswerEligible = true;
-            break; // exit the for-loop; the while condition will also exit
+            break;
           }
 
           const repetitionGuard = this.getRunMeta(runId)?.repetitionGuard;
@@ -3849,6 +3567,11 @@ class AgentEngine {
 
           if (toolErrorMessage) {
             consecutiveToolFailures += 1;
+            const currentRunMeta = this.getRunMeta(runId);
+            trackErrorPattern(toolErrorMessage, currentRunMeta);
+            const errorKey = normalizeErrorKey(toolErrorMessage);
+            const errorCount = currentRunMeta?.errorPatterns?.get(errorKey) || 0;
+            const patternGuide = buildErrorPatternGuidance(errorKey, errorCount);
             const alternativeTools = summarizeAvailableTools(tools, { exclude: toolName });
             messages.push({
               role: 'system',
@@ -3857,6 +3580,7 @@ class AgentEngine {
                 'This tool failure is not, by itself, a user-facing blocker.',
                 'Continue autonomously: retry with corrected arguments, try an alternative tool/path, or verify the outcome using other available tools.',
                 alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
+                patternGuide || '',
                 'Only stop and tell the user you are blocked if the remaining issue truly requires an external dependency or user action outside this run.'
               ].filter(Boolean).join(' ')
             });
@@ -3965,26 +3689,43 @@ class AgentEngine {
       const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
       if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent, options?.source || null) && !messagingSent) {
-        const recovered = await this.recoverBlankMessagingReply({
-          userId,
-          runId,
-          messages,
-          provider,
-          model,
-          providerName,
-          options: { ...options, runId, userId, agentId },
-          stepIndex,
-          failedStepCount,
-          toolExecutions,
-          tools
-        });
-        lastContent = recovered.content;
-        totalTokens += recovered.tokens || 0;
+        // Simplified blank reply recovery: one model call with direct instruction,
+        // then fall back to a deterministic message. No multi-attempt LLM loop.
+        console.warn(`[Run ${shortenRunId(runId)}] blank_reply_recovery model=${model}`);
+        let recoveredTokens = 0;
+        try {
+          const recoveryResponse = await withModelCallTimeout(
+            provider.chat(
+              sanitizeConversationMessages([
+                ...messages,
+                {
+                  role: 'system',
+                  content: buildBlankMessagingReplyPrompt(1, options?.source || null)
+                }
+              ]),
+              [],
+              {
+                model,
+                reasoningEffort: this.getReasoningEffort(providerName, options)
+              }
+            ),
+            options,
+            'Blank messaging reply recovery',
+          );
+          recoveredTokens = recoveryResponse.usage?.totalTokens || 0;
+          lastContent = sanitizeModelOutput(recoveryResponse.content || '', { model });
+        } catch (recoverErr) {
+          console.warn(`[Run ${shortenRunId(runId)}] blank_reply_recovery failed: ${summarizeForLog(recoverErr?.message || recoverErr, 180)}`);
+        }
+        totalTokens += recoveredTokens;
+        if (!normalizeOutgoingMessage(lastContent, options?.source || null)) {
+          lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+        }
         if (normalizeOutgoingMessage(lastContent, options?.source || null)) {
           messages.push({ role: 'assistant', content: lastContent });
           if (conversationId) {
             db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-              .run(conversationId, 'assistant', lastContent, recovered.tokens || 0);
+              .run(conversationId, 'assistant', lastContent, recoveredTokens);
           }
         }
       }

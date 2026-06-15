@@ -1649,6 +1649,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_extract': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
+            if (!args.selector) return { error: 'browser_extract requires a "selector" argument' };
             return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
         }
 
@@ -1661,7 +1662,9 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_evaluate': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            return { ...await provider.evaluate(args.script), backend };
+            const script = args.script ?? args.javascript;
+            if (!script) return { error: 'browser_evaluate requires a "script" argument' };
+            return { ...await provider.evaluate(script), backend };
         }
 
         case 'android_start_emulator': {
