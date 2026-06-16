@@ -5,6 +5,60 @@ const { randomUUID } = require('crypto');
 const path = require('path');
 
 const WORKER_SCRIPT = path.resolve(__dirname, 'shell_worker.js');
+const DEFAULT_WORKER_ENV_KEYS = Object.freeze([
+  'HOME',
+  'PATH',
+  'SHELL',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'TERM',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'USER',
+  'LOGNAME',
+  'COLORTERM',
+  'SystemRoot',
+  'ComSpec',
+  'PATHEXT',
+  'WINDIR',
+]);
+
+function normalizeExtraEnvKeys(extraEnvKeys = process.env.NEOAGENT_SHELL_WORKER_ENV_ALLOWLIST || '') {
+  if (Array.isArray(extraEnvKeys)) {
+    return extraEnvKeys.map((key) => String(key || '').trim()).filter(Boolean);
+  }
+  return String(extraEnvKeys || '')
+    .split(',')
+    .map((key) => key.trim())
+    .filter(Boolean);
+}
+
+function buildWorkerEnv(baseEnv = process.env, extraEnvKeys) {
+  const allowedKeys = new Set([
+    ...DEFAULT_WORKER_ENV_KEYS,
+    ...normalizeExtraEnvKeys(extraEnvKeys),
+  ]);
+  const workerEnv = {};
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(baseEnv, key) && baseEnv[key] != null) {
+      workerEnv[key] = String(baseEnv[key]);
+    }
+  }
+  return workerEnv;
+}
+
+function createShutdownResult(message, killed = false) {
+  return {
+    exitCode: -1,
+    stdout: '',
+    stderr: message,
+    killed,
+    timedOut: false,
+    durationMs: 0,
+  };
+}
 
 class ShellWorkerPool {
   /**
@@ -21,6 +75,7 @@ class ShellWorkerPool {
     this._queue = [];
     /** @type {Map<string, Function>} requestId → resolve */
     this._pending = new Map();
+    this._shuttingDown = false;
 
     for (let i = 0; i < this._size; i++) {
       this._spawnWorker();
@@ -31,7 +86,7 @@ class ShellWorkerPool {
     const proc = fork(this._workerScript, [], {
       detached: false,
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-      env: { ...process.env },
+      env: buildWorkerEnv(process.env),
     });
 
     const workerEntry = { proc, busy: false, pendingRequestId: null };
@@ -52,7 +107,6 @@ class ShellWorkerPool {
     });
 
     proc.on('exit', (code) => {
-      console.warn(`[ShellWorkerPool] Worker exited (code=${code}), respawning`);
       const idx = this._workers.indexOf(workerEntry);
       if (idx !== -1) this._workers.splice(idx, 1);
 
@@ -61,10 +115,14 @@ class ShellWorkerPool {
         const resolve = this._pending.get(workerEntry.pendingRequestId);
         if (resolve) {
           this._pending.delete(workerEntry.pendingRequestId);
-          resolve({ exitCode: -1, stdout: '', stderr: 'Worker process crashed', killed: true, timedOut: false });
+          const message = this._shuttingDown ? 'Server shutting down' : 'Worker process crashed';
+          resolve(createShutdownResult(message, true));
         }
       }
 
+      if (this._shuttingDown) return;
+
+      console.warn(`[ShellWorkerPool] Worker exited (code=${code}), respawning`);
       this._spawnWorker();
     });
 
@@ -113,13 +171,37 @@ class ShellWorkerPool {
 
   /** Gracefully terminate all workers. */
   shutdown() {
+    if (this._shuttingDown) return;
+    this._shuttingDown = true;
+
+    const shutdownResult = createShutdownResult('Server shutting down', true);
+    for (const job of this._queue) {
+      job.resolve(shutdownResult);
+    }
+    this._queue = [];
+
+    for (const w of this._workers) {
+      if (w.pendingRequestId) {
+        const resolve = this._pending.get(w.pendingRequestId);
+        if (resolve) {
+          this._pending.delete(w.pendingRequestId);
+          resolve(shutdownResult);
+        }
+        w.pendingRequestId = null;
+        w.busy = false;
+      }
+    }
+
     for (const w of this._workers) {
       try { w.proc.kill(); } catch {}
     }
     this._workers = [];
-    this._queue = [];
     this._pending.clear();
   }
 }
 
-module.exports = { ShellWorkerPool };
+module.exports = {
+  ShellWorkerPool,
+  DEFAULT_WORKER_ENV_KEYS,
+  buildWorkerEnv,
+};

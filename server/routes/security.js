@@ -85,6 +85,25 @@ router.post('/approvals/:approvalId', (req, res) => {
     normalizedScope,
   );
   if (!resolved) {
+    const storedApproval = approvalGateService.getStoredApproval?.(
+      approvalId,
+      req.session.userId,
+    );
+    if (storedApproval?.status === 'expired' || storedApproval?.status === 'timeout') {
+      return res.status(410).json({
+        error: 'Approval expired because the run was interrupted or the server restarted.',
+      });
+    }
+    if (runId) {
+      const run = db.prepare(
+        'SELECT status FROM agent_runs WHERE id = ? AND user_id = ?'
+      ).get(runId, req.session.userId);
+      if (run?.status === 'interrupted') {
+        return res.status(410).json({
+          error: 'Approval expired because the run was interrupted or the server restarted.',
+        });
+      }
+    }
     return res.status(404).json({ error: 'Approval not found or already resolved' });
   }
   res.json({ ok: true, approvalId, decision, scope: normalizedScope });

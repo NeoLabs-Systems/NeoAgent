@@ -247,6 +247,7 @@ class AgentEngine {
     const promptSections = await buildSystemPromptSections(userId, context, memoryManager);
     const skillRunner = context.skillRunner || this.skillRunner || null;
     const skillsPrompt = skillRunner?.getSkillsForPrompt?.({
+      userId,
       maxTotalChars: 9000,
       maxDescriptionChars: 180,
       maxTriggerChars: 100,
@@ -1180,6 +1181,24 @@ class AgentEngine {
   }
 
   async spawnSubagent(userId, parentRunId, task, options = {}) {
+    const parentRunMeta = this.getRunMeta(parentRunId);
+    const parentDepth = Math.max(0, Number(parentRunMeta?.subagentDepth) || 0);
+    if (parentDepth >= 1) {
+      return {
+        error: 'Sub-agents cannot spawn additional sub-agents. Continue the current child run or return results to the parent run.',
+      };
+    }
+
+    const aiSettings = getAiSettings(userId, options.agentId || null);
+    const maxSubagentsPerRun = Math.max(1, Number(aiSettings.subagent_max_children_per_run) || 10);
+    const existingSubagents = Array.from(this.subagents.values())
+      .filter((record) => record.parentRunId === parentRunId);
+    if (existingSubagents.length >= maxSubagentsPerRun) {
+      return {
+        error: `This run has already spawned ${existingSubagents.length} sub-agents. The limit for one run is ${maxSubagentsPerRun}.`,
+      };
+    }
+
     const handle = uuidv4();
     const childRunId = uuidv4();
     let relevantMemories = [];
@@ -1256,6 +1275,8 @@ class AgentEngine {
             triggerSource: 'agent',
             runId: childRunId,
             agentId: options.agentId || null,
+            subagentDepth: parentDepth + 1,
+            disallowedToolNames: ['spawn_subagent'],
           },
           options.model || null
         );
@@ -1519,6 +1540,52 @@ class AgentEngine {
     });
 
     return { handle, status: 'cancelled' };
+  }
+
+  interruptRun(runId, reason = 'Server shutting down while run was in progress.') {
+    const runMeta = this.activeRuns.get(runId);
+    const delegatedChildren = db.prepare(
+      "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
+    ).all(runId);
+    if (runMeta) {
+      runMeta.status = 'interrupted';
+      runMeta.stopReason = reason;
+      runMeta.aborted = true;
+      this.emit(runMeta.userId, 'run:stopping', { runId });
+      for (const pid of runMeta.toolPids) {
+        if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
+          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+        }
+      }
+      runMeta.toolPids.clear();
+    }
+    for (const child of delegatedChildren) {
+      if (child.child_run_id && child.child_run_id !== runId) {
+        this.interruptRun(child.child_run_id, reason);
+      }
+    }
+    db.prepare(
+      `UPDATE agent_delegations
+       SET status = 'interrupted',
+           error = COALESCE(NULLIF(error, ''), ?),
+           updated_at = datetime('now'),
+           completed_at = datetime('now')
+       WHERE parent_run_id = ? AND status = 'running'`
+    ).run(reason, runId);
+    db.prepare(
+      `UPDATE agent_runs
+       SET status = 'interrupted',
+           error = COALESCE(NULLIF(error, ''), ?),
+           updated_at = datetime('now'),
+           completed_at = datetime('now')
+       WHERE id = ?`
+    ).run(reason, runId);
+  }
+
+  interruptAllActiveRuns(reason = 'Server shutting down while run was in progress.') {
+    for (const runId of Array.from(this.activeRuns.keys())) {
+      this.interruptRun(runId, reason);
+    }
   }
 
   stopRun(runId) {

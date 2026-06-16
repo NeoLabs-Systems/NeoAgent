@@ -36,6 +36,35 @@
 
   --font-sans:     'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono:     'Geist Mono', 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+
+  --row-hover:     rgba(224, 240, 224, 0.04);
+}
+
+/* ── Light theme override ───────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:            #f3f6f1;
+  --bg-sidebar:    #ffffff;
+  --bg-card:       #ffffff;
+  --bg-secondary:  #eaeee6;
+  --bg-input:      #ffffff;
+  --border:        rgba(20, 40, 24, 0.12);
+  --border-light:  rgba(20, 40, 24, 0.20);
+
+  --accent:        #b8861f;
+  --accent-hover:  #9a6f14;
+  --accent-alt:    #3f8a47;
+  --accent-muted:  rgba(184, 134, 31, 0.14);
+
+  --text:          #1a211b;
+  --text-secondary:#4a544a;
+  --text-muted:    #717b6f;
+
+  --success:       #2f8a3c;
+  --warning:       #b07a18;
+  --danger:        #c0492f;
+  --info:          #2f7d72;
+
+  --row-hover:     rgba(20, 40, 24, 0.05);
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */

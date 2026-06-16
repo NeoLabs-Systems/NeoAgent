@@ -161,9 +161,13 @@ class RuntimeManager {
   }
 
   async shutdown() {
-    await Promise.allSettled([
+    const tasks = [
       this.browserBackend?.shutdown?.(),
-    ]);
+    ];
+    if (typeof this.shellWorkerPool?.shutdown === 'function') {
+      tasks.push(Promise.resolve().then(() => this.shellWorkerPool.shutdown()));
+    }
+    await Promise.allSettled(tasks);
   }
 }
 

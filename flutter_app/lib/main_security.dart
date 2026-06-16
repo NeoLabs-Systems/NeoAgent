@@ -103,6 +103,13 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     color: Color(0xFFFB8C00),
     riskLevel: 'medium',
   ),
+  'external': _CategoryInfo(
+    label: 'External & MCP Tools',
+    subtitle: 'Tools not built into NeoAgent, including connected MCP servers and custom tool providers.',
+    icon: Icons.hub_rounded,
+    color: Color(0xFF6D4C41),
+    riskLevel: 'high',
+  ),
 };
 
 _CategoryInfo _categoryInfo(String category) {
@@ -732,6 +739,18 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
         toolArgs: widget.request.toolArgs,
       );
       widget.controller.clearPendingApproval();
+    } on BackendException catch (error) {
+      if (error.statusCode == 410) {
+        widget.controller.clearPendingApproval();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+              backgroundColor: _warning,
+            ),
+          );
+        }
+      }
     } catch (_) {
       // timeout will fire server-side; safe to dismiss
     }

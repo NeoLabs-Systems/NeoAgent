@@ -2588,25 +2588,25 @@ async function executeTool(toolName, args, context, engine) {
             const { SkillRunner } = require('./toolRunner');
             const sharedRunner = sk();
             if (sharedRunner) {
-                const result = sharedRunner.createSkill(args.name, args.description, args.instructions, args.metadata);
+                const result = sharedRunner.createSkill(userId, args.name, args.description, args.instructions, args.metadata);
                 return result;
             }
             const runner = new SkillRunner();
             await runner.loadSkills();
-            return runner.createSkill(args.name, args.description, args.instructions, args.metadata);
+            return runner.createSkill(userId, args.name, args.description, args.instructions, args.metadata);
         }
 
         case 'list_skills': {
             const skillRunner = sk();
             if (!skillRunner) return { error: 'Skill runner not available' };
-            const all = skillRunner.getAll();
+            const all = skillRunner.getAll(userId);
             return { skills: all, count: all.length };
         }
 
         case 'update_skill': {
             const skillRunner = sk();
             if (!skillRunner) return { error: 'Skill runner not available' };
-            return skillRunner.updateSkill(args.name, {
+            return skillRunner.updateSkill(userId, args.name, {
                 description: args.description,
                 instructions: args.instructions,
                 metadata: args.metadata
@@ -2616,7 +2616,7 @@ async function executeTool(toolName, args, context, engine) {
         case 'delete_skill': {
             const skillRunner = sk();
             if (!skillRunner) return { error: 'Skill runner not available' };
-            return skillRunner.deleteSkill(args.name);
+            return skillRunner.deleteSkill(userId, args.name);
         }
 
         case 'think': {

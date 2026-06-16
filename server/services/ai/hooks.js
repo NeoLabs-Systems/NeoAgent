@@ -81,7 +81,8 @@ class AgentHooks {
 
   /**
    * Run all handlers for an event, merging their return values.
-   * If any handler returns { block: true }, short-circuits and returns { block: true }.
+   * If any handler returns { block: true }, short-circuits and preserves the
+   * handler's metadata so the engine can explain why the tool was blocked.
    *
    * @param {string} event
    * @param {object} ctx   - Context passed to every handler
@@ -98,7 +99,7 @@ class AgentHooks {
         console.warn(`[Hooks] Handler "${id}" for "${event}" threw:`, err.message);
         continue; // don't let a bad hook crash the loop
       }
-      if (result?.block === true) return { block: true };
+      if (result?.block === true) return { ...merged, ...result };
       if (result && typeof result === 'object') {
         merged = { ...merged, ...result };
       }

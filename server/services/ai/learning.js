@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../../db/database');
+const { getAiSettings } = require('./settings');
 
 function sanitizeSkillName(input) {
   const base = String(input || '')
@@ -111,6 +112,8 @@ class LearningManager {
     if (!userId || !agentId || !runId || !task || !finalContent) return null;
     if (triggerType && triggerType !== 'user') return null;
     if (triggerSource && triggerSource !== 'web') return null;
+    const aiSettings = getAiSettings(userId, agentId);
+    if (!aiSettings.auto_skill_learning) return null;
 
     const successfulSteps = Array.isArray(steps)
       ? steps.filter((step) => step.status === 'completed' && step.tool_name)
@@ -145,12 +148,13 @@ class LearningManager {
     ).get(userId, agentId, draft.metadata.workflow_signature);
     if (Number(observation?.observation_count || 0) < 3) return null;
 
-    const existing = Array.from(this.skillRunner.skills.values()).find(
-      (skill) => skill.metadata?.workflow_signature === draft.metadata.workflow_signature,
+    const existing = this.skillRunner.findSkillByWorkflowSignature(
+      userId,
+      draft.metadata.workflow_signature,
     );
     if (existing) {
       if (existing.metadata?.enabled !== false || existing.metadata?.draft !== true) return null;
-      return this.skillRunner.updateSkill(existing.name, {
+      return this.skillRunner.updateSkill(userId, existing.name, {
         description: draft.description,
         instructions: draft.instructions,
         metadata: {
@@ -163,6 +167,7 @@ class LearningManager {
     }
 
     const result = this.skillRunner.createSkill(
+      userId,
       draft.name,
       draft.description,
       draft.instructions,

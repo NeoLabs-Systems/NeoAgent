@@ -570,6 +570,37 @@ describe('messaging progress supervisor', () => {
     assert.match(steeringText, /send a concise model-authored interim update/);
   });
 
+  test('runtime heartbeat with no composed progress stays internal', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: Date.now(),
+      startedAtIso: new Date(Date.now()).toISOString(),
+      composeProgressUpdate: async () => '',
+      progressLedger: {
+        currentPhase: 'model',
+        currentStep: 'model:chat',
+        currentTool: null,
+        currentStepStartedAt: new Date(Date.now()).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    const result = await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(result.sent, false);
+    assert.equal(result.heartbeat, true);
+    assert.equal(result.queued, true);
+    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(engine.getRunMeta(runId).progressLedger.lastUserVisibleUpdateAt || null, null);
+
+    const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
+    assert.equal(systemQueue.length, 1);
+  });
+
   test('terminal interim question suppresses final fallback', () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });

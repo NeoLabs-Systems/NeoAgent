@@ -1,7 +1,24 @@
 const os = require('os');
 
 const PROMPT_CACHE_TTL = 30_000;
+const PROMPT_CACHE_MAX = 500;
 const promptCache = new Map();
+
+function evictExpiredPromptCache() {
+  const now = Date.now();
+  for (const [key, entry] of promptCache.entries()) {
+    if (now >= entry.expiresAt) promptCache.delete(key);
+  }
+  if (promptCache.size > PROMPT_CACHE_MAX) {
+    const excess = promptCache.size - PROMPT_CACHE_MAX;
+    let deleted = 0;
+    for (const key of promptCache.keys()) {
+      if (deleted >= excess) break;
+      promptCache.delete(key);
+      deleted++;
+    }
+  }
+}
 
 function invalidateSystemPromptCache(userId, agentId = null) {
   const prefix = `${String(userId || 'global')}:${String(agentId || 'main')}:`;
@@ -358,6 +375,7 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
   };
 
   if (!hasExtraContext) {
+    evictExpiredPromptCache();
     promptCache.set(cacheKey, { sections, expiresAt: now + PROMPT_CACHE_TTL });
   }
 

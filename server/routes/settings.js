@@ -40,6 +40,7 @@ const AGENT_SETTING_KEYS = new Set([
   'chat_history_window',
   'tool_replay_budget_chars',
   'subagent_max_iterations',
+  'subagent_max_children_per_run',
   'assistant_behavior_notes',
   'auto_skill_learning',
   'auto_recording_insights',

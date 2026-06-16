@@ -309,6 +309,34 @@ class MemoryManager {
     return resolveAgentId(userId, options?.agentId || options?.agent_id || null);
   }
 
+  _findExactMemory(userId, agentId, memoryHash, scope) {
+    return db.prepare(
+      `SELECT id FROM memories
+       WHERE user_id = ? AND agent_id = ? AND archived = 0
+         AND memory_hash = ?
+         AND COALESCE(scope_type, 'agent') = ?
+         AND COALESCE(scope_id, '') = COALESCE(?, '')
+       LIMIT 1`
+    ).get(userId, agentId, memoryHash, scope.scopeType, scope.scopeId);
+  }
+
+  _reinforceExactMemory(memoryId, importance) {
+    db.prepare(
+      `UPDATE memories
+       SET importance = MAX(importance, ?),
+           confidence = MIN(1, confidence + 0.03),
+           updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(importance, memoryId);
+    db.prepare(
+      `UPDATE memory_facts
+       SET confidence = MIN(1, confidence + 0.03),
+           updated_at = datetime('now')
+       WHERE memory_id = ? AND status = 'active'`
+    ).run(memoryId);
+    return memoryId;
+  }
+
   _backfillMemoryIntelligence(limit = 1000) {
     try {
       const rows = db.prepare(
@@ -1602,29 +1630,9 @@ class MemoryManager {
     );
     const embedding = embeddingResult?.vector || null;
 
-    const exact = db.prepare(
-      `SELECT id FROM memories
-       WHERE user_id = ? AND agent_id = ? AND archived = 0
-         AND memory_hash = ?
-         AND COALESCE(scope_type, 'agent') = ?
-         AND COALESCE(scope_id, '') = COALESCE(?, '')
-       LIMIT 1`
-    ).get(userId, agentId, memoryHash, scope.scopeType, scope.scopeId);
+    const exact = this._findExactMemory(userId, agentId, memoryHash, scope);
     if (exact?.id) {
-      db.prepare(
-        `UPDATE memories
-         SET importance = MAX(importance, ?),
-             confidence = MIN(1, confidence + 0.03),
-             updated_at = datetime('now')
-         WHERE id = ?`
-      ).run(importance, exact.id);
-      db.prepare(
-        `UPDATE memory_facts
-         SET confidence = MIN(1, confidence + 0.03),
-             updated_at = datetime('now')
-         WHERE memory_id = ? AND status = 'active'`
-      ).run(exact.id);
-      return exact.id;
+      return this._reinforceExactMemory(exact.id, importance);
     }
 
     const duplicateCandidateIds = embedding
@@ -1717,8 +1725,8 @@ class MemoryManager {
 
     // Save new
     const id = uuidv4();
-    db.prepare(
-      `INSERT INTO memories (
+    const insertResult = db.prepare(
+      `INSERT OR IGNORE INTO memories (
         id, user_id, agent_id, category, scope_type, scope_id, source_type, source_id, source_label,
         stale_after_days, metadata_json, content, summary, importance, confidence, memory_hash, embedding,
         embedding_provider, embedding_model, embedding_dimensions, embedded_at
@@ -1747,6 +1755,13 @@ class MemoryManager {
       embeddingResult?.dimensions || null,
       embedding ? new Date().toISOString() : null,
     );
+    if (insertResult.changes === 0) {
+      const existingExact = this._findExactMemory(userId, agentId, memoryHash, scope);
+      if (existingExact?.id) {
+        return this._reinforceExactMemory(existingExact.id, importance);
+      }
+      throw new Error('Memory insert was ignored but no matching memory row was found');
+    }
 
     this._upsertMemoryIntelligence(userId, agentId, id, {
       content,

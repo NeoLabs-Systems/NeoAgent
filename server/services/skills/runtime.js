@@ -21,6 +21,8 @@ function serializeInstalledSkill(skill) {
     autoCreated: skill.metadata?.auto_created === true,
     filePath: skill.filePath,
     storeId: skill.metadata?.store_id || '',
+    readOnly: skill.readOnly === true,
+    ownerType: skill.ownerType || 'global',
   };
 }
 

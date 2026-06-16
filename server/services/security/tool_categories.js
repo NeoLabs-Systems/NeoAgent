@@ -27,6 +27,7 @@ const TOOL_CATEGORIES = {
     'update_ai_widget',
     'delete_ai_widget',
   ],
+  external: [],
 };
 
 // Tools that bypass all policy checks — read-only or always safe
@@ -71,6 +72,98 @@ const SAFE_TOOLS = new Set([
   'recordings_get',
 ]);
 
+const BUILT_IN_TOOLS = new Set([
+  'execute_command',
+  'browser_navigate',
+  'browser_click',
+  'browser_type',
+  'browser_extract',
+  'browser_screenshot',
+  'browser_evaluate',
+  'desktop_list_devices',
+  'desktop_select_device',
+  'desktop_observe',
+  'desktop_click',
+  'desktop_drag',
+  'desktop_scroll',
+  'desktop_type',
+  'desktop_press_key',
+  'desktop_launch_app',
+  'desktop_get_tree',
+  'android_start_emulator',
+  'android_stop_emulator',
+  'android_list_devices',
+  'android_open_app',
+  'android_open_intent',
+  'android_tap',
+  'android_long_press',
+  'android_type',
+  'android_swipe',
+  'android_press_key',
+  'android_wait_for',
+  'android_observe',
+  'android_dump_ui',
+  'android_screenshot',
+  'android_list_apps',
+  'android_install_apk',
+  'android_shell',
+  'web_search',
+  'memory_save',
+  'memory_recall',
+  'session_search',
+  'memory_update_core',
+  'memory_write',
+  'memory_read',
+  'make_call',
+  'send_message',
+  'read_file',
+  'read_files',
+  'write_file',
+  'edit_file',
+  'replace_file_range',
+  'list_directory',
+  'search_files',
+  'code_navigate',
+  'query_structured_data',
+  'http_request',
+  'create_skill',
+  'list_skills',
+  'update_skill',
+  'delete_skill',
+  'think',
+  'activate_tools',
+  'spawn_subagent',
+  'delegate_to_agent',
+  'list_subagents',
+  'wait_subagent',
+  'cancel_subagent',
+  'notify_user',
+  'create_task',
+  'list_tasks',
+  'delete_task',
+  'update_task',
+  'create_ai_widget',
+  'list_ai_widgets',
+  'update_ai_widget',
+  'delete_ai_widget',
+  'mcp_add_server',
+  'mcp_list_servers',
+  'mcp_remove_server',
+  'generate_image',
+  'generate_table',
+  'generate_graph',
+  'analyze_image',
+  'ocr_extract',
+  'read_health_data',
+  'recordings_list',
+  'recordings_get',
+  'recordings_search',
+  'social_video_extract',
+  'task_complete',
+  'send_interim_update',
+  'save_widget_snapshot',
+]);
+
 // category → policy for users with no DB row yet
 const DEFAULT_POLICY = {
   shell: 'require_approval',
@@ -80,6 +173,7 @@ const DEFAULT_POLICY = {
   browser_privileged: 'require_approval',
   network_write: 'require_approval',
   skill_mutation: 'deny',
+  external: 'require_approval',
 };
 
 // Reverse map: tool → category, built once
@@ -91,15 +185,30 @@ for (const [category, tools] of Object.entries(TOOL_CATEGORIES)) {
 }
 
 /**
- * Returns the category for a tool, or null if the tool is uncategorised (safe).
- * For http_request, write methods map to network_write; read methods return null.
+ * Returns the category for a tool.
+ * - Known built-in tools may return null when they are read-only or otherwise
+ *   intentionally left uncategorized.
+ * - Unknown tool names are treated as external capabilities and must never
+ *   silently bypass policy checks.
  */
 function getCategoryForTool(toolName, toolArgs = {}) {
   if (toolName === 'http_request') {
     const method = (toolArgs.method || 'GET').toUpperCase();
     return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? null : 'network_write';
   }
-  return _toolToCategory[toolName] ?? null;
+  if (_toolToCategory[toolName]) {
+    return _toolToCategory[toolName];
+  }
+  if (BUILT_IN_TOOLS.has(toolName) || SAFE_TOOLS.has(toolName)) {
+    return null;
+  }
+  return 'external';
 }
 
-module.exports = { TOOL_CATEGORIES, SAFE_TOOLS, DEFAULT_POLICY, getCategoryForTool };
+module.exports = {
+  TOOL_CATEGORIES,
+  SAFE_TOOLS,
+  DEFAULT_POLICY,
+  BUILT_IN_TOOLS,
+  getCategoryForTool,
+};

@@ -367,6 +367,15 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearPendingApprovalForRun(String runId) {
+    if (pendingApproval?.runId != runId) return;
+    _SecurityNotificationService.cancelApprovalNotification(
+      pendingApproval?.approvalId ?? '',
+    );
+    pendingApproval = null;
+    notifyListeners();
+  }
+
   bool get desktopFloatingToolbarPopupRequested =>
       _desktopFloatingToolbarPopupRequested;
 
@@ -7349,6 +7358,7 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('run:stopped', (dynamic data) {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
+      clearPendingApprovalForRun(runId);
       if (_voiceRunIds.remove(runId)) {
         return;
       }
@@ -7363,6 +7373,30 @@ class NeoAgentController extends ChangeNotifier {
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(
           phase: 'Stopped',
+          pendingSteeringCount: 0,
+        );
+      }
+      unawaited(refreshRunsOnly());
+      notifyListeners();
+    });
+    socket.on('run:interrupted', (dynamic data) {
+      final payload = _jsonMap(data);
+      final runId = payload['runId']?.toString() ?? '';
+      clearPendingApprovalForRun(runId);
+      if (_voiceRunIds.remove(runId)) {
+        return;
+      }
+      if (_backgroundRunIds.remove(runId)) {
+        unawaited(refreshRunsOnly());
+        unawaited(refreshMemory());
+        notifyListeners();
+        return;
+      }
+      streamingAssistant = '';
+      isSendingMessage = false;
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(
+          phase: 'Interrupted',
           pendingSteeringCount: 0,
         );
       }
