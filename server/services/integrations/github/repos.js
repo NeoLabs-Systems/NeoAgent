@@ -730,6 +730,14 @@ const githubToolDefinitions = [
           type: 'string',
           description: 'API path or full URL.',
         },
+        endpoint: {
+          type: 'string',
+          description: 'Alias for path; accepted for compatibility with model tool calls.',
+        },
+        url: {
+          type: 'string',
+          description: 'Alias for path when passing a full GitHub API URL.',
+        },
         query: {
           type: 'object',
           description: 'Optional query parameters.',
@@ -739,7 +747,7 @@ const githubToolDefinitions = [
           description: 'Optional JSON request body.',
         },
       },
-      required: ['method', 'path'],
+      required: ['method'],
     },
   },
 ];
@@ -747,6 +755,14 @@ const githubToolDefinitions = [
 function parseCommaSeparatedList(value) {
   if (!value) return [];
   return String(value).split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function resolveApiRequestPath(args = {}) {
+  for (const key of ['path', 'endpoint', 'url']) {
+    const value = args?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
 }
 
 async function executeGithubTool(toolName, args, auth) {
@@ -1085,7 +1101,10 @@ async function executeGithubTool(toolName, args, auth) {
 
     case 'github_api_request': {
       let baseUrl = 'https://api.github.com';
-      let path = String(args.path || '');
+      let path = resolveApiRequestPath(args);
+      if (!path) {
+        throw new Error('github_api_request requires path, endpoint, or url.');
+      }
       let query = args.query || null;
       if (path.startsWith('http')) {
         const url = new URL(path);

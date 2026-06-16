@@ -192,6 +192,50 @@ test('github_api_request accepts a full GitHub API URL and merges query params',
   );
 });
 
+test('github_api_request accepts endpoint alias without falling back to API root', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify([{ number: 91 }]),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_api_request',
+    {
+      method: 'GET',
+      endpoint: '/repos/NeoLabs-Systems/NeoAgent/issues?state=open&per_page=30',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, [{ number: 91 }]);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/issues?state=open&per_page=30',
+  );
+});
+
+test('github_api_request rejects missing path aliases before making a request', async () => {
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    return createResponse();
+  };
+
+  await assert.rejects(
+    executeGithubTool(
+      'github_api_request',
+      {
+        method: 'GET',
+      },
+      { token: 'token-123' },
+    ),
+    /requires path, endpoint, or url/,
+  );
+  assert.equal(fetchCalled, false);
+});
+
 test('github_api_request rejects non-HTTPS URLs before making a request', async () => {
   let fetchCalled = false;
   global.fetch = async () => {

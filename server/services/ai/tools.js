@@ -881,16 +881,19 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'read_file',
-            description: 'Read a file from the filesystem. Supports reading specific line ranges for large files.',
+            description: 'Read a file from the per-user workspace filesystem. Supports reading specific line ranges for large files. This cannot read VM /tmp files created by execute_command; use execute_command with `cat /tmp/...` for those paths.',
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: 'Absolute or relative file path' },
+                    path: { type: 'string', description: 'Absolute or relative path inside the per-user workspace' },
+                    file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
                     start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
                     end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
+                    line_start: { type: 'number', description: 'Alias for start_line; accepted for compatibility with model tool calls' },
+                    line_count: { type: 'number', description: 'Number of lines to read starting at start_line/line_start' },
                     encoding: { type: 'string', description: 'File encoding (default utf-8)' }
                 },
-                required: ['path']
+                required: []
             }
         },
         {
@@ -1498,6 +1501,33 @@ function getAvailableTools(app, options = {}) {
         return compacted.filter((tool) => allow.has(tool.name));
     }
     return compacted;
+}
+
+function firstStringArg(args = {}, names = []) {
+    for (const name of names) {
+        const value = args?.[name];
+        if (typeof value === 'string' && value.trim()) return value;
+    }
+    return '';
+}
+
+function normalizeReadFileArgs(args = {}) {
+    const startLine = args.start_line ?? args.line_start ?? args.startLine ?? args.lineStart;
+    let endLine = args.end_line ?? args.line_end ?? args.endLine ?? args.lineEnd;
+    const lineCount = args.line_count ?? args.lineCount;
+    if (endLine == null && startLine != null && lineCount != null) {
+        const start = Number(startLine);
+        const count = Number(lineCount);
+        if (Number.isInteger(start) && Number.isInteger(count) && count > 0) {
+            endLine = start + count - 1;
+        }
+    }
+    return {
+        path: firstStringArg(args, ['path', 'file_path', 'filePath', 'filename']),
+        encoding: args.encoding || 'utf-8',
+        start_line: startLine,
+        end_line: endLine,
+    };
 }
 
 /**
@@ -2297,12 +2327,13 @@ async function executeTool(toolName, args, context, engine) {
             try {
                 const workspace = wc();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
-                return workspace.readFile(userId, {
-                    path: args.path,
-                    encoding: args.encoding || 'utf-8',
-                    start_line: args.start_line,
-                    end_line: args.end_line,
-                });
+                const normalizedArgs = normalizeReadFileArgs(args);
+                if (!normalizedArgs.path) {
+                    return {
+                        error: 'read_file requires path or file_path. Use execute_command with `cat /tmp/...` for VM /tmp files.',
+                    };
+                }
+                return workspace.readFile(userId, normalizedArgs);
             } catch (err) {
                 return { error: err.message };
             }
