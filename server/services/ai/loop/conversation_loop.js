@@ -1513,9 +1513,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         }, {
           verified: true,
         });
+        if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
+          const iterMeta = engine.getRunMeta(runId);
+          if (iterMeta) {
+            iterMeta.consecutiveReadOnlyIterations = (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
+          }
+        }
         continue;
       }
 
+      let iterationConcreteProgress = false;
       for (const toolCall of response.toolCalls) {
         if (engine.isRunStopped(runId)) break;
         stepIndex++;
@@ -1730,6 +1737,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
         const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
         execution.input = toolArgs;
+        if (execution.stateChanged && isProgressToolCall(toolName, toolArgs)) {
+          iterationConcreteProgress = true;
+        }
         repetitionGuard?.observe(toolName, toolArgs, toolResult);
         execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
         toolExecutions.push(execution);
@@ -1899,12 +1909,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         && (analysis.mode === 'execute' || analysis.mode === 'plan_execute')) {
         const iterMeta = engine.getRunMeta(runId);
         if (iterMeta) {
-          const calledProgress = response.toolCalls.some((tc) => {
-            let parsedArgs = {};
-            try { parsedArgs = JSON.parse(tc.function?.arguments || '{}'); } catch {}
-            return isProgressToolCall(tc.function?.name || '', parsedArgs);
-          });
-          iterMeta.consecutiveReadOnlyIterations = calledProgress
+          iterMeta.consecutiveReadOnlyIterations = iterationConcreteProgress
             ? 0
             : (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
         }

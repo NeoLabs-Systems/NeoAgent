@@ -163,7 +163,7 @@ function isProgressToolCall(toolName, toolArgs = {}) {
   if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(name)) {
     return false;
   }
-  if (name === 'http_request') {
+  if (name === 'http_request' || name === 'github_api_request') {
     return String(toolArgs?.method || 'GET').toUpperCase() !== 'GET';
   }
   if (name === 'execute_command') {

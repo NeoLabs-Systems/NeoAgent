@@ -247,6 +247,68 @@ test('github_api_request accepts payload as a body alias', async () => {
   }));
 });
 
+test('github tools accept owner and repo aliases instead of owner_repo', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ name: 'main' }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_get_branch',
+    {
+      owner: 'NeoLabs-Systems',
+      repo: 'NeoAgent',
+      branch: 'main',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { name: 'main' });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/branches/main',
+  );
+});
+
+test('github_api_request prefixes relative paths with owner and repo aliases', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ ref: 'refs/heads/task-branch' }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_api_request',
+    {
+      method: 'POST',
+      owner: 'NeoLabs-Systems',
+      repo: 'NeoAgent',
+      path: '/git/refs',
+      body: {
+        ref: 'refs/heads/task-branch',
+        sha: 'abc123',
+      },
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { ref: 'refs/heads/task-branch' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/git/refs');
+});
+
+test('github schemas expose owner/repo aliases without requiring owner_repo only', () => {
+  const { githubToolDefinitions } = require('../../../server/services/integrations/github/repos');
+  const getBranch = githubToolDefinitions.find((tool) => tool.name === 'github_get_branch');
+
+  assert.equal(getBranch.parameters.properties.owner_repo.type, 'string');
+  assert.equal(getBranch.parameters.properties.owner.type, 'string');
+  assert.equal(getBranch.parameters.properties.repo.type, 'string');
+  assert.deepEqual(getBranch.parameters.required, ['branch']);
+});
+
 test('github_create_or_update_file accepts plain text and encodes it for GitHub', async () => {
   const calls = stubFetch(async () =>
     createResponse({

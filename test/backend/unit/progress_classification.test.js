@@ -46,6 +46,8 @@ test('structured tool progress classification treats reads and writes differentl
   assert.equal(isProgressToolCall('github_get_issue', { owner_repo: 'NeoLabs-Systems/NeoAgent' }), false);
   assert.equal(isProgressToolCall('github_list_issues', { owner_repo: 'NeoLabs-Systems/NeoAgent' }), false);
   assert.equal(isProgressToolCall('github_create_pr', { owner_repo: 'NeoLabs-Systems/NeoAgent' }), true);
+  assert.equal(isProgressToolCall('github_api_request', { method: 'GET' }), false);
+  assert.equal(isProgressToolCall('github_api_request', { method: 'POST' }), true);
   assert.equal(isProgressToolCall('http_request', { method: 'GET' }), false);
   assert.equal(isProgressToolCall('http_request', { method: 'POST' }), true);
   assert.equal(isProgressToolCall('send_interim_update', { content: 'I am checking this.' }), false);

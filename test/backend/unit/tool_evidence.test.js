@@ -89,6 +89,33 @@ test('classifyToolExecution marks read-only execute_command as non-state-changin
   assert.equal(stateChanging.stateChanged, true);
 });
 
+test('classifyToolExecution does not mark failed write attempts as state changes', () => {
+  const successfulGithubWrite = classifyToolExecution('github_create_or_update_file', {
+    owner_repo: 'NeoLabs-Systems/NeoAgent',
+  }, {
+    content: { path: 'README.md' },
+  });
+  assert.equal(successfulGithubWrite.ok, true);
+  assert.equal(successfulGithubWrite.stateChanged, true);
+
+  const failedWrite = classifyToolExecution('github_create_or_update_file', {
+    owner_repo: 'NeoLabs-Systems/NeoAgent',
+  }, {
+    error: 'content is not valid',
+  });
+  assert.equal(failedWrite.ok, false);
+  assert.equal(failedWrite.stateChanged, false);
+
+  const failedCommand = classifyToolExecution('execute_command', {
+    command: 'git push origin task-branch',
+  }, {
+    exitCode: 128,
+    stderr: 'fatal: could not read Username',
+  });
+  assert.equal(failedCommand.ok, false);
+  assert.equal(failedCommand.stateChanged, false);
+});
+
 test('classifyToolExecution treats success=false and skipped as errors', () => {
   assert.equal(classifyToolExecution('send_message', {}, { success: false, reason: 'no chat' }).error, 'no chat');
   assert.equal(classifyToolExecution('send_message', {}, { skipped: true }).error, 'Tool reported skipped outcome.');

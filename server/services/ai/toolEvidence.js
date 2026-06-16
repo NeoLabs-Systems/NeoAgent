@@ -10,6 +10,7 @@ const { summarizeForLog } = require('./logFormat');
 const { normalizeOutgoingMessage, clampRunContext } = require('./messagingFallback');
 const {
   isClearlyReadOnlyShellCommand,
+  isProgressToolCall,
 } = require('./loop/progress_classification');
 
 // Ordered classification rules mapping a tool name to its evidence "source"
@@ -93,6 +94,8 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
       ? !isClearlyReadOnlyShellCommand(toolArgs?.command || '')
       : stateChangingExact.has(name)
   )
+    || (name.startsWith('github_') && isProgressToolCall(name, toolArgs))
+    || (name === 'http_request' && isProgressToolCall(name, toolArgs))
     || name.startsWith('android_')
     || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
 
@@ -134,7 +137,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     error: normalizedError,
     evidenceSource,
     evidenceRelevant,
-    stateChanged,
+    stateChanged: stateChanged && !normalizedError,
     dependsOnOutput: true,
     summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
       softLimit: 500,
