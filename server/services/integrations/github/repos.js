@@ -977,10 +977,15 @@ async function executeGithubTool(toolName, args, auth) {
       const { owner, repo } = parseOwnerRepo(args.owner_repo);
       const query = {};
       if (args.ref) query.ref = String(args.ref);
-      return await githubApiRequest(auth, {
+      const result = await githubApiRequest(auth, {
         path: `/repos/${owner}/${repo}/contents/${String(args.path || '')}`,
         query,
       });
+      if (result && result.encoding === 'base64' && typeof result.content === 'string') {
+        result.content = Buffer.from(result.content.replace(/\n/g, ''), 'base64').toString('utf8');
+        result.encoding = 'utf8';
+      }
+      return result;
     }
 
     case 'github_create_or_update_file': {
