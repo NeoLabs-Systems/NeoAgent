@@ -60,11 +60,12 @@ function evaluateProgressLiveness(runMeta, now = Date.now()) {
 
 function buildProgressNudge({ stalled = false } = {}) {
   return [
-    'Internal progress check for the active messaging run.',
+    'Mandatory internal progress check for the active messaging run.',
     stalled
       ? 'No verified progress has been recorded for the stall threshold.'
       : 'The originating chat has not received a user-visible update for the progress threshold.',
-    'On the next normal agent turn, decide whether to continue silently, send a concise model-authored interim update with send_interim_update, report a real blocker, or finish with the final answer.',
+    'Before starting more tool work, either send a concise model-authored interim update with send_interim_update, report a real blocker, or finish with the final answer.',
+    'Do not continue silently once this check is present unless the immediate next action itself delivers a final answer or explicit no-response decision.',
     'Do not repeat previous status text and do not treat an interim update as final delivery.',
   ].join(' ');
 }

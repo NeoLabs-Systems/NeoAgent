@@ -531,8 +531,9 @@ describe('messaging progress supervisor', () => {
 
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const nudgeText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(nudgeText, /Internal progress check/);
-    assert.match(nudgeText, /decide whether to continue silently/);
+    assert.match(nudgeText, /Mandatory internal progress check/);
+    assert.match(nudgeText, /send a concise model-authored interim update/);
+    assert.match(nudgeText, /Do not continue silently/);
   });
 
   test('runtime heartbeat records liveness and queues internal steering only', async (t) => {
@@ -562,7 +563,8 @@ describe('messaging progress supervisor', () => {
 
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const steeringText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(steeringText, /Internal progress check/);
+    assert.match(steeringText, /Mandatory internal progress check/);
+    assert.match(steeringText, /send a concise model-authored interim update/);
   });
 
   test('terminal interim question suppresses final fallback', () => {

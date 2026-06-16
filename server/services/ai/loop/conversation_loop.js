@@ -564,9 +564,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
   const runTitle = generateTitle(userMessage);
   const initialRunMetadata = buildInitialRunMetadata(options);
-  db.prepare(`INSERT OR REPLACE INTO agent_runs(
+  db.prepare(`INSERT INTO agent_runs(
     id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
-  ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)`).run(
+  ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    status = 'running',
+    model = excluded.model,
+    updated_at = datetime('now'),
+    completed_at = NULL,
+    error = NULL,
+    metadata_json = COALESCE(agent_runs.metadata_json, excluded.metadata_json)`).run(
     runId,
     userId,
     agentId,
@@ -762,7 +769,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let iteration = 0;
   let totalTokens = 0;
   let lastContent = '';
-  let stepIndex = 0;
+  let stepIndex = Number(options.messagingRetryStepOffset || 0);
+  if (!Number.isFinite(stepIndex) || stepIndex < 0) {
+    stepIndex = 0;
+  }
+  if (options.messagingAutonomousRetryCount > 0) {
+    const existingStep = db.prepare('SELECT COALESCE(MAX(step_index), 0) AS maxStep FROM agent_steps WHERE run_id = ?').get(runId);
+    stepIndex = Math.max(stepIndex, Number(existingStep?.maxStep || 0));
+  }
   let failedStepCount = 0;
   let modelFailureRecoveries = 0;
   let promptMetrics = {};
@@ -2231,6 +2245,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
       const retryOptions = {
         ...options,
+        runId,
+        messagingRetryStepOffset: stepIndex,
         messagingAutonomousRetryCount: retryCount + 1,
         messagingRetryState: {
           lastFinalMessage: String(runMeta?.lastSentMessage || options?.messagingRetryState?.lastFinalMessage || '').trim(),
@@ -2257,7 +2273,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           ].filter(Boolean).join('\n\n')
         }
       };
-      delete retryOptions.runId;
 
       return engine.runWithModel(userId, userMessage, retryOptions, _modelOverride);
     }

@@ -84,6 +84,9 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(conversationLoop.includes('shouldContinueAfterBlankToolFailure'));
   assert.ok(conversationLoop.includes('deliverable_workflow_skipped'));
   assert.ok(conversationLoop.includes('optional deliverable workflow classifier failed'));
+  assert.ok(conversationLoop.includes('ON CONFLICT(id) DO UPDATE'));
+  assert.ok(conversationLoop.includes('messagingRetryStepOffset'));
+  assert.equal(conversationLoop.includes('delete retryOptions.runId'), false);
   assert.equal(/runMeta\?\.messagingSent\s*!==\s*true/.test(conversationLoop), false);
   assert.ok(completionJudge.includes('function buildCompletionDecisionPrompt'));
   assert.ok(completionJudge.includes('function normalizeGoalContract'));
