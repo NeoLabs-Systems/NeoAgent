@@ -122,7 +122,11 @@ test('loop implementation is owned by loop modules', () => {
 
 test('github issue implementation guidance prefers local checkout workflow', () => {
   const taskAnalysisPath = path.join(root, 'server/services/ai/taskAnalysis.js');
+  const systemPromptPath = path.join(root, 'server/services/ai/systemPrompt.js');
+  const githubReposPath = path.join(root, 'server/services/integrations/github/repos.js');
   const source = fs.readFileSync(taskAnalysisPath, 'utf8');
+  const systemPrompt = fs.readFileSync(systemPromptPath, 'utf8');
+  const githubRepos = fs.readFileSync(githubReposPath, 'utf8');
 
   assert.ok(source.includes('For GitHub issue implementation or PR work'));
   assert.ok(source.includes('writable local checkout'));
@@ -130,4 +134,9 @@ test('github issue implementation guidance prefers local checkout workflow', () 
   assert.ok(source.includes('Use direct GitHub file mutation tools only as a fallback'));
   assert.ok(source.includes('Do not assume a tool result was persisted to a readable /tmp path'));
   assert.ok(source.includes('Progress updates are required for this run'));
+  assert.ok(systemPrompt.includes('local checkout in the shared workspace'));
+  assert.ok(systemPrompt.includes('Prefer high-level tools over manual transport work'));
+  assert.ok(githubRepos.includes('normal UTF-8 text by default'));
+  assert.ok(githubRepos.includes('Alias for body'));
+  assert.equal(/git clone[^\n]+\/tmp\/repo-name/.test(systemPrompt), false);
 });

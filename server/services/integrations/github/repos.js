@@ -511,7 +511,12 @@ const githubToolDefinitions = [
         },
         content: {
           type: 'string',
-          description: 'Base64-encoded file content.',
+          description: 'File content as normal UTF-8 text by default. The tool handles the GitHub Contents API encoding.',
+        },
+        encoding: {
+          type: 'string',
+          enum: ['utf-8', 'base64'],
+          description: 'Input encoding for content. Default utf-8. Use base64 only for already-encoded binary content.',
         },
         sha: {
           type: 'string',
@@ -727,6 +732,10 @@ const githubToolDefinitions = [
           type: 'object',
           description: 'Optional JSON request body.',
         },
+        payload: {
+          type: 'object',
+          description: 'Alias for body.',
+        },
       },
       required: ['method'],
     },
@@ -744,6 +753,21 @@ function resolveApiRequestPath(args = {}) {
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
+}
+
+function encodeGithubFileContent(args = {}) {
+  const content = String(args.content ?? '');
+  const encoding = String(args.encoding || args.content_encoding || 'utf-8').toLowerCase();
+  if (encoding === 'base64') {
+    return content.replace(/\s/g, '');
+  }
+  return Buffer.from(content, 'utf8').toString('base64');
+}
+
+function resolveApiRequestBody(args = {}) {
+  if (args.body && typeof args.body === 'object') return args.body;
+  if (args.payload && typeof args.payload === 'object') return args.payload;
+  return null;
 }
 
 async function executeGithubTool(toolName, args, auth) {
@@ -976,7 +1000,7 @@ async function executeGithubTool(toolName, args, auth) {
         path: `/repos/${owner}/${repo}/contents/${String(args.path || '')}`,
         body: {
           message: String(args.message || ''),
-          content: String(args.content || ''),
+          content: encodeGithubFileContent(args),
           sha: args.sha ? String(args.sha) : undefined,
           branch: args.branch ? String(args.branch) : undefined,
         },
@@ -1118,7 +1142,7 @@ async function executeGithubTool(toolName, args, auth) {
         method: args.method || 'GET',
         path,
         query,
-        body: args.body || null,
+        body: resolveApiRequestBody(args),
         baseUrl,
       });
     }

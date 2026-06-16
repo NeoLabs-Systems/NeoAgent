@@ -881,7 +881,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'read_file',
-            description: 'Read a file from the per-user workspace filesystem. Supports reading specific line ranges for large files. This cannot read VM /tmp files created by execute_command; use execute_command with `cat /tmp/...` for those paths.',
+            description: 'Read one workspace file. Supports line ranges for large files. Use workspace file tools for code inspection whenever the files are in the shared workspace.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -898,30 +898,40 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'read_files',
-            description: 'Read multiple workspace files or line ranges in one call. Prefer this over several read_file, cat, or sed commands when inspecting related files. This cannot read VM /tmp files created by execute_command.',
+            description: 'Read multiple workspace files or line ranges in one call. Prefer this over repeated single-file reads or shell snippets when inspecting related files.',
             parameters: {
                 type: 'object',
                 properties: {
                     files: {
                         type: 'array',
-                        description: 'Files to read. Each item accepts path or file_path plus optional start_line/end_line or line_start/line_count.',
+                        description: 'Files to read. Each item may be a path string or an object with path/file_path plus optional start_line/end_line or line_start/line_count.',
                         items: {
-                            type: 'object',
-                            properties: {
-                                path: { type: 'string', description: 'Absolute or relative path inside the per-user workspace' },
-                                file_path: { type: 'string', description: 'Alias for path' },
-                                start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
-                                end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
-                                line_start: { type: 'number', description: 'Alias for start_line' },
-                                line_count: { type: 'number', description: 'Number of lines to read from start_line/line_start' },
-                                encoding: { type: 'string', description: 'File encoding (default utf-8)' }
-                            },
-                            required: []
+                            oneOf: [
+                                { type: 'string', description: 'Path inside the per-user workspace' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        path: { type: 'string', description: 'Absolute or relative path inside the per-user workspace' },
+                                        file_path: { type: 'string', description: 'Alias for path' },
+                                        start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
+                                        end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
+                                        line_start: { type: 'number', description: 'Alias for start_line' },
+                                        line_count: { type: 'number', description: 'Number of lines to read from start_line/line_start' },
+                                        encoding: { type: 'string', description: 'File encoding (default utf-8)' }
+                                    },
+                                    required: []
+                                }
+                            ]
                         }
+                    },
+                    paths: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Convenience alias for reading whole files by path.'
                     },
                     encoding: { type: 'string', description: 'Default file encoding for items without encoding (default utf-8)' }
                 },
-                required: ['files']
+                required: []
             }
         },
         {
@@ -931,10 +941,11 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     path: { type: 'string', description: 'File path' },
+                    file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
                     content: { type: 'string', description: 'Content to write' },
                     mode: { type: 'string', enum: ['write', 'append'], description: 'Write mode (default write)' }
                 },
-                required: ['path', 'content']
+                required: ['content']
             }
         },
         {
@@ -944,20 +955,23 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     path: { type: 'string', description: 'File path' },
+                    file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
                     edits: {
                         type: 'array',
                         items: {
                             type: 'object',
                             properties: {
                                 oldText: { type: 'string', description: 'The exact text to replace.' },
-                                newText: { type: 'string', description: 'The replacement text.' }
+                                newText: { type: 'string', description: 'The replacement text.' },
+                                old_text: { type: 'string', description: 'Alias for oldText' },
+                                new_text: { type: 'string', description: 'Alias for newText' }
                             },
-                            required: ['oldText', 'newText']
+                            required: []
                         },
                         description: 'List of text replacements to apply.'
                     }
                 },
-                required: ['path', 'edits']
+                required: ['edits']
             }
         },
         {
@@ -967,37 +981,42 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     path: { type: 'string', description: 'File path inside the per-user workspace' },
+                    file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
                     start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
                     end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
+                    startLine: { type: 'number', description: 'Alias for start_line' },
+                    endLine: { type: 'number', description: 'Alias for end_line' },
                     content: { type: 'string', description: 'Replacement content for the range. Empty string deletes the range.' }
                 },
-                required: ['path', 'start_line', 'end_line', 'content']
+                required: ['content']
             }
         },
         {
             name: 'list_directory',
-            description: 'List files and directories with metadata (size, modified time).',
+            description: 'List workspace files and directories with metadata. Omit path to list the workspace root.',
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: 'Directory path' },
+                    path: { type: 'string', description: 'Directory path inside the workspace (default ".")' },
                     recursive: { type: 'boolean', description: 'List recursively' },
                     depth: { type: 'number', description: 'Maximum recursion depth (default 1, max 5)' }
                 },
-                required: ['path']
+                required: []
             }
         },
         {
             name: 'search_files',
-            description: 'Search for text patterns across files in a directory (recursive).',
+            description: 'Search for text across workspace files recursively. Omit path to search the workspace root.',
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: 'Directory to search in' },
+                    path: { type: 'string', description: 'Directory to search in (default ".")' },
                     query: { type: 'string', description: 'Text or regex pattern to search for' },
-                    include: { type: 'string', description: 'Glob pattern for files to include (e.g. "*.js")' }
+                    include: { type: 'string', description: 'Glob pattern for files to include (e.g. "*.js")' },
+                    maxDepth: { type: 'number', description: 'Maximum directory depth (default 5, max 10)' },
+                    maxFileSize: { type: 'number', description: 'Maximum file size in bytes to scan (default 1048576)' }
                 },
-                required: ['path', 'query']
+                required: ['query']
             }
         },
         {
@@ -2372,7 +2391,7 @@ async function executeTool(toolName, args, context, engine) {
                 const normalizedArgs = normalizeReadFileArgs(args);
                 if (!normalizedArgs.path) {
                     return {
-                        error: 'read_file requires path or file_path. Use execute_command with `cat /tmp/...` for VM /tmp files.',
+                        error: 'read_file requires path or file_path. Keep source files in the workspace; for repository work clone or move the checkout into the workspace before using file tools.',
                     };
                 }
                 return workspace.readFile(userId, normalizedArgs);
@@ -2385,9 +2404,11 @@ async function executeTool(toolName, args, context, engine) {
             try {
                 const workspace = wc();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
-                const entries = Array.isArray(args.files) ? args.files : [];
+                const entries = Array.isArray(args.files)
+                    ? args.files
+                    : (Array.isArray(args.paths) ? args.paths : []);
                 if (!entries.length) {
-                    return { error: 'read_files requires a non-empty files array.' };
+                    return { error: 'read_files requires a non-empty files or paths array.' };
                 }
                 const maxFiles = 8;
                 const results = entries.slice(0, maxFiles).map((entry, index) => {
@@ -2428,8 +2449,10 @@ async function executeTool(toolName, args, context, engine) {
             try {
                 const workspace = wc();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
+                const targetPath = args.path || args.file_path;
+                if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
                 return workspace.writeFile(userId, {
-                    path: args.path,
+                    path: targetPath,
                     content: args.content,
                     mode: args.mode,
                 });
@@ -2442,9 +2465,18 @@ async function executeTool(toolName, args, context, engine) {
             try {
                 const workspace = wc();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
+                const targetPath = args.path || args.file_path;
+                if (!targetPath) return { success: false, error: 'edit_file requires path or file_path.' };
+                const edits = Array.isArray(args.edits)
+                    ? args.edits.map((edit) => ({
+                        ...edit,
+                        oldText: edit?.oldText ?? edit?.old_text,
+                        newText: edit?.newText ?? edit?.new_text,
+                    }))
+                    : [];
                 return workspace.editFile(userId, {
-                    path: args.path,
-                    edits: args.edits,
+                    path: targetPath,
+                    edits,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2458,8 +2490,10 @@ async function executeTool(toolName, args, context, engine) {
                 if (typeof workspace.replaceFileRange !== 'function') {
                     return { error: 'Workspace service does not support replace_file_range.' };
                 }
+                const targetPath = args.path || args.file_path;
+                if (!targetPath) return { success: false, error: 'replace_file_range requires path or file_path.' };
                 return workspace.replaceFileRange(userId, {
-                    path: args.path,
+                    path: targetPath,
                     start_line: args.start_line ?? args.startLine,
                     end_line: args.end_line ?? args.endLine,
                     content: args.content,
@@ -2491,6 +2525,8 @@ async function executeTool(toolName, args, context, engine) {
                     path: args.path,
                     query: args.query,
                     include: args.include,
+                    maxDepth: args.maxDepth ?? args.max_depth,
+                    maxFileSize: args.maxFileSize ?? args.max_file_size,
                 });
             } catch (err) {
                 return { error: err.message };

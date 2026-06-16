@@ -17,7 +17,7 @@ const {
   buildToolCatalog,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
-const { buildAnalysisPrompt } = require('../../../server/services/ai/taskAnalysis');
+const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -153,6 +153,26 @@ test('task analysis keeps short immediate work out of task automation flow', () 
   assert.match(prompt, /progress_update_policy="none"/);
   assert.match(prompt, /Do not suggest create_task/);
   assert.match(prompt, /future, recurring, scheduled, monitored, background/);
+});
+
+test('task analysis keeps source checkouts in the shared workspace', () => {
+  const prompt = buildExecutionGuidance({
+    analysis: {
+      mode: 'execute',
+      goal: 'Implement the issue.',
+      success_criteria: ['Changes are made locally.'],
+      suggested_tools: ['execute_command', 'read_files'],
+      complexity: 'standard',
+      autonomy_level: 'high',
+      progress_update_policy: 'required',
+    },
+  });
+
+  assert.match(prompt, /shared workspace/);
+  assert.match(prompt, /Prefer the highest-level available tool/);
+  assert.match(prompt, /pass those directly/);
+  assert.match(prompt, /prefer file tools/);
+  assert.doesNotMatch(prompt, /git clone[^\n]+\/tmp\/repo-name/);
 });
 
 test('structured data parser handles quoted delimiters and newlines', () => {

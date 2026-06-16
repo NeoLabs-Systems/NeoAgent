@@ -16,6 +16,8 @@ test('read-only shell inspection commands do not count as implementation progres
     'find . -name "*.js" | grep widgets | wc -l',
     'git status --short && git diff -- server/services/ai/engine.js',
     'curl -s https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md > /tmp/readme.txt && wc -l /tmp/readme.txt',
+    'base64 /tmp/NeoAgent/test/backend/unit/version_memory_social.test.js',
+    'sed -n "1,80p" /tmp/NeoAgent/server/services/widgets/service.js | base64 -w 0',
   ];
 
   for (const command of commands) {

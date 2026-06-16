@@ -206,7 +206,7 @@ function buildErrorPatternGuidance(key, count) {
   // Immediate guidance on first occurrence for high-signal patterns that waste
   // multiple iterations before self-correcting.
   const immediateGuides = {
-    eisdir: 'That path is a directory (or a VM-only path like /tmp that read_file cannot reach). Use execute_command with `cat <path>` to read files inside VMs, or list_directory to inspect a directory.',
+    eisdir: 'That path is a directory or outside the workspace file-tool boundary. Use list_directory for workspace directories. Keep source files in the shared workspace before reading them with file tools.',
     owner_repo_format: 'The parameter "owner_repo" expects a single combined string like "NeoLabs-Systems/NeoAgent" — not separate owner/repo fields. Pass the full "owner/repo" as one value.',
   };
   if (immediateGuides[key]) {
@@ -216,9 +216,9 @@ function buildErrorPatternGuidance(key, count) {
 
   if (count < 3) return null;
   const guides = {
-    outside_workspace: 'read_file cannot access /tmp paths. Use execute_command with `cat <path>` instead.',
+    outside_workspace: 'read_file/read_files only access the shared workspace. Put the relevant files there, then use read_files/search_files/edit_file instead of repeatedly extracting snippets through shell commands.',
     enoent: 'That path does not exist. Use execute_command with `find . -name "..."` to locate the correct path first.',
-    bad_cwd: 'The VM home directory is not ~/. Use absolute paths starting from /tmp or discover the workspace root first.',
+    bad_cwd: 'The VM home directory is not ~/. Discover the workspace root with pwd/list_directory and keep working files there so file tools can inspect them.',
     not_found: 'This path or resource was not found. Try listing the parent directory or checking with a broader search first.',
   };
   const guide = guides[key];
@@ -1168,6 +1168,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               alreadyRead
                 ? `You have ALREADY read/searched: ${alreadyRead}. Their output is in this conversation above — do not read or search them again; re-reading what you already have is the main way runs stall.`
                 : 'Do not re-read or re-search anything already in this conversation.',
+              'If you are repeatedly extracting evidence through low-level commands, switch to the available file/search/edit tools over the shared workspace.',
               'Act on what you already know now: edit files, run a state-changing command, create the branch/PR, or send the result.',
               'If you genuinely cannot proceed, call task_complete with your best answer or a concrete blocker. Deciding to finish is a valid action; continuing to gather is not.',
             ].join(' '),

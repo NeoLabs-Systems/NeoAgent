@@ -2,6 +2,7 @@
 
 const READ_ONLY_COMMANDS = new Set([
   'awk',
+  'base64',
   'cat',
   'curl',
   'diff',

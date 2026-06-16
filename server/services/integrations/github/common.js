@@ -42,7 +42,7 @@ async function githubApiRequest(auth, options = {}) {
     'X-GitHub-Api-Version': '2022-11-28',
   };
 
-  if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+  if (body) {
     headers['Content-Type'] = 'application/json';
   }
 
