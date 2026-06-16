@@ -129,15 +129,19 @@ async function buildArtifactFromCandidate(candidate, fallbackKind = 'artifact') 
   return artifact.path || artifact.uri ? artifact : null;
 }
 
-function scanStringForCandidates(text) {
+function scanStringForCandidates(text, { explicit = false } = {}) {
   const input = String(text || '');
   const matches = [];
-  const regexes = [
-    /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
-    /\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-    /[A-Za-z]:\\[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-    /https?:\/\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-  ];
+  const regexes = explicit
+    ? [
+      /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
+      /\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+      /[A-Za-z]:\\[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+      /https?:\/\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+    ]
+    : [
+      /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
+    ];
   for (const regex of regexes) {
     const found = input.match(regex);
     if (found) matches.push(...found);
@@ -148,9 +152,13 @@ function scanStringForCandidates(text) {
 async function extractArtifactsFromResult(toolName, result) {
   const artifacts = [];
   const seen = new Set();
+  const seenCandidates = new Set();
   const fallbackKind = inferArtifactKind(toolName, 'artifact');
 
   async function pushCandidate(candidate) {
+    const candidateKey = String(candidate || '').trim();
+    if (!candidateKey || seenCandidates.has(candidateKey)) return;
+    seenCandidates.add(candidateKey);
     const artifact = await buildArtifactFromCandidate(candidate, fallbackKind);
     if (!artifact) return;
     const key = `${artifact.kind}:${artifact.path || artifact.uri}`;
@@ -162,8 +170,9 @@ async function extractArtifactsFromResult(toolName, result) {
   async function visit(value, keyHint = '') {
     if (value == null) return;
     if (typeof value === 'string') {
-      if (CANDIDATE_KEYS.includes(keyHint)) await pushCandidate(value);
-      for (const candidate of scanStringForCandidates(value)) {
+      const explicit = CANDIDATE_KEYS.includes(keyHint);
+      if (explicit) await pushCandidate(value);
+      for (const candidate of scanStringForCandidates(value, { explicit })) {
         await pushCandidate(candidate);
       }
       return;

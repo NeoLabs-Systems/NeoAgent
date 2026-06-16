@@ -175,7 +175,7 @@ describe('messaging progress supervisor', () => {
     });
     const { runId } = seedMessagingRun(engine, {
       interimMessages: [{
-        content: 'Still working on it',
+        content: 'Investigating the issue.',
         kind: 'progress',
         expectsReply: false,
         deferFollowUp: false,
@@ -354,22 +354,96 @@ describe('messaging progress supervisor', () => {
     );
   });
 
-  test('task_complete is accepted immediately without a judge call', async () => {
-    // decideLoopState / evaluateTaskCompleteSignal are deleted.
-    // task_complete now exits the loop directly — no separate LLM judge.
+  test('task_complete is evaluated through the structured completion judge', async () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
 
     assert.equal(
       typeof engine.evaluateTaskCompleteSignal,
-      'undefined',
-      'evaluateTaskCompleteSignal must not exist on the engine',
+      'function',
+      'evaluateTaskCompleteSignal must exist on the engine',
     );
     assert.equal(
       typeof engine.decideLoopState,
-      'undefined',
-      'decideLoopState must not exist on the engine',
+      'function',
+      'decideLoopState must exist on the engine',
     );
+  });
+
+  test('task_complete judge can reject a premature completion signal', async () => {
+    const engine = new AgentEngine(null, { messagingManager: createMessagingManager() });
+    const { runId } = seedMessagingRun(engine, {
+      goalContract: {
+        goal: 'Finish the requested implementation.',
+        successCriteria: ['Tests pass.'],
+        completionConfidenceRequired: 'high',
+      },
+    });
+    let judgeCalls = 0;
+    const result = await engine.evaluateTaskCompleteSignal({
+      provider: {
+        async chat() {
+          judgeCalls += 1;
+          return {
+            content: '{"status":"continue","reason":"Tests have not been run."}',
+            usage: { totalTokens: 7 },
+          };
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [],
+      analysis: { goal: 'Finish the requested implementation.' },
+      plan: null,
+      tools: [],
+      toolExecutions: [],
+      finalMessage: 'Done.',
+      confidence: 'high',
+      iteration: 1,
+      maxIterations: 5,
+      options: { runId, userId: user.userId, triggerSource: 'messaging' },
+    });
+
+    assert.equal(judgeCalls, 1);
+    assert.equal(result.accepted, false);
+    assert.equal(result.status, 'continue');
+    assert.match(result.reason, /Tests/);
+  });
+
+  test('task_complete low confidence is rejected before the judge when confidence requirement is high', async () => {
+    const engine = new AgentEngine(null, { messagingManager: createMessagingManager() });
+    const { runId } = seedMessagingRun(engine, {
+      goalContract: {
+        goal: 'Finish the requested implementation.',
+        completionConfidenceRequired: 'high',
+      },
+    });
+    let judgeCalls = 0;
+    const result = await engine.evaluateTaskCompleteSignal({
+      provider: {
+        async chat() {
+          judgeCalls += 1;
+          return { content: '{"status":"complete"}' };
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [],
+      analysis: { goal: 'Finish the requested implementation.' },
+      plan: null,
+      tools: [],
+      toolExecutions: [],
+      finalMessage: 'Done.',
+      confidence: 'low',
+      iteration: 1,
+      maxIterations: 5,
+      options: { runId, userId: user.userId, triggerSource: 'messaging' },
+    });
+
+    assert.equal(judgeCalls, 0);
+    assert.equal(result.accepted, false);
+    assert.equal(result.status, 'continue');
+    assert.match(result.reason, /below required/);
   });
 
   test('run goal contract merges and persists durable success criteria', () => {
@@ -431,7 +505,7 @@ describe('messaging progress supervisor', () => {
     ]);
   });
 
-  test('idle supervisor nudge demands send_interim_update with elapsed time', async (t) => {
+  test('idle supervisor queues an internal progress nudge without sending user text', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -455,14 +529,13 @@ describe('messaging progress supervisor', () => {
     assert.equal(result.queued, true);
     assert.equal(messagingManager.sent.length, 0);
 
-    // Nudge must demand an update, not just suggest one
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const nudgeText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(nudgeText, /RIGHT NOW/);
-    assert.match(nudgeText, /send_interim_update/);
+    assert.match(nudgeText, /Internal progress check/);
+    assert.match(nudgeText, /decide whether to continue silently/);
   });
 
-  test('runtime heartbeat injects ai-followup steering demanding send_interim_update', async (t) => {
+  test('runtime heartbeat records liveness and queues internal steering only', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -482,39 +555,14 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(61_000);
     const result = await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(result.sent, true);
-    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(result.sent, false);
+    assert.equal(result.heartbeat, true);
+    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
-    // After the runtime heartbeat, steering must instruct the AI to follow up in its own words
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const steeringText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(steeringText, /send_interim_update/);
-    assert.match(steeringText, /your own words/);
-  });
-
-  test('heartbeat text includes run title prefix when title is set', async (t) => {
-    t.mock.timers.enable({ apis: ['Date'] });
-    t.mock.timers.setTime(0);
-
-    const messagingManager = createMessagingManager();
-    const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine, {
-      title: 'Fix GitHub Issue #91',
-      startedAt: Date.now(),
-      startedAtIso: new Date(Date.now()).toISOString(),
-      progressLedger: {
-        currentPhase: 'tool',
-        currentStep: 'step-1',
-        currentTool: 'execute_command',
-        currentStepStartedAt: new Date(Date.now()).toISOString(),
-      },
-    });
-
-    t.mock.timers.setTime(61_000);
-    await engine.tickMessagingProgressSupervisor(runId);
-
-    assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /\[Fix GitHub Issue #91\]/);
+    assert.match(steeringText, /Internal progress check/);
   });
 
   test('terminal interim question suppresses final fallback', () => {
@@ -538,7 +586,7 @@ describe('messaging progress supervisor', () => {
     );
   });
 
-  test('tool-bound messaging run sends a heartbeat after 60 seconds and respects the 90 second cadence', async (t) => {
+  test('tool-bound messaging run records a liveness heartbeat after 60 seconds and respects the 90 second cadence', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -557,20 +605,19 @@ describe('messaging progress supervisor', () => {
 
     t.mock.timers.setTime(60_001);
     await engine.tickMessagingProgressSupervisor(runId);
-    assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /Still working on execute_command/);
+    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     t.mock.timers.setTime(149_000);
     await engine.tickMessagingProgressSupervisor(runId);
-    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     t.mock.timers.setTime(150_001);
     await engine.tickMessagingProgressSupervisor(runId);
-    assert.equal(messagingManager.sent.length, 2);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 2);
   });
 
-  test('runtime heartbeat includes overall run age even when the current tool just started', async (t) => {
+  test('runtime heartbeat does not mark user-visible progress', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -590,12 +637,12 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(120_000);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /Run active 2m/);
-    assert.match(messagingManager.sent[0].content, /current step 1s/);
+    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
+    assert.equal(engine.getRunMeta(runId).progressLedger.lastUserVisibleUpdateAt || null, null);
   });
 
-  test('blocked model calls receive factual runtime heartbeats', async (t) => {
+  test('blocked model calls record internal liveness without messaging the user', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -615,8 +662,7 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(60_001);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /Still working on this/);
+    assert.equal(messagingManager.sent.length, 0);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
   });
 
@@ -662,7 +708,7 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(60_001);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent.length, 0);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     resolveModel({
@@ -675,7 +721,7 @@ describe('messaging progress supervisor', () => {
     assert.equal(engine.getRunMeta(runId).progressLedger.currentStep, null);
   });
 
-  test('failed runtime heartbeat is not recorded as visible progress', async (t) => {
+  test('runtime heartbeat does not depend on messaging delivery', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -697,15 +743,14 @@ describe('messaging progress supervisor', () => {
     });
 
     t.mock.timers.setTime(60_001);
-    await assert.rejects(
-      engine.tickMessagingProgressSupervisor(runId),
-      (error) => error.code === 'MESSAGING_DELIVERY_FAILED',
-    );
+    const result = await engine.tickMessagingProgressSupervisor(runId);
 
     const runMeta = engine.getRunMeta(runId);
-    assert.equal(Number(runMeta.progressLedger.heartbeatCount || 0), 0);
+    assert.equal(result.heartbeat, true);
+    assert.equal(Number(runMeta.progressLedger.heartbeatCount || 0), 1);
     assert.equal(runMeta.progressLedger.lastUserVisibleUpdateAt || null, null);
     assert.equal(runMeta.interimMessages.length, 0);
+    assert.equal(messagingManager.sent.length, 0);
   });
 
   test('stalled tool-bound messaging run records stalled state and resumes on verified progress', async (t) => {
@@ -731,7 +776,7 @@ describe('messaging progress supervisor', () => {
     const stalledRun = engine.getRunMeta(runId);
     assert.equal(stalledRun.progressLedger.progressState, 'stalled');
     assert.equal(stalledRun.progressLedger.stallNotifiedAt != null, true);
-    assert.match(messagingManager.sent[messagingManager.sent.length - 1].content, /no verified progress/);
+    assert.equal(messagingManager.sent.length, 0);
     assert.equal(listRunEvents(runId).some((event) => event.eventType === 'progress_stalled'), true);
 
     engine.updateRunProgress(runId, {
@@ -753,7 +798,21 @@ describe('messaging progress supervisor', () => {
     const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
 
     const artifacts = await extractArtifactsFromResult('execute_command', {
-      stdout: '/tmp/neoagent-missing-artifact.txt',
+      path: '/tmp/neoagent-missing-artifact.txt',
+    });
+
+    assert.equal(artifacts.length, 0);
+  });
+
+  test('generic command output paths are not promoted to artifact candidates', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+
+    const artifacts = await extractArtifactsFromResult('execute_command', {
+      stdout: [
+        '/server/services/ai/engine.js',
+        '/README.md',
+        '/Users/neo/.codex/attachments/missing/pasted-text.txt',
+      ].join('\n'),
     });
 
     assert.equal(artifacts.length, 0);
