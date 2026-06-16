@@ -63,10 +63,15 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
     if (decision === 'approved') return;
 
     const isTimeout = decision === 'timeout';
+    const isExpired = decision === 'expired';
     return {
       block: true,
-      blocked_by: isTimeout ? 'approval_timeout' : 'user_denied',
-      reason: isTimeout
+      blocked_by: isExpired
+        ? 'approval_expired'
+        : (isTimeout ? 'approval_timeout' : 'user_denied'),
+      reason: isExpired
+        ? `Approval for "${toolName}" expired because the server restarted or the run was interrupted. Do not retry unless the user explicitly asks you to try again.`
+        : isTimeout
         ? `Approval for "${toolName}" timed out — the user did not respond within 30 seconds. ` +
           `Do not retry unless the user explicitly asks you to try again.`
         : `The user denied the use of "${toolName}". Do not retry this tool call in this run.`,

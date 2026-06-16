@@ -571,6 +571,22 @@ async function startServices(app, io) {
 async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
+  if (app.locals.approvalGateService && typeof app.locals.approvalGateService.shutdown === 'function') {
+    try {
+      app.locals.approvalGateService.shutdown();
+      logServiceReady('Pending approvals expired');
+    } catch (err) {
+      console.error('[ApprovalGate] Shutdown error:', getErrorMessage(err));
+    }
+  }
+  if (app.locals.agentEngine && typeof app.locals.agentEngine.interruptAllActiveRuns === 'function') {
+    try {
+      app.locals.agentEngine.interruptAllActiveRuns();
+      logServiceReady('Active runs marked interrupted');
+    } catch (err) {
+      console.error('[AgentEngine] Interrupt error:', getErrorMessage(err));
+    }
+  }
   if (app.locals.memoryManager) {
     app.locals.memoryManager.stopEmbeddingIndexBackfill();
   }

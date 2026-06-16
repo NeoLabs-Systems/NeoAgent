@@ -6,6 +6,12 @@
   <title>NeoAgent Admin</title>
   <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin/admin.css">
+  <script>
+    // Set theme before first paint to avoid a flash of the wrong palette.
+    try {
+      document.documentElement.setAttribute('data-theme', localStorage.getItem('admin-theme') || 'dark');
+    } catch (_) { document.documentElement.setAttribute('data-theme', 'dark'); }
+  </script>
   <style>
     /* ── Layout ────────────────────────────────────────────────────── */
     body {
@@ -62,7 +68,7 @@
       text-decoration: none;
     }
 
-    .nav-item:hover { background: rgba(224,240,224,0.05); color: var(--text); }
+    .nav-item:hover { background: var(--row-hover); color: var(--text); }
 
     .nav-item.active {
       background: rgba(225, 176, 82, 0.12);
@@ -77,6 +83,51 @@
     }
 
     .nav-item.active svg { opacity: 1; }
+
+    .nav-badge {
+      margin-left: auto;
+      min-width: 18px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .issue-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .issue-row:last-child { border-bottom: none; }
+    .issue-msg {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--danger);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .issue-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .issue-count {
+      display: inline-block;
+      margin-bottom: 3px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-weight: 600;
+    }
 
     .sidebar-footer {
       padding: 10px;
@@ -202,12 +253,12 @@
     .log-row {
       display: grid;
       grid-template-columns: 80px 46px 1fr;
-      border-bottom: 1px solid rgba(224,240,224,0.04);
+      border-bottom: 1px solid var(--border);
     }
 
     .log-row:last-child { border-bottom: none; }
 
-    .log-row:hover { background: rgba(224,240,224,0.03); }
+    .log-row:hover { background: var(--row-hover); }
 
     .log-cell {
       padding: 6px 10px;
@@ -426,12 +477,12 @@
 
     .analytics-table td {
       padding: 9px 8px;
-      border-bottom: 1px solid rgba(224,240,224,0.04);
+      border-bottom: 1px solid var(--border);
       color: var(--text-secondary);
     }
 
     .analytics-table tr:last-child td { border-bottom: none; }
-    .analytics-table tr:hover td { background: rgba(224,240,224,0.025); }
+    .analytics-table tr:hover td { background: var(--row-hover); }
 
     .cell-truncate {
       max-width: 280px;
@@ -504,12 +555,12 @@
 
     .users-table td {
       padding: 10px 8px;
-      border-bottom: 1px solid rgba(224,240,224,0.04);
+      border-bottom: 1px solid var(--border);
       vertical-align: middle;
     }
 
     .users-table tr:last-child td { border-bottom: none; }
-    .users-table tr:hover td { background: rgba(224,240,224,0.025); }
+    .users-table tr:hover td { background: var(--row-hover); }
 
     .gdpr-note {
       font-size: 11px;
@@ -593,7 +644,7 @@
 
     .sql-result-table td {
       padding: 6px 12px;
-      border-bottom: 1px solid rgba(224,240,224,0.04);
+      border-bottom: 1px solid var(--border);
       color: var(--text-secondary);
       white-space: nowrap;
       max-width: 320px;
@@ -602,7 +653,7 @@
     }
 
     .sql-result-table tr:last-child td { border-bottom: none; }
-    .sql-result-table tr:hover td { background: rgba(224,240,224,0.03); }
+    .sql-result-table tr:hover td { background: var(--row-hover); }
 
     .sql-error {
       padding: 12px 14px;
@@ -821,6 +872,14 @@
         Logs
       </button>
 
+      <button class="nav-item" data-page="issues" onclick="showPage('issues',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        Issues
+        <span class="nav-badge" id="issues-badge" hidden>0</span>
+      </button>
+
       <button class="nav-item" data-page="updates" onclick="showPage('updates',this)">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
@@ -883,6 +942,12 @@
     </nav>
 
     <div class="sidebar-footer">
+      <button class="nav-item" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark theme">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
+        </svg>
+        <span id="theme-toggle-label">Light mode</span>
+      </button>
       <button class="nav-item btn-danger" onclick="signOut()">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
@@ -933,6 +998,29 @@
           </div>
           <div class="log-table" id="log-table" role="log" aria-label="Server logs">
             <div class="empty">No log entries yet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Issues -->
+    <section id="page-issues" class="page" aria-label="Issues">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Issues</h1>
+          <p class="page-subtitle">Critical errors from the log stream that should be addressed, grouped by message</p>
+        </div>
+        <span class="refresh-hint" id="issues-ts" aria-live="polite"></span>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar">
+            <span class="toolbar-count" id="issue-count" aria-live="polite">0 issues</span>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="loadIssues()">Refresh</button>
+          </div>
+          <div class="log-table" id="issue-table" role="log" aria-label="Critical issues">
+            <div class="empty">No critical issues</div>
           </div>
         </div>
       </div>

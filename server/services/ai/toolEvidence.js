@@ -153,6 +153,27 @@ function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
   }).join('\n');
 }
 
+function isSubstantiveProgressToolName(toolName = '') {
+  const name = String(toolName || '').trim();
+  if (!name) return false;
+  if (name === 'send_message' || name === 'send_interim_update' || name === 'make_call') return false;
+  if (name === 'think' || name === 'activate_tools' || name === 'task_complete') return false;
+  return true;
+}
+
+function isSubstantiveProgressEvidence(item = {}) {
+  if (!isSubstantiveProgressToolName(item.toolName)) return false;
+  if (item.evidenceSource === 'messaging') return false;
+  return Boolean(item.evidenceRelevant || item.stateChanged || item.error);
+}
+
+function summarizeProgressToolExecutions(toolExecutions = [], maxItems = 10) {
+  return summarizeToolExecutions(
+    toolExecutions.filter(isSubstantiveProgressEvidence),
+    maxItems,
+  );
+}
+
 function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
   const excluded = new Set((Array.isArray(exclude) ? exclude : [exclude]).filter(Boolean));
   return tools
@@ -214,6 +235,9 @@ function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], 
 module.exports = {
   classifyToolExecution,
   deriveEvidenceSource,
+  isSubstantiveProgressEvidence,
+  isSubstantiveProgressToolName,
+  summarizeProgressToolExecutions,
   summarizeToolExecutions,
   summarizeAvailableTools,
   inferToolFailureMessage,

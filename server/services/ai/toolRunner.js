@@ -1,9 +1,13 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const db = require('../../db/database');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
 const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
+const USER_SKILLS_DIR = path.join(SKILLS_DIR, 'users');
+const LEGACY_SKILL_USER_ID = 0;
 
 function shellEscape(value) {
   const text = String(value ?? '');
@@ -30,13 +34,56 @@ function clampText(value, maxChars) {
 }
 
 function isValidUserId(userId) {
+  return normalizeRuntimeUserId(userId) !== null;
+}
+
+function normalizeRuntimeUserId(userId) {
   if (typeof userId === 'number') {
-    return Number.isInteger(userId) && userId > 0;
+    return Number.isInteger(userId) && userId > 0 ? userId : null;
   }
   if (typeof userId === 'string') {
-    return userId.trim() !== '';
+    const trimmed = userId.trim();
+    if (!trimmed) return null;
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
-  return false;
+  return null;
+}
+
+function normalizeStoredUserId(userId) {
+  if (typeof userId === 'number' && Number.isInteger(userId)) {
+    return userId;
+  }
+  if (typeof userId === 'string') {
+    const trimmed = userId.trim();
+    if (!trimmed) return LEGACY_SKILL_USER_ID;
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) ? parsed : LEGACY_SKILL_USER_ID;
+  }
+  return LEGACY_SKILL_USER_ID;
+}
+
+function normalizeSkillName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[^a-z0-9-]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+}
+
+function buildSkillKey(ownerType, ownerId, name) {
+  return `${ownerType}:${ownerId ?? 'global'}:${name}`;
+}
+
+function parseMetadataJson(value) {
+  if (!value || typeof value !== 'string') return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 class SkillRunner {
@@ -47,47 +94,67 @@ class SkillRunner {
 
   async loadSkills() {
     this.skills.clear();
-    if (!fs.existsSync(SKILLS_DIR)) return;
+    const dbSkills = db.prepare('SELECT * FROM skills').all();
+    const dbSkillPaths = new Set(
+      dbSkills
+        .map((skill) => path.resolve(String(skill.file_path || '')))
+        .filter(Boolean),
+    );
+    const loadedPaths = new Set();
 
     const loadDir = (dir) => {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
+        if (path.resolve(fullPath) === path.resolve(USER_SKILLS_DIR)) {
+          continue;
+        }
         if (entry.isDirectory()) {
           const skillFile = path.join(fullPath, 'SKILL.md');
-          if (fs.existsSync(skillFile)) {
-            this.loadSkillFile(skillFile);
+          if (fs.existsSync(skillFile) && !dbSkillPaths.has(path.resolve(skillFile))) {
+            this.loadSkillFile(skillFile, { ownerType: 'global' });
+            loadedPaths.add(path.resolve(skillFile));
           }
           loadDir(fullPath);
-        } else if (entry.name.endsWith('.md')) {
-          this.loadSkillFile(fullPath);
+        } else if (
+          entry.name.endsWith('.md')
+          && !loadedPaths.has(path.resolve(fullPath))
+          && !dbSkillPaths.has(path.resolve(fullPath))
+        ) {
+          this.loadSkillFile(fullPath, { ownerType: 'global' });
+          loadedPaths.add(path.resolve(fullPath));
         }
       }
     };
 
-    loadDir(SKILLS_DIR);
-
-    const dbSkills = db.prepare('SELECT * FROM skills WHERE enabled = 1').all();
+    if (fs.existsSync(SKILLS_DIR)) {
+      loadDir(SKILLS_DIR);
+    }
     for (const skill of dbSkills) {
       if (fs.existsSync(skill.file_path)) {
-        this.loadSkillFile(skill.file_path);
+        this.loadSkillFile(skill.file_path, {
+          ownerType: normalizeStoredUserId(skill.user_id) > 0 ? 'user' : 'legacy',
+          userId: normalizeStoredUserId(skill.user_id),
+          enabled: skill.enabled !== 0,
+          metadata: parseMetadataJson(skill.metadata),
+        });
       }
     }
   }
 
-  loadSkillFile(filePath) {
+  loadSkillFile(filePath, options = {}) {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      const skill = this.parseSkillMd(content, filePath);
+      const skill = this.parseSkillMd(content, filePath, options);
       if (skill) {
-        this.skills.set(skill.name, skill);
+        this.skills.set(skill.key, skill);
       }
     } catch (err) {
       console.error(`Failed to load skill from ${filePath}:`, err.message);
     }
   }
 
-  parseSkillMd(content, filePath) {
+  parseSkillMd(content, filePath, options = {}) {
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)/);
     if (!frontmatterMatch) return null;
 
@@ -109,15 +176,32 @@ class SkillRunner {
       }
     }
 
-    if (!metadata.name) return null;
+    const name = normalizeSkillName(metadata.name);
+    if (!name) return null;
+
+    const ownerType = options.ownerType || 'global';
+    const userId = ownerType === 'user' || ownerType === 'legacy'
+      ? normalizeStoredUserId(options.userId)
+      : null;
+    const mergedMetadata = {
+      ...metadata,
+      ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {}),
+    };
+    if (typeof options.enabled === 'boolean') {
+      mergedMetadata.enabled = options.enabled;
+    }
 
     return {
-      name: metadata.name,
+      key: buildSkillKey(ownerType, userId, name),
+      name,
       description: metadata.description || '',
-      metadata,
+      metadata: mergedMetadata,
       instructions: body.trim(),
       filePath,
-      dir: path.dirname(filePath)
+      dir: path.dirname(filePath),
+      ownerType,
+      userId,
+      readOnly: ownerType !== 'user',
     };
   }
 
@@ -125,7 +209,7 @@ class SkillRunner {
     const maxTotalChars = options.maxTotalChars || 9000;
     const maxDescriptionChars = options.maxDescriptionChars || 220;
     const maxTriggerChars = options.maxTriggerChars || 120;
-    const skills = Array.from(this.skills.values())
+    const skills = this.getAll(options.userId)
       .filter((skill) => skill.metadata.enabled !== false)
       .sort((a, b) => {
         const categoryCompare = String(a.metadata?.category || 'general')
@@ -166,9 +250,9 @@ class SkillRunner {
     return `\n${lines.join('\n')}`;
   }
 
-  getToolDefinitions() {
+  getToolDefinitions(options = {}) {
     const tools = [];
-    for (const skill of this.skills.values()) {
+    for (const skill of this.getAll(options.userId)) {
       if (skill.metadata.enabled !== false && skill.metadata.tool) {
         tools.push({
           name: skill.name,
@@ -181,7 +265,7 @@ class SkillRunner {
   }
 
   async executeTool(toolName, args, context = {}) {
-    const skill = this.skills.get(toolName);
+    const skill = this.getSkill(toolName, context.userId);
     if (!skill) return null;
     const metricContext = {
       userId: context.userId,
@@ -272,28 +356,70 @@ class SkillRunner {
     );
   }
 
-  createSkill(name, description, instructions, metadata = {}) {
-    const safeName = name.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
-    const skillDir = path.join(SKILLS_DIR, safeName);
+  createSkill(userId, name, description, instructions, metadata = {}) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    if (ownerId === null) {
+      return { error: 'Missing or invalid userId' };
+    }
+    const safeName = normalizeSkillName(name);
+    if (!safeName) {
+      return { error: 'Skill name is required' };
+    }
+    if (this._findOwnedSkill(safeName, ownerId)) {
+      return { error: `Skill '${safeName}' already exists` };
+    }
+
+    const metaToWrite = metadata && typeof metadata === 'object' ? metadata : {};
+    const skillDir = path.join(USER_SKILLS_DIR, String(ownerId), safeName);
     if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true });
 
-    const frontmatter = this._buildFrontmatter(safeName, description, metadata);
+    const frontmatter = this._buildFrontmatter(safeName, description, metaToWrite);
     const filePath = path.join(skillDir, 'SKILL.md');
     fs.writeFileSync(filePath, frontmatter + `\n\n${instructions}`);
 
-    db.prepare(`
-      INSERT OR REPLACE INTO skills (name, description, file_path, metadata, enabled, auto_created, updated_at)
-      VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
-    `).run(safeName, description, filePath, JSON.stringify(metadata), metadata.enabled === false ? 0 : 1);
+    try {
+      db.prepare(`
+        INSERT INTO skills (user_id, name, description, file_path, metadata, enabled, auto_created, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
+      `).run(
+        ownerId,
+        safeName,
+        description,
+        filePath,
+        JSON.stringify(metaToWrite),
+        metaToWrite.enabled === false ? 0 : 1,
+      );
+    } catch (err) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {}
+      try {
+        const remaining = fs.readdirSync(skillDir);
+        if (remaining.length === 0) fs.rmdirSync(skillDir);
+      } catch {}
+      if (String(err?.message || '').includes('UNIQUE')) {
+        return { error: `Skill '${safeName}' already exists` };
+      }
+      throw err;
+    }
 
-    this.loadSkillFile(filePath);
+    this.loadSkillFile(filePath, {
+      ownerType: 'user',
+      userId: ownerId,
+      enabled: metaToWrite.enabled !== false,
+      metadata: metaToWrite,
+    });
 
     return { success: true, name: safeName, path: filePath };
   }
 
-  updateSkill(name, { description, instructions, metadata } = {}) {
-    const skill = this.skills.get(name);
+  updateSkill(userId, name, { description, instructions, metadata } = {}) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    const skill = this.getSkill(name, ownerId);
     if (!skill) return { error: `Skill '${name}' not found` };
+    if (!this._canEditSkill(skill, ownerId)) {
+      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+    }
 
     const newDesc = description !== undefined ? description : skill.description;
     const newInstructions = instructions !== undefined ? instructions : skill.instructions;
@@ -308,29 +434,57 @@ class SkillRunner {
       metaToWrite = existing;
     }
 
-    const frontmatter = this._buildFrontmatter(name, newDesc, metaToWrite);
+    const frontmatter = this._buildFrontmatter(skill.name, newDesc, metaToWrite);
     fs.writeFileSync(skill.filePath, frontmatter + `\n\n${newInstructions}`);
-    db.prepare('UPDATE skills SET description = ?, metadata = ?, enabled = ?, updated_at = datetime(\'now\') WHERE name = ?')
-      .run(newDesc, JSON.stringify(metaToWrite || {}), metaToWrite?.enabled === false ? 0 : 1, name);
-    this.loadSkillFile(skill.filePath);
+    db.prepare(
+      `UPDATE skills
+       SET description = ?, metadata = ?, enabled = ?, updated_at = datetime('now')
+       WHERE user_id = ? AND name = ?`
+    ).run(
+      newDesc,
+      JSON.stringify(metaToWrite || {}),
+      metaToWrite?.enabled === false ? 0 : 1,
+      ownerId,
+      skill.name,
+    );
+    this.loadSkillFile(skill.filePath, {
+      ownerType: 'user',
+      userId: ownerId,
+      enabled: metaToWrite?.enabled !== false,
+      metadata: metaToWrite,
+    });
 
-    return { success: true, name, path: skill.filePath };
+    return { success: true, name: skill.name, path: skill.filePath };
   }
 
-  getSkill(name) {
-    return this.skills.get(name) || null;
+  getSkill(name, userId = null) {
+    const skillName = normalizeSkillName(name);
+    if (!skillName) return null;
+    const ownerId = normalizeRuntimeUserId(userId);
+    if (ownerId !== null) {
+      const owned = this._findOwnedSkill(skillName, ownerId);
+      if (owned) return owned;
+    }
+    return this._findVisibleSkill(skillName, ownerId);
   }
 
-  setSkillEnabled(name, enabled) {
-    const skill = this.skills.get(name);
+  setSkillEnabled(userId, name, enabled) {
+    const skill = this.getSkill(name, userId);
     if (!skill) return { error: `Skill '${name}' not found` };
+    if (!this._canEditSkill(skill, normalizeRuntimeUserId(userId))) {
+      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+    }
     const metadata = { ...skill.metadata, enabled: !!enabled };
-    return this.updateSkill(name, { metadata });
+    return this.updateSkill(userId, skill.name, { metadata });
   }
 
-  deleteSkill(name) {
-    const skill = this.skills.get(name);
+  deleteSkill(userId, name) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    const skill = this.getSkill(name, ownerId);
     if (!skill) return { error: `Skill '${name}' not found` };
+    if (!this._canEditSkill(skill, ownerId)) {
+      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+    }
 
     try {
       fs.unlinkSync(skill.filePath);
@@ -341,10 +495,10 @@ class SkillRunner {
       }
     } catch (e) { /* ignore */ }
 
-    db.prepare('DELETE FROM skills WHERE name = ?').run(name);
-    this.skills.delete(name);
+    db.prepare('DELETE FROM skills WHERE user_id = ? AND name = ?').run(ownerId, skill.name);
+    this.skills.delete(skill.key);
 
-    return { success: true, deleted: name };
+    return { success: true, deleted: skill.name };
   }
 
   _buildFrontmatter(name, description, metadata = {}) {
@@ -361,15 +515,68 @@ class SkillRunner {
     return fm;
   }
 
-  getAll() {
-    return Array.from(this.skills.values()).map(s => ({
+  getAll(userId = null) {
+    return this._getVisibleSkills(userId).map((s) => ({
       name: s.name,
       description: s.description,
       metadata: s.metadata,
       filePath: s.filePath,
-      enabled: s.metadata.enabled !== false
+      enabled: s.metadata.enabled !== false,
+      userId: s.userId,
+      ownerType: s.ownerType,
+      readOnly: s.readOnly,
     }));
+  }
+
+  findSkillByWorkflowSignature(userId, workflowSignature) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    if (ownerId === null || !workflowSignature) return null;
+    return Array.from(this.skills.values()).find(
+      (skill) => skill.ownerType === 'user'
+        && skill.userId === ownerId
+        && skill.metadata?.workflow_signature === workflowSignature,
+    ) || null;
+  }
+
+  _findOwnedSkill(name, userId) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    if (ownerId === null) return null;
+    return this.skills.get(buildSkillKey('user', ownerId, normalizeSkillName(name))) || null;
+  }
+
+  _findVisibleSkill(name, userId) {
+    const skillName = normalizeSkillName(name);
+    return this._getVisibleSkills(userId).find((skill) => skill.name === skillName) || null;
+  }
+
+  _getVisibleSkills(userId = null) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    const visible = Array.from(this.skills.values()).filter((skill) => {
+      if (ownerId === null) return true;
+      if (skill.ownerType === 'user') return skill.userId === ownerId;
+      return true;
+    });
+    if (ownerId === null) return visible;
+    const ownedNames = new Set(
+      visible
+        .filter((skill) => skill.ownerType === 'user' && skill.userId === ownerId)
+        .map((skill) => skill.name),
+    );
+    return visible.filter((skill) => {
+      if (skill.ownerType === 'user') return skill.userId === ownerId;
+      return !ownedNames.has(skill.name);
+    });
+  }
+
+  _canEditSkill(skill, userId) {
+    const ownerId = normalizeRuntimeUserId(userId);
+    return skill?.ownerType === 'user' && skill.userId === ownerId;
   }
 }
 
-module.exports = { SkillRunner };
+module.exports = {
+  SkillRunner,
+  LEGACY_SKILL_USER_ID,
+  USER_SKILLS_DIR,
+  normalizeSkillName,
+};

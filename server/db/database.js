@@ -91,6 +91,8 @@ function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite 
 let db = new Database(DB_PATH);
 db = initializeDatabase(db, DB_PATH);
 
+const STALE_RUN_INTERRUPTED_ERROR = 'Server restarted while run was in progress.';
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -441,7 +443,8 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS skills (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    name TEXT NOT NULL,
     description TEXT,
     file_path TEXT NOT NULL,
     metadata TEXT DEFAULT '{}',
@@ -1077,6 +1080,57 @@ db.exec(`
 `);
 
 runSchemaMigrations(db);
+
+function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
+  const normalizedReason = String(reason || STALE_RUN_INTERRUPTED_ERROR).trim()
+    || STALE_RUN_INTERRUPTED_ERROR;
+  const staleRunIds = db.prepare(
+    `SELECT id
+     FROM agent_runs
+     WHERE status = 'running'`
+  ).all().map((row) => row.id);
+  const runsResult = db.prepare(
+    `UPDATE agent_runs
+     SET status = 'interrupted',
+         error = COALESCE(NULLIF(error, ''), ?),
+         updated_at = datetime('now'),
+         completed_at = COALESCE(completed_at, datetime('now'))
+     WHERE status = 'running'`
+  ).run(normalizedReason);
+
+  db.prepare(
+    `UPDATE agent_steps
+     SET status = 'interrupted',
+         error = COALESCE(NULLIF(error, ''), ?),
+         completed_at = COALESCE(completed_at, datetime('now'))
+     WHERE status = 'running'`
+  ).run(normalizedReason);
+
+  db.prepare(
+    `UPDATE agent_delegations
+     SET status = 'interrupted',
+         error = COALESCE(NULLIF(error, ''), ?),
+         updated_at = datetime('now'),
+         completed_at = COALESCE(completed_at, datetime('now'))
+     WHERE status = 'running'`
+  ).run(normalizedReason);
+
+  if (staleRunIds.length) {
+    const placeholders = staleRunIds.map(() => '?').join(', ');
+    db.prepare(
+      `UPDATE pending_approvals
+       SET status = 'expired',
+           decided_at = COALESCE(decided_at, datetime('now')),
+           updated_at = datetime('now')
+       WHERE status = 'pending'
+         AND run_id IN (${placeholders})`
+    ).run(...staleRunIds);
+  }
+
+  return runsResult.changes || 0;
+}
+
+interruptStaleAgentRuns();
 
 try {
   db.exec(`
@@ -2022,3 +2076,5 @@ try {
 }
 
 module.exports = db;
+module.exports.STALE_RUN_INTERRUPTED_ERROR = STALE_RUN_INTERRUPTED_ERROR;
+module.exports.interruptStaleAgentRuns = interruptStaleAgentRuns;

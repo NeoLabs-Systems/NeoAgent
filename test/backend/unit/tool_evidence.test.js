@@ -6,6 +6,9 @@ const { test } = require('node:test');
 const {
   classifyToolExecution,
   deriveEvidenceSource,
+  isSubstantiveProgressEvidence,
+  isSubstantiveProgressToolName,
+  summarizeProgressToolExecutions,
   summarizeToolExecutions,
   summarizeAvailableTools,
   inferToolFailureMessage,
@@ -128,6 +131,26 @@ test('summarizeToolExecutions renders a numbered status list', () => {
   ]);
   assert.match(text, /1\. read_file \[files\] ok :: read 10 lines/);
   assert.match(text, /2\. execute_command \[command\] error=boom/);
+});
+
+test('progress evidence excludes communication and meta-only tool activity', () => {
+  assert.equal(isSubstantiveProgressToolName('send_message'), false);
+  assert.equal(isSubstantiveProgressToolName('send_interim_update'), false);
+  assert.equal(isSubstantiveProgressToolName('think'), false);
+  assert.equal(isSubstantiveProgressToolName('read_file'), true);
+
+  const sentReply = classifyToolExecution('send_message', { content: 'done' }, { success: true });
+  const thought = classifyToolExecution('think', { thought: 'considering' }, { thought: 'considering' });
+  const inspectedFile = classifyToolExecution('read_file', { path: 'server/index.js' }, { content: 'ok' });
+
+  assert.equal(isSubstantiveProgressEvidence(sentReply), false);
+  assert.equal(isSubstantiveProgressEvidence(thought), false);
+  assert.equal(isSubstantiveProgressEvidence(inspectedFile), true);
+
+  const summary = summarizeProgressToolExecutions([sentReply, thought, inspectedFile]);
+  assert.doesNotMatch(summary, /send_message/);
+  assert.doesNotMatch(summary, /think/);
+  assert.match(summary, /read_file/);
 });
 
 test('summarizeAvailableTools excludes a tool and caps the list', () => {

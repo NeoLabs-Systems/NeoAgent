@@ -16,8 +16,29 @@ function showPage(page, btn) {
   if (btn) btn.classList.add('active');
   currentPage = page;
 
-  const loaders = { overview: loadHealth, logs: loadLogs, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
+  const loaders = { overview: loadHealth, logs: loadLogs, issues: loadIssues, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
   loaders[page]?.();
+}
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+
+function applyTheme(theme) {
+  const isLight = theme === 'light';
+  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+  const label = document.getElementById('theme-toggle-label');
+  if (label) label.textContent = isLight ? 'Dark mode' : 'Light mode';
+}
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  try { localStorage.setItem('admin-theme', next); } catch {}
+  applyTheme(next);
+}
+
+function initTheme() {
+  let stored = 'dark';
+  try { stored = localStorage.getItem('admin-theme') || 'dark'; } catch {}
+  applyTheme(stored);
 }
 
 async function signOut() {
@@ -128,6 +149,62 @@ function copyLogs() {
     .map((e) => `[${e.timestamp || ''}] [${e.type || 'log'}] ${e.message || ''}`)
     .join('\n');
   navigator.clipboard.writeText(text).catch(() => {});
+}
+
+// ── Issues ─────────────────────────────────────────────────────────────────
+
+// Distil the raw log stream down to critical, actionable issues: error-level
+// entries grouped by message so a repeated failure shows up once with a count.
+function groupIssues(logs) {
+  const groups = new Map();
+  for (const entry of logs) {
+    if ((entry.type || 'log') !== 'error') continue;
+    const message = String(entry.message || '').trim();
+    if (!message) continue;
+    const existing = groups.get(message);
+    if (existing) {
+      existing.count += 1;
+      if (entry.timestamp && entry.timestamp > existing.last) existing.last = entry.timestamp;
+    } else {
+      groups.set(message, { message, count: 1, last: entry.timestamp || '' });
+    }
+  }
+  return Array.from(groups.values()).sort((a, b) => String(b.last).localeCompare(String(a.last)));
+}
+
+function renderIssues(issues) {
+  const table = document.getElementById('issue-table');
+  const count = document.getElementById('issue-count');
+  const badge = document.getElementById('issues-badge');
+  if (count) count.textContent = `${issues.length} issue${issues.length === 1 ? '' : 's'}`;
+  if (badge) {
+    if (issues.length) { badge.hidden = false; badge.textContent = String(issues.length); }
+    else { badge.hidden = true; }
+  }
+  if (!table) return;
+  if (!issues.length) { table.innerHTML = '<div class="empty">No critical issues 🎉</div>'; return; }
+  table.innerHTML = issues.map((i) => `
+    <div class="issue-row">
+      <div class="issue-msg">${esc(i.message)}</div>
+      <div class="issue-meta">
+        ${i.count > 1 ? `<span class="issue-count">×${i.count}</span><br>` : ''}
+        ${esc(fmtTime(i.last))}
+      </div>
+    </div>`).join('');
+}
+
+async function loadIssues() {
+  try {
+    const data = await api('/admin/api/logs').then((r) => r.json());
+    localLogs = data.logs || localLogs;
+    renderIssues(groupIssues(localLogs));
+    setTs('issues-ts', 'Updated');
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      const table = document.getElementById('issue-table');
+      if (table) table.innerHTML = '<div class="empty">Failed to load issues</div>';
+    }
+  }
 }
 
 // ── Updates ────────────────────────────────────────────────────────────────
@@ -626,12 +703,14 @@ async function saveEnabledModels(btn) {
 function startPolling() {
   setInterval(() => { if (currentPage === 'overview') loadHealth();  }, 30_000);
   setInterval(() => { if (currentPage === 'logs' && !logsCleared) loadLogs(); }, 5_000);
+  setInterval(() => { if (currentPage === 'issues') loadIssues(); }, 10_000);
   setInterval(() => { if (currentPage === 'updates') loadVersion();  }, 10_000);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
 (async function init() {
+  initTheme();
   try {
     const res = await fetch('/admin/api/version');
     if (res.status === 401) { window.location.replace('/admin/login'); return; }
@@ -639,5 +718,6 @@ function startPolling() {
     // server unreachable — still render; API calls will fail gracefully
   }
   loadHealth();
+  loadIssues();
   startPolling();
 }());

@@ -141,6 +141,8 @@ const {
 } = require('../messagingFallback');
 const {
   classifyToolExecution,
+  isSubstantiveProgressToolName,
+  summarizeProgressToolExecutions,
   summarizeToolExecutions,
   summarizeAvailableTools,
   inferToolFailureMessage,
@@ -663,6 +665,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     steeringQueue: [],
     systemSteeringQueue: [],
     toolPids: new Set(),
+    subagentDepth: Math.max(0, Number(options.subagentDepth) || 0),
     repetitionGuard: new ToolRepetitionGuard(),
     seenOutputHashes: new Map(),
     consecutiveReadOnlyIterations: 0,
@@ -715,7 +718,13 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
   const integrationManager = app?.locals?.integrationManager || null;
   const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
-  const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options);
+  const disallowedToolNames = new Set(
+    (Array.isArray(options.disallowedToolNames) ? options.disallowedToolNames : [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean),
+  );
+  const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options)
+    .filter((tool) => !disallowedToolNames.has(tool?.name));
   let tools = allTools;
   const toolNames = allTools.map((tool) => tool.name).filter(Boolean);
   const coreToolStatus = {
@@ -825,15 +834,21 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           // Real, specific evidence (actual commands + their output) so the update is
           // grounded in what happened, not invented. Bare tool names make a weak model
           // confabulate generic activity ("running the build", "training").
-          const recent = summarizeToolExecutions(toolExecutions, 5) || '(no tool activity yet)';
+          const recent = summarizeProgressToolExecutions(toolExecutions, 5);
+          const currentTool = isSubstantiveProgressToolName(ledger.currentTool)
+            ? ledger.currentTool
+            : '';
+          if (!recent && !currentTool) {
+            return '';
+          }
           const priorUpdate = String(rm?.lastInterimMessage || '').trim();
           const contextBlock = [
             buildProgressUpdatePrompt(),
             stalled ? 'This step has been running a while with no new progress; reassure the user you are still on it.' : '',
             '',
             `Original request: ${summarizeForLog(userMessage, 320)}`,
-            `Doing now: ${ledger.currentTool ? `using ${ledger.currentTool}` : (ledger.currentPhase || 'thinking')}`,
-            `Actual recent tool activity (newest last) — describe ONLY this, do not extrapolate:\n${recent}`,
+            currentTool ? `Doing now: using ${currentTool}` : '',
+            recent ? `Actual recent tool activity (newest last) — describe ONLY this, do not extrapolate:\n${recent}` : '',
             priorUpdate ? `Your previous update (say something different): ${summarizeForLog(priorUpdate, 160)}` : '',
           ].filter(Boolean).join('\n');
           // Reuse the run's real system prompt so the update follows the same voice and
@@ -1922,20 +1937,41 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
 
     if (engine.isRunStopped(runId)) {
-      db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
-        .run('stopped', runId);
+      const stoppedRunMeta = engine.getRunMeta(runId);
+      const terminalStatus = stoppedRunMeta?.status === 'interrupted' ? 'interrupted' : 'stopped';
+      const stopReason = stoppedRunMeta?.stopReason || null;
+      db.prepare(
+        `UPDATE agent_runs
+         SET status = ?,
+             error = COALESCE(?, error),
+             updated_at = datetime('now'),
+             completed_at = datetime('now')
+         WHERE id = ?`
+      ).run(terminalStatus, stopReason, runId);
       console.warn(
-        `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
+        `[Run ${shortenRunId(runId)}] ${terminalStatus} trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
       );
+      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
-      engine.emit(userId, 'run:stopped', { runId, triggerSource });
-      engine.recordRunEvent(userId, runId, 'run_stopped', {
+      engine.emit(userId, terminalStatus === 'interrupted' ? 'run:interrupted' : 'run:stopped', {
+        runId,
         triggerSource,
-        totalTokens,
-        iterations: iteration,
-      }, { agentId });
-      return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
+        reason: stopReason,
+      });
+      engine.recordRunEvent(
+        userId,
+        runId,
+        terminalStatus === 'interrupted' ? 'run_interrupted' : 'run_stopped',
+        {
+          triggerSource,
+          totalTokens,
+          iterations: iteration,
+          reason: stopReason,
+        },
+        { agentId },
+      );
+      return { runId, content: '', totalTokens, iterations: iteration, status: terminalStatus };
     }
 
     const runMeta = engine.activeRuns.get(runId);

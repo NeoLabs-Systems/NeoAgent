@@ -149,6 +149,7 @@ function createDefaultAiSettings() {
     chat_history_window: 20,
     tool_replay_budget_chars: 6000,
     subagent_max_iterations: 6,
+    subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: false,
     auto_recording_insights: true,
@@ -330,6 +331,13 @@ function getAiSettings(userId, agentId = null) {
   settings.chat_history_window = Math.max(6, Math.min(Number(settings.chat_history_window) || DEFAULT_AI_SETTINGS.chat_history_window, 40));
   settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 12000));
   settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
+  settings.subagent_max_children_per_run = Math.max(
+    1,
+    Math.min(
+      Number(settings.subagent_max_children_per_run) || DEFAULT_AI_SETTINGS.subagent_max_children_per_run,
+      20,
+    ),
+  );
   settings.cost_mode = typeof settings.cost_mode === 'string' ? settings.cost_mode : DEFAULT_AI_SETTINGS.cost_mode;
   settings.assistant_behavior_notes = typeof settings.assistant_behavior_notes === 'string'
     ? settings.assistant_behavior_notes

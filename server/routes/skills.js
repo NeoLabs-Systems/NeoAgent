@@ -56,7 +56,7 @@ function parseSkillDocument(content) {
 router.get('/', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
-    const skills = runner.getAll().map(serializeInstalledSkill);
+    const skills = runner.getAll(req.session.userId).map(serializeInstalledSkill);
     res.json(skills.sort(sortInstalledSkills));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -107,7 +107,7 @@ router.get('/audit/summary', (req, res) => {
 router.get('/:name', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
-    const skill = runner.getSkill(req.params.name);
+    const skill = runner.getSkill(req.params.name, req.session.userId);
     if (!skill) return res.status(404).json({ error: 'Skill not found' });
     const fs = require('fs');
     const content = fs.readFileSync(skill.filePath, 'utf-8');
@@ -132,6 +132,7 @@ router.post('/', async (req, res) => {
     }
 
     const result = runner.createSkill(
+      req.session.userId,
       req.body.filename || parsed.name,
       parsed.description,
       parsed.instructions,
@@ -149,7 +150,8 @@ router.put('/:name', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
     if (typeof req.body.enabled === 'boolean' && !req.body.content) {
-      const result = runner.setSkillEnabled(req.params.name, req.body.enabled);
+      const result = runner.setSkillEnabled(req.session.userId, req.params.name, req.body.enabled);
+      if (result.code === 'forbidden') return res.status(403).json(result);
       if (result.error) return res.status(404).json(result);
       return res.json(result);
     }
@@ -159,11 +161,12 @@ router.put('/:name', async (req, res) => {
     if (parsed.metadata?.command && !isValidCommandTemplate(parsed.metadata.command)) {
       return res.status(400).json({ error: 'Skill command template contains invalid characters' });
     }
-    const result = runner.updateSkill(req.params.name, {
+    const result = runner.updateSkill(req.session.userId, req.params.name, {
       description: parsed.description,
       instructions: parsed.instructions,
       metadata: parsed.metadata
     });
+    if (result.code === 'forbidden') return res.status(403).json(result);
     if (result.error) return res.status(404).json(result);
     res.json(result);
   } catch (err) {
@@ -174,7 +177,8 @@ router.put('/:name', async (req, res) => {
 router.delete('/:name', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
-    const result = runner.deleteSkill(req.params.name);
+    const result = runner.deleteSkill(req.session.userId, req.params.name);
+    if (result.code === 'forbidden') return res.status(403).json(result);
     if (result.error) return res.status(404).json(result);
     res.json(result);
   } catch (err) {
