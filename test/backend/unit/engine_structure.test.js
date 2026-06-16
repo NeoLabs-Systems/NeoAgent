@@ -27,12 +27,13 @@ test('loop implementation is owned by loop modules', () => {
   const modelIoPath = path.join(root, 'server/services/ai/loop/model_io.js');
   const callbacksPath = path.join(root, 'server/services/ai/loop/callbacks.js');
   const toolDispatchPath = path.join(root, 'server/services/ai/loop/tool_dispatch.js');
+  const progressClassificationPath = path.join(root, 'server/services/ai/loop/progress_classification.js');
   const budgetPath = path.join(root, 'server/services/ai/loop/iteration_budget.js');
   const completionJudgePath = path.join(root, 'server/services/ai/loop/completion_judge.js');
   const errorRecoveryPath = path.join(root, 'server/services/ai/loop/error_recovery.js');
   const blankRecoveryPath = path.join(root, 'server/services/ai/loop/blank_recovery.js');
 
-  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, budgetPath, completionJudgePath, errorRecoveryPath, blankRecoveryPath]) {
+  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, progressClassificationPath, budgetPath, completionJudgePath, errorRecoveryPath, blankRecoveryPath]) {
     assert.equal(fs.existsSync(filePath), true, `${filePath} should exist`);
   }
 
@@ -44,6 +45,7 @@ test('loop implementation is owned by loop modules', () => {
   const modelIo = fs.readFileSync(modelIoPath, 'utf8');
   const callbacks = fs.readFileSync(callbacksPath, 'utf8');
   const toolDispatch = fs.readFileSync(toolDispatchPath, 'utf8');
+  const progressClassification = fs.readFileSync(progressClassificationPath, 'utf8');
   const progressMonitor = fs.readFileSync(progressPath, 'utf8');
   const errorRecovery = fs.readFileSync(errorRecoveryPath, 'utf8');
   const blankRecovery = fs.readFileSync(blankRecoveryPath, 'utf8');
@@ -86,6 +88,8 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(conversationLoop.includes('optional deliverable workflow classifier failed'));
   assert.ok(conversationLoop.includes('ON CONFLICT(id) DO UPDATE'));
   assert.ok(conversationLoop.includes('messagingRetryStepOffset'));
+  assert.ok(conversationLoop.includes('isProgressToolCall'));
+  assert.equal(conversationLoop.includes('execute_command with `cat ${persistPath}`'), false);
   assert.equal(conversationLoop.includes('delete retryOptions.runId'), false);
   assert.equal(/runMeta\?\.messagingSent\s*!==\s*true/.test(conversationLoop), false);
   assert.ok(completionJudge.includes('function buildCompletionDecisionPrompt'));
@@ -103,10 +107,22 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(callbacks.includes("deliveryKind: 'interim'"));
   assert.ok(toolDispatch.includes('async function executeReadOnlyBatch'));
   assert.ok(toolDispatch.includes('const readOnly = new Set'));
+  assert.ok(progressClassification.includes('function isClearlyReadOnlyShellCommand'));
+  assert.ok(progressClassification.includes('function isProgressToolCall'));
   assert.ok(progressMonitor.includes('function buildInitialProgressLedger'));
   assert.ok(errorRecovery.includes('function shouldRetryMessagingRun'));
   assert.ok(errorRecovery.includes('function shouldSendMessagingErrorFallback'));
   assert.ok(errorRecovery.includes('function hasTerminalMessagingDelivery'));
   assert.ok(blankRecovery.includes('function shouldContinueAfterBlankToolFailure'));
   assert.ok(blankRecovery.includes('function buildBlankAfterToolFailureGuidance'));
+});
+
+test('github issue implementation guidance prefers local checkout workflow', () => {
+  const taskAnalysisPath = path.join(root, 'server/services/ai/taskAnalysis.js');
+  const source = fs.readFileSync(taskAnalysisPath, 'utf8');
+
+  assert.ok(source.includes('For GitHub issue implementation or PR work'));
+  assert.ok(source.includes('writable local checkout'));
+  assert.ok(source.includes('create a task branch'));
+  assert.ok(source.includes('Use direct GitHub file mutation tools only as a fallback'));
 });

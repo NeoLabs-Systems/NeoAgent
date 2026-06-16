@@ -798,12 +798,20 @@ describe('messaging progress supervisor', () => {
 
   test('missing artifact stat warning path is non-fatal and drops invalid candidates', async () => {
     const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
 
-    const artifacts = await extractArtifactsFromResult('execute_command', {
-      path: '/tmp/neoagent-missing-artifact.txt',
-    });
+    try {
+      const artifacts = await extractArtifactsFromResult('generate_report', {
+        artifactPath: '/tmp/neoagent-missing-artifact.txt',
+      });
 
-    assert.equal(artifacts.length, 0);
+      assert.equal(artifacts.length, 0);
+      assert.equal(warnings.length, 1);
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   test('generic command output paths are not promoted to artifact candidates', async () => {
@@ -818,6 +826,28 @@ describe('messaging progress supervisor', () => {
     });
 
     assert.equal(artifacts.length, 0);
+  });
+
+  test('generic command result path fields are not promoted to artifact candidates', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+      const artifacts = await extractArtifactsFromResult('execute_command', {
+        path: '/tmp/neoagent-missing-artifact.txt',
+        files: [
+          { path: '/README.md', type: 'blob' },
+          { path: '/server/services/ai/engine.js', type: 'blob' },
+        ],
+      });
+
+      assert.equal(artifacts.length, 0);
+      assert.deepEqual(warnings, []);
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   test('github issue body paths are not promoted to artifact candidates', async () => {
@@ -845,6 +875,25 @@ describe('messaging progress supervisor', () => {
     });
 
     assert.equal(artifacts.length, 0);
+  });
+
+  test('github tree path fields are not promoted to artifact candidates', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+      const artifacts = await extractArtifactsFromResult('github_get_content', [
+        { name: 'README.md', path: '/README.md', type: 'file' },
+        { name: 'Icon-512.png', path: '/web/icons/Icon-512.png', type: 'file' },
+      ]);
+
+      assert.equal(artifacts.length, 0);
+      assert.deepEqual(warnings, []);
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   test('explicit artifact container urls are still promoted to artifacts', async () => {

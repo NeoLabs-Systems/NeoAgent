@@ -71,6 +71,24 @@ test('classifyToolExecution derives failure from execute_command exit code', () 
   assert.match(failed.error, /command not found/);
 });
 
+test('classifyToolExecution marks read-only execute_command as non-state-changing', () => {
+  const readOnly = classifyToolExecution('execute_command', {
+    command: 'curl -s https://api.github.com/repos/NeoLabs-Systems/NeoAgent/issues/91 | python3 -m json.tool | head -80',
+  }, {
+    stdout: '{"title":"Issue"}',
+    exitCode: 0,
+  });
+  assert.equal(readOnly.stateChanged, false);
+
+  const stateChanging = classifyToolExecution('execute_command', {
+    command: 'git checkout -b chore/remove-widget && npm test',
+  }, {
+    stdout: 'ok',
+    exitCode: 0,
+  });
+  assert.equal(stateChanging.stateChanged, true);
+});
+
 test('classifyToolExecution treats success=false and skipped as errors', () => {
   assert.equal(classifyToolExecution('send_message', {}, { success: false, reason: 'no chat' }).error, 'no chat');
   assert.equal(classifyToolExecution('send_message', {}, { skipped: true }).error, 'Tool reported skipped outcome.');

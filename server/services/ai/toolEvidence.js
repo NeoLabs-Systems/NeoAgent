@@ -8,6 +8,9 @@
 const { compactToolResult } = require('./toolResult');
 const { summarizeForLog } = require('./logFormat');
 const { normalizeOutgoingMessage, clampRunContext } = require('./messagingFallback');
+const {
+  isClearlyReadOnlyShellCommand,
+} = require('./loop/progress_classification');
 
 // Ordered classification rules mapping a tool name to its evidence "source"
 // bucket. First matching rule wins, so order is significant. Declared as data
@@ -83,7 +86,11 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
 
   const evidenceRelevant = evidenceRelevantExact.has(name)
     || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
-  const stateChanged = stateChangingExact.has(name)
+  const stateChanged = (
+    name === 'execute_command'
+      ? !isClearlyReadOnlyShellCommand(toolArgs?.command || '')
+      : stateChangingExact.has(name)
+  )
     || name.startsWith('android_')
     || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
 

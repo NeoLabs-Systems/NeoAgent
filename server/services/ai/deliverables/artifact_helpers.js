@@ -86,6 +86,25 @@ const CANDIDATE_KEYS = [
   'downloadUris',
 ];
 
+const GENERIC_CANDIDATE_KEYS = new Set([
+  'path',
+  'paths',
+  'file',
+  'files',
+  'filePath',
+  'filePaths',
+  'fullPath',
+  'fullPaths',
+  'downloadUrl',
+  'downloadUrls',
+  'downloadUri',
+  'downloadUris',
+]);
+
+const EXPLICIT_CANDIDATE_KEYS = new Set(
+  CANDIDATE_KEYS.filter((key) => !GENERIC_CANDIDATE_KEYS.has(key))
+);
+
 const ARTIFACT_CONTAINER_KEYS = new Set([
   'artifact',
   'artifacts',
@@ -105,8 +124,22 @@ const ARTIFACT_CONTAINER_KEYS = new Set([
 
 const CONTAINER_URL_KEYS = new Set(['url', 'urls', 'uri', 'uris', 'href', 'hrefs']);
 
-function isExplicitCandidateKey(keyHint = '', parentKeyHint = '') {
-  if (CANDIDATE_KEYS.includes(keyHint)) return true;
+const EVIDENCE_RESULT_TOOLS = /^(execute_command|github_|list_|search_|read_|get_|find_|http_request|web_search|browser_get|browser_read|code_navigate|query_structured_data|memory_|session_search|recordings_|read_health_data)/;
+
+function allowsGenericCandidateKeys(toolName = '') {
+  return !EVIDENCE_RESULT_TOOLS.test(String(toolName || ''));
+}
+
+function isExplicitCandidateKey(keyHint = '', parentKeyHint = '', options = {}) {
+  if (EXPLICIT_CANDIDATE_KEYS.has(keyHint)) return true;
+  if (
+    ARTIFACT_CONTAINER_KEYS.has(parentKeyHint)
+    && CANDIDATE_KEYS.includes(keyHint)
+    && (!GENERIC_CANDIDATE_KEYS.has(parentKeyHint) || options.allowGenericKeys === true)
+  ) {
+    return true;
+  }
+  if (GENERIC_CANDIDATE_KEYS.has(keyHint)) return options.allowGenericKeys === true;
   if (!CONTAINER_URL_KEYS.has(keyHint)) return false;
   return ARTIFACT_CONTAINER_KEYS.has(parentKeyHint);
 }
@@ -198,6 +231,7 @@ async function extractArtifactsFromResult(toolName, result) {
   const seen = new Set();
   const seenCandidates = new Set();
   const fallbackKind = inferArtifactKind(toolName, 'artifact');
+  const allowGenericKeys = allowsGenericCandidateKeys(toolName);
 
   async function pushCandidate(candidate) {
     const candidateKey = String(candidate || '').trim();
@@ -214,7 +248,7 @@ async function extractArtifactsFromResult(toolName, result) {
   async function visit(value, keyHint = '', parentKeyHint = '') {
     if (value == null) return;
     if (typeof value === 'string') {
-      const explicit = isExplicitCandidateKey(keyHint, parentKeyHint);
+      const explicit = isExplicitCandidateKey(keyHint, parentKeyHint, { allowGenericKeys });
       if (explicit) {
         if (normalizePathOrUri(value)) await pushCandidate(value);
         return;
@@ -240,6 +274,7 @@ async function extractArtifactsFromResult(toolName, result) {
 }
 
 module.exports = {
+  allowsGenericCandidateKeys,
   extractArtifactsFromResult,
   inferArtifactKind,
   inferMimeType,

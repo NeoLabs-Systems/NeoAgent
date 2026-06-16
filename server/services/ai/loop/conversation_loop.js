@@ -126,6 +126,9 @@ const {
   isReadOnlyToolCall: isReadOnlyToolCallImpl,
 } = require('./tool_dispatch');
 const {
+  isProgressToolCall,
+} = require('./progress_classification');
+const {
   normalizeOutgoingMessage,
   clampRunContext,
   joinSentMessages,
@@ -225,8 +228,17 @@ function buildErrorPatternGuidance(key, count) {
 
 const OUTPUT_FINGERPRINT_TOOLS = /^(list_|search_|read_|get_|find_|github_list|github_get|github_search)/;
 
-function fingerprintOutput(toolName, result) {
-  if (!toolName || !OUTPUT_FINGERPRINT_TOOLS.test(toolName)) return null;
+function fingerprintOutput(toolName, result, toolArgs = {}) {
+  const name = String(toolName || '');
+  if (
+    !name
+    || (
+      !OUTPUT_FINGERPRINT_TOOLS.test(name)
+      && !(name === 'execute_command' && !isProgressToolCall(name, toolArgs))
+    )
+  ) {
+    return null;
+  }
   const raw = typeof result === 'string' ? result : JSON.stringify(result ?? '');
   if (raw.length < 200) return null;
   // djb2 hash over first 3000 chars — fast, collision-unlikely for our sizes
@@ -234,18 +246,6 @@ function fingerprintOutput(toolName, result) {
   const limit = Math.min(raw.length, 3000);
   for (let i = 0; i < limit; i++) h = ((h << 5) + h) ^ raw.charCodeAt(i);
   return h >>> 0;
-}
-
-// Tools that represent concrete forward progress (write, create, send, update, run).
-// Anything NOT in this set is considered read-only for the analysis-paralysis gate.
-// execute_command counts as progress — it can do anything, including modify state.
-function isProgressTool(toolName) {
-  if (!toolName) return false;
-  // Neutral / bookkeeping — don't count either way
-  if (toolName === 'activate_tools' || toolName === 'save_widget_snapshot') return false;
-  // Explicitly read-only patterns
-  if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(toolName)) return false;
-  return true;
 }
 
 function cloneInterimHistory(history = []) {
@@ -1084,7 +1084,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           const urgency = readOnlyCount >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
           messages.push({
             role: 'system',
-            content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without writing, creating, sending, or running anything. You must take ONE concrete action this turn (create a file, open a PR, run a command that modifies state, send a message) or call task_complete to report what you found and why you cannot proceed. Do not read or list anything further.`,
+            content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without writing, creating, sending, or running anything. Switch method now: establish or reuse a writable checkout, create a task branch, edit files, run verification, open/update a PR, send a concrete progress update, or call task_complete with the real blocker. Do not do more remote tree/list/content scraping first.`,
           });
         }
       }
@@ -1732,7 +1732,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           // Output fingerprint guard: steer away from re-fetching data already seen.
           if (!toolErrorMessage) {
             const currentRunMeta = engine.getRunMeta(runId);
-            const fp = fingerprintOutput(toolName, toolResult);
+            const fp = fingerprintOutput(toolName, toolResult, toolArgs);
             if (fp !== null && currentRunMeta?.seenOutputHashes) {
               const prior = currentRunMeta.seenOutputHashes.get(fp);
               if (prior) {
@@ -1742,24 +1742,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
                 });
               } else {
                 currentRunMeta.seenOutputHashes.set(fp, { toolName, iteration });
-                // External state: persist large read results to disk so the
-                // model can reference them after context compaction without
-                // re-fetching. Only for significant payloads.
-                const persistRaw = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult ?? '');
-                if (persistRaw.length >= 1000 && runId) {
-                  const persistPath = `/tmp/run-${runId.slice(0, 8)}-${toolName}.json`;
-                  try {
-                    require('fs').writeFileSync(persistPath, persistRaw.slice(0, 40000));
-                    if (!currentRunMeta.persistedDataPaths) currentRunMeta.persistedDataPaths = [];
-                    if (!currentRunMeta.persistedDataPaths.includes(persistPath)) {
-                      currentRunMeta.persistedDataPaths.push(persistPath);
-                      messages.push({
-                        role: 'system',
-                        content: `Data from "${toolName}" (iteration ${iteration}) persisted to ${persistPath}. If context compacts and you need this data again, use execute_command with \`cat ${persistPath}\` instead of re-fetching.`,
-                      });
-                    }
-                  } catch { /* non-fatal — disk full or permissions */ }
-                }
               }
             }
           }
@@ -1830,7 +1812,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         && (analysis.mode === 'execute' || analysis.mode === 'plan_execute')) {
         const iterMeta = engine.getRunMeta(runId);
         if (iterMeta) {
-          const calledProgress = response.toolCalls.some((tc) => isProgressTool(tc.function?.name || ''));
+          const calledProgress = response.toolCalls.some((tc) => {
+            let parsedArgs = {};
+            try { parsedArgs = JSON.parse(tc.function?.arguments || '{}'); } catch {}
+            return isProgressToolCall(tc.function?.name || '', parsedArgs);
+          });
           iterMeta.consecutiveReadOnlyIterations = calledProgress
             ? 0
             : (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
