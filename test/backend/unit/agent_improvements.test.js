@@ -106,6 +106,21 @@ test('task analysis receives the complete tool inventory', () => {
   assert.doesNotMatch(prompt, /\.\.\.\(\d+ more\)/);
 });
 
+test('task analysis keeps short immediate work out of task automation flow', () => {
+  const prompt = buildAnalysisPrompt({
+    tools: [
+      { name: 'create_task', description: 'Create a background task.' },
+      { name: 'send_message', description: 'Send a message.' },
+    ],
+  });
+
+  assert.match(prompt, /short immediate questions/);
+  assert.match(prompt, /mode="direct_answer"/);
+  assert.match(prompt, /progress_update_policy="none"/);
+  assert.match(prompt, /Do not suggest create_task/);
+  assert.match(prompt, /future, recurring, scheduled, monitored, background/);
+});
+
 test('structured data parser handles quoted delimiters and newlines', () => {
   assert.deepEqual(parseDelimited('name,note\nNeo,\"one,two\"\nA,\"line 1\nline 2\"\n', ','), [
     { name: 'Neo', note: 'one,two' },

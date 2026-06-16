@@ -1144,7 +1144,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'create_task',
-            description: 'Create a background task with a named trigger and self-contained prompt.',
+            description: 'Create a future, recurring, monitored, or background automation with a named trigger and self-contained prompt. Do not use for immediate short answers.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1163,12 +1163,12 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'list_tasks',
-            description: 'List all tasks for this user and agent.',
+            description: 'List saved background/scheduled tasks for this user and agent. Do not use for ordinary immediate replies.',
             parameters: { type: 'object', properties: {} }
         },
         {
             name: 'delete_task',
-            description: 'Delete a task by its ID.',
+            description: 'Delete a saved background/scheduled task by its ID.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1179,7 +1179,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'update_task',
-            description: 'Update an existing task, including its trigger, prompt, or enabled state.',
+            description: 'Update an existing saved background/scheduled task, including its trigger, prompt, or enabled state.',
             parameters: {
                 type: 'object',
                 properties: {

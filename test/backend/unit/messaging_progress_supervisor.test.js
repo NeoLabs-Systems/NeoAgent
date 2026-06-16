@@ -608,19 +608,24 @@ describe('messaging progress supervisor', () => {
       },
     });
 
-    // First visible heartbeat fires after FIRST_UPDATE_MS (35s).
-    t.mock.timers.setTime(36_000);
+    t.mock.timers.setTime(29_999);
+    await engine.tickMessagingProgressSupervisor(runId);
+    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(Number(engine.getRunMeta(runId).progressLedger.heartbeatCount || 0), 0);
+
+    // First visible heartbeat fires after FIRST_UPDATE_MS (30s).
+    t.mock.timers.setTime(30_001);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     // Within REPEAT_UPDATE_MS (75s) of the last visible update: no new heartbeat.
-    t.mock.timers.setTime(110_000);
+    t.mock.timers.setTime(104_000);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     // Past the repeat cadence: a second heartbeat fires.
-    t.mock.timers.setTime(111_001);
+    t.mock.timers.setTime(105_002);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 2);
     assert.equal(messagingManager.sent.length, 2);
