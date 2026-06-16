@@ -29,8 +29,9 @@ test('loop implementation is owned by loop modules', () => {
   const toolDispatchPath = path.join(root, 'server/services/ai/loop/tool_dispatch.js');
   const budgetPath = path.join(root, 'server/services/ai/loop/iteration_budget.js');
   const completionJudgePath = path.join(root, 'server/services/ai/loop/completion_judge.js');
+  const errorRecoveryPath = path.join(root, 'server/services/ai/loop/error_recovery.js');
 
-  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, budgetPath, completionJudgePath]) {
+  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, budgetPath, completionJudgePath, errorRecoveryPath]) {
     assert.equal(fs.existsSync(filePath), true, `${filePath} should exist`);
   }
 
@@ -43,6 +44,7 @@ test('loop implementation is owned by loop modules', () => {
   const callbacks = fs.readFileSync(callbacksPath, 'utf8');
   const toolDispatch = fs.readFileSync(toolDispatchPath, 'utf8');
   const progressMonitor = fs.readFileSync(progressPath, 'utf8');
+  const errorRecovery = fs.readFileSync(errorRecoveryPath, 'utf8');
   assert.ok(core.includes('class AgentEngine'));
   assert.ok(core.split('\n').length < 2200, 'agent_engine_core should stay a compatibility core, not regain the full loop');
   assert.ok(core.includes('async _runWithModelInternal'));
@@ -75,6 +77,9 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(conversationLoop.includes('while (!directAnswerEligible && iterationBudget.consume())'));
   assert.ok(conversationLoop.includes('await engine.requestModelResponse'));
   assert.ok(conversationLoop.includes('await engine.deliverMessagingFinalFallback'));
+  assert.ok(conversationLoop.includes('shouldRetryMessagingRun'));
+  assert.ok(conversationLoop.includes('shouldSendMessagingErrorFallback'));
+  assert.equal(/runMeta\?\.messagingSent\s*!==\s*true/.test(conversationLoop), false);
   assert.ok(completionJudge.includes('function buildCompletionDecisionPrompt'));
   assert.ok(completionJudge.includes('function normalizeGoalContract'));
   assert.ok(messagingDelivery.includes('function requireSuccessfulMessagingDelivery'));
@@ -91,4 +96,7 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(toolDispatch.includes('async function executeReadOnlyBatch'));
   assert.ok(toolDispatch.includes('const readOnly = new Set'));
   assert.ok(progressMonitor.includes('function buildInitialProgressLedger'));
+  assert.ok(errorRecovery.includes('function shouldRetryMessagingRun'));
+  assert.ok(errorRecovery.includes('function shouldSendMessagingErrorFallback'));
+  assert.ok(errorRecovery.includes('function hasTerminalMessagingDelivery'));
 });

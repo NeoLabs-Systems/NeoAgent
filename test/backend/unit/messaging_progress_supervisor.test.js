@@ -817,4 +817,65 @@ describe('messaging progress supervisor', () => {
 
     assert.equal(artifacts.length, 0);
   });
+
+  test('interim-visible messaging state still allows internal error recovery retry', () => {
+    const {
+      shouldRetryMessagingRun,
+      shouldSendMessagingErrorFallback,
+    } = require('../../../server/services/ai/loop/error_recovery');
+    const interimOnlyRunMeta = {
+      messagingSent: true,
+      finalDeliverySent: false,
+      lastInterimMessage: 'Working through the repo now.',
+      deliveryState: {
+        alreadySent: true,
+        finalResponseSent: false,
+        finalContentDelivered: false,
+      },
+    };
+
+    assert.equal(shouldRetryMessagingRun({
+      triggerSource: 'messaging',
+      options: { source: 'whatsapp', chatId: 'chat-1' },
+      runMeta: interimOnlyRunMeta,
+      error: new Error('internal runtime failure'),
+      retryCount: 0,
+      retryLimit: 1,
+    }), true);
+    assert.equal(shouldSendMessagingErrorFallback({
+      triggerSource: 'messaging',
+      options: { source: 'whatsapp', chatId: 'chat-1' },
+      runMeta: interimOnlyRunMeta,
+    }), true);
+  });
+
+  test('terminal messaging delivery blocks error recovery retry and fallback', () => {
+    const {
+      shouldRetryMessagingRun,
+      shouldSendMessagingErrorFallback,
+    } = require('../../../server/services/ai/loop/error_recovery');
+    const terminalRunMeta = {
+      messagingSent: true,
+      finalDeliverySent: true,
+      deliveryState: {
+        alreadySent: true,
+        finalResponseSent: true,
+        finalContentDelivered: true,
+      },
+    };
+
+    assert.equal(shouldRetryMessagingRun({
+      triggerSource: 'messaging',
+      options: { source: 'whatsapp', chatId: 'chat-1' },
+      runMeta: terminalRunMeta,
+      error: new Error('internal runtime failure'),
+      retryCount: 0,
+      retryLimit: 1,
+    }), false);
+    assert.equal(shouldSendMessagingErrorFallback({
+      triggerSource: 'messaging',
+      options: { source: 'whatsapp', chatId: 'chat-1' },
+      runMeta: terminalRunMeta,
+    }), false);
+  });
 });

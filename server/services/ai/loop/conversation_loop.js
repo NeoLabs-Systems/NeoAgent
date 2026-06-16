@@ -57,6 +57,10 @@ const { ToolRepetitionGuard } = require('../repetitionGuard');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { IterationBudget } = require('./iteration_budget');
 const {
+  shouldRetryMessagingRun,
+  shouldSendMessagingErrorFallback,
+} = require('./error_recovery');
+const {
   buildCompletionDecisionPrompt,
   buildGoalContractPrompt,
   goalContractFromAnalysis,
@@ -2160,17 +2164,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     // Rate-limit errors (429) must not trigger messaging retries: the model
     // won't be available in the milliseconds between retries, so spawning new
     // runs just compounds the rate-limit pressure with no benefit.
-    const isRateLimitError = /429|rate.?limit|free-models-per/i.test(String(err?.message || ''));
-    const canRetryMessagingRun = (
-      triggerSource === 'messaging'
-      && options.source
-      && options.chatId
-      && runMeta?.finalDeliverySent !== true
-      && runMeta?.messagingSent !== true
-      && err?.disableAutonomousRetry !== true
-      && !isRateLimitError
-      && retryCount < engine.getMessagingRetryLimit(maxIterations)
-    );
+    const canRetryMessagingRun = shouldRetryMessagingRun({
+      triggerSource,
+      options,
+      runMeta,
+      error: err,
+      retryCount,
+      retryLimit: engine.getMessagingRetryLimit(maxIterations),
+    });
 
     if (canRetryMessagingRun) {
       const recoveryContext = buildAutonomousRecoveryContext({
@@ -2236,69 +2237,67 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       || '';
     let messagingFailureContent = '';
     let sendSucceeded = false;
-    if (triggerSource === 'messaging' && options.source && options.chatId) {
-      if (!runMeta?.finalDeliverySent && !runMeta?.messagingSent) {
-        const manager = engine.messagingManager;
-        if (manager) {
-          const failureScenario = buildMessagingFailureScenario({
+    if (shouldSendMessagingErrorFallback({ triggerSource, options, runMeta })) {
+      const manager = engine.messagingManager;
+      if (manager) {
+        const failureScenario = buildMessagingFailureScenario({
+          err,
+          failedStepCount,
+          stepIndex,
+          toolExecutions,
+        });
+        try {
+          const failedMessage = sanitizeConversationMessages([
+            ...messages,
+            {
+              role: 'system',
+              content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.\n\n${buildPlatformFormattingGuide(options?.source || null)}`
+            }
+          ]);
+          const modelReply = await withModelCallTimeout(
+            provider.chat(failedMessage, [], {
+              model,
+              reasoningEffort: engine.getReasoningEffort(providerName, options)
+            }),
+            options,
+            'Messaging failure reply',
+          );
+          const drafted = sanitizeModelOutput(modelReply.content || '', { model });
+          if (normalizeOutgoingMessage(drafted, options?.source || null)) {
+            messagingFailureContent = drafted.trim();
+          }
+        } catch {
+          // Fall back to deterministic text below.
+        }
+
+        if (!messagingFailureContent) {
+          messagingFailureContent = buildDeterministicMessagingErrorReply({
             err,
             failedStepCount,
             stepIndex,
             toolExecutions,
           });
-          try {
-            const failedMessage = sanitizeConversationMessages([
-              ...messages,
-              {
-                role: 'system',
-                content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.\n\n${buildPlatformFormattingGuide(options?.source || null)}`
-              }
-            ]);
-            const modelReply = await withModelCallTimeout(
-              provider.chat(failedMessage, [], {
-                model,
-                reasoningEffort: engine.getReasoningEffort(providerName, options)
-              }),
-              options,
-              'Messaging failure reply',
-            );
-            const drafted = sanitizeModelOutput(modelReply.content || '', { model });
-            if (normalizeOutgoingMessage(drafted, options?.source || null)) {
-              messagingFailureContent = drafted.trim();
-            }
-          } catch {
-            // Fall back to deterministic text below.
-          }
+        }
 
-          if (!messagingFailureContent) {
-            messagingFailureContent = buildDeterministicMessagingErrorReply({
-              err,
-              failedStepCount,
-              stepIndex,
-              toolExecutions,
-            });
+        try {
+          const deliveryResult = await manager.sendMessage(
+            userId,
+            options.source,
+            options.chatId,
+            messagingFailureContent,
+            { runId, agentId },
+          );
+          requireSuccessfulMessagingDelivery(deliveryResult, 'Messaging failure delivery');
+          sendSucceeded = true;
+          if (runMeta) {
+            runMeta.lastSentMessage = messagingFailureContent;
+            if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
+            runMeta.sentMessages.push(messagingFailureContent);
           }
-
-          try {
-            const deliveryResult = await manager.sendMessage(
-              userId,
-              options.source,
-              options.chatId,
-              messagingFailureContent,
-              { runId, agentId },
-            );
-            requireSuccessfulMessagingDelivery(deliveryResult, 'Messaging failure delivery');
-            sendSucceeded = true;
-            if (runMeta) {
-              runMeta.lastSentMessage = messagingFailureContent;
-              if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
-              runMeta.sentMessages.push(messagingFailureContent);
-            }
-            engine.markRunFinalDelivery(runId, messagingFailureContent);
-          } catch (sendErr) {
-            console.error('[Engine] Messaging error fallback failed:', sendErr.message);
-            messagingFailureContent = '';
-          }
+          engine.markRunFinalDelivery(runId, messagingFailureContent);
+        } catch (sendErr) {
+          console.error('[Engine] Messaging error fallback failed:', sendErr.message);
+          messagingFailureContent = '';
         }
       }
     }
