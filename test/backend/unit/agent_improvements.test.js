@@ -4,15 +4,20 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const { normalizeUsage, mergeUsage } = require('../../../server/services/ai/usage');
-const { ToolRepetitionGuard, stableHash } = require('../../../server/services/ai/repetitionGuard');
+const {
+  ToolRepetitionGuard,
+  normalizeReadOnlyShellIntent,
+  stableHash,
+} = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
+  CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolCatalog,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
-const { buildAnalysisPrompt } = require('../../../server/services/ai/taskAnalysis');
+const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -50,6 +55,26 @@ test('stable hashes ignore object key order', () => {
   assert.equal(stableHash({ b: 2, a: 1 }), stableHash({ a: 1, b: 2 }));
 });
 
+test('repetition guard normalizes repeated read-only shell evidence fetches', () => {
+  const guard = new ToolRepetitionGuard();
+  const first = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md',
+  };
+  const second = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md | cat',
+  };
+  const third = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md > /tmp/readme.txt && wc -l /tmp/readme.txt',
+  };
+  const result = { stdout: 'same evidence' };
+
+  guard.observe('execute_command', first, result);
+  guard.observe('execute_command', second, result);
+
+  assert.equal(guard.shouldBlock('execute_command', third), true);
+  assert.deepEqual(normalizeReadOnlyShellIntent(first.command), normalizeReadOnlyShellIntent(second.command));
+});
+
 test('tool catalog retains every tool and activation replaces unrelated schemas', () => {
   const required = ['task_complete', 'activate_tools', 'think', 'send_message', 'send_interim_update'];
   const tools = [
@@ -71,6 +96,39 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
   assert.equal(result.evicted.length, 1);
 });
 
+test('execute runs start with core file tools but direct runs stay lean', () => {
+  const required = ['task_complete', 'activate_tools', 'think', 'send_message', 'send_interim_update'];
+  const tools = [
+    ...required.map((name) => ({ name, description: `${name} description` })),
+    ...CORE_FILE_TOOLS.map((name) => ({ name, description: `${name} description` })),
+    { name: 'execute_command', description: 'Run shell commands.' },
+  ];
+
+  const executeInitial = selectInitialTools(tools, ['execute_command'], { includeCoreFileTools: true });
+  for (const toolName of CORE_FILE_TOOLS) {
+    assert.equal(executeInitial.some((tool) => tool.name === toolName), true, `${toolName} should be active`);
+  }
+
+  const directInitial = selectInitialTools(tools, [], { includeCoreFileTools: false });
+  assert.equal(directInitial.some((tool) => tool.name === 'read_files'), false);
+  assert.equal(directInitial.some((tool) => tool.name === 'replace_file_range'), false);
+
+  const crowdedTools = [
+    ...tools,
+    ...Array.from({ length: 30 }, (_, index) => ({ name: `extra_${index}`, description: `Extra ${index}` })),
+  ];
+  const crowdedInitial = selectInitialTools(
+    crowdedTools,
+    crowdedTools.slice(0, MAX_TOOLS).map((tool) => tool.name),
+    { includeCoreFileTools: true },
+  );
+  const activated = activateTools(crowdedInitial, crowdedTools, ['extra_29'], { includeCoreFileTools: true });
+  assert.equal(activated.tools.some((tool) => tool.name === 'extra_29'), true);
+  for (const toolName of CORE_FILE_TOOLS) {
+    assert.equal(activated.tools.some((tool) => tool.name === toolName), true, `${toolName} should remain active`);
+  }
+});
+
 test('task analysis receives the complete tool inventory', () => {
   const tools = Array.from({ length: 140 }, (_, index) => ({
     name: `capability_${index}`,
@@ -80,6 +138,41 @@ test('task analysis receives the complete tool inventory', () => {
   assert.match(prompt, /capability_0: Description for capability 0/);
   assert.match(prompt, /capability_139: Description for capability 139/);
   assert.doesNotMatch(prompt, /\.\.\.\(\d+ more\)/);
+});
+
+test('task analysis keeps short immediate work out of task automation flow', () => {
+  const prompt = buildAnalysisPrompt({
+    tools: [
+      { name: 'create_task', description: 'Create a background task.' },
+      { name: 'send_message', description: 'Send a message.' },
+    ],
+  });
+
+  assert.match(prompt, /short immediate questions/);
+  assert.match(prompt, /mode="direct_answer"/);
+  assert.match(prompt, /progress_update_policy="none"/);
+  assert.match(prompt, /Do not suggest create_task/);
+  assert.match(prompt, /future, recurring, scheduled, monitored, background/);
+});
+
+test('task analysis keeps source checkouts in the shared workspace', () => {
+  const prompt = buildExecutionGuidance({
+    analysis: {
+      mode: 'execute',
+      goal: 'Implement the issue.',
+      success_criteria: ['Changes are made locally.'],
+      suggested_tools: ['execute_command', 'read_files'],
+      complexity: 'standard',
+      autonomy_level: 'high',
+      progress_update_policy: 'required',
+    },
+  });
+
+  assert.match(prompt, /shared workspace/);
+  assert.match(prompt, /Prefer the highest-level available tool/);
+  assert.match(prompt, /pass those directly/);
+  assert.match(prompt, /prefer file tools/);
+  assert.doesNotMatch(prompt, /git clone[^\n]+\/tmp\/repo-name/);
 });
 
 test('structured data parser handles quoted delimiters and newlines', () => {

@@ -45,6 +45,7 @@ const PLAN_SCHEMA_EXAMPLE = {
 const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Choose the lightest routing mode that still handles the task well.',
   'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work.',
+  'For short immediate questions, greetings, small explanations, or quick conversational replies, prefer mode="direct_answer" with progress_update_policy="none"; speed matters more than creating plans or tasks.',
   'Use mode="execute" for normal tool-driven work without a separate planning step.',
   'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
   'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
@@ -54,6 +55,7 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Set complexity from the actual work shape, not from keywords: simple, standard, or complex.',
   'Set autonomy_level="high" when the agent should decide sequencing, retries, evidence gathering, and verification without asking the user unless blocked.',
   'Set progress_update_policy="required" for long, slow, voice, messaging, or externally visible work where silence would be confusing.',
+  'Do not suggest create_task, update_task, delete_task, or list_tasks for ordinary immediate work. Use task tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
   'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
   'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
 ];
@@ -81,7 +83,12 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
+  'For GitHub issue implementation or PR work, fetch the issue once, then establish or reuse a writable local checkout, create a task branch, inspect/edit/test locally, and push/open the PR. Use direct GitHub file mutation tools only as a fallback when a local checkout is unavailable.',
+  'Prefer the highest-level available tool for the job. If a tool accepts normal text, JSON, file paths, or line ranges, pass those directly instead of reconstructing equivalent data through shell commands.',
+  'Your shell (execute_command) starts in your workspace, and the file tools (read_file, read_files, write_file, edit_file, replace_file_range, list_directory, search_files) operate on that same workspace. Keep source checkouts and generated files in the shared workspace, then prefer file tools for inspection and edits instead of shell snippets. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
+  'Tool results are already present in the conversation as tool output. Do not assume a tool result was persisted to a readable /tmp path unless that exact path was explicitly returned by the tool result.',
   'Use send_interim_update sparingly when a short real update or question would help.',
+  'Do not create background tasks for immediate short work. Answer directly unless the user asked to schedule, repeat, monitor, defer, or manage a saved task.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',
   'For outbound messages, calls, emails, shared edits, installs, restarts, or task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
   'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.',
@@ -558,6 +565,9 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
       ? `Advisory tool suggestions: ${analysis.suggested_tools.join(', ')}`
       : '',
     `Autonomy contract: complexity=${analysis.complexity || 'standard'}; autonomy_level=${analysis.autonomy_level || 'normal'}; progress_update_policy=${analysis.progress_update_policy || 'optional'}; parallel_work=${analysis.parallel_work === true}; completion_confidence_required=${analysis.completion_confidence_required || 'medium'}.`,
+    analysis.progress_update_policy === 'required'
+      ? 'Progress updates are required for this run: when the work becomes slow, changes method, or hits a temporary blocker, use send_interim_update with a concise factual update. Do not use progress updates as completion, and do not continue long read-only work silently after a progress-check nudge.'
+      : '',
     capabilityHealth ? `Capability health:\n${capabilityHealth}` : '',
   ];
 

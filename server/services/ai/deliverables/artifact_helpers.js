@@ -72,9 +72,77 @@ const CANDIDATE_KEYS = [
   'mediaPaths',
   'screenshotPath',
   'uiDumpPath',
-  'url',
-  'urls',
+  'artifact',
+  'artifacts',
+  'artifactPath',
+  'artifactPaths',
+  'artifactUrl',
+  'artifactUrls',
+  'artifactUri',
+  'artifactUris',
+  'downloadUrl',
+  'downloadUrls',
+  'downloadUri',
+  'downloadUris',
 ];
+
+const GENERIC_CANDIDATE_KEYS = new Set([
+  'path',
+  'paths',
+  'file',
+  'files',
+  'filePath',
+  'filePaths',
+  'fullPath',
+  'fullPaths',
+  'downloadUrl',
+  'downloadUrls',
+  'downloadUri',
+  'downloadUris',
+]);
+
+const EXPLICIT_CANDIDATE_KEYS = new Set(
+  CANDIDATE_KEYS.filter((key) => !GENERIC_CANDIDATE_KEYS.has(key))
+);
+
+const ARTIFACT_CONTAINER_KEYS = new Set([
+  'artifact',
+  'artifacts',
+  'attachment',
+  'attachments',
+  'deliverable',
+  'deliverables',
+  'download',
+  'downloads',
+  'file',
+  'files',
+  'media',
+  'preview',
+  'screenshot',
+  'screenshots',
+]);
+
+const CONTAINER_URL_KEYS = new Set(['url', 'urls', 'uri', 'uris', 'href', 'hrefs']);
+
+const EVIDENCE_RESULT_TOOLS = /^(execute_command|github_|list_|search_|read_|get_|find_|http_request|web_search|browser_get|browser_read|code_navigate|query_structured_data|memory_|session_search|recordings_|read_health_data)/;
+
+function allowsGenericCandidateKeys(toolName = '') {
+  return !EVIDENCE_RESULT_TOOLS.test(String(toolName || ''));
+}
+
+function isExplicitCandidateKey(keyHint = '', parentKeyHint = '', options = {}) {
+  if (EXPLICIT_CANDIDATE_KEYS.has(keyHint)) return true;
+  if (
+    ARTIFACT_CONTAINER_KEYS.has(parentKeyHint)
+    && CANDIDATE_KEYS.includes(keyHint)
+    && (!GENERIC_CANDIDATE_KEYS.has(parentKeyHint) || options.allowGenericKeys === true)
+  ) {
+    return true;
+  }
+  if (GENERIC_CANDIDATE_KEYS.has(keyHint)) return options.allowGenericKeys === true;
+  if (!CONTAINER_URL_KEYS.has(keyHint)) return false;
+  return ARTIFACT_CONTAINER_KEYS.has(parentKeyHint);
+}
 
 function inferExtension(candidate = '') {
   return path.extname(String(candidate || '').split('?')[0]).toLowerCase();
@@ -102,8 +170,17 @@ function normalizePathOrUri(value) {
   if (!text) return null;
   if (text.startsWith('/api/artifacts/')) return { uri: text, path: null };
   if (/^https?:\/\//i.test(text)) return { uri: text, path: null };
-  if (/^[A-Za-z]:\\/.test(text)) return { path: text, uri: null };
-  if (path.isAbsolute(text)) return { path: text, uri: null };
+  if (text.startsWith('//')) return null;
+  if (/^[A-Za-z]:\\/.test(text)) {
+    const ext = path.extname(text.split('?')[0]).toLowerCase();
+    if (!FILE_EXTENSION_TO_KIND[ext]) return null;
+    return { path: text, uri: null };
+  }
+  if (path.isAbsolute(text)) {
+    const ext = path.extname(text.split('?')[0]).toLowerCase();
+    if (!FILE_EXTENSION_TO_KIND[ext]) return null;
+    return { path: text, uri: null };
+  }
   return null;
 }
 
@@ -129,15 +206,19 @@ async function buildArtifactFromCandidate(candidate, fallbackKind = 'artifact') 
   return artifact.path || artifact.uri ? artifact : null;
 }
 
-function scanStringForCandidates(text) {
+function scanStringForCandidates(text, { explicit = false } = {}) {
   const input = String(text || '');
   const matches = [];
-  const regexes = [
-    /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
-    /\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-    /[A-Za-z]:\\[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-    /https?:\/\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
-  ];
+  const regexes = explicit
+    ? [
+      /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
+      /\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+      /[A-Za-z]:\\[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+      /https?:\/\/[^\s"'`]+?\.(?:pptx?|pdf|docx?|md|txt|html?|csv|tsv|xlsx?|json|png|jpe?g|gif|webp|svg|mp4|mov|m4v|webm)\b/g,
+    ]
+    : [
+      /\/api\/artifacts\/[A-Za-z0-9%_-]+\/content/g,
+    ];
   for (const regex of regexes) {
     const found = input.match(regex);
     if (found) matches.push(...found);
@@ -148,9 +229,14 @@ function scanStringForCandidates(text) {
 async function extractArtifactsFromResult(toolName, result) {
   const artifacts = [];
   const seen = new Set();
+  const seenCandidates = new Set();
   const fallbackKind = inferArtifactKind(toolName, 'artifact');
+  const allowGenericKeys = allowsGenericCandidateKeys(toolName);
 
   async function pushCandidate(candidate) {
+    const candidateKey = String(candidate || '').trim();
+    if (!candidateKey || seenCandidates.has(candidateKey)) return;
+    seenCandidates.add(candidateKey);
     const artifact = await buildArtifactFromCandidate(candidate, fallbackKind);
     if (!artifact) return;
     const key = `${artifact.kind}:${artifact.path || artifact.uri}`;
@@ -159,22 +245,26 @@ async function extractArtifactsFromResult(toolName, result) {
     artifacts.push(artifact);
   }
 
-  async function visit(value, keyHint = '') {
+  async function visit(value, keyHint = '', parentKeyHint = '') {
     if (value == null) return;
     if (typeof value === 'string') {
-      if (CANDIDATE_KEYS.includes(keyHint)) await pushCandidate(value);
-      for (const candidate of scanStringForCandidates(value)) {
+      const explicit = isExplicitCandidateKey(keyHint, parentKeyHint, { allowGenericKeys });
+      if (explicit) {
+        if (normalizePathOrUri(value)) await pushCandidate(value);
+        return;
+      }
+      for (const candidate of scanStringForCandidates(value, { explicit })) {
         await pushCandidate(candidate);
       }
       return;
     }
     if (Array.isArray(value)) {
-      for (const item of value) await visit(item, keyHint);
+      for (const item of value) await visit(item, keyHint, parentKeyHint);
       return;
     }
     if (typeof value === 'object') {
       for (const [key, nested] of Object.entries(value)) {
-        await visit(nested, key);
+        await visit(nested, key, keyHint);
       }
     }
   }
@@ -184,8 +274,10 @@ async function extractArtifactsFromResult(toolName, result) {
 }
 
 module.exports = {
+  allowsGenericCandidateKeys,
   extractArtifactsFromResult,
   inferArtifactKind,
   inferMimeType,
+  isExplicitCandidateKey,
   normalizePathOrUri,
 };

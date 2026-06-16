@@ -8,6 +8,10 @@
 const { compactToolResult } = require('./toolResult');
 const { summarizeForLog } = require('./logFormat');
 const { normalizeOutgoingMessage, clampRunContext } = require('./messagingFallback');
+const {
+  isClearlyReadOnlyShellCommand,
+  isProgressToolCall,
+} = require('./loop/progress_classification');
 
 // Ordered classification rules mapping a tool name to its evidence "source"
 // bucket. First matching rule wins, so order is significant. Declared as data
@@ -20,7 +24,7 @@ const EVIDENCE_SOURCE_RULES = [
   { source: 'memory', match: (name) => name.startsWith('memory_') || name === 'session_search' },
   { source: 'search', match: (name) => name === 'web_search' },
   { source: 'http', match: (name) => name === 'http_request' },
-  { source: 'files', match: (name) => ['read_file', 'search_files', 'list_directory', 'write_file', 'edit_file', 'code_navigate', 'query_structured_data'].includes(name) },
+  { source: 'files', match: (name) => ['read_file', 'read_files', 'search_files', 'list_directory', 'write_file', 'edit_file', 'replace_file_range', 'code_navigate', 'query_structured_data'].includes(name) },
   { source: 'command', match: (name) => name === 'execute_command' },
   { source: 'skills', match: (name) => name.includes('skill') },
   { source: 'tasks', match: (name) => name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget') },
@@ -42,6 +46,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'web_search',
     'http_request',
     'read_file',
+    'read_files',
     'search_files',
     'list_directory',
     'code_navigate',
@@ -60,6 +65,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'execute_command',
     'write_file',
     'edit_file',
+    'replace_file_range',
     'send_interim_update',
     'send_message',
     'make_call',
@@ -83,7 +89,13 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
 
   const evidenceRelevant = evidenceRelevantExact.has(name)
     || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
-  const stateChanged = stateChangingExact.has(name)
+  const stateChanged = (
+    name === 'execute_command'
+      ? !isClearlyReadOnlyShellCommand(toolArgs?.command || '')
+      : stateChangingExact.has(name)
+  )
+    || (name.startsWith('github_') && isProgressToolCall(name, toolArgs))
+    || (name === 'http_request' && isProgressToolCall(name, toolArgs))
     || name.startsWith('android_')
     || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
 
@@ -125,7 +137,7 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     error: normalizedError,
     evidenceSource,
     evidenceRelevant,
-    stateChanged,
+    stateChanged: stateChanged && !normalizedError,
     dependsOnOutput: true,
     summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
       softLimit: 500,

@@ -49,6 +49,26 @@ function buildBlankMessagingReplyPrompt(attempt, platform = null) {
   return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
 }
 
+function buildProgressUpdatePrompt() {
+  // Intentionally carries NO voice/formatting rules of its own: this prompt runs with
+  // the run's real system prompt as context, so the update inherits the same voice and
+  // formatting guidelines as every other message and stays maintainable in one place.
+  return [
+    'You are mid-task and working autonomously while the user waits.',
+    'Send ONE brief progress ping saying what you are doing right now, grounded ONLY in the actual recent tool activity below.',
+    'Describe what the evidence literally shows. Do not invent work, outcomes, systems, artifacts, or next steps that are not present in the activity.',
+    'If the recent activity only shows inspection or failed commands, say that plainly and do not imply state-changing progress.',
+    'This is not the final answer: do not claim the task is done and do not summarize results.',
+    'No greeting, no question, no sign-off; vary the wording from your previous update.',
+    'Follow your normal voice and formatting rules. Output only the message text.',
+  ].join(' ');
+}
+
+function buildMaxIterationWrapupPrompt(platform = null) {
+  const formattingGuide = buildPlatformFormattingGuide(platform);
+  return `You have reached the step limit for this run, so this is your final turn. Stop here and do NOT call any tools. Write the single best, most complete answer you can for the user from the work already done in this conversation: lead with the concrete results and what you accomplished, then clearly name anything you could not finish and the specific blocker. Do not output a half-finished thought, a plan for what to do next, or a "let me…" fragment, this message is the final reply. Do not promise future work unless it already happened in this run.\n\n${formattingGuide}`;
+}
+
 function parseToolExecutionSummary(item) {
   if (!item?.summary) return null;
   try {
@@ -62,7 +82,7 @@ function parseToolExecutionSummary(item) {
 function toolWorkDescription(toolName) {
   const name = String(toolName || '');
   if (name === 'execute_command') return 'ran shell commands';
-  if (name === 'read_file' || name === 'search_files' || name === 'list_directory') return 'checked files';
+  if (name === 'read_file' || name === 'read_files' || name === 'search_files' || name === 'list_directory') return 'checked files';
   if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
   if (name.startsWith('browser_')) return 'checked the browser state';
   if (name.startsWith('android_')) return 'checked the Android state';
@@ -216,6 +236,8 @@ module.exports = {
   joinSentMessages,
   normalizeInterimText,
   buildBlankMessagingReplyPrompt,
+  buildMaxIterationWrapupPrompt,
+  buildProgressUpdatePrompt,
   parseToolExecutionSummary,
   toolWorkDescription,
   summarizeRecentWork,

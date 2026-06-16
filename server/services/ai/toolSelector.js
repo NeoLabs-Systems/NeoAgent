@@ -15,6 +15,22 @@ const ALWAYS_INCLUDE_BUILT_INS = [
   'send_message',
   'send_interim_update',
 ];
+const CORE_FILE_TOOLS = [
+  'read_file',
+  'read_files',
+  'list_directory',
+  'search_files',
+  'edit_file',
+  'replace_file_range',
+  'write_file',
+];
+
+function requiredToolNames(options = {}) {
+  const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
+  if (options.widgetId) requiredNames.push('save_widget_snapshot');
+  if (options.includeCoreFileTools) requiredNames.push(...CORE_FILE_TOOLS);
+  return requiredNames;
+}
 
 function compactDescription(value, maxChars = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -37,8 +53,7 @@ function buildToolCatalog(tools = []) {
 
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
   const limit = Number(options.maxTools) || MAX_TOOLS;
-  const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
-  if (options.widgetId) requiredNames.push('save_widget_snapshot');
+  const requiredNames = requiredToolNames(options);
   if (!requiredNames.length) return selectedTools;
 
   const selected = Array.isArray(selectedTools) ? [...selectedTools] : [];
@@ -83,6 +98,7 @@ function selectInitialTools(allTools = [], suggestedNames = [], options = {}) {
 
 function activateTools(currentTools = [], allTools = [], requestedNames = [], options = {}) {
   const knownByName = new Map(allTools.map((tool) => [tool?.name, tool]));
+  const requiredNames = requiredToolNames(options);
   let next = ensureRequiredTools(currentTools, allTools, options);
   const activated = [];
   const evicted = [];
@@ -102,7 +118,7 @@ function activateTools(currentTools = [], allTools = [], requestedNames = [], op
     if (next.some((item) => item?.name === name)) continue;
     if (next.length >= MAX_TOOLS) {
       const replaceIndex = next.findIndex((item) => (
-        !ALWAYS_INCLUDE_BUILT_INS.includes(item?.name)
+        !requiredNames.includes(item?.name)
         && !requested.includes(item?.name)
       ));
       if (replaceIndex === -1) {
@@ -136,6 +152,7 @@ function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {
 }
 
 module.exports = {
+  CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolCatalog,

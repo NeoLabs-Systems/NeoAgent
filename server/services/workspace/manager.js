@@ -294,6 +294,61 @@ class WorkspaceManager {
     }
   }
 
+  replaceFileRange(userId, options = {}) {
+    let filePath;
+    try {
+      filePath = this.resolvePath(userId, options.path || '', 'path');
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: `File not found: ${filePath}`, path: filePath };
+      }
+
+      const start = Number(options.start_line ?? options.startLine);
+      const end = Number(options.end_line ?? options.endLine ?? start);
+      if (!Number.isInteger(start) || start < 1) {
+        return { success: false, error: 'start_line must be a positive integer', path: filePath };
+      }
+      if (!Number.isInteger(end) || end < 1) {
+        return { success: false, error: 'end_line must be a positive integer', path: filePath };
+      }
+      if (start > end) {
+        return { success: false, error: 'start_line must be less than or equal to end_line', path: filePath };
+      }
+
+      const original = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+      const hadFinalNewline = original.endsWith('\n');
+      const lines = original.split('\n');
+      if (hadFinalNewline) lines.pop();
+      const totalLines = Math.max(lines.length, 1);
+      if (start > totalLines || end > totalLines) {
+        return {
+          success: false,
+          error: `line range ${start}-${end} is outside file with ${totalLines} lines`,
+          path: filePath,
+          totalLines,
+        };
+      }
+
+      const replacementText = String(options.content ?? '').replace(/\r\n/g, '\n');
+      const replacementLines = replacementText === ''
+        ? []
+        : replacementText.replace(/\n$/, '').split('\n');
+      lines.splice(start - 1, end - start + 1, ...replacementLines);
+      const next = `${lines.join('\n')}${hadFinalNewline ? '\n' : ''}`;
+      fs.writeFileSync(filePath, next, 'utf8');
+      return {
+        success: true,
+        path: filePath,
+        startLine: start,
+        endLine: end,
+        replacedLines: end - start + 1,
+        insertedLines: replacementLines.length,
+        totalLines: lines.length,
+      };
+    } catch (err) {
+      return { success: false, path: filePath || null, error: err.message };
+    }
+  }
+
   listDirectory(userId, options = {}) {
     const dirPath = this.resolvePath(userId, options.path || '.', 'path');
     const depthValue = options.depth != null ? Number(options.depth) : (options.recursive ? 3 : 1);
@@ -414,4 +469,5 @@ class WorkspaceManager {
 
 module.exports = {
   WorkspaceManager,
+  sanitizeWorkspaceKey,
 };

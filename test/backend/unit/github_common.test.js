@@ -192,6 +192,196 @@ test('github_api_request accepts a full GitHub API URL and merges query params',
   );
 });
 
+test('github_api_request accepts endpoint alias without falling back to API root', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify([{ number: 91 }]),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_api_request',
+    {
+      method: 'GET',
+      endpoint: '/repos/NeoLabs-Systems/NeoAgent/issues?state=open&per_page=30',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, [{ number: 91 }]);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/issues?state=open&per_page=30',
+  );
+});
+
+test('github_api_request accepts payload as a body alias', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ ref: 'refs/heads/task-branch' }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_api_request',
+    {
+      method: 'POST',
+      owner_repo: 'NeoLabs-Systems/NeoAgent',
+      path: '/git/refs',
+      payload: {
+        ref: 'refs/heads/task-branch',
+        sha: 'abc123',
+      },
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { ref: 'refs/heads/task-branch' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/git/refs');
+  assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+  assert.equal(calls[0].options.body, JSON.stringify({
+    ref: 'refs/heads/task-branch',
+    sha: 'abc123',
+  }));
+});
+
+test('github tools accept owner and repo aliases instead of owner_repo', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ name: 'main' }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_get_branch',
+    {
+      owner: 'NeoLabs-Systems',
+      repo: 'NeoAgent',
+      branch: 'main',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { name: 'main' });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/branches/main',
+  );
+});
+
+test('github_api_request prefixes relative paths with owner and repo aliases', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ ref: 'refs/heads/task-branch' }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_api_request',
+    {
+      method: 'POST',
+      owner: 'NeoLabs-Systems',
+      repo: 'NeoAgent',
+      path: '/git/refs',
+      body: {
+        ref: 'refs/heads/task-branch',
+        sha: 'abc123',
+      },
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { ref: 'refs/heads/task-branch' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/git/refs');
+});
+
+test('github schemas expose owner/repo aliases without requiring owner_repo only', () => {
+  const { githubToolDefinitions } = require('../../../server/services/integrations/github/repos');
+  const getBranch = githubToolDefinitions.find((tool) => tool.name === 'github_get_branch');
+
+  assert.equal(getBranch.parameters.properties.owner_repo.type, 'string');
+  assert.equal(getBranch.parameters.properties.owner.type, 'string');
+  assert.equal(getBranch.parameters.properties.repo.type, 'string');
+  assert.deepEqual(getBranch.parameters.required, ['branch']);
+});
+
+test('github_create_or_update_file accepts plain text and encodes it for GitHub', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ content: { path: 'README.md' } }),
+    }),
+  );
+
+  const result = await executeGithubTool(
+    'github_create_or_update_file',
+    {
+      owner_repo: 'NeoLabs-Systems/NeoAgent',
+      path: 'README.md',
+      message: 'Update README',
+      content: '# NeoAgent\nPlain text content.\n',
+      branch: 'task-branch',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.deepEqual(result, { content: { path: 'README.md' } });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/contents/README.md');
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    message: 'Update README',
+    content: Buffer.from('# NeoAgent\nPlain text content.\n', 'utf8').toString('base64'),
+    branch: 'task-branch',
+  });
+});
+
+test('github_create_or_update_file preserves explicitly base64-encoded content', async () => {
+  const calls = stubFetch(async () =>
+    createResponse({
+      body: JSON.stringify({ content: { path: 'asset.bin' } }),
+    }),
+  );
+
+  await executeGithubTool(
+    'github_create_or_update_file',
+    {
+      owner_repo: 'NeoLabs-Systems/NeoAgent',
+      path: 'asset.bin',
+      message: 'Update asset',
+      content: 'YmluYXJ5Cg==\n',
+      encoding: 'base64',
+    },
+    { token: 'token-123' },
+  );
+
+  assert.equal(JSON.parse(calls[0].options.body).content, 'YmluYXJ5Cg==');
+});
+
+test('github_api_request rejects missing path aliases before making a request', async () => {
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    return createResponse();
+  };
+
+  await assert.rejects(
+    executeGithubTool(
+      'github_api_request',
+      {
+        method: 'GET',
+      },
+      { token: 'token-123' },
+    ),
+    /requires path, endpoint, or url/,
+  );
+  assert.equal(fetchCalled, false);
+});
+
 test('github_api_request rejects non-HTTPS URLs before making a request', async () => {
   let fetchCalled = false;
   global.fetch = async () => {

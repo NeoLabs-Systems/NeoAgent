@@ -159,6 +159,35 @@ function compactReadFileResult(result) {
   };
 }
 
+function compactReadFilesResult(result) {
+  const source = result && typeof result === 'object' ? result : {};
+  const rawLength = JSON.stringify(source).length;
+  const results = Array.isArray(source.results)
+    ? source.results.slice(0, 8).map((item) => {
+        const compacted = compactTextPayload(item?.content || '', {
+          maxChars: 900,
+          maxLines: 25,
+        });
+        return {
+          ...item,
+          content: compacted.text,
+        };
+      })
+    : [];
+  const next = { ...source, results };
+  const compactedLength = JSON.stringify(next).length;
+  return {
+    result: next,
+    metrics: {
+      inputChars: rawLength,
+      outputChars: compactedLength,
+      reducedChars: Math.max(0, rawLength - compactedLength),
+      applied: compactedLength !== rawLength,
+      strategies: compactedLength !== rawLength ? ['batch_file_result_truncation'] : [],
+    },
+  };
+}
+
 function compactPayloadForModel(toolName, result) {
   switch (String(toolName || '').trim()) {
     case 'http_request':
@@ -170,6 +199,8 @@ function compactPayloadForModel(toolName, result) {
       return compactSearchResult(result);
     case 'read_file':
       return compactReadFileResult(result);
+    case 'read_files':
+      return compactReadFilesResult(result);
     default:
       return {
         result,

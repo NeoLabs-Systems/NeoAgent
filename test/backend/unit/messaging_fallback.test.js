@@ -8,6 +8,7 @@ const {
   clampRunContext,
   joinSentMessages,
   buildBlankMessagingReplyPrompt,
+  buildProgressUpdatePrompt,
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
@@ -42,6 +43,14 @@ test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
   const second = buildBlankMessagingReplyPrompt(2);
   assert.match(first, /one non-empty reply/);
   assert.match(second, /previous reply was empty/);
+});
+
+test('progress update prompt forbids claiming changes from read-only evidence', () => {
+  const prompt = buildProgressUpdatePrompt();
+
+  assert.match(prompt, /grounded ONLY in the actual recent tool activity/);
+  assert.match(prompt, /only shows inspection or failed commands/);
+  assert.match(prompt, /do not imply state-changing progress/);
 });
 
 test('toolWorkDescription maps tool names to human phrases', () => {
