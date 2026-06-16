@@ -138,8 +138,16 @@ function normalizePathOrUri(value) {
   if (text.startsWith('/api/artifacts/')) return { uri: text, path: null };
   if (/^https?:\/\//i.test(text)) return { uri: text, path: null };
   if (text.startsWith('//')) return null;
-  if (/^[A-Za-z]:\\/.test(text)) return { path: text, uri: null };
-  if (path.isAbsolute(text)) return { path: text, uri: null };
+  if (/^[A-Za-z]:\\/.test(text)) {
+    const ext = path.extname(text.split('?')[0]).toLowerCase();
+    if (!FILE_EXTENSION_TO_KIND[ext]) return null;
+    return { path: text, uri: null };
+  }
+  if (path.isAbsolute(text)) {
+    const ext = path.extname(text.split('?')[0]).toLowerCase();
+    if (!FILE_EXTENSION_TO_KIND[ext]) return null;
+    return { path: text, uri: null };
+  }
   return null;
 }
 
