@@ -694,7 +694,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   console.info(
     `[Run ${shortenRunId(runId)}] tools total=${toolNames.length} builtIns=${builtInTools.length} mcp=${mcpTools.length} core=${JSON.stringify(coreToolStatus)}`
   );
-  const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine: this });
+  const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine });
   const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
   const integrationSummary = integrationManager?.summarizeConnectedProviders?.(userId, agentId) || '';
 
@@ -905,7 +905,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
     if (options.skipDeliverableWorkflow !== true) {
       const deliverableSelectionResult = await selectDeliverableWorkflow({
-        engine: this,
+        engine,
         provider,
         providerName,
         model,
@@ -930,7 +930,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           options,
         });
         await selectedWorkflow.run(deliverablePlan, {
-          engine: this,
+          engine,
           userId,
           agentId,
           runId,
