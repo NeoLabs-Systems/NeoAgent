@@ -818,6 +818,59 @@ describe('messaging progress supervisor', () => {
     assert.equal(artifacts.length, 0);
   });
 
+  test('github issue body paths are not promoted to artifact candidates', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+
+    const artifacts = await extractArtifactsFromResult('github_list_issues', {
+      items: [{
+        title: 'Docs cleanup',
+        body: 'Please update /README.md and /integrations.md when this is implemented.',
+      }],
+    });
+
+    assert.equal(artifacts.length, 0);
+  });
+
+  test('blank reply after a failed tool continues while budget remains', () => {
+    const {
+      buildBlankAfterToolFailureGuidance,
+      shouldContinueAfterBlankToolFailure,
+    } = require('../../../server/services/ai/loop/blank_recovery');
+    const failedExecutions = [{
+      toolName: 'read_file',
+      ok: false,
+      error: 'EISDIR: illegal operation on a directory, read',
+    }];
+
+    assert.equal(shouldContinueAfterBlankToolFailure({
+      lastContent: '',
+      failedStepCount: 1,
+      remainingIterations: 1,
+      toolExecutions: failedExecutions,
+    }), true);
+    assert.match(
+      buildBlankAfterToolFailureGuidance(failedExecutions),
+      /task is not terminal/,
+    );
+  });
+
+  test('blank reply after a failed tool does not continue when budget is exhausted', () => {
+    const {
+      shouldContinueAfterBlankToolFailure,
+    } = require('../../../server/services/ai/loop/blank_recovery');
+
+    assert.equal(shouldContinueAfterBlankToolFailure({
+      lastContent: '',
+      failedStepCount: 1,
+      remainingIterations: 0,
+      toolExecutions: [{
+        toolName: 'read_file',
+        ok: false,
+        error: 'EISDIR: illegal operation on a directory, read',
+      }],
+    }), false);
+  });
+
   test('interim-visible messaging state still allows internal error recovery retry', () => {
     const {
       shouldRetryMessagingRun,

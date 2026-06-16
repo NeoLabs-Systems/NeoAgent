@@ -57,6 +57,10 @@ const { ToolRepetitionGuard } = require('../repetitionGuard');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { IterationBudget } = require('./iteration_budget');
 const {
+  buildBlankAfterToolFailureGuidance,
+  shouldContinueAfterBlankToolFailure,
+} = require('./blank_recovery');
+const {
   shouldRetryMessagingRun,
   shouldSendMessagingErrorFallback,
 } = require('./error_recovery');
@@ -1271,6 +1275,23 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           lastReply: lastContent,
         })) {
           break;
+        }
+        if (shouldContinueAfterBlankToolFailure({
+          lastContent,
+          failedStepCount,
+          remainingIterations: iterationBudget.remaining,
+          toolExecutions,
+        })) {
+          engine.recordRunEvent(userId, runId, 'blank_after_tool_failure_continued', {
+            iteration,
+            remainingIterations: iterationBudget.remaining,
+          }, { agentId });
+          messages.push({
+            role: 'system',
+            content: buildBlankAfterToolFailureGuidance(toolExecutions),
+          });
+          lastContent = '';
+          continue;
         }
         const loopDecision = await engine.decideLoopState({
           provider,

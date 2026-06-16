@@ -30,8 +30,9 @@ test('loop implementation is owned by loop modules', () => {
   const budgetPath = path.join(root, 'server/services/ai/loop/iteration_budget.js');
   const completionJudgePath = path.join(root, 'server/services/ai/loop/completion_judge.js');
   const errorRecoveryPath = path.join(root, 'server/services/ai/loop/error_recovery.js');
+  const blankRecoveryPath = path.join(root, 'server/services/ai/loop/blank_recovery.js');
 
-  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, budgetPath, completionJudgePath, errorRecoveryPath]) {
+  for (const filePath of [corePath, conversationLoopPath, progressPath, deliveryPath, messagingDeliveryPath, runStatePath, modelIoPath, callbacksPath, toolDispatchPath, budgetPath, completionJudgePath, errorRecoveryPath, blankRecoveryPath]) {
     assert.equal(fs.existsSync(filePath), true, `${filePath} should exist`);
   }
 
@@ -45,6 +46,7 @@ test('loop implementation is owned by loop modules', () => {
   const toolDispatch = fs.readFileSync(toolDispatchPath, 'utf8');
   const progressMonitor = fs.readFileSync(progressPath, 'utf8');
   const errorRecovery = fs.readFileSync(errorRecoveryPath, 'utf8');
+  const blankRecovery = fs.readFileSync(blankRecoveryPath, 'utf8');
   assert.ok(core.includes('class AgentEngine'));
   assert.ok(core.split('\n').length < 2200, 'agent_engine_core should stay a compatibility core, not regain the full loop');
   assert.ok(core.includes('async _runWithModelInternal'));
@@ -79,6 +81,7 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(conversationLoop.includes('await engine.deliverMessagingFinalFallback'));
   assert.ok(conversationLoop.includes('shouldRetryMessagingRun'));
   assert.ok(conversationLoop.includes('shouldSendMessagingErrorFallback'));
+  assert.ok(conversationLoop.includes('shouldContinueAfterBlankToolFailure'));
   assert.equal(/runMeta\?\.messagingSent\s*!==\s*true/.test(conversationLoop), false);
   assert.ok(completionJudge.includes('function buildCompletionDecisionPrompt'));
   assert.ok(completionJudge.includes('function normalizeGoalContract'));
@@ -99,4 +102,6 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(errorRecovery.includes('function shouldRetryMessagingRun'));
   assert.ok(errorRecovery.includes('function shouldSendMessagingErrorFallback'));
   assert.ok(errorRecovery.includes('function hasTerminalMessagingDelivery'));
+  assert.ok(blankRecovery.includes('function shouldContinueAfterBlankToolFailure'));
+  assert.ok(blankRecovery.includes('function buildBlankAfterToolFailureGuidance'));
 });
