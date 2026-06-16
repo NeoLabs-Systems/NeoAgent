@@ -1,7 +1,7 @@
 {
   "name": "neoagent",
   "version": "2.5.2-beta.26",
-  "description": "Proactive personal AI agent with no limits",
+  "description": "Self-hosted AI agent for long-running tasks, automation, messaging, device control, and local memory",
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
   "engines": {
