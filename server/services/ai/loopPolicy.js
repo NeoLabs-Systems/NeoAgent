@@ -24,7 +24,9 @@ const UNLIMITED_ITERATIONS = 1_000_000;
 const DEFAULT_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
 const DEFAULT_WIDGET_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
 const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
-const DEFAULT_COMPACTION_THRESHOLD = 0.60;
+// Less aggressive than 0.60 so the model retains file contents it already read for
+// longer, instead of losing them to compaction and re-reading the same files.
+const DEFAULT_COMPACTION_THRESHOLD = 0.80;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
 

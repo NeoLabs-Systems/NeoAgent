@@ -55,7 +55,8 @@ function buildProgressUpdatePrompt() {
   // formatting guidelines as every other message and stays maintainable in one place.
   return [
     'You are mid-task and working autonomously while the user waits.',
-    'Send ONE brief progress ping saying what you are doing right now, based on the recent activity below.',
+    'Send ONE brief progress ping saying what you are doing right now, grounded ONLY in the actual recent tool activity below.',
+    'Describe what the evidence literally shows (e.g. reading files, searching the repo, cloning, editing). Do NOT invent or guess steps, and never mention builds, compiling, gradle, tests, training, models, evaluation, pipelines, batch jobs, or deployments unless they actually appear in the activity.',
     'This is not the final answer: do not claim the task is done and do not summarize results.',
     'No greeting, no question, no sign-off; vary the wording from your previous update.',
     'Follow your normal voice and formatting rules. Output only the message text.',

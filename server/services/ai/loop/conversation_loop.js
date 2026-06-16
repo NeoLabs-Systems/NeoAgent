@@ -248,6 +248,33 @@ function fingerprintOutput(toolName, result, toolArgs = {}) {
   return h >>> 0;
 }
 
+// Concise list of files/targets the run has already read or searched, so the
+// analysis-paralysis nudge can name them and tell the model not to re-read them.
+function summarizeReadTargets(toolExecutions = []) {
+  const targets = [];
+  const seen = new Set();
+  for (const item of toolExecutions) {
+    if (!item || item.stateChanged) continue; // only read-only steps
+    const input = item.input || {};
+    let target = '';
+    if (typeof input.path === 'string' && input.path.trim()) {
+      target = input.path.trim();
+    } else if (typeof input.command === 'string') {
+      const files = input.command.match(/[\w./-]+\.(?:js|ts|tsx|jsx|py|dart|json|md|kt|c|h|ya?ml|sql|txt|sh)\b/g);
+      if (files && files.length) target = [...new Set(files)].slice(0, 2).join(', ');
+    } else if (typeof input.query === 'string' && input.query.trim()) {
+      target = `search:${input.query.trim().slice(0, 30)}`;
+    }
+    if (!target) continue;
+    const key = target.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    targets.push(target);
+    if (targets.length >= 8) break;
+  }
+  return targets.join('; ');
+}
+
 function cloneInterimHistory(history = []) {
   if (!Array.isArray(history)) return [];
   return history.map((item) => ({
@@ -789,10 +816,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         try {
           const rm = engine.getRunMeta(runId);
           const ledger = rm?.progressLedger || {};
-          const recent = toolExecutions.slice(-5).map((item) => {
-            const name = item.toolName || item.tool || 'step';
-            return `- ${name}${item.ok === false ? ' (failed)' : ''}`;
-          }).join('\n') || '(no tool activity yet)';
+          // Real, specific evidence (actual commands + their output) so the update is
+          // grounded in what happened, not invented. Bare tool names make a weak model
+          // confabulate generic activity ("running the build", "training").
+          const recent = summarizeToolExecutions(toolExecutions, 5) || '(no tool activity yet)';
           const priorUpdate = String(rm?.lastInterimMessage || '').trim();
           const contextBlock = [
             buildProgressUpdatePrompt(),
@@ -800,7 +827,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             '',
             `Original request: ${summarizeForLog(userMessage, 320)}`,
             `Doing now: ${ledger.currentTool ? `using ${ledger.currentTool}` : (ledger.currentPhase || 'thinking')}`,
-            `Recent steps:\n${recent}`,
+            `Actual recent tool activity (newest last) — describe ONLY this, do not extrapolate:\n${recent}`,
             priorUpdate ? `Your previous update (say something different): ${summarizeForLog(priorUpdate, 160)}` : '',
           ].filter(Boolean).join('\n');
           // Reuse the run's real system prompt so the update follows the same voice and
@@ -1125,9 +1152,17 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
         if (readOnlyCount >= 3) {
           const urgency = readOnlyCount >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
+          const alreadyRead = summarizeReadTargets(toolExecutions);
           messages.push({
             role: 'system',
-            content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without implementation progress such as writing, editing, creating a branch, running verification, or delivering a final/blocker. Switch method now: establish or reuse a writable checkout, create a task branch, edit files, run verification, open/update a PR, or call task_complete with the real blocker. If the user has been waiting, send one concise interim update, but that does not satisfy the method switch. Do not do more remote tree/list/content scraping first. Do not assume tool results exist at /tmp paths unless a tool explicitly returned that readable path.`,
+            content: [
+              `${urgency} — ${readOnlyCount} consecutive read-only turns with no concrete action.`,
+              alreadyRead
+                ? `You have ALREADY read/searched: ${alreadyRead}. Their output is in this conversation above — do not read or search them again; re-reading what you already have is the main way runs stall.`
+                : 'Do not re-read or re-search anything already in this conversation.',
+              'Act on what you already know now: edit files, run a state-changing command, create the branch/PR, or send the result.',
+              'If you genuinely cannot proceed, call task_complete with your best answer or a concrete blocker. Deciding to finish is a valid action; continuing to gather is not.',
+            ].join(' '),
           });
         }
       }
