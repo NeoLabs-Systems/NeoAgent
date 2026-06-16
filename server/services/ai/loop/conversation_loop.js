@@ -904,54 +904,63 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     maxIterations = loopPolicy.maxIterations;
 
     if (options.skipDeliverableWorkflow !== true) {
-      const deliverableSelectionResult = await selectDeliverableWorkflow({
-        engine,
-        provider,
-        providerName,
-        model,
-        messages,
-        tools,
-        options: { ...options, runId, userId, agentId },
-      });
-      totalTokens += deliverableSelectionResult.usage || 0;
-      const selectedWorkflow = getDeliverableWorkflow(deliverableSelectionResult.selection.type);
-      if (selectedWorkflow?.canHandle(deliverableSelectionResult.selection)) {
-        deliverableWorkflow = {
-          workflow: selectedWorkflow,
-          selection: deliverableSelectionResult.selection,
-          request: selectedWorkflow.normalizeRequest({
-            ...deliverableSelectionResult.selection,
-            userMessage,
-          }),
-        };
-        deliverablePlan = selectedWorkflow.buildExecutionPlan(deliverableWorkflow.request, {
-          analysis,
-          tools,
-          options,
-        });
-        await selectedWorkflow.run(deliverablePlan, {
+      try {
+        const deliverableSelectionResult = await selectDeliverableWorkflow({
           engine,
-          userId,
-          agentId,
-          runId,
-          agentId,
-          app,
+          provider,
+          providerName,
+          model,
+          messages,
+          tools,
+          options: { ...options, runId, userId, agentId },
         });
-        engine.persistRunMetadata(runId, {
-          deliverableWorkflow: {
-            ...deliverableWorkflow.selection,
-            plan: deliverablePlan,
-          },
-        });
-        engine.updateRunGoalContract(runId, {
-          goal: deliverableWorkflow.selection.goal,
-        });
-        engine.recordRunEvent(userId, runId, 'deliverable_workflow_selected', {
-          type: deliverableWorkflow.selection.type,
-          confidence: deliverableWorkflow.selection.confidence,
-          goal: deliverableWorkflow.selection.goal,
-          requestedOutputs: deliverableWorkflow.selection.requestedOutputs,
+        totalTokens += deliverableSelectionResult.usage || 0;
+        const selectedWorkflow = getDeliverableWorkflow(deliverableSelectionResult.selection.type);
+        if (selectedWorkflow?.canHandle(deliverableSelectionResult.selection)) {
+          deliverableWorkflow = {
+            workflow: selectedWorkflow,
+            selection: deliverableSelectionResult.selection,
+            request: selectedWorkflow.normalizeRequest({
+              ...deliverableSelectionResult.selection,
+              userMessage,
+            }),
+          };
+          deliverablePlan = selectedWorkflow.buildExecutionPlan(deliverableWorkflow.request, {
+            analysis,
+            tools,
+            options,
+          });
+          await selectedWorkflow.run(deliverablePlan, {
+            engine,
+            userId,
+            agentId,
+            runId,
+            app,
+          });
+          engine.persistRunMetadata(runId, {
+            deliverableWorkflow: {
+              ...deliverableWorkflow.selection,
+              plan: deliverablePlan,
+            },
+          });
+          engine.updateRunGoalContract(runId, {
+            goal: deliverableWorkflow.selection.goal,
+          });
+          engine.recordRunEvent(userId, runId, 'deliverable_workflow_selected', {
+            type: deliverableWorkflow.selection.type,
+            confidence: deliverableWorkflow.selection.confidence,
+            goal: deliverableWorkflow.selection.goal,
+            requestedOutputs: deliverableWorkflow.selection.requestedOutputs,
+          }, { agentId });
+        }
+      } catch (error) {
+        engine.recordRunEvent(userId, runId, 'deliverable_workflow_skipped', {
+          reason: summarizeForLog(error?.message || error, 240),
         }, { agentId });
+        messages.push({
+          role: 'system',
+          content: 'The optional deliverable workflow classifier failed. Continue with the normal agent loop; do not stop or retry the whole run just because this classifier failed.',
+        });
       }
     }
 

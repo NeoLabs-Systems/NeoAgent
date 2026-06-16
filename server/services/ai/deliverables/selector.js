@@ -47,6 +47,23 @@ async function selectDeliverableWorkflow({
   tools = [],
   options = {},
 }) {
+  if (!engine || typeof engine.requestStructuredJson !== 'function') {
+    return {
+      selection: {
+        status: 'standard',
+        type: null,
+        confidence: 0,
+        goal: '',
+        requestedOutputs: [],
+        supportingCapabilities: [],
+      },
+      usage: 0,
+      raw: '',
+      skipped: true,
+      reason: 'structured selector unavailable',
+    };
+  }
+
   const response = await engine.requestStructuredJson({
     provider,
     providerName,
