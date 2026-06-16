@@ -11,6 +11,7 @@ const {
 } = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
+  CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolCatalog,
@@ -93,6 +94,39 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
   assert.equal(result.tools.some((tool) => tool.name === 'tool_39'), true);
   assert.deepEqual(result.unknown, []);
   assert.equal(result.evicted.length, 1);
+});
+
+test('execute runs start with core file tools but direct runs stay lean', () => {
+  const required = ['task_complete', 'activate_tools', 'think', 'send_message', 'send_interim_update'];
+  const tools = [
+    ...required.map((name) => ({ name, description: `${name} description` })),
+    ...CORE_FILE_TOOLS.map((name) => ({ name, description: `${name} description` })),
+    { name: 'execute_command', description: 'Run shell commands.' },
+  ];
+
+  const executeInitial = selectInitialTools(tools, ['execute_command'], { includeCoreFileTools: true });
+  for (const toolName of CORE_FILE_TOOLS) {
+    assert.equal(executeInitial.some((tool) => tool.name === toolName), true, `${toolName} should be active`);
+  }
+
+  const directInitial = selectInitialTools(tools, [], { includeCoreFileTools: false });
+  assert.equal(directInitial.some((tool) => tool.name === 'read_files'), false);
+  assert.equal(directInitial.some((tool) => tool.name === 'replace_file_range'), false);
+
+  const crowdedTools = [
+    ...tools,
+    ...Array.from({ length: 30 }, (_, index) => ({ name: `extra_${index}`, description: `Extra ${index}` })),
+  ];
+  const crowdedInitial = selectInitialTools(
+    crowdedTools,
+    crowdedTools.slice(0, MAX_TOOLS).map((tool) => tool.name),
+    { includeCoreFileTools: true },
+  );
+  const activated = activateTools(crowdedInitial, crowdedTools, ['extra_29'], { includeCoreFileTools: true });
+  assert.equal(activated.tools.some((tool) => tool.name === 'extra_29'), true);
+  for (const toolName of CORE_FILE_TOOLS) {
+    assert.equal(activated.tools.some((tool) => tool.name === toolName), true, `${toolName} should remain active`);
+  }
 });
 
 test('task analysis receives the complete tool inventory', () => {

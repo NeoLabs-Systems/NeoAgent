@@ -91,6 +91,35 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'read_files':
+      envelope = trimObject({
+        tool: toolName,
+        count: toolResult?.count || 0,
+        truncated: toolResult?.truncated || false,
+        results: (toolResult?.results || []).slice(0, 6).map((item) => trimObject({
+          path: item.path || item.requestedPath,
+          requestedPath: item.requestedPath,
+          rangeShown: item.rangeShown,
+          error: item.error,
+          content: lineExcerpt(item.content || '', 10, Math.floor(softLimit * 0.22))
+        }))
+      });
+      break;
+
+    case 'replace_file_range':
+      envelope = trimObject({
+        tool: toolName,
+        status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
+        path: toolResult?.path || toolArgs.path,
+        startLine: toolResult?.startLine || toolArgs.start_line,
+        endLine: toolResult?.endLine || toolArgs.end_line,
+        replacedLines: toolResult?.replacedLines,
+        insertedLines: toolResult?.insertedLines,
+        totalLines: toolResult?.totalLines,
+        error: toolResult?.error
+      });
+      break;
+
     case 'search_files':
       envelope = trimObject({
         tool: toolName,

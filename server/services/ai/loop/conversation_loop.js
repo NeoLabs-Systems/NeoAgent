@@ -257,7 +257,13 @@ function summarizeReadTargets(toolExecutions = []) {
     if (!item || item.stateChanged) continue; // only read-only steps
     const input = item.input || {};
     let target = '';
-    if (typeof input.path === 'string' && input.path.trim()) {
+    if (Array.isArray(input.files) && input.files.length) {
+      target = input.files
+        .map((file) => (typeof file === 'string' ? file : file?.path || file?.file_path || ''))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(', ');
+    } else if (typeof input.path === 'string' && input.path.trim()) {
       target = input.path.trim();
     } else if (typeof input.command === 'string') {
       const files = input.command.match(/[\w./-]+\.(?:js|ts|tsx|jsx|py|dart|json|md|kt|c|h|ya?ml|sql|txt|sh)\b/g);
@@ -919,6 +925,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
     tools = selectInitialTools(allTools, analysis.suggested_tools, {
       widgetId: options.widgetId || null,
+      includeCoreFileTools: analysis.mode === 'execute' || analysis.mode === 'plan_execute',
     });
     engine.initializeToolRuntime(runId, allTools, tools, options);
     messages.push({
@@ -928,6 +935,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         buildToolCatalog(allTools),
         '',
         `Active tools: ${tools.map((tool) => tool.name).join(', ')}`,
+        'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
         'Use activate_tools with exact catalog names when another schema is required.',
       ].join('\n'),
     });

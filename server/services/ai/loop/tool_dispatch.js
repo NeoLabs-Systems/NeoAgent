@@ -20,6 +20,7 @@ function isReadOnlyToolCall(toolCall) {
   const name = String(toolCall?.function?.name || '');
   const readOnly = new Set([
     'read_file',
+    'read_files',
     'list_directory',
     'search_files',
     'code_navigate',

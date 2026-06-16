@@ -897,6 +897,34 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'read_files',
+            description: 'Read multiple workspace files or line ranges in one call. Prefer this over several read_file, cat, or sed commands when inspecting related files. This cannot read VM /tmp files created by execute_command.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    files: {
+                        type: 'array',
+                        description: 'Files to read. Each item accepts path or file_path plus optional start_line/end_line or line_start/line_count.',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                path: { type: 'string', description: 'Absolute or relative path inside the per-user workspace' },
+                                file_path: { type: 'string', description: 'Alias for path' },
+                                start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
+                                end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
+                                line_start: { type: 'number', description: 'Alias for start_line' },
+                                line_count: { type: 'number', description: 'Number of lines to read from start_line/line_start' },
+                                encoding: { type: 'string', description: 'File encoding (default utf-8)' }
+                            },
+                            required: []
+                        }
+                    },
+                    encoding: { type: 'string', description: 'Default file encoding for items without encoding (default utf-8)' }
+                },
+                required: ['files']
+            }
+        },
+        {
             name: 'write_file',
             description: 'Write or append content to a file. Creates parent directories if they do not exist. IMPORTANT: When writing markdown or code, ensure proper formatting and avoid truncating or overly summarizing content. Write complete, well-formatted, detailed files.',
             parameters: {
@@ -930,6 +958,20 @@ function getAvailableTools(app, options = {}) {
                     }
                 },
                 required: ['path', 'edits']
+            }
+        },
+        {
+            name: 'replace_file_range',
+            description: 'Replace a 1-indexed inclusive line range in a workspace file. Use this when you know line numbers and exact-text edit_file would be brittle. Read the target range first, then replace only the intended lines.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: 'File path inside the per-user workspace' },
+                    start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
+                    end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
+                    content: { type: 'string', description: 'Replacement content for the range. Empty string deletes the range.' }
+                },
+                required: ['path', 'start_line', 'end_line', 'content']
             }
         },
         {
@@ -2339,6 +2381,49 @@ async function executeTool(toolName, args, context, engine) {
             }
         }
 
+        case 'read_files': {
+            try {
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                const entries = Array.isArray(args.files) ? args.files : [];
+                if (!entries.length) {
+                    return { error: 'read_files requires a non-empty files array.' };
+                }
+                const maxFiles = 8;
+                const results = entries.slice(0, maxFiles).map((entry, index) => {
+                    const fileArgs = typeof entry === 'string'
+                        ? { path: entry }
+                        : (entry && typeof entry === 'object' ? entry : {});
+                    const normalizedArgs = normalizeReadFileArgs({
+                        ...fileArgs,
+                        encoding: fileArgs.encoding || args.encoding || 'utf-8',
+                    });
+                    if (!normalizedArgs.path) {
+                        return {
+                            index,
+                            success: false,
+                            error: 'Each read_files item requires path or file_path.',
+                        };
+                    }
+                    const result = workspace.readFile(userId, normalizedArgs);
+                    return {
+                        index,
+                        requestedPath: normalizedArgs.path,
+                        success: !result?.error,
+                        ...result,
+                    };
+                });
+                return {
+                    success: results.every((result) => result.success !== false && !result.error),
+                    count: results.length,
+                    truncated: entries.length > maxFiles,
+                    results,
+                };
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
         case 'write_file': {
             try {
                 const workspace = wc();
@@ -2360,6 +2445,24 @@ async function executeTool(toolName, args, context, engine) {
                 return workspace.editFile(userId, {
                     path: args.path,
                     edits: args.edits,
+                });
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'replace_file_range': {
+            try {
+                const workspace = wc();
+                if (!workspace) return { error: 'Workspace service is unavailable.' };
+                if (typeof workspace.replaceFileRange !== 'function') {
+                    return { error: 'Workspace service does not support replace_file_range.' };
+                }
+                return workspace.replaceFileRange(userId, {
+                    path: args.path,
+                    start_line: args.start_line ?? args.startLine,
+                    end_line: args.end_line ?? args.endLine,
+                    content: args.content,
                 });
             } catch (err) {
                 return { error: err.message };
