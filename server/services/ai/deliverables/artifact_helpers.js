@@ -72,9 +72,44 @@ const CANDIDATE_KEYS = [
   'mediaPaths',
   'screenshotPath',
   'uiDumpPath',
-  'url',
-  'urls',
+  'artifact',
+  'artifacts',
+  'artifactPath',
+  'artifactPaths',
+  'artifactUrl',
+  'artifactUrls',
+  'artifactUri',
+  'artifactUris',
+  'downloadUrl',
+  'downloadUrls',
+  'downloadUri',
+  'downloadUris',
 ];
+
+const ARTIFACT_CONTAINER_KEYS = new Set([
+  'artifact',
+  'artifacts',
+  'attachment',
+  'attachments',
+  'deliverable',
+  'deliverables',
+  'download',
+  'downloads',
+  'file',
+  'files',
+  'media',
+  'preview',
+  'screenshot',
+  'screenshots',
+]);
+
+const CONTAINER_URL_KEYS = new Set(['url', 'urls', 'uri', 'uris', 'href', 'hrefs']);
+
+function isExplicitCandidateKey(keyHint = '', parentKeyHint = '') {
+  if (CANDIDATE_KEYS.includes(keyHint)) return true;
+  if (!CONTAINER_URL_KEYS.has(keyHint)) return false;
+  return ARTIFACT_CONTAINER_KEYS.has(parentKeyHint);
+}
 
 function inferExtension(candidate = '') {
   return path.extname(String(candidate || '').split('?')[0]).toLowerCase();
@@ -102,6 +137,7 @@ function normalizePathOrUri(value) {
   if (!text) return null;
   if (text.startsWith('/api/artifacts/')) return { uri: text, path: null };
   if (/^https?:\/\//i.test(text)) return { uri: text, path: null };
+  if (text.startsWith('//')) return null;
   if (/^[A-Za-z]:\\/.test(text)) return { path: text, uri: null };
   if (path.isAbsolute(text)) return { path: text, uri: null };
   return null;
@@ -167,23 +203,26 @@ async function extractArtifactsFromResult(toolName, result) {
     artifacts.push(artifact);
   }
 
-  async function visit(value, keyHint = '') {
+  async function visit(value, keyHint = '', parentKeyHint = '') {
     if (value == null) return;
     if (typeof value === 'string') {
-      const explicit = CANDIDATE_KEYS.includes(keyHint);
-      if (explicit) await pushCandidate(value);
+      const explicit = isExplicitCandidateKey(keyHint, parentKeyHint);
+      if (explicit && normalizePathOrUri(value)) {
+        await pushCandidate(value);
+        return;
+      }
       for (const candidate of scanStringForCandidates(value, { explicit })) {
         await pushCandidate(candidate);
       }
       return;
     }
     if (Array.isArray(value)) {
-      for (const item of value) await visit(item, keyHint);
+      for (const item of value) await visit(item, keyHint, parentKeyHint);
       return;
     }
     if (typeof value === 'object') {
       for (const [key, nested] of Object.entries(value)) {
-        await visit(nested, key);
+        await visit(nested, key, keyHint);
       }
     }
   }
@@ -196,5 +235,6 @@ module.exports = {
   extractArtifactsFromResult,
   inferArtifactKind,
   inferMimeType,
+  isExplicitCandidateKey,
   normalizePathOrUri,
 };

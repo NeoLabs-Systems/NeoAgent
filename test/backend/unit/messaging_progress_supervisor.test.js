@@ -831,6 +831,42 @@ describe('messaging progress supervisor', () => {
     assert.equal(artifacts.length, 0);
   });
 
+  test('generic api and webpage url fields are not promoted to artifact candidates', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+
+    const artifacts = await extractArtifactsFromResult('github_get_content', {
+      url: 'https://api.github.com/repos/NeoLabs-Systems/NeoAgent/contents/README.md',
+      html_url: 'https://github.com/NeoLabs-Systems/NeoAgent/blob/main/README.md',
+      download_url: 'https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md',
+      image: '//cdn.example.test/assets/logo.png',
+      body: '<link rel="icon" href="/apple-touch-icon.png"><img src="//cdn.example.test/hero.jpg">',
+    });
+
+    assert.equal(artifacts.length, 0);
+  });
+
+  test('explicit artifact container urls are still promoted to artifacts', async () => {
+    const { extractArtifactsFromResult } = require('../../../server/services/ai/deliverables/artifact_helpers');
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+      const artifacts = await extractArtifactsFromResult('generate_report', {
+        artifacts: [{
+          url: 'https://example.test/reports/final.pdf',
+          label: 'final report',
+        }],
+      });
+
+      assert.equal(artifacts.length, 1);
+      assert.equal(artifacts[0].uri, 'https://example.test/reports/final.pdf');
+      assert.deepEqual(warnings, []);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
   test('blank reply after a failed tool continues while budget remains', () => {
     const {
       buildBlankAfterToolFailureGuidance,
