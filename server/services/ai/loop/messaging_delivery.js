@@ -42,6 +42,12 @@ function requireSuccessfulMessagingDelivery(result, label = 'Messaging delivery'
   throw error;
 }
 
+// Harness-driven progress: the originating chat must see autonomous updates during
+// long runs even when a weak model never calls send_interim_update itself. The
+// supervisor paces this call (FIRST/REPEAT thresholds + a repeat guard). The update
+// text is always authored by the run's own agent loop (composeProgressUpdate); we
+// never emit a hard-coded status line. If the loop can't compose one this tick, we
+// skip the visible send and only nudge the model, then try again next tick.
 async function sendRuntimeMessagingHeartbeat(engine, runId, options = {}) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta || runMeta.aborted) return { sent: false, skipped: true };
@@ -54,6 +60,46 @@ async function sendRuntimeMessagingHeartbeat(engine, runId, options = {}) {
   engine.updateRunProgress(runId, { heartbeatCount });
 
   const ledger = runMeta.progressLedger || {};
+  const { platform, chatId } = runMeta.messagingContext || {};
+
+  if (engine.messagingManager && !runMeta.terminalInterim && platform && chatId
+    && typeof runMeta.composeProgressUpdate === 'function') {
+    let statusMsg = '';
+    try {
+      const composed = await runMeta.composeProgressUpdate({ stalled: options.stalled === true });
+      if (normalizeOutgoingMessage(composed, platform)) statusMsg = String(composed).trim();
+    } catch { /* no dynamic update available this tick */ }
+    if (statusMsg) try {
+      const delivery = await engine.messagingManager.sendMessage(runMeta.userId, platform, chatId, statusMsg, {
+        runId,
+        agentId: runMeta.agentId,
+      });
+      if (delivery?.success === true && delivery?.suppressed !== true) {
+        const nowIso = isoNow();
+        runMeta.progressLedger = { ...ledger, lastUserVisibleUpdateAt: nowIso };
+        runMeta.lastInterimMessage = statusMsg;
+        engine.updateRunProgress(runId, { lastUserVisibleUpdateAt: nowIso });
+        engine.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
+          stalled: options.stalled === true,
+          currentTool: ledger.currentTool || null,
+          currentStep: ledger.currentStep || null,
+          phase: ledger.currentPhase || 'idle',
+          userVisible: true,
+          createdAt,
+        }, { agentId: runMeta.agentId });
+        // Still nudge the model so its next turn can deliver a richer, real update.
+        engine.enqueueSystemSteering(
+          runId,
+          buildProgressNudge({ stalled: options.stalled === true }),
+          { reason: options.stalled === true ? 'stalled_progress_check' : 'progress_check' },
+        );
+        return { sent: true, heartbeat: true };
+      }
+    } catch (err) {
+      console.warn('[Engine] Progress heartbeat send failed:', err?.message || err);
+    }
+  }
+
   engine.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
     stalled: options.stalled === true,
     currentTool: ledger.currentTool || null,

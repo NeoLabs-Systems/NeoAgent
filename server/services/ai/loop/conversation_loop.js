@@ -132,6 +132,8 @@ const {
   clampRunContext,
   joinSentMessages,
   buildBlankMessagingReplyPrompt,
+  buildMaxIterationWrapupPrompt,
+  buildProgressUpdatePrompt,
   buildDeterministicMessagingFallback,
   buildMessagingFailureScenario,
   buildDeterministicMessagingErrorReply,
@@ -775,6 +777,56 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let compactionMetrics = [];
   let analysis = null;
   let plan = null;
+
+  // Model-authored progress updates: the messaging supervisor calls this to get a
+  // dynamic "what I'm doing right now" line instead of a hard-coded string. It runs
+  // a tiny tool-less model call over the current run activity. `provider`/`model` are
+  // `let` (closure tracks fallbacks) and `toolExecutions` is push-only.
+  if (triggerSource === 'messaging') {
+    const runMetaForCompose = engine.getRunMeta(runId);
+    if (runMetaForCompose) {
+      runMetaForCompose.composeProgressUpdate = async ({ stalled = false } = {}) => {
+        try {
+          const rm = engine.getRunMeta(runId);
+          const ledger = rm?.progressLedger || {};
+          const recent = toolExecutions.slice(-5).map((item) => {
+            const name = item.toolName || item.tool || 'step';
+            return `- ${name}${item.ok === false ? ' (failed)' : ''}`;
+          }).join('\n') || '(no tool activity yet)';
+          const priorUpdate = String(rm?.lastInterimMessage || '').trim();
+          const contextBlock = [
+            buildProgressUpdatePrompt(),
+            stalled ? 'This step has been running a while with no new progress; reassure the user you are still on it.' : '',
+            '',
+            `Original request: ${summarizeForLog(userMessage, 320)}`,
+            `Doing now: ${ledger.currentTool ? `using ${ledger.currentTool}` : (ledger.currentPhase || 'thinking')}`,
+            `Recent steps:\n${recent}`,
+            priorUpdate ? `Your previous update (say something different): ${summarizeForLog(priorUpdate, 160)}` : '',
+          ].filter(Boolean).join('\n');
+          // Reuse the run's real system prompt so the update follows the same voice and
+          // formatting guidelines as every other message (single source of truth).
+          const sysContent = [systemPrompt?.stable, systemPrompt?.dynamic].filter(Boolean).join('\n\n')
+            || 'You are a helpful assistant.';
+          const resp = await withModelCallTimeout(
+            provider.chat(
+              [
+                { role: 'system', content: sysContent },
+                { role: 'user', content: contextBlock },
+              ],
+              [],
+              { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+            ),
+            options,
+            'Progress update compose',
+          );
+          return sanitizeModelOutput(resp.content || '', { model });
+        } catch (composeErr) {
+          console.warn(`[Run ${shortenRunId(runId)}] progress_update_compose failed: ${summarizeForLog(composeErr?.message || composeErr, 140)}`);
+          return '';
+        }
+      };
+    }
+  }
   let verification = null;
   let deliverableWorkflow = null;
   let deliverablePlan = null;
@@ -1847,6 +1899,54 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     const messagingSent = runMeta?.messagingSent || false;
     const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
+    // Hermes _handle_max_iterations: if the run exhausted its step budget without a
+    // judged completion, the model's last text is usually a mid-thought fragment
+    // ("let me inline everything:"). Do one tool-less wrap-up call so the user gets a
+    // real final answer instead of that fragment.
+    const budgetExhaustedWithoutCompletion = triggerSource === 'messaging'
+      && !directAnswerEligible
+      && !messagingSent
+      && !runMeta?.terminalInterim
+      && iteration >= maxIterations;
+    if (budgetExhaustedWithoutCompletion) {
+      console.warn(`[Run ${shortenRunId(runId)}] max_iteration_wrapup model=${model} iteration=${iteration}/${maxIterations}`);
+      try {
+        const wrapResponse = await withModelCallTimeout(
+          provider.chat(
+            sanitizeConversationMessages([
+              ...messages,
+              { role: 'system', content: buildMaxIterationWrapupPrompt(options?.source || null) },
+            ]),
+            [],
+            { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+          ),
+          options,
+          'Max-iteration wrap-up',
+        );
+        totalTokens += wrapResponse.usage?.totalTokens || 0;
+        const wrapText = sanitizeModelOutput(wrapResponse.content || '', { model });
+        // On budget exhaustion the model's last text is an untrustworthy mid-thought
+        // fragment. Replace it with the wrap-up answer, or a clean deterministic
+        // fallback if the wrap-up came back empty — never deliver the fragment.
+        const usableWrap = normalizeOutgoingMessage(wrapText, options?.source || null);
+        lastContent = usableWrap
+          ? wrapText
+          : buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+        messages.push({ role: 'assistant', content: lastContent });
+        if (conversationId) {
+          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+            .run(conversationId, 'assistant', lastContent, usableWrap ? (wrapResponse.usage?.totalTokens || 0) : 0);
+        }
+        engine.recordRunEvent(userId, runId, 'max_iteration_wrapup_delivered', {
+          iteration, maxIterations, stepIndex, source: usableWrap ? 'model' : 'deterministic',
+        }, { agentId });
+      } catch (wrapErr) {
+        console.warn(`[Run ${shortenRunId(runId)}] max_iteration_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
+        lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+        messages.push({ role: 'assistant', content: lastContent });
+      }
+    }
+
     if (triggerSource === 'messaging' && !normalizeOutgoingMessage(lastContent, options?.source || null) && !messagingSent) {
       // Simplified blank reply recovery: one model call with direct instruction,
       // then fall back to a deterministic message. No multi-attempt LLM loop.
@@ -1877,48 +1977,24 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         console.warn(`[Run ${shortenRunId(runId)}] blank_reply_recovery failed: ${summarizeForLog(recoverErr?.message || recoverErr, 180)}`);
       }
       totalTokens += recoveredTokens;
-      if (!normalizeOutgoingMessage(lastContent, options?.source || null)) {
+      // The loop has already exited, so we cannot keep working: deliver the model's
+      // own wrap-up (it summarizes what it tried / where it got blocked from the run
+      // evidence) instead of second-guessing it into a generic blob. Only fall back to
+      // a deterministic message when the model returned nothing usable.
+      const recoveredVisible = Boolean(normalizeOutgoingMessage(lastContent, options?.source || null));
+      if (!recoveredVisible) {
         lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
       }
       if (normalizeOutgoingMessage(lastContent, options?.source || null)) {
-        const recoveryDecision = await engine.decideLoopState({
-          provider,
-          providerName,
-          model,
-          messages,
-          analysis,
-          plan,
-          tools,
-          toolExecutions,
-          lastReply: lastContent,
-          iteration,
-          maxIterations,
-          options: { ...options, triggerSource, runId, userId, agentId },
-          messagingSent: false,
-        });
-        totalTokens += recoveryDecision.usage || 0;
-        engine.recordRunEvent(userId, runId, 'blank_reply_recovery_checked', {
-          status: recoveryDecision.decision.status,
-          reason: recoveryDecision.decision.reason,
+        engine.recordRunEvent(userId, runId, 'blank_reply_recovery_delivered', {
+          source: recoveredVisible ? 'model' : 'deterministic',
+          stepIndex,
+          failedStepCount,
         }, { agentId });
-        if (recoveryDecision.decision.status === 'continue') {
-          engine.recordRunEvent(userId, runId, 'blank_reply_recovery_blocker_used', {
-            reason: recoveryDecision.decision.reason,
-            stepIndex,
-            failedStepCount,
-          }, { agentId });
-          lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
-          messages.push({ role: 'assistant', content: lastContent });
-          if (conversationId) {
-            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-              .run(conversationId, 'assistant', lastContent, 0);
-          }
-        } else {
-          messages.push({ role: 'assistant', content: lastContent });
-          if (conversationId) {
-            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-              .run(conversationId, 'assistant', lastContent, recoveredTokens);
-          }
+        messages.push({ role: 'assistant', content: lastContent });
+        if (conversationId) {
+          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+            .run(conversationId, 'assistant', lastContent, recoveredVisible ? recoveredTokens : 0);
         }
       }
     }

@@ -1,11 +1,25 @@
 'use strict';
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const net = require('net');
+const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { sanitizeWorkspaceKey } = require('../workspace/manager');
 
 const CONTAINER_IMAGE = 'mcr.microsoft.com/playwright:v1.44.0-focal';
 const CONTAINER_LABEL = 'neoagent.managed=1';
+// The per-user host workspace is bind-mounted here so the shell (execute_command)
+// and the workspace file tools (read_file/write_file/list_directory/search_files)
+// operate on the SAME files. The guest agent defaults its shell cwd to this path.
+const GUEST_WORKSPACE = '/workspace';
+
+// Host path of a user's workspace — must match WorkspaceManager's layout exactly
+// (AGENT_DATA_DIR/workspaces/<sanitized key>) so both sides see one directory.
+function hostWorkspaceDir(key) {
+  return path.join(AGENT_DATA_DIR, 'workspaces', sanitizeWorkspaceKey(key));
+}
 
 // ─── Guest agent ─────────────────────────────────────────────────────────────
 // Injected into every container. Pure Node.js — only built-in modules + playwright
@@ -104,7 +118,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/exec') {
       const timeoutMs = Math.min(Number(b.timeout) || 15 * 60 * 1000, 20 * 60 * 1000);
       const child = spawn('sh', ['-c', b.command || 'true'], {
-        cwd: b.cwd || '/tmp',
+        cwd: b.cwd || '/workspace',
         env: { ...process.env, ...b.env },
       });
       const pid = child.pid;
@@ -325,6 +339,10 @@ class DockerVMManager {
     const port = await findAvailablePort();
     console.log(`[DockerVM:${this.profile}] Starting container for user ${key} on port ${port}`);
 
+    // Bind-mount the user's host workspace so shell and file tools share one place.
+    const workspaceDir = hostWorkspaceDir(key);
+    try { fs.mkdirSync(workspaceDir, { recursive: true }); } catch { /* best effort */ }
+
     const containerId = docker([
       'run', '-d',
       '--memory', `${this.memoryMb}m`,
@@ -334,6 +352,8 @@ class DockerVMManager {
       ...(this.guestToken ? ['-e', `NEOAGENT_VM_GUEST_TOKEN=${this.guestToken}`] : []),
       '--shm-size=2g',
       '--security-opt', 'no-new-privileges',
+      '-v', `${workspaceDir}:${GUEST_WORKSPACE}`,
+      '-w', GUEST_WORKSPACE,
       '--label', CONTAINER_LABEL,
       '--label', `neoagent.profile=${this.profile}`,
       '--label', `neoagent.user=${key}`,

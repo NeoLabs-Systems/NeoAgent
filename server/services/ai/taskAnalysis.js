@@ -82,6 +82,7 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
   'For GitHub issue implementation or PR work, fetch the issue once, then establish or reuse a writable local checkout, create a task branch, inspect/edit/test locally, and push/open the PR. Use direct GitHub file mutation tools only as a fallback when a local checkout is unavailable.',
+  'Your shell (execute_command) starts in your workspace, and the file tools (read_file, write_file, list_directory, search_files) operate on that same workspace. Clone or create files into the current directory and then inspect or edit them with either the shell or the file tools interchangeably. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
   'Tool results are already present in the conversation as tool output. Do not assume a tool result was persisted to a readable /tmp path unless that exact path was explicitly returned by the tool result.',
   'Use send_interim_update sparingly when a short real update or question would help.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',

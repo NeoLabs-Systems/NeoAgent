@@ -103,6 +103,8 @@ describe('messaging progress supervisor', () => {
       interimSignatures: new Set(),
       terminalInterim: null,
       voiceSessionId: null,
+      // Simulates the agent loop authoring a dynamic progress line.
+      composeProgressUpdate: async () => 'still working through the current step',
       steeringQueue: [],
       systemSteeringQueue: [],
       toolPids: new Set(),
@@ -536,7 +538,7 @@ describe('messaging progress supervisor', () => {
     assert.match(nudgeText, /Do not continue silently/);
   });
 
-  test('runtime heartbeat records liveness and queues internal steering only', async (t) => {
+  test('runtime heartbeat sends a visible update during tool work and still nudges the model', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -556,10 +558,11 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(61_000);
     const result = await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(result.sent, false);
+    assert.equal(result.sent, true);
     assert.equal(result.heartbeat, true);
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
+    assert.equal(engine.getRunMeta(runId).progressLedger.lastUserVisibleUpdateAt != null, true);
 
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const steeringText = systemQueue.map((s) => s.content ?? s).join(' ');
@@ -588,7 +591,7 @@ describe('messaging progress supervisor', () => {
     );
   });
 
-  test('tool-bound messaging run records a liveness heartbeat after 60 seconds and respects the 90 second cadence', async (t) => {
+  test('tool-bound messaging run sends a visible heartbeat after the first threshold and respects the repeat cadence', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -605,21 +608,25 @@ describe('messaging progress supervisor', () => {
       },
     });
 
-    t.mock.timers.setTime(60_001);
+    // First visible heartbeat fires after FIRST_UPDATE_MS (35s).
+    t.mock.timers.setTime(36_000);
     await engine.tickMessagingProgressSupervisor(runId);
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
-    t.mock.timers.setTime(149_000);
+    // Within REPEAT_UPDATE_MS (75s) of the last visible update: no new heartbeat.
+    t.mock.timers.setTime(110_000);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
-    t.mock.timers.setTime(150_001);
+    // Past the repeat cadence: a second heartbeat fires.
+    t.mock.timers.setTime(111_001);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 2);
+    assert.equal(messagingManager.sent.length, 2);
   });
 
-  test('runtime heartbeat does not mark user-visible progress', async (t) => {
+  test('runtime heartbeat marks user-visible progress after a successful send', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -639,12 +646,12 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(120_000);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
-    assert.equal(engine.getRunMeta(runId).progressLedger.lastUserVisibleUpdateAt || null, null);
+    assert.equal(engine.getRunMeta(runId).progressLedger.lastUserVisibleUpdateAt != null, true);
   });
 
-  test('blocked model calls record internal liveness without messaging the user', async (t) => {
+  test('a slow model phase sends a visible progress heartbeat', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
 
@@ -664,7 +671,7 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(60_001);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
   });
 
@@ -710,7 +717,7 @@ describe('messaging progress supervisor', () => {
     t.mock.timers.setTime(60_001);
     await engine.tickMessagingProgressSupervisor(runId);
 
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     resolveModel({
@@ -778,7 +785,7 @@ describe('messaging progress supervisor', () => {
     const stalledRun = engine.getRunMeta(runId);
     assert.equal(stalledRun.progressLedger.progressState, 'stalled');
     assert.equal(stalledRun.progressLedger.stallNotifiedAt != null, true);
-    assert.equal(messagingManager.sent.length, 0);
+    assert.equal(messagingManager.sent.length, 1);
     assert.equal(listRunEvents(runId).some((event) => event.eventType === 'progress_stalled'), true);
 
     engine.updateRunProgress(runId, {
@@ -1019,16 +1026,28 @@ describe('messaging progress supervisor', () => {
     }), false);
   });
 
-  test('runtime progress monitor does not contain user-visible hardcoded heartbeat prose', () => {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const source = fs.readFileSync(
-      path.resolve(__dirname, '../../../server/services/ai/loop/messaging_delivery.js'),
-      'utf8',
-    );
+  test('runtime heartbeat sends nothing once a terminal interim is set', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
 
-    assert.doesNotMatch(source, /still working/i);
-    assert.doesNotMatch(source, /still here/i);
-    assert.doesNotMatch(source, /forced_progress_update_sent/);
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+      terminalInterim: { kind: 'question', content: 'Which one?', createdAt: new Date(0).toISOString() },
+      progressLedger: {
+        currentPhase: 'tool',
+        currentStep: 'step-1',
+        currentTool: 'execute_command',
+        currentStepStartedAt: new Date(0).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    const result = await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(result.skipped, true);
+    assert.equal(messagingManager.sent.length, 0);
   });
 });

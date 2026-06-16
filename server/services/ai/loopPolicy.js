@@ -14,15 +14,22 @@
  * numbers only fire when something goes wrong.
  */
 
-const DEFAULT_MAX_ITERATIONS = 40;
-const DEFAULT_WIDGET_MAX_ITERATIONS = 30;
-const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 80;
+// The iteration count is intentionally NOT a real limit: the agent runs until it
+// signals completion (task_complete / judged terminal), an external blocker, or a
+// genuine stuck-state guard fires (consecutive tool failures, repetition guard,
+// model-failure recoveries). This number only exists so arithmetic/logging have a
+// finite sentinel; it is set far above any real task length so it never cuts a run.
+const UNLIMITED_ITERATIONS = 1_000_000;
+
+const DEFAULT_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
+const DEFAULT_WIDGET_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
+const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
 const DEFAULT_COMPACTION_THRESHOLD = 0.60;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
 
-// Hard ceilings — protect against runaway config values
-const MAX_ALLOWED_ITERATIONS = 200;
+// Hard ceiling — only guards against absurd/overflow config values, not task length.
+const MAX_ALLOWED_ITERATIONS = UNLIMITED_ITERATIONS;
 const MAX_ALLOWED_TOOL_FAILURES = 50;
 const MAX_ALLOWED_MODEL_RECOVERIES = 10;
 const MAX_ALLOWED_BUDGET_CHARS = 500_000;

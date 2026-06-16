@@ -414,4 +414,5 @@ class WorkspaceManager {
 
 module.exports = {
   WorkspaceManager,
+  sanitizeWorkspaceKey,
 };
