@@ -491,29 +491,6 @@ const githubToolDefinitions = [
     },
   },
   {
-    name: 'github_get_content',
-    access: 'read',
-    description: 'Get file or directory contents from a repository.',
-    parameters: {
-      type: 'object',
-      properties: {
-        owner_repo: {
-          type: 'string',
-          description: 'Repository in format "owner/repo".',
-        },
-        path: {
-          type: 'string',
-          description: 'File or directory path.',
-        },
-        ref: {
-          type: 'string',
-          description: 'Git ref (branch, tag, or SHA).',
-        },
-      },
-      required: ['owner_repo', 'path'],
-    },
-  },
-  {
     name: 'github_create_or_update_file',
     access: 'write',
     description: 'Create or update a single file in a repository.',
@@ -717,7 +694,7 @@ const githubToolDefinitions = [
   {
     name: 'github_api_request',
     access: 'dynamic_http_method',
-    description: 'Make an authenticated GitHub API request for advanced operations not covered by dedicated tools.',
+    description: 'Make an authenticated GitHub API request for advanced operations not covered by dedicated tools. Path must be the FULL API path starting with /repos/{owner}/{repo}/... — e.g. /repos/NeoLabs-Systems/NeoAgent/git/trees/main?recursive=1. Alternatively, supply owner_repo and a relative path like /git/trees/main and the prefix is prepended automatically.',
     parameters: {
       type: 'object',
       properties: {
@@ -728,15 +705,19 @@ const githubToolDefinitions = [
         },
         path: {
           type: 'string',
-          description: 'API path or full URL.',
+          description: 'Full API path (e.g. /repos/owner/repo/git/trees/main) or a relative path like /git/trees/main when owner_repo is also provided.',
+        },
+        owner_repo: {
+          type: 'string',
+          description: 'Repository in "owner/repo" format. When provided together with a relative path, the /repos/{owner}/{repo} prefix is automatically prepended.',
         },
         endpoint: {
           type: 'string',
-          description: 'Alias for path; accepted for compatibility with model tool calls.',
+          description: 'Alias for path.',
         },
         url: {
           type: 'string',
-          description: 'Alias for path when passing a full GitHub API URL.',
+          description: 'Full GitHub API URL (https://api.github.com/...).',
         },
         query: {
           type: 'object',
@@ -1127,6 +1108,11 @@ async function executeGithubTool(toolName, args, auth) {
           ...parsedQuery,
           ...(args.query && typeof args.query === 'object' ? args.query : {}),
         };
+      } else if (args.owner_repo && !path.startsWith('/repos/') && !path.startsWith('/user') && !path.startsWith('/orgs/') && !path.startsWith('/search/')) {
+        // Convenience: prepend /repos/{owner}/{repo} for relative paths
+        const { owner, repo } = parseOwnerRepo(args.owner_repo);
+        const relativePath = path.startsWith('/') ? path : `/${path}`;
+        path = `/repos/${owner}/${repo}${relativePath}`;
       }
       return await githubApiRequest(auth, {
         method: args.method || 'GET',

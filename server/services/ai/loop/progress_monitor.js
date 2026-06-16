@@ -1,8 +1,8 @@
 'use strict';
 
-const FIRST_UPDATE_MS = 60 * 1000;
-const REPEAT_UPDATE_MS = 90 * 1000;
-const STALL_MS = 240 * 1000;
+const FIRST_UPDATE_MS = 30 * 1000;
+const REPEAT_UPDATE_MS = 45 * 1000;
+const STALL_MS = 120 * 1000;
 const TICK_MS = 15 * 1000;
 
 function isoNow() {

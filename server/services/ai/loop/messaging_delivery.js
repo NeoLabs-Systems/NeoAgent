@@ -16,6 +16,9 @@ const {
   evaluateProgressLiveness,
 } = require('./progress_monitor');
 
+// Force a visible WhatsApp status message after this long with no user-visible update
+const FORCE_VISIBLE_UPDATE_MS = 2 * 60 * 1000;
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -51,14 +54,46 @@ async function sendRuntimeMessagingHeartbeat(engine, runId, options = {}) {
   const createdAt = isoNow();
   const heartbeatCount = Number(runMeta.progressLedger?.heartbeatCount || 0) + 1;
   runMeta.lastSupervisorNudgeAt = createdAt;
-  engine.updateRunProgress(runId, {
-    heartbeatCount,
-  });
+  engine.updateRunProgress(runId, { heartbeatCount });
+
+  // If the user hasn't seen any update for FORCE_VISIBLE_UPDATE_MS, push one directly
+  // rather than just queuing another invisible steering message the AI may ignore.
+  const ledger = runMeta.progressLedger || {};
+  const lastVisibleMs = timestampMs(ledger.lastUserVisibleUpdateAt, 0);
+  const startedMs = timestampMs(runMeta.startedAtIso, 0) || (Date.now() - 60000);
+  const silenceSince = Date.now() - (lastVisibleMs > 0 ? lastVisibleMs : startedMs);
+
+  if (silenceSince >= FORCE_VISIBLE_UPDATE_MS && engine.messagingManager && !runMeta.terminalInterim) {
+    const { platform, chatId } = runMeta.messagingContext || {};
+    if (platform && chatId) {
+      const stepNum = ledger.currentStep != null ? ledger.currentStep : '?';
+      const tool = ledger.currentTool || 'tools';
+      const statusMsg = options.stalled
+        ? 'still here, just taking a while on this one...'
+        : `still working on it... (step ${stepNum}, running ${tool})`;
+      try {
+        await engine.messagingManager.sendMessage(runMeta.userId, platform, chatId, statusMsg, {
+          runId,
+          agentId: runMeta.agentId,
+        });
+        const nowIso = isoNow();
+        runMeta.progressLedger = { ...ledger, lastUserVisibleUpdateAt: nowIso };
+        engine.updateRunProgress(runId, { lastUserVisibleUpdateAt: nowIso });
+        engine.recordRunEvent(runMeta.userId, runId, 'forced_progress_update_sent', {
+          stepNum, tool, silenceSince, stalled: options.stalled === true,
+        }, { agentId: runMeta.agentId });
+        return { sent: true, heartbeat: true, forced: true };
+      } catch (err) {
+        console.warn('[Engine] Forced progress update send failed:', err?.message || err);
+      }
+    }
+  }
+
   engine.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
     stalled: options.stalled === true,
-    currentTool: runMeta.progressLedger?.currentTool || null,
-    currentStep: runMeta.progressLedger?.currentStep || null,
-    phase: runMeta.progressLedger?.currentPhase || 'idle',
+    currentTool: ledger.currentTool || null,
+    currentStep: ledger.currentStep || null,
+    phase: ledger.currentPhase || 'idle',
     userVisible: false,
     createdAt,
   }, { agentId: runMeta.agentId });
