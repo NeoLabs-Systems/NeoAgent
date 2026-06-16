@@ -19,7 +19,11 @@
 </p>
 
 <p align="center">
-  <img src="demo.gif" alt="NeoAgent operator interface" width="100%">
+  <a href="https://www.producthunt.com/products/neoagent-2?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-neoagent-2" target="_blank" rel="noopener noreferrer"><img alt="NeoAgent - The next-gen self-hosted AI agent that works beyond chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1171573&theme=light&t=1781447653039"></a>
+</p>
+
+<p align="center">
+  <img src="demo.gif" alt="NeoAgent demo" width="100%">
 </p>
 
 ## 🚀 Install
