@@ -61,7 +61,6 @@ const {
   shouldContinueAfterBlankToolFailure,
 } = require('./blank_recovery');
 const {
-  shouldRetryMessagingRun,
   shouldSendMessagingErrorFallback,
 } = require('./error_recovery');
 const {
@@ -143,7 +142,6 @@ const {
   summarizeToolExecutions,
   summarizeAvailableTools,
   inferToolFailureMessage,
-  buildAutonomousRecoveryContext,
 } = require('../toolEvidence');
 const {
   buildMemoryConsolidationInstructions,
@@ -769,14 +767,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let iteration = 0;
   let totalTokens = 0;
   let lastContent = '';
-  let stepIndex = Number(options.messagingRetryStepOffset || 0);
-  if (!Number.isFinite(stepIndex) || stepIndex < 0) {
-    stepIndex = 0;
-  }
-  if (options.messagingAutonomousRetryCount > 0) {
-    const existingStep = db.prepare('SELECT COALESCE(MAX(step_index), 0) AS maxStep FROM agent_steps WHERE run_id = ?').get(runId);
-    stepIndex = Math.max(stepIndex, Number(existingStep?.maxStep || 0));
-  }
+  let stepIndex = 0;
   let failedStepCount = 0;
   let modelFailureRecoveries = 0;
   let promptMetrics = {};
@@ -1084,7 +1075,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           const urgency = readOnlyCount >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
           messages.push({
             role: 'system',
-            content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without writing, creating, sending, or running anything. Switch method now: establish or reuse a writable checkout, create a task branch, edit files, run verification, open/update a PR, send a concrete progress update, or call task_complete with the real blocker. Do not do more remote tree/list/content scraping first.`,
+            content: `${urgency} — ${readOnlyCount} consecutive read-only turns: You have been gathering information for ${readOnlyCount} turns without implementation progress such as writing, editing, creating a branch, running verification, or delivering a final/blocker. Switch method now: establish or reuse a writable checkout, create a task branch, edit files, run verification, open/update a PR, or call task_complete with the real blocker. If the user has been waiting, send one concise interim update, but that does not satisfy the method switch. Do not do more remote tree/list/content scraping first. Do not assume tool results exist at /tmp paths unless a tool explicitly returned that readable path.`,
           });
         }
       }
@@ -1911,12 +1902,23 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           reason: recoveryDecision.decision.reason,
         }, { agentId });
         if (recoveryDecision.decision.status === 'continue') {
-          throw new Error('Messaging run ended without a judged terminal reply.');
-        }
-        messages.push({ role: 'assistant', content: lastContent });
-        if (conversationId) {
-          db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-            .run(conversationId, 'assistant', lastContent, recoveredTokens);
+          engine.recordRunEvent(userId, runId, 'blank_reply_recovery_blocker_used', {
+            reason: recoveryDecision.decision.reason,
+            stepIndex,
+            failedStepCount,
+          }, { agentId });
+          lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, 0);
+          }
+        } else {
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, recoveredTokens);
+          }
         }
       }
     }
@@ -1944,10 +1946,28 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           stepIndex,
           failedStepCount,
         }, { agentId });
-        throw new Error(`Iteration budget exhausted before judged completion after ${maxIterations} iterations.`);
+        if (triggerSource === 'messaging') {
+          lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, 0);
+          }
+        } else {
+          throw new Error(`Iteration budget exhausted before judged completion after ${maxIterations} iterations.`);
+        }
       }
       if (stepIndex > 0 && !lastToolWasMessaging && iteration < maxIterations) {
-        throw new Error('Run ended without an explicit completion or blocker reply.');
+        if (triggerSource === 'messaging') {
+          lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, 0);
+          }
+        } else {
+          throw new Error('Run ended without an explicit completion or blocker reply.');
+        }
       }
     }
 
@@ -2190,78 +2210,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
 
     const runMeta = engine.activeRuns.get(runId);
-    const retryCount = Number(options.messagingAutonomousRetryCount || 0);
-    // Rate-limit errors (429) must not trigger messaging retries: the model
-    // won't be available in the milliseconds between retries, so spawning new
-    // runs just compounds the rate-limit pressure with no benefit.
-    const canRetryMessagingRun = shouldRetryMessagingRun({
-      triggerSource,
-      options,
-      runMeta,
-      error: err,
-      retryCount,
-      retryLimit: engine.getMessagingRetryLimit(maxIterations),
-    });
-
-    if (canRetryMessagingRun) {
-      const recoveryContext = buildAutonomousRecoveryContext({
-        err,
-        toolExecutions,
-        tools,
-        userMessage,
-        visibleMessageSent: Boolean(
-          runMeta?.lastSentMessage
-          || runMeta?.lastInterimMessage
-          || runMeta?.messagingSent === true
-        ),
-      });
-      db.prepare('UPDATE agent_runs SET status = ?, error = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run('retrying', err.message, runId);
-      console.warn(
-        `[Run ${shortenRunId(runId)}] retrying_messaging_attempt=${retryCount + 1} reason=${summarizeForLog(err.message, 140)}`
-      );
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
-      engine.stopMessagingProgressSupervisor(runId);
-      engine.activeRuns.delete(runId);
-      engine.emit(userId, 'run:interim', {
-        runId,
-        message: 'Retrying internally after a transient failure.',
-        phase: 'retrying'
-      });
-
-      const retryOptions = {
-        ...options,
-        runId,
-        messagingRetryStepOffset: stepIndex,
-        messagingAutonomousRetryCount: retryCount + 1,
-        messagingRetryState: {
-          lastFinalMessage: String(runMeta?.lastSentMessage || options?.messagingRetryState?.lastFinalMessage || '').trim(),
-          explicitMessageSent: runMeta?.explicitMessageSent === true || options?.messagingRetryState?.explicitMessageSent === true,
-          interimHistory: cloneInterimHistory([
-            ...(Array.isArray(options?.messagingRetryState?.interimHistory) ? options.messagingRetryState.interimHistory : []),
-            ...(Array.isArray(runMeta?.interimMessages) ? runMeta.interimMessages : []),
-          ]),
-          goalContract: mergeGoalContracts(
-            options?.messagingRetryState?.goalContract || null,
-            runMeta?.goalContract || null,
-          ),
-          lastUserVisibleUpdateAt: runMeta?.progressLedger?.lastUserVisibleUpdateAt || options?.messagingRetryState?.lastUserVisibleUpdateAt || null,
-          lastFinalDeliveryAt: runMeta?.progressLedger?.lastFinalDeliveryAt || options?.messagingRetryState?.lastFinalDeliveryAt || null,
-          heartbeatCount: Number(runMeta?.progressLedger?.heartbeatCount || options?.messagingRetryState?.heartbeatCount || 0),
-          progressState: runMeta?.progressLedger?.progressState || options?.messagingRetryState?.progressState || 'active',
-          lastVerifiedProgressAt: runMeta?.progressLedger?.lastVerifiedProgressAt || options?.messagingRetryState?.lastVerifiedProgressAt || null,
-        },
-        context: {
-          ...(options.context || {}),
-          additionalContext: [
-            options.context?.additionalContext || '',
-            recoveryContext,
-          ].filter(Boolean).join('\n\n')
-        }
-      };
-
-      return engine.runWithModel(userId, userMessage, retryOptions, _modelOverride);
-    }
 
     const deliverableFailureResponse = err?.deliverableResult?.summary
       || err?.deliverableValidation?.summary

@@ -958,7 +958,7 @@ describe('messaging progress supervisor', () => {
     }), false);
   });
 
-  test('interim-visible messaging state still allows internal error recovery retry', () => {
+  test('interim-visible messaging state uses same-run error fallback instead of autonomous replay', () => {
     const {
       shouldRetryMessagingRun,
       shouldSendMessagingErrorFallback,
@@ -981,7 +981,7 @@ describe('messaging progress supervisor', () => {
       error: new Error('internal runtime failure'),
       retryCount: 0,
       retryLimit: 1,
-    }), true);
+    }), false);
     assert.equal(shouldSendMessagingErrorFallback({
       triggerSource: 'messaging',
       options: { source: 'whatsapp', chatId: 'chat-1' },
@@ -1017,5 +1017,18 @@ describe('messaging progress supervisor', () => {
       options: { source: 'whatsapp', chatId: 'chat-1' },
       runMeta: terminalRunMeta,
     }), false);
+  });
+
+  test('runtime progress monitor does not contain user-visible hardcoded heartbeat prose', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '../../../server/services/ai/loop/messaging_delivery.js'),
+      'utf8',
+    );
+
+    assert.doesNotMatch(source, /still working/i);
+    assert.doesNotMatch(source, /still here/i);
+    assert.doesNotMatch(source, /forced_progress_update_sent/);
   });
 });

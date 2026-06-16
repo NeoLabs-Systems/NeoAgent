@@ -15,6 +15,7 @@ test('read-only shell inspection commands do not count as implementation progres
     'sed -n "1,120p" server/services/ai/engine.js',
     'find . -name "*.js" | grep widgets | wc -l',
     'git status --short && git diff -- server/services/ai/engine.js',
+    'curl -s https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md > /tmp/readme.txt && wc -l /tmp/readme.txt',
   ];
 
   for (const command of commands) {
@@ -31,6 +32,7 @@ test('state-changing shell commands count as implementation progress', () => {
     'npm install',
     'rm server/services/widgets/old_widget.js',
     'python3 -c "open(\'/tmp/result.txt\', \'w\').write(\'done\')"',
+    'sed -n "1,120p" server/services/ai/engine.js > copied-engine.js',
   ];
 
   for (const command of commands) {
@@ -44,4 +46,6 @@ test('structured tool progress classification treats reads and writes differentl
   assert.equal(isProgressToolCall('github_create_pr', { owner_repo: 'NeoLabs-Systems/NeoAgent' }), true);
   assert.equal(isProgressToolCall('http_request', { method: 'GET' }), false);
   assert.equal(isProgressToolCall('http_request', { method: 'POST' }), true);
+  assert.equal(isProgressToolCall('send_interim_update', { content: 'I am checking this.' }), false);
+  assert.equal(isProgressToolCall('send_message', { content: 'Final result.' }), true);
 });

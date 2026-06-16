@@ -82,6 +82,7 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
   'For GitHub issue implementation or PR work, fetch the issue once, then establish or reuse a writable local checkout, create a task branch, inspect/edit/test locally, and push/open the PR. Use direct GitHub file mutation tools only as a fallback when a local checkout is unavailable.',
+  'Tool results are already present in the conversation as tool output. Do not assume a tool result was persisted to a readable /tmp path unless that exact path was explicitly returned by the tool result.',
   'Use send_interim_update sparingly when a short real update or question would help.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',
   'For outbound messages, calls, emails, shared edits, installs, restarts, or task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
@@ -559,6 +560,9 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
       ? `Advisory tool suggestions: ${analysis.suggested_tools.join(', ')}`
       : '',
     `Autonomy contract: complexity=${analysis.complexity || 'standard'}; autonomy_level=${analysis.autonomy_level || 'normal'}; progress_update_policy=${analysis.progress_update_policy || 'optional'}; parallel_work=${analysis.parallel_work === true}; completion_confidence_required=${analysis.completion_confidence_required || 'medium'}.`,
+    analysis.progress_update_policy === 'required'
+      ? 'Progress updates are required for this run: when the work becomes slow, changes method, or hits a temporary blocker, use send_interim_update with a concise factual update. Do not use progress updates as completion, and do not continue long read-only work silently after a progress-check nudge.'
+      : '',
     capabilityHealth ? `Capability health:\n${capabilityHealth}` : '',
   ];
 

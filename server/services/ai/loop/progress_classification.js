@@ -117,8 +117,20 @@ function isReadOnlyInterpreterCommand(segment = '') {
   return /\b(print|json\.|json_tool|json\.load|json\.loads|sys\.stdin|process\.exit|console\.log)\b|-m\s+json\.tool/i.test(normalized);
 }
 
+function hasStateChangingRedirect(segment = '') {
+  const matches = String(segment || '').matchAll(/(?:^|[^&|;])(?:>>?|1>)\s*(?:"([^"]+)"|'([^']+)'|(\S+))/g);
+  for (const match of matches) {
+    const target = String(match[1] || match[2] || match[3] || '').trim();
+    if (!target || target === '/dev/null') continue;
+    if (target.startsWith('/tmp/') || target.startsWith('/var/tmp/')) continue;
+    return true;
+  }
+  return false;
+}
+
 function isStateChangingShellSegment(segment = '') {
   const normalized = stripEnvAssignments(segment);
+  if (hasStateChangingRedirect(normalized)) return true;
   const command = normalizeCommandName(firstToken(normalized));
   if (!command) return false;
   if (command === 'git') {
@@ -146,6 +158,7 @@ function isProgressToolCall(toolName, toolArgs = {}) {
   const name = String(toolName || '');
   if (!name) return false;
   if (name === 'activate_tools' || name === 'save_widget_snapshot') return false;
+  if (name === 'send_interim_update') return false;
   if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(name)) {
     return false;
   }

@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('crypto');
+const {
+  isClearlyReadOnlyShellCommand,
+} = require('./loop/progress_classification');
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -20,6 +23,47 @@ function stableHash(value) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
+function normalizeReadOnlyShellIntent(command = '') {
+  const text = String(command || '')
+    .replace(/(^|\n)\s*#.*(?=\n|$)/g, '\n')
+    .replace(/2?>\s*(?:"[^"]+"|'[^']+'|\S+)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const urls = [...text.matchAll(/https?:\/\/[^\s"'`|;&)]+/gi)]
+    .map((match) => match[0].replace(/[?#].*$/, ''))
+    .sort();
+  const paths = [...text.matchAll(/(?:^|\s)(\/[A-Za-z0-9._~/%+-][^\s"'`|;&)]*)/g)]
+    .map((match) => match[1].replace(/[?#].*$/, ''))
+    .filter((item) => !item.startsWith('/tmp/'))
+    .sort();
+  const repoSearches = [...text.matchAll(/\brepo:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/gi)]
+    .map((match) => match[0].toLowerCase())
+    .sort();
+
+  if (urls.length || paths.length || repoSearches.length) {
+    return {
+      kind: 'read_only_shell_intent',
+      urls,
+      paths,
+      repoSearches,
+    };
+  }
+
+  return {
+    kind: 'read_only_shell_command',
+    command: text
+      .replace(/\|\s*(cat|head(?:\s+-n?\s+\d+)?|tail(?:\s+-n?\s+\d+)?|wc(?:\s+-[A-Za-z]+)?)\b[^|;&]*/g, '')
+      .trim(),
+  };
+}
+
+function canonicalToolArgs(toolName, args) {
+  if (toolName === 'execute_command' && isClearlyReadOnlyShellCommand(args?.command || '')) {
+    return normalizeReadOnlyShellIntent(args.command);
+  }
+  return args || {};
+}
+
 class ToolRepetitionGuard {
   constructor({ unchangedLimit = 2 } = {}) {
     this.unchangedLimit = Math.max(1, Number(unchangedLimit) || 2);
@@ -27,7 +71,7 @@ class ToolRepetitionGuard {
   }
 
   key(toolName, args) {
-    return `${String(toolName || '')}:${stableHash(args || {})}`;
+    return `${String(toolName || '')}:${stableHash(canonicalToolArgs(toolName, args))}`;
   }
 
   shouldBlock(toolName, args) {
@@ -44,7 +88,7 @@ class ToolRepetitionGuard {
       : 1;
     const next = {
       toolName,
-      argsHash: stableHash(args || {}),
+      argsHash: stableHash(canonicalToolArgs(toolName, args)),
       resultHash,
       unchangedCount,
     };
@@ -56,5 +100,6 @@ class ToolRepetitionGuard {
 module.exports = {
   ToolRepetitionGuard,
   canonicalize,
+  normalizeReadOnlyShellIntent,
   stableHash,
 };

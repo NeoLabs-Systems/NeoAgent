@@ -81,15 +81,18 @@ test('loop implementation is owned by loop modules', () => {
   assert.ok(conversationLoop.includes('while (!directAnswerEligible && iterationBudget.consume())'));
   assert.ok(conversationLoop.includes('await engine.requestModelResponse'));
   assert.ok(conversationLoop.includes('await engine.deliverMessagingFinalFallback'));
-  assert.ok(conversationLoop.includes('shouldRetryMessagingRun'));
   assert.ok(conversationLoop.includes('shouldSendMessagingErrorFallback'));
   assert.ok(conversationLoop.includes('shouldContinueAfterBlankToolFailure'));
   assert.ok(conversationLoop.includes('deliverable_workflow_skipped'));
   assert.ok(conversationLoop.includes('optional deliverable workflow classifier failed'));
   assert.ok(conversationLoop.includes('ON CONFLICT(id) DO UPDATE'));
-  assert.ok(conversationLoop.includes('messagingRetryStepOffset'));
   assert.ok(conversationLoop.includes('isProgressToolCall'));
   assert.equal(conversationLoop.includes('execute_command with `cat ${persistPath}`'), false);
+  assert.equal(conversationLoop.includes('messagingRetryStepOffset'), false);
+  assert.equal(conversationLoop.includes('messagingAutonomousRetryCount'), false);
+  assert.equal(conversationLoop.includes('return engine.runWithModel(userId, userMessage, retryOptions'), false);
+  assert.equal(conversationLoop.includes('retrying_messaging_attempt'), false);
+  assert.equal(conversationLoop.includes('Retrying internally after a transient failure.'), false);
   assert.equal(conversationLoop.includes('delete retryOptions.runId'), false);
   assert.equal(/runMeta\?\.messagingSent\s*!==\s*true/.test(conversationLoop), false);
   assert.ok(completionJudge.includes('function buildCompletionDecisionPrompt'));
@@ -125,4 +128,6 @@ test('github issue implementation guidance prefers local checkout workflow', () 
   assert.ok(source.includes('writable local checkout'));
   assert.ok(source.includes('create a task branch'));
   assert.ok(source.includes('Use direct GitHub file mutation tools only as a fallback'));
+  assert.ok(source.includes('Do not assume a tool result was persisted to a readable /tmp path'));
+  assert.ok(source.includes('Progress updates are required for this run'));
 });

@@ -4,7 +4,11 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const { normalizeUsage, mergeUsage } = require('../../../server/services/ai/usage');
-const { ToolRepetitionGuard, stableHash } = require('../../../server/services/ai/repetitionGuard');
+const {
+  ToolRepetitionGuard,
+  normalizeReadOnlyShellIntent,
+  stableHash,
+} = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
   MAX_TOOLS,
@@ -48,6 +52,26 @@ test('repetition guard blocks the third unchanged result but allows progress', (
 
 test('stable hashes ignore object key order', () => {
   assert.equal(stableHash({ b: 2, a: 1 }), stableHash({ a: 1, b: 2 }));
+});
+
+test('repetition guard normalizes repeated read-only shell evidence fetches', () => {
+  const guard = new ToolRepetitionGuard();
+  const first = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md',
+  };
+  const second = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md | cat',
+  };
+  const third = {
+    command: 'curl -sL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/README.md > /tmp/readme.txt && wc -l /tmp/readme.txt',
+  };
+  const result = { stdout: 'same evidence' };
+
+  guard.observe('execute_command', first, result);
+  guard.observe('execute_command', second, result);
+
+  assert.equal(guard.shouldBlock('execute_command', third), true);
+  assert.deepEqual(normalizeReadOnlyShellIntent(first.command), normalizeReadOnlyShellIntent(second.command));
 });
 
 test('tool catalog retains every tool and activation replaces unrelated schemas', () => {
