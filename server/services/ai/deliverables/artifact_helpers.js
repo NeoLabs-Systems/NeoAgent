@@ -215,8 +215,8 @@ async function extractArtifactsFromResult(toolName, result) {
     if (value == null) return;
     if (typeof value === 'string') {
       const explicit = isExplicitCandidateKey(keyHint, parentKeyHint);
-      if (explicit && normalizePathOrUri(value)) {
-        await pushCandidate(value);
+      if (explicit) {
+        if (normalizePathOrUri(value)) await pushCandidate(value);
         return;
       }
       for (const candidate of scanStringForCandidates(value, { explicit })) {
