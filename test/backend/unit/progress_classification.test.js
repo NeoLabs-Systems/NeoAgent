@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
+  buildReadOnlyChurnGuidance,
   isClearlyReadOnlyShellCommand,
   isProgressToolCall,
 } = require('../../../server/services/ai/loop/progress_classification');
@@ -52,4 +53,19 @@ test('structured tool progress classification treats reads and writes differentl
   assert.equal(isProgressToolCall('http_request', { method: 'POST' }), true);
   assert.equal(isProgressToolCall('send_interim_update', { content: 'I am checking this.' }), false);
   assert.equal(isProgressToolCall('send_message', { content: 'Final result.' }), true);
+});
+
+test('read-only churn guidance permits terminal no-op and blocker results', () => {
+  const guidance = buildReadOnlyChurnGuidance({
+    readOnlyCount: 4,
+    alreadyRead: 'search:gym tasks; tasks.json',
+  });
+
+  assert.match(guidance, /4 consecutive read-only turns/);
+  assert.match(guidance, /already read\/searched: search:gym tasks; tasks\.json/);
+  assert.match(guidance, /already done/);
+  assert.match(guidance, /no matching target exists/);
+  assert.match(guidance, /available tools cannot make the change/);
+  assert.match(guidance, /call task_complete/);
+  assert.match(guidance, /more poking around is not progress/);
 });

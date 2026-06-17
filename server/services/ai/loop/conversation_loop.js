@@ -125,6 +125,7 @@ const {
   isReadOnlyToolCall: isReadOnlyToolCallImpl,
 } = require('./tool_dispatch');
 const {
+  buildReadOnlyChurnGuidance,
   isProgressToolCall,
 } = require('./progress_classification');
 const {
@@ -1174,19 +1175,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
         if (readOnlyCount >= 3) {
-          const urgency = readOnlyCount >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
           const alreadyRead = summarizeReadTargets(toolExecutions);
           messages.push({
             role: 'system',
-            content: [
-              `${urgency} — ${readOnlyCount} consecutive read-only turns with no concrete action.`,
-              alreadyRead
-                ? `You have ALREADY read/searched: ${alreadyRead}. Their output is in this conversation above — do not read or search them again; re-reading what you already have is the main way runs stall.`
-                : 'Do not re-read or re-search anything already in this conversation.',
-              'If you are repeatedly extracting evidence through low-level commands, switch to the available file/search/edit tools over the shared workspace.',
-              'Act on what you already know now: edit files, run a state-changing command, create the branch/PR, or send the result.',
-              'If you genuinely cannot proceed, call task_complete with your best answer or a concrete blocker. Deciding to finish is a valid action; continuing to gather is not.',
-            ].join(' '),
+            content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
           });
         }
       }

@@ -202,12 +202,13 @@ function buildCompletionDecisionPrompt({
     'Schema: {"status":"continue|complete|blocked","reason":"short concrete reason"}',
     'Rules:',
     '- Use "continue" whenever any safe next step remains in this same run.',
-    '- Use "complete" only when the requested outcome is actually achieved and the latest draft is the finished user-facing answer.',
-    '- Use "blocked" only when a specific external dependency, missing user input, or permission outside this run is required and the latest draft is the blocker reply.',
+    '- Use "complete" when the requested outcome is achieved, already done, or a no-op because there is nothing matching the request to change, and the latest draft is the finished user-facing answer.',
+    '- Use "blocked" when a specific external dependency, missing user input, permission outside this run, or unavailable required capability makes the task impossible in this run and the latest draft is the blocker reply.',
     '- If the latest draft asks the user for a missing required value, confirmation, or choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
     '- A progress note, next-step note, apology, plan, or promise to investigate is "continue", not "complete".',
     '- A single failed tool attempt is not blocked if another safe retry, verification step, or alternative path remains.',
     '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
+    '- Repeated read-only inspection that has already established the relevant object is absent or unchanged is not progress. Accept a concise complete/blocker reply instead of requiring more searching.',
     `- If completion_confidence_required is ${goalContext.effectiveCompletionConfidence} and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.`,
     triggerSource === 'messaging' && messagingSent
       ? '- A final reply was already delivered via send_message. Use "complete" unless concrete task work remains.'
