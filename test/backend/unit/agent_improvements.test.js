@@ -18,6 +18,9 @@ const {
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
 const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
+const {
+  buildCompletionDecisionPrompt,
+} = require('../../../server/services/ai/loop/completion_judge');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -173,6 +176,45 @@ test('task analysis keeps source checkouts in the shared workspace', () => {
   assert.match(prompt, /pass those directly/);
   assert.match(prompt, /prefer file tools/);
   assert.doesNotMatch(prompt, /git clone[^\n]+\/tmp\/repo-name/);
+});
+
+test('completion judge accepts truthful terminal no-op and blocker replies', () => {
+  const prompt = buildCompletionDecisionPrompt({
+    triggerSource: 'messaging',
+    messagingSent: false,
+    goalContext: {
+      effectiveGoal: 'Delete gym tasks.',
+      persistedGoalPrompt: '',
+      effectiveComplexity: 'simple',
+      effectiveAutonomyLevel: 'normal',
+      effectiveProgressPolicy: 'optional',
+      effectiveCompletionConfidence: 'medium',
+      successCriteria: ['Gym tasks are removed or the user is told none exist.'],
+    },
+    parallelWork: false,
+    tools: [
+      { name: 'list_tasks' },
+      { name: 'delete_task' },
+      { name: 'task_complete' },
+    ],
+    toolExecutions: [
+      {
+        toolName: 'list_tasks',
+        evidenceSource: 'tasks',
+        ok: true,
+        summary: 'No tasks matching gym were found.',
+      },
+    ],
+    lastReply: 'I found no gym tasks to delete.',
+    iteration: 4,
+    maxIterations: 20,
+  });
+
+  assert.match(prompt, /already done/);
+  assert.match(prompt, /no-op/);
+  assert.match(prompt, /unavailable required capability/);
+  assert.match(prompt, /Repeated read-only inspection/);
+  assert.match(prompt, /No tasks matching gym were found/);
 });
 
 test('structured data parser handles quoted delimiters and newlines', () => {

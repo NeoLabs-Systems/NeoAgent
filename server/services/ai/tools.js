@@ -1468,18 +1468,19 @@ function getAvailableTools(app, options = {}) {
     ];
 
     // task_complete — always available. Lets the AI explicitly signal that
-    // the task is fully done and provide the final response. This replaces
-    // the opaque directAnswerEligible heuristic as the primary loop-exit
-    // mechanism and gives the AI real agency over when it's finished.
+    // the task is finished, already a no-op, or blocked, and provide the
+    // final response. This replaces the opaque directAnswerEligible heuristic
+    // as the primary loop-exit mechanism and gives the AI real agency over
+    // when it's finished.
     tools.push({
         name: 'task_complete',
-        description: 'Signal that the task is fully complete and provide the final response. Call this exactly once when all steps are done and you have a complete answer ready. Do NOT call it if you still have work to do, unverified claims, unresolved tool failures, or confidence below the current run requirement.',
+        description: 'Signal that the task is terminal and provide the final response. Valid terminal states include: completed successfully, already done/no matching change needed, or impossible/blocked with concrete evidence. Call this exactly once when you have the final user-ready answer. Do NOT call it if you still have a safe useful step to take, unverified claims, unresolved tool failures with viable alternatives, or confidence below the current run requirement.',
         parameters: {
             type: 'object',
             properties: {
                 message: {
                     type: 'string',
-                    description: 'Your complete final response to the user. Write it as if it were your reply — do not summarize or reference prior steps.'
+                    description: 'Your complete final response to the user. Write it as if it were your reply, including a concise already-done/no-op or blocker explanation when that is the truthful terminal result.'
                 },
                 confidence: {
                     type: 'string',

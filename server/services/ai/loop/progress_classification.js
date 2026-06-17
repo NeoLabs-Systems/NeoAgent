@@ -172,7 +172,22 @@ function isProgressToolCall(toolName, toolArgs = {}) {
   return true;
 }
 
+function buildReadOnlyChurnGuidance({ readOnlyCount = 0, alreadyRead = '' } = {}) {
+  const count = Math.max(0, Number(readOnlyCount) || 0);
+  const urgency = count >= 6 ? 'CRITICAL' : 'ACTION REQUIRED';
+  return [
+    `${urgency}: ${count} consecutive read-only turns with no concrete action.`,
+    alreadyRead
+      ? `You have already read/searched: ${alreadyRead}. Their output is in this conversation above, so do not read or search them again.`
+      : 'Do not re-read or re-search anything already in this conversation.',
+    'Decide from the evidence you have now.',
+    'If the requested work is already done, no matching target exists, or the available tools cannot make the change, call task_complete with that truthful final answer or blocker.',
+    'If exactly one concrete safe action remains, take that action now. Otherwise finish; more poking around is not progress.',
+  ].join(' ');
+}
+
 module.exports = {
+  buildReadOnlyChurnGuidance,
   isClearlyReadOnlyShellCommand,
   isProgressToolCall,
 };
