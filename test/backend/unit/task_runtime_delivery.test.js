@@ -132,6 +132,27 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'The daily summary is ready.');
   });
 
+  test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createScheduledTask({
+      async runWithModel() {
+        return { content: 'No relevant calendar changes.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'No relevant calendar changes.');
+    assert.equal(result.taskDelivery.sent, false);
+    assert.equal(result.taskDelivery.reason, 'explicit_delivery_required');
+    assert.equal(messagingManager.sent.length, 0);
+  });
+
   test('delivers a failure notice when every attempt returns empty', async () => {
     const messagingManager = createMessagingManager();
     let callCount = 0;

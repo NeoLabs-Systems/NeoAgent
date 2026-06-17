@@ -21,6 +21,10 @@ const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server
 const {
   buildCompletionDecisionPrompt,
 } = require('../../../server/services/ai/loop/completion_judge');
+const { buildLoopPolicy } = require('../../../server/services/ai/loopPolicy');
+const {
+  resolveTaskTriggerArgs,
+} = require('../../../server/services/ai/tools');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -156,6 +160,79 @@ test('task analysis keeps short immediate work out of task automation flow', () 
   assert.match(prompt, /progress_update_policy="none"/);
   assert.match(prompt, /Do not suggest create_task/);
   assert.match(prompt, /future, recurring, scheduled, monitored, background/);
+});
+
+test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
+  const standard = buildLoopPolicy({}, 'messaging', 'execute');
+  const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
+    autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
+  });
+  const clamped = buildLoopPolicy(
+    { max_iterations: 1_000_000, max_consecutive_read_only_iterations: 999 },
+    'messaging',
+    'execute',
+  );
+
+  // The ceiling is a runaway safety net, not the primary stop signal.
+  assert.equal(standard.maxIterations, 250);
+  assert.equal(complex.maxIterations, 250);
+  assert.equal(clamped.maxIterations, 400);
+  // The real "stop when stuck" guard: consecutive read-only turns without progress.
+  assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
+  assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
+});
+
+test('create_task accepts schedule config as object, JSON string, or bare cron', () => {
+  // Canonical object shape.
+  const obj = resolveTaskTriggerArgs({
+    trigger: { type: 'schedule', config: { mode: 'recurring', cronExpression: '0 11 * * 1-5' } },
+  });
+  assert.equal(obj.triggerType, 'schedule');
+  assert.equal(obj.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // JSON-stringified config with a "cron" alias key.
+  const stringified = resolveTaskTriggerArgs({
+    trigger_type: 'schedule',
+    trigger_config: '{"cron": "0 11 * * 1-5"}',
+  });
+  assert.equal(stringified.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // Bare 5-field cron string passed directly as the config.
+  const bareCron = resolveTaskTriggerArgs({
+    trigger: { type: 'schedule', config: '0 11 * * 1-5' },
+  });
+  assert.equal(bareCron.triggerConfig.mode, 'recurring');
+  assert.equal(bareCron.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // Bare ISO datetime string becomes a one_time run.
+  const oneTime = resolveTaskTriggerArgs({
+    trigger_type: 'schedule',
+    trigger_config: '2026-07-01T09:00:00+02:00',
+  });
+  assert.equal(oneTime.triggerConfig.mode, 'one_time');
+  assert.equal(oneTime.triggerConfig.runAt, '2026-07-01T09:00:00+02:00');
+});
+
+test('calendar summarizeEvent flags all-day vs timed events', () => {
+  const { summarizeEvent } = require('../../../server/services/integrations/google/calendar');
+
+  const allDay = summarizeEvent({
+    id: 'a',
+    summary: 'Handy Geburtstag',
+    start: { date: '2018-06-17' },
+    end: { date: '2018-06-18' },
+  });
+  assert.equal(allDay.allDay, true);
+  assert.equal(allDay.start, '2018-06-17');
+
+  const timed = summarizeEvent({
+    id: 'b',
+    summary: 'Standup',
+    start: { dateTime: '2026-06-17T09:00:00+02:00' },
+    end: { dateTime: '2026-06-17T09:15:00+02:00' },
+  });
+  assert.equal(timed.allDay, false);
+  assert.equal(timed.start, '2026-06-17T09:00:00+02:00');
 });
 
 test('task analysis keeps source checkouts in the shared workspace', () => {

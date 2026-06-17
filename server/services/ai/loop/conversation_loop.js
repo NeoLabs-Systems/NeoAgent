@@ -284,6 +284,17 @@ function summarizeReadTargets(toolExecutions = []) {
   return targets.join('; ');
 }
 
+function buildNoProgressWrapupPrompt({ readOnlyCount = 0, alreadyRead = '', platform = null } = {}) {
+  return [
+    `No-progress limit reached after ${Math.max(0, Number(readOnlyCount) || 0)} consecutive turns without substantive progress.`,
+    alreadyRead ? `Already inspected/searched: ${alreadyRead}.` : '',
+    'This is the final turn for this run. Do not call tools.',
+    'From the existing evidence, return the concrete result, a no-op/no-change answer, or a clear blocker.',
+    'If an external site, service, permission, unavailable target, or missing user input prevents completion, say that clearly and stop.',
+    buildMaxIterationWrapupPrompt(platform),
+  ].filter(Boolean).join('\n\n');
+}
+
 function cloneInterimHistory(history = []) {
   if (!Array.isArray(history)) return [];
   return history.map((item) => ({
@@ -1181,6 +1192,62 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
           });
         }
+        if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
+          const alreadyRead = summarizeReadTargets(toolExecutions);
+          console.warn(
+            `[Run ${shortenRunId(runId)}] no_progress_wrapup readOnlyCount=${readOnlyCount}`
+          );
+          engine.updateRunProgress(runId, {
+            currentPhase: 'model',
+            currentStep: 'model:no_progress_wrapup',
+            currentTool: null,
+            currentStepStartedAt: isoNow(),
+          });
+          let wrapTokens = 0;
+          try {
+            const wrapResponse = await withModelCallTimeout(
+              provider.chat(
+                sanitizeConversationMessages([
+                  ...messages,
+                  {
+                    role: 'system',
+                    content: buildNoProgressWrapupPrompt({
+                      readOnlyCount,
+                      alreadyRead,
+                      platform: options?.source || null,
+                    }),
+                  },
+                ]),
+                [],
+                { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+              ),
+              options,
+              'No-progress wrap-up',
+            );
+            wrapTokens = wrapResponse.usage?.totalTokens || 0;
+            lastContent = sanitizeModelOutput(wrapResponse.content || '', { model });
+          } catch (wrapErr) {
+            console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
+          }
+          totalTokens += wrapTokens;
+          const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
+          if (!usableWrap) {
+            lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+          }
+          messages.push({ role: 'assistant', content: lastContent });
+          if (conversationId) {
+            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+              .run(conversationId, 'assistant', lastContent, usableWrap ? wrapTokens : 0);
+          }
+          engine.recordRunEvent(userId, runId, 'no_progress_wrapup_delivered', {
+            iteration,
+            readOnlyCount,
+            source: usableWrap ? 'model' : 'deterministic',
+            stepIndex,
+          }, { agentId });
+          directAnswerEligible = true;
+          break;
+        }
       }
 
       engine.updateRunProgress(runId, {
@@ -1908,6 +1975,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         if (runMeta?.terminalInterim) {
           break;
         }
+        if (
+          runMeta?.noResponse === true
+          || options.deliveryState?.noResponse === true
+          || runMeta?.finalDeliverySent === true
+          || options.deliveryState?.finalDeliverySent === true
+        ) {
+          break;
+        }
       }
 
       // Update analysis-paralysis counter after each iteration's tool calls.
@@ -1924,6 +1999,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
       if (engine.isRunStopped(runId)) break;
       if (engine.getRunMeta(runId)?.terminalInterim) break;
+      if (
+        engine.getRunMeta(runId)?.noResponse === true
+        || options.deliveryState?.noResponse === true
+        || engine.getRunMeta(runId)?.finalDeliverySent === true
+        || options.deliveryState?.finalDeliverySent === true
+      ) break;
       if (engine.getRunMeta(runId)?.widgetSnapshotSaved) break;
       if (!engine.activeRuns.has(runId)) break;
     }

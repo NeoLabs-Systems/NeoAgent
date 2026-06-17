@@ -533,9 +533,9 @@ describe('messaging progress supervisor', () => {
 
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const nudgeText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(nudgeText, /Mandatory internal progress check/);
-    assert.match(nudgeText, /send a concise model-authored interim update/);
-    assert.match(nudgeText, /Do not continue silently/);
+    assert.match(nudgeText, /Internal progress check/);
+    assert.match(nudgeText, /Only send_interim_update when there is new user-relevant progress/);
+    assert.match(nudgeText, /Continue silently if nothing materially changed/);
   });
 
   test('runtime heartbeat sends a visible update during tool work and still nudges the model', async (t) => {
@@ -566,8 +566,8 @@ describe('messaging progress supervisor', () => {
 
     const systemQueue = engine.activeRuns.get(runId)?.systemSteeringQueue ?? [];
     const steeringText = systemQueue.map((s) => s.content ?? s).join(' ');
-    assert.match(steeringText, /Mandatory internal progress check/);
-    assert.match(steeringText, /send a concise model-authored interim update/);
+    assert.match(steeringText, /Internal progress check/);
+    assert.match(steeringText, /Only send_interim_update when there is new user-relevant progress/);
   });
 
   test('runtime heartbeat with no composed progress stays internal', async (t) => {
@@ -650,13 +650,13 @@ describe('messaging progress supervisor', () => {
     assert.equal(messagingManager.sent.length, 1);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
-    // Within REPEAT_UPDATE_MS (75s) of the last visible update: no new heartbeat.
-    t.mock.timers.setTime(104_000);
+    // Within REPEAT_UPDATE_MS (120s) of the last visible update: no new heartbeat.
+    t.mock.timers.setTime(149_000);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
 
     // Past the repeat cadence: a second heartbeat fires.
-    t.mock.timers.setTime(105_002);
+    t.mock.timers.setTime(150_002);
     await engine.tickMessagingProgressSupervisor(runId);
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 2);
     assert.equal(messagingManager.sent.length, 2);

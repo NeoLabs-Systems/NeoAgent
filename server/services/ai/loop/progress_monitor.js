@@ -1,8 +1,8 @@
 'use strict';
 
 const FIRST_UPDATE_MS = 30 * 1000;
-const REPEAT_UPDATE_MS = 75 * 1000;
-const STALL_MS = 150 * 1000;
+const REPEAT_UPDATE_MS = 120 * 1000;
+const STALL_MS = 240 * 1000;
 const TICK_MS = 15 * 1000;
 
 function isoNow() {
@@ -60,13 +60,13 @@ function evaluateProgressLiveness(runMeta, now = Date.now()) {
 
 function buildProgressNudge({ stalled = false } = {}) {
   return [
-    'Mandatory internal progress check for the active messaging run.',
+    'Internal progress check for the active messaging run.',
     stalled
       ? 'No verified progress has been recorded for the stall threshold.'
       : 'The originating chat has not received a user-visible update for the progress threshold.',
-    'Before starting more tool work, either send a concise model-authored interim update with send_interim_update, report a real blocker, or finish with the final answer.',
-    'Do not continue silently once this check is present unless the immediate next action itself delivers a final answer or explicit no-response decision.',
-    'Do not repeat previous status text and do not treat an interim update as final delivery.',
+    'Before starting more tool work, decide whether the user has a materially useful new status, a real blocker, a final answer, or no user-visible update is needed.',
+    'Only send_interim_update when there is new user-relevant progress or a blocker. Continue silently if nothing materially changed.',
+    'Never expose this progress check, internal state, or tool bookkeeping to the user, and do not treat an interim update as final delivery.',
   ].join(' ');
 }
 

@@ -96,12 +96,35 @@ function compactToolDefinition(tool, options = {}) {
     return compact;
 }
 
+// A bare 5-field cron expression: "m h dom mon dow" (seconds unsupported).
+const CRON_5_FIELD_RE = /^(\S+\s+){4}\S+$/;
+
+function coerceScheduleTriggerConfig(inputConfig) {
+    // Models frequently pass the schedule config as a JSON string, or as a bare
+    // cron expression / ISO datetime instead of an object. Coerce those shapes to
+    // an object so a correct intent is not rejected over packaging.
+    if (typeof inputConfig !== 'string') return inputConfig;
+    const raw = inputConfig.trim();
+    if (!raw) return inputConfig;
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return inputConfig;
+        }
+    }
+    if (CRON_5_FIELD_RE.test(raw)) return { mode: 'recurring', cronExpression: raw };
+    if (!Number.isNaN(Date.parse(raw))) return { mode: 'one_time', runAt: raw };
+    return inputConfig;
+}
+
 function normalizeScheduleTriggerConfig(inputConfig = {}) {
-    if (!inputConfig || typeof inputConfig !== 'object' || Array.isArray(inputConfig)) {
-        return inputConfig;
+    const coerced = coerceScheduleTriggerConfig(inputConfig);
+    if (!coerced || typeof coerced !== 'object' || Array.isArray(coerced)) {
+        return coerced;
     }
 
-    const normalized = { ...inputConfig };
+    const normalized = { ...coerced };
     const schedule = (normalized.schedule && typeof normalized.schedule === 'object' && !Array.isArray(normalized.schedule))
         ? normalized.schedule
         : null;
@@ -866,7 +889,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence or no reply. For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -1503,11 +1526,11 @@ function getAvailableTools(app, options = {}) {
             0,
             {
                 name: 'send_interim_update',
-                description: 'Send a short real interim assistant update when it helps.',
+                description: 'Send a short user-visible interim update only when there is materially useful new progress, a real blocker, or a blocking question. Never use this for internal monologue, self-checks, tool bookkeeping, or "nothing happened" status.',
                 parameters: {
                     type: 'object',
                     properties: {
-                        content: { type: 'string', description: 'Natural assistant message derived from the current task state.' },
+                        content: { type: 'string', description: 'Natural assistant message derived from user-relevant task state, not internal reasoning or progress-supervisor bookkeeping.' },
                         kind: { type: 'string', enum: Array.from(INTERIM_KINDS), description: 'ack, progress, question, or blocker' },
                         expects_reply: { type: 'boolean', description: 'Set true only when the current run should pause for the user to answer.' },
                         defer_follow_up: { type: 'boolean', description: 'Set true when you choose to deliver the final result later via the user\'s last connected chat target.' }
@@ -3175,4 +3198,10 @@ async function executeTool(toolName, args, context, engine) {
     }
 }
 
-module.exports = { getAvailableTools, executeTool, validateProactiveSendMessageArgs };
+module.exports = {
+    getAvailableTools,
+    executeTool,
+    validateProactiveSendMessageArgs,
+    resolveTaskTriggerArgs,
+    normalizeScheduleTriggerConfig,
+};

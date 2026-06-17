@@ -48,9 +48,11 @@ test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
 test('progress update prompt forbids claiming changes from read-only evidence', () => {
   const prompt = buildProgressUpdatePrompt();
 
-  assert.match(prompt, /grounded ONLY in the actual recent tool activity/);
+  assert.match(prompt, /only if the actual recent tool activity/);
+  assert.match(prompt, /output an empty string/);
   assert.match(prompt, /only shows inspection or failed commands/);
   assert.match(prompt, /do not imply state-changing progress/);
+  assert.match(prompt, /internal status/);
 });
 
 test('toolWorkDescription maps tool names to human phrases', () => {

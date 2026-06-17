@@ -71,11 +71,22 @@ class WorkspaceManager {
     return toolRoot;
   }
 
+  _normalizeWorkspacePath(root, candidatePath) {
+    const rawPath = String(candidatePath || '').trim();
+    if (!rawPath) return '.';
+    if (rawPath === '/workspace') return root;
+    if (rawPath.startsWith('/workspace/')) {
+      return path.join(root, rawPath.slice('/workspace/'.length));
+    }
+    return rawPath;
+  }
+
   resolvePath(userId, candidatePath, label = 'path') {
     const root = this._ensureWorkspaceRootSync(userId);
-    const absolute = path.isAbsolute(candidatePath)
-      ? path.resolve(candidatePath)
-      : path.resolve(root, candidatePath || '.');
+    const normalizedPath = this._normalizeWorkspacePath(root, candidatePath);
+    const absolute = path.isAbsolute(normalizedPath)
+      ? path.resolve(normalizedPath)
+      : path.resolve(root, normalizedPath || '.');
     const relative = path.relative(root, absolute);
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`${label} is outside the per-user workspace.`);

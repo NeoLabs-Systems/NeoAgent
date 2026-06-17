@@ -483,11 +483,12 @@ class TaskRuntime {
       normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
+      const manualRun = executionMeta.manual === true;
 
       if (normalizedConfig.callTo) {
         notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${normalizedConfig.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${normalizedConfig.callGreeting || 'Hello, this is your task reminder.'}"`;
       } else if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]".`;
+        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]".${manualRun ? '' : ' For this automatic scheduled run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
       }
 
       const triggerPayloadText = executionMeta.triggerPayload
@@ -541,6 +542,7 @@ class TaskRuntime {
             taskConfig: normalizedConfig,
             result,
             deliveryState,
+            allowPlainResultFallback: manualRun,
           });
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
@@ -593,6 +595,7 @@ class TaskRuntime {
             content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
           },
           deliveryState,
+          allowPlainResultFallback: true,
         });
       }
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
@@ -791,10 +794,30 @@ class TaskRuntime {
     taskConfig,
     result,
     deliveryState,
+    allowPlainResultFallback = true,
   }) {
     if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
     const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
+    const resultText = stringifyTaskResult(result).trim();
+    const resultLooksLikeError = Boolean(result?.error);
+    if (!allowPlainResultFallback && !resultLooksLikeError) {
+      // Automatic run produced substantive text but never made an explicit
+      // send_message decision (a deliberate no_response would have short-circuited
+      // above). We suppress to avoid recurring-check spam, but surface it so a
+      // genuinely dropped notification is visible rather than silently lost.
+      if (resultText) {
+        console.warn(
+          `[Tasks] Task ${taskId} produced an undelivered result on an automatic run `
+          + `(no explicit send_message decision): ${resultText.slice(0, 140)}`
+        );
+      }
+      return {
+        sent: false,
+        skipped: true,
+        reason: 'explicit_delivery_required',
+      };
+    }
 
     const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
     if (!manager) {
@@ -808,7 +831,7 @@ class TaskRuntime {
     for (const target of targets) {
       const message = normalizeOutgoingMessageForPlatform(
         target.platform,
-        stringifyTaskResult(result),
+        resultText,
         { stripNoResponseMarker: false },
       );
       if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;

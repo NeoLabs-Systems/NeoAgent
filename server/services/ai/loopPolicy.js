@@ -14,24 +14,26 @@
  * numbers only fire when something goes wrong.
  */
 
-// The iteration count is intentionally NOT a real limit: the agent runs until it
-// signals completion (task_complete / judged terminal), an external blocker, or a
-// genuine stuck-state guard fires (consecutive tool failures, repetition guard,
-// model-failure recoveries). This number only exists so arithmetic/logging have a
-// finite sentinel; it is set far above any real task length so it never cuts a run.
-const UNLIMITED_ITERATIONS = 1_000_000;
-
-const DEFAULT_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
-const DEFAULT_WIDGET_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
-const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = UNLIMITED_ITERATIONS;
+// The iteration ceiling is a pure runaway safety net, NOT the primary stop signal.
+// A run stops when it makes no real progress (consecutiveReadOnlyIterations cap,
+// which resets the moment the agent does anything state-changing), or when the
+// repetition / tool-failure / model-recovery guards fire, or when the model signals
+// task_complete. These ceilings are set high so they only ever catch a genuine
+// runaway and never guillotine a long, legitimately-progressing complex task.
+const DEFAULT_MAX_ITERATIONS = 250;
+const DEFAULT_WIDGET_MAX_ITERATIONS = 150;
+const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 250;
 // Less aggressive than 0.60 so the model retains file contents it already read for
 // longer, instead of losing them to compaction and re-reading the same files.
 const DEFAULT_COMPACTION_THRESHOLD = 0.80;
+// The real "stop when stuck" guard. Counts consecutive turns of pure reading/
+// searching/inspecting with zero state change; resets to 0 on any concrete progress.
+const DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 8;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
 
-// Hard ceiling — only guards against absurd/overflow config values, not task length.
-const MAX_ALLOWED_ITERATIONS = UNLIMITED_ITERATIONS;
+const MAX_ALLOWED_ITERATIONS = 400;
+const MAX_ALLOWED_READ_ONLY_ITERATIONS = 25;
 const MAX_ALLOWED_TOOL_FAILURES = 50;
 const MAX_ALLOWED_MODEL_RECOVERIES = 10;
 const MAX_ALLOWED_BUDGET_CHARS = 500_000;
@@ -112,6 +114,16 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     DEFAULT_MAX_MODEL_FAILURE_RECOVERIES,
   );
 
+  const rawReadOnlyIterations = options.maxConsecutiveReadOnlyIterations != null
+    ? Number(options.maxConsecutiveReadOnlyIterations)
+    : Number(aiSettings.max_consecutive_read_only_iterations);
+  const maxConsecutiveReadOnlyIterations = clampFinite(
+    Math.floor(rawReadOnlyIterations),
+    3,
+    MAX_ALLOWED_READ_ONLY_ITERATIONS,
+    DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS,
+  );
+
   // compactionThreshold must be in (0, 1]; clamp to [0.1, 1].
   const compactionThreshold = clampFinite(
     Number(aiSettings.compaction_threshold),
@@ -122,6 +134,7 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
 
   return {
     maxIterations,
+    maxConsecutiveReadOnlyIterations,
     maxConsecutiveToolFailures,
     maxModelFailureRecoveries,
 
