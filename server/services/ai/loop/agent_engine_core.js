@@ -21,7 +21,9 @@ const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { runConversation } = require('./conversation_loop');
 const {
+  buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
+  normalizeChurnAssessment,
   normalizeCompletionDecision,
   resolveRunGoalContext,
 } = require('./completion_judge');
@@ -809,6 +811,46 @@ class AgentEngine {
       reason: judged.decision.reason,
       usage: judged.usage,
       raw: judged.raw,
+    };
+  }
+
+  async assessChurnState({
+    provider,
+    providerName,
+    model,
+    messages,
+    analysis,
+    plan,
+    toolExecutions,
+    readOnlyCount,
+    alreadyRead,
+    iteration,
+    options,
+  }) {
+    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
+    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: buildChurnAssessmentPrompt({
+        readOnlyCount,
+        alreadyRead,
+        goalContext,
+        toolExecutions,
+        iteration,
+      }),
+      maxTokens: 200,
+      normalize: (raw) => normalizeChurnAssessment(raw),
+      fallback: { assessment: 'churn', reason: 'churn assessment unavailable' },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'churn_assessment',
+    });
+    return {
+      assessment: response.value,
+      usage: response.usage,
     };
   }
 

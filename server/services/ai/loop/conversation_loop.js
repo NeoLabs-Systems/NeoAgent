@@ -49,7 +49,7 @@ const {
   selectDeliverableWorkflow,
   validateDeliverableExecution,
 } = require('../deliverables');
-const { buildLoopPolicy, resolveToolResultLimits } = require('../loopPolicy');
+const { buildLoopPolicy, resolveToolResultLimits, resolveChurnNudgeThreshold } = require('../loopPolicy');
 const { globalHooks } = require('../hooks');
 const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('../completion');
 const { enforceRateLimits } = require('../rate_limits');
@@ -1180,73 +1180,140 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       messages = steeringAtLoopStart.messages;
       messages = sanitizeConversationMessages(messages);
 
-      // Analysis-paralysis gate: fire at the start of every iteration where
-      // the agent has spent N turns only reading/listing/searching without
-      // taking any concrete action. Escalates in urgency each turn.
+      // Analysis-paralysis gate (EVE-style: AI self-assessment instead of
+      // hardcoded counters). The nudge threshold is derived from the goal
+      // contract complexity/autonomy_level that the model set during task
+      // analysis, making the loop budget sensitivity AI-controlled.
+      //
+      // Flow:
+      //   readOnlyCount >= maxConsecutiveReadOnlyIterations → hard safety net,
+      //     force wrap-up unconditionally (same as before).
+      //   readOnlyCount >= churnNudgeThreshold → ask the model to self-assess:
+      //     "progressing" → give grace (partial counter reset, loop continues).
+      //     "churn"       → inject the nudge so the model can course-correct.
+      //     "blocked"     → trigger the force wrap-up early (AI-authorised).
       if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
-        if (readOnlyCount >= 3) {
-          const alreadyRead = summarizeReadTargets(toolExecutions);
-          messages.push({
-            role: 'system',
-            content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
-          });
-        }
-        if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
-          const alreadyRead = summarizeReadTargets(toolExecutions);
-          console.warn(
-            `[Run ${shortenRunId(runId)}] no_progress_wrapup readOnlyCount=${readOnlyCount}`
-          );
-          engine.updateRunProgress(runId, {
-            currentPhase: 'model',
-            currentStep: 'model:no_progress_wrapup',
-            currentTool: null,
-            currentStepStartedAt: isoNow(),
-          });
-          let wrapTokens = 0;
-          try {
-            const wrapResponse = await withModelCallTimeout(
-              provider.chat(
-                sanitizeConversationMessages([
-                  ...messages,
-                  {
-                    role: 'system',
-                    content: buildNoProgressWrapupPrompt({
-                      readOnlyCount,
-                      alreadyRead,
-                      platform: options?.source || null,
-                    }),
-                  },
-                ]),
-                [],
-                { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
-              ),
-              options,
-              'No-progress wrap-up',
+
+        if (readOnlyCount > 0) {
+          const runGoalCtx = resolveRunGoalContext(engine.getRunMeta(runId), analysis, plan);
+          const churnNudgeThreshold = resolveChurnNudgeThreshold(runGoalCtx.goalContract);
+
+          let triggerForceWrapup = false;
+          let forceWrapupSource = 'hard_limit';
+          // Compute alreadyRead lazily — only needed at or above the nudge threshold.
+          let alreadyRead = '';
+
+          if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
+            alreadyRead = summarizeReadTargets(toolExecutions);
+            triggerForceWrapup = true;
+          } else if (readOnlyCount >= churnNudgeThreshold) {
+            alreadyRead = summarizeReadTargets(toolExecutions);
+            let churnResult;
+            try {
+              churnResult = await engine.assessChurnState({
+                provider,
+                providerName,
+                model,
+                messages,
+                analysis,
+                plan,
+                toolExecutions,
+                readOnlyCount,
+                alreadyRead,
+                iteration,
+                options: { ...options, triggerSource, runId, userId, agentId },
+              });
+            } catch (churnErr) {
+              console.warn(`[Run ${shortenRunId(runId)}] churn_assessment failed: ${summarizeForLog(churnErr?.message || churnErr, 120)}`);
+              churnResult = { assessment: { assessment: 'churn', reason: '' }, usage: 0 };
+            }
+            totalTokens += churnResult.usage || 0;
+            engine.recordRunEvent(userId, runId, 'churn_assessment', {
+              assessment: churnResult.assessment.assessment,
+              reason: churnResult.assessment.reason,
+              readOnlyCount,
+              churnNudgeThreshold,
+              iteration,
+            }, { agentId });
+
+            const churnVerdict = churnResult.assessment.assessment;
+            if (churnVerdict === 'blocked') {
+              triggerForceWrapup = true;
+              forceWrapupSource = 'ai_blocked';
+            } else if (churnVerdict === 'progressing') {
+              // Model is genuinely on track — partially reset so it gets
+              // re-assessed after one more read-only turn rather than immediately.
+              const iterMeta = engine.getRunMeta(runId);
+              if (iterMeta) {
+                iterMeta.consecutiveReadOnlyIterations = Math.max(0, churnNudgeThreshold - 1);
+              }
+            } else {
+              // 'churn' — model acknowledges it is spinning; inject the nudge
+              // so it can course-correct in the next iteration.
+              messages.push({
+                role: 'system',
+                content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
+              });
+            }
+          }
+
+          if (triggerForceWrapup) {
+            console.warn(
+              `[Run ${shortenRunId(runId)}] no_progress_wrapup source=${forceWrapupSource} readOnlyCount=${readOnlyCount}`
             );
-            wrapTokens = wrapResponse.usage?.totalTokens || 0;
-            lastContent = sanitizeModelOutput(wrapResponse.content || '', { model });
-          } catch (wrapErr) {
-            console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
+            engine.updateRunProgress(runId, {
+              currentPhase: 'model',
+              currentStep: 'model:no_progress_wrapup',
+              currentTool: null,
+              currentStepStartedAt: isoNow(),
+            });
+            let wrapTokens = 0;
+            try {
+              const wrapResponse = await withModelCallTimeout(
+                provider.chat(
+                  sanitizeConversationMessages([
+                    ...messages,
+                    {
+                      role: 'system',
+                      content: buildNoProgressWrapupPrompt({
+                        readOnlyCount,
+                        alreadyRead,
+                        platform: options?.source || null,
+                      }),
+                    },
+                  ]),
+                  [],
+                  { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+                ),
+                options,
+                'No-progress wrap-up',
+              );
+              wrapTokens = wrapResponse.usage?.totalTokens || 0;
+              lastContent = sanitizeModelOutput(wrapResponse.content || '', { model });
+            } catch (wrapErr) {
+              console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
+            }
+            totalTokens += wrapTokens;
+            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
+            if (!usableWrap) {
+              lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+            }
+            messages.push({ role: 'assistant', content: lastContent });
+            if (conversationId) {
+              db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+                .run(conversationId, 'assistant', lastContent, usableWrap ? wrapTokens : 0);
+            }
+            engine.recordRunEvent(userId, runId, 'no_progress_wrapup_delivered', {
+              iteration,
+              readOnlyCount,
+              source: usableWrap ? 'model' : 'deterministic',
+              forceWrapupSource,
+              stepIndex,
+            }, { agentId });
+            directAnswerEligible = true;
+            break;
           }
-          totalTokens += wrapTokens;
-          const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
-          if (!usableWrap) {
-            lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
-          }
-          messages.push({ role: 'assistant', content: lastContent });
-          if (conversationId) {
-            db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
-              .run(conversationId, 'assistant', lastContent, usableWrap ? wrapTokens : 0);
-          }
-          engine.recordRunEvent(userId, runId, 'no_progress_wrapup_delivered', {
-            iteration,
-            readOnlyCount,
-            source: usableWrap ? 'model' : 'deterministic',
-            stepIndex,
-          }, { agentId });
-          directAnswerEligible = true;
-          break;
         }
       }
 

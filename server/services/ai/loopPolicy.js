@@ -176,4 +176,21 @@ function resolveToolResultLimits(toolName, policy) {
   return { softLimit: soft, hardLimit: hard };
 }
 
-module.exports = { buildLoopPolicy, getToolCategory, resolveToolResultLimits };
+/**
+ * Resolve the read-only churn nudge threshold from the current goal contract.
+ * The AI itself sets complexity and autonomy_level during task analysis, so
+ * this threshold is indirectly AI-controlled rather than a hardcoded constant.
+ *
+ * Simple tasks get nudged sooner (2 read-only turns) because exploration is
+ * rarely needed. Complex/high-autonomy tasks get more latitude (5 turns) before
+ * the churn self-assessment fires.
+ */
+function resolveChurnNudgeThreshold(goalContract) {
+  const complexity = String(goalContract?.complexity || 'standard').toLowerCase();
+  const autonomyLevel = String(goalContract?.autonomyLevel || goalContract?.autonomy_level || 'normal').toLowerCase();
+  if (complexity === 'simple') return 2;
+  if (complexity === 'complex' || autonomyLevel === 'high') return 5;
+  return 3;
+}
+
+module.exports = { buildLoopPolicy, getToolCategory, resolveToolResultLimits, resolveChurnNudgeThreshold };

@@ -241,12 +241,61 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
   };
 }
 
+/**
+ * Ask the model to self-assess whether it is making genuine progress or
+ * spinning in analysis-paralysis. This replaces the hardcoded nudge threshold
+ * with an AI-controlled signal: the model knows its own plan better than any
+ * regex over tool names can infer.
+ *
+ * Intentionally lightweight — the response is capped at 200 tokens and the
+ * prompt is self-contained so the model can answer without re-reading history.
+ */
+function buildChurnAssessmentPrompt({
+  readOnlyCount,
+  alreadyRead,
+  goalContext,
+  toolExecutions,
+  iteration,
+}) {
+  const lines = [
+    'Return JSON only.',
+    'Self-assess your current loop state — are you making genuine progress or spinning?',
+    'Schema: {"assessment":"progressing|churn|blocked","reason":"one short concrete sentence"}',
+    '',
+    `Context: ${readOnlyCount} consecutive iteration(s) with only read/search/inspect operations — no concrete state changes yet.`,
+    alreadyRead ? `Already inspected: ${alreadyRead}.` : '',
+    goalContext.effectiveGoal ? `Goal: ${goalContext.effectiveGoal}` : '',
+    goalContext.successCriteria.length > 0
+      ? `Success criteria:\n${goalContext.successCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
+      : '',
+    `Iteration: ${iteration}`,
+    `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 6) || 'none'}`,
+    '',
+    'Assessment rules:',
+    '- "progressing": You are systematically gathering necessary context and the next concrete action is already determined — you know exactly what to do next.',
+    '- "churn": You are re-reading/re-searching information already in context, or exploring without a clear next concrete step. Accept the nudge and act.',
+    '- "blocked": No concrete action is available in this run. You have all the evidence needed to deliver a truthful final answer or a specific external blocker.',
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+function normalizeChurnAssessment(raw) {
+  const allowed = new Set(['progressing', 'churn', 'blocked']);
+  const assessment = String(raw?.assessment || '').trim().toLowerCase();
+  return {
+    assessment: allowed.has(assessment) ? assessment : 'churn',
+    reason: String(raw?.reason || '').trim().slice(0, 300),
+  };
+}
+
 module.exports = {
+  buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
   buildGoalContractPrompt,
   goalContractFromAnalysis,
   goalContractFromPlan,
   mergeGoalContracts,
+  normalizeChurnAssessment,
   normalizeCompletionDecision,
   normalizeGoalContract,
   resolveRunGoalContext,
