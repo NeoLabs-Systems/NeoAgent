@@ -559,19 +559,15 @@ class BrowserController {
         screenshot = await this.takeScreenshot({ fullPage: options.fullPage });
       }
 
-      const bodyText = await page.evaluate(() => {
-        const body = document.body;
-        if (!body) return '';
-        const clone = body.cloneNode(true);
-        clone.querySelectorAll('script, style, noscript').forEach(s => s.remove());
-        return clone.innerText.slice(0, 10000);
-      });
+      const rawHtml = await page.content();
+      const { extractForLLM } = require('./contentExtractor');
+      const extraction = extractForLLM(rawHtml, { url: currentUrl });
 
       return {
         title,
         url: currentUrl,
         status: response?.status() || 0,
-        bodyText,
+        pageContent: extraction.markdown,
         screenshotPath: screenshot?.screenshotPath || null,
         artifactId: screenshot?.artifactId || null,
         fullPath: screenshot?.fullPath || null
