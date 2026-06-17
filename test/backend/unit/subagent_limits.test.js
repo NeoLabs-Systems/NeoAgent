@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const { AgentEngine } = require('../../../server/services/ai/loop/agent_engine_core');
 
 test('spawnSubagent enforces the per-run subagent cap', async () => {
+  const userId = 0;
   const engine = new AgentEngine(null, {
     memoryManager: {
       recallMemory: async () => [],
@@ -13,7 +14,7 @@ test('spawnSubagent enforces the per-run subagent cap', async () => {
   });
 
   engine.activeRuns.set('parent-run', {
-    userId: 1,
+    userId,
     agentId: null,
     subagentDepth: 0,
   });
@@ -26,13 +27,14 @@ test('spawnSubagent enforces the per-run subagent cap', async () => {
     });
   }
 
-  const result = await engine.spawnSubagent(1, 'parent-run', 'Investigate the issue');
+  const result = await engine.spawnSubagent(userId, 'parent-run', 'Investigate the issue');
 
   assert.match(result.error || '', /limit for one run is 10/i);
   assert.equal(engine.subagents.size, 10);
 });
 
 test('spawnSubagent blocks recursive child spawning', async () => {
+  const userId = 0;
   const engine = new AgentEngine(null, {
     memoryManager: {
       recallMemory: async () => [],
@@ -40,12 +42,12 @@ test('spawnSubagent blocks recursive child spawning', async () => {
   });
 
   engine.activeRuns.set('child-run', {
-    userId: 1,
+    userId,
     agentId: null,
     subagentDepth: 1,
   });
 
-  const result = await engine.spawnSubagent(1, 'child-run', 'Try to spawn again');
+  const result = await engine.spawnSubagent(userId, 'child-run', 'Try to spawn again');
 
   assert.match(result.error || '', /cannot spawn additional sub-agents/i);
   assert.equal(engine.subagents.size, 0);
