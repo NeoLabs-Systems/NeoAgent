@@ -7,10 +7,7 @@
   <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin/admin.css">
   <script>
-    // Set theme before first paint to avoid a flash of the wrong palette.
-    try {
-      document.documentElement.setAttribute('data-theme', localStorage.getItem('admin-theme') || 'dark');
-    } catch (_) { document.documentElement.setAttribute('data-theme', 'dark'); }
+    document.documentElement.setAttribute('data-theme', window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   </script>
   <style>
     /* ── Layout ────────────────────────────────────────────────────── */
@@ -876,7 +873,7 @@
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
         </svg>
-        Issues
+        <span style="flex:1">Issues</span>
         <span class="nav-badge" id="issues-badge" hidden>0</span>
       </button>
 
@@ -942,12 +939,6 @@
     </nav>
 
     <div class="sidebar-footer">
-      <button class="nav-item" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark theme">
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
-        </svg>
-        <span id="theme-toggle-label">Light mode</span>
-      </button>
       <button class="nav-item btn-danger" onclick="signOut()">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>

@@ -22,23 +22,14 @@ function showPage(page, btn) {
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-function applyTheme(theme) {
-  const isLight = theme === 'light';
+function applyTheme(isLight) {
   document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
-  const label = document.getElementById('theme-toggle-label');
-  if (label) label.textContent = isLight ? 'Dark mode' : 'Light mode';
-}
-
-function toggleTheme() {
-  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  try { localStorage.setItem('admin-theme', next); } catch {}
-  applyTheme(next);
 }
 
 function initTheme() {
-  let stored = 'dark';
-  try { stored = localStorage.getItem('admin-theme') || 'dark'; } catch {}
-  applyTheme(stored);
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  applyTheme(mq.matches);
+  mq.addEventListener('change', (e) => applyTheme(e.matches));
 }
 
 async function signOut() {
