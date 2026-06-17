@@ -29,6 +29,7 @@ enum AppSection {
   widgets,
   mcp,
   health,
+  server,
 }
 
 enum SidebarGroup { chat, recordings, automation, settings }
@@ -96,6 +97,8 @@ extension AppSectionX on AppSection {
         return 'MCP';
       case AppSection.health:
         return 'Health';
+      case AppSection.server:
+        return 'Server';
     }
   }
 
@@ -133,6 +136,8 @@ extension AppSectionX on AppSection {
         return Icons.hub_outlined;
       case AppSection.health:
         return Icons.favorite_border;
+      case AppSection.server:
+        return Icons.dns_outlined;
     }
   }
 
@@ -157,6 +162,7 @@ extension AppSectionX on AppSection {
       case AppSection.accountSettings:
       case AppSection.messaging:
       case AppSection.agents:
+      case AppSection.server:
         return SidebarGroup.settings;
     }
   }

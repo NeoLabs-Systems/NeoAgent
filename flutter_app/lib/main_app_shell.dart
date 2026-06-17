@@ -57,6 +57,7 @@ class BackendSetupView extends StatefulWidget {
 
 class _BackendSetupViewState extends State<BackendSetupView> {
   late final TextEditingController _backendUrlController;
+  bool _localInstall = false;
 
   @override
   void initState() {
@@ -78,6 +79,12 @@ class _BackendSetupViewState extends State<BackendSetupView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_localInstall) {
+      return _LocalInstallWidget(
+        controller: widget.controller,
+        onBack: () => setState(() => _localInstall = false),
+      );
+    }
     final controller = widget.controller;
     return _AmbientBackdrop(
       child: Scaffold(
@@ -195,6 +202,14 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          Center(
+                            child: TextButton.icon(
+                              onPressed: () => setState(() => _localInstall = true),
+                              icon: const Icon(Icons.download_outlined, size: 16),
+                              label: const Text('Install NeoAgent on this machine'),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -206,6 +221,295 @@ class _BackendSetupViewState extends State<BackendSetupView> {
         ),
       ),
     );
+  }
+}
+
+// ─── Local Install Widget ────────────────────────────────────────────────────
+
+enum _LocalInstallPhase { checking, ready, installing, done, failed }
+
+class _LocalInstallWidget extends StatefulWidget {
+  const _LocalInstallWidget({required this.controller, required this.onBack});
+
+  final NeoAgentController controller;
+  final VoidCallback onBack;
+
+  @override
+  State<_LocalInstallWidget> createState() => _LocalInstallWidgetState();
+}
+
+class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
+  _LocalInstallPhase _phase = _LocalInstallPhase.checking;
+  String? _nodePath;
+  String? _installDir;
+  final List<String> _log = [];
+  final _logScrollCtrl = ScrollController();
+  Process? _proc;
+  String? _errorMsg;
+
+  String get _home => Platform.isWindows
+      ? (Platform.environment['USERPROFILE'] ?? '')
+      : (Platform.environment['HOME'] ?? '');
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  @override
+  void dispose() {
+    _logScrollCtrl.dispose();
+    _proc?.kill(ProcessSignal.sigkill);
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    if (!mounted) return;
+    setState(() => _phase = _LocalInstallPhase.checking);
+
+    final r = await Process.run(Platform.isWindows ? 'where' : 'which', ['node']);
+    if (r.exitCode == 0) {
+      _nodePath = (r.stdout as String).trim().split('\n').first.trim();
+    } else if (!Platform.isWindows) {
+      for (final p in ['/opt/homebrew/bin/node', '/usr/local/bin/node']) {
+        if (File(p).existsSync()) {
+          _nodePath = p;
+          break;
+        }
+      }
+    }
+
+    final defaultDir = '$_home/NeoAgent';
+    if (File('$defaultDir/bin/neoagent.js').existsSync()) {
+      _installDir = defaultDir;
+    }
+
+    if (!mounted) return;
+    if (_nodePath != null && _installDir != null) {
+      setState(() => _phase = _LocalInstallPhase.ready);
+    } else {
+      setState(() {
+        _phase = _LocalInstallPhase.failed;
+        _errorMsg = _nodePath == null
+            ? 'Node.js not found. Install it from nodejs.org then retry.'
+            : 'NeoAgent not found at ~/NeoAgent. Run: npm install -g neoagent && neoagent install';
+      });
+    }
+  }
+
+  bool _ensureEnvFile() {
+    final envPath = '$_home/.neoagent/runtime/.env';
+    if (!File(envPath).existsSync()) {
+      try {
+        Directory('$_home/.neoagent/runtime').createSync(recursive: true);
+        File(envPath).writeAsStringSync('NODE_ENV=production\nPORT=3333\n');
+      } catch (_) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _install() async {
+    if (!_ensureEnvFile()) {
+      setState(() {
+        _phase = _LocalInstallPhase.failed;
+        _errorMsg = 'Could not create ~/.neoagent/runtime/.env — check directory permissions.';
+      });
+      return;
+    }
+    setState(() {
+      _phase = _LocalInstallPhase.installing;
+      _log.clear();
+    });
+
+    final process = await Process.start(
+      _nodePath!,
+      ['bin/neoagent.js', 'install'],
+      workingDirectory: _installDir,
+    );
+    _proc = process;
+
+    void onChunk(String data) {
+      if (!mounted) return;
+      setState(() => _log.add(data));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_logScrollCtrl.hasClients) {
+          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        }
+      });
+    }
+
+    process.stdout.transform(utf8.decoder).listen(onChunk);
+    process.stderr.transform(utf8.decoder).listen(onChunk);
+
+    final exit = await process.exitCode;
+    _proc = null;
+    if (!mounted) return;
+    setState(() {
+      _phase = exit == 0 ? _LocalInstallPhase.done : _LocalInstallPhase.failed;
+      if (exit != 0) _errorMsg = 'Installation failed (exit $exit). Check the log above.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AmbientBackdrop(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: _EntranceMotion(
+                  child: _GlassSurface(
+                    borderRadius: BorderRadius.circular(34),
+                    blurSigma: 28,
+                    boxShadow: _softPanelShadow,
+                    overlayGradient: _panelGradient,
+                    fillColor: _glassFill,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(34, 28, 34, 30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          TextButton.icon(
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back, size: 16),
+                            label: const Text('Back'),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const _BrandLockup(logoSize: 60),
+                          const SizedBox(height: 22),
+                          Text('INSTALL LOCALLY', style: _sectionEyebrowStyle()),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Install NeoAgent as a background service',
+                            style: _displayTitleStyle(28),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildContent(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    switch (_phase) {
+      case _LocalInstallPhase.checking:
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      case _LocalInstallPhase.ready:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'NeoAgent found at $_installDir. Click Install to set up the background service.',
+              style: TextStyle(color: _textSecondary, height: 1.55),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _install,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Install NeoAgent'),
+              ),
+            ),
+          ],
+        );
+      case _LocalInstallPhase.installing:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Installing...')),
+                TextButton(
+                  onPressed: () async {
+                    final proc = _proc;
+                    proc?.kill(ProcessSignal.sigterm);
+                    await proc?.exitCode;
+                    if (mounted) setState(() => _phase = _LocalInstallPhase.ready);
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _InstallLogCard(lines: _log, scrollController: _logScrollCtrl),
+          ],
+        );
+      case _LocalInstallPhase.done:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.check_circle_outline, color: _success),
+                const SizedBox(width: 8),
+                const Text('NeoAgent is running.'),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () =>
+                    widget.controller.saveBackendUrl('http://localhost:3333'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Connect to local NeoAgent'),
+              ),
+            ),
+          ],
+        );
+      case _LocalInstallPhase.failed:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _InlineError(message: _errorMsg ?? 'Installation failed.'),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _check,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        );
+    }
   }
 }
 
@@ -2216,6 +2520,8 @@ class _SectionBody extends StatelessWidget {
         return controller.showHealthSection
             ? HealthPanel(controller: controller)
             : ChatPanel(controller: controller);
+      case AppSection.server:
+        return ServerPanel(controller: controller);
     }
   }
 }

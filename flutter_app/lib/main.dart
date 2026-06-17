@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform, Process, ProcessSignal;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -72,6 +72,7 @@ part 'main_model_picker.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
 part 'main_unified.dart';
+part 'main_install.dart';
 
 Future<void> main() async {
   await runNeoAgentApp(mode: _appModeFromEnvironment());

@@ -19,6 +19,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3ddc84?style=flat-square&logo=android&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="iOS" src="https://img.shields.io/badge/iOS-coming_soon-lightgrey?style=flat-square&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="https://www.producthunt.com/products/neoagent-2?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-neoagent-2" target="_blank" rel="noopener noreferrer"><img alt="NeoAgent - The next-gen self-hosted AI agent that works beyond chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1171573&theme=light&t=1781447653039"></a>
 </p>
 
@@ -36,6 +42,11 @@ QEMU for the isolated browser and terminal runtime.
 npm install -g neoagent
 neoagent install
 ```
+
+<p>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download macOS app" src="https://img.shields.io/badge/macOS_app-download-black?style=flat-square&logo=apple&logoColor=white"></a>
+  &nbsp;The macOS desktop app includes a graphical installer — open it and use the <strong>Server</strong> tab instead of the CLI.
+</p>
 
 Open `http://localhost:3333`, create the first account, and configure a model.
 Local models can run through [Ollama](https://ollama.com/); hosted providers
