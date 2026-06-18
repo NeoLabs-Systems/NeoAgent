@@ -541,7 +541,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   ensureDefaultAiSettings(userId, agentId);
   const aiSettings = getAiSettings(userId, agentId);
 
-  enforceRateLimits(userId);
+  const { releaseReservation } = enforceRateLimits(userId);
+
+  try {
 
   const runId = options.runId || uuidv4();
   const conversationId = options.conversationId;
@@ -895,8 +897,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let directAnswerEligible = false;
   let analysisUsage = 0;
 
-  try {
-    if (options.skipTaskAnalysis === true) {
+  if (options.skipTaskAnalysis === true) {
       analysis = buildSkipTaskAnalysisResult(options.forceMode);
     } else {
       const analysisResult = await runWithModelFallback('task analysis', () => engine.analyzeTask({
@@ -2629,6 +2630,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
 
     throw err;
+  } finally {
+    releaseReservation();
   }
 }
 

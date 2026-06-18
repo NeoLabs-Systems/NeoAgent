@@ -1879,7 +1879,7 @@ function migrateIntegrationProviderConfigsTable() {
 }
 
 function migrateIntegrationSecretStorage() {
-  try {
+  const migrate = db.transaction(() => {
     const connectionRows = db
       .prepare('SELECT id, credentials_json FROM integration_connections')
       .all();
@@ -1891,11 +1891,7 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateConnection.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
-  }
 
-  try {
     const stateRows = db
       .prepare('SELECT id, code_verifier FROM integration_oauth_states')
       .all();
@@ -1907,11 +1903,7 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateState.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
-  }
 
-  try {
     const providerRows = db
       .prepare('SELECT id, config_json FROM integration_provider_configs')
       .all();
@@ -1923,8 +1915,13 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateProviderConfig.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
+  });
+
+  try {
+    migrate();
+  } catch (err) {
+    console.error('[DB] Integration secret migration failed — startup cannot continue with partially migrated secrets:', err.message);
+    throw err;
   }
 }
 

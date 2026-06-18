@@ -544,7 +544,7 @@ function setupWebSocket(io, services) {
         await voiceRuntimeManager.beginInput(sessionId, {
           mimeType: toOptionalString(data?.mimeType, 128),
           turnId: toOptionalString(data?.turnId, 128),
-        });
+        }, userId);
       } catch (err) {
         console.error(`[WS] voice:input_start failed for user ${userId}:`, err);
         socket.emit('voice:error', {
@@ -600,7 +600,7 @@ function setupWebSocket(io, services) {
           mimeType: toOptionalString(data?.mimeType, 128),
           turnId,
           sequence,
-        });
+        }, userId);
         socket.emit('voice:chunk_ack', {
           sessionId,
           turnId,
@@ -672,7 +672,7 @@ function setupWebSocket(io, services) {
           finalSequence: toBoundedInt(data?.finalSequence, -1, -1, 1_000_000),
           promptHint: toOptionalString(data?.promptHint, 2000),
           metadata,
-        });
+        }, userId);
       } catch (err) {
         console.error(`[WS] voice:input_commit failed for user ${userId}:`, err);
         socket.emit('voice:error', {
@@ -696,7 +696,7 @@ function setupWebSocket(io, services) {
         if (!sessionId) {
           return socket.emit('voice:error', { error: 'sessionId is required' });
         }
-        await voiceRuntimeManager.interruptSession(sessionId);
+        await voiceRuntimeManager.interruptSession(sessionId, userId);
       } catch (err) {
         console.error(`[WS] voice:interrupt failed for user ${userId}:`, err);
         socket.emit('voice:error', {
@@ -720,7 +720,7 @@ function setupWebSocket(io, services) {
         if (!sessionId) {
           return socket.emit('voice:error', { error: 'sessionId is required' });
         }
-        await voiceRuntimeManager.closeSession(sessionId, 'client_closed');
+        await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId);
         socket.data.voiceSessionIds?.delete(sessionId);
       } catch (err) {
         console.error(`[WS] voice:session_close failed for user ${userId}:`, err);

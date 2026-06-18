@@ -52,6 +52,9 @@ class VoiceRuntimeManager {
       agentId,
     );
     const resolvedSessionId = String(sessionId || randomUUID()).trim();
+    if (this.sessions.has(resolvedSessionId)) {
+      throw new Error('Voice session ID collision: a session with this ID already exists.');
+    }
     const adapter = this.#createAdapter(voiceSettings.liveProvider);
     await adapter.open();
 
@@ -153,9 +156,12 @@ class VoiceRuntimeManager {
     });
   }
 
-  async closeSession(sessionId, reason = 'closed') {
+  async closeSession(sessionId, reason = 'closed', userId = null) {
     const session = this.getSession(sessionId);
     if (!session) return;
+    if (userId != null && session.userId != null && String(session.userId) !== String(userId)) {
+      throw new Error('Voice session access denied.');
+    }
     if (reason === 'socket_disconnected') {
       await this.abortActiveRun(session.id, 'voice_disconnect');
     }
@@ -164,8 +170,8 @@ class VoiceRuntimeManager {
     await session.close(reason);
   }
 
-  async beginInput(sessionId, options = {}) {
-    const session = this.#requireSession(sessionId);
+  async beginInput(sessionId, options = {}, userId = null) {
+    const session = this.#requireSession(sessionId, userId);
     await session.interruptOutput();
     await this.abortActiveRun(session.id, 'voice_interrupt');
     session.resetTurnState();
@@ -176,13 +182,13 @@ class VoiceRuntimeManager {
     await session.setState('listening');
   }
 
-  async appendInputAudio(sessionId, audioBytes, options = {}) {
-    const session = this.#requireSession(sessionId);
+  async appendInputAudio(sessionId, audioBytes, options = {}, userId = null) {
+    const session = this.#requireSession(sessionId, userId);
     return session.adapter.appendAudioChunk(session, audioBytes, options);
   }
 
-  async commitInput(sessionId, options = {}) {
-    const session = this.#requireSession(sessionId);
+  async commitInput(sessionId, options = {}, userId = null) {
+    const session = this.#requireSession(sessionId, userId);
     if (session.inputBytes === 0) {
       return { transcript: '' };
     }
@@ -207,8 +213,8 @@ class VoiceRuntimeManager {
     };
   }
 
-  async interruptSession(sessionId) {
-    const session = this.#requireSession(sessionId);
+  async interruptSession(sessionId, userId = null) {
+    const session = this.#requireSession(sessionId, userId);
     await this.abortActiveRun(session.id, 'voice_interrupt');
     await session.interruptOutput();
     session.resetTurnState();
@@ -378,10 +384,13 @@ class VoiceRuntimeManager {
     return new OpenAiLiveRelayAdapter();
   }
 
-  #requireSession(sessionId) {
+  #requireSession(sessionId, userId = null) {
     const session = this.getSession(sessionId);
     if (!session) {
       throw new Error('Voice session was not found.');
+    }
+    if (userId != null && session.userId != null && String(session.userId) !== String(userId)) {
+      throw new Error('Voice session access denied.');
     }
     return session;
   }

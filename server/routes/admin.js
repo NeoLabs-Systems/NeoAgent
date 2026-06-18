@@ -84,11 +84,14 @@ router.post('/api/login', loginLimiter, express.json(), async (req, res) => {
       res.json({ ok: false, requiresTwoFactor: true });
     });
   }
-  req.session.isAdmin = true;
-  req.session.cookie.maxAge = ADMIN_SESSION_TTL;
-  req.session.save((err) => {
+  req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Session error' });
-    res.json({ ok: true });
+    req.session.isAdmin = true;
+    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+    req.session.save((saveErr) => {
+      if (saveErr) return res.status(500).json({ error: 'Session error' });
+      res.json({ ok: true });
+    });
   });
 });
 
@@ -102,12 +105,14 @@ router.post('/api/2fa/verify', loginLimiter, express.json(), async (req, res) =>
     const adminTwoFactor = require('../services/account/admin_two_factor');
     const valid = await adminTwoFactor.verifyCode(code);
     if (!valid) return res.status(401).json({ error: 'Invalid code — try again' });
-    req.session.adminPendingTwoFactor = false;
-    req.session.isAdmin = true;
-    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
-    req.session.save((err) => {
+    req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Session error' });
-      res.json({ ok: true });
+      req.session.isAdmin = true;
+      req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+      req.session.save((saveErr) => {
+        if (saveErr) return res.status(500).json({ error: 'Session error' });
+        res.json({ ok: true });
+      });
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

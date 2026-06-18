@@ -233,7 +233,7 @@ class TelnyxVoicePlatform extends BasePlatform {
       if (!this._hasSession(ccId)) return;
       const sess = this._session(ccId);
       if (!sess.awaitingSecret) return;
-      console.log(`[TelnyxVoice] Secret code timeout for ${ccId.slice(-8)} (${sess.callerNumber})`);
+      console.log(`[TelnyxVoice] Secret code timeout for ${ccId.slice(-8)}`);
       this._banNumber(sess.callerNumber);
       this._endSession(ccId);
       try { await this._hangupCall(ccId); } catch {}
@@ -535,7 +535,7 @@ class TelnyxVoicePlatform extends BasePlatform {
               if (this.voiceSecret && sess.secretDigits.length >= this.voiceSecret.length) {
                 this._cancelSecretTimer(ccId);
                 if (sess.secretDigits === this.voiceSecret) {
-                  console.log(`[TelnyxVoice] Secret accepted for ${ccId.slice(-8)} (${sess.callerNumber})`);
+                  console.log(`[TelnyxVoice] Secret accepted for ${ccId.slice(-8)}`);
                   sess.awaitingSecret = false;
                   sess.secretDigits = '';
                   sess.isProcessing = true;
@@ -613,7 +613,7 @@ class TelnyxVoicePlatform extends BasePlatform {
             break;
           }
 
-          console.log(`[TelnyxVoice] Transcript [${sess.callerNumber}]: ${transcript}`);
+          console.log(`[TelnyxVoice] Transcript received for ${ccId.slice(-8)} (${transcript.length} chars)`);
 
           // Mark as thinking — gates call.playback.ended so think-audio events
           // don't corrupt session state while the agent is processing.

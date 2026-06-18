@@ -210,7 +210,7 @@ class WhatsAppPlatform extends BasePlatform {
                   response_format: 'text'
                 });
                 content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
-                console.log(`[WhatsApp] Voice note transcribed: "${content.slice(0, 80)}"`);
+                console.log(`[WhatsApp] Voice note transcribed (${content.length} chars)`);
               } catch (transcribeErr) {
                 console.error('[WhatsApp] Audio transcription failed:', transcribeErr.message);
                 content = '[Voice Note - transcription failed]';

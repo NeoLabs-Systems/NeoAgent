@@ -27,11 +27,14 @@ function rejectUpgrade(socket, statusCode, message) {
 }
 
 function remoteAddressFromRequest(req) {
-  const forwarded = req.headers?.['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim();
+  const directPeer = req.socket?.remoteAddress || 'unknown';
+  if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
+    const forwarded = req.headers?.['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
   }
-  return req.socket?.remoteAddress || 'unknown';
+  return directPeer;
 }
 
 function createUpgradeLimiter() {

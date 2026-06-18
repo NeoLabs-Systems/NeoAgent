@@ -1738,6 +1738,9 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_navigate': {
+            const { validateCloudUrl } = require('../../utils/cloud-security');
+            const urlCheck = validateCloudUrl(args.url);
+            if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
             return { ...await provider.navigate(args.url, {

@@ -2,6 +2,10 @@
 
 const db = require('../../db/database');
 
+// In-process reservation map: userId -> reserved token count for in-flight runs.
+// Prevents concurrent run starts from collectively bypassing the per-user budget.
+const _reservations = new Map();
+
 const DEFAULT_RATE_LIMIT_4H = 2_500_000;
 const DEFAULT_RATE_LIMIT_WEEKLY = 10_000_000;
 
@@ -83,7 +87,7 @@ function nextDecreaseAt(rows, durationMs, usage, limit) {
   return null;
 }
 
-function getRateLimitSnapshot(userId) {
+function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
   const userLimits = db.prepare(
     'SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?',
   ).get(userId);
@@ -100,6 +104,7 @@ function getRateLimitSnapshot(userId) {
     fourHourIsCustom: customFourHour != null,
     weeklyIsCustom: customWeekly != null,
   };
+  const reserved = includeReservations ? (_reservations.get(String(userId)) || 0) : 0;
   const usage = {};
   const remaining = {};
   const reached = {};
@@ -107,7 +112,8 @@ function getRateLimitSnapshot(userId) {
 
   for (const [windowKey, config] of Object.entries(WINDOWS)) {
     const rows = usageRows(userId, config.durationMs);
-    const used = rows.reduce((total, row) => total + Number(row.tokens || 0), 0);
+    const committed = rows.reduce((total, row) => total + Number(row.tokens || 0), 0);
+    const used = committed + reserved;
     const limit = limits[windowKey];
     usage[windowKey] = used;
     remaining[windowKey] = limit == null ? null : Math.max(0, limit - used);
@@ -130,14 +136,31 @@ function getRateLimitSnapshot(userId) {
 }
 
 function enforceRateLimits(userId) {
-  const snapshot = getRateLimitSnapshot(userId);
+  const snapshot = getRateLimitSnapshot(userId, { includeReservations: true });
   if (snapshot.reached.fourHour) {
     throw new RateLimitExceededError('fourHour', snapshot);
   }
   if (snapshot.reached.weekly) {
     throw new RateLimitExceededError('weekly', snapshot);
   }
-  return snapshot;
+  // Reserve a placeholder so concurrent starts see this run as in-flight.
+  // The reservation is released (or reconciled) when the run completes.
+  const key = String(userId);
+  const limits = snapshot.limits;
+  const reserve = Math.max(limits.fourHour || 0, limits.weekly || 0, 1);
+  _reservations.set(key, (_reservations.get(key) || 0) + reserve);
+  return { snapshot, releaseReservation: () => releaseReservation(userId, reserve) };
+}
+
+function releaseReservation(userId, amount) {
+  const key = String(userId);
+  const current = _reservations.get(key) || 0;
+  const next = current - amount;
+  if (next <= 0) {
+    _reservations.delete(key);
+  } else {
+    _reservations.set(key, next);
+  }
 }
 
 module.exports = {
@@ -147,4 +170,5 @@ module.exports = {
   configuredDefaultLimits,
   enforceRateLimits,
   getRateLimitSnapshot,
+  releaseReservation,
 };

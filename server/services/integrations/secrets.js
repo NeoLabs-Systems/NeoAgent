@@ -5,13 +5,16 @@ const crypto = require('crypto');
 const SECRET_PREFIX = 'enc:v1:';
 
 function getSecretMaterial() {
-  const secret = String(process.env.SESSION_SECRET || '').trim();
-  if (!secret) {
+  // Prefer a dedicated data-encryption key so rotating SESSION_SECRET
+  // does not invalidate persisted credentials. Fall back to SESSION_SECRET
+  // for existing deployments that haven't set NEOAGENT_ENCRYPTION_KEY yet.
+  const key = String(process.env.NEOAGENT_ENCRYPTION_KEY || process.env.SESSION_SECRET || '').trim();
+  if (!key) {
     throw new Error(
-      'Official integrations require SESSION_SECRET to be configured.',
+      'Official integrations require NEOAGENT_ENCRYPTION_KEY (or SESSION_SECRET) to be configured.',
     );
   }
-  return secret;
+  return key;
 }
 
 function getKey() {
