@@ -38,13 +38,13 @@ function planRowHtml(plan) {
   const id = escAttr(plan.id);
   const intervalLabel = plan.interval ? `/ ${plan.interval}` : '';
   const price = plan.price_cents === 0 ? 'Free' : `${(plan.price_cents / 100).toFixed(2)} ${(plan.currency || 'usd').toUpperCase()} ${intervalLabel}`;
-  const status = plan.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--muted)">Inactive</span>';
+  const status = plan.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>';
   return `
     <tr data-plan-id="${id}">
-      <td><strong>${esc(plan.name)}</strong><br><small style="color:var(--muted)">${esc(plan.id)}</small></td>
+      <td><strong>${esc(plan.name)}</strong><br><small style="color:var(--text-muted)">${esc(plan.id)}</small></td>
       <td>${esc(price)}</td>
-      <td>${plan.token_limit_4h != null ? fmtTokens(plan.token_limit_4h) : '<span style="color:var(--muted)">Default</span>'}</td>
-      <td>${plan.token_limit_weekly != null ? fmtTokens(plan.token_limit_weekly) : '<span style="color:var(--muted)">Default</span>'}</td>
+      <td>${plan.token_limit_4h != null ? fmtTokens(plan.token_limit_4h) : '<span style="color:var(--text-muted)">Default</span>'}</td>
+      <td>${plan.token_limit_weekly != null ? fmtTokens(plan.token_limit_weekly) : '<span style="color:var(--text-muted)">Default</span>'}</td>
       <td><code style="font-size:11px">${esc(plan.stripe_price_id || '—')}</code></td>
       <td>${status}</td>
       <td>
@@ -83,7 +83,7 @@ function billingOpenPlanModal(plan) {
   const title = isNew ? 'New Plan' : `Edit Plan: ${plan.name}`;
   const html = `
     <div id="billing-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000">
-      <div style="background:var(--card-bg);border-radius:12px;padding:28px;width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <div style="background:var(--bg-card);border-radius:12px;padding:28px;width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
         <h2 style="margin:0 0 20px">${esc(title)}</h2>
         <form id="billing-plan-form" onsubmit="billingPlanFormSubmit(event)">
           <input type="hidden" id="bp-id" value="${esc(plan?.id || '')}">
@@ -234,15 +234,15 @@ function renderSubsTable(rows, total) {
   const hasPrev = _billingSubsOffset > 0;
   const hasNext = _billingSubsOffset + BILLING_SUBS_LIMIT < total;
   pag.innerHTML = `
-    <span style="color:var(--muted);font-size:13px">${total} total</span>
+    <span style="color:var(--text-muted);font-size:13px">${total} total</span>
     ${hasPrev ? `<button class="btn btn-sm" onclick="_billingSubsOffset-=${BILLING_SUBS_LIMIT};loadBillingSubscriptions()">← Prev</button>` : ''}
     ${hasNext ? `<button class="btn btn-sm" onclick="_billingSubsOffset+=${BILLING_SUBS_LIMIT};loadBillingSubscriptions()">Next →</button>` : ''}`;
 }
 
 function subRowHtml(sub) {
   const userLabel = esc(sub.display_name || sub.username || String(sub.user_id));
-  const email = sub.email ? `<br><small style="color:var(--muted)">${esc(sub.email)}</small>` : '';
-  const statusColor = { active: 'var(--success)', trialing: 'var(--warning, #f59e0b)', past_due: 'var(--error)', canceled: 'var(--muted)' }[sub.status] || 'var(--muted)';
+  const email = sub.email ? `<br><small style="color:var(--text-muted)">${esc(sub.email)}</small>` : '';
+  const statusColor = { active: 'var(--success)', trialing: 'var(--warning)', past_due: 'var(--danger)', canceled: 'var(--text-muted)' }[sub.status] || 'var(--text-muted)';
   const periodEnd = sub.current_period_end ? sub.current_period_end.slice(0, 10) : '—';
   return `
     <tr>
