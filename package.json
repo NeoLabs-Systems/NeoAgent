@@ -54,7 +54,8 @@
     "benchmark:tokens": "node scripts/benchmark-token-cost.js",
     "benchmark:memory": "node scripts/benchmark-memory.js",
     "benchmark:memorybench:install": "node scripts/install-memorybench-provider.js",
-    "release": "npx semantic-release"
+    "release": "npx semantic-release",
+    "audit:ci": "npm audit --omit=dev --audit-level=high"
   },
   "repository": {
     "type": "git",
@@ -103,7 +104,7 @@
     "telnyx": "^5.51.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^11.1.0",
-    "ws": "^8.19.0"
+    "ws": "^8.21.0"
   },
   "overrides": {
     "axios": "^1.15.2",
@@ -113,7 +114,8 @@
     "protobufjs": "^7.5.5",
     "serialize-javascript": "^7.0.5",
     "undici": "^6.24.0",
-    "webpackbar": "^7.0.0"
+    "webpackbar": "^7.0.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@docusaurus/core": "3.10.0",

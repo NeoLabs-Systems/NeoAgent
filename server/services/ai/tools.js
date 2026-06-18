@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { analyzeImageForUser } = require('./imageAnalysis');
+const { isPrivateHost } = require('../../utils/cloud-security');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
@@ -2578,6 +2579,22 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'http_request': {
+            let parsedUrl;
+            try { parsedUrl = new URL(args.url); } catch {
+                return { error: 'Invalid URL' };
+            }
+            const scheme = parsedUrl.protocol.replace(/:$/, '').toLowerCase();
+            if (!['http', 'https'].includes(scheme)) {
+                return { error: 'URL scheme not allowed. Only http and https are permitted.' };
+            }
+            const h = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+            if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.endsWith('.localhost')) {
+                return { error: 'Loopback addresses are not permitted.' };
+            }
+            const allowPrivate = process.env.NEOAGENT_HTTP_ALLOW_PRIVATE !== 'false';
+            if (!allowPrivate && isPrivateHost(parsedUrl.hostname)) {
+                return { error: 'Private/internal network addresses are not permitted.' };
+            }
             const controller = new AbortController();
             const timeoutMs = args.timeout_ms || 30000;
             const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -2594,11 +2611,28 @@ async function executeTool(toolName, args, context, engine) {
                     }
                 }
                 const res = await fetch(args.url, options);
-                const text = await res.text();
+                const MAX_BODY = 512 * 1024;
+                const reader = res.body.getReader();
+                const chunks = [];
+                let total = 0;
+                let truncated = false;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    total += value.length;
+                    if (total > MAX_BODY) {
+                        const take = MAX_BODY - (total - value.length);
+                        if (take > 0) chunks.push(value.slice(0, take));
+                        truncated = true;
+                        break;
+                    }
+                    chunks.push(value);
+                }
+                const text = Buffer.concat(chunks.map(c => Buffer.from(c))).toString('utf-8');
                 return {
                     status: res.status,
                     headers: Object.fromEntries(res.headers.entries()),
-                    body: text.length > 50000 ? text.slice(0, 50000) + '\n...[truncated]' : text
+                    body: truncated ? text + '\n...[truncated]' : text,
                 };
             } catch (err) {
                 if (err.name === 'AbortError') return { error: `Request timed out after ${timeoutMs} ms` };

@@ -29,6 +29,12 @@ function ensureRecordingDirs() {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
+function validateSourceKey(key) {
+  if (!key || !/^[a-z0-9][a-z0-9_-]*$/.test(key)) {
+    throw new Error(`Invalid sourceKey "${key}": only lowercase alphanumeric, hyphens, and underscores are allowed.`);
+  }
+}
+
 class RecordingManager {
   constructor(io) {
     this.io = io;
@@ -241,10 +247,8 @@ class RecordingManager {
       throw new Error('Recording session is not accepting more chunks.');
     }
 
-    const sourceKey = `${metadata.sourceKey || ''}`.trim();
-    if (!sourceKey) {
-      throw new Error('sourceKey is required.');
-    }
+    const sourceKey = `${metadata.sourceKey || ''}`.trim().toLowerCase();
+    validateSourceKey(sourceKey);
 
     const source = this.#getSessionSourceByKey(sessionId, sourceKey);
 
@@ -289,6 +293,10 @@ class RecordingManager {
     const endMs = Math.max(startMs, Number(metadata.endMs) || startMs);
     const extension = this.#extensionForMime(mimeType);
     const fileDir = path.join(RECORDINGS_DIR, `user-${userId}`, sessionId, sourceKey);
+    const sessionRoot = path.resolve(path.join(RECORDINGS_DIR, `user-${userId}`, sessionId));
+    if (!path.resolve(fileDir).startsWith(sessionRoot + path.sep)) {
+      throw new Error('Invalid recording path');
+    }
     fs.mkdirSync(fileDir, { recursive: true });
     const filePath = path.join(fileDir, `${String(sequenceIndex).padStart(6, '0')}${extension}`);
     const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
@@ -1113,9 +1121,7 @@ class RecordingManager {
 
     return inputs.map((item, index) => {
       const sourceKey = `${item?.sourceKey || item?.id || `source-${index}`}`.trim().toLowerCase();
-      if (!sourceKey) {
-        throw new Error('Every recording source needs a sourceKey.');
-      }
+      validateSourceKey(sourceKey);
       if (seen.has(sourceKey)) {
         throw new Error(`Duplicate recording source: ${sourceKey}`);
       }

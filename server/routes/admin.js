@@ -64,8 +64,11 @@ router.get('/login', (req, res) => {
 
 router.post('/api/login', loginLimiter, express.json(), async (req, res) => {
   const { username, password } = req.body || {};
-  const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-  const expectedPassword = process.env.ADMIN_PASSWORD || 'admin';
+  const expectedUsername = process.env.ADMIN_USERNAME;
+  const expectedPassword = process.env.ADMIN_PASSWORD;
+  if (!expectedUsername || !expectedPassword) {
+    return res.status(503).json({ error: 'Admin interface is not configured. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables.' });
+  }
   if (username !== expectedUsername || password !== expectedPassword) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
@@ -559,7 +562,11 @@ router.delete('/api/users/:id', requireAdminAuth, (req, res) => {
   const { DATA_DIR } = require('../../runtime/paths');
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: 'Missing user id' });
+  if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid user id' });
   try {
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     // Collect artifact paths before deletion
     const artifacts = db.prepare('SELECT storage_path FROM artifacts WHERE user_id = ?').all(id);
 
@@ -585,16 +592,22 @@ router.delete('/api/users/:id', requireAdminAuth, (req, res) => {
     });
     erase(id);
 
-    // Clean up artifact files on disk
+    // Clean up artifact files on disk — containment-checked
+    const artifactsRoot = path.resolve(path.join(DATA_DIR, 'artifacts'));
     for (const artifact of artifacts) {
       try {
-        const abs = path.isAbsolute(artifact.storage_path)
+        const abs = path.resolve(path.isAbsolute(artifact.storage_path)
           ? artifact.storage_path
-          : path.join(DATA_DIR, artifact.storage_path);
-        fs.rmSync(abs, { force: true });
+          : path.join(DATA_DIR, artifact.storage_path));
+        if (abs.startsWith(artifactsRoot + path.sep)) {
+          fs.rmSync(abs, { force: true });
+        }
       } catch {}
     }
-    try { fs.rmSync(path.join(DATA_DIR, 'artifacts', id), { recursive: true, force: true }); } catch {}
+    const userArtifactDir = path.resolve(path.join(DATA_DIR, 'artifacts', id));
+    if (userArtifactDir.startsWith(artifactsRoot + path.sep)) {
+      try { fs.rmSync(userArtifactDir, { recursive: true, force: true }); } catch {}
+    }
 
     res.json({ ok: true });
   } catch (err) {

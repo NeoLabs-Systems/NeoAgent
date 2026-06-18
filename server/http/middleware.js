@@ -89,7 +89,9 @@ function buildHelmetOptions({ secureCookies }) {
   }
 
   return {
-    strictTransportSecurity: false,
+    strictTransportSecurity: secureCookies
+      ? { maxAge: Number(process.env.NEOAGENT_HSTS_MAX_AGE ?? 86400), includeSubDomains: false }
+      : false,
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: { policy: 'same-site' },
     originAgentCluster: false,
