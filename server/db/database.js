@@ -1328,6 +1328,7 @@ for (const col of [
   "ALTER TABLE memory_facts ADD COLUMN invalidated_at TEXT",
   "ALTER TABLE memory_facts ADD COLUMN status TEXT DEFAULT 'active'",
   "ALTER TABLE memory_facts ADD COLUMN supersedes_fact_id TEXT",
+  "ALTER TABLE users ADD COLUMN billing_override_plan_id TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }

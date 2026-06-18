@@ -433,6 +433,21 @@ async function getSupportedModels(userId, agentId = null) {
     const globalDisabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
     const globalDisabledSet = globalDisabledStr ? new Set(globalDisabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
 
+    // Plan-based model allowlist (billing optional feature).
+    let planAllowedModels = null;
+    try {
+        const { isBillingEnabled } = require('../billing/config');
+        if (isBillingEnabled()) {
+            const { getActiveSubscription } = require('../billing/subscriptions');
+            const sub = getActiveSubscription(userId);
+            if (sub?.plan?.allowed_models?.length) {
+                planAllowedModels = new Set(sub.plan.allowed_models);
+            }
+        }
+    } catch {
+        // Billing restrictions are non-critical.
+    }
+
     return all.map((model) => {
         const provider = providerById.get(model.provider);
         // Ollama models are always local/free; all others look up the OpenRouter
@@ -443,6 +458,9 @@ async function getSupportedModels(userId, agentId = null) {
 
         let available = provider?.available !== false;
         if (available && globalDisabledSet?.has(model.id)) {
+            available = false;
+        }
+        if (available && planAllowedModels !== null && !planAllowedModels.has(model.id)) {
             available = false;
         }
 

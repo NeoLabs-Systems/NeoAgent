@@ -16,7 +16,8 @@ function showPage(page, btn) {
   if (btn) btn.classList.add('active');
   currentPage = page;
 
-  const loaders = { overview: loadHealth, logs: loadLogs, issues: loadIssues, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess };
+  const billingLoader = typeof loadBilling !== 'undefined' ? loadBilling : null;
+  const loaders = { overview: loadHealth, logs: loadLogs, issues: loadIssues, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess, billing: billingLoader };
   loaders[page]?.();
 }
 

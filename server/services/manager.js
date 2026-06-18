@@ -560,6 +560,17 @@ async function startServices(app, io) {
 
     resumePendingRecordingSessions(recordingManager);
 
+    // Sync billing rate limits for all active subscribers in case any
+    // Stripe webhooks were delivered while the server was offline.
+    try {
+      const { isBillingEnabled } = require('./billing/config');
+      if (isBillingEnabled()) {
+        require('./billing/subscriptions').syncAllSubscriberRateLimits();
+      }
+    } catch {
+      // Best-effort; never block startup.
+    }
+
     console.log('All services initialized');
   } catch (err) {
     console.error('Service init error:', err);

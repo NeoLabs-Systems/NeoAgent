@@ -900,6 +900,14 @@
         Users
       </button>
 
+      <button class="nav-item" id="nav-billing" data-page="billing" onclick="showPage('billing',this)" style="display:none">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+          <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+        </svg>
+        Billing
+      </button>
+
       <button class="nav-item" data-page="sql" onclick="showPage('sql',this)">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6v8l4-2 4 2V6z" clip-rule="evenodd"/>
@@ -1189,6 +1197,34 @@
       </div>
     </section>
 
+    <section id="page-billing" class="page" aria-label="Billing">
+      <div class="page-header"><h1>Billing</h1></div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-title">Subscription Plans</div>
+          <div style="margin-bottom:12px">
+            <button class="btn btn-primary" onclick="billingShowNewPlanForm()">+ New Plan</button>
+          </div>
+          <div id="billing-plans-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">User Subscriptions</div>
+          <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+            <select id="billing-sub-status-filter" onchange="loadBillingSubscriptions()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text)">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="trialing">Trialing</option>
+              <option value="past_due">Past due</option>
+              <option value="canceled">Canceled</option>
+            </select>
+            <button class="btn" onclick="loadBillingSubscriptions()">Refresh</button>
+          </div>
+          <div id="billing-subs-content"><div class="empty"><span class="spinner"></span></div></div>
+          <div id="billing-subs-pagination" style="margin-top:12px;display:flex;gap:8px;align-items:center"></div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <script src="/admin/admin.js"></script>
@@ -1196,5 +1232,6 @@
   <script src="/admin/users.js"></script>
   <script src="/admin/sql.js"></script>
   <script src="/admin/access.js"></script>
+  <script src="/admin/billing.js"></script>
 </body>
 </html>

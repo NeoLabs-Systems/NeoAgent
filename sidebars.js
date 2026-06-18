@@ -18,6 +18,7 @@ const sidebars = {
         'skills',
         'security-boundaries',
         'operations',
+        'billing',
         'migration',
         'configuration',
         'why-neoagent',

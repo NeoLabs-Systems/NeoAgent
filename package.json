@@ -100,6 +100,7 @@
     "remotion": "^4.0.459",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
+    "stripe": "^22.2.1",
     "telegraf": "^4.16.3",
     "telnyx": "^5.51.0",
     "tesseract.js": "^7.0.0",

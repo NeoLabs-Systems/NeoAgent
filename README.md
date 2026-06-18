@@ -61,6 +61,7 @@ service to a network.
 - **It operates real devices.** The agent can use an isolated browser and shell, control an Android device or emulator over ADB, or work through a paired Chrome extension and desktop companion.
 - **Automation can start without a message.** Tasks can run on a schedule or from supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events. Android notifications can also start an agent run.
 - **Agents and users have separate state.** Specialist agents can have their own memory, settings, tools, account assignments, conversations, and task history. Multi-user deployments include administrative account controls and optional email confirmation.
+- **SaaS billing is built in and off by default.** Set `NEOAGENT_BILLING_ENABLED=true` to activate Stripe subscriptions, plan management, free trials, and model access restrictions. When disabled, no payment routes or UI appear anywhere. See [Billing](docs/billing.md).
 - **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, a Chrome extension, and firmware for a supported ESP32-S3 wearable.
 
 ## 🖥️ Interfaces

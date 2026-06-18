@@ -48,6 +48,15 @@ function registerApiRoutes(app) {
     }
   }
 
+  // Billing routes are mounted conditionally — only when billing is enabled.
+  // The webhook must be mounted before express.json() consumes the raw body;
+  // billing_webhook.js applies express.raw() inline for its own route.
+  const { isBillingEnabled } = require('../services/billing/config');
+  if (isBillingEnabled()) {
+    app.use('/api/billing/webhook', require('../routes/billing_webhook'));
+    app.use('/api/billing', require('../routes/billing'));
+  }
+
   setupTelnyxWebhook(app);
 
   app.get('/api/health', requireAuth, (req, res) => {

@@ -773,6 +773,116 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
   }
 });
 
+// --- Billing admin routes (only when billing is enabled) ---
+
+(function registerBillingRoutes() {
+  const { isBillingEnabled } = require('../services/billing/config');
+  if (!isBillingEnabled()) return;
+
+  const billingPlans = require('../services/billing/plans');
+  const billingSubscriptions = require('../services/billing/subscriptions');
+
+  // Plans CRUD
+  router.get('/api/billing/plans', requireAdminAuth, (req, res) => {
+    try {
+      res.json({ plans: billingPlans.listPlans({ includeInactive: true }) });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/api/billing/plans', requireAdminAuth, express.json(), (req, res) => {
+    try {
+      const plan = billingPlans.createPlan(req.body);
+      res.status(201).json({ plan });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  router.put('/api/billing/plans/:id', requireAdminAuth, express.json(), (req, res) => {
+    try {
+      const plan = billingPlans.updatePlan(req.params.id, req.body);
+      if (!plan) return res.status(404).json({ error: 'Plan not found.' });
+      res.json({ plan });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  router.delete('/api/billing/plans/:id', requireAdminAuth, (req, res) => {
+    try {
+      billingPlans.deletePlan(req.params.id);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Subscription browser (all users)
+  router.get('/api/billing/subscriptions', requireAdminAuth, (req, res) => {
+    try {
+      const db = require('../db/database');
+      const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+      const offset = parseInt(req.query.offset || '0', 10);
+      const status = req.query.status || null;
+
+      const where = status ? "WHERE s.status = ?" : "";
+      const params = status ? [status, limit, offset] : [limit, offset];
+
+      const rows = db.prepare(`
+        SELECT s.*, u.username, u.email, u.display_name,
+               p.name AS plan_name, p.price_cents, p.currency
+        FROM user_subscriptions s
+        JOIN users u ON u.id = s.user_id
+        JOIN billing_plans p ON p.id = s.plan_id
+        ${where}
+        ORDER BY s.updated_at DESC
+        LIMIT ? OFFSET ?
+      `).all(...params);
+
+      const total = db.prepare(
+        `SELECT COUNT(*) AS n FROM user_subscriptions s ${where}`,
+      ).get(...(status ? [status] : [])).n;
+
+      res.json({ subscriptions: rows, total, limit, offset });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Per-user subscription management
+  router.get('/api/billing/users/:id/subscription', requireAdminAuth, (req, res) => {
+    try {
+      const sub = billingSubscriptions.getActiveSubscription(parseInt(req.params.id, 10));
+      res.json({ subscription: sub });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/api/billing/users/:id/subscription', requireAdminAuth, express.json(), (req, res) => {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      const { planId, status } = req.body;
+      if (!planId) return res.status(400).json({ error: 'planId is required.' });
+      const sub = billingSubscriptions.adminSetSubscription(userId, planId, status);
+      res.json({ subscription: sub });
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/api/billing/users/:id/subscription', requireAdminAuth, (req, res) => {
+    try {
+      billingSubscriptions.adminCancelSubscription(parseInt(req.params.id, 10));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+})();
+
 // --- Static files ---
 
 router.use(express.static(ADMIN_DIR));
