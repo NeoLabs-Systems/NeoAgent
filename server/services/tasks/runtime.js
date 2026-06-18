@@ -617,6 +617,7 @@ class TaskRuntime {
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'execution_failed',
+        error: err.message,
         timestamp: new Date().toISOString(),
       });
       return { skipped: false, error: err.message, runId: completedRunId };
