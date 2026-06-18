@@ -43,9 +43,8 @@ npm install -g neoagent
 neoagent install
 ```
 
-<p>
+<p align="center">
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download macOS app" src="https://img.shields.io/badge/macOS_app-download-black?style=flat-square&logo=apple&logoColor=white"></a>
-  &nbsp;The macOS desktop app includes a graphical installer — open it and use the <strong>Server</strong> tab instead of the CLI.
 </p>
 
 Open `http://localhost:3333`, create the first account, and configure a model.
