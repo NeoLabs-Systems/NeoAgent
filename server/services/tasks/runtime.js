@@ -801,7 +801,13 @@ class TaskRuntime {
     if (!targets.length) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
-    if (!allowPlainResultFallback && !resultLooksLikeError) {
+    // A forced terminal wrap-up (read-only/blocked hard-stop) is the model's final
+    // answer produced WITHOUT the ability to call send_message itself. Gating it
+    // would silently drop a stuck scheduled task's result, so deliver it even on an
+    // automatic run. Ordinary mid-run plain text (model had send_message available
+    // and chose not to use it) is still gated below.
+    const forcedTerminal = deliveryState?.terminalWrapup === true && Boolean(resultText);
+    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal) {
       // Automatic run produced substantive text but never made an explicit
       // send_message decision (a deliberate no_response would have short-circuited
       // above). We suppress to avoid recurring-check spam, but surface it so a

@@ -1311,6 +1311,18 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               forceWrapupSource,
               stepIndex,
             }, { agentId });
+            // This wrap-up is a forced, tool-less terminal answer: the model had no
+            // way to call send_message itself. On automatic background runs the plain
+            // result is normally gated, which would silently drop this. Mark it so the
+            // task runtime delivers it — a stuck/blocked scheduled task must still
+            // surface its result instead of going silent.
+            if (
+              (triggerSource === 'schedule' || triggerSource === 'tasks')
+              && options.deliveryState
+              && !engine.activeRuns.get(runId)?.messagingSent
+            ) {
+              options.deliveryState.terminalWrapup = true;
+            }
             directAnswerEligible = true;
             break;
           }
