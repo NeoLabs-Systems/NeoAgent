@@ -241,15 +241,8 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
   };
 }
 
-/**
- * Ask the model to self-assess whether it is making genuine progress or
- * spinning in analysis-paralysis. This replaces the hardcoded nudge threshold
- * with an AI-controlled signal: the model knows its own plan better than any
- * regex over tool names can infer.
- *
- * Intentionally lightweight — the response is capped at 200 tokens and the
- * prompt is self-contained so the model can answer without re-reading history.
- */
+// Intentionally lightweight (200-token cap, self-contained) so the model can
+// answer cold without re-reading full conversation history.
 function buildChurnAssessmentPrompt({
   readOnlyCount,
   alreadyRead,

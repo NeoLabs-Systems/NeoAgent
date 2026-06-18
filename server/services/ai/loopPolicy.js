@@ -1,18 +1,5 @@
-/**
- * loopPolicy.js
- *
- * Single source of truth for every tunable limit in the agent loop.
- * No magic numbers live in engine.js — everything flows from here.
- *
- * Values resolve in priority order:
- *   1. Per-run option override (options.*)
- *   2. Agent AI settings (aiSettings.*)
- *   3. Hardcoded sane default
- *
- * "Open but stable": limits exist as safety nets, not as the primary
- * exit signal. The AI signals completion via task_complete; these
- * numbers only fire when something goes wrong.
- */
+// Limits resolve in priority order: per-run options → agent AI settings → hardcoded defaults.
+// They are safety nets only; task_complete / progress guards are the real exit signals.
 
 // The iteration ceiling is a pure runaway safety net, NOT the primary stop signal.
 // A run stops when it makes no real progress (consecutiveReadOnlyIterations cap,
@@ -38,24 +25,15 @@ const MAX_ALLOWED_TOOL_FAILURES = 50;
 const MAX_ALLOWED_MODEL_RECOVERIES = 10;
 const MAX_ALLOWED_BUDGET_CHARS = 500_000;
 
-/** Return n if finite and positive, otherwise fallback. */
 function finitePositive(n, fallback) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-/** Clamp n to [lo, hi]; return fallback if not finite. */
 function clampFinite(n, lo, hi, fallback) {
   if (!Number.isFinite(n)) return fallback;
   return Math.min(Math.max(n, lo), hi);
 }
 
-/**
- * @param {object} aiSettings   - from getAiSettings()
- * @param {string} triggerType  - 'chat' | 'schedule' | 'subagent' | etc.
- * @param {string} analysisMode - 'direct_answer' | 'execute' | 'plan_execute'
- * @param {object} options      - per-run options (may override anything)
- * @returns {LoopPolicy}
- */
 function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = 'execute', options = {}) {
   const autonomyPolicy = options.autonomyPolicy && typeof options.autonomyPolicy === 'object'
     ? options.autonomyPolicy
@@ -155,9 +133,6 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
   };
 }
 
-/**
- * Map a tool name to its result-size category.
- */
 function getToolCategory(toolName) {
   if (!toolName) return 'default';
   if (/^(read_file|write_file|search_files|list_directory|file_)/.test(toolName)) return 'file';
@@ -166,9 +141,6 @@ function getToolCategory(toolName) {
   return 'default';
 }
 
-/**
- * Resolve soft + hard limits for a specific tool from the policy.
- */
 function resolveToolResultLimits(toolName, policy) {
   const category = getToolCategory(toolName);
   const soft = policy.toolResultBudget[category] ?? policy.toolResultBudget.default;
@@ -176,15 +148,6 @@ function resolveToolResultLimits(toolName, policy) {
   return { softLimit: soft, hardLimit: hard };
 }
 
-/**
- * Resolve the read-only churn nudge threshold from the current goal contract.
- * The AI itself sets complexity and autonomy_level during task analysis, so
- * this threshold is indirectly AI-controlled rather than a hardcoded constant.
- *
- * Simple tasks get nudged sooner (2 read-only turns) because exploration is
- * rarely needed. Complex/high-autonomy tasks get more latitude (5 turns) before
- * the churn self-assessment fires.
- */
 function resolveChurnNudgeThreshold(goalContract) {
   const complexity = String(goalContract?.complexity || 'standard').toLowerCase();
   const autonomyLevel = String(goalContract?.autonomyLevel || goalContract?.autonomy_level || 'normal').toLowerCase();

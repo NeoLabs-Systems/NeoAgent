@@ -295,6 +295,13 @@ function buildNoProgressWrapupPrompt({ readOnlyCount = 0, alreadyRead = '', plat
   ].filter(Boolean).join('\n\n');
 }
 
+function isDeliveryTerminated(runMeta, deliveryState) {
+  return runMeta?.noResponse === true
+    || deliveryState?.noResponse === true
+    || runMeta?.finalDeliverySent === true
+    || deliveryState?.finalDeliverySent === true;
+}
+
 function cloneInterimHistory(history = []) {
   if (!Array.isArray(history)) return [];
   return history.map((item) => ({
@@ -1181,28 +1188,17 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       messages = steeringAtLoopStart.messages;
       messages = sanitizeConversationMessages(messages);
 
-      // Analysis-paralysis gate (EVE-style: AI self-assessment instead of
-      // hardcoded counters). The nudge threshold is derived from the goal
-      // contract complexity/autonomy_level that the model set during task
-      // analysis, making the loop budget sensitivity AI-controlled.
-      //
-      // Flow:
-      //   readOnlyCount >= maxConsecutiveReadOnlyIterations → hard safety net,
-      //     force wrap-up unconditionally (same as before).
-      //   readOnlyCount >= churnNudgeThreshold → ask the model to self-assess:
-      //     "progressing" → give grace (partial counter reset, loop continues).
-      //     "churn"       → inject the nudge so the model can course-correct.
-      //     "blocked"     → trigger the force wrap-up early (AI-authorised).
+      // Analysis-paralysis gate: AI self-assesses at churnNudgeThreshold; hard
+      // force-wrap-up fires at maxConsecutiveReadOnlyIterations unconditionally.
       if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
 
-        if (readOnlyCount > 0) {
+        if (readOnlyCount >= 2) {
           const runGoalCtx = resolveRunGoalContext(engine.getRunMeta(runId), analysis, plan);
           const churnNudgeThreshold = resolveChurnNudgeThreshold(runGoalCtx.goalContract);
 
           let triggerForceWrapup = false;
           let forceWrapupSource = 'hard_limit';
-          // Compute alreadyRead lazily — only needed at or above the nudge threshold.
           let alreadyRead = '';
 
           if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
@@ -2055,12 +2051,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         if (runMeta?.terminalInterim) {
           break;
         }
-        if (
-          runMeta?.noResponse === true
-          || options.deliveryState?.noResponse === true
-          || runMeta?.finalDeliverySent === true
-          || options.deliveryState?.finalDeliverySent === true
-        ) {
+        if (isDeliveryTerminated(runMeta, options.deliveryState)) {
           break;
         }
       }
@@ -2079,12 +2070,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
       if (engine.isRunStopped(runId)) break;
       if (engine.getRunMeta(runId)?.terminalInterim) break;
-      if (
-        engine.getRunMeta(runId)?.noResponse === true
-        || options.deliveryState?.noResponse === true
-        || engine.getRunMeta(runId)?.finalDeliverySent === true
-        || options.deliveryState?.finalDeliverySent === true
-      ) break;
+      if (isDeliveryTerminated(engine.getRunMeta(runId), options.deliveryState)) break;
       if (engine.getRunMeta(runId)?.widgetSnapshotSaved) break;
       if (!engine.activeRuns.has(runId)) break;
     }

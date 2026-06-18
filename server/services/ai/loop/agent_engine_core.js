@@ -842,7 +842,7 @@ class AgentEngine {
         iteration,
       }),
       maxTokens: 200,
-      normalize: (raw) => normalizeChurnAssessment(raw),
+      normalize: normalizeChurnAssessment,
       fallback: { assessment: 'churn', reason: 'churn assessment unavailable' },
       reasoningEffort: this.getReasoningEffort(providerName, options),
       telemetry: options,

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { analyzeImageForUser } = require('./imageAnalysis');
-const { isPrivateHost } = require('../../utils/cloud-security');
+const { isPrivateHost, validateCloudUrl } = require('../../utils/cloud-security');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
@@ -1616,14 +1616,6 @@ function normalizeReadFileArgs(args = {}) {
     };
 }
 
-/**
- * Executes a tool by name.
- * @param {string} toolName - Name of the tool.
- * @param {object} args - Tool arguments.
- * @param {object} context - Execution context (userId, runId, etc).
- * @param {object} engine - AgentEngine instance.
- * @returns {Promise<any>} Execution result.
- */
 async function executeTool(toolName, args, context, engine) {
     const {
         userId,
@@ -1738,7 +1730,6 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_navigate': {
-            const { validateCloudUrl } = require('../../utils/cloud-security');
             const urlCheck = validateCloudUrl(args.url);
             if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
             const { provider, backend } = await bc();
@@ -3118,7 +3109,6 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'ocr_extract': {
             try {
-                const fs = require('fs');
                 if (!fs.existsSync(args.image_path)) {
                     return { error: 'File not found: ' + args.image_path };
                 }

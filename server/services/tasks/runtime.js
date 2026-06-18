@@ -14,6 +14,7 @@ const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
+const { isTransientError } = require('../ai/providerRetry');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -564,10 +565,19 @@ class TaskRuntime {
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
           return result;
         } catch (err) {
-          if (completedRunId) {
+          const transientExecutionError = isTransientError(err);
+          if (completedRunId && !transientExecutionError) {
             this.taskRepository.markAgentRunFailed(completedRunId, userId, err.message);
           }
           if (err?.code === 'TASK_DELIVERY_FAILED') throw err;
+          if (transientExecutionError) {
+            this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+              taskId,
+              reason: 'transient_rate_limit',
+              timestamp: new Date().toISOString(),
+            });
+            return { skipped: true, reason: 'transient_rate_limit', runId: completedRunId, error: err.message };
+          }
           if (attempt >= MAX_AUTONOMOUS_RETRIES) throw err;
           attempt += 1;
           completedRunId = null;
@@ -586,17 +596,23 @@ class TaskRuntime {
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
       if (err?.code !== 'TASK_DELIVERY_FAILED') {
-        await this._deliverTaskResultIfNeeded({
-          userId,
-          agentId,
-          taskId,
-          taskConfig: normalizedConfig,
-          result: {
-            content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
-          },
-          deliveryState,
-          allowPlainResultFallback: true,
-        });
+        const failureMessage = this._buildTaskFailureMessage(taskName, err);
+        // A null message means the failure is transient infrastructure (rate/quota
+        // limit) that is not user-actionable and would spam every run during the
+        // limit window — it is logged above, but not surfaced to the user.
+        if (failureMessage) {
+          await this._deliverTaskResultIfNeeded({
+            userId,
+            agentId,
+            taskId,
+            taskConfig: normalizedConfig,
+            result: {
+              content: failureMessage,
+            },
+            deliveryState,
+            allowPlainResultFallback: true,
+          });
+        }
       }
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
@@ -785,6 +801,29 @@ class TaskRuntime {
       this.taskRepository.updateTaskConfig(taskId, userId, normalized);
     }
     return normalized;
+  }
+
+  // Build the user-facing notice for a task that errored out after retries.
+  // Returns null when the failure should NOT be surfaced (transient infra limits).
+  _buildTaskFailureMessage(taskName, err) {
+    const raw = String(err?.message || '').trim();
+    const lower = raw.toLowerCase();
+    // Rate/quota limits are transient, self-healing, and not user-actionable. Every
+    // scheduled run during the window would hit the same error, so a per-run notice
+    // would just be spam. Log only (done by the caller), no user message.
+    if (
+      lower.includes('rate limit')
+      || lower.includes('rate_limit')
+      || lower.includes('quota')
+      || lower.includes('tokens in the last')
+      || /\b429\b/.test(lower)
+    ) {
+      return null;
+    }
+    // Genuine failure: tell the user the actual reason instead of "check the logs",
+    // which they cannot do. Collapse whitespace and cap length to keep it readable.
+    const reason = raw ? raw.replace(/\s+/g, ' ').slice(0, 200) : 'an unknown error';
+    return `Background task "${taskName}" could not complete: ${reason}`;
   }
 
   async _deliverTaskResultIfNeeded({

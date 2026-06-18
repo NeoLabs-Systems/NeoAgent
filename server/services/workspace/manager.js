@@ -78,7 +78,30 @@ class WorkspaceManager {
     if (rawPath.startsWith('/workspace/')) {
       return path.join(root, rawPath.slice('/workspace/'.length));
     }
+    if (path.isAbsolute(rawPath)) {
+      const legacyRelativePath = this._mapLegacyAbsolutePath(rawPath);
+      if (legacyRelativePath) {
+        return path.join(root, legacyRelativePath);
+      }
+    }
     return rawPath;
+  }
+
+  _mapLegacyAbsolutePath(rawPath) {
+    const legacyMarkers = [
+      '/.neoagent/agent-data/workspaces/',
+      '/.neoagent/',
+      '/workspace/',
+    ];
+    for (const marker of legacyMarkers) {
+      const index = rawPath.indexOf(marker);
+      if (index === -1) continue;
+      const relativePath = rawPath.slice(index + marker.length).replace(/^\/+/, '');
+      if (relativePath) {
+        return relativePath;
+      }
+    }
+    return null;
   }
 
   resolvePath(userId, candidatePath, label = 'path') {

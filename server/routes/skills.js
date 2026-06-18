@@ -1,3 +1,4 @@
+const fs = require('fs');
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
@@ -109,7 +110,6 @@ router.get('/:name', async (req, res) => {
     const runner = await getSkillRunner(req.app);
     const skill = runner.getSkill(req.params.name, req.session.userId);
     if (!skill) return res.status(404).json({ error: 'Skill not found' });
-    const fs = require('fs');
     const content = fs.readFileSync(skill.filePath, 'utf-8');
     res.json({
       name: skill.name,
