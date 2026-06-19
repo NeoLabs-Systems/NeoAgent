@@ -1477,6 +1477,30 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'list_chats',
+            description: 'List all known groups and conversations across connected messaging platforms. Use this when the user doesn\'t know the exact group name or chat ID — it returns every chat that has ever sent a message, with platform, chat ID, display name, and whether it\'s a group or DM.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    platform: { type: 'string', description: 'Filter to a specific platform (e.g. telegram, whatsapp, discord). Omit to list chats across all platforms.' },
+                }
+            }
+        },
+        {
+            name: 'read_messages',
+            description: 'Read recent messages from a connected messaging platform group or conversation. Use this to get recaps, search history, or summarize what\'s been going on in a Telegram group, WhatsApp chat, Discord channel, Slack channel, or any other connected platform. Messages are stored locally from inbound traffic.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    platform: { type: 'string', description: 'Platform name (e.g. telegram, whatsapp, discord, slack, signal, teams). Omit to search across all connected platforms.' },
+                    chat_id: { type: 'string', description: 'Exact platform chat or group ID. Use this when known.' },
+                    group_name: { type: 'string', description: 'Group, channel, or chat name to find (case-insensitive partial match). Use when you don\'t know the exact chat_id.' },
+                    limit: { type: 'number', description: 'Max messages to return (default 20, max 100).' },
+                    search: { type: 'string', description: 'Optional keyword to filter messages by content.' },
+                }
+            }
+        },
+        {
             name: 'social_video_extract',
             description: 'Extract title, description, transcript, and one representative frame image from a public social video URL (YouTube, TikTok, Instagram, or X) without social API keys.',
             parameters: {
@@ -2242,6 +2266,91 @@ async function executeTool(toolName, args, context, engine) {
                 query,
                 count: matches.length,
                 matches,
+            };
+        }
+
+        case 'list_chats': {
+            const listPlatform = typeof args.platform === 'string' ? args.platform.trim().toLowerCase() : null;
+
+            let listQuery = `SELECT platform, platform_chat_id, metadata
+                FROM messages
+                WHERE user_id = ? AND platform_chat_id IS NOT NULL AND platform != 'web'`;
+            const listParams = [userId];
+
+            if (listPlatform) { listQuery += ' AND platform = ?'; listParams.push(listPlatform); }
+            listQuery += ' ORDER BY id DESC LIMIT 2000';
+
+            const listRows = db.prepare(listQuery).all(...listParams);
+
+            const chatMap = new Map();
+            for (const row of listRows) {
+                const key = `${row.platform}:${row.platform_chat_id}`;
+                if (chatMap.has(key)) continue;
+                let meta = {};
+                try { meta = row.metadata ? JSON.parse(row.metadata) : {}; } catch {}
+                const isGroup = String(meta.isGroup || '').match(/^(true|1)$/i) != null && String(meta.isGroup || '') !== '';
+                const name = (meta.groupName || meta.group_name || meta.guildName || meta.guild_name || meta.chatName || meta.chat_name || '').trim()
+                    || (meta.senderName || meta.sender_name || '').trim()
+                    || null;
+                chatMap.set(key, {
+                    platform: row.platform,
+                    chat_id: row.platform_chat_id,
+                    name,
+                    type: isGroup ? 'group' : 'dm',
+                });
+            }
+
+            const chats = Array.from(chatMap.values());
+            return {
+                count: chats.length,
+                chats,
+            };
+        }
+
+        case 'read_messages': {
+            const msgLimit = Math.max(1, Math.min(Number(args.limit) || 20, 100));
+            const msgPlatform = typeof args.platform === 'string' ? args.platform.trim().toLowerCase() : null;
+            const msgChatId = typeof args.chat_id === 'string' ? args.chat_id.trim() : null;
+            const msgGroupName = typeof args.group_name === 'string' ? args.group_name.trim().toLowerCase() : null;
+            const msgSearch = typeof args.search === 'string' ? args.search.trim() : null;
+
+            let msgQuery = "SELECT role, content, platform, platform_chat_id, metadata, created_at FROM messages WHERE user_id = ? AND role = 'user'";
+            const msgParams = [userId];
+
+            if (msgPlatform) { msgQuery += ' AND platform = ?'; msgParams.push(msgPlatform); }
+            if (msgChatId) { msgQuery += ' AND platform_chat_id = ?'; msgParams.push(msgChatId); }
+            if (msgSearch) { msgQuery += ' AND content LIKE ?'; msgParams.push(`%${msgSearch}%`); }
+
+            msgQuery += ' ORDER BY created_at DESC LIMIT ?';
+            msgParams.push(msgGroupName ? Math.min(msgLimit * 10, 500) : msgLimit);
+
+            const msgRows = db.prepare(msgQuery).all(...msgParams);
+
+            let filteredRows = msgRows;
+            if (msgGroupName) {
+                filteredRows = msgRows.filter((row) => {
+                    try {
+                        const meta = row.metadata ? JSON.parse(row.metadata) : {};
+                        const name = (meta.groupName || meta.group_name || meta.guildName || meta.guild_name || meta.chatName || meta.chat_name || row.platform_chat_id || '').toLowerCase();
+                        return name.includes(msgGroupName);
+                    } catch { return false; }
+                }).slice(0, msgLimit);
+            }
+
+            return {
+                count: filteredRows.length,
+                messages: filteredRows.reverse().map((row) => {
+                    let meta = {};
+                    try { meta = row.metadata ? JSON.parse(row.metadata) : {}; } catch {}
+                    return {
+                        platform: row.platform,
+                        chat_id: row.platform_chat_id,
+                        group_name: meta.groupName || meta.group_name || meta.guildName || meta.guild_name || null,
+                        sender: meta.senderName || meta.sender_name || null,
+                        content: row.content,
+                        timestamp: row.created_at,
+                    };
+                }),
             };
         }
 
