@@ -42,7 +42,8 @@ function validatePlanData(data, requireName = true) {
 
 function createPlan(data) {
   validatePlanData(data, true);
-  const id = data.id || `plan_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  const id = data.id || `plan_${randomUUID().replace(/-/g, '')}`;
+  // UTC timestamp without timezone marker — SQLite stores it as TEXT in ISO-like format.
   const now = new Date().toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
   db.prepare(`
     INSERT INTO billing_plans

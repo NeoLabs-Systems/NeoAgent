@@ -2522,6 +2522,8 @@ class _SectionBody extends StatelessWidget {
             : ChatPanel(controller: controller);
       case AppSection.server:
         return ServerPanel(controller: controller);
+      case AppSection.billing:
+        return BillingPanel(controller: controller);
     }
   }
 }

@@ -78,6 +78,11 @@ router.post('/trial', async (req, res) => {
   try {
     const { planId, deviceFingerprint } = req.body;
     if (!planId) return res.status(400).json({ error: 'planId is required.' });
+    if (deviceFingerprint !== undefined) {
+      if (typeof deviceFingerprint !== 'string' || deviceFingerprint.length > 256 || !/^[a-zA-Z0-9_+/=.-]{1,256}$/.test(deviceFingerprint)) {
+        return res.status(400).json({ error: 'Invalid deviceFingerprint.' });
+      }
+    }
     const ip = req.ip || req.socket?.remoteAddress;
     const result = await subs.startTrial(req.session.userId, planId, { ip, deviceFp: deviceFingerprint });
     res.json({ subscription: result.subscription });

@@ -853,8 +853,10 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
 
   // Per-user subscription management
   router.get('/api/billing/users/:id/subscription', requireAdminAuth, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id.' });
     try {
-      const sub = billingSubscriptions.getActiveSubscription(parseInt(req.params.id, 10));
+      const sub = billingSubscriptions.getActiveSubscription(userId);
       res.json({ subscription: sub });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -862,8 +864,9 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
   });
 
   router.post('/api/billing/users/:id/subscription', requireAdminAuth, express.json(), (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id.' });
     try {
-      const userId = parseInt(req.params.id, 10);
       const { planId, status } = req.body;
       if (!planId) return res.status(400).json({ error: 'planId is required.' });
       const sub = billingSubscriptions.adminSetSubscription(userId, planId, status);
@@ -874,8 +877,10 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
   });
 
   router.delete('/api/billing/users/:id/subscription', requireAdminAuth, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id.' });
     try {
-      billingSubscriptions.adminCancelSubscription(parseInt(req.params.id, 10));
+      billingSubscriptions.adminCancelSubscription(userId);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

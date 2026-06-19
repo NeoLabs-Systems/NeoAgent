@@ -48,8 +48,8 @@ function planRowHtml(plan) {
       <td><code style="font-size:11px">${esc(plan.stripe_price_id || '—')}</code></td>
       <td>${status}</td>
       <td>
-        <button class="btn btn-sm" onclick="billingEditPlan('${id}')">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="billingDeletePlan('${id}')">Delete</button>
+        <button class="btn btn-sm" data-action="edit" data-plan-id="${id}">Edit</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-plan-id="${id}">Delete</button>
       </td>
     </tr>`;
 }
@@ -67,6 +67,13 @@ function renderPlansTable(plans) {
       </tr></thead>
       <tbody>${plans.map(planRowHtml).join('')}</tbody>
     </table>`;
+  el.querySelector('tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const planId = btn.dataset.planId;
+    if (btn.dataset.action === 'edit') billingEditPlan(planId);
+    else if (btn.dataset.action === 'delete') billingDeletePlan(planId);
+  });
 }
 
 function billingShowNewPlanForm() {
@@ -78,32 +85,88 @@ function billingEditPlan(planId) {
   billingOpenPlanModal(plan);
 }
 
-function billingOpenPlanModal(plan) {
+async function billingOpenPlanModal(plan) {
   const isNew = !plan;
   const title = isNew ? 'New Plan' : `Edit Plan: ${plan.name}`;
+  const allowedSet = new Set(plan?.allowed_models || []);
+
+  // Fetch available models to render the picker
+  let modelPickerHtml = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">Loading models…</div>';
+  let fetchedModels = [];
+  try {
+    const r = await fetch('/admin/api/models');
+    if (r.ok) {
+      const data = await r.json();
+      fetchedModels = (data.models || []).sort((a, b) => {
+        if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+        return (a.label || a.id).localeCompare(b.label || b.id);
+      });
+    }
+  } catch {}
+
+  if (fetchedModels.length) {
+    const rows = fetchedModels.map((m) => {
+      const checked = allowedSet.has(m.id) ? 'checked' : '';
+      return `
+        <tr class="bp-model-row" style="opacity:${checked ? '1' : '0.55'}" onclick="billingModelRowClick(this)">
+          <td style="width:36px;text-align:center;pointer-events:none;">
+            <input type="checkbox" class="bp-model-cb" value="${escAttr(m.id)}" ${checked}
+              onchange="this.closest('tr').style.opacity=this.checked?'1':'0.55'" onclick="event.stopPropagation()">
+          </td>
+          <td style="pointer-events:none;">
+            <div style="font-weight:600;color:var(--text);font-size:13px;">${esc(m.label || m.id)}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px;">${esc(m.id)}</div>
+          </td>
+          <td style="font-size:12px;text-transform:capitalize;color:var(--text-secondary);pointer-events:none;">${esc(m.provider)}</td>
+        </tr>`;
+    }).join('');
+
+    modelPickerHtml = `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:200px;overflow-y:auto;">
+        <table class="data-table" style="margin:0;">
+          <thead><tr>
+            <th style="width:36px;position:sticky;top:0;background:var(--bg-secondary);z-index:1;"></th>
+            <th style="position:sticky;top:0;background:var(--bg-secondary);z-index:1;">Model</th>
+            <th style="position:sticky;top:0;background:var(--bg-secondary);z-index:1;">Provider</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Check models to restrict this plan. Leave all unchecked to allow every model.</div>`;
+  } else {
+    modelPickerHtml = `
+      <input class="form-input" id="bp-models-fallback" value="${escAttr((plan?.allowed_models || []).join(', '))}" placeholder="claude-opus-4-8, gpt-4o (comma-separated, or blank for all)">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Configure providers first to use the model picker.</div>`;
+  }
+
   const html = `
-    <div id="billing-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000">
-      <div style="background:var(--bg-card);border-radius:12px;padding:28px;width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
-        <h2 style="margin:0 0 20px">${esc(title)}</h2>
+    <div id="billing-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000" onclick="if(event.target===this)billingClosePlanModal()">
+      <div style="background:var(--bg-card);border-radius:12px;padding:28px;width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+        <h2 style="margin:0 0 20px;font-size:16px;font-weight:700;color:var(--text);">${esc(title)}</h2>
         <form id="billing-plan-form" onsubmit="billingPlanFormSubmit(event)">
-          <input type="hidden" id="bp-id" value="${esc(plan?.id || '')}">
+          <input type="hidden" id="bp-id" value="${escAttr(plan?.id || '')}">
+
           <label class="form-label">Plan ID <small>(set once, used as identifier)</small></label>
-          <input class="form-input" id="bp-slug" value="${esc(plan?.id || '')}" ${isNew ? '' : 'disabled'} placeholder="plan_pro" style="margin-bottom:12px">
+          <input class="form-input" id="bp-slug" value="${escAttr(plan?.id || '')}" ${isNew ? '' : 'disabled'} placeholder="plan_pro" style="margin-bottom:14px">
+
           <label class="form-label">Name</label>
-          <input class="form-input" id="bp-name" value="${esc(plan?.name || '')}" required placeholder="Pro" style="margin-bottom:12px">
+          <input class="form-input" id="bp-name" value="${escAttr(plan?.name || '')}" required placeholder="Pro" style="margin-bottom:14px">
+
           <label class="form-label">Description</label>
-          <input class="form-input" id="bp-desc" value="${esc(plan?.description || '')}" placeholder="Optional description" style="margin-bottom:12px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <input class="form-input" id="bp-desc" value="${escAttr(plan?.description || '')}" placeholder="Optional description" style="margin-bottom:14px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <label class="form-label">Price (cents)</label>
               <input class="form-input" id="bp-price" type="number" min="0" value="${plan?.price_cents ?? 0}" required>
             </div>
             <div>
               <label class="form-label">Currency</label>
-              <input class="form-input" id="bp-currency" value="${esc(plan?.currency || 'usd')}" placeholder="usd">
+              <input class="form-input" id="bp-currency" value="${escAttr(plan?.currency || 'usd')}" placeholder="usd">
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <label class="form-label">Billing interval</label>
               <select class="form-input" id="bp-interval">
@@ -117,9 +180,11 @@ function billingOpenPlanModal(plan) {
               <input class="form-input" id="bp-sort" type="number" value="${plan?.sort_order ?? 0}">
             </div>
           </div>
+
           <label class="form-label">Stripe Price ID</label>
-          <input class="form-input" id="bp-stripe-price" value="${esc(plan?.stripe_price_id || '')}" placeholder="price_..." style="margin-bottom:12px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <input class="form-input" id="bp-stripe-price" value="${escAttr(plan?.stripe_price_id || '')}" placeholder="price_..." style="margin-bottom:14px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <label class="form-label">4h token limit <small>(blank = default)</small></label>
               <input class="form-input" id="bp-tok-4h" type="number" min="0" value="${plan?.token_limit_4h ?? ''}" placeholder="2500000">
@@ -129,21 +194,31 @@ function billingOpenPlanModal(plan) {
               <input class="form-input" id="bp-tok-weekly" type="number" min="0" value="${plan?.token_limit_weekly ?? ''}" placeholder="10000000">
             </div>
           </div>
-          <label class="form-label">Allowed model IDs <small>(comma-separated; blank = all)</small></label>
-          <input class="form-input" id="bp-models" value="${esc((plan?.allowed_models || []).join(', '))}" placeholder="claude-opus-4-8, gpt-4o" style="margin-bottom:12px">
+
+          <label class="form-label" style="margin-bottom:8px;">Allowed models <small>(unchecked = not allowed on this plan)</small></label>
+          <div id="bp-models-wrap" style="margin-bottom:14px">${modelPickerHtml}</div>
+
           <label class="form-label">Features <small>(comma-separated, shown on pricing page)</small></label>
-          <input class="form-input" id="bp-features" value="${esc((plan?.features || []).join(', '))}" placeholder="Unlimited agents, Priority support" style="margin-bottom:16px">
-          <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer">
+          <input class="form-input" id="bp-features" value="${escAttr((plan?.features || []).join(', '))}" placeholder="Unlimited agents, Priority support" style="margin-bottom:14px">
+
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer;font-size:13px;color:var(--text-secondary);text-transform:none;letter-spacing:0;font-weight:500;">
             <input type="checkbox" id="bp-active" ${!plan || plan.is_active ? 'checked' : ''}> Active
           </label>
+
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button type="button" class="btn" onclick="billingClosePlanModal()">Cancel</button>
-            <button type="submit" class="btn btn-primary">${isNew ? 'Create' : 'Save'}</button>
+            <button type="button" class="btn btn-ghost" onclick="billingClosePlanModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">${isNew ? 'Create plan' : 'Save changes'}</button>
           </div>
         </form>
       </div>
     </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function billingModelRowClick(row) {
+  const cb = row.querySelector('.bp-model-cb');
+  cb.checked = !cb.checked;
+  row.style.opacity = cb.checked ? '1' : '0.55';
 }
 
 function billingClosePlanModal() {
@@ -160,7 +235,12 @@ async function billingPlanFormSubmit(e) {
     const n = parseInt(val, 10);
     return isNaN(n) || val === '' ? null : n;
   };
-  const parseModels = (val) => val.split(',').map((s) => s.trim()).filter(Boolean);
+  const parseModels = () => {
+    const cbs = document.querySelectorAll('.bp-model-cb');
+    if (cbs.length) return Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+    const fallback = document.getElementById('bp-models-fallback');
+    return fallback ? fallback.value.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  };
   const parseFeatures = (val) => val.split(',').map((s) => s.trim()).filter(Boolean);
 
   const body = {
@@ -173,7 +253,7 @@ async function billingPlanFormSubmit(e) {
     stripe_price_id: document.getElementById('bp-stripe-price').value.trim() || null,
     token_limit_4h: parseTokenLimit(document.getElementById('bp-tok-4h').value),
     token_limit_weekly: parseTokenLimit(document.getElementById('bp-tok-weekly').value),
-    allowed_models: parseModels(document.getElementById('bp-models').value),
+    allowed_models: parseModels(),
     features: parseFeatures(document.getElementById('bp-features').value),
     sort_order: parseInt(document.getElementById('bp-sort').value, 10) || 0,
     is_active: document.getElementById('bp-active').checked,
@@ -282,7 +362,9 @@ function esc(str) {
 }
 
 function escAttr(str) {
-  return esc(str);
+  // JSON.stringify gives us a properly quoted JS string; strip the outer quotes
+  // so it can be embedded in an HTML attribute value (already inside quotes).
+  return JSON.stringify(String(str ?? '')).slice(1, -1).replace(/"/g, '&quot;');
 }
 
 function fmtTokens(n) {

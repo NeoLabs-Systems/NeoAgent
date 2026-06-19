@@ -98,6 +98,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
+  bool isLoadingBilling = false;
+  bool showBillingSection = false;
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
@@ -148,6 +150,9 @@ class NeoAgentController extends ChangeNotifier {
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
   TokenUsageSnapshot? tokenUsage;
+  Map<String, dynamic>? billingSubscription;
+  List<Map<String, dynamic>> billingPlans = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> billingInvoices = const <Map<String, dynamic>>[];
   UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
@@ -1683,6 +1688,9 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.accountSettings) {
       unawaited(refreshAccountSettings());
     }
+    if (section == AppSection.billing) {
+      unawaited(refreshBilling());
+    }
     notifyListeners();
   }
 
@@ -2113,6 +2121,7 @@ class NeoAgentController extends ChangeNotifier {
       final recordingsFuture = _backendClient
           .fetchRecordingSessions(backendUrl)
           .catchError((_) => const <Map<String, dynamic>>[]);
+      unawaited(checkBillingEnabled());
       final browserFuture = _backendClient
           .fetchBrowserStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
@@ -4815,6 +4824,95 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
   }
+
+  // ── Billing ──────────────────────────────────────────────────────────────
+
+  Future<void> checkBillingEnabled() async {
+    try {
+      final r = await _backendClient.getBillingPlans(backendUrl);
+      final enabled = r['plans'] != null;
+      if (showBillingSection != enabled) {
+        showBillingSection = enabled;
+        notifyListeners();
+      }
+    } catch (_) {
+      if (showBillingSection) {
+        showBillingSection = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> refreshBilling() async {
+    if (!isAuthenticated || !showBillingSection) return;
+    isLoadingBilling = true;
+    notifyListeners();
+    try {
+      final results = await Future.wait(<Future<Map<String, dynamic>>>[
+        _backendClient.getBillingInfo(backendUrl),
+        _backendClient.getBillingPlans(backendUrl),
+        _backendClient.getBillingInvoices(backendUrl),
+      ]);
+      billingSubscription =
+          results[0]['subscription'] as Map<String, dynamic>?;
+      billingPlans = _asDynList(results[1]['plans'])
+          .cast<Map<String, dynamic>>();
+      billingInvoices = _asDynList(results[2]['invoices'])
+          .cast<Map<String, dynamic>>();
+    } catch (_) {
+      // retain previous data on error
+    } finally {
+      isLoadingBilling = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> createCheckoutSession(String planId) async {
+    try {
+      final serverUrl = backendUrl;
+      final result = await _backendClient.createCheckoutSession(
+        baseUrl: serverUrl,
+        planId: planId,
+        successUrl: '$serverUrl/',
+        cancelUrl: '$serverUrl/',
+      );
+      return result['url'] as String?;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<String?> createPortalSession() async {
+    try {
+      final serverUrl = backendUrl;
+      final result = await _backendClient.createPortalSession(
+        baseUrl: serverUrl,
+        returnUrl: '$serverUrl/',
+      );
+      return result['url'] as String?;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> cancelBillingSubscription() async {
+    try {
+      await _backendClient.cancelBillingSubscription(backendUrl);
+      await refreshBilling();
+      return true;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  List<dynamic> _asDynList(dynamic val) =>
+      val is List ? val : const <dynamic>[];
 
   Future<bool> updateAccountEmail({
     required String email,

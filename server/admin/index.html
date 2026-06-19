@@ -63,6 +63,7 @@
       width: 100%;
       text-align: left;
       text-decoration: none;
+      position: relative;
     }
 
     .nav-item:hover { background: var(--row-hover); color: var(--text); }
@@ -82,7 +83,10 @@
     .nav-item.active svg { opacity: 1; }
 
     .nav-badge {
-      margin-left: auto;
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
       min-width: 18px;
       padding: 1px 6px;
       border-radius: 999px;

@@ -20,6 +20,7 @@ import 'package:image/image.dart' as img;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -71,6 +72,7 @@ part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
+part 'main_billing.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
 

@@ -342,6 +342,61 @@ class BackendClient {
     return deleteMap(baseUrl, '/api/account/sessions/$sessionId');
   }
 
+  // ── Billing ──────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getBillingPlans(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/plans', allowUnauthorized: true);
+  }
+
+  Future<Map<String, dynamic>> getBillingInfo(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/');
+  }
+
+  Future<Map<String, dynamic>> getBillingInvoices(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/invoices');
+  }
+
+  Future<Map<String, dynamic>> createCheckoutSession({
+    required String baseUrl,
+    required String planId,
+    required String successUrl,
+    required String cancelUrl,
+  }) async {
+    return postMap(baseUrl, '/api/billing/checkout', <String, dynamic>{
+      'planId': planId,
+      'successUrl': successUrl,
+      'cancelUrl': cancelUrl,
+    });
+  }
+
+  Future<Map<String, dynamic>> createPortalSession({
+    required String baseUrl,
+    required String returnUrl,
+  }) async {
+    return postMap(baseUrl, '/api/billing/portal', <String, dynamic>{
+      'returnUrl': returnUrl,
+    });
+  }
+
+  Future<Map<String, dynamic>> cancelBillingSubscription(
+    String baseUrl,
+  ) async {
+    return postMap(baseUrl, '/api/billing/cancel', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> startBillingTrial({
+    required String baseUrl,
+    required String planId,
+    String? deviceFingerprint,
+  }) async {
+    return postMap(baseUrl, '/api/billing/trial', <String, dynamic>{
+      'planId': planId,
+      if (deviceFingerprint != null) 'deviceFingerprint': deviceFingerprint,
+    });
+  }
+
+  // ── Agent profiles ────────────────────────────────────────────────────────
+
   Future<Map<String, dynamic>> createAgentProfile(
     String baseUrl,
     Map<String, dynamic> payload,
