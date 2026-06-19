@@ -12,7 +12,6 @@ async function loadBilling() {
       document.getElementById('billing-plans-content').innerHTML =
         '<div class="empty">Billing is not enabled on this server. Set <code>NEOAGENT_BILLING_ENABLED=1</code> to enable it.</div>';
       document.getElementById('billing-subs-content').innerHTML = '';
-      document.getElementById('nav-billing').style.display = '';
       return;
     }
     const data = await r.json();

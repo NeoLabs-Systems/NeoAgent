@@ -888,6 +888,14 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
   });
 })();
 
+// --- API 404 guard (must come before static files) ---
+// Prevents unregistered /api/* routes (e.g. billing when disabled) from
+// falling through to the HTML catch-all and returning a false 200.
+
+router.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Not found.' });
+});
+
 // --- Static files ---
 
 router.use(express.static(ADMIN_DIR));
