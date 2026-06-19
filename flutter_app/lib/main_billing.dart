@@ -46,26 +46,6 @@ Future<void> _openUrl(String url) async {
   await url_launcher.launchUrl(uri, mode: url_launcher.LaunchMode.externalApplication);
 }
 
-// ── Plan icon/color helpers ────────────────────────────────────────────────────
-
-const List<_PlanStyle> _planStyles = <_PlanStyle>[
-  _PlanStyle(Icons.spa_outlined,        Color(0xFF84BA87), Color(0x2084BA87)),
-  _PlanStyle(Icons.bolt_outlined,       Color(0xFFE1B052), Color(0x20E1B052)),
-  _PlanStyle(Icons.group_outlined,      Color(0xFF6FB0A4), Color(0x206FB0A4)),
-  _PlanStyle(Icons.star_outline,        Color(0xFFDE8A78), Color(0x20DE8A78)),
-  _PlanStyle(Icons.rocket_launch_outlined, Color(0xFFB39DDB), Color(0x20B39DDB)),
-];
-
-class _PlanStyle {
-  const _PlanStyle(this.icon, this.color, this.bg);
-  final IconData icon;
-  final Color color;
-  final Color bg;
-}
-
-_PlanStyle _styleForPlan(int index) =>
-    _planStyles[index % _planStyles.length];
-
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 enum _BillingTab { overview, plans, history }
@@ -808,7 +788,18 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
     final url = await _c.createCheckoutSession(planId);
     if (!mounted) return;
     setState(() => _checkingOut = null);
-    if (url != null) await _openUrl(url);
+    if (url != null) {
+      await _openUrl(url);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _c.errorMessage ?? 'Could not start checkout. Check Stripe configuration.',
+          ),
+          backgroundColor: _danger,
+        ),
+      );
+    }
   }
 
   @override
@@ -855,7 +846,8 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
           children: <Widget>[
             _IntervalToggle(
               annual: widget.annual,
-              onToggle: hasAnnual ? widget.onToggleAnnual : null,
+              onToggle: widget.onToggleAnnual,
+              annualAvailable: hasAnnual,
             ),
             if (savingsPct != null && savingsPct > 0) ...<Widget>[
               const SizedBox(width: 10),
@@ -900,7 +892,6 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
               itemCount: plans.length,
               itemBuilder: (_, i) => _PlanCard(
                 plan: plans[i],
-                style: _styleForPlan(i),
                 recommended: i == recommendedIndex,
                 current: plans[i]['id'] == currentPlanId,
                 loading: _checkingOut == plans[i]['id'] as String?,
@@ -916,10 +907,15 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
 }
 
 class _IntervalToggle extends StatelessWidget {
-  const _IntervalToggle({required this.annual, this.onToggle});
+  const _IntervalToggle({
+    required this.annual,
+    required this.onToggle,
+    this.annualAvailable = true,
+  });
 
   final bool annual;
-  final ValueChanged<bool>? onToggle;
+  final ValueChanged<bool> onToggle;
+  final bool annualAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -933,8 +929,8 @@ class _IntervalToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _pill('Monthly', !annual, () => onToggle?.call(false)),
-          _pill('Annual', annual, () => onToggle?.call(true)),
+          _pill('Monthly', !annual, () => onToggle(false)),
+          _pill('Annual', annual, annualAvailable ? () => onToggle(true) : null),
         ],
       ),
     );
@@ -966,7 +962,6 @@ class _IntervalToggle extends StatelessWidget {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
-    required this.style,
     required this.recommended,
     required this.current,
     required this.loading,
@@ -974,7 +969,6 @@ class _PlanCard extends StatelessWidget {
   });
 
   final Map<String, dynamic> plan;
-  final _PlanStyle style;
   final bool recommended;
   final bool current;
   final bool loading;
@@ -1007,39 +1001,23 @@ class _PlanCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                // Icon + name
-                Row(
+                // Plan name + description
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: style.bg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(style.icon, color: style.color, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(name,
-                              style: GoogleFonts.geist(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: _textPrimary,
-                                letterSpacing: -0.3,
-                              )),
-                          if (desc.isNotEmpty)
-                            Text(desc,
-                                style: TextStyle(
-                                    fontSize: 12, color: _textMuted),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                        ],
-                      ),
-                    ),
+                    Text(name,
+                        style: GoogleFonts.geist(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: _textPrimary,
+                          letterSpacing: -0.3,
+                        )),
+                    if (desc.isNotEmpty)
+                      Text(desc,
+                          style: TextStyle(
+                              fontSize: 12, color: _textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1225,7 +1203,7 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: _border),
                 ),
-                child: Icon(Icons.credit_card_outlined,
+                child: Icon(Icons.credit_card,
                     size: 20, color: _textSecondary),
               ),
               const SizedBox(width: 14),

@@ -142,7 +142,7 @@ extension AppSectionX on AppSection {
       case AppSection.server:
         return Icons.dns_outlined;
       case AppSection.billing:
-        return Icons.credit_card_outlined;
+        return Icons.credit_card;
     }
   }
 
