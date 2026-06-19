@@ -163,6 +163,7 @@ class NeoAgentController extends ChangeNotifier {
   MessagingQrState? pendingMessagingQr;
   ToolApprovalRequest? pendingApproval;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
+  final Set<String> _ignoredChats = <String>{};
   List<SkillItem> skills = const <SkillItem>[];
   List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
   List<OfficialIntegrationItem> officialIntegrations =
@@ -636,6 +637,8 @@ class NeoAgentController extends ChangeNotifier {
   BlockedSenderNotice? get pendingBlockedSenderNotice =>
       _blockedSenderQueue.isEmpty ? null : _blockedSenderQueue.first;
 
+  List<String> get ignoredChats => _ignoredChats.toList();
+
   void _handleRecordingBridgeChanged() {
     _logRecording('bridge.changed');
     notifyListeners();
@@ -721,6 +724,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
+    _ignoredChats.addAll(_prefs?.getStringList('messaging.ignored_chats') ?? <String>[]);
     await _desktopCompanion.bootstrap(_prefs!);
     final configured = _configuredBackendUrl.trim();
     final savedBackendUrl = _prefs?.getString('backend_url')?.trim() ?? '';
@@ -1922,20 +1926,42 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> allowMessagingSuggestion(
     String platform,
-    QuickAllowSuggestion suggestion,
-  ) async {
+    QuickAllowSuggestion suggestion, {
+    String? chatId,
+  }) async {
     try {
       final nextPolicy = _policyWithAddedRule(
         currentMessagingAccessPolicy(platform),
         suggestion,
       );
       await saveMessagingAccessPolicy(platform, nextPolicy);
+      if (chatId != null) {
+        _blockedSenderQueue.removeWhere(
+          (notice) => notice.platform == platform && notice.chatId == chatId,
+        );
+      }
       errorMessage = null;
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
+  }
+
+  Future<void> ignoreBlockedSender(BlockedSenderNotice notice) async {
+    final key = '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
+    _ignoredChats.add(key);
+    _blockedSenderQueue.removeWhere(
+      (n) => n.platform == notice.platform && (n.chatId == notice.chatId || n.sender == notice.sender),
+    );
+    await _prefs?.setStringList('messaging.ignored_chats', _ignoredChats.toList());
+    notifyListeners();
+  }
+
+  Future<void> removeIgnoredChat(String key) async {
+    _ignoredChats.remove(key);
+    await _prefs?.setStringList('messaging.ignored_chats', _ignoredChats.toList());
+    notifyListeners();
   }
 
   void consumeBlockedSenderNotice(String id) {
@@ -1948,6 +1974,8 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _enqueueBlockedSenderNotice(BlockedSenderNotice notice) {
+    final ignoreKey = '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
+    if (_ignoredChats.contains(ignoreKey)) return;
     final exists = _blockedSenderQueue.any((item) => item.id == notice.id);
     if (!exists) {
       _blockedSenderQueue.add(notice);

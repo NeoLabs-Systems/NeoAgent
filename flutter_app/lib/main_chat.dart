@@ -1414,6 +1414,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
           ),
           const SizedBox(height: 22),
         ],
+        if (controller.ignoredChats.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _IgnoredChatsPanel(controller: controller),
+        ],
         _MessagingActivityPanel(messages: controller.messagingMessages),
       ],
     );
@@ -1835,6 +1839,101 @@ class _MessagingGroupHeader extends StatelessWidget {
         const SizedBox(width: 12),
         _StatusPill(label: '$count shown', color: _textSecondary),
       ],
+    );
+  }
+}
+
+class _IgnoredChatsPanel extends StatelessWidget {
+  const _IgnoredChatsPanel({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final ignored = controller.ignoredChats;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ignored Channels',
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
+                      style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              _StatusPill(label: '${ignored.length}', color: _textMuted),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final key in ignored)
+            Builder(builder: (context) {
+              final sep = key.indexOf(':');
+              final platform = sep > 0 ? key.substring(0, sep) : key;
+              final chatId = sep > 0 ? key.substring(sep + 1) : '';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _borderLight),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.block_rounded, size: 16, color: _textMuted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            platform.toUpperCase(),
+                            style: TextStyle(
+                              color: _textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          Text(
+                            chatId.isNotEmpty ? chatId : platform,
+                            style: TextStyle(color: _textPrimary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => controller.removeIgnoredChat(key),
+                      child: Text('Remove'),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }

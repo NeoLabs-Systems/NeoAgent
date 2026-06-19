@@ -1695,6 +1695,7 @@ class _HomeViewState extends State<HomeView> {
                                     .allowMessagingSuggestion(
                                       notice.platform,
                                       suggestion,
+                                      chatId: notice.chatId,
                                     );
                               },
                               icon: Icon(Icons.verified_user_outlined),
@@ -1715,6 +1716,13 @@ class _HomeViewState extends State<HomeView> {
                   Navigator.of(dialogContext).pop();
                 },
                 child: Text('Open Messaging'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  await widget.controller.ignoreBlockedSender(notice);
+                },
+                child: Text('Ignore'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
