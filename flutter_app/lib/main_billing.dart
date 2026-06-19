@@ -122,7 +122,7 @@ class _BillingPanelState extends State<BillingPanel> {
                       ),
                       if (planName.isNotEmpty) ...<Widget>[
                         const SizedBox(height: 12),
-                        _StatusPill(plan: planName, status: status),
+                        _BillingStatusPill(plan: planName, status: status),
                       ],
                     ],
                   )
@@ -153,7 +153,7 @@ class _BillingPanelState extends State<BillingPanel> {
                       if (planName.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
-                          child: _StatusPill(plan: planName, status: status),
+                          child: _BillingStatusPill(plan: planName, status: status),
                         ),
                     ],
                   ),
@@ -194,8 +194,8 @@ class _BillingPanelState extends State<BillingPanel> {
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.plan, required this.status});
+class _BillingStatusPill extends StatelessWidget {
+  const _BillingStatusPill({required this.plan, required this.status});
 
   final String plan;
   final String status;
@@ -1050,9 +1050,15 @@ class _PlanCard extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: <Widget>[
                     Text(
-                      priceCents == 0
-                          ? '€0'
-                          : '€${(priceCents / 100).toStringAsFixed(0)}',
+                      () {
+                        final sym = currency.toUpperCase() == 'USD' ? '\$' : '€';
+                        final amt = priceCents / 100;
+                        return priceCents == 0
+                            ? '${sym}0'
+                            : amt == amt.truncateToDouble()
+                                ? '$sym${amt.toInt()}'
+                                : '$sym${amt.toStringAsFixed(2)}';
+                      }(),
                       style: GoogleFonts.geist(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
