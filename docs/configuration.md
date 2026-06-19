@@ -99,8 +99,17 @@ reset, email changes, and security notifications.
 
 ## Billing
 
-Billing is disabled by default. See [Billing](billing.md) for the full setup
-guide, webhook configuration, and plan management.
+Billing is disabled by default. Use the interactive wizard to configure it:
+
+```bash
+neoagent billing setup    # guided Stripe key and webhook setup
+neoagent billing          # show current status
+neoagent billing enable   # activate billing and restart
+neoagent billing disable  # deactivate billing and restart
+```
+
+See [Billing](billing.md) for the full setup guide, webhook configuration, and
+plan management.
 
 | Variable | Default | Purpose |
 |---|---|---|

@@ -7,19 +7,40 @@ anywhere in the application.
 
 ## Enable billing
 
-Set the following environment variables before starting the server:
+Run the interactive setup wizard:
 
 ```bash
-neoagent env set NEOAGENT_BILLING_ENABLED true
-neoagent env set STRIPE_SECRET_KEY sk_live_...
-neoagent env set STRIPE_PUBLISHABLE_KEY pk_live_...
-neoagent env set STRIPE_WEBHOOK_SECRET whsec_...
+neoagent billing setup
 ```
 
-Restart the server. The admin dashboard will show a **Billing** navigation
-item and the `/api/billing/*` endpoints will become active.
+The wizard prompts for your Stripe API keys, webhook secret, and trial length,
+then asks whether to enable billing immediately. Use Stripe test keys
+(`sk_test_...`, `pk_test_...`) during development.
 
-Use Stripe test keys (`sk_test_...`, `pk_test_...`) during development.
+To check the current configuration at any time:
+
+```bash
+neoagent billing        # or: neoagent billing status
+```
+
+To toggle billing without re-running setup:
+
+```bash
+neoagent billing enable    # set NEOAGENT_BILLING_ENABLED=true and restart
+neoagent billing disable   # set NEOAGENT_BILLING_ENABLED=false and restart
+```
+
+When enabled the admin dashboard will show a **Billing** navigation item and
+the `/api/billing/*` endpoints become active.
+
+> **Manual alternative** — you can also set variables directly and restart:
+> ```bash
+> neoagent env set STRIPE_SECRET_KEY sk_live_...
+> neoagent env set STRIPE_PUBLISHABLE_KEY pk_live_...
+> neoagent env set STRIPE_WEBHOOK_SECRET whsec_...
+> neoagent env set NEOAGENT_BILLING_ENABLED true
+> neoagent restart
+> ```
 
 ## Subscription plans
 
