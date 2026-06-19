@@ -426,10 +426,23 @@ class BackendClient {
   Future<Map<String, dynamic>> fetchChatHistory(
     String baseUrl, {
     String? agentId,
+    int limit = 40,
+    String? beforeCreatedAt,
+    String? beforeSource,
+    String? beforeId,
   }) async {
+    final params = <String>[
+      'limit=$limit',
+      if (beforeCreatedAt != null && beforeCreatedAt.trim().isNotEmpty)
+        'beforeCreatedAt=${Uri.encodeQueryComponent(beforeCreatedAt.trim())}',
+      if (beforeSource != null && beforeSource.trim().isNotEmpty)
+        'beforeSource=${Uri.encodeQueryComponent(beforeSource.trim())}',
+      if (beforeId != null && beforeId.trim().isNotEmpty)
+        'beforeId=${Uri.encodeQueryComponent(beforeId.trim())}',
+    ];
     return getMap(
       baseUrl,
-      _withAgentQuery('/api/agents/chat-history?limit=120', agentId),
+      _withAgentQuery('/api/agents/chat-history?${params.join('&')}', agentId),
     );
   }
 

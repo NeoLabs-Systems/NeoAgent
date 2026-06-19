@@ -11,6 +11,7 @@ class ChatPanel extends StatefulWidget {
 
 class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   static const double _autoScrollBottomThreshold = 120;
+  static const double _olderHistoryLoadThreshold = 180;
   static const int _autoScrollSettlePasses = 4;
 
   late final TextEditingController _composerController;
@@ -21,6 +22,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   String _lastScrollContentSignature = '';
   bool _stickToBottom = true;
   bool _ignoreScrollUpdates = false;
+  bool _loadingOlderHistory = false;
   int _scrollGeneration = 0;
   bool _isSendingChatMessage = false;
   bool _isDictating = false;
@@ -267,8 +269,18 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return pos.pixels >= pos.maxScrollExtent - _autoScrollBottomThreshold;
   }
 
+  bool get _isNearTop {
+    if (!_scrollController.hasClients) return false;
+    final pos = _scrollController.position;
+    if (!pos.hasContentDimensions) return false;
+    return pos.pixels <= _olderHistoryLoadThreshold;
+  }
+
   void _handleScrollPositionChanged() {
     if (_ignoreScrollUpdates || !_scrollController.hasClients) return;
+    if (_isNearTop) {
+      unawaited(_maybeLoadOlderHistory());
+    }
     final nearBottom = _isNearBottom;
     if (_stickToBottom && !nearBottom) {
       _scrollGeneration++;
@@ -276,6 +288,46 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (_stickToBottom != nearBottom) {
       setState(() => _stickToBottom = nearBottom);
     }
+  }
+
+  Future<void> _maybeLoadOlderHistory() async {
+    final controller = widget.controller;
+    if (_loadingOlderHistory ||
+        controller.isLoadingOlderChatHistory ||
+        !controller.chatHistoryHasMore ||
+        !_isNearTop) {
+      return;
+    }
+    _loadingOlderHistory = true;
+    final hasClients = _scrollController.hasClients;
+    final previousPixels = hasClients ? _scrollController.position.pixels : 0.0;
+    final previousMaxExtent = hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    final loaded = await controller.loadOlderChatHistory();
+    if (!mounted || !loaded) {
+      _loadingOlderHistory = false;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        _loadingOlderHistory = false;
+        return;
+      }
+      final position = _scrollController.position;
+      final extentDelta = position.maxScrollExtent - previousMaxExtent;
+      final targetOffset = (previousPixels + extentDelta).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      _ignoreScrollUpdates = true;
+      _scrollController.jumpTo(targetOffset.toDouble());
+      _ignoreScrollUpdates = false;
+      _loadingOlderHistory = false;
+      if (_isNearTop) {
+        unawaited(_maybeLoadOlderHistory());
+      }
+    });
   }
 
   void _openModelPicker() {
@@ -396,6 +448,18 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     _maybeFollowChatContent(messages, controller);
 
     final threadChildren = <Widget>[
+      if (controller.isLoadingOlderChatHistory) ...<Widget>[
+        const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ],
       if (controller.usageAndLimits case final usage?
           when usage.hasLimits) ...<Widget>[
         _RateLimitStatusCard(usage: usage),

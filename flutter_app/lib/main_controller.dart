@@ -66,6 +66,7 @@ class NeoAgentController extends ChangeNotifier {
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
+  static const int _chatHistoryPageSize = 40;
   DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
@@ -144,6 +145,8 @@ class NeoAgentController extends ChangeNotifier {
   List<RecordingSessionItem> recordingSessions = const <RecordingSessionItem>[];
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
+  bool chatHistoryHasMore = false;
+  bool isLoadingOlderChatHistory = false;
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
@@ -205,6 +208,9 @@ class NeoAgentController extends ChangeNotifier {
   String? _pendingChatDraft;
   List<SharedChatAttachment> _pendingSharedChatAttachments =
       const <SharedChatAttachment>[];
+  String? _chatHistoryBeforeCreatedAt;
+  String? _chatHistoryBeforeSource;
+  String? _chatHistoryBeforeId;
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -498,6 +504,103 @@ class NeoAgentController extends ChangeNotifier {
         metadata: metadata,
       ),
     ];
+  }
+
+  void _resetChatHistoryPagination() {
+    chatHistoryHasMore = false;
+    isLoadingOlderChatHistory = false;
+    _chatHistoryBeforeCreatedAt = null;
+    _chatHistoryBeforeSource = null;
+    _chatHistoryBeforeId = null;
+  }
+
+  void _applyChatHistoryCursor(Map<String, dynamic> history) {
+    chatHistoryHasMore = history['hasMore'] == true;
+    _chatHistoryBeforeCreatedAt = _optionalIdFrom(
+      history['nextBeforeCreatedAt'],
+    );
+    _chatHistoryBeforeSource = _optionalIdFrom(history['nextBeforeSource']);
+    _chatHistoryBeforeId = _optionalIdFrom(history['nextBeforeId']);
+  }
+
+  String _chatEntryKey(ChatEntry entry) {
+    final stableId = entry.id.trim();
+    if (stableId.isNotEmpty) {
+      return [
+        stableId,
+        entry.platform,
+        entry.role,
+        entry.createdAt.toIso8601String(),
+      ].join('|');
+    }
+    return [
+      entry.role,
+      entry.platform,
+      entry.createdAt.toIso8601String(),
+      entry.content,
+    ].join('|');
+  }
+
+  List<ChatEntry> _chatHistoryEntriesFromResponse(
+    Map<String, dynamic> history,
+  ) {
+    return _decodeModelList(
+      'chat_history',
+      history['messages'],
+      ChatEntry.fromJson,
+      fallbackToMapValues: true,
+    );
+  }
+
+  Future<bool> loadOlderChatHistory() async {
+    if (!isAuthenticated ||
+        isLoadingOlderChatHistory ||
+        !chatHistoryHasMore ||
+        _chatHistoryBeforeCreatedAt == null ||
+        _chatHistoryBeforeSource == null ||
+        _chatHistoryBeforeId == null) {
+      return false;
+    }
+
+    final agentId = _scopedAgentId;
+    final beforeCreatedAt = _chatHistoryBeforeCreatedAt;
+    final beforeSource = _chatHistoryBeforeSource;
+    final beforeId = _chatHistoryBeforeId;
+    isLoadingOlderChatHistory = true;
+    notifyListeners();
+    try {
+      final history = await _backendClient.fetchChatHistory(
+        backendUrl,
+        agentId: agentId,
+        limit: _chatHistoryPageSize,
+        beforeCreatedAt: beforeCreatedAt,
+        beforeSource: beforeSource,
+        beforeId: beforeId,
+      );
+      if (agentId != _scopedAgentId) {
+        return false;
+      }
+      final olderMessages = _chatHistoryEntriesFromResponse(history);
+      _applyChatHistoryCursor(history);
+      if (olderMessages.isEmpty) {
+        return false;
+      }
+      final existingKeys = chatMessages.map(_chatEntryKey).toSet();
+      final prepended = olderMessages
+          .where((entry) => existingKeys.add(_chatEntryKey(entry)))
+          .toList(growable: false);
+      if (prepended.isEmpty) {
+        return false;
+      }
+      chatMessages = <ChatEntry>[...prepended, ...chatMessages];
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isLoadingOlderChatHistory = false;
+      notifyListeners();
+    }
   }
 
   String _settingString(String key, String fallback, {bool lowercase = false}) {
@@ -1561,6 +1664,7 @@ class NeoAgentController extends ChangeNotifier {
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
+    _resetChatHistoryPagination();
     agentProfiles = const <AgentProfile>[];
     selectedAgentId = null;
     supportedModels = const <ModelMeta>[];
@@ -1723,6 +1827,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     selectedAgentId = id;
     chatMessages = const <ChatEntry>[];
+    _resetChatHistoryPagination();
     recentRuns = const <RunSummary>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
@@ -2045,8 +2150,12 @@ class NeoAgentController extends ChangeNotifier {
 
       final historyFuture = _softRefreshLoad<Map<String, dynamic>>(
         'chat_history',
-        _backendClient.fetchChatHistory(backendUrl, agentId: agentId),
-        const <String, dynamic>{'messages': <dynamic>[]},
+        _backendClient.fetchChatHistory(
+          backendUrl,
+          agentId: agentId,
+          limit: _chatHistoryPageSize,
+        ),
+        const <String, dynamic>{'messages': <dynamic>[], 'hasMore': false},
       );
       final modelsFuture = _softRefreshLoad<Map<String, dynamic>>(
         'supported_models',
@@ -2214,12 +2323,8 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      chatMessages = _decodeModelList(
-        'chat_history',
-        history['messages'],
-        ChatEntry.fromJson,
-        fallbackToMapValues: true,
-      );
+      chatMessages = _chatHistoryEntriesFromResponse(history);
+      _applyChatHistoryCursor(history);
 
       supportedModels = _decodeModelList(
         'supported_models',
