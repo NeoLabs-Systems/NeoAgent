@@ -2121,6 +2121,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       lastContent = 'Widget snapshot updated.';
     }
     const messagingSent = runMeta?.messagingSent || false;
+    const stagedProactiveReply = normalizeOutgoingMessage(
+      runMeta?.stagedProactiveMessage?.content
+      || options?.deliveryState?.stagedProactiveMessage?.content
+      || '',
+      options?.source || null,
+    );
     const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
     // Hermes _handle_max_iterations: if the run exhausted its step budget without a
@@ -2226,6 +2232,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     if (
       !normalizeOutgoingMessage(lastContent, options?.source || null)
       && !messagingSent
+      && !stagedProactiveReply
       && runMeta?.widgetSnapshotSaved !== true
     ) {
       const explicitNoResponse = (
@@ -2275,10 +2282,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     const normalizedLastContent = normalizeOutgoingMessage(lastContent, options?.source || null);
     let finalResponseText = messagingSent
       ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
-      : (normalizedLastContent ? lastContent.trim() : sentMessageText);
+      : (normalizedLastContent ? lastContent.trim() : (stagedProactiveReply || sentMessageText));
     const lastFinalDeliveryMessage = normalizeOutgoingMessage(
       runMeta?.lastSentMessage
       || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
+      || runMeta?.stagedProactiveMessage?.content
       || '',
       options?.source || null
     );

@@ -276,7 +276,33 @@ function getRunState(engine, runId) {
 
 function hasAlreadySentProactiveMessage({ triggerSource, runState, deliveryState, allowMultipleProactiveMessages }) {
     if (!isProactiveTrigger(triggerSource) || allowMultipleProactiveMessages) return false;
-    return Boolean(runState?.messagingSent || deliveryState?.messagingSent);
+    return Boolean(
+        runState?.messagingSent
+        || deliveryState?.messagingSent
+        || runState?.proactiveMessageStaged
+        || deliveryState?.proactiveMessageStaged
+    );
+}
+
+function markProactiveMessageStaged({ runState, deliveryState, platform, to, content, purpose, mediaPath = null }) {
+    const staged = {
+        platform: String(platform || '').trim(),
+        to: String(to || '').trim(),
+        content: String(content || '').trim(),
+        purpose: String(purpose || '').trim().toLowerCase(),
+        mediaPath: mediaPath || null,
+        stagedAt: new Date().toISOString(),
+    };
+
+    if (runState) {
+        runState.proactiveMessageStaged = true;
+        runState.stagedProactiveMessage = staged;
+    }
+
+    if (deliveryState) {
+        deliveryState.proactiveMessageStaged = true;
+        deliveryState.stagedProactiveMessage = staged;
+    }
 }
 
 function markProactiveMessageSent({ runState, deliveryState, content }) {
@@ -2482,6 +2508,26 @@ async function executeTool(toolName, args, context, engine) {
                     sent: false,
                     skipped: true,
                     reason: 'A proactive message was already sent in this task run; duplicate send_message was suppressed.'
+                };
+            }
+
+            if (isProactiveTrigger(triggerSource) && context.stageProactiveMessages === true && !suppressReply) {
+                markProactiveMessageStaged({
+                    runState,
+                    deliveryState,
+                    platform: args.platform,
+                    to: args.to,
+                    content: normalizedMessage,
+                    purpose: args.purpose,
+                    mediaPath: args.media_path,
+                });
+                return {
+                    success: true,
+                    staged: true,
+                    purpose: normalizeSendMessagePurpose(args.purpose),
+                    platform: args.platform,
+                    to: args.to,
+                    content: normalizedMessage,
                 };
             }
 

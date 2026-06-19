@@ -462,6 +462,8 @@ class TaskRuntime {
     const deliveryState = {
       messagingSent: false,
       noResponse: false,
+      proactiveMessageStaged: false,
+      stagedProactiveMessage: null,
       lastSentMessage: '',
       sentMessages: [],
     };
@@ -521,13 +523,14 @@ class TaskRuntime {
           taskId,
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
+          stageProactiveMessages: true,
           skipTaskAnalysis: true,
           skipDeliverableWorkflow: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
           skipConversationMaintenance: true,
           skipRunContextPersistence: true,
-          skipVerifier: true,
+          skipVerifier: false,
           stream: false,
           context: executionMeta.triggerPayload || {},
         };
@@ -841,13 +844,19 @@ class TaskRuntime {
     if (!targets.length) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
+    const stagedMessage = normalizeOutgoingMessageForPlatform(
+      deliveryState?.stagedProactiveMessage?.platform,
+      deliveryState?.stagedProactiveMessage?.content || '',
+      { stripNoResponseMarker: false },
+    );
+    const explicitStagedDelivery = deliveryState?.proactiveMessageStaged === true && Boolean(stagedMessage);
     // A forced terminal wrap-up (read-only/blocked hard-stop) is the model's final
     // answer produced WITHOUT the ability to call send_message itself. Gating it
     // would silently drop a stuck scheduled task's result, so deliver it even on an
     // automatic run. Ordinary mid-run plain text (model had send_message available
     // and chose not to use it) is still gated below.
     const forcedTerminal = deliveryState?.terminalWrapup === true && Boolean(resultText);
-    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal) {
+    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal && !explicitStagedDelivery) {
       // Automatic run produced substantive text but never made an explicit
       // send_message decision (a deliberate no_response would have short-circuited
       // above). We suppress to avoid recurring-check spam, but surface it so a
@@ -874,10 +883,17 @@ class TaskRuntime {
     }
 
     let lastError = null;
-    for (const target of targets) {
+    const resolvedTargets = explicitStagedDelivery
+      ? [{
+        platform: deliveryState.stagedProactiveMessage.platform,
+        to: deliveryState.stagedProactiveMessage.to,
+        mediaPath: deliveryState.stagedProactiveMessage.mediaPath || null,
+      }]
+      : targets;
+    for (const target of resolvedTargets) {
       const message = normalizeOutgoingMessageForPlatform(
         target.platform,
-        resultText,
+        resultText || stagedMessage,
         { stripNoResponseMarker: false },
       );
       if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
@@ -893,10 +909,13 @@ class TaskRuntime {
       try {
         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
           agentId,
+          mediaPath: target.mediaPath || null,
           runId: result?.runId || null,
           persistConversation: true,
         });
         deliveryState.messagingSent = true;
+        deliveryState.proactiveMessageStaged = false;
+        deliveryState.stagedProactiveMessage = null;
         deliveryState.lastSentMessage = message;
         if (!Array.isArray(deliveryState.sentMessages)) {
           deliveryState.sentMessages = [];

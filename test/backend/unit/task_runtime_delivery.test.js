@@ -135,9 +135,11 @@ describe('scheduled task result delivery', () => {
   test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
     const messagingManager = createMessagingManager();
     const prompts = [];
+    const optionsSeen = [];
     const task = await createScheduledTask({
-      async runWithModel(userId, prompt) {
+      async runWithModel(userId, prompt, options) {
         prompts.push({ userId, prompt });
+        optionsSeen.push(options);
         return { content: 'No relevant calendar changes.' };
       },
     }, messagingManager);
@@ -155,6 +157,39 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent.length, 0);
     assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
     assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
+    assert.equal(optionsSeen[0].stageProactiveMessages, true);
+    assert.equal(optionsSeen[0].skipVerifier, false);
+  });
+
+  test('automatic scheduled runs deliver staged proactive replies after verification', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        options.deliveryState.proactiveMessageStaged = true;
+        options.deliveryState.stagedProactiveMessage = {
+          platform: 'whatsapp',
+          to: 'recipient',
+          content: 'Wetter in Braunschweig: sonnig. Keine neue Mail.',
+          purpose: 'final_result',
+          mediaPath: null,
+        };
+        return { content: 'Wetter in Braunschweig: sonnig. Keine neue Mail.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].platform, 'whatsapp');
+    assert.equal(messagingManager.sent[0].to, 'recipient');
+    assert.equal(messagingManager.sent[0].content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
   });
 
   test('delivers a failure notice when every attempt returns empty', async () => {
@@ -265,6 +300,43 @@ describe('scheduled task result delivery', () => {
     assert.equal(result.reason, 'no_response');
     assert.equal(runState.noResponse, true);
     assert.equal(deliveryState.noResponse, true);
+  });
+
+  test('stages proactive send_message decisions for background verification', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sendCalls = [];
+    const deliveryState = {};
+    const runState = {};
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sendCalls.push(args);
+          return { success: true };
+        },
+      },
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: 'recipient',
+      content: 'Weather for Braunschweig: sunny.',
+      purpose: 'final_result',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'schedule',
+      deliveryState,
+      stageProactiveMessages: true,
+    }, engine);
+
+    assert.equal(result.staged, true);
+    assert.equal(sendCalls.length, 0);
+    assert.equal(runState.proactiveMessageStaged, true);
+    assert.equal(deliveryState.proactiveMessageStaged, true);
+    assert.equal(deliveryState.stagedProactiveMessage.platform, 'whatsapp');
+    assert.equal(deliveryState.stagedProactiveMessage.to, 'recipient');
+    assert.equal(deliveryState.stagedProactiveMessage.content, 'Weather for Braunschweig: sunny.');
   });
 
   test('failed explicit send_message does not mark terminal delivery', async () => {

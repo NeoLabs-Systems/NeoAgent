@@ -74,6 +74,8 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'Verify whether the draft final reply is adequately supported by the gathered evidence.',
   'If the evidence is insufficient, revise the reply so it states the uncertainty clearly instead of guessing.',
   'Cross-check every concrete claim against tool status and output. Remove or rewrite claims that are contradicted by the evidence.',
+  'When the task or prompt names a specific entity to check (for example a city, account, person, date, source, or destination), preserve that target exactly. If the gathered evidence is for a different entity, treat the draft as needing revision or insufficient evidence.',
+  'When the task says to include something only if it is available or only if a condition is met, omit that section when the evidence does not show the condition was satisfied.',
   'A non-zero execute_command exit code means partial or failed shell evidence. Do not treat later sections of a chained shell command as observed unless they were verified separately.',
   'A successful send_message or make_call means outbound delivery succeeded in this run unless a later messaging tool failed.',
   'Any claim that an outbound action already happened (sent/submitted/called/"already done") must be backed by a successful outbound tool execution in this run. If not backed, rewrite the reply to "not sent yet" and provide a draft or next concrete step.',
