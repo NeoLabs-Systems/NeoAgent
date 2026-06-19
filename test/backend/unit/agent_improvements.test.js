@@ -235,6 +235,35 @@ test('calendar summarizeEvent flags all-day vs timed events', () => {
   assert.equal(timed.start, '2026-06-17T09:00:00+02:00');
 });
 
+test('calendar summarizeListedEvents exposes timed events separately for reminder logic', () => {
+  const { summarizeListedEvents } = require('../../../server/services/integrations/google/calendar');
+
+  const result = summarizeListedEvents([
+    {
+      id: 'all-day',
+      summary: 'Abreise Bali',
+      start: { date: '2026-06-19' },
+      end: { date: '2026-06-20' },
+    },
+    {
+      id: 'timed',
+      summary: 'Airport transfer',
+      start: { dateTime: '2026-06-19T03:15:00+02:00' },
+      end: { dateTime: '2026-06-19T03:45:00+02:00' },
+    },
+  ]);
+
+  assert.equal(result.count, 2);
+  assert.equal(result.timedCount, 1);
+  assert.equal(result.allDayCount, 1);
+  assert.equal(result.hasTimedEvents, true);
+  assert.equal(result.hasOnlyAllDayEvents, false);
+  assert.equal(result.nextTimedEvent?.id, 'timed');
+  assert.deepEqual(result.timedEvents.map((event) => event.id), ['timed']);
+  assert.deepEqual(result.allDayEvents.map((event) => event.id), ['all-day']);
+  assert.deepEqual(result.events.map((event) => event.id), ['timed', 'all-day']);
+});
+
 test('task analysis keeps source checkouts in the shared workspace', () => {
   const prompt = buildExecutionGuidance({
     analysis: {

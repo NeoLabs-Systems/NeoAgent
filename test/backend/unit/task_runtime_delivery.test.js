@@ -134,8 +134,10 @@ describe('scheduled task result delivery', () => {
 
   test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
     const messagingManager = createMessagingManager();
+    const prompts = [];
     const task = await createScheduledTask({
-      async runWithModel() {
+      async runWithModel(userId, prompt) {
+        prompts.push({ userId, prompt });
         return { content: 'No relevant calendar changes.' };
       },
     }, messagingManager);
@@ -151,6 +153,8 @@ describe('scheduled task result delivery', () => {
     assert.equal(result.taskDelivery.sent, false);
     assert.equal(result.taskDelivery.reason, 'explicit_delivery_required');
     assert.equal(messagingManager.sent.length, 0);
+    assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
+    assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
   });
 
   test('delivers a failure notice when every attempt returns empty', async () => {
@@ -173,7 +177,8 @@ describe('scheduled task result delivery', () => {
     assert.equal(callCount, 2);
     assert.match(result.error, /without producing a result/);
     assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /could not complete after retrying/);
+    assert.match(messagingManager.sent[0].content, /could not complete:/);
+    assert.match(messagingManager.sent[0].content, /without producing a result or an explicit no-response decision/);
   });
 
   test('accepts an explicit no-response decision without fallback delivery', async () => {
