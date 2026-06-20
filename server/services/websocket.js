@@ -15,6 +15,11 @@ const MAX_QUERY_CHARS = 2000;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 10 * 1000;
 const DEFAULT_RATE_LIMIT_MAX = 30;
 const RATE_LIMIT_OBSERVER_ENTRY_TTL_MS = 10 * 60 * 1000;
+// Shared rate-limit state keyed by userId so that multiple sockets from the
+// same authenticated user share a single budget rather than getting N × budget.
+const userRateLimitStates = new Map();
+const userSocketCounts = new Map();
+
 const EVENT_RATE_LIMITS = Object.freeze({
   'agent:run': { windowMs: 15 * 1000, max: 4 },
   'agent:abort': { windowMs: 10 * 1000, max: 20 },
@@ -74,8 +79,7 @@ function resolveAgentFromPayload(userId, value) {
   return resolveAgentId(userId, data?.agentId || data?.agent_id || null);
 }
 
-function createSocketRateLimiter() {
-  const state = new Map();
+function createSocketRateLimiter(state = new Map()) {
   return (eventName) => {
     const config = EVENT_RATE_LIMITS[eventName] || {
       windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
@@ -184,7 +188,6 @@ function setupWebSocket(io, services) {
     services.app.locals.getWebsocketRateLimitSnapshot = () => rateLimitObserver.snapshot();
   }
   io.on('connection', (socket) => {
-    const allowEvent = createSocketRateLimiter();
     const session = socket.request.session;
     if (!session?.userId) {
       console.warn(`[WS] Rejecting unauthenticated socket ${socket.id}`);
@@ -194,6 +197,13 @@ function setupWebSocket(io, services) {
 
     const userId = session.userId;
     socket.join(`user:${userId}`);
+
+    // Share rate-limit budget across all sockets from the same authenticated user.
+    userSocketCounts.set(userId, (userSocketCounts.get(userId) || 0) + 1);
+    if (!userRateLimitStates.has(userId)) {
+      userRateLimitStates.set(userId, new Map());
+    }
+    const allowEvent = createSocketRateLimiter(userRateLimitStates.get(userId));
 
     console.log(`[WS] User ${userId} connected (${socket.id})`);
 
@@ -911,6 +921,14 @@ function setupWebSocket(io, services) {
     // ── Disconnect ──
 
     socket.on('disconnect', () => {
+      const remaining = (userSocketCounts.get(userId) || 1) - 1;
+      if (remaining <= 0) {
+        userSocketCounts.delete(userId);
+        userRateLimitStates.delete(userId);
+      } else {
+        userSocketCounts.set(userId, remaining);
+      }
+
       const streamHub = services.streamHub || services.app?.locals?.streamHub;
       if (streamHub && typeof streamHub.unsubscribeAll === 'function') {
         void streamHub.unsubscribeAll(socket.id).catch((err) => {
