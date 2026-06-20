@@ -145,7 +145,7 @@ function createWearableVoiceSink(ws, voiceRuntimeManager) {
 }
 
 function bindWearableGateway(httpServer, app, sessionMiddleware) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
   const allowUpgradeAttempt = createUpgradeLimiter();
 
   httpServer.on('upgrade', (req, socket, head) => {
