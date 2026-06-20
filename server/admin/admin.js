@@ -1,5 +1,62 @@
 'use strict';
 
+// ── Shared UI Helpers ──────────────────────────────────────────────────────
+
+function showToast(message, type = 'info') {
+  // type: 'info' | 'success' | 'error'
+  let stack = document.getElementById('admin-toast-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'admin-toast-stack';
+    stack.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+    document.body.appendChild(stack);
+  }
+  const toast = document.createElement('div');
+  const colors = { info: 'var(--info,#3b82f6)', success: 'var(--success,#22c55e)', error: 'var(--danger,#ef4444)' };
+  toast.style.cssText = `background:var(--bg-primary,#1a1a1a);border:1px solid ${colors[type] || colors.info};border-radius:10px;padding:12px 18px;color:var(--text,#fff);font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,0.4);pointer-events:auto;max-width:360px;line-height:1.5;opacity:0;transform:translateY(8px);transition:opacity 0.18s,transform 0.18s;`;
+  toast.textContent = message;
+  stack.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+  const remove = () => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(8px)';
+    setTimeout(() => toast.remove(), 200);
+  };
+  toast.onclick = remove;
+  setTimeout(remove, 4000);
+}
+
+function showConfirmModal({ title, body, confirmLabel = 'Confirm', confirmClass = 'btn-danger', onConfirm }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99990;backdrop-filter:blur(2px);';
+    const modal = document.createElement('div');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'admin-modal-title');
+    modal.style.cssText = 'width:440px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+      <div id="admin-modal-title" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">${title}</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">${body}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="admin-modal-cancel" style="padding:8px 16px;">Cancel</button>
+        <button class="btn ${confirmClass}" id="admin-modal-confirm" style="padding:8px 16px;">${confirmLabel}</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    const cancel = () => { overlay.remove(); resolve(false); };
+    const confirm = () => { overlay.remove(); resolve(true); if (onConfirm) onConfirm(); };
+    modal.querySelector('#admin-modal-cancel').onclick = cancel;
+    modal.querySelector('#admin-modal-confirm').onclick = confirm;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { cancel(); document.removeEventListener('keydown', handler); }
+    });
+    modal.querySelector('#admin-modal-confirm').focus();
+  });
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 
 let currentPage = 'overview';
@@ -281,11 +338,11 @@ async function triggerUpdate() {
     const res = await api('/admin/api/update', { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      alert(body.error || 'Failed to start update');
+      showToast(body.error || 'Failed to start update', 'error');
     }
     setTimeout(loadVersion, 1200);
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Failed to trigger update');
+    if (err.message !== 'unauthorized') showToast('Failed to trigger update', 'error');
   }
 }
 
@@ -443,12 +500,12 @@ async function persistEmailConfig(payload, btn) {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(body.error || 'Failed to save email settings');
+      showToast(body.error || 'Failed to save email settings', 'error');
       return;
     }
     await loadEmailConfig();
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
   } finally {
     if (btn?.isConnected) {
       btn.disabled = false;
@@ -518,14 +575,14 @@ async function saveProvider(key, btn) {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      alert(body.error || 'Failed to save');
+      showToast(body.error || 'Failed to save', 'error');
     } else {
       btn.textContent = 'Saved!';
       setTimeout(loadProviders, 800);
       return;
     }
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
   }
   btn.disabled = false;
   btn.textContent = original;
@@ -541,7 +598,7 @@ async function clearProvider(key, btn) {
     });
     setTimeout(loadProviders, 400);
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
     btn.disabled = false;
   }
 }
@@ -677,14 +734,14 @@ async function saveEnabledModels(btn) {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      alert(body.error || 'Failed to save');
+      showToast(body.error || 'Failed to save', 'error');
     } else {
       btn.textContent = 'Saved!';
       setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
       return;
     }
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
   }
   btn.disabled = false;
   btn.textContent = original;

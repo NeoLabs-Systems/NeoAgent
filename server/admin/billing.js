@@ -263,22 +263,27 @@ async function billingPlanFormSubmit(e) {
     const method = isNew ? 'POST' : 'PUT';
     const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await r.json();
-    if (!r.ok) { alert(data.error || 'Failed to save plan.'); return; }
+    if (!r.ok) { showToast(data.error || 'Failed to save plan.', 'error'); return; }
     billingClosePlanModal();
     await loadBilling();
   } catch (err) {
-    alert('Error: ' + err.message);
+    showToast('Error: ' + err.message, 'error');
   }
 }
 
 async function billingDeletePlan(planId) {
-  if (!confirm(`Delete plan "${planId}"? It will be deactivated (not hard-deleted).`)) return;
+  if (!await showConfirmModal({
+    title: `Delete plan "${esc(planId)}"?`,
+    body: 'The plan will be deactivated (not hard-deleted). Existing subscribers will keep access until their period ends.',
+    confirmLabel: 'Delete Plan',
+    confirmClass: 'btn-danger',
+  })) return;
   try {
     const r = await fetch(`/admin/api/billing/plans/${encodeURIComponent(planId)}`, { method: 'DELETE' });
-    if (!r.ok) { const d = await r.json(); alert(d.error || 'Failed.'); return; }
+    if (!r.ok) { const d = await r.json(); showToast(d.error || 'Failed.', 'error'); return; }
     await loadBilling();
   } catch (err) {
-    alert('Error: ' + err.message);
+    showToast('Error: ' + err.message, 'error');
   }
 }
 
@@ -334,9 +339,9 @@ function subRowHtml(sub) {
 }
 
 async function billingOverrideSub(userId) {
-  if (!_billingPlans.length) { alert('No plans available.'); return; }
-  const options = _billingPlans.filter((p) => p.is_active).map((p) => `${p.id} — ${p.name}`).join('\n');
-  const planId = prompt(`Enter plan ID to assign:\n\n${options}`);
+  if (!_billingPlans.length) { showToast('No plans available.', 'error'); return; }
+  const activePlans = _billingPlans.filter((p) => p.is_active);
+  const planId = await billingPromptPlan(activePlans);
   if (!planId) return;
   try {
     const r = await fetch(`/admin/api/billing/users/${userId}/subscription`, {
@@ -345,11 +350,48 @@ async function billingOverrideSub(userId) {
       body: JSON.stringify({ planId: planId.trim() }),
     });
     const data = await r.json();
-    if (!r.ok) { alert(data.error || 'Failed.'); return; }
+    if (!r.ok) { showToast(data.error || 'Failed.', 'error'); return; }
     await loadBillingSubscriptions();
   } catch (err) {
-    alert('Error: ' + err.message);
+    showToast('Error: ' + err.message, 'error');
   }
+}
+
+function billingPromptPlan(plans) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99990;backdrop-filter:blur(2px);';
+    const optionsHtml = plans.map((p) => `<option value="${escAttr(p.id)}">${esc(p.id)} — ${esc(p.name)}</option>`).join('');
+    const modal = document.createElement('div');
+    modal.style.cssText = 'width:400px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">Assign plan</div>
+      <div style="margin-bottom:16px;">
+        <select id="billing-plan-select" style="width:100%;padding:8px 10px;background:var(--bg-input,#111);border:1px solid var(--border,#2a2a2a);border-radius:6px;color:var(--text,#fff);font-size:13px;">
+          ${optionsHtml}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="billing-plan-cancel" style="padding:8px 16px;">Cancel</button>
+        <button class="btn btn-primary" id="billing-plan-confirm" style="padding:8px 16px;">Assign</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    const cancel = () => { overlay.remove(); resolve(null); };
+    const confirm = () => {
+      const val = modal.querySelector('#billing-plan-select').value;
+      overlay.remove();
+      resolve(val || null);
+    };
+    modal.querySelector('#billing-plan-cancel').onclick = cancel;
+    modal.querySelector('#billing-plan-confirm').onclick = confirm;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { cancel(); document.removeEventListener('keydown', handler); }
+    });
+    modal.querySelector('#billing-plan-confirm').focus();
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
