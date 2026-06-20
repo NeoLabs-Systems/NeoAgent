@@ -1001,6 +1001,30 @@ describe('messaging progress supervisor', () => {
     }), false);
   });
 
+  test('recoverable internal tool failure continues even after a blocker-style draft', () => {
+    const {
+      buildRecoverableToolFailureGuidance,
+      isRecoverableInternalToolFailure,
+      shouldContinueAfterRecoverableToolFailure,
+    } = require('../../../server/services/ai/loop/blank_recovery');
+    const failedExecutions = [{
+      toolName: 'read_file',
+      ok: false,
+      error: 'Failed to read file for user 1: ENOENT: no such file or directory, open \'/tmp/missing.txt\'',
+    }];
+
+    assert.equal(isRecoverableInternalToolFailure(failedExecutions[0]), true);
+    assert.equal(shouldContinueAfterRecoverableToolFailure({
+      lastContent: 'I got blocked while checking this: Failed to read file for user 1: ENOENT.',
+      remainingIterations: 2,
+      toolExecutions: failedExecutions,
+    }), true);
+    assert.match(
+      buildRecoverableToolFailureGuidance(failedExecutions),
+      /recoverable execution problem/,
+    );
+  });
+
   test('interim-visible messaging state uses same-run error fallback instead of autonomous replay', () => {
     const {
       shouldRetryMessagingRun,

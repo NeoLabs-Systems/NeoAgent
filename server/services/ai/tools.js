@@ -240,7 +240,7 @@ function validateProactiveSendMessageArgs({ purpose, normalizedMessage }) {
     }
 
     if (normalizedPurpose === 'no_response') {
-        if (normalizedMessage !== '[NO RESPONSE]') {
+        if (normalizedMessage && normalizedMessage !== '[NO RESPONSE]') {
             return {
                 ok: false,
                 error: 'purpose=no_response requires content "[NO RESPONSE]".',

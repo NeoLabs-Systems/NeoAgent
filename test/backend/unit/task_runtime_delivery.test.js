@@ -302,6 +302,33 @@ describe('scheduled task result delivery', () => {
     assert.equal(deliveryState.noResponse, true);
   });
 
+  test('accepts empty no-response content for proactive task runs', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const deliveryState = {};
+    const runState = {};
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {},
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: 'recipient',
+      content: '',
+      purpose: 'no_response',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'schedule',
+      deliveryState,
+    }, engine);
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'no_response');
+    assert.equal(runState.noResponse, true);
+    assert.equal(deliveryState.noResponse, true);
+  });
+
   test('stages proactive send_message decisions for background verification', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const sendCalls = [];

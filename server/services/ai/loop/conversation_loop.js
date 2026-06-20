@@ -58,7 +58,10 @@ const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { IterationBudget } = require('./iteration_budget');
 const {
   buildBlankAfterToolFailureGuidance,
+  buildRecoverableToolFailureGuidance,
+  isRecoverableInternalToolFailure,
   shouldContinueAfterBlankToolFailure,
+  shouldContinueAfterRecoverableToolFailure,
 } = require('./blank_recovery');
 const {
   shouldSendMessagingErrorFallback,
@@ -210,6 +213,9 @@ function buildErrorPatternGuidance(key, count) {
   // multiple iterations before self-correcting.
   const immediateGuides = {
     eisdir: 'That path is a directory or outside the workspace file-tool boundary. Use list_directory for workspace directories. Keep source files in the shared workspace before reading them with file tools.',
+    enoent: 'That path does not exist. Do not keep retrying the same missing file. Locate the correct file first with list_directory/search_files or verify whether the evidence only exists in the user-provided logs.',
+    outside_workspace: 'That path is outside the shared workspace. Use the workspace root and its file tools, or rely on the user-provided evidence if the file only exists on another server.',
+    bad_cwd: 'The current working directory is wrong for that path. Reconfirm the workspace root with pwd/list_directory before reading files.',
     owner_repo_format: 'The parameter "owner_repo" expects a single combined string like "NeoLabs-Systems/NeoAgent" — not separate owner/repo fields. Pass the full "owner/repo" as one value.',
   };
   if (immediateGuides[key]) {
@@ -1192,6 +1198,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       // force-wrap-up fires at maxConsecutiveReadOnlyIterations unconditionally.
       if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
+        const iterMeta = engine.getRunMeta(runId);
+        const latestFailedExecution = toolExecutions.length > 0
+          ? [...toolExecutions].reverse().find((item) => item && item.ok === false) || null
+          : null;
 
         if (readOnlyCount >= 2) {
           const runGoalCtx = resolveRunGoalContext(engine.getRunMeta(runId), analysis, plan);
@@ -1202,6 +1212,24 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           let alreadyRead = '';
 
           if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
+            if (
+              isRecoverableInternalToolFailure(latestFailedExecution)
+              && iterMeta
+              && iterMeta.recoverableReadOnlyDeferralUsed !== true
+            ) {
+              iterMeta.recoverableReadOnlyDeferralUsed = true;
+              iterMeta.consecutiveReadOnlyIterations = Math.max(0, loopPolicy.maxConsecutiveReadOnlyIterations - 2);
+              messages.push({
+                role: 'system',
+                content: buildRecoverableToolFailureGuidance(toolExecutions),
+              });
+              engine.recordRunEvent(userId, runId, 'read_only_wrapup_deferred_for_recovery', {
+                iteration,
+                readOnlyCount,
+                toolName: latestFailedExecution?.toolName || null,
+              }, { agentId });
+              continue;
+            }
             alreadyRead = summarizeReadTargets(toolExecutions);
             triggerForceWrapup = true;
           } else if (readOnlyCount >= churnNudgeThreshold) {
@@ -1549,6 +1577,22 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           messages.push({
             role: 'system',
             content: buildBlankAfterToolFailureGuidance(toolExecutions),
+          });
+          lastContent = '';
+          continue;
+        }
+        if (shouldContinueAfterRecoverableToolFailure({
+          lastContent,
+          remainingIterations: iterationBudget.remaining,
+          toolExecutions,
+        })) {
+          engine.recordRunEvent(userId, runId, 'recoverable_tool_failure_continued', {
+            iteration,
+            remainingIterations: iterationBudget.remaining,
+          }, { agentId });
+          messages.push({
+            role: 'system',
+            content: buildRecoverableToolFailureGuidance(toolExecutions),
           });
           lastContent = '';
           continue;

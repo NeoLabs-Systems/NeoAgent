@@ -112,6 +112,21 @@ function hasFailureSignal(text) {
   return /\b(error|failed|failure|traceback|exception|timed out|timeout|not found|no such file|permission denied|unable to|cannot|could not|module not found)\b/i.test(normalized);
 }
 
+function isInternalToolingFailure(text) {
+  const normalized = normalizeOutgoingMessage(text);
+  if (!normalized) return false;
+  return /(purpose=no_response requires content|failed to read file for user|enoent|eisdir|illegal operation on a directory|outside the per-user workspace|outside the shared workspace|path is not a file|file not found:|no such file or directory|can.?t cd to|no such directory)/i.test(normalized);
+}
+
+function summarizeUserVisibleBlocker(text) {
+  const normalized = normalizeOutgoingMessage(text);
+  if (!normalized) return '';
+  if (isInternalToolingFailure(normalized)) {
+    return 'I hit an internal tool issue while checking that';
+  }
+  return normalized;
+}
+
 function extractToolFailureMessage(item) {
   const directError = normalizeOutgoingMessage(item?.error || '');
   if (directError) return directError;
@@ -152,6 +167,7 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolE
   const workSummary = summarizeRecentWork(toolExecutions);
   const blocker = [...toolExecutions].reverse()
     .map((item) => extractToolFailureMessage(item))
+    .map((message) => summarizeUserVisibleBlocker(message))
     .find(Boolean);
 
   if (workSummary && blocker) {
@@ -211,9 +227,14 @@ function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex
 
   const blocker = [...toolExecutions].reverse()
     .map((item) => extractToolFailureMessage(item))
+    .map((value) => summarizeUserVisibleBlocker(value))
     .find(Boolean);
   if (blocker) {
     return `I got blocked while checking this: ${blocker}.`;
+  }
+
+  if (isInternalToolingFailure(message)) {
+    return 'I hit an internal tool issue while checking that, so I do not have a verified answer yet.';
   }
 
   if (message) {
@@ -244,6 +265,7 @@ module.exports = {
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
+  isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
   buildMessagingFailureScenario,

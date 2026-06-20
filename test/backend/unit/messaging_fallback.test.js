@@ -12,6 +12,7 @@ const {
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
+  isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
   buildMessagingFailureScenario,
@@ -79,6 +80,12 @@ test('hasFailureSignal detects error vocabulary', () => {
   assert.equal(hasFailureSignal('command failed: permission denied'), true);
 });
 
+test('isInternalToolingFailure detects internal contract and file-access errors', () => {
+  assert.equal(isInternalToolingFailure('purpose=no_response requires content "[NO RESPONSE]".'), true);
+  assert.equal(isInternalToolingFailure('Failed to read file for user 1: ENOENT: no such file or directory'), true);
+  assert.equal(isInternalToolingFailure('disk full'), false);
+});
+
 test('extractToolFailureMessage prefers a direct error then parsed summaries', () => {
   assert.equal(extractToolFailureMessage({ error: 'boom' }), 'boom');
   assert.equal(
@@ -106,6 +113,17 @@ test('buildDeterministicMessagingFallback narrates work and blockers honestly', 
     buildDeterministicMessagingFallback({ failedStepCount: 0, stepIndex: 0, toolExecutions: [] }),
     'I could not produce a reliable final reply just now.',
   );
+
+  const sanitized = buildDeterministicMessagingFallback({
+    failedStepCount: 1,
+    stepIndex: 2,
+    toolExecutions: [{
+      toolName: 'read_file',
+      error: 'Failed to read file for user 1: ENOENT: no such file or directory, open \'/tmp/missing.txt\'',
+    }],
+  });
+  assert.doesNotMatch(sanitized, /ENOENT|Failed to read file for user|missing\.txt/);
+  assert.match(sanitized, /internal tool issue/);
 });
 
 test('buildMessagingFailureScenario assembles a structured evidence string', () => {
@@ -132,6 +150,13 @@ test('buildDeterministicMessagingErrorReply special-cases provider and timeout e
   assert.match(
     buildDeterministicMessagingErrorReply({ err: { message: '' }, toolExecutions: [{ error: 'blocked here' }] }),
     /blocked while checking this: blocked here/,
+  );
+  assert.match(
+    buildDeterministicMessagingErrorReply({
+      err: { message: 'purpose=no_response requires content "[NO RESPONSE]".' },
+      toolExecutions: [],
+    }),
+    /internal tool issue/,
   );
 });
 
