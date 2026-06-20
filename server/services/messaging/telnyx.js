@@ -78,11 +78,12 @@ class TelnyxVoicePlatform extends BasePlatform {
     const token = process.env.TELNYX_WEBHOOK_TOKEN;
     this._webhookToken = token || null;
     const inboundUrl = `${this.webhookUrl}/api/telnyx/webhook${token ? `?token=${token}` : ''}`;
-    console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${inboundUrl}`);
+    // Log only the base path — the token is a secret and must not appear in logs
+    console.log(`[TelnyxVoice] Inbound webhook URL (configure this in the Telnyx portal): ${this.webhookUrl}/api/telnyx/webhook`);
 
     this.status = 'connected';
     this.emit('connected');
-    console.log(`[TelnyxVoice] Connected — phone: ${this.phoneNumber}`);
+    console.log('[TelnyxVoice] Connected');
     return { status: 'connected', inboundWebhookUrl: inboundUrl };
   }
 
@@ -223,7 +224,7 @@ class TelnyxVoicePlatform extends BasePlatform {
   _banNumber(number, durationMs = 10 * 60 * 1000) {
     const key = this._normalizeNumber(number);
     this._bannedNumbers.set(key, Date.now() + durationMs);
-    console.log(`[TelnyxVoice] Banned ${number} for ${durationMs / 60000} min`);
+    console.log(`[TelnyxVoice] Banned a number for ${durationMs / 60000} min`);
   }
 
   _startSecretTimer(ccId) {
@@ -444,18 +445,18 @@ class TelnyxVoicePlatform extends BasePlatform {
               }],
             };
             if (this._isBanned(caller)) {
-              console.log(`[TelnyxVoice] Rejecting banned caller: ${caller}`);
+              console.log('[TelnyxVoice] Rejecting banned caller');
               await this._rejectCall(ccId);
               this.emit('blocked_caller', blockedInfo);
               break;
             }
             if (!this.voiceSecret) {
-              console.log(`[TelnyxVoice] Blocked non-whitelisted caller (no secret set): ${caller}`);
+              console.log('[TelnyxVoice] Blocked non-whitelisted caller (no secret set)');
               await this._rejectCall(ccId);
               this.emit('blocked_caller', blockedInfo);
               break;
             }
-            console.log(`[TelnyxVoice] Non-whitelisted caller ${caller} — awaiting secret code`);
+            console.log('[TelnyxVoice] Non-whitelisted caller — awaiting secret code');
             this._initSession(ccId, caller);
             this._session(ccId).awaitingSecret = true;
             await this._answerCall(ccId);
@@ -463,7 +464,7 @@ class TelnyxVoicePlatform extends BasePlatform {
           }
           this._initSession(ccId, caller);
           await this._answerCall(ccId);
-          console.log(`[TelnyxVoice] Answered inbound call from ${caller}`);
+          console.log(`[TelnyxVoice] Answered inbound call (${ccId.slice(-8)})`);
           break;
         }
         case 'call.answered': {
@@ -542,7 +543,7 @@ class TelnyxVoicePlatform extends BasePlatform {
                   sess.awaitingUserInput = true;
                   await this._sayText(ccId, 'Hello! I am your AI assistant. How can I help you?');
                 } else {
-                  console.log(`[TelnyxVoice] Wrong secret from ${sess.callerNumber}, banning`);
+                  console.log('[TelnyxVoice] Wrong secret, banning caller');
                   this._banNumber(sess.callerNumber);
                   this._endSession(ccId);
                   try { await this._hangupCall(ccId); } catch {}
