@@ -67,7 +67,7 @@ class NeoAgentController extends ChangeNotifier {
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
-  static const int _chatHistoryPageSize = 40;
+  static const int _chatHistoryPageSize = 20;
   DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;

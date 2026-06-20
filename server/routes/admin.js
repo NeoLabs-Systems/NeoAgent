@@ -660,16 +660,22 @@ router.post('/api/sql', requireAdminAuth, sqlLimiter, express.json(), (req, res)
 // --- Providers ---
 
 const PROVIDERS = [
-  { key: 'ANTHROPIC_API_KEY',    label: 'Anthropic (Claude)',  type: 'key' },
-  { key: 'OPENAI_API_KEY',       label: 'OpenAI',              type: 'key' },
-  { key: 'XAI_API_KEY',          label: 'xAI (Grok)',          type: 'key' },
-  { key: 'GOOGLE_AI_KEY',        label: 'Google (Gemini)',      type: 'key' },
-  { key: 'MINIMAX_API_KEY',      label: 'MiniMax',             type: 'key' },
-  { key: 'NVIDIA_API_KEY',       label: 'NVIDIA NIM',          type: 'key' },
-  { key: 'OPENROUTER_API_KEY',   label: 'OpenRouter',          type: 'key' },
-  { key: 'BRAVE_SEARCH_API_KEY', label: 'Brave Search',        type: 'key' },
-  { key: 'DEEPGRAM_API_KEY',     label: 'Deepgram (Voice)',    type: 'key' },
-  { key: 'OLLAMA_URL',           label: 'Ollama (Local)',       type: 'url' },
+  { key: 'ANTHROPIC_API_KEY',           label: 'Anthropic (Claude)',          type: 'key' },
+  { key: 'OPENAI_API_KEY',              label: 'OpenAI',                      type: 'key' },
+  { key: 'XAI_API_KEY',                 label: 'xAI (Grok)',                  type: 'key' },
+  { key: 'GOOGLE_AI_KEY',               label: 'Google (Gemini)',              type: 'key' },
+  { key: 'MINIMAX_API_KEY',             label: 'MiniMax',                     type: 'key' },
+  { key: 'NVIDIA_API_KEY',              label: 'NVIDIA NIM',                  type: 'key' },
+  { key: 'OPENROUTER_API_KEY',          label: 'OpenRouter',                  type: 'key' },
+  { key: 'BRAVE_SEARCH_API_KEY',        label: 'Brave Search',                type: 'key' },
+  { key: 'DEEPGRAM_API_KEY',            label: 'Deepgram (Voice)',             type: 'key' },
+  { key: 'GITHUB_COPILOT_ACCESS_TOKEN', label: 'GitHub Copilot',              type: 'key' },
+  { key: 'OPENAI_CODEX_ACCESS_TOKEN',   label: 'OpenAI Codex',                type: 'key' },
+  { key: 'TELNYX_WEBHOOK_TOKEN',        label: 'Telnyx Webhook Token',        type: 'key' },
+  { key: 'OLLAMA_URL',                  label: 'Ollama (Local)',               type: 'url' },
+  { key: 'OPENAI_BASE_URL',             label: 'OpenAI Base URL override',    type: 'url' },
+  { key: 'ANTHROPIC_BASE_URL',          label: 'Anthropic Base URL override', type: 'url' },
+  { key: 'XAI_BASE_URL',               label: 'xAI Base URL override',       type: 'url' },
 ];
 
 const ALLOWED_PROVIDER_KEYS = new Set(PROVIDERS.map((p) => p.key));
@@ -703,6 +709,349 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
     delete process.env[key];
   }
   res.json({ ok: true });
+});
+
+// --- General server config ---
+
+function parseEnvBool(key, defaultVal) {
+  const v = (process.env[key] || '').toLowerCase();
+  return v ? ['1', 'true', 'yes', 'on'].includes(v) : defaultVal;
+}
+
+function parseEnvInt(key, defaultVal) {
+  const n = parseInt(process.env[key] || '', 10);
+  return Number.isFinite(n) ? n : defaultVal;
+}
+
+function cleanLine(v) {
+  return String(v ?? '').trim().replace(/[\r\n]/g, '');
+}
+
+function persistEnv(key, value) {
+  const strVal = String(value);
+  upsertEnvValue(ENV_FILE, key, strVal);
+  if (strVal === '') {
+    delete process.env[key];
+  } else {
+    process.env[key] = strVal;
+  }
+}
+
+router.get('/api/config/general', requireAdminAuth, (req, res) => {
+  res.json({
+    settings: {
+      publicUrl: process.env.PUBLIC_URL || '',
+      secureCookies: parseEnvBool('SECURE_COOKIES', false),
+      neoagentProfile: process.env.NEOAGENT_PROFILE || '',
+      allowedOrigins: process.env.ALLOWED_ORIGINS || '',
+      meshtasticEnabled: parseEnvBool('MESHTASTIC_ENABLED', true),
+      memoryIngestionIntervalMs: parseEnvInt('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', 600000),
+    },
+  });
+});
+
+router.put('/api/config/general', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const b = req.body || {};
+    const publicUrl = cleanLine(b.publicUrl);
+    if (publicUrl) {
+      try { new URL(publicUrl); } catch {
+        return res.status(400).json({ error: 'publicUrl must be a valid URL.' });
+      }
+    }
+    const profile = cleanLine(b.neoagentProfile);
+    if (profile && !['prod', 'private'].includes(profile)) {
+      return res.status(400).json({ error: 'neoagentProfile must be "prod" or "private".' });
+    }
+    const allowedOrigins = cleanLine(b.allowedOrigins);
+    const intervalMs = parseInt(b.memoryIngestionIntervalMs, 10);
+    if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
+      return res.status(400).json({ error: 'memoryIngestionIntervalMs must be ≥ 1000.' });
+    }
+    if (typeof b.secureCookies !== 'boolean') {
+      return res.status(400).json({ error: 'secureCookies must be a boolean.' });
+    }
+    if (typeof b.meshtasticEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'meshtasticEnabled must be a boolean.' });
+    }
+
+    persistEnv('PUBLIC_URL', publicUrl);
+    persistEnv('SECURE_COOKIES', b.secureCookies ? 'true' : 'false');
+    persistEnv('NEOAGENT_PROFILE', profile);
+    persistEnv('ALLOWED_ORIGINS', allowedOrigins);
+    persistEnv('MESHTASTIC_ENABLED', b.meshtasticEnabled ? 'true' : 'false');
+    persistEnv('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', String(intervalMs));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- VM runtime config ---
+
+router.get('/api/config/vm', requireAdminAuth, (req, res) => {
+  res.json({
+    settings: {
+      vmBaseImageUrl: process.env.NEOAGENT_VM_BASE_IMAGE_URL || '',
+      vmBaseImage: process.env.NEOAGENT_VM_BASE_IMAGE || '',
+      vmMemoryMb: parseEnvInt('NEOAGENT_VM_MEMORY_MB', 4096),
+      vmCpus: parseEnvInt('NEOAGENT_VM_CPUS', 2),
+    },
+  });
+});
+
+router.put('/api/config/vm', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const b = req.body || {};
+    const vmBaseImageUrl = cleanLine(b.vmBaseImageUrl);
+    const vmBaseImage = cleanLine(b.vmBaseImage);
+    const vmMemoryMb = parseInt(b.vmMemoryMb, 10);
+    const vmCpus = parseInt(b.vmCpus, 10);
+
+    if (vmBaseImageUrl) {
+      try { new URL(vmBaseImageUrl); } catch {
+        return res.status(400).json({ error: 'vmBaseImageUrl must be a valid URL.' });
+      }
+    }
+    if (!Number.isFinite(vmMemoryMb) || vmMemoryMb < 512) {
+      return res.status(400).json({ error: 'vmMemoryMb must be ≥ 512.' });
+    }
+    if (!Number.isFinite(vmCpus) || vmCpus < 1) {
+      return res.status(400).json({ error: 'vmCpus must be ≥ 1.' });
+    }
+
+    persistEnv('NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
+    persistEnv('NEOAGENT_VM_BASE_IMAGE', vmBaseImage);
+    persistEnv('NEOAGENT_VM_MEMORY_MB', String(vmMemoryMb));
+    persistEnv('NEOAGENT_VM_CPUS', String(vmCpus));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Screen recorder config ---
+
+router.get('/api/config/screen-recorder', requireAdminAuth, (req, res) => {
+  res.json({
+    settings: {
+      enabled: parseEnvBool('NEOAGENT_SCREEN_RECORDER_ENABLED', false),
+      userId: process.env.NEOAGENT_SCREEN_RECORDER_USER_ID || '',
+      intervalMs: parseEnvInt('NEOAGENT_SCREEN_RECORDER_INTERVAL_MS', 10000),
+      retentionDays: parseEnvInt('NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS', 7),
+    },
+  });
+});
+
+router.put('/api/config/screen-recorder', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const b = req.body || {};
+    if (typeof b.enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean.' });
+    }
+    const userId = cleanLine(b.userId);
+    if (b.enabled && !userId) {
+      return res.status(400).json({ error: 'userId is required when screen recorder is enabled.' });
+    }
+    const intervalMs = parseInt(b.intervalMs, 10);
+    const retentionDays = parseInt(b.retentionDays, 10);
+    if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
+      return res.status(400).json({ error: 'intervalMs must be ≥ 1000.' });
+    }
+    if (!Number.isFinite(retentionDays) || retentionDays < 1) {
+      return res.status(400).json({ error: 'retentionDays must be ≥ 1.' });
+    }
+
+    persistEnv('NEOAGENT_SCREEN_RECORDER_ENABLED', b.enabled ? 'true' : 'false');
+    persistEnv('NEOAGENT_SCREEN_RECORDER_USER_ID', userId);
+    persistEnv('NEOAGENT_SCREEN_RECORDER_INTERVAL_MS', String(intervalMs));
+    persistEnv('NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS', String(retentionDays));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- OAuth integrations config ---
+
+const OAUTH_INTEGRATIONS = [
+  {
+    key: 'google',
+    label: 'Google Workspace',
+    fields: [
+      { name: 'clientId',     env: 'GOOGLE_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'GOOGLE_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'GOOGLE_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'notion',
+    label: 'Notion',
+    fields: [
+      { name: 'clientId',     env: 'NOTION_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'NOTION_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'NOTION_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'microsoft',
+    label: 'Microsoft 365',
+    fields: [
+      { name: 'clientId',     env: 'MICROSOFT_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'MICROSOFT_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'MICROSOFT_OAUTH_REDIRECT_URI',  secret: false },
+      { name: 'tenantId',     env: 'MICROSOFT_OAUTH_TENANT_ID',     secret: false },
+    ],
+  },
+  {
+    key: 'slack',
+    label: 'Slack',
+    fields: [
+      { name: 'clientId',     env: 'SLACK_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'SLACK_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'SLACK_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'figma',
+    label: 'Figma',
+    fields: [
+      { name: 'clientId',     env: 'FIGMA_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'FIGMA_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'FIGMA_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'github',
+    label: 'GitHub',
+    fields: [
+      { name: 'clientId',     env: 'GITHUB_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'GITHUB_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'GITHUB_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'spotify',
+    label: 'Spotify',
+    fields: [
+      { name: 'clientId',     env: 'SPOTIFY_OAUTH_CLIENT_ID',     secret: false },
+      { name: 'clientSecret', env: 'SPOTIFY_OAUTH_CLIENT_SECRET', secret: true  },
+      { name: 'redirectUri',  env: 'SPOTIFY_OAUTH_REDIRECT_URI',  secret: false },
+    ],
+  },
+  {
+    key: 'trello',
+    label: 'Trello',
+    fields: [
+      { name: 'apiKey', env: 'TRELLO_API_KEY', secret: false },
+    ],
+  },
+];
+
+const OAUTH_ENV_KEYS = new Set(
+  OAUTH_INTEGRATIONS.flatMap((i) => i.fields.map((f) => f.env))
+);
+
+router.get('/api/config/integrations', requireAdminAuth, (req, res) => {
+  const integrations = OAUTH_INTEGRATIONS.map(({ key, label, fields }) => {
+    const fieldData = fields.map(({ name, env, secret }) => {
+      const value = process.env[env] || '';
+      if (secret) {
+        return { name, secret: true, configured: Boolean(value) };
+      }
+      return { name, secret: false, value };
+    });
+    const configured = fields.every(({ env }) => Boolean(process.env[env]));
+    return { key, label, configured, fields: fieldData };
+  });
+
+  // Deepgram service settings (not secret, grouped here)
+  const deepgram = {
+    baseUrl: process.env.DEEPGRAM_BASE_URL || '',
+    model: process.env.DEEPGRAM_MODEL || '',
+    language: process.env.DEEPGRAM_LANGUAGE || '',
+  };
+
+  res.json({ integrations, deepgram });
+});
+
+router.put('/api/config/integrations', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const b = req.body || {};
+
+    // OAuth integrations
+    const patches = b.integrations || {};
+    for (const [intKey, fieldValues] of Object.entries(patches)) {
+      const integration = OAUTH_INTEGRATIONS.find((i) => i.key === intKey);
+      if (!integration) continue;
+      for (const [fieldName, value] of Object.entries(fieldValues)) {
+        const fieldDef = integration.fields.find((f) => f.name === fieldName);
+        if (!fieldDef) continue;
+        const cleaned = cleanLine(value);
+        if (fieldDef.secret && cleaned === '') continue; // blank = no-change for secrets
+        persistEnv(fieldDef.env, cleaned);
+      }
+    }
+
+    // Deepgram config
+    if (b.deepgram) {
+      persistEnv('DEEPGRAM_BASE_URL', cleanLine(b.deepgram.baseUrl));
+      persistEnv('DEEPGRAM_MODEL', cleanLine(b.deepgram.model));
+      persistEnv('DEEPGRAM_LANGUAGE', cleanLine(b.deepgram.language));
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Stripe / billing setup config ---
+
+router.get('/api/config/billing-setup', requireAdminAuth, (req, res) => {
+  const secretKey = process.env.STRIPE_SECRET_KEY || '';
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+  res.json({
+    settings: {
+      billingEnabled: parseEnvBool('NEOAGENT_BILLING_ENABLED', false),
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+      stripeSecretKeyConfigured: Boolean(secretKey),
+      stripeSecretKeyHint: secretKey.length > 8
+        ? `${secretKey.slice(0, 7)}${'•'.repeat(4)}${secretKey.slice(-4)}`
+        : secretKey ? '•'.repeat(secretKey.length) : '',
+      stripeWebhookSecretConfigured: Boolean(webhookSecret),
+      trialDays: parseEnvInt('BILLING_TRIAL_DAYS', 14),
+    },
+  });
+});
+
+router.put('/api/config/billing-setup', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
+  try {
+    const b = req.body || {};
+    if (typeof b.billingEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'billingEnabled must be a boolean.' });
+    }
+    const publishableKey = cleanLine(b.stripePublishableKey);
+    const secretKey = cleanLine(b.stripeSecretKey || '');
+    const webhookSecret = cleanLine(b.stripeWebhookSecret || '');
+    const trialDays = parseInt(b.trialDays, 10);
+    if (!Number.isFinite(trialDays) || trialDays < 0) {
+      return res.status(400).json({ error: 'trialDays must be ≥ 0.' });
+    }
+
+    persistEnv('NEOAGENT_BILLING_ENABLED', b.billingEnabled ? 'true' : 'false');
+    persistEnv('STRIPE_PUBLISHABLE_KEY', publishableKey);
+    if (secretKey) persistEnv('STRIPE_SECRET_KEY', secretKey);
+    if (webhookSecret) persistEnv('STRIPE_WEBHOOK_SECRET', webhookSecret);
+    persistEnv('BILLING_TRIAL_DAYS', String(trialDays));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Global default rate limits ---

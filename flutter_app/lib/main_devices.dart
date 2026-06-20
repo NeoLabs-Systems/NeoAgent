@@ -950,7 +950,7 @@ class _DeviceSurfaceHeader extends StatelessWidget {
                               ? 'Live'
                               : 'Offline'))
             : surface == _DeviceSurface.files
-            ? 'Isolated'
+            ? ''
             : (androidOnline
                   ? 'Live'
                   : androidStarting

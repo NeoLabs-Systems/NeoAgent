@@ -75,7 +75,7 @@ function showPage(page, btn) {
   currentPage = page;
 
   const billingLoader = typeof loadBilling !== 'undefined' ? loadBilling : null;
-  const loaders = { overview: loadHealth, logs: loadLogs, issues: loadIssues, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess, billing: billingLoader };
+  const loaders = { overview: loadHealth, logs: loadLogs, issues: loadIssues, updates: loadVersion, config: loadConfig, providers: loadProviders, models: loadModels, analytics: loadAnalytics, users: loadUsers, sql: loadSql, access: loadAccess, billing: billingLoader, integrations: loadIntegrationsConfig };
   loaders[page]?.();
 }
 
@@ -353,6 +353,10 @@ async function loadConfig() {
   const el = document.getElementById('config-content');
   if (!el) return;
   loadEmailConfig();
+  loadGeneralConfig();
+  loadVmConfig();
+  loadScreenRecorderConfig();
+  loadBillingSetupConfig();
   try {
     const data = await api('/admin/api/config').then((r) => r.json());
     const cfg  = data.config || {};
@@ -746,6 +750,440 @@ async function saveEnabledModels(btn) {
   }
   btn.disabled = false;
   btn.textContent = original;
+}
+
+// ── General Config ─────────────────────────────────────────────────────────
+
+async function loadGeneralConfig() {
+  const el = document.getElementById('general-config-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/general').then((r) => r.json());
+    const s = data.settings || {};
+    el.innerHTML = `
+      <form id="general-config-form" onsubmit="saveGeneralConfig(event)">
+        <div class="email-settings-grid">
+          <div class="field field-wide">
+            <label for="gc-public-url">Public URL</label>
+            <input type="text" id="gc-public-url" value="${esc(s.publicUrl)}" autocomplete="off" spellcheck="false" placeholder="https://agent.example.com">
+          </div>
+          <div class="field">
+            <label for="gc-profile">Deployment profile</label>
+            <select id="gc-profile">
+              <option value="prod" ${s.neoagentProfile === 'prod' ? 'selected' : ''}>prod (multi-user / isolated VM)</option>
+              <option value="private" ${s.neoagentProfile === 'private' ? 'selected' : ''}>private (single-user)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gc-allowed-origins">Allowed CORS origins</label>
+            <input type="text" id="gc-allowed-origins" value="${esc(s.allowedOrigins)}" autocomplete="off" spellcheck="false" placeholder="https://a.com,https://b.com">
+          </div>
+          <div class="field">
+            <label for="gc-memory-interval">Memory ingestion interval (ms)</label>
+            <input type="number" min="1000" step="1000" id="gc-memory-interval" value="${esc(s.memoryIngestionIntervalMs)}" autocomplete="off">
+          </div>
+        </div>
+        <div class="email-settings-checks" style="margin-top:4px;">
+          ${emailConfigCheckbox('gc-secure-cookies', 'Secure cookies (required behind HTTPS / TLS proxy)', s.secureCookies)}
+          ${emailConfigCheckbox('gc-meshtastic', 'Meshtastic enabled', s.meshtasticEnabled)}
+        </div>
+        <button class="btn btn-primary" type="submit">Save General Settings</button>
+      </form>`;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load general configuration</div>';
+    }
+  }
+}
+
+async function saveGeneralConfig(event) {
+  event.preventDefault();
+  const btn = event.submitter;
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await api('/admin/api/config/general', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publicUrl: document.getElementById('gc-public-url')?.value?.trim() || '',
+        secureCookies: document.getElementById('gc-secure-cookies')?.checked === true,
+        neoagentProfile: document.getElementById('gc-profile')?.value || '',
+        allowedOrigins: document.getElementById('gc-allowed-origins')?.value?.trim() || '',
+        meshtasticEnabled: document.getElementById('gc-meshtastic')?.checked === true,
+        memoryIngestionIntervalMs: parseInt(document.getElementById('gc-memory-interval')?.value || '600000', 10),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(body.error || 'Failed to save', 'error');
+    } else {
+      showToast('General settings saved', 'success');
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// ── VM Runtime Config ──────────────────────────────────────────────────────
+
+async function loadVmConfig() {
+  const el = document.getElementById('vm-config-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/vm').then((r) => r.json());
+    const s = data.settings || {};
+    el.innerHTML = `
+      <form id="vm-config-form" onsubmit="saveVmConfig(event)">
+        <div class="email-settings-grid">
+          <div class="field field-wide">
+            <label for="vm-base-image-url">Base image URL</label>
+            <input type="text" id="vm-base-image-url" value="${esc(s.vmBaseImageUrl)}" autocomplete="off" spellcheck="false"
+              placeholder="https://cloud-images.ubuntu.com/…">
+          </div>
+          <div class="field field-wide">
+            <label for="vm-base-image">Local base image path override</label>
+            <input type="text" id="vm-base-image" value="${esc(s.vmBaseImage)}" autocomplete="off" spellcheck="false"
+              placeholder="/path/to/base.img (takes precedence over URL)">
+          </div>
+          <div class="field">
+            <label for="vm-memory-mb">Memory (MB)</label>
+            <input type="number" min="512" step="256" id="vm-memory-mb" value="${esc(s.vmMemoryMb)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vm-cpus">vCPUs</label>
+            <input type="number" min="1" step="1" id="vm-cpus" value="${esc(s.vmCpus)}" autocomplete="off">
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="margin-top:8px;">Save VM Settings</button>
+      </form>`;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load VM configuration</div>';
+    }
+  }
+}
+
+async function saveVmConfig(event) {
+  event.preventDefault();
+  const btn = event.submitter;
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await api('/admin/api/config/vm', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vmBaseImageUrl: document.getElementById('vm-base-image-url')?.value?.trim() || '',
+        vmBaseImage: document.getElementById('vm-base-image')?.value?.trim() || '',
+        vmMemoryMb: parseInt(document.getElementById('vm-memory-mb')?.value || '4096', 10),
+        vmCpus: parseInt(document.getElementById('vm-cpus')?.value || '2', 10),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(body.error || 'Failed to save', 'error');
+    } else {
+      showToast('VM settings saved', 'success');
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// ── Screen Recorder Config ─────────────────────────────────────────────────
+
+async function loadScreenRecorderConfig() {
+  const el = document.getElementById('screen-recorder-config-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/screen-recorder').then((r) => r.json());
+    const s = data.settings || {};
+    el.innerHTML = `
+      <form id="screen-recorder-config-form" onsubmit="saveScreenRecorderConfig(event)">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;">
+          Captures the backend host's macOS desktop. Enable only when the host is the configured user's desktop.
+        </div>
+        <div class="email-settings-grid">
+          <div class="field">
+            <label for="sr-user-id">User ID (owner of screen history)</label>
+            <input type="text" id="sr-user-id" value="${esc(s.userId)}" autocomplete="off" spellcheck="false"
+              placeholder="Required when enabled">
+          </div>
+          <div class="field">
+            <label for="sr-interval-ms">Capture interval (ms)</label>
+            <input type="number" min="1000" step="1000" id="sr-interval-ms" value="${esc(s.intervalMs)}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="sr-retention-days">Retention (days)</label>
+            <input type="number" min="1" step="1" id="sr-retention-days" value="${esc(s.retentionDays)}" autocomplete="off">
+          </div>
+        </div>
+        <div class="email-settings-checks" style="margin-top:4px;">
+          ${emailConfigCheckbox('sr-enabled', 'Screen recorder enabled', s.enabled)}
+        </div>
+        <button class="btn btn-primary" type="submit">Save Screen Recorder Settings</button>
+      </form>`;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load screen recorder configuration</div>';
+    }
+  }
+}
+
+async function saveScreenRecorderConfig(event) {
+  event.preventDefault();
+  const btn = event.submitter;
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await api('/admin/api/config/screen-recorder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enabled: document.getElementById('sr-enabled')?.checked === true,
+        userId: document.getElementById('sr-user-id')?.value?.trim() || '',
+        intervalMs: parseInt(document.getElementById('sr-interval-ms')?.value || '10000', 10),
+        retentionDays: parseInt(document.getElementById('sr-retention-days')?.value || '7', 10),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(body.error || 'Failed to save', 'error');
+    } else {
+      showToast('Screen recorder settings saved', 'success');
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// ── Integrations Config ────────────────────────────────────────────────────
+
+const INTEGRATION_FIELD_LABELS = {
+  clientId: 'Client ID',
+  clientSecret: 'Client secret',
+  redirectUri: 'Redirect URI',
+  tenantId: 'Tenant ID',
+  apiKey: 'API key',
+};
+
+async function loadIntegrationsConfig() {
+  const el = document.getElementById('integrations-config-content');
+  const deepEl = document.getElementById('deepgram-config-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/integrations').then((r) => r.json());
+    const integrations = data.integrations || [];
+
+    el.innerHTML = integrations.map((integration) => {
+      const fields = integration.fields.map((f) => {
+        const fieldId = `int-${integration.key}-${f.name}`;
+        const label = INTEGRATION_FIELD_LABELS[f.name] || f.name;
+        if (f.secret) {
+          return `<div class="field">
+            <label for="${fieldId}">${esc(label)}</label>
+            <input type="password" id="${fieldId}" value="" autocomplete="new-password"
+              placeholder="${f.configured ? 'Stored — paste new value to update' : 'Not set'}">
+            ${f.configured ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">A value is stored. Leave blank to keep it.</div>` : ''}
+          </div>`;
+        }
+        return `<div class="field">
+          <label for="${fieldId}">${esc(label)}</label>
+          <input type="text" id="${fieldId}" value="${esc(f.value || '')}" autocomplete="off" spellcheck="false">
+        </div>`;
+      }).join('');
+
+      const badge = integration.configured
+        ? '<span class="badge badge-ok">configured</span>'
+        : '<span class="badge badge-idle">not set</span>';
+
+      return `<div class="integration-section" data-key="${esc(integration.key)}">
+        <div class="integration-header">
+          <span class="integration-name">${esc(integration.label)}</span>
+          ${badge}
+        </div>
+        <div class="email-settings-grid">${fields}</div>
+      </div>`;
+    }).join('');
+
+    if (deepEl) {
+      const dg = data.deepgram || {};
+      deepEl.innerHTML = `
+        <form id="deepgram-config-form" onsubmit="saveDeepgramConfig(event)">
+          <div class="email-settings-grid">
+            <div class="field">
+              <label for="dg-base-url">Base URL</label>
+              <input type="text" id="dg-base-url" value="${esc(dg.baseUrl)}" autocomplete="off" spellcheck="false"
+                placeholder="https://api.deepgram.com">
+            </div>
+            <div class="field">
+              <label for="dg-model">Model</label>
+              <input type="text" id="dg-model" value="${esc(dg.model)}" autocomplete="off" spellcheck="false"
+                placeholder="nova-3">
+            </div>
+            <div class="field">
+              <label for="dg-language">Language</label>
+              <input type="text" id="dg-language" value="${esc(dg.language)}" autocomplete="off" spellcheck="false"
+                placeholder="multi">
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit" style="margin-top:8px;">Save Deepgram Settings</button>
+        </form>`;
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load integrations configuration</div>';
+    }
+  }
+}
+
+async function saveIntegrationsConfig(btn) {
+  if (btn) { btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+    try {
+      const integrationSections = document.querySelectorAll('.integration-section');
+      const integrations = {};
+      for (const section of integrationSections) {
+        const key = section.dataset.key;
+        integrations[key] = {};
+        for (const input of section.querySelectorAll('input')) {
+          const fieldName = input.id.replace(`int-${key}-`, '');
+          integrations[key][fieldName] = input.value;
+        }
+      }
+      const res = await api('/admin/api/config/integrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrations }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(body.error || 'Failed to save', 'error');
+      } else {
+        showToast('Integration settings saved', 'success');
+        setTimeout(loadIntegrationsConfig, 600);
+      }
+    } catch (err) {
+      if (err.message !== 'unauthorized') showToast('Network error', 'error');
+    } finally {
+      if (btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
+    }
+  }
+}
+
+async function saveDeepgramConfig(event) {
+  event.preventDefault();
+  const btn = event.submitter;
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await api('/admin/api/config/integrations', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deepgram: {
+          baseUrl: document.getElementById('dg-base-url')?.value?.trim() || '',
+          model: document.getElementById('dg-model')?.value?.trim() || '',
+          language: document.getElementById('dg-language')?.value?.trim() || '',
+        },
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(body.error || 'Failed to save', 'error');
+    } else {
+      showToast('Deepgram settings saved', 'success');
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// ── Billing Setup Config ───────────────────────────────────────────────────
+
+async function loadBillingSetupConfig() {
+  const el = document.getElementById('billing-setup-content');
+  if (!el) return;
+  try {
+    const data = await api('/admin/api/config/billing-setup').then((r) => r.json());
+    const s = data.settings || {};
+    el.innerHTML = `
+      <form id="billing-setup-form" onsubmit="saveBillingSetupConfig(event)">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;">
+          Enable billing to expose Stripe-backed subscription flows. Requires a server restart when toggling.
+        </div>
+        <div class="email-settings-grid">
+          <div class="field">
+            <label for="bs-publishable-key">Stripe publishable key</label>
+            <input type="text" id="bs-publishable-key" value="${esc(s.stripePublishableKey)}" autocomplete="off" spellcheck="false"
+              placeholder="pk_test_…">
+          </div>
+          <div class="field">
+            <label for="bs-secret-key">Stripe secret key</label>
+            <input type="password" id="bs-secret-key" value="" autocomplete="new-password"
+              placeholder="${s.stripeSecretKeyConfigured ? s.stripeSecretKeyHint + ' — paste new to update' : 'sk_test_…'}">
+            ${s.stripeSecretKeyConfigured ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Key stored. Leave blank to keep it.</div>` : ''}
+          </div>
+          <div class="field">
+            <label for="bs-webhook-secret">Stripe webhook signing secret</label>
+            <input type="password" id="bs-webhook-secret" value="" autocomplete="new-password"
+              placeholder="${s.stripeWebhookSecretConfigured ? 'Stored — paste new to update' : 'whsec_…'}">
+            ${s.stripeWebhookSecretConfigured ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Secret stored. Leave blank to keep it.</div>` : ''}
+          </div>
+          <div class="field">
+            <label for="bs-trial-days">Free trial period (days)</label>
+            <input type="number" min="0" step="1" id="bs-trial-days" value="${esc(s.trialDays)}" autocomplete="off">
+          </div>
+        </div>
+        <div class="email-settings-checks" style="margin-top:4px;">
+          ${emailConfigCheckbox('bs-billing-enabled', 'Billing enabled', s.billingEnabled)}
+        </div>
+        <button class="btn btn-primary" type="submit">Save Billing Configuration</button>
+      </form>`;
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      el.innerHTML = '<div class="empty">Failed to load billing configuration</div>';
+    }
+  }
+}
+
+async function saveBillingSetupConfig(event) {
+  event.preventDefault();
+  const btn = event.submitter;
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await api('/admin/api/config/billing-setup', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billingEnabled: document.getElementById('bs-billing-enabled')?.checked === true,
+        stripePublishableKey: document.getElementById('bs-publishable-key')?.value?.trim() || '',
+        stripeSecretKey: document.getElementById('bs-secret-key')?.value || '',
+        stripeWebhookSecret: document.getElementById('bs-webhook-secret')?.value || '',
+        trialDays: parseInt(document.getElementById('bs-trial-days')?.value || '14', 10),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(body.error || 'Failed to save', 'error');
+    } else {
+      showToast('Billing configuration saved — restart the server to apply changes', 'success');
+      setTimeout(loadBillingSetupConfig, 600);
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
+  }
 }
 
 // ── Auto-refresh ───────────────────────────────────────────────────────────

@@ -24,6 +24,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   bool _ignoreScrollUpdates = false;
   bool _loadingOlderHistory = false;
   int _scrollGeneration = 0;
+  // Opacity-hide the list while the initial batch of messages settles to the
+  // bottom, so the user never sees the layout jitter across settle passes.
+  bool _awaitingInitialScrollSettle = false;
+  int _visibleMessageCountAtLastSettle = 0;
   bool _isSendingChatMessage = false;
   bool _isDictating = false;
   bool _isTranscribing = false;
@@ -56,6 +60,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       _appliedSharedPayloadSignature = null;
       _lastScrollContentSignature = '';
       _stickToBottom = true;
+      _awaitingInitialScrollSettle = false;
+      _visibleMessageCountAtLastSettle = 0;
       _consumeQueuedDraft();
       _scheduleScrollToBottom(force: true);
     }
@@ -446,6 +452,12 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               settle(remainingPasses - 1);
             }
           });
+        } else if (_awaitingInitialScrollSettle) {
+          setState(() {
+            _awaitingInitialScrollSettle = false;
+            _visibleMessageCountAtLastSettle =
+                widget.controller.visibleChatMessages.length;
+          });
         }
       });
     }
@@ -462,6 +474,15 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     final isInitialContent = _lastScrollContentSignature.isEmpty;
     final shouldFollow = _stickToBottom || isInitialContent;
     _lastScrollContentSignature = signature;
+
+    if (messages.isEmpty) {
+      // Agent switch resets the settle tracker so the next batch triggers hiding.
+      _visibleMessageCountAtLastSettle = 0;
+    } else if (_visibleMessageCountAtLastSettle == 0 && !_awaitingInitialScrollSettle) {
+      // Messages just went from 0 → N: hide until the scroll position settles.
+      _awaitingInitialScrollSettle = true;
+    }
+
     if (shouldFollow) {
       _scheduleScrollToBottom(force: isInitialContent);
     }
@@ -561,26 +582,29 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         Expanded(
           child: Stack(
             children: <Widget>[
-              SelectionArea(
-                child: ListView(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    sidePadding,
-                    30,
-                    sidePadding,
-                    18,
-                  ),
-                  children: <Widget>[
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 860),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: threadChildren,
+              Opacity(
+                opacity: _awaitingInitialScrollSettle ? 0.0 : 1.0,
+                child: SelectionArea(
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      sidePadding,
+                      30,
+                      sidePadding,
+                      18,
+                    ),
+                    children: <Widget>[
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 860),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: threadChildren,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (!_stickToBottom)

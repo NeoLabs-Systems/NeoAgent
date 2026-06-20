@@ -839,6 +839,27 @@
       font-size: 12px;
       flex-shrink: 0;
     }
+
+    /* ── Integration sections ──────────────────────────────────────── */
+    .integration-section {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+
+    .integration-section:last-child { border-bottom: none; }
+
+    .integration-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .integration-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -940,6 +961,13 @@
           <path fill-rule="evenodd" d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm8-6a6 6 0 100 12 6 6 0 000-12zm-3 7a1 1 0 011-1h4a1 1 0 011 1v1a1 1 0 01-1 1H8a1 1 0 01-1-1v-1z" clip-rule="evenodd"/>
         </svg>
         Models
+      </button>
+
+      <button class="nav-item" data-page="integrations" onclick="showPage('integrations',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/>
+        </svg>
+        Integrations
       </button>
 
       <button class="nav-item" data-page="config" onclick="showPage('config',this)">
@@ -1181,15 +1209,57 @@
       </div>
     </section>
 
+    <!-- Integrations -->
+    <section id="page-integrations" class="page" aria-label="Integrations">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Integrations</h1>
+          <p class="page-subtitle">OAuth client credentials for official integrations — saved to .env, applied immediately</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card" style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:0;">OAuth Integrations</div>
+            <button class="btn btn-primary" onclick="saveIntegrationsConfig(this)">Save All</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;line-height:1.5;">
+            Redirect URIs should match <code style="font-family:var(--font-mono);font-size:11px;background:var(--bg-secondary);padding:1px 5px;border-radius:4px;color:var(--accent);">&lt;PUBLIC_URL&gt;/api/integrations/oauth/callback</code>
+          </div>
+          <div id="integrations-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Deepgram Configuration</div>
+          <div id="deepgram-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Configuration -->
     <section id="page-config" class="page" aria-label="Configuration">
       <div class="page-header">
         <div>
           <h1 class="page-title">Configuration</h1>
-          <p class="page-subtitle">Current environment settings (non-secret values only)</p>
+          <p class="page-subtitle">Server and runtime settings — saved to .env, applied immediately</p>
         </div>
       </div>
       <div class="content">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">General Settings</div>
+          <div id="general-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">VM Runtime</div>
+          <div id="vm-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">Screen Recorder</div>
+          <div id="screen-recorder-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">Stripe / Billing</div>
+          <div id="billing-setup-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
         <div class="card" style="margin-bottom:20px;">
           <div class="card-title">Service Email</div>
           <div id="email-config-content"><div class="empty"><span class="spinner"></span></div></div>
