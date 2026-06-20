@@ -643,10 +643,15 @@ router.post('/api/sql', requireAdminAuth, sqlLimiter, express.json(), (req, res)
   if (SQL_BLOCKED.test(trimmed))           return res.status(400).json({ error: 'Query contains a blocked SQL keyword' });
   try {
     const db = require('../db/database');
-    const rows = db.prepare(trimmed).all();
-    const limited = rows.slice(0, 500);
+    const limited = [];
+    for (const row of db.prepare(trimmed).iterate()) {
+      limited.push(row);
+      if (limited.length > 500) break;
+    }
+    const truncated = limited.length > 500;
+    if (truncated) limited.pop();
     const columns = limited.length ? Object.keys(limited[0]) : [];
-    res.json({ rows: limited, columns, truncated: rows.length > 500, total: rows.length });
+    res.json({ rows: limited, columns, truncated, total: truncated ? null : limited.length });
   } catch (err) {
     res.status(400).json({ error: String(err.message || err) });
   }
