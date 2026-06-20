@@ -503,17 +503,30 @@ class _SkillsPanelState extends State<SkillsPanel>
   late final TabController _tabController;
   String _selectedCategory = 'all';
 
+  // Installed tab search & filter state
+  String _installedQuery = '';
+  String _installedStatusFilter = 'all'; // 'all' | 'active' | 'draft' | 'disabled'
+  String _installedSourceFilter = 'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
+  late final TextEditingController _installedSearchController;
+
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
     _tabController = TabController(length: 2, vsync: this);
+    _installedSearchController = TextEditingController();
+    _installedSearchController.addListener(() {
+      setState(() {
+        _installedQuery = _installedSearchController.text.trim().toLowerCase();
+      });
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _installedSearchController.dispose();
     super.dispose();
   }
 
@@ -628,13 +641,122 @@ class _SkillsPanelState extends State<SkillsPanel>
       );
     }
 
+    final filteredSkills = controller.skills.where((skill) {
+      final q = _installedQuery;
+      if (q.isNotEmpty &&
+          !skill.name.toLowerCase().contains(q) &&
+          !skill.description.toLowerCase().contains(q)) return false;
+      if (_installedStatusFilter != 'all') {
+        if (_installedStatusFilter == 'active' && (!skill.enabled || skill.draft)) return false;
+        if (_installedStatusFilter == 'draft' && !skill.draft) return false;
+        if (_installedStatusFilter == 'disabled' && skill.enabled) return false;
+      }
+      if (_installedSourceFilter != 'all' && skill.source != _installedSourceFilter) return false;
+      return true;
+    }).toList();
+
+    final statusFilters = <String>['all', 'active', 'draft', 'disabled'];
+    final sourceFilters = <String>['all', 'built-in', 'learned', 'user', 'store'];
+
     return Card(
-      child: ListView.separated(
-        padding: const EdgeInsets.all(14),
-        itemCount: controller.skills.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final skill = controller.skills[index];
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                TextField(
+                  controller: _installedSearchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search by name or description',
+                    prefixIcon: Icon(Icons.search),
+                    suffixIcon: _installedSearchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _installedSearchController.clear();
+                            },
+                            icon: Icon(Icons.close),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: statusFilters.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final filter = statusFilters[index];
+                      final selected = filter == _installedStatusFilter;
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(
+                          filter == 'all'
+                              ? 'All'
+                              : filter[0].toUpperCase() + filter.substring(1),
+                        ),
+                        selectedColor: _accentMuted,
+                        checkmarkColor: _accent,
+                        backgroundColor: _bgSecondary,
+                        side: BorderSide(color: _border),
+                        onSelected: (_) =>
+                            setState(() => _installedStatusFilter = filter),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: sourceFilters.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final filter = sourceFilters[index];
+                      final selected = filter == _installedSourceFilter;
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(filter == 'all' ? 'All' : filter),
+                        selectedColor: _accentMuted,
+                        checkmarkColor: _accent,
+                        backgroundColor: _bgSecondary,
+                        side: BorderSide(color: _border),
+                        onSelected: (_) =>
+                            setState(() => _installedSourceFilter = filter),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${filteredSkills.length} skill${filteredSkills.length == 1 ? '' : 's'}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          if (filteredSkills.isEmpty)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'No skills match your filters',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                itemCount: filteredSkills.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final skill = filteredSkills[index];
           return LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 760;
@@ -780,7 +902,11 @@ class _SkillsPanelState extends State<SkillsPanel>
               );
             },
           );
-        },
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
