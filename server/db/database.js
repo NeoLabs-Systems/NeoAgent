@@ -51,13 +51,6 @@ function initializeDatabase(db, dbPath) {
   return db;
 }
 
-function sleepSync(ms) {
-  if (ms <= 0) return;
-  const buffer = new SharedArrayBuffer(4);
-  const view = new Int32Array(buffer);
-  Atomics.wait(view, 0, 0, ms);
-}
-
 function isSqliteBusyError(error) {
   return Boolean(
     error &&
@@ -69,7 +62,9 @@ function isSqliteBusyError(error) {
   );
 }
 
-function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite operation' } = {}) {
+function runWithBusyRetry(action, { attempts = 3, label = 'SQLite operation' } = {}) {
+  // busy_timeout pragma already handles waiting at the SQLite layer;
+  // this loop is a last-resort failsafe without adding extra main-thread blocking.
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -80,9 +75,8 @@ function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite 
         throw error;
       }
       console.warn(
-        `[Database] ${label} hit a busy lock on attempt ${attempt}/${attempts}; retrying in ${delayMs}ms.`,
+        `[Database] ${label} hit a busy lock on attempt ${attempt}/${attempts}; retrying.`,
       );
-      sleepSync(delayMs);
     }
   }
   throw lastError;
