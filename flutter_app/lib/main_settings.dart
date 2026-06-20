@@ -22,7 +22,7 @@ const Map<String, List<String>> _voiceLiveModelsByProvider =
         'gpt-4o-realtime-preview',
         'gpt-4o-mini-realtime-preview',
       ],
-      'gemini': <String>['gemini-2.0-flash-live-preview'],
+      'gemini': <String>['gemini-3.1-flash-live-preview'],
     };
 
 const Map<String, List<String>> _voiceLiveVoicesByProvider =
