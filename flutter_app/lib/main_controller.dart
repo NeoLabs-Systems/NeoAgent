@@ -47,6 +47,7 @@ class NeoAgentController extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _connectivityPluginAvailable = true;
   static const int _maxVisibleLogs = 400;
+  static const int _maxToolEvents = 500;
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -4667,12 +4668,17 @@ class NeoAgentController extends ChangeNotifier {
     _appendChatMessage(content, role: 'user', platform: platform);
   }
 
+  List<ToolEventItem> _capToolEvents(List<ToolEventItem> events) {
+    if (events.length <= _maxToolEvents) return events;
+    return events.sublist(events.length - _maxToolEvents);
+  }
+
   void _appendToolNote(String summary, {String toolName = 'note'}) {
     final trimmed = summary.trim();
     if (trimmed.isEmpty) {
       return;
     }
-    toolEvents = <ToolEventItem>[
+    toolEvents = _capToolEvents(<ToolEventItem>[
       ...toolEvents,
       ToolEventItem(
         id: 'note-${DateTime.now().microsecondsSinceEpoch}',
@@ -4681,7 +4687,7 @@ class NeoAgentController extends ChangeNotifier {
         status: 'completed',
         summary: trimmed,
       ),
-    ];
+    ]);
   }
 
   Future<void> refreshUpdateStatus() async {
@@ -7213,7 +7219,7 @@ class NeoAgentController extends ChangeNotifier {
         'verification: ${payload['verification_need']?.toString() ?? 'none'}',
         'freshness: ${payload['freshness_risk']?.toString() ?? 'none'}',
       ].join(' | ');
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'analysis-${DateTime.now().microsecondsSinceEpoch}',
@@ -7222,7 +7228,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'completed',
           summary: summary,
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Analyzing');
       }
@@ -7247,7 +7253,7 @@ class NeoAgentController extends ChangeNotifier {
           .where((item) => item.trim().isNotEmpty)
           .take(4)
           .join(' | ');
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'plan-${DateTime.now().microsecondsSinceEpoch}',
@@ -7256,7 +7262,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'completed',
           summary: steps.ifEmpty('Execution plan created.'),
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Planning');
       }
@@ -7296,10 +7302,10 @@ class NeoAgentController extends ChangeNotifier {
         status: 'running',
         summary: _summarizeToolArgs(payload['toolArgs']),
       );
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents.where((event) => event.id != item.id),
         item,
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Running tool');
       }
@@ -7314,7 +7320,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'verification-${DateTime.now().microsecondsSinceEpoch}',
@@ -7329,7 +7335,7 @@ class NeoAgentController extends ChangeNotifier {
               ) ??
               'Verification completed.',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Verifying');
       }
@@ -7369,7 +7375,7 @@ class NeoAgentController extends ChangeNotifier {
               'Subagent update.',
         ),
       );
-      toolEvents = nextEvents;
+      toolEvents = _capToolEvents(nextEvents);
       notifyListeners();
     });
     socket.on('run:tool_end', (dynamic data) {
@@ -7402,7 +7408,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!replaced) {
         next.add(updated);
       }
-      toolEvents = next;
+      toolEvents = _capToolEvents(next);
       final toolName = payload['toolName']?.toString() ?? '';
       final screenshotPath =
           payload['screenshotPath']?.toString() ??
@@ -7451,7 +7457,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'steer-queued-${DateTime.now().microsecondsSinceEpoch}',
@@ -7461,7 +7467,7 @@ class NeoAgentController extends ChangeNotifier {
           summary:
               'Queued as steering for the current run: ${payload['content']?.toString() ?? ''}',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),
@@ -7478,7 +7484,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'steer-applied-${DateTime.now().microsecondsSinceEpoch}',
@@ -7489,7 +7495,7 @@ class NeoAgentController extends ChangeNotifier {
               ? 'Applied the latest steering update to the current run.'
               : 'Applied ${_asInt(payload['count'])} queued steering updates to the current run.',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),
