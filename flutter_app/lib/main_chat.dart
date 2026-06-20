@@ -4027,113 +4027,105 @@ class _RunHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            run.statusColor.withValues(alpha: 0.18),
-            _bgSecondary,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _StatusPill(
-                          label: run.statusLabel,
-                          color: run.statusColor,
-                        ),
-                        _MetaPill(
-                          label: run.triggerLabel,
-                          icon: Icons.bolt_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.modelLabel,
-                          icon: Icons.memory_outlined,
-                        ),
-                        if (run.deliverableType.trim().isNotEmpty)
-                          _MetaPill(
-                            label: run.deliverableType.replaceAll('_', ' '),
-                            icon: Icons.inventory_2_outlined,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      run.title,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _MetaPill(
-                          label: 'Started ${run.createdAtLabel}',
-                          icon: Icons.schedule_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.durationLabel,
-                          icon: Icons.timer_outlined,
-                        ),
-                        _MetaPill(
-                          label: '${run.totalTokensLabel} tokens',
-                          icon: Icons.toll_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.id.length <= 12
-                              ? run.id
-                              : '${run.id.substring(0, 12)}…',
-                          icon: Icons.tag_outlined,
-                        ),
-                      ],
-                    ),
-                  ],
+    final statusColor = run.statusColor;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  run.statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Delete run',
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  onPressed: onDelete,
+                  visualDensity: VisualDensity.compact,
+                  color: _textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              run.title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: <Widget>[
+                _MetaPill(
+                  label: run.triggerLabel,
+                  icon: Icons.bolt_outlined,
+                ),
+                _MetaPill(
+                  label: run.modelLabel,
+                  icon: Icons.memory_outlined,
+                ),
+                _MetaPill(
+                  label: run.createdAtLabel,
+                  icon: Icons.schedule_outlined,
+                ),
+                _MetaPill(
+                  label: run.durationLabel,
+                  icon: Icons.timer_outlined,
+                ),
+                if (run.totalTokensLabel.isNotEmpty)
+                  _MetaPill(
+                    label: '${run.totalTokensLabel} tok',
+                    icon: Icons.toll_outlined,
+                  ),
+                if (run.deliverableType.trim().isNotEmpty)
+                  _MetaPill(
+                    label: run.deliverableType.replaceAll('_', ' '),
+                    icon: Icons.inventory_2_outlined,
+                  ),
+              ],
+            ),
+            if (run.error.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0x19EF4444),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x4CEF4444)),
+                ),
+                child: Text(
+                  run.error,
+                  style: TextStyle(fontSize: 12, height: 1.45),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: onDelete,
-                icon: Icon(Icons.delete_outline),
-                label: Text('Delete'),
-              ),
             ],
-          ),
-          if (run.error.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0x19EF4444),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x4CEF4444)),
-              ),
-              child: Text(run.error, style: TextStyle(height: 1.45)),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
