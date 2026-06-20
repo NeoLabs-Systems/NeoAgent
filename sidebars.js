@@ -39,6 +39,7 @@ const sidebars = {
         'clients-and-devices',
         'persistence',
         'development',
+        'benchmarking',
       ],
     },
   ],

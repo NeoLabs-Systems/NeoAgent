@@ -507,6 +507,7 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
   const pool = enabledIds.length > 0
     ? availableModels.filter((model) => enabledIds.includes(model.id))
     : availableModels;
+  const fallbackSearchPool = pool.length > 0 ? pool : availableModels;
   const currentModel = pool.find((model) => model.id === currentModelId)
     || availableModels.find((model) => model.id === currentModelId)
     || null;
@@ -517,27 +518,26 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
   const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
 
   if (preferredFallbackId && preferredFallbackId !== currentModelId && !isProviderRateLimit) {
-    const preferred = pool.find((model) => model.id === preferredFallbackId)
+    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
   }
 
   if (currentModel?.provider) {
-    const differentProvider = pool.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider)
-      || availableModels.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider);
+    const differentProvider = fallbackSearchPool.find((model) =>
+      model.id !== currentModelId && model.provider !== currentModel.provider);
     if (differentProvider) return differentProvider.id;
   }
 
   // If no different-provider model exists, still try the preferred fallback
   // even on rate limits (it's better than nothing).
   if (preferredFallbackId && preferredFallbackId !== currentModelId) {
-    const preferred = pool.find((model) => model.id === preferredFallbackId)
+    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
   }
 
-  const differentModel = pool.find((model) => model.id !== currentModelId)
-    || availableModels.find((model) => model.id !== currentModelId);
+  const differentModel = fallbackSearchPool.find((model) => model.id !== currentModelId);
   return differentModel?.id || null;
 }
 
@@ -553,15 +553,25 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
   ensureDefaultAiSettings(userId, agentId);
   const aiSettings = getAiSettings(userId, agentId);
-
-  const { releaseReservation } = enforceRateLimits(userId);
-
-  try {
-
   const runId = options.runId || uuidv4();
   const conversationId = options.conversationId;
   const app = options.app || engine.app;
   const triggerSource = options.triggerSource || 'web';
+  let provider = null;
+  let model = null;
+  let providerName = null;
+  let messages = [];
+  let iteration = 0;
+  let totalTokens = 0;
+  let lastContent = '';
+  let stepIndex = 0;
+  let failedStepCount = 0;
+  let toolExecutions = [];
+  let deliverableWorkflow = null;
+
+  const { releaseReservation } = enforceRateLimits(userId);
+
+  try {
   const historyWindow = Math.max(
     1,
     Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
@@ -589,9 +599,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     _modelOverride,
     providerStatusConfig
   );
-  let provider = selectedProvider.provider;
-  let model = selectedProvider.model;
-  let providerName = selectedProvider.providerName;
+  provider = selectedProvider.provider;
+  model = selectedProvider.model;
+  providerName = selectedProvider.providerName;
   const switchToFallbackModel = async (failedModel, error, phase) => {
     const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id, error);
     if (!fallbackModelId || fallbackModelId === failedModel) return false;
@@ -805,7 +815,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     historyMessages = (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
   }
 
-  let messages = engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
+  messages = engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
   if (capabilitySummary) {
     messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
   }
@@ -835,14 +845,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       .run(conversationId, 'user', userMessage);
   }
 
-  let iteration = 0;
-  let totalTokens = 0;
-  let lastContent = '';
-  let stepIndex = 0;
-  let failedStepCount = 0;
+  iteration = 0;
+  totalTokens = 0;
+  lastContent = '';
+  stepIndex = 0;
+  failedStepCount = 0;
   let modelFailureRecoveries = 0;
   let promptMetrics = {};
-  let toolExecutions = [];
+  toolExecutions = [];
   let compactionMetrics = [];
   let analysis = null;
   let plan = null;
@@ -903,7 +913,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
   }
   let verification = null;
-  let deliverableWorkflow = null;
+  deliverableWorkflow = null;
   let deliverablePlan = null;
   let deliverableArtifacts = [];
   let deliverableValidation = null;
@@ -2673,4 +2683,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   }
 }
 
-module.exports = { runConversation };
+module.exports = {
+  getFailureFallbackModelId,
+  runConversation,
+};

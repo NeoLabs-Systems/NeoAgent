@@ -57,6 +57,107 @@ function compareChatHistoryDesc(left, right) {
   return String(right.id || '').localeCompare(String(left.id || ''));
 }
 
+function buildRunUsageSummary(runId) {
+  const rows = db.prepare(`
+    SELECT
+      provider,
+      model,
+      phase,
+      input_tokens,
+      output_tokens,
+      reasoning_tokens,
+      cached_read_tokens,
+      cache_write_tokens,
+      total_tokens,
+      estimated_cost_usd,
+      latency_ms
+    FROM agent_model_usage
+    WHERE run_id = ?
+    ORDER BY id ASC
+  `).all(runId);
+  const totals = {
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cachedReadTokens: 0,
+    cacheWriteTokens: 0,
+    totalTokens: 0,
+    estimatedCostUsd: 0,
+    pricedCallCount: 0,
+    latencyMs: 0,
+  };
+  const models = new Map();
+
+  for (const row of rows) {
+    const inputTokens = Number(row.input_tokens || 0);
+    const outputTokens = Number(row.output_tokens || 0);
+    const reasoningTokens = Number(row.reasoning_tokens || 0);
+    const cachedReadTokens = Number(row.cached_read_tokens || 0);
+    const cacheWriteTokens = Number(row.cache_write_tokens || 0);
+    const totalTokens = Number(row.total_tokens || 0);
+    const latencyMs = Number(row.latency_ms || 0);
+    const estimatedCostUsd = Number(row.estimated_cost_usd);
+    const key = `${row.provider}:${row.model}`;
+
+    totals.inputTokens += inputTokens;
+    totals.outputTokens += outputTokens;
+    totals.reasoningTokens += reasoningTokens;
+    totals.cachedReadTokens += cachedReadTokens;
+    totals.cacheWriteTokens += cacheWriteTokens;
+    totals.totalTokens += totalTokens;
+    totals.latencyMs += latencyMs;
+    if (Number.isFinite(estimatedCostUsd)) {
+      totals.estimatedCostUsd += estimatedCostUsd;
+      totals.pricedCallCount += 1;
+    }
+
+    if (!models.has(key)) {
+      models.set(key, {
+        provider: row.provider,
+        model: row.model,
+        callCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cachedReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0,
+        pricedCallCount: 0,
+        latencyMs: 0,
+        phases: new Set(),
+      });
+    }
+
+    const aggregate = models.get(key);
+    aggregate.callCount += 1;
+    aggregate.inputTokens += inputTokens;
+    aggregate.outputTokens += outputTokens;
+    aggregate.reasoningTokens += reasoningTokens;
+    aggregate.cachedReadTokens += cachedReadTokens;
+    aggregate.cacheWriteTokens += cacheWriteTokens;
+    aggregate.totalTokens += totalTokens;
+    aggregate.latencyMs += latencyMs;
+    aggregate.phases.add(String(row.phase || '').trim() || 'model_turn');
+    if (Number.isFinite(estimatedCostUsd)) {
+      aggregate.estimatedCostUsd += estimatedCostUsd;
+      aggregate.pricedCallCount += 1;
+    }
+  }
+
+  return {
+    totals: {
+      ...totals,
+      estimatedCostUsd: totals.pricedCallCount > 0 ? totals.estimatedCostUsd : null,
+    },
+    models: [...models.values()].map((entry) => ({
+      ...entry,
+      estimatedCostUsd: entry.pricedCallCount > 0 ? entry.estimatedCostUsd : null,
+      phases: [...entry.phases],
+    })),
+  };
+}
+
 // List agent runs
 router.get('/', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
@@ -208,6 +309,7 @@ router.post('/', async (req, res) => {
 
     res.json(result);
   } catch (err) {
+    console.error('[Agents] Run failed:', err?.stack || err);
     res.status(err?.statusCode || err?.status || 500).json({
       error: sanitizeError(err),
       code: err?.code,
@@ -223,8 +325,9 @@ router.get('/:id', (req, res) => {
 
   const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(run.id);
   const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(run.id);
+  const usage = buildRunUsageSummary(run.id);
 
-  res.json({ run, steps, history });
+  res.json({ run, steps, history, usage });
 });
 
 // Get detailed steps for a run (for activity history replay)
@@ -258,8 +361,9 @@ router.get('/:id/steps', (req, res) => {
     || latestHistoryAssistant?.content
     || run.final_response
     || null;
+  const usage = buildRunUsageSummary(run.id);
 
-  res.json({ run, steps, events: listRunEvents(run.id), response });
+  res.json({ run, steps, events: listRunEvents(run.id), response, usage });
 });
 
 // Abort a run

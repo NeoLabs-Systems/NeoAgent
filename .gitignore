@@ -164,3 +164,5 @@ server/public/assets/fonts/MaterialIcons-Regular.otf
 /server/services/social_video/__tests__
 /server/services/social_video/__fixtures__
 /product_video
+/benchmark/results
+/benchmark/workdir
