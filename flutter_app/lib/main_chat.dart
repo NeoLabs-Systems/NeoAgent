@@ -429,6 +429,45 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (!force && !_stickToBottom) return;
     final generation = ++_scrollGeneration;
 
+    if (_awaitingInitialScrollSettle) {
+      // Frame-by-frame stability detection: keep jumping and checking until
+      // maxScrollExtent is the same two frames in a row, then reveal.
+      // Falls back to revealing after 120 frames (~2 s) to avoid infinite wait.
+      double? prevExtent;
+      void settleInitial(int framesLeft) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || generation != _scrollGeneration || !_scrollController.hasClients) {
+            return;
+          }
+          final pos = _scrollController.position;
+          double? currentExtent;
+          if (pos.hasContentDimensions) {
+            currentExtent = pos.maxScrollExtent;
+            _ignoreScrollUpdates = true;
+            _scrollController.jumpTo(currentExtent);
+            _ignoreScrollUpdates = false;
+          }
+          _stickToBottom = true;
+          final stable = currentExtent != null && currentExtent == prevExtent;
+          prevExtent = currentExtent;
+          if (stable || framesLeft <= 0) {
+            if (_awaitingInitialScrollSettle) {
+              setState(() {
+                _awaitingInitialScrollSettle = false;
+                _visibleMessageCountAtLastSettle =
+                    widget.controller.visibleChatMessages.length;
+              });
+            }
+            return;
+          }
+          settleInitial(framesLeft - 1);
+        });
+      }
+      settleInitial(120);
+      return;
+    }
+
+    // Regular settle (content already visible): fixed passes with short delay.
     void settle(int remainingPasses) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
@@ -451,12 +490,6 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
             if (mounted && generation == _scrollGeneration) {
               settle(remainingPasses - 1);
             }
-          });
-        } else if (_awaitingInitialScrollSettle) {
-          setState(() {
-            _awaitingInitialScrollSettle = false;
-            _visibleMessageCountAtLastSettle =
-                widget.controller.visibleChatMessages.length;
           });
         }
       });
