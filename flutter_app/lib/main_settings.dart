@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+enum _LeaveAction { save, discard, cancel }
+
 class SettingsPanel extends StatefulWidget {
   const SettingsPanel({
     super.key,
@@ -20,7 +22,7 @@ const Map<String, List<String>> _voiceLiveModelsByProvider =
         'gpt-4o-realtime-preview',
         'gpt-4o-mini-realtime-preview',
       ],
-      'gemini': <String>['gemini-3.1-flash-live-preview'],
+      'gemini': <String>['gemini-2.0-flash-live-preview'],
     };
 
 const Map<String, List<String>> _voiceLiveVoicesByProvider =
@@ -190,6 +192,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
 
+  bool _hasUnsavedChanges = false;
+
   // Inline runtime test state — ephemeral, not stored in controller.
   bool _cliTestRunning = false;
   Map<String, dynamic>? _cliTestResult;
@@ -323,7 +327,56 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .where((section) => !section.requiresDesktop || _supportsDesktopShell)
         .toSet();
 
-    return ListView(
+    return PopScope(
+      canPop: !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final action = await _showLeaveDialog(context);
+        if (action == _LeaveAction.save && mounted) {
+          await controller.saveSettings(
+            browserBackend: _browserBackend == 'extension' ? 'extension' : 'vm',
+            browserExtensionTokenId: _browserBackend == 'extension'
+                ? _browserExtensionTokenId
+                : null,
+            cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
+            cliDesktopDeviceId: _cliDesktopDeviceId,
+            smarterSelector: _smarterSelector,
+            enabledModels: _enabledModels.toList(),
+            defaultChatModel: _defaultChatModel,
+            defaultSubagentModel: _defaultSubagentModel,
+            defaultRecordingTranscriptionProvider: 'deepgram',
+            defaultRecordingTranscriptionModel:
+                _defaultRecordingTranscriptionModel,
+            defaultRecordingSummaryProvider: _providerForSelectedModel(
+              _defaultRecordingSummaryModel,
+              controller.supportedModels,
+            ),
+            defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
+            fallbackModel: _fallbackModel,
+            defaultSpeechModel: _defaultSpeechModel,
+            voiceSttProvider: controller.voiceSttProvider,
+            voiceSttModel: controller.voiceSttModel,
+            voiceTtsProvider: controller.voiceTtsProvider,
+            voiceTtsModel: controller.voiceTtsModel,
+            voiceTtsVoice: controller.voiceTtsVoice,
+            voiceRuntimeMode: 'live',
+            voiceLiveProvider: _voiceLiveProvider,
+            voiceLiveModel: _voiceLiveModel,
+            voiceLiveVoice: _voiceLiveVoice,
+            aiProviderConfigs: _buildProviderPayload(),
+          );
+          if (mounted) {
+            setState(() => _hasUnsavedChanges = false);
+            Navigator.of(context).pop();
+          }
+        } else if (action == _LeaveAction.discard && mounted) {
+          _hydrate();
+          setState(() => _hasUnsavedChanges = false);
+          Navigator.of(context).pop();
+        }
+        // cancel: do nothing
+      },
+      child: ListView(
       padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
       children: <Widget>[
         if (!widget.embedded)
@@ -430,6 +483,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ),
         ],
       ],
+    ),
     );
   }
 
@@ -457,43 +511,46 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   Widget _settingsSaveButton(NeoAgentController controller) {
-    return FilledButton.icon(
+    final button = FilledButton.icon(
       onPressed: controller.isSavingSettings
           ? null
-          : () => controller.saveSettings(
-              browserBackend: _browserBackend == 'extension'
-                  ? 'extension'
-                  : 'vm',
-              browserExtensionTokenId: _browserBackend == 'extension'
-                  ? _browserExtensionTokenId
-                  : null,
-              cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
-              cliDesktopDeviceId: _cliDesktopDeviceId,
-              smarterSelector: _smarterSelector,
-              enabledModels: _enabledModels.toList(),
-              defaultChatModel: _defaultChatModel,
-              defaultSubagentModel: _defaultSubagentModel,
-              defaultRecordingTranscriptionProvider: 'deepgram',
-              defaultRecordingTranscriptionModel:
-                  _defaultRecordingTranscriptionModel,
-              defaultRecordingSummaryProvider: _providerForSelectedModel(
-                _defaultRecordingSummaryModel,
-                controller.supportedModels,
-              ),
-              defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
-              fallbackModel: _fallbackModel,
-              defaultSpeechModel: _defaultSpeechModel,
-              voiceSttProvider: controller.voiceSttProvider,
-              voiceSttModel: controller.voiceSttModel,
-              voiceTtsProvider: controller.voiceTtsProvider,
-              voiceTtsModel: controller.voiceTtsModel,
-              voiceTtsVoice: controller.voiceTtsVoice,
-              voiceRuntimeMode: 'live',
-              voiceLiveProvider: _voiceLiveProvider,
-              voiceLiveModel: _voiceLiveModel,
-              voiceLiveVoice: _voiceLiveVoice,
-              aiProviderConfigs: _buildProviderPayload(),
-            ),
+          : () async {
+              await controller.saveSettings(
+                browserBackend: _browserBackend == 'extension'
+                    ? 'extension'
+                    : 'vm',
+                browserExtensionTokenId: _browserBackend == 'extension'
+                    ? _browserExtensionTokenId
+                    : null,
+                cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
+                cliDesktopDeviceId: _cliDesktopDeviceId,
+                smarterSelector: _smarterSelector,
+                enabledModels: _enabledModels.toList(),
+                defaultChatModel: _defaultChatModel,
+                defaultSubagentModel: _defaultSubagentModel,
+                defaultRecordingTranscriptionProvider: 'deepgram',
+                defaultRecordingTranscriptionModel:
+                    _defaultRecordingTranscriptionModel,
+                defaultRecordingSummaryProvider: _providerForSelectedModel(
+                  _defaultRecordingSummaryModel,
+                  controller.supportedModels,
+                ),
+                defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
+                fallbackModel: _fallbackModel,
+                defaultSpeechModel: _defaultSpeechModel,
+                voiceSttProvider: controller.voiceSttProvider,
+                voiceSttModel: controller.voiceSttModel,
+                voiceTtsProvider: controller.voiceTtsProvider,
+                voiceTtsModel: controller.voiceTtsModel,
+                voiceTtsVoice: controller.voiceTtsVoice,
+                voiceRuntimeMode: 'live',
+                voiceLiveProvider: _voiceLiveProvider,
+                voiceLiveModel: _voiceLiveModel,
+                voiceLiveVoice: _voiceLiveVoice,
+                aiProviderConfigs: _buildProviderPayload(),
+              );
+              if (mounted) setState(() => _hasUnsavedChanges = false);
+            },
       style: FilledButton.styleFrom(backgroundColor: _accent),
       icon: controller.isSavingSettings
           ? const SizedBox.square(
@@ -505,6 +562,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
             )
           : Icon(Icons.save_outlined),
       label: Text('Save'),
+    );
+    if (!_hasUnsavedChanges) return button;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          'Unsaved changes',
+          style: TextStyle(color: Colors.orange, fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        button,
+      ],
     );
   }
 
@@ -623,6 +693,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     _browserBackend = value;
                     _browserExtensionTokenId ??=
                         controller.selectedBrowserExtensionTokenId;
+                    _hasUnsavedChanges = true;
                   });
                 }
               },
@@ -669,7 +740,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   }).toList(),
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() => _browserExtensionTokenId = value);
+                      setState(() {
+                        _browserExtensionTokenId = value;
+                        _hasUnsavedChanges = true;
+                      });
                     }
                   },
                 ),
@@ -746,7 +820,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => _cliBackend = value);
+                  setState(() {
+                    _cliBackend = value;
+                    _hasUnsavedChanges = true;
+                  });
                 }
               },
             ),
@@ -785,7 +862,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 }).toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() => _cliDesktopDeviceId = value);
+                    setState(() {
+                      _cliDesktopDeviceId = value;
+                      _hasUnsavedChanges = true;
+                    });
                   }
                 },
               ),
@@ -832,7 +912,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
               subtitle:
                   'Automatically choose the best enabled model for each task type.',
               value: _smarterSelector,
-              onChanged: (value) => setState(() => _smarterSelector = value),
+              onChanged: (value) => setState(() {
+                _smarterSelector = value;
+                _hasUnsavedChanges = true;
+              }),
             ),
           ],
         ),
@@ -893,7 +976,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
-                              setState(() => _defaultChatModel = value);
+                              setState(() {
+                                _defaultChatModel = value;
+                                _hasUnsavedChanges = true;
+                              });
                             }
                           },
                         ),
@@ -911,7 +997,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           options: modelChoices,
                           onChanged: (value) {
                             if (value != null) {
-                              setState(() => _defaultSubagentModel = value);
+                              setState(() {
+                                _defaultSubagentModel = value;
+                                _hasUnsavedChanges = true;
+                              });
                             }
                           },
                         ),
@@ -929,7 +1018,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           options: _modelPickerOptions(routingModels),
                           onChanged: (value) {
                             if (value != null) {
-                              setState(() => _fallbackModel = value);
+                              setState(() {
+                                _fallbackModel = value;
+                                _hasUnsavedChanges = true;
+                              });
                             }
                           },
                         ),
@@ -977,7 +1069,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     selectedIds: _enabledModels,
                   ),
                 );
-                if (result != null) setState(() => _enabledModels = result);
+                if (result != null) setState(() {
+                  _enabledModels = result;
+                  _hasUnsavedChanges = true;
+                });
               },
             ),
           ],
@@ -1037,9 +1132,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
-                            setState(
-                              () => _defaultRecordingSummaryModel = value,
-                            );
+                            setState(() {
+                              _defaultRecordingSummaryModel = value;
+                              _hasUnsavedChanges = true;
+                            });
                           }
                         },
                       ),
@@ -1057,6 +1153,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           if (value != null) {
                             setState(() {
                               _defaultRecordingTranscriptionModel = value;
+                              _hasUnsavedChanges = true;
                             });
                           }
                         },
@@ -1098,7 +1195,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         options: modelChoices,
                         onChanged: (value) {
                           if (value != null) {
-                            setState(() => _defaultSpeechModel = value);
+                            setState(() {
+                              _defaultSpeechModel = value;
+                              _hasUnsavedChanges = true;
+                            });
                           }
                         },
                       ),
@@ -1158,6 +1258,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                 !voiceOptions.contains(_voiceLiveVoice)) {
                               _voiceLiveVoice = voiceOptions.first;
                             }
+                            _hasUnsavedChanges = true;
                           });
                         },
                       ),
@@ -1174,7 +1275,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ),
                         onChanged: (value) {
                           if (value != null) {
-                            setState(() => _voiceLiveModel = value);
+                            setState(() {
+                              _voiceLiveModel = value;
+                              _hasUnsavedChanges = true;
+                            });
                           }
                         },
                       ),
@@ -1189,7 +1293,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           options: _simplePickerOptions(liveVoiceOptions),
                           onChanged: (value) {
                             if (value != null) {
-                              setState(() => _voiceLiveVoice = value);
+                              setState(() {
+                                _voiceLiveVoice = value;
+                                _hasUnsavedChanges = true;
+                              });
                             }
                           },
                         ),
@@ -1659,6 +1766,32 @@ class _SettingsPanelState extends State<SettingsPanel> {
     for (final id in staleIds) {
       controllers.remove(id)?.dispose();
     }
+  }
+
+  Future<_LeaveAction?> _showLeaveDialog(BuildContext context) {
+    return showDialog<_LeaveAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsaved changes'),
+        content: const Text(
+          'You have unsaved settings. What would you like to do?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _LeaveAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _LeaveAction.discard),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _LeaveAction.save),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   List<_ModelPickerOption> _recordingTranscriptionOptions(String current) {
