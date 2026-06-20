@@ -36,13 +36,14 @@ function showConfirmModal({ title, body, confirmLabel = 'Confirm', confirmClass 
     modal.setAttribute('aria-labelledby', 'admin-modal-title');
     modal.style.cssText = 'width:440px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
     modal.innerHTML = `
-      <div id="admin-modal-title" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">${title}</div>
+      <div id="admin-modal-title" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;"></div>
       <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">${body}</div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" id="admin-modal-cancel" style="padding:8px 16px;">Cancel</button>
         <button class="btn ${confirmClass}" id="admin-modal-confirm" style="padding:8px 16px;">${confirmLabel}</button>
       </div>
     `;
+    modal.querySelector('#admin-modal-title').textContent = title;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     const cancel = () => { overlay.remove(); resolve(false); };

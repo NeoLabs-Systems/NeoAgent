@@ -333,42 +333,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
         if (didPop) return;
         final action = await _showLeaveDialog(context);
         if (action == _LeaveAction.save && mounted) {
-          await controller.saveSettings(
-            browserBackend: _browserBackend == 'extension' ? 'extension' : 'vm',
-            browserExtensionTokenId: _browserBackend == 'extension'
-                ? _browserExtensionTokenId
-                : null,
-            cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
-            cliDesktopDeviceId: _cliDesktopDeviceId,
-            smarterSelector: _smarterSelector,
-            enabledModels: _enabledModels.toList(),
-            defaultChatModel: _defaultChatModel,
-            defaultSubagentModel: _defaultSubagentModel,
-            defaultRecordingTranscriptionProvider: 'deepgram',
-            defaultRecordingTranscriptionModel:
-                _defaultRecordingTranscriptionModel,
-            defaultRecordingSummaryProvider: _providerForSelectedModel(
-              _defaultRecordingSummaryModel,
-              controller.supportedModels,
-            ),
-            defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
-            fallbackModel: _fallbackModel,
-            defaultSpeechModel: _defaultSpeechModel,
-            voiceSttProvider: controller.voiceSttProvider,
-            voiceSttModel: controller.voiceSttModel,
-            voiceTtsProvider: controller.voiceTtsProvider,
-            voiceTtsModel: controller.voiceTtsModel,
-            voiceTtsVoice: controller.voiceTtsVoice,
-            voiceRuntimeMode: 'live',
-            voiceLiveProvider: _voiceLiveProvider,
-            voiceLiveModel: _voiceLiveModel,
-            voiceLiveVoice: _voiceLiveVoice,
-            aiProviderConfigs: _buildProviderPayload(),
-          );
-          if (mounted) {
-            setState(() => _hasUnsavedChanges = false);
-            Navigator.of(context).pop();
-          }
+          await _doSave();
+          if (mounted) Navigator.of(context).pop();
         } else if (action == _LeaveAction.discard && mounted) {
           _hydrate();
           setState(() => _hasUnsavedChanges = false);
@@ -510,47 +476,44 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  Future<void> _doSave() async {
+    final controller = widget.controller;
+    await controller.saveSettings(
+      browserBackend: _browserBackend == 'extension' ? 'extension' : 'vm',
+      browserExtensionTokenId:
+          _browserBackend == 'extension' ? _browserExtensionTokenId : null,
+      cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
+      cliDesktopDeviceId: _cliDesktopDeviceId,
+      smarterSelector: _smarterSelector,
+      enabledModels: _enabledModels.toList(),
+      defaultChatModel: _defaultChatModel,
+      defaultSubagentModel: _defaultSubagentModel,
+      defaultRecordingTranscriptionProvider: 'deepgram',
+      defaultRecordingTranscriptionModel: _defaultRecordingTranscriptionModel,
+      defaultRecordingSummaryProvider: _providerForSelectedModel(
+        _defaultRecordingSummaryModel,
+        controller.supportedModels,
+      ),
+      defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
+      fallbackModel: _fallbackModel,
+      defaultSpeechModel: _defaultSpeechModel,
+      voiceSttProvider: controller.voiceSttProvider,
+      voiceSttModel: controller.voiceSttModel,
+      voiceTtsProvider: controller.voiceTtsProvider,
+      voiceTtsModel: controller.voiceTtsModel,
+      voiceTtsVoice: controller.voiceTtsVoice,
+      voiceRuntimeMode: 'live',
+      voiceLiveProvider: _voiceLiveProvider,
+      voiceLiveModel: _voiceLiveModel,
+      voiceLiveVoice: _voiceLiveVoice,
+      aiProviderConfigs: _buildProviderPayload(),
+    );
+    if (mounted) setState(() => _hasUnsavedChanges = false);
+  }
+
   Widget _settingsSaveButton(NeoAgentController controller) {
     final button = FilledButton.icon(
-      onPressed: controller.isSavingSettings
-          ? null
-          : () async {
-              await controller.saveSettings(
-                browserBackend: _browserBackend == 'extension'
-                    ? 'extension'
-                    : 'vm',
-                browserExtensionTokenId: _browserBackend == 'extension'
-                    ? _browserExtensionTokenId
-                    : null,
-                cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
-                cliDesktopDeviceId: _cliDesktopDeviceId,
-                smarterSelector: _smarterSelector,
-                enabledModels: _enabledModels.toList(),
-                defaultChatModel: _defaultChatModel,
-                defaultSubagentModel: _defaultSubagentModel,
-                defaultRecordingTranscriptionProvider: 'deepgram',
-                defaultRecordingTranscriptionModel:
-                    _defaultRecordingTranscriptionModel,
-                defaultRecordingSummaryProvider: _providerForSelectedModel(
-                  _defaultRecordingSummaryModel,
-                  controller.supportedModels,
-                ),
-                defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
-                fallbackModel: _fallbackModel,
-                defaultSpeechModel: _defaultSpeechModel,
-                voiceSttProvider: controller.voiceSttProvider,
-                voiceSttModel: controller.voiceSttModel,
-                voiceTtsProvider: controller.voiceTtsProvider,
-                voiceTtsModel: controller.voiceTtsModel,
-                voiceTtsVoice: controller.voiceTtsVoice,
-                voiceRuntimeMode: 'live',
-                voiceLiveProvider: _voiceLiveProvider,
-                voiceLiveModel: _voiceLiveModel,
-                voiceLiveVoice: _voiceLiveVoice,
-                aiProviderConfigs: _buildProviderPayload(),
-              );
-              if (mounted) setState(() => _hasUnsavedChanges = false);
-            },
+      onPressed: controller.isSavingSettings ? null : _doSave,
       style: FilledButton.styleFrom(backgroundColor: _accent),
       icon: controller.isSavingSettings
           ? const SizedBox.square(

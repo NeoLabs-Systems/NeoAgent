@@ -70,6 +70,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         setState(() => _showConnectionBanner = false);
       }
     } else if (!_showConnectionBanner && !widget.controller.isBooting) {
+      // ??= keeps the first timer alive; repeated disconnect events don't reset the 2s clock.
       _connectionBannerTimer ??= Timer(const Duration(seconds: 2), () {
         if (mounted && !widget.controller.socketConnected) {
           setState(() => _showConnectionBanner = true);
@@ -2240,6 +2241,10 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
   void didUpdateWidget(covariant _PendingApprovalBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.approval.approvalId != widget.approval.approvalId) {
+      _timer.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _secondsRemaining = _remaining());
+      });
       setState(() => _secondsRemaining = _remaining());
     }
   }
@@ -5231,21 +5236,31 @@ class _RunSelectorRail extends StatelessWidget {
                 ),
               )
             else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: math.min(filteredRuns.length, 40),
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  final run = filteredRuns[index];
-                  final isSelected = run.id == selectedRunId;
-                  return _RunSelectorRow(
-                    run: run,
-                    selected: isSelected,
-                    onTap: () => onSelect(run.id),
-                  );
-                },
-              ),
+              ...<Widget>[
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: math.min(filteredRuns.length, 40),
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final run = filteredRuns[index];
+                    final isSelected = run.id == selectedRunId;
+                    return _RunSelectorRow(
+                      run: run,
+                      selected: isSelected,
+                      onTap: () => onSelect(run.id),
+                    );
+                  },
+                ),
+                if (filteredRuns.length > 40)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Showing 40 of ${filteredRuns.length} — use search to narrow results',
+                      style: TextStyle(color: _textSecondary, fontSize: 11),
+                    ),
+                  ),
+              ],
           ],
         ),
       ),

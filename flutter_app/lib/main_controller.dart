@@ -47,7 +47,7 @@ class NeoAgentController extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _connectivityPluginAvailable = true;
   static const int _maxVisibleLogs = 400;
-  static const int _maxToolEvents = 500;
+  static const int _maxToolEvents = 500; // separate list from _maxVisibleLogs (chat diagnostics)
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
