@@ -907,8 +907,7 @@ class _SkillsPanelState extends State<SkillsPanel>
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildStoreTab(

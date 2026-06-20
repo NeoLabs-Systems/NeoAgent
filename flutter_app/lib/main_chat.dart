@@ -2190,17 +2190,17 @@ class _ConnectionReconnectingBanner extends StatelessWidget {
       child: Row(
         children: <Widget>[
           if (hasNetwork)
-            const SizedBox.square(
+            SizedBox.square(
               dimension: 14,
               child: CircularProgressIndicator(strokeWidth: 2, color: _warning),
             )
           else
-            const Icon(Icons.wifi_off_outlined, size: 16, color: _warning),
+            Icon(Icons.wifi_off_outlined, size: 16, color: _warning),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               msg,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _warning,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -2283,7 +2283,7 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
                 color: _accent.withValues(alpha: 0.16),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.security_outlined,
                 size: 13,
                 color: _accent,
@@ -2294,7 +2294,7 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(color: _textPrimary, fontSize: 13),
+                style: TextStyle(color: _textPrimary, fontSize: 13),
                 children: <TextSpan>[
                   const TextSpan(
                     text: 'Waiting for approval: ',
@@ -2302,11 +2302,11 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
                   ),
                   TextSpan(
                     text: toolName,
-                    style: const TextStyle(color: _accent),
+                    style: TextStyle(color: _accent),
                   ),
                   TextSpan(
                     text: '  ${_secondsRemaining}s',
-                    style: const TextStyle(color: _textSecondary),
+                    style: TextStyle(color: _textSecondary),
                   ),
                 ],
               ),
@@ -4894,7 +4894,7 @@ class _FlowNodeWidget extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   isSpecial ? node.nodeType : node.status,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textSecondary,
                     fontSize: 11,
                   ),
@@ -5128,7 +5128,7 @@ class _GraphLegendChip extends StatelessWidget {
           decoration: BoxDecoration(shape: BoxShape.circle, color: color),
         ),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 11, color: _textSecondary)),
+        Text(label, style: TextStyle(fontSize: 11, color: _textSecondary)),
       ],
     );
   }
@@ -5319,7 +5319,7 @@ class _RunSelectorRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${run.createdAtLabel} · ${run.durationLabel}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _textSecondary,
                       fontSize: 11,
                     ),
@@ -5462,7 +5462,7 @@ class _RunSelectedStepCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         step.typeLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _textSecondary,
                           fontSize: 12,
                         ),
