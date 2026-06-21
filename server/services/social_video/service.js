@@ -22,6 +22,41 @@ fs.mkdirSync(SOCIAL_VIDEO_TMP_DIR, { recursive: true });
 
 const HEALTH_CACHE_TTL_MS = 5 * 60 * 1000;
 
+// A realistic desktop browser UA. Social platforms frequently return 403/bot
+// challenge pages to the default Node/yt-dlp user agents, so we present a
+// browser-like identity for every outbound request.
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+  + 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+// Network hardening flags applied to every yt-dlp invocation. Transient
+// failures (rate limits, dropped fragments, slow extractors) are the most
+// common cause of unreliable extraction, so we retry aggressively and cap
+// socket waits instead of failing on the first hiccup.
+const YT_DLP_NETWORK_FLAGS = [
+  '--retries', '5',
+  '--fragment-retries', '5',
+  '--extractor-retries', '3',
+  '--socket-timeout', '30',
+  '--user-agent', BROWSER_USER_AGENT,
+];
+
+// Platforms that gate most video content behind authentication or aggressive
+// bot detection. For these we always try to attach the user's browser cookies.
+const COOKIE_ASSISTED_PLATFORMS = new Set(['instagram', 'youtube', 'tiktok', 'x']);
+
+async function fetchWithBrowserHeaders(url, options = {}) {
+  return fetch(url, {
+    redirect: 'follow',
+    ...options,
+    headers: {
+      'user-agent': BROWSER_USER_AGENT,
+      'accept-language': 'en-US,en;q=0.9',
+      accept: '*/*',
+      ...(options.headers || {}),
+    },
+  });
+}
+
 function shellEscape(value) {
   const text = String(value ?? '');
   if (!text.length) return process.platform === 'win32' ? '""' : "''";
@@ -178,11 +213,20 @@ function classifyExtractionError(error) {
   if (/unsupported social video url|unsupported url/.test(normalized)) {
     return { code: 'unsupported_url', message };
   }
-  if (/private|login required|sign in to confirm/.test(normalized)) {
+  if (/private|login required|sign in to confirm|requested content is not available|account is private/.test(normalized)) {
     return { code: 'private_or_auth_required', message };
   }
-  if (/403|forbidden|blocked/.test(normalized)) {
+  if (/\b429\b|rate.?limit|too many requests/.test(normalized)) {
+    return { code: 'rate_limited', message };
+  }
+  if (/\b403\b|forbidden|blocked|not a bot/.test(normalized)) {
     return { code: 'blocked_or_unavailable', message };
+  }
+  if (/timed out|timeout|etimedout|socket hang up|network is unreachable/.test(normalized)) {
+    return { code: 'network_error', message };
+  }
+  if (/this video is unavailable|video unavailable|removed|404|not found/.test(normalized)) {
+    return { code: 'content_unavailable', message };
   }
   return { code: 'social_video_extract_failed', message };
 }
@@ -358,6 +402,10 @@ class SocialVideoService {
     }
   }
 
+  #networkFlags() {
+    return YT_DLP_NETWORK_FLAGS.map(shellEscape).join(' ');
+  }
+
   async #runCommand(command, options = {}) {
     const result = await this.cliExecutor.execute(command, {
       cwd: options.cwd || process.cwd(),
@@ -423,7 +471,7 @@ class SocialVideoService {
       return browserMetadata;
     }
 
-    const response = await fetch(normalizedUrl, { redirect: 'follow' });
+    const response = await fetchWithBrowserHeaders(normalizedUrl);
     const html = await response.text();
     const metadata = extractPublicMetadataFromHtml(html, response.url || normalizedUrl);
     return {
@@ -473,7 +521,7 @@ class SocialVideoService {
     const infoTemplate = path.join(jobDir, 'media.%(ext)s');
     const infoPath = path.join(jobDir, 'media.info.json');
     const cookieArg = cookieFilePath ? ` --cookies ${shellEscape(cookieFilePath)}` : '';
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist --skip-download --write-info-json --no-clean-infojson${cookieArg} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()} --skip-download --write-info-json --no-clean-infojson${cookieArg} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
     await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000 });
     if (!fileExists(infoPath)) {
       throw new Error('yt-dlp did not produce an info JSON artifact.');
@@ -514,7 +562,7 @@ class SocialVideoService {
   }
 
   async #readTranscriptFromCaption(captionTrack) {
-    const response = await fetch(captionTrack.url, { redirect: 'follow' });
+    const response = await fetchWithBrowserHeaders(captionTrack.url);
     if (!response.ok) {
       throw new Error(`Caption request failed (${response.status}).`);
     }
@@ -525,7 +573,7 @@ class SocialVideoService {
   async #transcribeViaStt(context) {
     const template = path.join(context.jobDir, 'audio.%(ext)s');
     const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist${cookieArg} -o ${shellEscape(template)} -f bestaudio -- ${shellEscape(context.sourceUrl)}`;
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f bestaudio/best -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(command, { cwd: context.jobDir, timeout: 10 * 60 * 1000 });
 
     const audioPath = firstFileMatching(context.jobDir, 'audio.');
@@ -561,7 +609,7 @@ class SocialVideoService {
   }
 
   async #resolveCookieFile(context) {
-    if (context.platform !== 'instagram') {
+    if (!COOKIE_ASSISTED_PLATFORMS.has(context.platform)) {
       return null;
     }
     if (!this.runtimeManager || typeof this.runtimeManager.getBrowserProviderForUser !== 'function') {
@@ -581,7 +629,9 @@ class SocialVideoService {
     });
     const cookies = Array.isArray(payload?.cookies) ? payload.cookies : [];
     if (cookies.length === 0) {
-      context.warnings.push('Browser cookie export returned no cookies for Instagram.');
+      // Not fatal: many videos are public. yt-dlp will simply attempt the
+      // extraction without an authenticated session.
+      context.warnings.push(`Browser cookie export returned no cookies for ${context.platform}.`);
       return null;
     }
 
@@ -610,7 +660,7 @@ class SocialVideoService {
   async #extractFrameFromVideo(context) {
     const template = path.join(context.jobDir, 'video.%(ext)s');
     const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
-    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist${cookieArg} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
+    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(downloadCommand, { cwd: context.jobDir, timeout: 14 * 60 * 1000 });
 
     const videoPath = firstFileMatching(context.jobDir, 'video.');
@@ -630,7 +680,7 @@ class SocialVideoService {
   }
 
   async #downloadThumbnailArtifact(userId, thumbnailUrl) {
-    const response = await fetch(thumbnailUrl, { redirect: 'follow' });
+    const response = await fetchWithBrowserHeaders(thumbnailUrl);
     if (!response.ok) {
       throw new Error(`Thumbnail request failed (${response.status}).`);
     }

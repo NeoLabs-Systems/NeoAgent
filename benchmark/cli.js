@@ -33,6 +33,9 @@ async function main(argv = process.argv.slice(2)) {
       return;
     }
     case 'report': {
+      try {
+        config.selectedModels = await harness.resolveSelectedModels();
+      } catch {}
       let results = [];
       try {
         results = await readJson(config.suitePaths.outputs.resultsJsonPath);

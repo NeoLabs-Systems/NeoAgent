@@ -86,6 +86,8 @@ class BenchmarkHarness {
       results.push(...await suite.run(this.#buildContext(), null, preflight));
     }
 
+    this.#attachModelMetadata(results, selectedModels);
+
     const report = await this.writeReportArtifacts({
       results,
       config: this.config,
@@ -124,6 +126,24 @@ class BenchmarkHarness {
       client: this.client,
       estimateRunCost: this.estimateRunCost,
     };
+  }
+
+  #attachModelMetadata(results, selectedModels) {
+    const modelsById = new Map((selectedModels || []).map((model) => [model.id, model]));
+    for (const result of results) {
+      if (!result?.modelId) continue;
+      const model = modelsById.get(result.modelId);
+      if (!model) continue;
+      result.modelName = result.modelName || model.name || model.id;
+      result.modelInputCostPerM = Number.isFinite(Number(model.inputCostPerM))
+        ? Number(model.inputCostPerM)
+        : null;
+      result.modelOutputCostPerM = Number.isFinite(Number(model.outputCostPerM))
+        ? Number(model.outputCostPerM)
+        : null;
+      result.modelSupportsVision = model.supportsVision === true;
+      result.priceTier = result.priceTier || model.priceTier || null;
+    }
   }
 }
 

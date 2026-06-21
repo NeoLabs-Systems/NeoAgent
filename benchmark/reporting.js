@@ -10,11 +10,75 @@ function round(value, digits = 3) {
     : null;
 }
 
-function resolveSummaryModelIds(results, config) {
-  if (Array.isArray(config.selectedModels) && config.selectedModels.length > 0) {
-    return config.selectedModels.map((model) => model.id);
+function formatUsdPerMillion(value) {
+  if (value == null || value === '') return 'n/a';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 'n/a';
+  if (numeric === 0) return '$0';
+  if (numeric < 0.01) return `$${numeric.toFixed(4)}`;
+  if (numeric < 1) return `$${numeric.toFixed(2)}`;
+  return `$${numeric.toFixed(2)}`;
+}
+
+function resolveSummaryModels(results, config) {
+  const selectedModels = Array.isArray(config.selectedModels) ? config.selectedModels : [];
+  if (selectedModels.length > 0) {
+    return selectedModels.map((model) => ({
+      id: model.id,
+      name: model.name || model.id,
+      provider: model.provider || null,
+      priceTier: model.priceTier || null,
+      inputCostPerM: Number.isFinite(Number(model.inputCostPerM)) ? Number(model.inputCostPerM) : null,
+      outputCostPerM: Number.isFinite(Number(model.outputCostPerM)) ? Number(model.outputCostPerM) : null,
+      supportsVision: model.supportsVision === true,
+    }));
   }
-  return [...new Set(results.map((result) => result.modelId).filter(Boolean))];
+
+  const modelMap = new Map();
+  for (const result of results) {
+    if (!result?.modelId) continue;
+    if (!modelMap.has(result.modelId)) {
+      modelMap.set(result.modelId, {
+        id: result.modelId,
+        name: result.modelName || result.modelId,
+        provider: result.provider || null,
+        priceTier: result.priceTier || null,
+        inputCostPerM: Number.isFinite(Number(result.modelInputCostPerM))
+          ? Number(result.modelInputCostPerM)
+          : null,
+        outputCostPerM: Number.isFinite(Number(result.modelOutputCostPerM))
+          ? Number(result.modelOutputCostPerM)
+          : null,
+        supportsVision: result.modelSupportsVision === true,
+      });
+      continue;
+    }
+    const model = modelMap.get(result.modelId);
+    if (model.name == null && result.modelName) model.name = result.modelName;
+    if (model.provider == null && result.provider) model.provider = result.provider;
+    if (model.priceTier == null && result.priceTier) model.priceTier = result.priceTier;
+    if (model.inputCostPerM == null && Number.isFinite(Number(result.modelInputCostPerM))) {
+      model.inputCostPerM = Number(result.modelInputCostPerM);
+    }
+    if (model.outputCostPerM == null && Number.isFinite(Number(result.modelOutputCostPerM))) {
+      model.outputCostPerM = Number(result.modelOutputCostPerM);
+    }
+    if (result.modelSupportsVision === true) model.supportsVision = true;
+  }
+
+  return [...modelMap.values()];
+}
+
+function formatModelPricing(model) {
+  return `${formatUsdPerMillion(model.inputCostPerM)}/${formatUsdPerMillion(model.outputCostPerM)} per 1M in/out`;
+}
+
+function buildDashboardPricingLine(summary) {
+  if (!Array.isArray(summary.models) || summary.models.length === 0) return 'Pricing n/a';
+  if (summary.models.length === 1) {
+    return `Pricing ${formatModelPricing(summary.models[0])}`;
+  }
+  return `Pricing varies across ${summary.models.length} models`;
 }
 
 function formatBenchmarkType(value) {
@@ -28,6 +92,7 @@ function formatBenchmarkType(value) {
 
 function buildBenchmarkSummary(results, config) {
   const suites = new Map();
+  const models = resolveSummaryModels(results, config);
   const totals = {
     cases: results.length,
     passed: 0,
@@ -91,7 +156,8 @@ function buildBenchmarkSummary(results, config) {
   return {
     generatedAt: new Date().toISOString(),
     serverBaseUrl: config.serverBaseUrl,
-    modelIds: resolveSummaryModelIds(results, config),
+    modelIds: models.map((model) => model.id),
+    models,
     totals: {
       ...totals,
       averageScore: totals.scoredCases ? round(totals.score / totals.scoredCases) : null,
@@ -113,6 +179,22 @@ function renderSummaryMarkdown(summary) {
     `Target server: ${summary.serverBaseUrl}`,
     summary.modelIds.length ? `Models: ${summary.modelIds.join(', ')}` : 'Models: model-independent suites only',
     '',
+    '## Model pricing',
+    '',
+  ];
+
+  if (summary.models.length > 0) {
+    for (const model of summary.models) {
+      lines.push(
+        `- ${model.id}: ${formatModelPricing(model)}${model.priceTier ? `, tier ${model.priceTier}` : ''}`,
+      );
+    }
+  } else {
+    lines.push('- n/a');
+  }
+
+  lines.push(
+    '',
     '## Totals',
     '',
     `- Cases: ${summary.totals.cases}`,
@@ -129,7 +211,7 @@ function renderSummaryMarkdown(summary) {
     '',
     '| Suite | Type | Cases | Passed | Failed | Blocked | Avg score | Tokens | Cost (USD) |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
-  ];
+  );
 
   for (const suite of summary.suites) {
     lines.push(
@@ -260,6 +342,7 @@ function renderDashboardSvg(summary) {
     `Generated ${summary.generatedAt}`,
     `Tokens ${summary.totals.totalTokens}`,
     `Cost ${formatMetric(summary.totals.estimatedCostUsd, { prefix: '$' })}`,
+    buildDashboardPricingLine(summary),
   ].join('  •  ');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -318,6 +401,8 @@ async function writeReportArtifacts({ results, config }) {
 
 module.exports = {
   buildBenchmarkSummary,
+  buildDashboardPricingLine,
+  formatModelPricing,
   renderDashboardSvg,
   renderSummaryMarkdown,
   writeReportArtifacts,
