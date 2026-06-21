@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -27,12 +28,27 @@ function hostWorkspaceDir(key) {
 const GUEST_AGENT = `
 const http = require('http');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = parseInt(process.env.AGENT_PORT || '3000', 10);
+const AUTH_TOKEN = String(process.env.NEOAGENT_VM_GUEST_TOKEN || '');
 const SCREENSHOTS = '/tmp/screenshots';
 fs.mkdirSync(SCREENSHOTS, { recursive: true });
+
+// Every endpoint except /health requires the shared bearer token. Without this
+// any local process able to reach the (loopback-published) port could execute
+// commands and read files inside another user's sandbox.
+function authorized(req) {
+  if (!AUTH_TOKEN) return true;
+  const header = String(req.headers['authorization'] || '');
+  const match = /^Bearer\\s+(.+)$/i.exec(header);
+  if (!match) return false;
+  const provided = Buffer.from(match[1]);
+  const expected = Buffer.from(AUTH_TOKEN);
+  return provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
+}
 
 const procs = new Map();
 let browser = null, page = null, pw = null;
@@ -104,6 +120,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url === '/health') {
       return json(res, { status: 'ok' });
+    }
+
+    if (!authorized(req)) {
+      return json(res, { error: 'Unauthorized' }, 401);
     }
 
     if (req.method === 'GET' && url === '/browser/status') {
@@ -303,8 +323,14 @@ class DockerVMManager {
     this.image = options.image || CONTAINER_IMAGE;
     this.memoryMb = options.memoryMb || 2048;
     this.cpus = options.cpus || 2;
-    this.guestToken = String(options.guestToken || process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim();
+    // The guest agent authenticates every request with this token. Always have
+    // one — fall back to a per-process random secret if the operator didn't set
+    // NEOAGENT_VM_GUEST_TOKEN so the sandbox is never left unauthenticated.
+    this.guestToken = String(options.guestToken || process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim()
+      || crypto.randomBytes(32).toString('hex');
+    this.network = null;
     this.#cleanupOrphans();
+    this.#setupNetwork();
   }
 
   // Remove containers left over from a previous server run.
@@ -317,6 +343,66 @@ class DockerVMManager {
         console.log(`[DockerVM:${this.profile}] Removed ${ids.length} orphaned container(s)`);
       }
     } catch { /* Docker may not be available yet — ignore */ }
+  }
+
+  // Put agent containers on a dedicated bridge network so their egress can be
+  // firewalled in isolation from any other containers on the host, then block
+  // access to the cloud metadata service (and optionally private ranges). This
+  // is the control that stops a user's shell (`curl http://169.254.169.254/...`)
+  // from stealing the host's cloud IAM credentials.
+  #setupNetwork() {
+    if (String(process.env.NEOAGENT_VM_EGRESS_FIREWALL ?? '1') === '0') {
+      return;
+    }
+    const name = 'neoagent-agents';
+    try {
+      let subnet = '';
+      try {
+        subnet = docker(['network', 'inspect', '--format', '{{range .IPAM.Config}}{{.Subnet}}{{end}}', name]);
+      } catch {
+        docker(['network', 'create', name]);
+        subnet = docker(['network', 'inspect', '--format', '{{range .IPAM.Config}}{{.Subnet}}{{end}}', name]);
+      }
+      this.network = name;
+      if (subnet) {
+        this.#applyEgressFirewall(subnet.trim());
+      }
+    } catch (err) {
+      // Without the dedicated network we fall back to the default bridge; the
+      // dropped NET_RAW/NET_ADMIN capabilities still apply as defense in depth.
+      console.warn(`[DockerVM:${this.profile}] Could not set up isolated network — metadata egress not firewalled: ${err.message}`);
+      this.network = null;
+    }
+  }
+
+  #applyEgressFirewall(subnet) {
+    // Cloud instance-metadata endpoints across the major providers.
+    const blockedHosts = ['169.254.169.254/32', '169.254.170.2/32', '100.100.100.200/32'];
+    // Self-hosters keep LAN access by default (mirrors NEOAGENT_HTTP_ALLOW_PRIVATE);
+    // cloud operators can set it to false to also cut off RFC-1918 ranges.
+    const allowPrivate = String(process.env.NEOAGENT_HTTP_ALLOW_PRIVATE ?? 'true').toLowerCase() !== 'false';
+    const blockedNets = allowPrivate ? [] : ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
+    const targets = [...blockedHosts, ...blockedNets];
+
+    let applied = 0;
+    for (const dest of targets) {
+      const spec = ['DOCKER-USER', '-s', subnet, '-d', dest, '-j', 'DROP'];
+      try {
+        const check = spawnSync('iptables', ['-C', ...spec], { encoding: 'utf8' });
+        if (check.status !== 0) {
+          const insert = spawnSync('iptables', ['-I', ...spec], { encoding: 'utf8' });
+          if (insert.status !== 0) {
+            throw new Error((insert.stderr || `exit ${insert.status}`).trim());
+          }
+        }
+        applied += 1;
+      } catch (err) {
+        console.warn(`[DockerVM:${this.profile}] Unable to install egress firewall rule for ${dest} (need root/NET_ADMIN on host): ${err.message}. Sandbox containers may be able to reach ${dest}.`);
+      }
+    }
+    if (applied > 0) {
+      console.log(`[DockerVM:${this.profile}] Egress firewall active — blocking ${applied} destination(s) from sandbox subnet ${subnet}`);
+    }
   }
 
   async ensureVm(userId) {
@@ -347,11 +433,21 @@ class DockerVMManager {
       'run', '-d',
       '--memory', `${this.memoryMb}m`,
       '--cpus', String(this.cpus),
+      '--pids-limit', String(Number(process.env.NEOAGENT_VM_PIDS_LIMIT || 512)),
       '-p', `127.0.0.1:${port}:${port}`,
+      ...(this.network ? ['--network', this.network] : []),
       '-e', `AGENT_PORT=${port}`,
       ...(this.guestToken ? ['-e', `NEOAGENT_VM_GUEST_TOKEN=${this.guestToken}`] : []),
       '--shm-size=2g',
       '--security-opt', 'no-new-privileges',
+      // Strip capabilities the sandbox never needs. Dropping NET_RAW/NET_ADMIN
+      // also prevents the container from crafting raw packets or rewriting its
+      // own routing/iptables to bypass the host egress firewall above.
+      '--cap-drop', 'NET_RAW',
+      '--cap-drop', 'NET_ADMIN',
+      '--cap-drop', 'SYS_ADMIN',
+      '--cap-drop', 'SYS_PTRACE',
+      '--cap-drop', 'SYS_MODULE',
       '-v', `${workspaceDir}:${GUEST_WORKSPACE}`,
       '-w', GUEST_WORKSPACE,
       '--label', CONTAINER_LABEL,
@@ -374,7 +470,7 @@ class DockerVMManager {
 
     const session = {
       baseUrl: `http://localhost:${port}`,
-      guestToken: null,
+      guestToken: this.guestToken,
       process: { pid: process.pid }, // server PID — always alive while server runs
       getLastError: () => null,
       containerId,

@@ -228,6 +228,23 @@ class BackendClient {
     return getMap(baseUrl, '/api/account/usage');
   }
 
+  /// GDPR data portability — returns a structured export of the signed-in
+  /// user's own data (credential fields are redacted server-side).
+  Future<Map<String, dynamic>> exportMyData(String baseUrl) async {
+    return getMap(baseUrl, '/api/account/export');
+  }
+
+  /// GDPR right to erasure — permanently deletes the signed-in user's account
+  /// and all associated data. [confirmUsername] must equal the account username.
+  Future<Map<String, dynamic>> deleteMyAccount({
+    required String baseUrl,
+    required String confirmUsername,
+  }) async {
+    return postMap(baseUrl, '/api/account/delete', <String, dynamic>{
+      'confirmUsername': confirmUsername,
+    });
+  }
+
   Future<Map<String, dynamic>> updateAccountEmail({
     required String baseUrl,
     required String email,

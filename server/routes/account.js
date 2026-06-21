@@ -328,4 +328,57 @@ router.delete('/providers/:id', accountLimiter, (req, res) => {
   }
 });
 
+// GDPR Art. 20 — data portability. Returns a structured export of the
+// authenticated user's own data (credential columns redacted).
+router.get('/export', accountLimiter, (req, res) => {
+  try {
+    const { exportUserData } = require('../services/account/erasure');
+    const payload = exportUserData(req.session.userId);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="neoagent-data-export-${req.session.userId}.json"`,
+    );
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+// GDPR Art. 17 — right to erasure. The user permanently deletes their own
+// account and all associated data. Requires typing the exact username as a
+// destructive-action confirmation (works for password and SSO accounts alike).
+router.post('/delete', accountLimiter, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const user = db
+      .prepare('SELECT username FROM users WHERE id = ?')
+      .get(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+    const confirm = String(req.body?.confirmUsername || '').trim();
+    if (confirm !== user.username) {
+      return res.status(400).json({
+        error: 'Confirmation does not match your username.',
+      });
+    }
+
+    const { eraseUserData } = require('../services/account/erasure');
+    const result = eraseUserData(userId, {
+      runtimeManager: req.app.locals.runtimeManager,
+    });
+
+    req.session.destroy(() => {
+      res.clearCookie('neoagent.sid');
+      res.json({ ok: true, tablesCleared: result.tablesCleared });
+    });
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+    sendRouteError(res, err);
+  }
+});
+
 module.exports = router;

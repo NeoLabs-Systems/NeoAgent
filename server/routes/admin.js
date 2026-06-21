@@ -563,59 +563,16 @@ router.get('/api/users', requireAdminAuth, (req, res) => {
 });
 
 router.delete('/api/users/:id', requireAdminAuth, (req, res) => {
-  const db = require('../db/database');
-  const { DATA_DIR } = require('../../runtime/paths');
+  const { eraseUserData } = require('../services/account/erasure');
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: 'Missing user id' });
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid user id' });
   try {
-    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    // Collect artifact paths before deletion
-    const artifacts = db.prepare('SELECT storage_path FROM artifacts WHERE user_id = ?').all(id);
-
-    const erase = db.transaction((uid) => {
-      db.prepare('DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)').run(uid);
-      db.prepare('DELETE FROM conversations WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM agent_steps WHERE run_id IN (SELECT id FROM agent_runs WHERE user_id = ?)').run(uid);
-      db.prepare('DELETE FROM agent_runs WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM messages WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM memories WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM integration_connections WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM platform_connections WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM mcp_servers WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM desktop_companion_devices WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM scheduled_tasks WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM recording_sessions WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM screen_history WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM agents WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM artifacts WHERE user_id = ?').run(uid);
-      db.prepare('DELETE FROM users WHERE id = ?').run(uid);
-    });
-    erase(id);
-
-    // Clean up artifact files on disk — containment-checked
-    const artifactsRoot = path.resolve(path.join(DATA_DIR, 'artifacts'));
-    for (const artifact of artifacts) {
-      try {
-        const abs = path.resolve(path.isAbsolute(artifact.storage_path)
-          ? artifact.storage_path
-          : path.join(DATA_DIR, artifact.storage_path));
-        if (abs.startsWith(artifactsRoot + path.sep)) {
-          fs.rmSync(abs, { force: true });
-        }
-      } catch {}
-    }
-    const userArtifactDir = path.resolve(path.join(DATA_DIR, 'artifacts', id));
-    if (userArtifactDir.startsWith(artifactsRoot + path.sep)) {
-      try { fs.rmSync(userArtifactDir, { recursive: true, force: true }); } catch {}
-    }
-
-    res.json({ ok: true });
+    const result = eraseUserData(id, { runtimeManager: req.app.locals.runtimeManager });
+    res.json(result);
   } catch (err) {
+    if (err.code === 'NOT_FOUND') return res.status(404).json({ error: 'User not found' });
+    if (err.code === 'INVALID_ID') return res.status(400).json({ error: 'Invalid user id' });
     res.status(500).json({ error: String(err.message || err) });
   }
 });

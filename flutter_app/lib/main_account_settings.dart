@@ -161,6 +161,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   String? _emailInlineError;
   String? _passwordSuccessMessage;
   String? _passwordInlineError;
+  bool _isExportingData = false;
+  bool _isDeletingAccount = false;
 
   @override
   void initState() {
@@ -592,8 +594,144 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 .toList(),
           ),
         ],
+        const SizedBox(height: 28),
+        const _SectionTitle('Your data'),
+        const SizedBox(height: 10),
+        Text(
+          'Download a copy of your data, or permanently delete your account. '
+          'Deletion removes all your conversations, memories, files, tasks and '
+          'settings and cannot be undone.',
+          style: TextStyle(color: _textSecondary, height: 1.45),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: <Widget>[
+            OutlinedButton.icon(
+              onPressed: _isExportingData ? null : _exportMyData,
+              icon: _isExportingData
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_outlined),
+              label: const Text('Export my data'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isDeletingAccount ? null : _confirmDeleteAccount,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _danger,
+                side: BorderSide(color: _danger.withValues(alpha: 0.6)),
+              ),
+              icon: _isDeletingAccount
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_outlined),
+              label: const Text('Delete account'),
+            ),
+          ],
+        ),
       ],
     );
+  }
+
+  Future<void> _exportMyData() async {
+    setState(() => _isExportingData = true);
+    try {
+      final export = await widget.controller.backendClient.exportMyData(
+        widget.controller.backendUrl,
+      );
+      final pretty = const JsonEncoder.withIndent('  ').convert(export);
+      await Clipboard.setData(ClipboardData(text: pretty));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your data export was copied to the clipboard.'),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not export your data: $err')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExportingData = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final username = widget.controller.user?['username']?.toString() ?? '';
+    final confirmController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final matches = confirmController.text.trim() == username;
+            return AlertDialog(
+              title: const Text('Delete account permanently?'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'This permanently erases all of your data and cannot be '
+                    'undone. Type your username to confirm.',
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: confirmController,
+                    autofocus: true,
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      hintText: username,
+                    ),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: _danger),
+                  onPressed: matches
+                      ? () => Navigator.of(dialogContext).pop(true)
+                      : null,
+                  child: const Text('Delete forever'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    confirmController.dispose();
+    if (confirmed != true) return;
+
+    setState(() => _isDeletingAccount = true);
+    try {
+      await widget.controller.backendClient.deleteMyAccount(
+        baseUrl: widget.controller.backendUrl,
+        confirmUsername: username,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your account has been deleted.')),
+      );
+      await widget.controller.logout();
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _isDeletingAccount = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete your account: $err')),
+      );
+    }
   }
 
   String _formatTokens(int amount) {
