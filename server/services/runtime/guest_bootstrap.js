@@ -35,13 +35,12 @@ function normalizeRuntimeProfile(runtimeProfile) {
   return runtimeProfile === 'android' ? 'android' : 'browser_cli';
 }
 
-function createGuestPayloadArchive(seedDir, runtimeProfile = 'browser_cli') {
-  const seedRoot = path.dirname(seedDir);
-  const stagingRoot = path.join(seedRoot, 'guest-payload');
-  const archivePath = path.join(seedRoot, 'guest-payload.tar.gz');
+// Copy the guest runtime source files for a profile into `stagingRoot`, producing
+// a self-contained directory (package.json + runtime/ + server/) that can be
+// archived for the QEMU path or used as a Docker build context.
+function stageGuestPayload(stagingRoot, runtimeProfile = 'browser_cli') {
   const payloadEntries = GUEST_PAYLOAD_PROFILES[normalizeRuntimeProfile(runtimeProfile)];
   fs.rmSync(stagingRoot, { recursive: true, force: true });
-  fs.rmSync(archivePath, { force: true });
   fs.mkdirSync(stagingRoot, { recursive: true });
 
   for (const entry of payloadEntries) {
@@ -54,6 +53,15 @@ function createGuestPayloadArchive(seedDir, runtimeProfile = 'browser_cli') {
       fs.copyFileSync(sourcePath, targetPath);
     }
   }
+  return stagingRoot;
+}
+
+function createGuestPayloadArchive(seedDir, runtimeProfile = 'browser_cli') {
+  const seedRoot = path.dirname(seedDir);
+  const stagingRoot = path.join(seedRoot, 'guest-payload');
+  const archivePath = path.join(seedRoot, 'guest-payload.tar.gz');
+  fs.rmSync(archivePath, { force: true });
+  stageGuestPayload(stagingRoot, runtimeProfile);
 
   const tarResult = spawnSync('tar', ['-czf', archivePath, '-C', stagingRoot, '.'], {
     encoding: 'utf8',
@@ -651,4 +659,8 @@ module.exports = {
   createSeedIso,
   ensureGuestBootstrapSeed,
   GUEST_BOOTSTRAP_ROOT,
+  GUEST_PAYLOAD_PROFILES,
+  REPO_ROOT,
+  normalizeRuntimeProfile,
+  stageGuestPayload,
 };

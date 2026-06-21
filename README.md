@@ -34,9 +34,10 @@
 
 ## 🚀 Install
 
-NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer; the
-installer handles the rest of the application setup and attempts to install
-QEMU for the isolated browser and terminal runtime.
+NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer and
+Docker for the isolated browser and terminal runtime; the installer handles the
+rest of the application setup and pre-builds the guest runtime image when Docker
+is available.
 
 ```bash
 npm install -g neoagent

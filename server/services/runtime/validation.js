@@ -11,14 +11,9 @@ function getRuntimeValidation(runtimeManager) {
 
   if (policy.profile === 'prod' || nodeEnvIsProd) {
     if (!browserVmReadiness) {
-      issues.push('prod profile requires a working local VM runtime for browser/CLI.');
-    } else if (!browserVmReadiness.ready) {
-      if (!browserVmReadiness.qemuAvailable) {
-        issues.push(`prod profile requires QEMU (${browserVmReadiness.qemuBinary}) to be installed for browser/CLI.`);
-      }
-      if (!browserVmReadiness.baseImageExists && !browserVmReadiness.downloadConfigured) {
-        issues.push('prod profile requires a VM base image or a downloadable base image URL for browser/CLI.');
-      }
+      issues.push('prod profile requires a working container runtime for browser/CLI.');
+    } else if (!browserVmReadiness.dockerAvailable) {
+      issues.push('prod profile requires Docker to be installed and running for the browser/CLI runtime.');
     }
   }
 

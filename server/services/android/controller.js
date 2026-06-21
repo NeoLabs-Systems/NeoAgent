@@ -582,7 +582,8 @@ class AndroidController {
     });
 
     progress('Waiting for Android to boot (can take 2–5 min on first run)…');
-    await this.#waitForBoot();
+    // Abort early if the emulator process dies, instead of polling until timeout.
+    await this.#waitForBoot({ isAlive: () => this.#isPidAlive(proc.pid) });
 
     writeState(this.userId, { bootstrapped: true, starting: false, startupPhase: null, lastStartError: null });
     console.log(`[Android] Emulator ready on ${this.adbSerial}`);
@@ -593,10 +594,13 @@ class AndroidController {
     });
   }
 
-  async #waitForBoot(timeoutMs = 10 * 60 * 1000) {
+  async #waitForBoot({ timeoutMs = 10 * 60 * 1000, isAlive = () => true } = {}) {
     const adb = adbBin(this.sdkDir);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      if (!isAlive()) {
+        throw new Error('Emulator process exited before Android finished booting (check virtualization/KVM support and the system image).');
+      }
       try {
         const r = spawnSync(adb, ['-s', this.adbSerial, 'shell', 'getprop', 'sys.boot_completed'], { encoding: 'utf8', timeout: 5000 });
         if (r.stdout?.trim() === '1') return;

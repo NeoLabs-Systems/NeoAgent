@@ -9,18 +9,20 @@ remote access to work.
 - Node.js 20 or newer with npm
 - A macOS or Linux user account that can install packages
 - Enough disk and memory for the models and runtime you choose
-- QEMU for the isolated browser and terminal runtime
+- Docker for the isolated browser and terminal runtime
 
-The installer attempts to install QEMU with Homebrew, `apt`, `dnf`, or `yum`.
-If the host uses another package manager, install QEMU first.
+The isolated browser and CLI run each user's guest agent in a Docker container.
+Install Docker first; the NeoAgent installer detects it and pre-builds the guest
+runtime image (browser and dependencies baked in) so the first browser or CLI
+action is instant. If Docker is missing, the rest of NeoAgent still installs and
+the cloud browser/CLI become available once Docker is running.
 
 ```bash
-# macOS
-brew install qemu
+# macOS — Docker Desktop
+# https://www.docker.com/products/docker-desktop/
 
-# Ubuntu or Debian
-sudo apt-get update
-sudo apt-get install -y qemu-system qemu-utils
+# Ubuntu or Debian — Docker Engine
+# https://docs.docker.com/engine/install/
 ```
 
 ## Install NeoAgent

@@ -66,7 +66,7 @@ Protect backups as credentials and personal data.
 |---|---|
 | Service does not start | `neoagent status`, then `neoagent logs` |
 | Chat has no response | Provider connection, selected model, provider quota |
-| Browser or shell unavailable | QEMU installation and first runtime boot |
+| Browser or shell unavailable | Docker installed and running, then first runtime boot |
 | OAuth fails | Reachable HTTPS `PUBLIC_URL` and exact callback URI |
 | Messaging receives nothing | Channel credentials, webhook, and allowlists |
 | Task does not run | Enabled state, trigger account, next run, **Runs** |
