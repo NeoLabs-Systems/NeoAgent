@@ -153,6 +153,20 @@ function summarizeToolExecutions(toolExecutions = [], maxItems = 10) {
   }).join('\n');
 }
 
+// A read-only turn that pulls in NEW information is real progress, even though
+// it changes no state — research, browsing, reading, and searching are how an
+// agent makes headway on "find out X" tasks. Treating those as "no progress"
+// (and force-wrapping the run) is what guillotines legitimate research. Genuine
+// churn — failed calls, pure `think`, or re-running an identical call that
+// returns an unchanged result — is excluded, so the read-only guard still fires
+// on real spinning.
+function gatheredNewEvidence(execution, repetitionObservation = null) {
+  if (!execution || execution.ok !== true) return false;
+  if (!execution.evidenceRelevant) return false;
+  if (repetitionObservation && repetitionObservation.unchangedCount >= 2) return false;
+  return true;
+}
+
 function isSubstantiveProgressToolName(toolName = '') {
   const name = String(toolName || '').trim();
   if (!name) return false;
@@ -235,6 +249,7 @@ function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], 
 module.exports = {
   classifyToolExecution,
   deriveEvidenceSource,
+  gatheredNewEvidence,
   isSubstantiveProgressEvidence,
   isSubstantiveProgressToolName,
   summarizeProgressToolExecutions,

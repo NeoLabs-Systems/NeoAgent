@@ -145,6 +145,7 @@ const {
 } = require('../messagingFallback');
 const {
   classifyToolExecution,
+  gatheredNewEvidence,
   isSubstantiveProgressToolName,
   summarizeProgressToolExecutions,
   summarizeToolExecutions,
@@ -1671,6 +1672,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           options,
         });
         stepIndex = batch.endingStepIndex;
+        let batchGatheredNewEvidence = false;
         for (const item of batch.results) {
           const execution = classifyToolExecution(
             item.toolName,
@@ -1681,7 +1683,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           execution.input = item.toolArgs;
           execution.artifacts = await extractArtifactsFromResult(item.toolName, item.result);
           toolExecutions.push(execution);
-          engine.getRunMeta(runId)?.repetitionGuard?.observe(item.toolName, item.toolArgs, item.result);
+          const observation = engine.getRunMeta(runId)?.repetitionGuard?.observe(item.toolName, item.toolArgs, item.result);
+          if (gatheredNewEvidence(execution, observation)) batchGatheredNewEvidence = true;
           if (item.error) failedStepCount += 1;
           const modelPayload = compactPayloadForModel(item.toolName, item.result);
           const toolResultLimits = resolveToolResultLimits(item.toolName, loopPolicy);
@@ -1720,7 +1723,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
           const iterMeta = engine.getRunMeta(runId);
           if (iterMeta) {
-            iterMeta.consecutiveReadOnlyIterations = (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
+            iterMeta.consecutiveReadOnlyIterations = batchGatheredNewEvidence
+              ? 0
+              : (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
           }
         }
         continue;
@@ -1941,10 +1946,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
         const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
         execution.input = toolArgs;
-        if (execution.stateChanged && isProgressToolCall(toolName, toolArgs)) {
+        const repetitionObservation = repetitionGuard?.observe(toolName, toolArgs, toolResult);
+        if ((execution.stateChanged && isProgressToolCall(toolName, toolArgs))
+          || gatheredNewEvidence(execution, repetitionObservation)) {
           iterationConcreteProgress = true;
         }
-        repetitionGuard?.observe(toolName, toolArgs, toolResult);
         execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
         toolExecutions.push(execution);
         if (deliverableWorkflow && Array.isArray(execution.artifacts) && execution.artifacts.length > 0) {

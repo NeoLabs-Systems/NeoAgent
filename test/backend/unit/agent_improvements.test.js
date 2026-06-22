@@ -25,6 +25,8 @@ const { buildLoopPolicy } = require('../../../server/services/ai/loopPolicy');
 const {
   resolveTaskTriggerArgs,
 } = require('../../../server/services/ai/tools');
+const { compactToolResult } = require('../../../server/services/ai/toolResult');
+const { classifyToolExecution, gatheredNewEvidence } = require('../../../server/services/ai/toolEvidence');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -328,4 +330,59 @@ test('structured data parser handles quoted delimiters and newlines', () => {
     { name: 'Neo', note: 'one,two' },
     { name: 'A', note: 'line 1\nline 2' },
   ]);
+});
+
+test('calendar compaction surfaces every event instead of truncating the array', () => {
+  // A realistic flood: one stale verbose timed event followed by many all-day
+  // markers. The generic JSON path would clamp this and drop the events; the
+  // dedicated digest must keep them all so the model never re-queries blindly.
+  const events = [
+    {
+      id: 'stale', status: 'confirmed', summary: 'Abreise Bali', allDay: false,
+      start: '2018-09-01T10:00:00+02:00', end: '2018-09-01T12:00:00+02:00',
+      description: 'x'.repeat(4000), htmlLink: 'https://calendar.google.com/'.padEnd(300, 'y'),
+      attendees: ['a@example.com', 'b@example.com'],
+    },
+    {
+      id: 'real', status: 'confirmed', summary: 'Zahnarzt Termin', allDay: false,
+      start: '2026-06-22T14:30:00+02:00', end: '2026-06-22T15:00:00+02:00',
+      location: 'Praxis Dr. Müller',
+    },
+    ...Array.from({ length: 9 }, (_, i) => ({
+      id: `ad${i}`, status: 'confirmed', summary: `Geburtstag Person ${i}`, allDay: true,
+      start: '2026-06-22', end: '2026-06-23',
+    })),
+  ];
+  const result = {
+    count: events.length, timedCount: 2, allDayCount: 9,
+    hasTimedEvents: true, hasOnlyAllDayEvents: false,
+    nextTimedEvent: events[0], timedEvents: events.slice(0, 2), allDayEvents: events.slice(2), events,
+  };
+  const compact = compactToolResult('google_workspace_calendar_list_events', {}, result, {
+    softLimit: 2400, hardLimit: 4800,
+  });
+  const parsed = JSON.parse(compact);
+  assert.equal(parsed.timed.length, 2, 'all timed events survive compaction');
+  assert.equal(parsed.allDay.length, 9, 'all all-day events survive compaction');
+  assert.ok(parsed.timed.some((e) => e.summary === 'Zahnarzt Termin'), 'the real upcoming event is visible');
+  assert.ok(!compact.includes('xxxx'), 'verbose description noise is dropped');
+  assert.ok(compact.length <= 4800, 'digest stays within the hard budget');
+});
+
+test('new-evidence reads count as progress but churn does not', () => {
+  const freshSearch = classifyToolExecution('web_search', { query: 'cafeteria menu' }, {
+    results: [{ title: 'Menu', url: 'https://example.com' }],
+  });
+  assert.equal(gatheredNewEvidence(freshSearch, { unchangedCount: 1 }), true);
+
+  // Re-running the same call to an unchanged result is churn, not progress.
+  assert.equal(gatheredNewEvidence(freshSearch, { unchangedCount: 2 }), false);
+
+  // A failed read is not progress.
+  const failedRead = classifyToolExecution('read_file', { path: '/missing' }, { error: 'not found' });
+  assert.equal(gatheredNewEvidence(failedRead, { unchangedCount: 1 }), false);
+
+  // Pure thinking gathers no evidence.
+  const thought = classifyToolExecution('think', { thought: 'hmm' }, { thought: 'hmm' });
+  assert.equal(gatheredNewEvidence(thought, { unchangedCount: 1 }), false);
 });
