@@ -57,6 +57,12 @@ function dockerfileFor(profile) {
     // container runs as root (macOS) or as the host uid:gid (Linux, for shared
     // file ownership). Chromium needs PLAYWRIGHT_BROWSERS_PATH readable by all.
     'RUN mkdir -p /opt/neoagent/.runtime && chmod -R 0777 /opt/neoagent/.runtime && chmod -R a+rX /ms-playwright',
+    // Chromium is baked in at build time, so the runtime-ready marker the browser
+    // controller polls for (BROWSER_READY_MARKER in server/services/browser/controller.js)
+    // is already satisfied. Create it here so ensureBrowser() launches immediately
+    // instead of waiting out its full 10-minute timeout for a marker that only the
+    // legacy QEMU per-boot bootstrap ever writes.
+    'RUN mkdir -p /var/lib/neoagent && touch /var/lib/neoagent/browser-runtime-ready',
     'CMD ["node", "server/guest_agent.js"]',
     '',
   ].join('\n');

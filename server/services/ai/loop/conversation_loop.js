@@ -293,11 +293,11 @@ function summarizeReadTargets(toolExecutions = []) {
 
 function buildNoProgressWrapupPrompt({ readOnlyCount = 0, alreadyRead = '', platform = null } = {}) {
   return [
-    `No-progress limit reached after ${Math.max(0, Number(readOnlyCount) || 0)} consecutive turns without substantive progress.`,
-    alreadyRead ? `Already inspected/searched: ${alreadyRead}.` : '',
-    'This is the final turn for this run. Do not call tools.',
-    'From the existing evidence, return the concrete result, a no-op/no-change answer, or a clear blocker.',
-    'If an external site, service, permission, unavailable target, or missing user input prevents completion, say that clearly and stop.',
+    `This is the final turn for this run (no further tool calls; ${Math.max(0, Number(readOnlyCount) || 0)} read-only turns without a state change).`,
+    alreadyRead ? `Already gathered: ${alreadyRead}.` : '',
+    'Write the answer now from everything you have already gathered in this conversation. Deliver the useful result you DO have — calendar, weather, emails, search findings, whatever was collected — formatted as the actual answer to the original request.',
+    'If one part could not be retrieved, still deliver everything else and note the missing part in at most one short clause. Never withhold a useful answer because a single detail is missing.',
+    'Only report a pure blocker if you genuinely gathered nothing usable at all. Do not describe the result as unfinished, unconfirmed, "blocked", or "still working" when you have something useful — this IS the final answer.',
     buildMaxIterationWrapupPrompt(platform),
   ].filter(Boolean).join('\n\n');
 }
