@@ -14,6 +14,15 @@ Map<String, dynamic> buildWebScreenAndMicRecordingPayload() {
         },
       },
       <String, dynamic>{
+        'sourceKey': 'system',
+        'sourceKind': 'system-audio',
+        'mediaKind': 'audio',
+        'mimeType': 'audio/webm',
+        'metadata': <String, dynamic>{
+          'transcribe': true,
+        },
+      },
+      <String, dynamic>{
         'sourceKey': 'microphone',
         'sourceKind': 'microphone',
         'mediaKind': 'audio',

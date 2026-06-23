@@ -18,8 +18,10 @@ class WebRecordingBridge extends RecordingBridge {
   );
 
   html.MediaStream? _displayStream;
+  html.MediaStream? _systemAudioStream;
   html.MediaStream? _microphoneStream;
   html.MediaRecorder? _screenRecorder;
+  html.MediaRecorder? _systemAudioRecorder;
   html.MediaRecorder? _microphoneRecorder;
   final Map<String, int> _nextSequenceBySource = <String, int>{};
   final Map<String, int> _lastEndMsBySource = <String, int>{};
@@ -119,20 +121,35 @@ class WebRecordingBridge extends RecordingBridge {
         );
       }
 
+      // Split the display capture: video-only feeds the screen-analysis source,
+      // while the shared system/tab audio gets its own transcribable source so
+      // remote participants are captured in the transcript (the mic alone does
+      // not reliably pick up other speakers, e.g. when wearing headphones).
+      final screenVideoStream = html.MediaStream();
+      for (final track in displayStream.getVideoTracks()) {
+        screenVideoStream.addTrack(track);
+      }
+      final systemAudioStream = html.MediaStream();
+      for (final track in displayStream.getAudioTracks()) {
+        systemAudioStream.addTrack(track);
+      }
+
       _baseUrl = baseUrl;
       _sessionId = sessionId;
       _displayStream = displayStream;
+      _systemAudioStream = systemAudioStream;
       _microphoneStream = microphoneStream;
       _nextSequenceBySource
         ..clear()
-        ..addAll(<String, int>{'screen': 0, 'microphone': 0});
+        ..addAll(<String, int>{'screen': 0, 'system': 0, 'microphone': 0});
       _lastEndMsBySource
         ..clear()
-        ..addAll(<String, int>{'screen': 0, 'microphone': 0});
+        ..addAll(<String, int>{'screen': 0, 'system': 0, 'microphone': 0});
       _uploadQueueBySource
         ..clear()
         ..addAll(<String, Future<void>>{
           'screen': Future<void>.value(),
+          'system': Future<void>.value(),
           'microphone': Future<void>.value(),
         });
       _stopwatch = Stopwatch()..start();
@@ -142,13 +159,13 @@ class WebRecordingBridge extends RecordingBridge {
         'video/webm;codecs=vp8,opus',
         'video/webm',
       ]);
-      final micMimeType = _pickMimeType(<String>[
+      final audioMimeType = _pickMimeType(<String>[
         'audio/webm;codecs=opus',
         'audio/webm',
       ]);
 
       _screenRecorder = html.MediaRecorder(
-        displayStream,
+        screenVideoStream,
         screenMimeType == null
             ? null
             : <String, String>{'mimeType': screenMimeType},
@@ -165,17 +182,27 @@ class WebRecordingBridge extends RecordingBridge {
         sourceKey: 'screen',
         mimeType: screenMimeType ?? 'video/webm',
       );
+      _systemAudioRecorder = html.MediaRecorder(
+        systemAudioStream,
+        audioMimeType == null ? null : <String, String>{'mimeType': audioMimeType},
+      );
+      _bindRecorder(
+        recorder: _systemAudioRecorder!,
+        sourceKey: 'system',
+        mimeType: audioMimeType ?? 'audio/webm',
+      );
       _microphoneRecorder = html.MediaRecorder(
         microphoneStream,
-        micMimeType == null ? null : <String, String>{'mimeType': micMimeType},
+        audioMimeType == null ? null : <String, String>{'mimeType': audioMimeType},
       );
       _bindRecorder(
         recorder: _microphoneRecorder!,
         sourceKey: 'microphone',
-        mimeType: micMimeType ?? 'audio/webm',
+        mimeType: audioMimeType ?? 'audio/webm',
       );
 
       _screenRecorder!.start(4000);
+      _systemAudioRecorder!.start(4000);
       _microphoneRecorder!.start(4000);
       _status = _status.copyWith(
         active: true,
@@ -189,7 +216,8 @@ class WebRecordingBridge extends RecordingBridge {
         data: <String, Object?>{
           'sessionId': sessionId,
           'screenMimeType': screenMimeType ?? 'video/webm',
-          'micMimeType': micMimeType ?? 'audio/webm',
+          'systemMimeType': audioMimeType ?? 'audio/webm',
+          'micMimeType': audioMimeType ?? 'audio/webm',
         },
       );
       notifyListeners();
@@ -551,6 +579,11 @@ class WebRecordingBridge extends RecordingBridge {
       futures.add(_waitForStop(_screenRecorder!));
       _screenRecorder!.stop();
     }
+    if (_systemAudioRecorder != null &&
+        _systemAudioRecorder!.state != 'inactive') {
+      futures.add(_waitForStop(_systemAudioRecorder!));
+      _systemAudioRecorder!.stop();
+    }
     if (_microphoneRecorder != null &&
         _microphoneRecorder!.state != 'inactive') {
       futures.add(_waitForStop(_microphoneRecorder!));
@@ -563,10 +596,13 @@ class WebRecordingBridge extends RecordingBridge {
     await _displayEndedSub?.cancel();
     _displayEndedSub = null;
     _displayStream?.getTracks().forEach((track) => track.stop());
+    _systemAudioStream?.getTracks().forEach((track) => track.stop());
     _microphoneStream?.getTracks().forEach((track) => track.stop());
     _displayStream = null;
+    _systemAudioStream = null;
     _microphoneStream = null;
     _screenRecorder = null;
+    _systemAudioRecorder = null;
     _microphoneRecorder = null;
     _stopwatch?.stop();
     _stopwatch = null;
