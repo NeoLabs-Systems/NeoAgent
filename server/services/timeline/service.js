@@ -347,9 +347,45 @@ class TimelineService {
       return { insertedCount: 0, timelineItems: [] };
     }
 
+    const batchDedupKeys = new Set();
+    const findExistingEntry = this.db.prepare(
+      `SELECT id
+       FROM screen_history
+       WHERE user_id = ?
+         AND captured_at = ?
+         AND device_id = ?
+         AND COALESCE(app_name, '') = ?
+         AND COALESCE(window_title, '') = ?
+         AND text_content = ?
+       LIMIT 1`
+    );
+
     const tx = this.db.transaction(() => {
       const timelineItems = [];
+      let insertedCount = 0;
       for (const entry of normalizedEntries) {
+        const dedupKey = JSON.stringify([
+          entry.capturedAt,
+          normalizedDeviceId,
+          entry.appName,
+          entry.windowTitle,
+          entry.text,
+        ]);
+        if (batchDedupKeys.has(dedupKey)) {
+          continue;
+        }
+        batchDedupKeys.add(dedupKey);
+        const existing = findExistingEntry.get(
+          userId,
+          entry.capturedAt,
+          normalizedDeviceId,
+          entry.appName || '',
+          entry.windowTitle || '',
+          entry.text,
+        );
+        if (existing) {
+          continue;
+        }
         const insert = this.db.prepare(
           `INSERT INTO screen_history (
              user_id, timestamp, captured_at, device_id, device_label, app_name, window_title, text_content, ocr_engine, ocr_confidence
@@ -366,6 +402,7 @@ class TimelineService {
           ocrEngine,
           entry.ocrConfidence,
         );
+        insertedCount += 1;
         const screenHistoryId = Number(insert.lastInsertRowid);
         const timelineItem = this._upsertScreenSession({
           userId,
@@ -383,7 +420,7 @@ class TimelineService {
         }
       }
       return {
-        insertedCount: normalizedEntries.length,
+        insertedCount,
         timelineItems,
       };
     });

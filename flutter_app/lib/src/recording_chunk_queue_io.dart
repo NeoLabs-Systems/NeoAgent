@@ -29,21 +29,19 @@ class DiskChunkUploadQueue {
   bool _draining = false;
   bool _disposed = false;
   Timer? _retryTimer;
+  final Set<Future<void>> _pendingEnqueues = <Future<void>>{};
 
   Future<void> enqueue(PendingChunk chunk) async {
     if (_disposed) {
       return;
     }
-    await _dir.create(recursive: true);
-    final base = '${chunk.sourceKey}-${chunk.sequence.toString().padLeft(6, '0')}';
-    final audioFile = File('${_dir.path}/$base.bin');
-    final metaFile = File('${_dir.path}/$base.json');
-    final audioTmp = File('${audioFile.path}.tmp');
-    final metaTmp = File('${metaFile.path}.tmp');
-    await audioTmp.writeAsBytes(chunk.bytes, flush: true);
-    await metaTmp.writeAsString(jsonEncode(chunk.toMeta()), flush: true);
-    await audioTmp.rename(audioFile.path);
-    await metaTmp.rename(metaFile.path);
+    final write = _persistChunk(chunk);
+    _pendingEnqueues.add(write);
+    try {
+      await write;
+    } finally {
+      _pendingEnqueues.remove(write);
+    }
     unawaited(drain());
   }
 
@@ -129,6 +127,25 @@ class DiskChunkUploadQueue {
 
   Future<int> pendingCount() async => (await _listMetaFiles()).length;
 
+  Future<void> _persistChunk(PendingChunk chunk) async {
+    await _dir.create(recursive: true);
+    final base = '${chunk.sourceKey}-${chunk.sequence.toString().padLeft(6, '0')}';
+    final audioFile = File('${_dir.path}/$base.bin');
+    final metaFile = File('${_dir.path}/$base.json');
+    final audioTmp = File('${audioFile.path}.tmp');
+    final metaTmp = File('${metaFile.path}.tmp');
+    await audioTmp.writeAsBytes(chunk.bytes, flush: true);
+    await metaTmp.writeAsString(jsonEncode(chunk.toMeta()), flush: true);
+    await audioTmp.rename(audioFile.path);
+    await metaTmp.rename(metaFile.path);
+  }
+
+  Future<void> _waitForPendingEnqueues() async {
+    while (_pendingEnqueues.isNotEmpty && !_disposed) {
+      await Future.wait<void>(List<Future<void>>.from(_pendingEnqueues));
+    }
+  }
+
   void _scheduleRetry() {
     _retryTimer?.cancel();
     _retryTimer = Timer(retryBackoff, () => unawaited(drain()));
@@ -148,8 +165,9 @@ class DiskChunkUploadQueue {
   Future<void> flush({Duration timeout = const Duration(seconds: 30)}) async {
     final deadline = DateTime.now().add(timeout);
     while (!_disposed && DateTime.now().isBefore(deadline)) {
+      await _waitForPendingEnqueues();
       await drain();
-      if (await pendingCount() == 0) {
+      if (_pendingEnqueues.isEmpty && await pendingCount() == 0) {
         break;
       }
       await Future<void>.delayed(const Duration(milliseconds: 200));

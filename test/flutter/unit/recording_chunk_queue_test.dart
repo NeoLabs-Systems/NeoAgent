@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -128,6 +129,22 @@ void main() {
       await queue.flush(timeout: const Duration(seconds: 5));
       expect(await queue.pendingCount(), 0);
       expect(attempts, greaterThanOrEqualTo(4));
+      await queue.dispose();
+    });
+
+    test('flush waits for a chunk whose file persistence started before flush', () async {
+      final uploaded = <int>[];
+      final queue = DiskChunkUploadQueue(
+        directory: dir,
+        retryBackoff: fast,
+        uploader: (c) async => uploaded.add(c.sequence),
+      );
+
+      unawaited(queue.enqueue(chunk(2)));
+      await queue.flush(timeout: const Duration(seconds: 5));
+
+      expect(uploaded, <int>[2]);
+      expect(await queue.pendingCount(), 0);
       await queue.dispose();
     });
   });

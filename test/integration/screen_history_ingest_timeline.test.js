@@ -260,6 +260,54 @@ describe('screen history ingest and timeline routes', () => {
     assert.ok(screenOnlyRes.body.items.every((item) => item.sourceKind === 'screen'));
   });
 
+  test('replayed passive-history batches are idempotent', async () => {
+    insertDevice(user.userId, {
+      deviceId: 'desktop-dedup',
+      activationId: 'activation-dedup',
+      label: 'Dedup Device',
+    });
+
+    const payload = {
+      deviceId: 'desktop-dedup',
+      activationId: 'activation-dedup',
+      entries: [{
+        capturedAt: '2026-06-23T10:30:00.000Z',
+        frontmostApp: 'Browser',
+        windowTitle: 'Docs',
+        text: 'Reviewing the passive history dedup flow',
+      }],
+    };
+
+    const first = await client
+      .post('/api/screen-history/entries')
+      .send(payload)
+      .expect(201);
+    const replay = await client
+      .post('/api/screen-history/entries')
+      .send(payload)
+      .expect(201);
+
+    assert.equal(first.body.insertedCount, 1);
+    assert.equal(replay.body.insertedCount, 0);
+
+    const rows = ctx.db.prepare(
+      `SELECT COUNT(*) AS count
+       FROM screen_history
+       WHERE user_id = ? AND device_id = ? AND captured_at = ?`
+    ).get(user.userId, 'desktop-dedup', '2026-06-23T10:30:00.000Z');
+    assert.equal(rows.count, 1);
+
+    const events = ctx.db.prepare(
+      `SELECT COUNT(*) AS count
+       FROM timeline_events
+       WHERE user_id = ?
+         AND source_kind = 'screen'
+         AND json_extract(metadata_json, '$.deviceId') = ?
+         AND json_extract(metadata_json, '$.startedAt') = ?`
+    ).get(user.userId, 'desktop-dedup', '2026-06-23T10:30:00.000Z');
+    assert.equal(events.count, 1);
+  });
+
   test('screen history search returns expanded metadata fields', async () => {
     const res = await client
       .get('/api/screen-history/search')

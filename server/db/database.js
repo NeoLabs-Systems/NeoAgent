@@ -506,7 +506,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_hash_status ON browser_extension_tokens(token_hash, status);
-  CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_messages_dedup ON messages(user_id, platform, platform_msg_id) WHERE platform_msg_id IS NOT NULL;
@@ -1074,7 +1073,6 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_screen_history_user ON screen_history(user_id, timestamp DESC);
-  CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC);
   CREATE INDEX IF NOT EXISTS idx_notification_history_user ON notification_history(user_id, timestamp DESC);
   CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
   CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
@@ -1374,6 +1372,30 @@ function tableHasColumn(tableName, columnName) {
       .some((column) => column.name === columnName);
   } catch {
     return false;
+  }
+}
+
+function createLegacyCompatibleIndexes() {
+  const deferredIndexes = [
+    {
+      table: 'desktop_companion_devices',
+      columns: ['user_id', 'status', 'created_at'],
+      sql: 'CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC)',
+    },
+    {
+      table: 'screen_history',
+      columns: ['user_id', 'device_id', 'captured_at'],
+      sql: 'CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC)',
+    },
+  ];
+
+  for (const { table, columns, sql } of deferredIndexes) {
+    if (!columns.every((column) => tableHasColumn(table, column))) continue;
+    try {
+      db.exec(sql);
+    } catch {
+      // Keep startup resilient for partially migrated local databases.
+    }
   }
 }
 
@@ -2031,13 +2053,8 @@ rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
+createLegacyCompatibleIndexes();
 createAgentScopedIndexes();
-
-try {
-  db.exec('CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC)');
-} catch {
-  // Keep startup resilient for partially migrated local databases.
-}
 
 try {
   db.exec(`
