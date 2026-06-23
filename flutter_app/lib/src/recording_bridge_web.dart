@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'diagnostics_logger.dart';
 import 'recording_bridge.dart';
+import 'recording_chunk_queue.dart';
 
 RecordingBridge createPlatformRecordingBridge() => WebRecordingBridge();
 
@@ -25,8 +26,11 @@ class WebRecordingBridge extends RecordingBridge {
   html.MediaRecorder? _microphoneRecorder;
   final Map<String, int> _nextSequenceBySource = <String, int>{};
   final Map<String, int> _lastEndMsBySource = <String, int>{};
-  final Map<String, Future<void>> _uploadQueueBySource =
-      <String, Future<void>>{};
+  // One durable, retry-until-success queue per source so a failed upload is
+  // re-sent instead of silently dropped, and a stall in one source does not
+  // block the others.
+  final Map<String, MemoryChunkUploadQueue> _uploadQueues =
+      <String, MemoryChunkUploadQueue>{};
   Stopwatch? _stopwatch;
   String? _baseUrl;
   String? _sessionId;
@@ -145,13 +149,7 @@ class WebRecordingBridge extends RecordingBridge {
       _lastEndMsBySource
         ..clear()
         ..addAll(<String, int>{'screen': 0, 'system': 0, 'microphone': 0});
-      _uploadQueueBySource
-        ..clear()
-        ..addAll(<String, Future<void>>{
-          'screen': Future<void>.value(),
-          'system': Future<void>.value(),
-          'microphone': Future<void>.value(),
-        });
+      _initUploadQueues(<String>['screen', 'system', 'microphone']);
       _stopwatch = Stopwatch()..start();
 
       final screenMimeType = _pickMimeType(<String>[
@@ -289,11 +287,7 @@ class WebRecordingBridge extends RecordingBridge {
       _lastEndMsBySource
         ..clear()
         ..addAll(<String, int>{'microphone': 0});
-      _uploadQueueBySource
-        ..clear()
-        ..addAll(<String, Future<void>>{
-          'microphone': Future<void>.value(),
-        });
+      _initUploadQueues(<String>['microphone']);
       _stopwatch = Stopwatch()..start();
 
       final micMimeType = _pickMimeType(<String>[
@@ -432,7 +426,9 @@ class WebRecordingBridge extends RecordingBridge {
     );
     try {
       await _stopRecorders();
-      await Future.wait(_uploadQueueBySource.values);
+      await Future.wait(
+        _uploadQueues.values.map((queue) => queue.flush()),
+      );
       await _disposeStreams();
       _status = _status.copyWith(
         active: false,
@@ -460,6 +456,30 @@ class WebRecordingBridge extends RecordingBridge {
     }
   }
 
+  void _initUploadQueues(List<String> sourceKeys) {
+    for (final queue in _uploadQueues.values) {
+      unawaited(queue.dispose());
+    }
+    _uploadQueues
+      ..clear()
+      ..addEntries(
+        sourceKeys.map(
+          (sourceKey) => MapEntry<String, MemoryChunkUploadQueue>(
+            sourceKey,
+            MemoryChunkUploadQueue(
+              uploader: _performChunkUpload,
+              logger:
+                  (
+                    event, {
+                    Map<String, Object?> data = const <String, Object?>{},
+                    Object? error,
+                  }) => _log(event, data: data, error: error),
+            ),
+          ),
+        ),
+      );
+  }
+
   void _bindRecorder({
     required html.MediaRecorder recorder,
     required String sourceKey,
@@ -475,49 +495,42 @@ class WebRecordingBridge extends RecordingBridge {
       _lastEndMsBySource[sourceKey] = endMs;
       final sequence = _nextSequenceBySource[sourceKey] ?? 0;
       _nextSequenceBySource[sourceKey] = sequence + 1;
-      final upload = (_uploadQueueBySource[sourceKey] ?? Future<void>.value())
-          .then(
-            (_) => _uploadChunk(
+      final queue = _uploadQueues[sourceKey];
+      if (queue == null) {
+        return;
+      }
+      // Read the blob bytes, then hand the chunk to the durable queue, which
+      // uploads and retries until the server confirms it (so a transient
+      // failure no longer drops the chunk or stalls the rest of the source).
+      unawaited(() async {
+        try {
+          final bytes = await _blobToBytes(blob);
+          queue.enqueue(
+            PendingChunk(
               sourceKey: sourceKey,
               sequence: sequence,
               startMs: startMs,
               endMs: endMs,
-              blob: blob,
               mimeType: mimeType,
+              bytes: bytes,
             ),
           );
-      _uploadQueueBySource[sourceKey] = upload.catchError((
-        Object error,
-        StackTrace stackTrace,
-      ) {
-        final stackText = stackTrace.toString();
-        _status = _status.copyWith(
-          errorMessage: stackText.isNotEmpty ? stackText : error.toString(),
-        );
-        _log(
-          'chunk.upload_queue.error',
-          data: <String, Object?>{
-            'sourceKey': sourceKey,
-            'sequence': sequence,
-            'stackTrace': stackText,
-          },
-          error: error,
-          stackTrace: stackTrace,
-        );
-        notifyListeners();
-        Error.throwWithStackTrace(error, stackTrace);
-      });
+        } catch (error, stackTrace) {
+          _log(
+            'chunk.read.failed',
+            data: <String, Object?>{
+              'sourceKey': sourceKey,
+              'sequence': sequence,
+            },
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }());
     });
   }
 
-  Future<void> _uploadChunk({
-    required String sourceKey,
-    required int sequence,
-    required int startMs,
-    required int endMs,
-    required html.Blob blob,
-    required String mimeType,
-  }) async {
+  Future<void> _performChunkUpload(PendingChunk chunk) async {
     final sessionId = _sessionId;
     final baseUrl = _baseUrl;
     if (sessionId == null || baseUrl == null) {
@@ -525,38 +538,38 @@ class WebRecordingBridge extends RecordingBridge {
         'Recording session is not initialized.',
       );
     }
-    final bytes = await _blobToBytes(blob);
     final uri = _resolveUri(baseUrl, '/api/recordings/$sessionId/chunks');
+    final headers = <String, String>{
+      'Content-Type': chunk.mimeType,
+      'X-Recording-Source-Key': chunk.sourceKey,
+      'X-Recording-Sequence': '${chunk.sequence}',
+      'X-Recording-Start-Ms': '${chunk.startMs}',
+      'X-Recording-End-Ms': '${chunk.endMs}',
+    };
     _log(
-      'chunk.upload.request',
+      'chunk.upload.attempt',
       data: <String, Object?>{
         'sessionId': sessionId,
-        'sourceKey': sourceKey,
-        'sequence': sequence,
-        'startMs': startMs,
-        'endMs': endMs,
-        'size': bytes.length,
-        'mimeType': mimeType,
+        'sourceKey': chunk.sourceKey,
+        'sequence': chunk.sequence,
+        'size': chunk.bytes.length,
+        'headers': _filterHeadersForLog(headers),
       },
     );
-    await _requestWithRetry(
+    await html.HttpRequest.request(
       uri.toString(),
-      headers: <String, String>{
-        'Content-Type': mimeType,
-        'X-Recording-Source-Key': sourceKey,
-        'X-Recording-Sequence': '$sequence',
-        'X-Recording-Start-Ms': '$startMs',
-        'X-Recording-End-Ms': '$endMs',
-      },
-      body: bytes,
+      method: 'POST',
+      sendData: chunk.bytes,
+      requestHeaders: headers,
+      withCredentials: true,
     );
     _log(
       'chunk.upload.done',
       data: <String, Object?>{
         'sessionId': sessionId,
-        'sourceKey': sourceKey,
-        'sequence': sequence,
-        'size': bytes.length,
+        'sourceKey': chunk.sourceKey,
+        'sequence': chunk.sequence,
+        'size': chunk.bytes.length,
       },
     );
   }
@@ -604,48 +617,12 @@ class WebRecordingBridge extends RecordingBridge {
     _screenRecorder = null;
     _systemAudioRecorder = null;
     _microphoneRecorder = null;
+    for (final queue in _uploadQueues.values) {
+      await queue.dispose();
+    }
+    _uploadQueues.clear();
     _stopwatch?.stop();
     _stopwatch = null;
-  }
-
-  Future<void> _requestWithRetry(
-    String url, {
-    required Map<String, String> headers,
-    required Uint8List body,
-  }) async {
-    Object? lastError;
-    for (var attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        _log(
-          'chunk.upload.attempt',
-          data: <String, Object?>{
-            'url': url,
-            'attempt': attempt + 1,
-            'size': body.length,
-            'headers': _filterHeadersForLog(headers),
-          },
-        );
-        await html.HttpRequest.request(
-          url,
-          method: 'POST',
-          sendData: body,
-          requestHeaders: headers,
-          withCredentials: true,
-        );
-        return;
-      } catch (error) {
-        lastError = error;
-        _log(
-          'chunk.upload.attempt_failed',
-          data: <String, Object?>{'url': url, 'attempt': attempt + 1},
-          error: error,
-        );
-        await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
-      }
-    }
-    throw RecordingBridgeException(
-      'Could not upload a recording chunk: ${lastError ?? 'unknown error'}',
-    );
   }
 
   Map<String, String> _filterHeadersForLog(Map<String, String> headers) {

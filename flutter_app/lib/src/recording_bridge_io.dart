@@ -5,9 +5,12 @@ import 'package:desktop_audio_capture/audio_capture.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import 'diagnostics_logger.dart';
 import 'recording_bridge.dart';
+import 'recording_chunk_queue.dart';
+import 'recording_chunk_queue_io.dart';
 
 RecordingBridge createPlatformRecordingBridge() {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -349,14 +352,15 @@ class DesktopRecordingBridge extends RecordingBridge {
     'microphone': 0,
     'system': 0,
   };
-  final Map<String, Future<void>> _uploadQueueBySource = <String, Future<void>>{
-    'microphone': Future<void>.value(),
-    'system': Future<void>.value(),
-  };
   final Map<String, int> _bytesPerSecondBySource = <String, int>{
     'microphone': _sampleRate * _channels * _bytesPerSample,
     'system': _sampleRate * _channels * _bytesPerSample,
   };
+
+  // Chunks are persisted to disk before upload and retried until confirmed, so a
+  // transient network failure during a meeting never loses audio.
+  DiskChunkUploadQueue? _uploadQueue;
+  String? _systemPermissionErrorMessage;
 
   StreamSubscription<Uint8List>? _micAudioSub;
   StreamSubscription<Uint8List>? _systemAudioSub;
@@ -411,6 +415,7 @@ class DesktopRecordingBridge extends RecordingBridge {
 
     try {
       await _ensureDesktopPermissions();
+      await _initUploadQueue(sessionId);
       await _startStreams();
       _status = _status.copyWith(
         active: true,
@@ -443,7 +448,7 @@ class DesktopRecordingBridge extends RecordingBridge {
       return;
     }
     await _stopStreams(flushPending: true);
-    await Future.wait(_uploadQueueBySource.values);
+    await _uploadQueue?.flush();
     _status = _status.copyWith(
       paused: true,
       activeSources: const <String>[],
@@ -528,7 +533,7 @@ class DesktopRecordingBridge extends RecordingBridge {
     }
     final sessionId = _sessionId;
     await _stopStreams(flushPending: true);
-    await Future.wait(_uploadQueueBySource.values);
+    await _uploadQueue?.flush();
     _status = _status.copyWith(
       active: false,
       paused: false,
@@ -614,7 +619,20 @@ class DesktopRecordingBridge extends RecordingBridge {
       await _systemCapture.stopCapture();
     } catch (_) {}
 
+    await _uploadQueue?.dispose();
     _httpClient.close();
+  }
+
+  Future<void> _initUploadQueue(String sessionId) async {
+    await _uploadQueue?.dispose();
+    final support = await getApplicationSupportDirectory();
+    final dir = Directory('${support.path}/recording-pending/$sessionId');
+    _uploadQueue = DiskChunkUploadQueue(
+      directory: dir,
+      uploader: _performChunkUpload,
+      logger: (event, {Map<String, Object?> data = const <String, Object?>{}, Object? error}) =>
+          _log(event, data: data, error: error),
+    );
   }
 
   Future<void> _ensureDesktopPermissions() async {
@@ -650,12 +668,25 @@ class DesktopRecordingBridge extends RecordingBridge {
   Future<bool> _requestSystemPermission() async {
     try {
       final granted = await _systemCapture.requestPermissions();
+      _systemPermissionErrorMessage = null;
       _status = _status.copyWith(
         systemAudioPermission: granted
             ? RecordingPermissionState.granted
             : RecordingPermissionState.denied,
       );
       return granted;
+    } on MissingPluginException catch (error, stackTrace) {
+      // The system-audio plugin is only registered where capture is supported
+      // (macOS 13+ via ScreenCaptureKit). Surface that instead of a misleading
+      // "grant permission" prompt the user can never satisfy.
+      _systemPermissionErrorMessage =
+          'System audio capture is unavailable on this OS version. On macOS it '
+          'requires macOS 13 (Ventura) or later.';
+      _log('system_permission.unavailable', error: error, stackTrace: stackTrace);
+      _status = _status.copyWith(
+        systemAudioPermission: RecordingPermissionState.unknown,
+      );
+      return false;
     } catch (error) {
       _status = _status.copyWith(
         systemAudioPermission: _permissionStateFromError(error),
@@ -746,32 +777,27 @@ class DesktopRecordingBridge extends RecordingBridge {
     _nextSequenceBySource[sourceKey] = sequence + 1;
     _lastEndMsBySource[sourceKey] = endMs;
 
-    final previous = _uploadQueueBySource[sourceKey] ?? Future<void>.value();
-    _uploadQueueBySource[sourceKey] = previous
-        // Keep the queue moving even if a previous upload failed.
-        .catchError((Object _, StackTrace __) {})
-        .then((_) async {
-          try {
-            await _uploadChunk(
-              sourceKey: sourceKey,
-              sequence: sequence,
-              startMs: startMs,
-              endMs: endMs,
-              bytes: _wrapPcmAsWav(pcmBytes),
-            );
-          } catch (error, stackTrace) {
-            _handleRuntimeError('$sourceKey.upload', error, stackTrace);
-          }
-        });
+    final queue = _uploadQueue;
+    if (queue == null) {
+      return;
+    }
+    // Persist + enqueue. The queue uploads in order and retries until the chunk
+    // is confirmed stored, so a dropped upload no longer loses that audio.
+    unawaited(
+      queue.enqueue(
+        PendingChunk(
+          sourceKey: sourceKey,
+          sequence: sequence,
+          startMs: startMs,
+          endMs: endMs,
+          mimeType: 'audio/wav',
+          bytes: _wrapPcmAsWav(pcmBytes),
+        ),
+      ),
+    );
   }
 
-  Future<void> _uploadChunk({
-    required String sourceKey,
-    required int sequence,
-    required int startMs,
-    required int endMs,
-    required Uint8List bytes,
-  }) async {
+  Future<void> _performChunkUpload(PendingChunk chunk) async {
     final sessionId = _sessionId;
     final baseUrl = _baseUrl;
     if (sessionId == null || baseUrl == null || baseUrl.trim().isEmpty) {
@@ -783,49 +809,31 @@ class DesktopRecordingBridge extends RecordingBridge {
     final uri = Uri.parse(
       '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/api/recordings/$sessionId/chunks',
     );
+    final headers = <String, String>{
+      'Content-Type': chunk.mimeType,
+      'X-Recording-Source-Key': chunk.sourceKey,
+      'X-Recording-Sequence': '${chunk.sequence}',
+      'X-Recording-Start-Ms': '${chunk.startMs}',
+      'X-Recording-End-Ms': '${chunk.endMs}',
+      if ((_sessionCookie ?? '').trim().isNotEmpty)
+        'Cookie': _sessionCookie!.trim(),
+    };
 
-    for (var attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        final headers = <String, String>{
-          'Content-Type': 'audio/wav',
-          'X-Recording-Source-Key': sourceKey,
-          'X-Recording-Sequence': '$sequence',
-          'X-Recording-Start-Ms': '$startMs',
-          'X-Recording-End-Ms': '$endMs',
-          if ((_sessionCookie ?? '').trim().isNotEmpty)
-            'Cookie': _sessionCookie!.trim(),
-        };
-        final response = await _httpClient
-            .post(uri, headers: headers, body: bytes)
-            .timeout(const Duration(seconds: 20));
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw RecordingBridgeException(
-            'Chunk upload failed with status ${response.statusCode}.',
-          );
-        }
-        return;
-      } on TimeoutException catch (error, stackTrace) {
-        _log(
-          'upload.timeout',
-          data: <String, Object?>{
-            'sourceKey': sourceKey,
-            'sequence': sequence,
-            'attempt': attempt + 1,
-          },
-          error: error,
-          stackTrace: stackTrace,
+    try {
+      final response = await _httpClient
+          .post(uri, headers: headers, body: chunk.bytes)
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw RecordingBridgeException(
+          'Chunk upload failed with status ${response.statusCode}.',
         );
-        _httpClient.close();
-        _httpClient = http.Client();
-        if (attempt == 2) {
-          throw const RecordingBridgeException('Chunk upload timed out.');
-        }
-      } catch (error) {
-        if (attempt == 2) {
-          rethrow;
-        }
-        await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
       }
+    } on TimeoutException {
+      // A stuck socket can wedge subsequent requests; rebuild the client so the
+      // queue's retry gets a fresh connection.
+      _httpClient.close();
+      _httpClient = http.Client();
+      rethrow;
     }
   }
 
@@ -873,7 +881,6 @@ class DesktopRecordingBridge extends RecordingBridge {
       _pcmBuffers[sourceKey] = <int>[];
       _nextSequenceBySource[sourceKey] = 0;
       _lastEndMsBySource[sourceKey] = 0;
-      _uploadQueueBySource[sourceKey] = Future<void>.value();
     }
   }
 
@@ -930,7 +937,8 @@ class DesktopRecordingBridge extends RecordingBridge {
     if (!micGranted) {
       return 'Grant microphone permission before starting desktop recording.';
     }
-    return 'Grant system audio permission before starting desktop recording.';
+    return _systemPermissionErrorMessage ??
+        'Grant system audio permission before starting desktop recording.';
   }
 
   Future<void> _openPlatformSettings({
