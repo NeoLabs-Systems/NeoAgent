@@ -355,7 +355,6 @@ async function loadConfig() {
   loadEmailConfig();
   loadGeneralConfig();
   loadVmConfig();
-  loadScreenRecorderConfig();
   loadBillingSetupConfig();
   try {
     const data = await api('/admin/api/config').then((r) => r.json());
@@ -887,75 +886,6 @@ async function saveVmConfig(event) {
       showToast(body.error || 'Failed to save', 'error');
     } else {
       showToast('VM settings saved', 'success');
-    }
-  } catch (err) {
-    if (err.message !== 'unauthorized') showToast('Network error', 'error');
-  } finally {
-    if (btn?.isConnected) { btn.disabled = false; btn.textContent = original; }
-  }
-}
-
-// ── Screen Recorder Config ─────────────────────────────────────────────────
-
-async function loadScreenRecorderConfig() {
-  const el = document.getElementById('screen-recorder-config-content');
-  if (!el) return;
-  try {
-    const data = await api('/admin/api/config/screen-recorder').then((r) => r.json());
-    const s = data.settings || {};
-    el.innerHTML = `
-      <form id="screen-recorder-config-form" onsubmit="saveScreenRecorderConfig(event)">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;">
-          Captures the backend host's macOS desktop. Enable only when the host is the configured user's desktop.
-        </div>
-        <div class="email-settings-grid">
-          <div class="field">
-            <label for="sr-user-id">User ID (owner of screen history)</label>
-            <input type="text" id="sr-user-id" value="${esc(s.userId)}" autocomplete="off" spellcheck="false"
-              placeholder="Required when enabled">
-          </div>
-          <div class="field">
-            <label for="sr-interval-ms">Capture interval (ms)</label>
-            <input type="number" min="1000" step="1000" id="sr-interval-ms" value="${esc(s.intervalMs)}" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="sr-retention-days">Retention (days)</label>
-            <input type="number" min="1" step="1" id="sr-retention-days" value="${esc(s.retentionDays)}" autocomplete="off">
-          </div>
-        </div>
-        <div class="email-settings-checks" style="margin-top:4px;">
-          ${emailConfigCheckbox('sr-enabled', 'Screen recorder enabled', s.enabled)}
-        </div>
-        <button class="btn btn-primary" type="submit">Save Screen Recorder Settings</button>
-      </form>`;
-  } catch (err) {
-    if (err.message !== 'unauthorized') {
-      el.innerHTML = '<div class="empty">Failed to load screen recorder configuration</div>';
-    }
-  }
-}
-
-async function saveScreenRecorderConfig(event) {
-  event.preventDefault();
-  const btn = event.submitter;
-  const original = btn?.textContent;
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  try {
-    const res = await api('/admin/api/config/screen-recorder', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        enabled: document.getElementById('sr-enabled')?.checked === true,
-        userId: document.getElementById('sr-user-id')?.value?.trim() || '',
-        intervalMs: parseInt(document.getElementById('sr-interval-ms')?.value || '10000', 10),
-        retentionDays: parseInt(document.getElementById('sr-retention-days')?.value || '7', 10),
-      }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      showToast(body.error || 'Failed to save', 'error');
-    } else {
-      showToast('Screen recorder settings saved', 'success');
     }
   } catch (err) {
     if (err.message !== 'unauthorized') showToast('Network error', 'error');

@@ -47,7 +47,8 @@ class NeoAgentController extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _connectivityPluginAvailable = true;
   static const int _maxVisibleLogs = 400;
-  static const int _maxToolEvents = 500; // separate list from _maxVisibleLogs (chat diagnostics)
+  static const int _maxToolEvents =
+      500; // separate list from _maxVisibleLogs (chat diagnostics)
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -153,6 +154,7 @@ class NeoAgentController extends ChangeNotifier {
   List<ModelMeta> supportedModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
+  List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
   Map<String, dynamic>? billingSubscription;
   List<Map<String, dynamic>> billingPlans = const <Map<String, dynamic>>[];
@@ -212,6 +214,7 @@ class NeoAgentController extends ChangeNotifier {
   String? _chatHistoryBeforeCreatedAt;
   String? _chatHistoryBeforeSource;
   String? _chatHistoryBeforeId;
+  String? _requestedRunFocusId;
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -240,14 +243,23 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAutoShowFloatingToolbar = true;
   bool _desktopAssistantHotkeyEnabled = true;
+  bool isRefreshingTimeline = false;
+  Set<String> selectedTimelineSources = <String>{'screen', 'tasks', 'runs'};
 
   bool get desktopCompanionEnabled => _desktopCompanion.enabled;
+  bool get desktopPassiveHistoryEnabled =>
+      _desktopCompanion.passiveHistoryEnabled;
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get desktopCompanionConnected => _desktopCompanion.connected;
   bool get desktopCompanionConnecting => _desktopCompanion.connecting;
   bool get desktopCompanionPaused => _desktopCompanion.paused;
   String get desktopCompanionLabel => _desktopCompanion.label;
   String? get desktopCompanionErrorMessage => _desktopCompanion.errorMessage;
+  String? get desktopPassiveHistoryLastUploadedAt =>
+      _desktopCompanion.passiveHistoryLastUploadedAt;
+  String? get desktopPassiveHistoryLastError =>
+      _desktopCompanion.passiveHistoryLastError;
+  String? get requestedRunFocusId => _requestedRunFocusId;
   Map<String, Object?> get desktopCompanionStatus => _desktopCompanion.status;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
@@ -828,7 +840,9 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
-    _ignoredChats.addAll(_prefs?.getStringList('messaging.ignored_chats') ?? <String>[]);
+    _ignoredChats.addAll(
+      _prefs?.getStringList('messaging.ignored_chats') ?? <String>[],
+    );
     await _desktopCompanion.bootstrap(_prefs!);
     final configured = _configuredBackendUrl.trim();
     final savedBackendUrl = _prefs?.getString('backend_url')?.trim() ?? '';
@@ -1671,6 +1685,8 @@ class NeoAgentController extends ChangeNotifier {
     supportedModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
+    timelineItems = const <TimelineEventItem>[];
+    isRefreshingTimeline = false;
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
     _serverLogs = const <LogEntry>[];
@@ -1794,6 +1810,9 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
+    if (section == AppSection.timeline) {
+      unawaited(refreshTimeline());
+    }
     if (section == AppSection.accountSettings) {
       unawaited(refreshAccountSettings());
     }
@@ -1801,6 +1820,22 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(refreshBilling());
     }
     notifyListeners();
+  }
+
+  Future<void> openRunDetails(String runId) async {
+    final normalized = runId.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    _requestedRunFocusId = normalized;
+    setSelectedSection(AppSection.runs);
+    await refreshRunsOnly();
+  }
+
+  void clearRequestedRunFocus(String runId) {
+    if (_requestedRunFocusId == runId) {
+      _requestedRunFocusId = null;
+    }
   }
 
   void _ensureSelectedAgent() {
@@ -2058,15 +2093,23 @@ class NeoAgentController extends ChangeNotifier {
     final key = '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
     _ignoredChats.add(key);
     _blockedSenderQueue.removeWhere(
-      (n) => n.platform == notice.platform && (n.chatId == notice.chatId || n.sender == notice.sender),
+      (n) =>
+          n.platform == notice.platform &&
+          (n.chatId == notice.chatId || n.sender == notice.sender),
     );
-    await _prefs?.setStringList('messaging.ignored_chats', _ignoredChats.toList());
+    await _prefs?.setStringList(
+      'messaging.ignored_chats',
+      _ignoredChats.toList(),
+    );
     notifyListeners();
   }
 
   Future<void> removeIgnoredChat(String key) async {
     _ignoredChats.remove(key);
-    await _prefs?.setStringList('messaging.ignored_chats', _ignoredChats.toList());
+    await _prefs?.setStringList(
+      'messaging.ignored_chats',
+      _ignoredChats.toList(),
+    );
     notifyListeners();
   }
 
@@ -2080,7 +2123,8 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _enqueueBlockedSenderNotice(BlockedSenderNotice notice) {
-    final ignoreKey = '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
+    final ignoreKey =
+        '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
     if (_ignoredChats.contains(ignoreKey)) return;
     final exists = _blockedSenderQueue.any((item) => item.id == notice.id);
     if (!exists) {
@@ -2177,6 +2221,15 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         _backendClient.fetchRuns(backendUrl, agentId: agentId),
         const <String, dynamic>{'runs': <dynamic>[]},
+      );
+      final timelineFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'timeline',
+        _backendClient.fetchTimeline(
+          backendUrl,
+          sources: selectedTimelineSources,
+          limit: 50,
+        ),
+        const <String, dynamic>{'items': <dynamic>[]},
       );
       final versionFuture = _softRefreshLoad<Map<String, dynamic>>(
         'version',
@@ -2301,6 +2354,7 @@ class NeoAgentController extends ChangeNotifier {
       final providersResponse = await providersFuture;
       final settingsResponse = await settingsFuture;
       final runsResponse = await runsFuture;
+      final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
       final tokenResponse = await tokenFuture;
       final rateLimitResponse = await rateLimitFuture;
@@ -2346,6 +2400,12 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         runsResponse['runs'],
         RunSummary.fromJson,
+        fallbackToMapValues: true,
+      );
+      timelineItems = _decodeModelList(
+        'timeline',
+        timelineResponse['items'],
+        TimelineEventItem.fromJson,
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
@@ -2539,6 +2599,62 @@ class NeoAgentController extends ChangeNotifier {
       );
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> refreshTimeline({
+    Set<String>? sources,
+    bool notify = true,
+  }) async {
+    if (!isAuthenticated) {
+      return;
+    }
+    if (sources != null) {
+      selectedTimelineSources = sources
+          .map((value) => value.trim().toLowerCase())
+          .where((value) => value.isNotEmpty)
+          .toSet();
+    }
+    isRefreshingTimeline = true;
+    if (notify) {
+      notifyListeners();
+    }
+    try {
+      final response = await _backendClient.fetchTimeline(
+        backendUrl,
+        sources: selectedTimelineSources,
+        limit: 50,
+      );
+      timelineItems = _decodeModelList(
+        'timeline',
+        response['items'],
+        TimelineEventItem.fromJson,
+        fallbackToMapValues: true,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRefreshingTimeline = false;
+      if (notify) {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> toggleTimelineSource(String sourceKind) async {
+    final normalized = sourceKind.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final next = <String>{...selectedTimelineSources};
+    if (next.contains(normalized)) {
+      if (next.length == 1) {
+        return;
+      }
+      next.remove(normalized);
+    } else {
+      next.add(normalized);
+    }
+    await refreshTimeline(sources: next);
   }
 
   Future<void> refreshMessaging() async {
@@ -3875,6 +3991,19 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> setDesktopPassiveHistoryEnabled(bool value) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.setPassiveHistoryEnabled(value, prefs);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> rotateDesktopCompanionIdentity() async {
     final prefs = _prefs;
     if (prefs == null) {
@@ -4992,12 +5121,13 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.getBillingPlans(backendUrl),
         _backendClient.getBillingInvoices(backendUrl),
       ]);
-      billingSubscription =
-          results[0]['subscription'] as Map<String, dynamic>?;
-      billingPlans = _asDynList(results[1]['plans'])
-          .cast<Map<String, dynamic>>();
-      billingInvoices = _asDynList(results[2]['invoices'])
-          .cast<Map<String, dynamic>>();
+      billingSubscription = results[0]['subscription'] as Map<String, dynamic>?;
+      billingPlans = _asDynList(
+        results[1]['plans'],
+      ).cast<Map<String, dynamic>>();
+      billingInvoices = _asDynList(
+        results[2]['invoices'],
+      ).cast<Map<String, dynamic>>();
     } catch (_) {
       // retain previous data on error
     } finally {
@@ -7000,6 +7130,9 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       unawaited(_refreshRecordingSessionById(sessionId));
+    });
+    socket.on('timeline:updated', (dynamic _) {
+      unawaited(refreshTimeline());
     });
     socket.on('voice:session_ready', (dynamic data) {
       final payload = _jsonMap(data);

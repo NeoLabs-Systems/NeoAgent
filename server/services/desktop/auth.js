@@ -29,6 +29,9 @@ function normalizeDesktopHello(message) {
       : {},
     displays: Array.isArray(device.displays) ? device.displays : [],
     activeDisplayId: String(device.activeDisplayId || '').trim(),
+    passiveHistoryEnabled: device.passiveHistoryEnabled === true,
+    passiveHistoryLastUploadedAt: String(device.passiveHistoryLastUploadedAt || '').trim(),
+    passiveHistoryLastError: String(device.passiveHistoryLastError || '').trim(),
     metadata: device.metadata && typeof device.metadata === 'object'
       ? device.metadata
       : {},

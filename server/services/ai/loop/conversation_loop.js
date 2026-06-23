@@ -569,6 +569,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let failedStepCount = 0;
   let toolExecutions = [];
   let deliverableWorkflow = null;
+  const timelineService = app?.locals?.timelineService || null;
 
   const { releaseReservation } = enforceRateLimits(userId);
 
@@ -733,6 +734,15 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     triggerType,
     triggerSource,
   }, { agentId });
+  timelineService?.recordRunLifecycle?.({
+    userId,
+    agentId,
+    runId,
+    title: runTitle,
+    eventKind: 'run_started',
+    status: 'running',
+    triggerSource,
+  });
   console.info(
     `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
   );
@@ -2524,6 +2534,15 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       executionMode: analysis?.mode || 'execute',
       verificationStatus: verification?.status || 'skipped',
     }, { agentId });
+    timelineService?.recordRunLifecycle?.({
+      userId,
+      agentId,
+      runId,
+      title: runTitle,
+      eventKind: 'run_completed',
+      status: 'completed',
+      triggerSource,
+    });
     // ── on_loop_end hook ──
     // Fire-and-forget: plugins can use this for self-improvement, memory
     // consolidation, analytics, or other post-run housekeeping.
@@ -2672,6 +2691,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       iterations: iteration,
       deliverableType: deliverableWorkflow?.selection?.type || null,
     }, { agentId });
+    timelineService?.recordRunLifecycle?.({
+      userId,
+      agentId,
+      runId,
+      title: runTitle,
+      eventKind: 'run_failed',
+      status: 'failed',
+      triggerSource,
+      error: err.message,
+    });
 
     if (messagingFailureContent) {
       return {

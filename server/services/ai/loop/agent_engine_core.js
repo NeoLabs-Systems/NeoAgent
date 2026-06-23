@@ -247,6 +247,13 @@ class AgentEngine {
     const { MemoryManager } = require('../../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     const promptSections = await buildSystemPromptSections(userId, context, memoryManager);
+    const timelineService = context.timelineService || this.app?.locals?.timelineService || null;
+    const timelinePrompt = timelineService?.buildPromptContext?.(userId, {
+      agentId: context.agentId || null,
+      query: context.rawUserMessage || context.userMessage || '',
+      limit: 6,
+      sources: ['screen', 'tasks', 'runs'],
+    }) || '';
     const skillRunner = context.skillRunner || this.skillRunner || null;
     const skillsPrompt = skillRunner?.getSkillsForPrompt?.({
       userId,
@@ -256,7 +263,7 @@ class AgentEngine {
     }) || '';
     return {
       stable: [promptSections.stable, skillsPrompt].filter(Boolean).join('\n\n'),
-      dynamic: promptSections.dynamic,
+      dynamic: [promptSections.dynamic, timelinePrompt].filter(Boolean).join('\n\n'),
     };
   }
 

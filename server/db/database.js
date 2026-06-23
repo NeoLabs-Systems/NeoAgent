@@ -406,6 +406,9 @@ db.exec(`
     session_id INTEGER,
     last_connected_at TEXT,
     last_seen_at TEXT,
+    passive_history_enabled INTEGER DEFAULT 0,
+    passive_history_last_uploaded_at TEXT,
+    passive_history_last_error TEXT,
     revoked_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -1020,9 +1023,32 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     timestamp TEXT DEFAULT (datetime('now')),
+    captured_at TEXT,
+    device_id TEXT,
+    device_label TEXT,
     app_name TEXT,
+    window_title TEXT,
     text_content TEXT,
+    ocr_engine TEXT,
+    ocr_confidence REAL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS timeline_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    source_kind TEXT NOT NULL,
+    event_kind TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT,
+    source_id TEXT,
+    group_key TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS notification_history (
@@ -1048,7 +1074,11 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_screen_history_user ON screen_history(user_id, timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC);
   CREATE INDEX IF NOT EXISTS idx_notification_history_user ON notification_history(user_id, timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_group ON timeline_events(user_id, source_kind, group_key, occurred_at DESC, id DESC);
 
   CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,
@@ -1314,8 +1344,17 @@ for (const col of [
   "ALTER TABLE desktop_companion_devices ADD COLUMN session_id INTEGER",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_connected_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_enabled INTEGER DEFAULT 0",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_uploaded_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_error TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE screen_history ADD COLUMN captured_at TEXT",
+  "ALTER TABLE screen_history ADD COLUMN device_id TEXT",
+  "ALTER TABLE screen_history ADD COLUMN device_label TEXT",
+  "ALTER TABLE screen_history ADD COLUMN window_title TEXT",
+  "ALTER TABLE screen_history ADD COLUMN ocr_engine TEXT",
+  "ALTER TABLE screen_history ADD COLUMN ocr_confidence REAL",
   "ALTER TABLE memory_facts ADD COLUMN valid_from TEXT",
   "ALTER TABLE memory_facts ADD COLUMN valid_to TEXT",
   "ALTER TABLE memory_facts ADD COLUMN learned_at TEXT",
@@ -1993,6 +2032,38 @@ migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
 createAgentScopedIndexes();
+
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC)');
+} catch {
+  // Keep startup resilient for partially migrated local databases.
+}
+
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS timeline_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      agent_id TEXT,
+      source_kind TEXT NOT NULL,
+      event_kind TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT,
+      source_id TEXT,
+      group_key TEXT,
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_group ON timeline_events(user_id, source_kind, group_key, occurred_at DESC, id DESC);
+  `);
+} catch {
+  // Keep startup resilient for partially migrated local databases.
+}
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();
 rebuildFtsForAgents();

@@ -205,9 +205,15 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                           const SizedBox(height: 10),
                           Center(
                             child: TextButton.icon(
-                              onPressed: () => setState(() => _localInstall = true),
-                              icon: const Icon(Icons.download_outlined, size: 16),
-                              label: const Text('Install NeoAgent on this machine'),
+                              onPressed: () =>
+                                  setState(() => _localInstall = true),
+                              icon: const Icon(
+                                Icons.download_outlined,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Install NeoAgent on this machine',
+                              ),
                             ),
                           ),
                         ],
@@ -268,7 +274,9 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     if (!mounted) return;
     setState(() => _phase = _LocalInstallPhase.checking);
 
-    final r = await Process.run(Platform.isWindows ? 'where' : 'which', ['node']);
+    final r = await Process.run(Platform.isWindows ? 'where' : 'which', [
+      'node',
+    ]);
     if (r.exitCode == 0) {
       _nodePath = (r.stdout as String).trim().split('\n').first.trim();
     } else if (!Platform.isWindows) {
@@ -315,7 +323,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     if (!_ensureEnvFile()) {
       setState(() {
         _phase = _LocalInstallPhase.failed;
-        _errorMsg = 'Could not create ~/.neoagent/runtime/.env — check directory permissions.';
+        _errorMsg =
+            'Could not create ~/.neoagent/runtime/.env — check directory permissions.';
       });
       return;
     }
@@ -324,11 +333,10 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
       _log.clear();
     });
 
-    final process = await Process.start(
-      _nodePath!,
-      ['bin/neoagent.js', 'install'],
-      workingDirectory: _installDir,
-    );
+    final process = await Process.start(_nodePath!, [
+      'bin/neoagent.js',
+      'install',
+    ], workingDirectory: _installDir);
     _proc = process;
 
     void onChunk(String data) {
@@ -349,7 +357,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     if (!mounted) return;
     setState(() {
       _phase = exit == 0 ? _LocalInstallPhase.done : _LocalInstallPhase.failed;
-      if (exit != 0) _errorMsg = 'Installation failed (exit $exit). Check the log above.';
+      if (exit != 0)
+        _errorMsg = 'Installation failed (exit $exit). Check the log above.';
     });
   }
 
@@ -388,7 +397,10 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                           const SizedBox(height: 16),
                           const _BrandLockup(logoSize: 60),
                           const SizedBox(height: 22),
-                          Text('INSTALL LOCALLY', style: _sectionEyebrowStyle()),
+                          Text(
+                            'INSTALL LOCALLY',
+                            style: _sectionEyebrowStyle(),
+                          ),
                           const SizedBox(height: 10),
                           Text(
                             'Install NeoAgent as a background service',
@@ -459,7 +471,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                     final proc = _proc;
                     proc?.kill(ProcessSignal.sigterm);
                     await proc?.exitCode;
-                    if (mounted) setState(() => _phase = _LocalInstallPhase.ready);
+                    if (mounted)
+                      setState(() => _phase = _LocalInstallPhase.ready);
                   },
                   child: const Text('Cancel'),
                 ),
@@ -2496,6 +2509,8 @@ class _SectionBody extends StatelessWidget {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);
+      case AppSection.timeline:
+        return TimelinePanel(controller: controller);
       case AppSection.voiceAssistant:
         return VoiceAssistantPanel(controller: controller);
       case AppSection.devices:

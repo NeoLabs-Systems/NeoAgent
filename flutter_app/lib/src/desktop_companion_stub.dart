@@ -9,11 +9,14 @@ const String desktopCompanionDeviceIdPrefsKey = 'desktop.companion.deviceId';
 const String desktopCompanionActivationIdPrefsKey =
     'desktop.companion.activationId';
 const String desktopCompanionPausedPrefsKey = 'desktop.companion.paused';
+const String desktopPassiveHistoryEnabledPrefsKey =
+    'desktop.passiveHistory.enabled';
 
 class DesktopCompanionManager extends ChangeNotifier {
   DesktopCompanionManager({required DesktopScreenCapture screenCapture});
 
   bool get enabled => false;
+  bool get passiveHistoryEnabled => false;
   bool get paused => false;
   bool get connecting => false;
   bool get connected => false;
@@ -21,6 +24,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get label => 'Desktop';
   String get deviceId => '';
   String get activationId => '';
+  String? get passiveHistoryLastUploadedAt => null;
+  String? get passiveHistoryLastError => null;
   Map<String, Object?> get status => const <String, Object?>{};
 
   Future<void> bootstrap(SharedPreferences prefs) async {}
@@ -40,6 +45,13 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
+    throw UnsupportedError('Desktop companion is not available here.');
+  }
+
+  Future<void> setPassiveHistoryEnabled(
+    bool value,
+    SharedPreferences prefs,
+  ) async {
     throw UnsupportedError('Desktop companion is not available here.');
   }
 

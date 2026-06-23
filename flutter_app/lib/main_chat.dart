@@ -2453,6 +2453,34 @@ class _RunsPanelState extends State<RunsPanel> {
   }
 
   void _syncSelection() {
+    final requestedRunId = widget.controller.requestedRunFocusId?.trim();
+    if (requestedRunId != null && requestedRunId.isNotEmpty) {
+      final requestedRunExists = widget.controller.recentRuns.any(
+        (run) => run.id == requestedRunId,
+      );
+      if (_filteredRuns.any((run) => run.id == requestedRunId)) {
+        widget.controller.clearRequestedRunFocus(requestedRunId);
+        if (_selectedRunId != requestedRunId) {
+          unawaited(_selectRun(requestedRunId));
+        }
+        return;
+      }
+      if (requestedRunExists) {
+        if (_statusFilter != 'all') {
+          if (mounted) {
+            setState(() {
+              _statusFilter = 'all';
+            });
+          } else {
+            _statusFilter = 'all';
+          }
+        }
+        if (_searchController.text.isNotEmpty) {
+          _searchController.clear();
+          return;
+        }
+      }
+    }
     final runs = _filteredRuns;
     if (runs.isEmpty) {
       _selectedRunId = null;

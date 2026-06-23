@@ -14,6 +14,7 @@ NeoAgentAppMode _appModeFromEnvironment() {
 
 enum AppSection {
   chat,
+  timeline,
   voiceAssistant,
   devices,
   recordings,
@@ -33,13 +34,15 @@ enum AppSection {
   billing,
 }
 
-enum SidebarGroup { chat, recordings, automation, settings }
+enum SidebarGroup { chat, timeline, recordings, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
     switch (this) {
       case SidebarGroup.chat:
         return 'Chat';
+      case SidebarGroup.timeline:
+        return 'Timeline';
       case SidebarGroup.recordings:
         return 'Recordings';
       case SidebarGroup.automation:
@@ -53,6 +56,8 @@ extension SidebarGroupX on SidebarGroup {
     switch (this) {
       case SidebarGroup.chat:
         return Icons.chat_bubble_outline;
+      case SidebarGroup.timeline:
+        return Icons.timeline_rounded;
       case SidebarGroup.recordings:
         return Icons.fiber_smart_record_outlined;
       case SidebarGroup.automation:
@@ -68,6 +73,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return 'Chat';
+      case AppSection.timeline:
+        return 'Timeline';
       case AppSection.voiceAssistant:
         return 'Voice assistant';
       case AppSection.devices:
@@ -109,6 +116,8 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return Icons.chat_bubble_outline;
+      case AppSection.timeline:
+        return Icons.timeline_rounded;
       case AppSection.voiceAssistant:
         return Icons.keyboard_voice_outlined;
       case AppSection.devices:
@@ -151,6 +160,8 @@ extension AppSectionX on AppSection {
       case AppSection.chat:
       case AppSection.voiceAssistant:
         return SidebarGroup.chat;
+      case AppSection.timeline:
+        return SidebarGroup.timeline;
       case AppSection.recordings:
         return SidebarGroup.recordings;
       case AppSection.devices:
@@ -199,6 +210,7 @@ extension AppSectionX on AppSection {
       return effectiveSection.label;
     }
     if (effectiveSection.group == SidebarGroup.chat ||
+        effectiveSection.group == SidebarGroup.timeline ||
         effectiveSection.group == SidebarGroup.recordings) {
       return groupLabel;
     }

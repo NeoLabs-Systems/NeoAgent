@@ -90,6 +90,10 @@ class TaskRuntime {
     return this.app?.locals?.integrationManager || null;
   }
 
+  get timelineService() {
+    return this.app?.locals?.timelineService || null;
+  }
+
   getStatus() {
     return {
       state: this.state,
@@ -410,6 +414,16 @@ class TaskRuntime {
     }
     const executionKey = `${userId}:${taskId}`;
     if (this.runningTaskExecutions.has(executionKey)) {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: this.taskRepository.getTaskById(taskId, userId)?.name || `Task ${taskId}`,
+        agentId: this.taskRepository.getTaskById(taskId, userId)?.agent_id || null,
+        eventKind: 'task_skipped',
+        reason: 'already_running_or_queued',
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'already_running_or_queued',
@@ -445,6 +459,16 @@ class TaskRuntime {
       && (Date.now() - scheduledAtMs) > MAX_RECURRING_TASK_START_DELAY_MS
     );
     if (isLateRecurringRun) {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: task.name || `Task ${taskId}`,
+        agentId,
+        eventKind: 'task_skipped',
+        reason: 'stale_start_delay',
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'stale_start_delay',
@@ -456,6 +480,15 @@ class TaskRuntime {
 
     this.taskRepository.markTaskRun(taskId, userId);
     this.io.to(`user:${userId}`).emit('tasks:task_running', { taskId, timestamp: new Date().toISOString() });
+    this._recordTaskLifecycle({
+      userId,
+      taskId,
+      taskName: task.name || `Task ${taskId}`,
+      agentId,
+      eventKind: 'task_started',
+      triggerType: executionMeta.triggerType || null,
+      triggerSource: executionMeta.triggerSource || null,
+    });
 
     let normalizedConfig = taskConfig;
     const taskName = task.name || `Task ${taskId}`;
@@ -480,6 +513,15 @@ class TaskRuntime {
           scheduledAt: executionMeta.scheduledAt || null,
         });
         this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
+        this._recordTaskLifecycle({
+          userId,
+          taskId,
+          taskName,
+          agentId,
+          eventKind: 'task_completed',
+          triggerType: executionMeta.triggerType || null,
+          triggerSource: executionMeta.triggerSource || null,
+        });
         return result;
       }
 
@@ -566,6 +608,16 @@ class TaskRuntime {
             );
           }
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
+          this._recordTaskLifecycle({
+            userId,
+            taskId,
+            taskName,
+            agentId,
+            eventKind: 'task_completed',
+            runId: completedRunId,
+            triggerType: executionMeta.triggerType || null,
+            triggerSource: executionMeta.triggerSource || null,
+          });
           return result;
         } catch (err) {
           const transientExecutionError = isTransientError(err);
@@ -574,6 +626,18 @@ class TaskRuntime {
           }
           if (err?.code === 'TASK_DELIVERY_FAILED') throw err;
           if (transientExecutionError) {
+            this._recordTaskLifecycle({
+              userId,
+              taskId,
+              taskName,
+              agentId,
+              eventKind: 'task_skipped',
+              runId: completedRunId,
+              reason: 'transient_rate_limit',
+              error: err.message,
+              triggerType: executionMeta.triggerType || null,
+              triggerSource: executionMeta.triggerSource || null,
+            });
             this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
               taskId,
               reason: 'transient_rate_limit',
@@ -623,8 +687,48 @@ class TaskRuntime {
         error: err.message,
         timestamp: new Date().toISOString(),
       });
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName,
+        agentId,
+        eventKind: 'task_failed',
+        runId: completedRunId,
+        error: err.message,
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
       return { skipped: false, error: err.message, runId: completedRunId };
     }
+  }
+
+  _recordTaskLifecycle({
+    userId,
+    taskId,
+    taskName,
+    agentId = null,
+    eventKind,
+    runId = null,
+    reason = null,
+    error = null,
+    triggerType = null,
+    triggerSource = null,
+  }) {
+    if (!this.timelineService?.recordTaskLifecycle) {
+      return;
+    }
+    this.timelineService.recordTaskLifecycle({
+      userId,
+      agentId,
+      taskId,
+      taskName,
+      eventKind,
+      runId,
+      reason,
+      error,
+      triggerType,
+      triggerSource,
+    });
   }
 
   _normalizeJson(value) {

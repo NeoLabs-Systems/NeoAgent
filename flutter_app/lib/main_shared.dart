@@ -417,6 +417,7 @@ class _GlassSurface extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
+    AppSection.timeline,
     AppSection.recordings,
     AppSection.devices,
     AppSection.tasks,

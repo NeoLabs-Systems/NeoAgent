@@ -350,18 +350,22 @@ class _DevicesPanelState extends State<DevicesPanel> {
 
   void _handleHover(Offset point) {
     if (_isBrowser) {
-      unawaited(widget.controller.hoverBrowserPointRuntime(
-        x: point.dx.round(),
-        y: point.dy.round(),
-      ));
+      unawaited(
+        widget.controller.hoverBrowserPointRuntime(
+          x: point.dx.round(),
+          y: point.dy.round(),
+        ),
+      );
     } else if (_isDesktop) {
       if (_desktopRequiresSelection) {
         return;
       }
-      unawaited(widget.controller.hoverDesktopRuntime(
-        x: point.dx.round(),
-        y: point.dy.round(),
-      ));
+      unawaited(
+        widget.controller.hoverDesktopRuntime(
+          x: point.dx.round(),
+          y: point.dy.round(),
+        ),
+      );
     }
   }
 
@@ -551,34 +555,95 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         onSelect: _selectSurface,
                       ),
                     ] else ...<Widget>[
-                    if (_isBrowser && prefersExtension) ...<Widget>[
-                      const SizedBox(height: 14),
-                      if (_browserExtensionDevices.isNotEmpty) ...<Widget>[
+                      if (_isBrowser && prefersExtension) ...<Widget>[
+                        const SizedBox(height: 14),
+                        if (_browserExtensionDevices.isNotEmpty) ...<Widget>[
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: selectedBrowserExtension?['tokenId']
+                                ?.toString(),
+                            decoration: const InputDecoration(
+                              labelText: 'Chrome extension device',
+                              prefixIcon: Icon(Icons.extension_outlined),
+                            ),
+                            hint: const Text('Select a paired extension'),
+                            items: _browserExtensionDevices.map((device) {
+                              final tokenId =
+                                  device['tokenId']?.toString() ?? '';
+                              final label =
+                                  device['name']
+                                          ?.toString()
+                                          .trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? device['name'].toString()
+                                  : tokenId;
+                              final state =
+                                  device['online'] == true ||
+                                      device['connected'] == true
+                                  ? 'online'
+                                  : 'offline';
+                              return DropdownMenuItem<String>(
+                                value: tokenId,
+                                child: Text(
+                                  '$label · $state',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: _isCurrentSurfaceBusy
+                                ? null
+                                : (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return;
+                                    }
+                                    unawaited(
+                                      controller.selectBrowserExtensionRuntime(
+                                        value,
+                                      ),
+                                    );
+                                  },
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        _ExtensionStatusBar(
+                          connected: extensionConnected,
+                          onDownload: controller.downloadBrowserExtension,
+                          onRefresh: controller.refreshBrowserExtensionStatus,
+                        ),
+                      ],
+                      if (_isDesktop) ...<Widget>[
+                        const SizedBox(height: 14),
                         DropdownButtonFormField<String>(
                           isExpanded: true,
-                          initialValue: selectedBrowserExtension?['tokenId']
+                          initialValue: selectedDesktopDevice?['deviceId']
                               ?.toString(),
                           decoration: const InputDecoration(
-                            labelText: 'Chrome extension device',
-                            prefixIcon: Icon(Icons.extension_outlined),
+                            labelText: 'Desktop device',
+                            prefixIcon: Icon(Icons.computer_outlined),
                           ),
-                          hint: const Text('Select a paired extension'),
-                          items: _browserExtensionDevices.map((device) {
-                            final tokenId = device['tokenId']?.toString() ?? '';
+                          hint: const Text('Select a companion desktop'),
+                          items: controller.desktopDevices.map((device) {
+                            final deviceId =
+                                device['deviceId']?.toString() ?? '';
                             final label =
-                                device['name']?.toString().trim().isNotEmpty ==
+                                device['label']?.toString().trim().isNotEmpty ==
                                     true
-                                ? device['name'].toString()
-                                : tokenId;
-                            final state =
-                                device['online'] == true ||
-                                    device['connected'] == true
-                                ? 'online'
+                                ? device['label'].toString()
+                                : (device['hostname']?.toString() ?? deviceId);
+                            final os =
+                                device['platform']?.toString() ?? 'desktop';
+                            final state = device['online'] == true
+                                ? (device['paused'] == true
+                                      ? 'paused'
+                                      : 'online')
                                 : 'offline';
                             return DropdownMenuItem<String>(
-                              value: tokenId,
+                              value: deviceId,
                               child: Text(
-                                '$label · $state',
+                                '$label · $os · $state',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 softWrap: false,
@@ -592,192 +657,215 @@ class _DevicesPanelState extends State<DevicesPanel> {
                                     return;
                                   }
                                   unawaited(
-                                    controller.selectBrowserExtensionRuntime(
+                                    controller.selectDesktopDeviceRuntime(
                                       value,
                                     ),
                                   );
                                 },
                         ),
                         const SizedBox(height: 10),
-                      ],
-                      _ExtensionStatusBar(
-                        connected: extensionConnected,
-                        onDownload: controller.downloadBrowserExtension,
-                        onRefresh: controller.refreshBrowserExtensionStatus,
-                      ),
-                    ],
-                    if (_isDesktop) ...<Widget>[
-                      const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedDesktopDevice?['deviceId']
-                            ?.toString(),
-                        decoration: const InputDecoration(
-                          labelText: 'Desktop device',
-                          prefixIcon: Icon(Icons.computer_outlined),
-                        ),
-                        hint: const Text('Select a companion desktop'),
-                        items: controller.desktopDevices.map((device) {
-                          final deviceId = device['deviceId']?.toString() ?? '';
-                          final label =
-                              device['label']?.toString().trim().isNotEmpty ==
-                                  true
-                              ? device['label'].toString()
-                              : (device['hostname']?.toString() ?? deviceId);
-                          final os =
-                              device['platform']?.toString() ?? 'desktop';
-                          final state = device['online'] == true
-                              ? (device['paused'] == true ? 'paused' : 'online')
-                              : 'offline';
-                          return DropdownMenuItem<String>(
-                            value: deviceId,
-                            child: Text(
-                              '$label · $os · $state',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: _isCurrentSurfaceBusy
-                            ? null
-                            : (value) {
-                                if (value == null || value.isEmpty) {
-                                  return;
-                                }
-                                unawaited(
-                                  controller.selectDesktopDeviceRuntime(value),
-                                );
-                              },
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          _DotStatus(
-                            label: desktopDeviceOnline
-                                ? 'Companion live'
-                                : controller.desktopCompanionConnected
-                                ? 'Companion live'
-                                : controller.desktopCompanionConnecting
-                                ? 'Connecting'
-                                : 'Companion idle',
-                            color: desktopDeviceOnline
-                                ? _success
-                                : controller.desktopCompanionConnected
-                                ? _success
-                                : controller.desktopCompanionConnecting
-                                ? _accent
-                                : _warning,
-                          ),
-                          if (selectedDesktopDevice != null)
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
                             _DotStatus(
-                              label: selectedDesktopDevice['paused'] == true
-                                  ? 'Paused'
-                                  : (selectedDesktopDevice['online'] == true
-                                        ? 'Ready'
-                                        : 'Offline'),
-                              color: selectedDesktopDevice['paused'] == true
-                                  ? _warning
-                                  : (selectedDesktopDevice['online'] == true
-                                        ? _success
-                                        : _textMuted),
+                              label: desktopDeviceOnline
+                                  ? 'Companion live'
+                                  : controller.desktopCompanionConnected
+                                  ? 'Companion live'
+                                  : controller.desktopCompanionConnecting
+                                  ? 'Connecting'
+                                  : 'Companion idle',
+                              color: desktopDeviceOnline
+                                  ? _success
+                                  : controller.desktopCompanionConnected
+                                  ? _success
+                                  : controller.desktopCompanionConnecting
+                                  ? _accent
+                                  : _warning,
                             ),
+                            if (selectedDesktopDevice != null)
+                              _DotStatus(
+                                label: selectedDesktopDevice['paused'] == true
+                                    ? 'Paused'
+                                    : (selectedDesktopDevice['online'] == true
+                                          ? 'Ready'
+                                          : 'Offline'),
+                                color: selectedDesktopDevice['paused'] == true
+                                    ? _warning
+                                    : (selectedDesktopDevice['online'] == true
+                                          ? _success
+                                          : _textMuted),
+                              ),
+                            if (selectedDesktopDevice != null)
+                              _DotStatus(
+                                label:
+                                    selectedDesktopDevice['passiveHistoryEnabled'] ==
+                                        true
+                                    ? 'History on'
+                                    : 'History off',
+                                color:
+                                    selectedDesktopDevice['passiveHistoryEnabled'] ==
+                                        true
+                                    ? _accent
+                                    : _textMuted,
+                              ),
+                          ],
+                        ),
+                        if (selectedDesktopDevice != null &&
+                            (selectedDesktopDevice['passiveHistoryLastUploadedAt']
+                                        ?.toString()
+                                        .trim()
+                                        .isNotEmpty ==
+                                    true ||
+                                selectedDesktopDevice['passiveHistoryLastError']
+                                        ?.toString()
+                                        .trim()
+                                        .isNotEmpty ==
+                                    true)) ...<Widget>[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _bgSecondary.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: _borderLight),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                if (selectedDesktopDevice['passiveHistoryLastUploadedAt']
+                                        ?.toString()
+                                        .trim()
+                                        .isNotEmpty ==
+                                    true)
+                                  Text(
+                                    'Last history upload: ${selectedDesktopDevice['passiveHistoryLastUploadedAt']}',
+                                    style: TextStyle(color: _textSecondary),
+                                  ),
+                                if (selectedDesktopDevice['passiveHistoryLastError']
+                                        ?.toString()
+                                        .trim()
+                                        .isNotEmpty ==
+                                    true)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      'Last history error: ${selectedDesktopDevice['passiveHistoryLastError']}',
+                                      style: TextStyle(color: _danger),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ],
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    _DeviceLaunchBar(
-                      surface: _surface,
-                      controller: _isBrowser
-                          ? _browserUrlController
-                          : (_isDesktop
-                                ? _desktopLaunchController
-                                : _androidLaunchController),
-                      active: _isBrowser
-                          ? browserStatus['launched'] == true
-                          : (_isDesktop
-                                ? _desktopOnline
-                                : _androidOnline || _androidStarting),
-                      starting: !_isBrowser && !_isDesktop && _androidStarting,
-                      busy: _isCurrentSurfaceBusy,
-                      onSubmit: _openPrimary,
-                      onSleep: _sleepPrimary,
-                    ),
-                    const SizedBox(height: 18),
-                    _InteractiveSurfacePreview(
-                      surface: _surface,
-                      controller: controller,
-                      screenshotPath: _activeScreenshotPath,
-                      streamPlatform: _isBrowser && browserStatus['launched'] == true
-                          ? 'browser'
-                          : (_isDesktop && _desktopOnline
-                              ? 'desktop'
-                              : (!_isBrowser && !_isDesktop && _androidOnline
-                                  ? 'android'
-                                  : null)),
-                      streamDeviceId: _isBrowser && browserStatus['launched'] == true
-                          ? 'browser'
-                          : (_isDesktop && _desktopOnline
-                              ? (widget.controller.selectedDesktopDeviceId ??
-                                  (_onlineDesktopDevices.isNotEmpty ? _onlineDesktopDevices.first['deviceId']?.toString() : null))
-                              : (!_isBrowser && !_isDesktop && _androidOnline
-                                  ? _androidDeviceId
-                                  : null)),
-                      busy: _isCurrentSurfaceBusy,
-                      wakingUp: !_isBrowser && !_isDesktop && _androidStarting,
-                      enabled: _isBrowser || _isDesktop || _androidOnline,
-                      connectRequired: _isBrowser
-                          ? _extensionPreferredButOffline
-                          : _desktopRequiresSelection,
-                      onTapPoint: _handleTap,
-                      onSwipe: _handleSwipe,
-                      onHover: _handleHover,
-                      onWakeRequested: _openPrimary,
-                    ),
-                    if (!_isBrowser && !_isDesktop) ...<Widget>[
-                      const SizedBox(height: 12),
-                      _AndroidNavDock(
+                      ],
+                      const SizedBox(height: 16),
+                      _DeviceLaunchBar(
+                        surface: _surface,
+                        controller: _isBrowser
+                            ? _browserUrlController
+                            : (_isDesktop
+                                  ? _desktopLaunchController
+                                  : _androidLaunchController),
+                        active: _isBrowser
+                            ? browserStatus['launched'] == true
+                            : (_isDesktop
+                                  ? _desktopOnline
+                                  : _androidOnline || _androidStarting),
+                        starting:
+                            !_isBrowser && !_isDesktop && _androidStarting,
                         busy: _isCurrentSurfaceBusy,
-                        androidOnline: _androidOnline,
-                        onAction: _runQuickAction,
+                        onSubmit: _openPrimary,
+                        onSleep: _sleepPrimary,
                       ),
-                      if (kIsWeb) ...<Widget>[
+                      const SizedBox(height: 18),
+                      _InteractiveSurfacePreview(
+                        surface: _surface,
+                        controller: controller,
+                        screenshotPath: _activeScreenshotPath,
+                        streamPlatform:
+                            _isBrowser && browserStatus['launched'] == true
+                            ? 'browser'
+                            : (_isDesktop && _desktopOnline
+                                  ? 'desktop'
+                                  : (!_isBrowser &&
+                                            !_isDesktop &&
+                                            _androidOnline
+                                        ? 'android'
+                                        : null)),
+                        streamDeviceId:
+                            _isBrowser && browserStatus['launched'] == true
+                            ? 'browser'
+                            : (_isDesktop && _desktopOnline
+                                  ? (widget
+                                            .controller
+                                            .selectedDesktopDeviceId ??
+                                        (_onlineDesktopDevices.isNotEmpty
+                                            ? _onlineDesktopDevices
+                                                  .first['deviceId']
+                                                  ?.toString()
+                                            : null))
+                                  : (!_isBrowser &&
+                                            !_isDesktop &&
+                                            _androidOnline
+                                        ? _androidDeviceId
+                                        : null)),
+                        busy: _isCurrentSurfaceBusy,
+                        wakingUp:
+                            !_isBrowser && !_isDesktop && _androidStarting,
+                        enabled: _isBrowser || _isDesktop || _androidOnline,
+                        connectRequired: _isBrowser
+                            ? _extensionPreferredButOffline
+                            : _desktopRequiresSelection,
+                        onTapPoint: _handleTap,
+                        onSwipe: _handleSwipe,
+                        onHover: _handleHover,
+                        onWakeRequested: _openPrimary,
+                      ),
+                      if (!_isBrowser && !_isDesktop) ...<Widget>[
                         const SizedBox(height: 12),
-                        _AndroidActionsBox(
-                          enabled: _androidOnline,
+                        _AndroidNavDock(
                           busy: _isCurrentSurfaceBusy,
-                          onInstall: ({required filename, required bytes}) {
-                            return controller.installAndroidApkRuntime(
-                              filename: filename,
-                              bytes: bytes,
-                            );
-                          },
+                          androidOnline: _androidOnline,
+                          onAction: _runQuickAction,
+                        ),
+                        if (kIsWeb) ...<Widget>[
+                          const SizedBox(height: 12),
+                          _AndroidActionsBox(
+                            enabled: _androidOnline,
+                            busy: _isCurrentSurfaceBusy,
+                            onInstall: ({required filename, required bytes}) {
+                              return controller.installAndroidApkRuntime(
+                                filename: filename,
+                                bytes: bytes,
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 18),
+                      _DeviceTypeDock(
+                        controller: _textEntryController,
+                        busy: _isCurrentSurfaceBusy,
+                        surface: _surface,
+                        onSubmit: _sendText,
+                      ),
+                      if (_isBrowser || _isDesktop) ...<Widget>[
+                        const SizedBox(height: 14),
+                        _DeviceQuickActions(
+                          surface: _surface,
+                          androidOnline: _androidOnline,
+                          busy: _isCurrentSurfaceBusy,
+                          onAction: _runQuickAction,
                         ),
                       ],
-                    ],
-                    const SizedBox(height: 18),
-                    _DeviceTypeDock(
-                      controller: _textEntryController,
-                      busy: _isCurrentSurfaceBusy,
-                      surface: _surface,
-                      onSubmit: _sendText,
-                    ),
-                    if (_isBrowser || _isDesktop) ...<Widget>[
                       const SizedBox(height: 14),
-                      _DeviceQuickActions(
+                      _SurfaceSwitcher(
                         surface: _surface,
-                        androidOnline: _androidOnline,
-                        busy: _isCurrentSurfaceBusy,
-                        onAction: _runQuickAction,
+                        onSelect: _selectSurface,
                       ),
-                    ],
-                    const SizedBox(height: 14),
-                    _SurfaceSwitcher(
-                      surface: _surface,
-                      onSelect: _selectSurface,
-                    ),
                     ],
                   ],
                 ),
@@ -1336,7 +1424,11 @@ class _MutedBadge extends StatelessWidget {
         color: Colors.black54,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Icon(Icons.volume_off_rounded, size: 11, color: Colors.white),
+      child: const Icon(
+        Icons.volume_off_rounded,
+        size: 11,
+        color: Colors.white,
+      ),
     );
   }
 }
@@ -1738,10 +1830,7 @@ class _InteractiveSurfacePreviewState
     final surfaceHeightCap = widget.surface == _DeviceSurface.android
         ? 640.0
         : 560.0;
-    final previewMaxHeight = math.min(
-      surfaceHeightCap,
-      viewportHeight * 0.48,
-    );
+    final previewMaxHeight = math.min(surfaceHeightCap, viewportHeight * 0.48);
     final aspectRatio = switch (widget.surface) {
       _DeviceSurface.browser => 16 / 10,
       _DeviceSurface.android => 10 / 16,
@@ -1818,10 +1907,7 @@ class _InteractiveSurfacePreviewState
                           const Positioned(
                             top: 8,
                             right: 8,
-                            child: Opacity(
-                              opacity: 0.45,
-                              child: _MutedBadge(),
-                            ),
+                            child: Opacity(opacity: 0.45, child: _MutedBadge()),
                           ),
                           Positioned(
                             left: 12,
@@ -2389,10 +2475,8 @@ class _WorkspaceExplorerState extends State<_WorkspaceExplorer> {
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: entries.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: _borderLight,
-                    ),
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: _borderLight),
                     itemBuilder: (context, index) {
                       final entry = entries[index];
                       final type = entry['type']?.toString() ?? 'file';
@@ -2495,7 +2579,9 @@ class _WorkspaceExplorerState extends State<_WorkspaceExplorer> {
 }
 
 String _formatWorkspaceBytes(Object? value) {
-  final bytes = value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+  final bytes = value is num
+      ? value.toDouble()
+      : double.tryParse('$value') ?? 0;
   if (bytes >= 1024 * 1024) {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }

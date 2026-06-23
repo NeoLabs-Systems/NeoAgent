@@ -61,6 +61,7 @@ part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_voice_assistant.dart';
 part 'main_navigation.dart';
+part 'main_timeline.dart';
 part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';

@@ -318,8 +318,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final routingModels = availableModels.isEmpty
         ? controller.supportedModels
         : availableModels;
-    final List<_ModelPickerOption> modelChoices =
-        _modelPickerOptions(routingModels, allowAuto: true);
+    final List<_ModelPickerOption> modelChoices = _modelPickerOptions(
+      routingModels,
+      allowAuto: true,
+    );
     final enabledSmartModels = _enabledModels
         .where((id) => routingModels.any((model) => model.id == id))
         .length;
@@ -343,113 +345,115 @@ class _SettingsPanelState extends State<SettingsPanel> {
         // cancel: do nothing
       },
       child: ListView(
-      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
-      children: <Widget>[
-        if (!widget.embedded)
-          _PageTitle(
-            title: 'Settings',
-            subtitle:
-                'Workspace, models, recording, and diagnostics controls.',
-            trailing: _settingsSaveButton(controller),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _settingsSaveButton(controller),
+        padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
+        children: <Widget>[
+          if (!widget.embedded)
+            _PageTitle(
+              title: 'Settings',
+              subtitle:
+                  'Workspace, models, recording, and diagnostics controls.',
+              trailing: _settingsSaveButton(controller),
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _settingsSaveButton(controller),
+              ),
+            ),
+          if (controller.errorMessage != null) ...<Widget>[
+            _InlineError(message: controller.errorMessage!),
+            const SizedBox(height: 16),
+          ],
+          TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Search settings',
+              hintText: 'Models, browser, voice, diagnostics...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: searchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
             ),
           ),
-        if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
           const SizedBox(height: 16),
+          if (_matchesSettingsSection(
+            searchQuery,
+            _overviewSettingsSection,
+          )) ...<Widget>[
+            _buildSettingsOverview(controller, availableModels.length),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _workspaceSettingsSection,
+          )) ...<Widget>[
+            _buildWorkspaceSection(controller),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _modelsSettingsSection,
+          )) ...<Widget>[
+            _buildModelsSection(
+              context: context,
+              controller: controller,
+              modelChoices: modelChoices,
+              routingModels: routingModels,
+              availableModels: availableModels,
+              enabledSmartModels: enabledSmartModels,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _voiceRecordingSettingsSection,
+          )) ...<Widget>[
+            _buildVoiceAndRecordingSection(
+              controller: controller,
+              modelChoices: modelChoices,
+              routingModels: routingModels,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (visibleSearchSections.contains(_desktopSettingsSection) &&
+              _matchesSettingsSection(
+                searchQuery,
+                _desktopSettingsSection,
+              )) ...<Widget>[
+            _buildDesktopSection(controller),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _securitySettingsSection,
+          )) ...<Widget>[
+            _buildSecuritySection(context, controller),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _diagnosticsSettingsSection,
+          )) ...<Widget>[_buildDiagnosticsSection(controller)],
+          if (_noSettingsMatches(
+            searchQuery,
+            visibleSearchSections,
+          )) ...<Widget>[
+            const _EmptyCard(
+              title: 'No matching settings',
+              subtitle: 'Try a broader search like models, browser, or voice.',
+            ),
+          ],
         ],
-        TextField(
-          controller: _searchController,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            labelText: 'Search settings',
-            hintText: 'Models, browser, voice, diagnostics...',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: searchQuery.isEmpty
-                ? null
-                : IconButton(
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.close),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (_matchesSettingsSection(
-          searchQuery,
-          _overviewSettingsSection,
-        )) ...<Widget>[
-          _buildSettingsOverview(controller, availableModels.length),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
-          _workspaceSettingsSection,
-        )) ...<Widget>[
-          _buildWorkspaceSection(controller),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
-          _modelsSettingsSection,
-        )) ...<Widget>[
-          _buildModelsSection(
-            context: context,
-            controller: controller,
-            modelChoices: modelChoices,
-            routingModels: routingModels,
-            availableModels: availableModels,
-            enabledSmartModels: enabledSmartModels,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
-          _voiceRecordingSettingsSection,
-        )) ...<Widget>[
-          _buildVoiceAndRecordingSection(
-            controller: controller,
-            modelChoices: modelChoices,
-            routingModels: routingModels,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (visibleSearchSections.contains(_desktopSettingsSection) &&
-            _matchesSettingsSection(
-              searchQuery,
-              _desktopSettingsSection,
-            )) ...<Widget>[
-          _buildDesktopSection(controller),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
-          _securitySettingsSection,
-        )) ...<Widget>[
-          _buildSecuritySection(context, controller),
-          const SizedBox(height: 16),
-        ],
-        if (_matchesSettingsSection(
-          searchQuery,
-          _diagnosticsSettingsSection,
-        )) ...<Widget>[_buildDiagnosticsSection(controller)],
-        if (_noSettingsMatches(searchQuery, visibleSearchSections)) ...<Widget>[
-          const _EmptyCard(
-            title: 'No matching settings',
-            subtitle:
-                'Try a broader search like models, browser, or voice.',
-          ),
-        ],
-      ],
-    ),
+      ),
     );
   }
 
@@ -480,8 +484,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final controller = widget.controller;
     await controller.saveSettings(
       browserBackend: _browserBackend == 'extension' ? 'extension' : 'vm',
-      browserExtensionTokenId:
-          _browserBackend == 'extension' ? _browserExtensionTokenId : null,
+      browserExtensionTokenId: _browserBackend == 'extension'
+          ? _browserExtensionTokenId
+          : null,
       cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
       cliDesktopDeviceId: _cliDesktopDeviceId,
       smarterSelector: _smarterSelector,
@@ -665,21 +670,27 @@ class _SettingsPanelState extends State<SettingsPanel> {
             if (_browserBackend == 'extension') ...<Widget>[
               if (controller.browserExtensionTokens.isNotEmpty) ...<Widget>[
                 DropdownButtonFormField<String>(
-                  initialValue: controller.browserExtensionTokens.any(
-                    (token) => token['tokenId']?.toString() == _browserExtensionTokenId,
-                  )
+                  initialValue:
+                      controller.browserExtensionTokens.any(
+                        (token) =>
+                            token['tokenId']?.toString() ==
+                            _browserExtensionTokenId,
+                      )
                       ? _browserExtensionTokenId
                       : null,
                   decoration: const InputDecoration(
                     labelText: 'Default extension',
-                    helperText: 'Choose which paired Chrome extension controls browser actions.',
+                    helperText:
+                        'Choose which paired Chrome extension controls browser actions.',
                   ),
                   items: controller.browserExtensionTokens.map((token) {
                     final tokenId = token['tokenId']?.toString() ?? '';
-                    final label = token['name']?.toString().trim().isNotEmpty == true
+                    final label =
+                        token['name']?.toString().trim().isNotEmpty == true
                         ? token['name'].toString()
                         : tokenId;
-                    final online = token['online'] == true || token['connected'] == true;
+                    final online =
+                        token['online'] == true || token['connected'] == true;
                     return DropdownMenuItem<String>(
                       value: tokenId,
                       child: Row(
@@ -720,7 +731,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ? 'Connected — tap Test to verify the live link.'
                     : 'Not connected — download the extension, load it in Chrome, then pair after login.',
                 onTest: () async {
-                  setState(() { _extensionTestRunning = true; _extensionTestResult = null; });
+                  setState(() {
+                    _extensionTestRunning = true;
+                    _extensionTestResult = null;
+                  });
                   try {
                     final r = await controller.testBrowserExtension();
                     if (mounted) {
@@ -728,7 +742,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     }
                   } catch (e) {
                     if (mounted) {
-                      setState(() => _extensionTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                      setState(
+                        () => _extensionTestResult = <String, dynamic>{
+                          'passed': false,
+                          'detail': e.toString(),
+                        },
+                      );
                     }
                   } finally {
                     if (mounted) {
@@ -755,7 +774,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ],
               ),
             ] else ...<Widget>[
-              Text('Cloud browser runtime is active.', style: TextStyle(color: _textSecondary, height: 1.4)),
+              Text(
+                'Cloud browser runtime is active.',
+                style: TextStyle(color: _textSecondary, height: 1.4),
+              ),
             ],
             const Divider(height: 32),
             Text(
@@ -790,21 +812,25 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 }
               },
             ),
-            if (_cliBackend == 'desktop' && controller.desktopDevices.length > 1) ...<Widget>[
+            if (_cliBackend == 'desktop' &&
+                controller.desktopDevices.length > 1) ...<Widget>[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: controller.desktopDevices.any(
-                  (d) => d['deviceId']?.toString() == _cliDesktopDeviceId,
-                )
+                initialValue:
+                    controller.desktopDevices.any(
+                      (d) => d['deviceId']?.toString() == _cliDesktopDeviceId,
+                    )
                     ? _cliDesktopDeviceId
                     : null,
                 decoration: const InputDecoration(
                   labelText: 'Desktop device',
-                  helperText: 'Choose which desktop companion runs CLI commands.',
+                  helperText:
+                      'Choose which desktop companion runs CLI commands.',
                 ),
                 items: controller.desktopDevices.map((device) {
                   final deviceId = device['deviceId']?.toString() ?? '';
-                  final label = device['hostname']?.toString().isNotEmpty == true
+                  final label =
+                      device['hostname']?.toString().isNotEmpty == true
                       ? device['hostname']!.toString()
                       : deviceId;
                   final online = device['online'] == true;
@@ -840,11 +866,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
               result: _cliTestResult,
               note: _cliBackend == 'desktop'
                   ? (controller.desktopCompanionConnected
-                      ? 'Desktop app connected — commands route locally through the companion.'
-                      : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
+                        ? 'Desktop app connected — commands route locally through the companion.'
+                        : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
                   : 'Cloud VM — commands run in an isolated container.',
               onTest: () async {
-                setState(() { _cliTestRunning = true; _cliTestResult = null; });
+                setState(() {
+                  _cliTestRunning = true;
+                  _cliTestResult = null;
+                });
                 try {
                   final r = await controller.testCliRuntime();
                   if (mounted) {
@@ -852,7 +881,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   }
                 } catch (e) {
                   if (mounted) {
-                    setState(() => _cliTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                    setState(
+                      () => _cliTestResult = <String, dynamic>{
+                        'passed': false,
+                        'detail': e.toString(),
+                      },
+                    );
                   }
                 } finally {
                   if (mounted) {
@@ -1018,12 +1052,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   barrierColor: Colors.black.withValues(alpha: 0.55),
                   transitionDuration: const Duration(milliseconds: 220),
                   transitionBuilder: (ctx, anim, _, child) => FadeTransition(
-                    opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                    opacity: CurvedAnimation(
+                      parent: anim,
+                      curve: Curves.easeOut,
+                    ),
                     child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.04),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.04),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
                       child: child,
                     ),
                   ),
@@ -1032,10 +1075,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     selectedIds: _enabledModels,
                   ),
                 );
-                if (result != null) setState(() {
-                  _enabledModels = result;
-                  _hasUnsavedChanges = true;
-                });
+                if (result != null)
+                  setState(() {
+                    _enabledModels = result;
+                    _hasUnsavedChanges = true;
+                  });
               },
             ),
           ],
@@ -1200,9 +1244,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         label: 'Live Provider',
                         icon: Icons.call_outlined,
                         value: _voiceLiveProvider,
-                        options: _simplePickerOptions(
-                          const <String>['openai', 'gemini'],
-                        ),
+                        options: _simplePickerOptions(const <String>[
+                          'openai',
+                          'gemini',
+                        ]),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() {
@@ -1377,6 +1422,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ? controller.setDesktopCompanionPaused
                   : null,
             ),
+            SwitchListTile.adaptive(
+              value: controller.desktopPassiveHistoryEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Passive screen history on this computer'),
+              subtitle: Text(
+                'Capture OCR text plus app/window context locally for the user-wide Timeline. Screenshots stay transient and are not uploaded.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              onChanged: controller.desktopCompanionEnabled
+                  ? controller.setDesktopPassiveHistoryEnabled
+                  : null,
+            ),
             const SizedBox(height: 12),
             TextFormField(
               initialValue: controller.desktopCompanionLabel,
@@ -1411,8 +1468,49 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ? _warning
                       : _success,
                 ),
+                _DotStatus(
+                  label: controller.desktopPassiveHistoryEnabled
+                      ? 'History enabled'
+                      : 'History disabled',
+                  color: controller.desktopPassiveHistoryEnabled
+                      ? _accent
+                      : _textMuted,
+                ),
               ],
             ),
+            if (controller.desktopPassiveHistoryLastUploadedAt != null ||
+                controller.desktopPassiveHistoryLastError != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _bgSecondary.withValues(alpha: 0.66),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _borderLight),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (controller.desktopPassiveHistoryLastUploadedAt
+                        case final uploadedAt?)
+                      Text(
+                        'Last upload: ${_formatTimestamp(DateTime.parse(uploadedAt))}',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                    if (controller.desktopPassiveHistoryLastError
+                        case final passiveError?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Last error: $passiveError',
+                          style: TextStyle(color: _danger),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             if (controller.desktopCompanionErrorMessage
                 case final message?) ...<Widget>[
               const SizedBox(height: 12),
@@ -1432,7 +1530,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ? 'Connected — tap Test to fetch live device status from the server.'
                   : 'Not connected. Make sure the desktop app is running on the target machine.',
               onTest: () async {
-                setState(() { _desktopTestRunning = true; _desktopTestResult = null; });
+                setState(() {
+                  _desktopTestRunning = true;
+                  _desktopTestResult = null;
+                });
                 try {
                   final r = await controller.testDesktopCompanion();
                   final active = r['activeDevice'];
@@ -1443,20 +1544,29 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     final plat = active['platform']?.toString() ?? '';
                     final sc = active['permissions']?['screenCapture'] == true;
                     final ic = active['permissions']?['inputControl'] == true;
-                    detail = '$label${plat.isNotEmpty ? " ($plat)" : ""}'
+                    detail =
+                        '$label${plat.isNotEmpty ? " ($plat)" : ""}'
                         ' — screen: ${sc ? "✓" : "✗"}, input: ${ic ? "✓" : "✗"}';
                   } else if (multi) {
-                    detail = '${r['onlineCount']} devices online — select one in Desktop › Devices';
+                    detail =
+                        '${r['onlineCount']} devices online — select one in Desktop › Devices';
                   }
                   if (mounted) {
-                    setState(() => _desktopTestResult = <String, dynamic>{
-                      ...r,
-                      'detail': detail,
-                    });
+                    setState(
+                      () => _desktopTestResult = <String, dynamic>{
+                        ...r,
+                        'detail': detail,
+                      },
+                    );
                   }
                 } catch (e) {
                   if (mounted) {
-                    setState(() => _desktopTestResult = <String, dynamic>{'passed': false, 'detail': e.toString()});
+                    setState(
+                      () => _desktopTestResult = <String, dynamic>{
+                        'passed': false,
+                        'detail': e.toString(),
+                      },
+                    );
                   }
                 } finally {
                   if (mounted) {
@@ -1581,7 +1691,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _buildSecuritySection(BuildContext context, NeoAgentController controller) {
+  Widget _buildSecuritySection(
+    BuildContext context,
+    NeoAgentController controller,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1786,14 +1899,20 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 Row(
                   children: <Widget>[
                     Icon(
-                      passed ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                      passed
+                          ? Icons.check_circle_rounded
+                          : Icons.cancel_rounded,
                       size: 15,
-                      color: passed ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                      color: passed
+                          ? const Color(0xFF22C55E)
+                          : const Color(0xFFEF4444),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        passed ? (detail.isNotEmpty ? detail : '$label: OK') : detail,
+                        passed
+                            ? (detail.isNotEmpty ? detail : '$label: OK')
+                            : detail,
                         style: TextStyle(
                           fontSize: 13,
                           color: passed ? null : const Color(0xFFEF4444),
@@ -1803,7 +1922,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ],
                 )
               else if (note != null)
-                Text(note, style: TextStyle(fontSize: 13, color: _textSecondary, height: 1.4)),
+                Text(
+                  note,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _textSecondary,
+                    height: 1.4,
+                  ),
+                ),
             ],
           ),
         ),
@@ -1940,7 +2066,9 @@ class _SmartPoolSummary extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: _textMuted),
                       )
                     else
-                      ...providers.take(12).map(
+                      ...providers
+                          .take(12)
+                          .map(
                             (p) => Container(
                               width: 8,
                               height: 8,
@@ -1962,8 +2090,7 @@ class _SmartPoolSummary extends StatelessWidget {
             icon: const Icon(Icons.tune_rounded, size: 14),
             label: const Text('Manage'),
             style: OutlinedButton.styleFrom(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 13),
             ),
           ),
@@ -1978,10 +2105,7 @@ class _SmartPoolSummary extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SmartPoolDialog extends StatefulWidget {
-  const _SmartPoolDialog({
-    required this.models,
-    required this.selectedIds,
-  });
+  const _SmartPoolDialog({required this.models, required this.selectedIds});
 
   final List<ModelMeta> models;
   final Set<String> selectedIds;
@@ -2015,10 +2139,12 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list
-          .where((m) =>
-              m.label.toLowerCase().contains(q) ||
-              m.id.toLowerCase().contains(q) ||
-              m.provider.toLowerCase().contains(q))
+          .where(
+            (m) =>
+                m.label.toLowerCase().contains(q) ||
+                m.id.toLowerCase().contains(q) ||
+                m.provider.toLowerCase().contains(q),
+          )
           .toList();
     }
     return list;
@@ -2036,9 +2162,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
     setState(() {
       final toRemove = filtered.map((m) => m.id).toSet();
       final remaining = _selected.difference(toRemove);
-      _selected = remaining.isNotEmpty
-          ? remaining
-          : <String>{_selected.first};
+      _selected = remaining.isNotEmpty ? remaining : <String>{_selected.first};
     });
   }
 
@@ -2063,79 +2187,82 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
       final models = grouped[provider]!;
       final providerColor = _providerPickerColor(provider);
       final available = models.where((m) => m.available).toList();
-      final allGroupSelected = available.isNotEmpty &&
+      final allGroupSelected =
+          available.isNotEmpty &&
           available.every((m) => _selected.contains(m.id));
 
-      rows.add(Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: providerColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _providerPickerLabel(provider).toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: _textMuted,
-                  letterSpacing: 0.8,
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: providerColor,
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: available.isEmpty
-                  ? null
-                  : () {
-                      setState(() {
-                        if (allGroupSelected) {
-                          final toRemove =
-                              available.map((m) => m.id).toSet();
-                          final remaining =
-                              _selected.difference(toRemove);
-                          _selected = remaining.isNotEmpty
-                              ? remaining
-                              : <String>{_selected.first};
-                        } else {
-                          for (final m in available) {
-                            _selected.add(m.id);
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _providerPickerLabel(provider).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: _textMuted,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: available.isEmpty
+                    ? null
+                    : () {
+                        setState(() {
+                          if (allGroupSelected) {
+                            final toRemove = available.map((m) => m.id).toSet();
+                            final remaining = _selected.difference(toRemove);
+                            _selected = remaining.isNotEmpty
+                                ? remaining
+                                : <String>{_selected.first};
+                          } else {
+                            for (final m in available) {
+                              _selected.add(m.id);
+                            }
                           }
-                        }
-                      });
-                    },
-              child: Text(
-                allGroupSelected ? 'None' : 'All',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: available.isEmpty ? _textMuted : _accent,
+                        });
+                      },
+                child: Text(
+                  allGroupSelected ? 'None' : 'All',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: available.isEmpty ? _textMuted : _accent,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ));
+      );
 
       for (final model in models) {
-        rows.add(_SmartPoolRow(
-          model: model,
-          selected: _selected.contains(model.id),
-          onToggle: (val) => setState(() {
-            if (val) {
-              _selected.add(model.id);
-            } else if (_selected.length > 1) {
-              _selected.remove(model.id);
-            }
-          }),
-        ));
+        rows.add(
+          _SmartPoolRow(
+            model: model,
+            selected: _selected.contains(model.id),
+            onToggle: (val) => setState(() {
+              if (val) {
+                _selected.add(model.id);
+              } else if (_selected.length > 1) {
+                _selected.remove(model.id);
+              }
+            }),
+          ),
+        );
       }
     }
 
@@ -2189,8 +2316,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                             style: IconButton.styleFrom(
                               minimumSize: const Size(36, 36),
                               padding: EdgeInsets.zero,
-                              tapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
                         ],
@@ -2240,18 +2366,17 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                                     : null,
                                 isDense: true,
                                 contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 10),
+                                  vertical: 10,
+                                ),
                                 filled: true,
                                 fillColor: _bgSecondary,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide:
-                                      BorderSide(color: _border),
+                                  borderSide: BorderSide(color: _border),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide:
-                                      BorderSide(color: _border),
+                                  borderSide: BorderSide(color: _border),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -2266,7 +2391,8 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                           const SizedBox(width: 8),
                           GestureDetector(
                             onTap: () => setState(
-                                () => _onlyAvailable = !_onlyAvailable),
+                              () => _onlyAvailable = !_onlyAvailable,
+                            ),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(
@@ -2316,10 +2442,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                           const Spacer(),
                           Text(
                             '$selectedAvailableCount selected',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _textMuted,
-                            ),
+                            style: TextStyle(fontSize: 12, color: _textMuted),
                           ),
                         ],
                       ),
@@ -2350,8 +2473,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                               ),
                             )
                           : ListView(
-                              padding:
-                                  const EdgeInsets.only(top: 4, bottom: 8),
+                              padding: const EdgeInsets.only(top: 4, bottom: 8),
                               shrinkWrap: true,
                               children: rows,
                             ),
@@ -2394,8 +2516,7 @@ class _SmartPoolRow extends StatelessWidget {
         child: InkWell(
           onTap: model.available ? () => onToggle(!selected) : null,
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             child: Row(
               children: <Widget>[
                 // Thin provider accent bar on the left
@@ -2403,8 +2524,7 @@ class _SmartPoolRow extends StatelessWidget {
                   width: 3,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: color.withValues(
-                        alpha: selected ? 0.85 : 0.28),
+                    color: color.withValues(alpha: selected ? 0.85 : 0.28),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -2419,8 +2539,7 @@ class _SmartPoolRow extends StatelessWidget {
                         : null,
                     activeColor: _accent,
                     side: BorderSide(color: _textMuted, width: 1.5),
-                    materialTapTargetSize:
-                        MaterialTapTargetSize.shrinkWrap,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
@@ -2434,8 +2553,7 @@ class _SmartPoolRow extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color:
-                              selected ? _accentHover : _textPrimary,
+                          color: selected ? _accentHover : _textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -2443,10 +2561,7 @@ class _SmartPoolRow extends StatelessWidget {
                       if (model.purpose.isNotEmpty)
                         Text(
                           model.purpose,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _textMuted,
-                          ),
+                          style: TextStyle(fontSize: 11, color: _textMuted),
                         ),
                     ],
                   ),
@@ -2475,8 +2590,7 @@ class _PoolActionChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: _bgSecondary,
           borderRadius: BorderRadius.circular(8),

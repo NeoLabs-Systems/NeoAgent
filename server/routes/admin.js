@@ -789,49 +789,6 @@ router.put('/api/config/vm', requireAdminAuth, settingsLimiter, express.json(), 
   }
 });
 
-// --- Screen recorder config ---
-
-router.get('/api/config/screen-recorder', requireAdminAuth, (req, res) => {
-  res.json({
-    settings: {
-      enabled: parseEnvBool('NEOAGENT_SCREEN_RECORDER_ENABLED', false),
-      userId: process.env.NEOAGENT_SCREEN_RECORDER_USER_ID || '',
-      intervalMs: parseEnvInt('NEOAGENT_SCREEN_RECORDER_INTERVAL_MS', 10000),
-      retentionDays: parseEnvInt('NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS', 7),
-    },
-  });
-});
-
-router.put('/api/config/screen-recorder', requireAdminAuth, settingsLimiter, express.json(), (req, res) => {
-  try {
-    const b = req.body || {};
-    if (typeof b.enabled !== 'boolean') {
-      return res.status(400).json({ error: 'enabled must be a boolean.' });
-    }
-    const userId = cleanLine(b.userId);
-    if (b.enabled && !userId) {
-      return res.status(400).json({ error: 'userId is required when screen recorder is enabled.' });
-    }
-    const intervalMs = parseInt(b.intervalMs, 10);
-    const retentionDays = parseInt(b.retentionDays, 10);
-    if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
-      return res.status(400).json({ error: 'intervalMs must be ≥ 1000.' });
-    }
-    if (!Number.isFinite(retentionDays) || retentionDays < 1) {
-      return res.status(400).json({ error: 'retentionDays must be ≥ 1.' });
-    }
-
-    persistEnv('NEOAGENT_SCREEN_RECORDER_ENABLED', b.enabled ? 'true' : 'false');
-    persistEnv('NEOAGENT_SCREEN_RECORDER_USER_ID', userId);
-    persistEnv('NEOAGENT_SCREEN_RECORDER_INTERVAL_MS', String(intervalMs));
-    persistEnv('NEOAGENT_SCREEN_RECORDER_RETENTION_DAYS', String(retentionDays));
-
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- OAuth integrations config ---
 
 const OAUTH_INTEGRATIONS = [
