@@ -261,18 +261,11 @@ class RecordingManager {
       throw new Error('sequenceIndex must be a non-negative integer.');
     }
 
-    const maxSequence = db.prepare(`
-      SELECT MAX(sequence_index) AS maxSequence
-      FROM recording_chunks
-      WHERE source_id = ?
-    `).get(source.id)?.maxSequence;
-    const expectedNextSequence = maxSequence == null ? 0 : Number(maxSequence) + 1;
-    if (sequenceIndex > expectedNextSequence) {
-      throw new Error(
-        `Invalid chunk sequence for source "${source.source_key}": got ${sequenceIndex}, expected ${expectedNextSequence}. Sequence must be contiguous per source.`
-      );
-    }
-
+    // Accept chunks even when an earlier sequence number never arrived (e.g. a
+    // chunk upload was permanently dropped by a flaky network). A gap only
+    // costs the audio in the missing chunk; every later chunk is still stored
+    // and transcribed. Rejecting non-contiguous sequences here would instead
+    // cascade a single lost chunk into total loss of the rest of the source.
     const existing = db.prepare(`
       SELECT id
       FROM recording_chunks
@@ -481,10 +474,10 @@ class RecordingManager {
           continue;
         }
 
-        this.#assertSequentialChunks(source.source_key, chunks);
-        const sourceDuration = Math.max(
+        this.#warnOnChunkGaps(source.source_key, chunks);
+        const sourceDuration = this.#maxOf(
+          chunks.map((chunk) => Number(chunk.end_ms) || 0),
           Number(source.duration_ms) || 0,
-          ...chunks.map((chunk) => Number(chunk.end_ms) || 0),
         );
         maxDuration = Math.max(maxDuration, sourceDuration);
 
@@ -505,11 +498,11 @@ class RecordingManager {
         const sourceSegments = await this.#transcribeSourceChunks(source, chunks, {
           transcriptionModel: recordingTranscriptionModel,
         });
-        maxDuration = Math.max(
-          maxDuration,
-          ...sourceSegments.map((segment) => Number(segment.endMs) || 0),
+        const sourceSegmentEnd = this.#maxOf(
+          sourceSegments.map((segment) => Number(segment.endMs) || 0),
           sourceDuration,
         );
+        maxDuration = Math.max(maxDuration, sourceSegmentEnd);
         collectedSegments.push(...sourceSegments);
 
         db.prepare(`
@@ -518,7 +511,7 @@ class RecordingManager {
           WHERE id = ?
         `).run(
           SESSION_STATUS.completed,
-          Math.max(sourceDuration, ...sourceSegments.map((segment) => Number(segment.endMs) || 0)),
+          sourceSegmentEnd,
           new Date().toISOString(),
           source.id,
         );
@@ -839,20 +832,38 @@ class RecordingManager {
     });
   }
 
+  // Streaming recorders (browser MediaRecorder, native MPEG encoders) split a
+  // single media stream across many timeslice chunks where only the first
+  // chunk carries the container header (EBML for WebM/Ogg, ftyp/moov for MP4,
+  // frame sync for MPEG). The later chunks cannot be decoded on their own, so
+  // they MUST be concatenated back into one container before transcription.
+  // Sending them to Deepgram individually only ever decodes the first ~chunk.
+  #isConcatenableContainerMime(mime) {
+    const value = `${mime || ''}`.toLowerCase();
+    return (
+      value.includes('mpeg') ||
+      value.includes('mp3') ||
+      value.includes('webm') ||
+      value.includes('ogg') ||
+      value.includes('opus') ||
+      value.includes('mp4') ||
+      value.includes('m4a') ||
+      value.includes('aac')
+    );
+  }
+
   #canTranscribeAsMergedBinary(source, chunks) {
     if (!Array.isArray(chunks) || chunks.length === 0) {
       return false;
     }
 
-    const sourceMime = `${source.mime_type || ''}`.toLowerCase();
-    const sourceSeemsMpeg = sourceMime.includes('mpeg') || sourceMime.includes('mp3');
-    if (!sourceSeemsMpeg) {
+    if (!this.#isConcatenableContainerMime(source.mime_type)) {
       return false;
     }
 
     return chunks.every((chunk) => {
       const mime = `${chunk.mime_type || source.mime_type || ''}`.toLowerCase();
-      return mime.includes('mpeg') || mime.includes('mp3') || mime.includes('octet-stream');
+      return this.#isConcatenableContainerMime(mime) || mime.includes('octet-stream');
     });
   }
 
@@ -1056,12 +1067,34 @@ class RecordingManager {
     });
   }
 
-  #assertSequentialChunks(sourceKey, chunks) {
-    for (let index = 0; index < chunks.length; index += 1) {
-      if (Number(chunks[index].sequence_index) !== index) {
-        throw new Error(`Recording source "${sourceKey}" is missing chunk ${index}.`);
+  #warnOnChunkGaps(sourceKey, chunks) {
+    const missing = [];
+    let expected = 0;
+    for (const chunk of chunks) {
+      const sequence = Number(chunk.sequence_index) || 0;
+      while (expected < sequence) {
+        missing.push(expected);
+        expected += 1;
+      }
+      expected = sequence + 1;
+    }
+    if (missing.length > 0) {
+      console.warn(
+        `[Recordings] Source "${sourceKey}" is missing chunk(s) ${missing.slice(0, 20).join(', ')}` +
+          `${missing.length > 20 ? ', …' : ''}; transcribing the audio that did arrive.`,
+      );
+    }
+  }
+
+  #maxOf(values, seed = 0) {
+    let max = Number(seed) || 0;
+    for (const value of (Array.isArray(values) ? values : [])) {
+      const num = Number(value) || 0;
+      if (num > max) {
+        max = num;
       }
     }
+    return max;
   }
 
   #shouldTranscribeSource(source, metadata = {}) {
