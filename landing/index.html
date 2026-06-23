@@ -640,7 +640,7 @@ p { margin: 0; text-wrap: pretty; }
 .hero-note { margin-top: 16px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); letter-spacing: 0.02em; }
 
 /* ---------- orbit system ---------- */
-.orbit-stage { position: relative; width: min(460px, 86vw); aspect-ratio: 1; margin-inline: auto; }
+.orbit-stage { position: relative; width: min(460px, 86vw, 100%); aspect-ratio: 1; margin-inline: auto; }
 .orbit-glow { position: absolute; inset: 16%; border-radius: 50%; background: radial-gradient(circle, rgba(199,154,82,0.28), transparent 65%); filter: blur(22px); animation: corepulse 7s ease-in-out infinite; }
 @media (prefers-color-scheme: dark) { .orbit-glow { background: radial-gradient(circle, rgba(228,197,141,0.22), transparent 65%); } }
 @keyframes corepulse { 0%,100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.07); } }
@@ -830,7 +830,7 @@ p { margin: 0; text-wrap: pretty; }
   .hero-actions { flex-direction: column; width: 100%; }
   .hero-actions .btn { width: 100%; justify-content: center; }
   .final .hero-actions .btn { width: auto; }
-  .orbit-stage { width: min(320px, 84vw); }
+  .orbit-stage { width: min(320px, 78vw); }
   .frame-bar .url { max-width: 70%; }
   .footer-inner { flex-direction: column; gap: 22px; }
   .footer-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
