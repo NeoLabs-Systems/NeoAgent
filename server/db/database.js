@@ -2016,7 +2016,8 @@ function backfillTaskTriggers() {
       .all();
     const update = db.prepare(
       `UPDATE scheduled_tasks
-       SET trigger_type = ?, trigger_config = ?, execution_mode = COALESCE(NULLIF(execution_mode, ''), 'prompt')
+       SET trigger_type = ?, trigger_config = ?, cron_expression = ?, run_at = ?,
+           execution_mode = COALESCE(NULLIF(execution_mode, ''), 'prompt')
        WHERE id = ?`,
     );
     const tx = db.transaction(() => {
@@ -2028,17 +2029,39 @@ function backfillTaskTriggers() {
         } catch {
           parsedConfig = {};
         }
-        const hasConfig = parsedConfig && typeof parsedConfig === 'object' && !Array.isArray(parsedConfig) && Object.keys(parsedConfig).length > 0;
-        if (triggerType !== 'schedule' && hasConfig) {
-          update.run(triggerType, JSON.stringify(parsedConfig), row.id);
+        if (!parsedConfig || typeof parsedConfig !== 'object' || Array.isArray(parsedConfig)) {
+          parsedConfig = {};
+        }
+
+        // Non-schedule triggers keep their own config untouched.
+        if (triggerType !== 'schedule') {
+          if (Object.keys(parsedConfig).length > 0) {
+            update.run(triggerType, JSON.stringify(parsedConfig), row.cron_expression, row.run_at, row.id);
+          }
           continue;
         }
 
-        const mode = row.one_time ? 'one_time' : 'recurring';
-        const config = row.one_time
-          ? { mode, runAt: row.run_at || null }
-          : { mode, cronExpression: row.cron_expression || null };
-        update.run('schedule', JSON.stringify(config), row.id);
+        // Schedule triggers: reconcile the structured trigger_config with the
+        // legacy cron_expression/run_at columns WITHOUT discarding a value that
+        // exists in only one place. A prior version rebuilt trigger_config from
+        // the legacy columns unconditionally, which blanked cronExpression for
+        // tasks that carried it only in trigger_config and silently stopped them
+        // from ever being scheduled.
+        const cronExpression = String(parsedConfig.cronExpression || row.cron_expression || '').trim() || null;
+        const runAt = parsedConfig.runAt || row.run_at || null;
+        const isOneTime = cronExpression
+          ? false
+          : (Boolean(row.one_time) || parsedConfig.mode === 'one_time');
+        const config = isOneTime
+          ? { mode: 'one_time', runAt }
+          : { mode: 'recurring', cronExpression };
+        update.run(
+          'schedule',
+          JSON.stringify(config),
+          isOneTime ? null : cronExpression,
+          isOneTime ? runAt : null,
+          row.id,
+        );
       }
     });
     tx();

@@ -381,9 +381,18 @@ class TaskRuntime {
     if (!task.enabled) return;
     if ((task.trigger_type || 'schedule') !== 'schedule') return;
     const triggerConfig = this._normalizeJson(task.trigger_config);
-    if (triggerConfig.mode === 'one_time') return;
-    const cronExpression = String(triggerConfig.cronExpression || '').trim();
-    if (!cronExpression) return;
+    // Resolve the cron expression from the structured trigger_config, falling
+    // back to the legacy cron_expression column. An older migration could leave
+    // the expression in only one of the two places; as long as either still
+    // holds it, the task must keep being scheduled.
+    const cronExpression = String(
+      triggerConfig.cronExpression || task.cron_expression || '',
+    ).trim();
+    // One-time runs are driven by the one-time poller, not node-cron. Only skip
+    // here when there is genuinely no recurring cron expression to honor.
+    if (!cronExpression) {
+      return;
+    }
     const job = this.cron.schedule(cronExpression, async () => {
       try {
         await this._executeTask(task.id, task.user_id, {
