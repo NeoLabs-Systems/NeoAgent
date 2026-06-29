@@ -9,6 +9,13 @@ const _reservations = new Map();
 const DEFAULT_RATE_LIMIT_4H = 2_500_000;
 const DEFAULT_RATE_LIMIT_WEEKLY = 10_000_000;
 
+// Generous upper bound on a single run's token cost. Used to size the in-flight
+// reservation that keeps concurrent run starts from collectively bypassing the
+// per-user budget. It must NOT be the full limit — doing so would reserve the
+// entire budget for one run and reject any second concurrent run for the same
+// user (e.g. a scheduled task firing in the same minute as another).
+const DEFAULT_RUN_RESERVATION_TOKENS = 500_000;
+
 const WINDOWS = {
   fourHour: {
     durationMs: 4 * 60 * 60 * 1000,
@@ -144,10 +151,22 @@ function enforceRateLimits(userId) {
     throw new RateLimitExceededError('weekly', snapshot);
   }
   // Reserve a placeholder so concurrent starts see this run as in-flight.
-  // The reservation is released (or reconciled) when the run completes.
+  // The reservation is released (or reconciled) when the run completes. Size it
+  // to a realistic per-run estimate — never the full limit — so concurrent runs
+  // for the same user are admitted normally and only a genuinely near-budget
+  // user gets throttled. Clamp so the reservation can never by itself exceed a
+  // (possibly small/custom) limit.
   const key = String(userId);
   const limits = snapshot.limits;
-  const reserve = Math.max(limits.fourHour || 0, limits.weekly || 0, 1);
+  const estimate = parsePositiveInteger(
+    process.env.NEOAGENT_RUN_RESERVATION_TOKENS,
+    DEFAULT_RUN_RESERVATION_TOKENS,
+  );
+  const cap = Math.min(
+    limits.fourHour == null ? Infinity : limits.fourHour,
+    limits.weekly == null ? Infinity : limits.weekly,
+  );
+  const reserve = Math.max(1, Math.min(estimate, Number.isFinite(cap) ? cap : estimate));
   _reservations.set(key, (_reservations.get(key) || 0) + reserve);
   return { snapshot, releaseReservation: () => releaseReservation(userId, reserve) };
 }
