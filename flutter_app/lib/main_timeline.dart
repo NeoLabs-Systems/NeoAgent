@@ -1,16 +1,5 @@
 part of 'main.dart';
 
-const double _timelineAxisHeaderHeight = 56;
-const double _timelineLaneLabelWidth = 132;
-const double _timelinePlotRightPadding = 84;
-const double _timelineLanePadding = 18;
-const double _timelineLaneGap = 18;
-const double _timelineNodeWidth = 208;
-const double _timelineNodeHeight = 88;
-const double _timelineNodeGap = 18;
-const double _timelineCanvasBottomPadding = 28;
-const double _timelinePlotInset = _timelineNodeWidth / 2;
-
 class TimelinePanel extends StatefulWidget {
   const TimelinePanel({super.key, required this.controller});
 
@@ -21,21 +10,7 @@ class TimelinePanel extends StatefulWidget {
 }
 
 class _TimelinePanelState extends State<TimelinePanel> {
-  final TransformationController _viewportController =
-      TransformationController();
-
   int? _selectedEventId;
-  int? _hoveredEventId;
-
-  @override
-  void dispose() {
-    _viewportController.dispose();
-    super.dispose();
-  }
-
-  void _resetViewport() {
-    _viewportController.value = Matrix4.identity();
-  }
 
   void _selectEvent(TimelineEventItem item) {
     if (_selectedEventId == item.id) {
@@ -43,15 +18,6 @@ class _TimelinePanelState extends State<TimelinePanel> {
     }
     setState(() {
       _selectedEventId = item.id;
-    });
-  }
-
-  void _setHoveredEvent(int? eventId) {
-    if (_hoveredEventId == eventId) {
-      return;
-    }
-    setState(() {
-      _hoveredEventId = eventId;
     });
   }
 
@@ -81,13 +47,14 @@ class _TimelinePanelState extends State<TimelinePanel> {
         return item;
       }
     }
-    _selectedEventId = items.last.id;
-    return items.last;
+    _selectedEventId = items.first.id;
+    return items.first;
   }
 
   @override
   Widget build(BuildContext context) {
     final items = _sortedTimelineEvents(widget.controller.timelineItems);
+    final groups = _groupTimelineEvents(items);
     final selectedEvent = _resolveSelectedEvent(items);
     final selectedIndex = selectedEvent == null
         ? -1
@@ -98,71 +65,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const _PageTitle(
-            title: 'Timeline',
-            subtitle:
-                'Interactive chronology across passive screen sessions, tasks, and runs.',
+          _TimelineHeroHeader(
+            items: items,
+            selectedEvent: selectedEvent,
+            controller: widget.controller,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              for (final filter in const <({String id, String label})>[
-                (id: 'screen', label: 'Screen'),
-                (id: 'tasks', label: 'Tasks'),
-                (id: 'runs', label: 'Runs'),
-              ])
-                FilterChip(
-                  selected: widget.controller.selectedTimelineSources.contains(
-                    filter.id,
-                  ),
-                  label: Text(filter.label),
-                  onSelected: (_) =>
-                      widget.controller.toggleTimelineSource(filter.id),
-                ),
-              OutlinedButton.icon(
-                onPressed: widget.controller.isRefreshingTimeline
-                    ? null
-                    : widget.controller.refreshTimeline,
-                icon: widget.controller.isRefreshingTimeline
-                    ? const SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync_outlined),
-                label: const Text('Refresh'),
-              ),
-              OutlinedButton.icon(
-                onPressed: items.isEmpty ? null : _resetViewport,
-                icon: const Icon(Icons.center_focus_strong_rounded),
-                label: const Text('Reset view'),
-              ),
-            ],
-          ),
-          if (items.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _MetaPill(
-                  label: '${items.length} events',
-                  icon: Icons.bubble_chart_outlined,
-                ),
-                _MetaPill(
-                  label: _formatTimelineRange(items.first, items.last),
-                  icon: Icons.schedule_outlined,
-                ),
-                _MetaPill(
-                  label: 'Drag to pan, scroll or pinch to zoom',
-                  icon: Icons.pan_tool_alt_outlined,
-                  color: _info,
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Expanded(
             child: items.isEmpty
                 ? Card(
@@ -178,16 +86,13 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   )
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final isWide = constraints.maxWidth >= 1120;
-                      final timelinePane = _InteractiveTimelineCanvas(
-                        items: items,
+                      final isWide = constraints.maxWidth >= 1180;
+                      final feedPane = _TimelineFeedPane(
+                        groups: groups,
                         selectedEventId: selectedEvent?.id,
-                        hoveredEventId: _hoveredEventId,
-                        viewportController: _viewportController,
                         onSelectEvent: _selectEvent,
-                        onHoverEvent: _setHoveredEvent,
                       );
-                      final detailPane = _TimelineSelectionPanel(
+                      final detailPane = _TimelineDetailPane(
                         items: items,
                         selectedEvent: selectedEvent,
                         selectedIndex: selectedIndex,
@@ -214,18 +119,19 @@ class _TimelinePanelState extends State<TimelinePanel> {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            Expanded(flex: 7, child: timelinePane),
+                            Expanded(flex: 10, child: feedPane),
                             const SizedBox(width: 16),
-                            SizedBox(width: 360, child: detailPane),
+                            SizedBox(width: 420, child: detailPane),
                           ],
                         );
                       }
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          Expanded(flex: 3, child: timelinePane),
+                          Expanded(flex: 11, child: feedPane),
                           const SizedBox(height: 16),
-                          Expanded(flex: 2, child: detailPane),
+                          Expanded(flex: 8, child: detailPane),
                         ],
                       );
                     },
@@ -237,170 +143,537 @@ class _TimelinePanelState extends State<TimelinePanel> {
   }
 }
 
-class _InteractiveTimelineCanvas extends StatelessWidget {
-  const _InteractiveTimelineCanvas({
+class _TimelineHeroHeader extends StatelessWidget {
+  const _TimelineHeroHeader({
     required this.items,
-    required this.selectedEventId,
-    required this.hoveredEventId,
-    required this.viewportController,
-    required this.onSelectEvent,
-    required this.onHoverEvent,
+    required this.selectedEvent,
+    required this.controller,
   });
 
   final List<TimelineEventItem> items;
+  final TimelineEventItem? selectedEvent;
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final focusedDay =
+        selectedEvent?.occurredAt ??
+        (items.isEmpty ? null : items.first.occurredAt);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            _bgSecondary.withValues(alpha: 0.96),
+            _bgPrimary.withValues(alpha: 0.9),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _borderLight),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 26,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 940;
+              final heading = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'ACTIVITY FEED',
+                    style: TextStyle(
+                      color: _accentHover,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 4.2,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Timeline',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Emails, AI actions, recordings, tasks and run activity in one chronological feed.',
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 16.5,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              );
+              final summary = Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: isWide ? WrapAlignment.end : WrapAlignment.start,
+                children: <Widget>[
+                  if (items.isNotEmpty)
+                    _TimelineStatPill(
+                      icon: Icons.event_note_rounded,
+                      label: '${items.length} events',
+                    ),
+                  if (items.length > 1)
+                    _TimelineStatPill(
+                      icon: Icons.schedule_outlined,
+                      label: _formatTimelineRange(items.first, items.last),
+                    ),
+                  if (focusedDay != null)
+                    _TimelineStatPill(
+                      icon: Icons.calendar_today_outlined,
+                      label: _formatTimelineDate(focusedDay.toLocal()),
+                    ),
+                ],
+              );
+
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(child: heading),
+                    const SizedBox(width: 20),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: summary,
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  heading,
+                  const SizedBox(height: 18),
+                  summary,
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              for (final filter in const <({String id, String label})>[
+                (id: 'screen', label: 'Screen'),
+                (id: 'tasks', label: 'Tasks'),
+                (id: 'runs', label: 'Runs'),
+              ])
+                FilterChip(
+                  selected: controller.selectedTimelineSources.contains(
+                    filter.id,
+                  ),
+                  label: Text(filter.label),
+                  onSelected: (_) => controller.toggleTimelineSource(filter.id),
+                  avatar: Icon(
+                    _timelineLaneIcon(filter.id),
+                    size: 16,
+                    color:
+                        controller.selectedTimelineSources.contains(filter.id)
+                        ? _bgSecondary
+                        : _sourceColorForKind(filter.id),
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: controller.isRefreshingTimeline
+                    ? null
+                    : controller.refreshTimeline,
+                icon: controller.isRefreshingTimeline
+                    ? const SizedBox.square(
+                        dimension: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync_outlined),
+                label: const Text('Refresh'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineFeedPane extends StatelessWidget {
+  const _TimelineFeedPane({
+    required this.groups,
+    required this.selectedEventId,
+    required this.onSelectEvent,
+  });
+
+  final List<_TimelineDayGroup> groups;
   final int? selectedEventId;
-  final int? hoveredEventId;
-  final TransformationController viewportController;
   final ValueChanged<TimelineEventItem> onSelectEvent;
-  final ValueChanged<int?> onHoverEvent;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
+      child: Column(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: _bgSecondary.withValues(alpha: 0.78),
+              border: Border(bottom: BorderSide(color: _border)),
+            ),
+            child: Row(
               children: <Widget>[
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Text(
-                        'Timeline map',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Events are placed by real timestamp and grouped into source lanes.',
-                        style: TextStyle(color: _textSecondary, height: 1.35),
-                      ),
-                    ],
+                  child: Text(
+                    'Timeline feed',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _bgTertiary.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _borderLight),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Icon(
-                        Icons.touch_app_outlined,
-                        size: 15,
-                        color: _textMuted,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Tap cards for details',
-                        style: TextStyle(color: _textSecondary, fontSize: 12.5),
-                      ),
-                    ],
-                  ),
+                Text(
+                  '${groups.fold<int>(0, (sum, group) => sum + group.items.length)} entries',
+                  style: TextStyle(color: _textMuted, fontSize: 12.5),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final scene = _TimelineSceneLayout.build(
-                    items: items,
-                    viewportWidth: constraints.maxWidth,
-                  );
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: DecoratedBox(
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(0),
+              itemCount: groups.length,
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                return _TimelineDaySection(
+                  group: group,
+                  selectedEventId: selectedEventId,
+                  onSelectEvent: onSelectEvent,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineDaySection extends StatelessWidget {
+  const _TimelineDaySection({
+    required this.group,
+    required this.selectedEventId,
+    required this.onSelectEvent,
+  });
+
+  final _TimelineDayGroup group;
+  final int? selectedEventId;
+  final ValueChanged<TimelineEventItem> onSelectEvent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: group.isToday ? _accent : _bgTertiary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    group.label,
+                    style: TextStyle(
+                      color: group.isToday ? _bgSecondary : _textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    group.dateLabel.toUpperCase(),
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${group.items.length} events',
+                  style: TextStyle(color: _textMuted, fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+          for (var index = 0; index < group.items.length; index++)
+            _TimelineFeedRow(
+              item: group.items[index],
+              isSelected: group.items[index].id == selectedEventId,
+              isFirst: index == 0,
+              isLast: index == group.items.length - 1,
+              onTap: () => onSelectEvent(group.items[index]),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineFeedRow extends StatelessWidget {
+  const _TimelineFeedRow({
+    required this.item,
+    required this.isSelected,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  final TimelineEventItem item;
+  final bool isSelected;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final sourceColor = item.sourceColor;
+    final chips = _timelineEventChips(item);
+
+    return Material(
+      color: isSelected
+          ? sourceColor.withValues(alpha: 0.08)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SizedBox(
+                width: 82,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 28),
+                  child: Text(
+                    _formatTimelineTime(item.occurredAt),
+                    style: TextStyle(
+                      color: isSelected ? _textPrimary : _textMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 30,
+                child: Column(
+                  children: <Widget>[
+                    Container(
+                      width: 2,
+                      height: isFirst ? 24 : 18,
+                      color: isFirst ? Colors.transparent : _borderLight,
+                    ),
+                    Container(
+                      width: 16,
+                      height: 16,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: <Color>[
-                            _bgSecondary.withValues(alpha: 0.92),
-                            _bgCard.withValues(alpha: 0.78),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        shape: BoxShape.circle,
+                        color: _bgCard,
+                        border: Border.all(
+                          color: sourceColor.withValues(alpha: 0.95),
+                          width: 3,
                         ),
-                        border: Border.all(color: _borderLight),
-                      ),
-                      child: InteractiveViewer(
-                        transformationController: viewportController,
-                        boundaryMargin: const EdgeInsets.all(160),
-                        minScale: 0.65,
-                        maxScale: 2.8,
-                        panEnabled: true,
-                        scaleEnabled: true,
-                        constrained: false,
-                        trackpadScrollCausesScale: true,
-                        child: SizedBox(
-                          width: scene.canvasWidth,
-                          height: scene.canvasHeight,
-                          child: Stack(
-                            children: <Widget>[
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _TimelineScenePainter(
-                                    scene: scene,
-                                    selectedEventId: selectedEventId,
-                                  ),
-                                ),
-                              ),
-                              for (final lane in scene.lanes)
-                                Positioned(
-                                  left: 16,
-                                  top: lane.top + 14,
-                                  child: _TimelineLaneBadge(
-                                    label: lane.label,
-                                    color: lane.color,
-                                    icon: _timelineLaneIcon(lane.sourceKind),
-                                  ),
-                                ),
-                              for (final entry in scene.entries)
-                                Positioned(
-                                  left: entry.left,
-                                  top: entry.top,
-                                  width: _timelineNodeWidth,
-                                  height: _timelineNodeHeight,
-                                  child: _TimelineEventNode(
-                                    item: entry.item,
-                                    isSelected:
-                                        entry.item.id == selectedEventId,
-                                    isHovered: entry.item.id == hoveredEventId,
-                                    onTap: () => onSelectEvent(entry.item),
-                                    onHoverChanged: (hovering) => onHoverEvent(
-                                      hovering ? entry.item.id : null,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: sourceColor.withValues(alpha: 0.22),
+                            blurRadius: 12,
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                },
+                    Container(
+                      width: 2,
+                      height: isLast ? 26 : 148,
+                      color: isLast ? Colors.transparent : _borderLight,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 18),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 14, bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _bgCard.withValues(alpha: 0.98)
+                        : _bgSecondary.withValues(alpha: 0.52),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? sourceColor.withValues(alpha: 0.45)
+                          : _border,
+                    ),
+                    boxShadow: isSelected
+                        ? <BoxShadow>[
+                            BoxShadow(
+                              color: sourceColor.withValues(alpha: 0.08),
+                              blurRadius: 18,
+                              offset: const Offset(0, 10),
+                            ),
+                          ]
+                        : const <BoxShadow>[],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          _TimelineTypeChip(item: item),
+                          const Spacer(),
+                          if (isSelected)
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: sourceColor,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        item.title.ifEmpty(item.taskName),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _timelineCardDescription(item),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 14.5,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (chips.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            for (final chip in chips) _TimelineInlineChip(chip),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TimelineSelectionPanel extends StatelessWidget {
-  const _TimelineSelectionPanel({
+class _TimelineTypeChip extends StatelessWidget {
+  const _TimelineTypeChip({required this.item});
+
+  final TimelineEventItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: item.sourceColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: item.sourceColor.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            _timelineLaneIcon(item.sourceKind),
+            size: 15,
+            color: item.sourceColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            item.sourceLabel.toLowerCase(),
+            style: TextStyle(
+              color: item.sourceColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineInlineChip extends StatelessWidget {
+  const _TimelineInlineChip(this.chip);
+
+  final _TimelineChip chip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: chip.color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: chip.color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        chip.label,
+        style: TextStyle(
+          color: chip.color,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineDetailPane extends StatelessWidget {
+  const _TimelineDetailPane({
     required this.items,
     required this.selectedEvent,
     required this.selectedIndex,
@@ -420,17 +693,40 @@ class _TimelineSelectionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final item = selectedEvent;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            decoration: BoxDecoration(
+              color: _bgSecondary.withValues(alpha: 0.8),
+              border: Border(bottom: BorderSide(color: _border)),
+            ),
+            child: Row(
               children: <Widget>[
-                const Expanded(
-                  child: Text(
-                    'Event detail',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'DETAIL',
+                        style: TextStyle(
+                          color: _textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Event detail',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -440,7 +736,7 @@ class _TimelineSelectionPanel extends StatelessWidget {
                 ),
                 Text(
                   item == null ? '0/0' : '${selectedIndex + 1}/${items.length}',
-                  style: TextStyle(color: _textMuted, fontSize: 12),
+                  style: TextStyle(color: _textMuted, fontSize: 12.5),
                 ),
                 IconButton(
                   tooltip: 'Next event',
@@ -449,656 +745,511 @@ class _TimelineSelectionPanel extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (item == null)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Select an event on the timeline.',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+          ),
+          Expanded(
+            child: item == null
+                ? Center(
+                    child: Text(
+                      'Select an event from the feed.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
+                            _TimelineStatPill(
+                              icon: _timelineLaneIcon(item.sourceKind),
+                              label: item.sourceLabel,
+                              color: item.sourceColor,
                             ),
-                            decoration: BoxDecoration(
-                              color: item.sourceColor.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(999),
+                            _TimelineStatPill(
+                              icon: Icons.schedule_outlined,
+                              label:
+                                  '${_formatTimelineTime(item.occurredAt)} · ${_formatTimelineDate(item.occurredAt.toLocal())}',
                             ),
-                            child: Text(
-                              item.sourceLabel,
-                              style: TextStyle(
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          item.title.ifEmpty(item.taskName),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _timelineDetailDescription(item),
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 15,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            _TimelineInlineChip(
+                              _TimelineChip(
+                                label: _titleCase(
+                                  item.eventKind.replaceAll('_', ' '),
+                                ),
                                 color: item.sourceColor,
-                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            item.occurredAtLabel,
-                            style: TextStyle(color: _textMuted, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        item.title.ifEmpty(item.taskName),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          height: 1.15,
+                            for (final chip in _timelineEventChips(
+                              item,
+                            ).take(4))
+                              _TimelineInlineChip(chip),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          _MetaPill(
-                            label: _titleCase(
-                              item.eventKind.replaceAll('_', ' '),
+                        const SizedBox(height: 20),
+                        _TimelineDetailGrid(item: item),
+                        if (onOpenRun != null) ...<Widget>[
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: onOpenRun,
+                              icon: const Icon(Icons.open_in_new_rounded),
+                              label: const Text('Open linked run'),
                             ),
-                            icon: Icons.label_outline_rounded,
-                            color: item.sourceColor,
-                          ),
-                          _MetaPill(
-                            label: _timelineNodeSubtitle(item),
-                            icon: _timelineLaneIcon(item.sourceKind),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 16),
-                      ..._timelineDetailBody(item, onOpenRun),
-                    ],
+                        const SizedBox(height: 20),
+                        ..._timelineDetailBody(item, onOpenRun),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TimelineLaneBadge extends StatelessWidget {
-  const _TimelineLaneBadge({
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
+class _TimelineDetailGrid extends StatelessWidget {
+  const _TimelineDetailGrid({required this.item});
 
-  final String label;
-  final Color color;
-  final IconData icon;
+  final TimelineEventItem item;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _bgCard.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    final cells = _timelineDetailCells(item);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 1,
+        crossAxisSpacing: 1,
+        childAspectRatio: 1.48,
+      ),
+      itemCount: cells.length,
+      itemBuilder: (context, index) {
+        final cell = cells[index];
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _bgSecondary.withValues(alpha: 0.68),
+            border: Border.all(color: _border),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                cell.label,
+                style: TextStyle(
+                  color: _textMuted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.6,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                cell.value,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: cell.emphasized
+                      ? cell.color ?? _textPrimary
+                      : _textPrimary,
+                  fontSize: cell.emphasized ? 18 : 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TimelineStatPill extends StatelessWidget {
+  const _TimelineStatPill({
+    required this.icon,
+    required this.label,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = color ?? _textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: _bgPrimary.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 15, color: color),
+          Icon(icon, size: 16, color: tone),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineEventNode extends StatelessWidget {
-  const _TimelineEventNode({
-    required this.item,
-    required this.isSelected,
-    required this.isHovered,
-    required this.onTap,
-    required this.onHoverChanged,
-  });
-
-  final TimelineEventItem item;
-  final bool isSelected;
-  final bool isHovered;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onHoverChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final accentColor = item.sourceColor;
-    final active = isSelected || isHovered;
-    final borderColor = isSelected
-        ? accentColor.withValues(alpha: 0.8)
-        : accentColor.withValues(alpha: active ? 0.4 : 0.18);
-    final glowColor = accentColor.withValues(alpha: isSelected ? 0.24 : 0.12);
-    final subtitle = _timelineNodeSubtitle(item);
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => onHoverChanged(true),
-      onExit: (_) => onHoverChanged(false),
-      child: Tooltip(
-        message:
-            '${item.occurredAtLabel}\n${item.title.ifEmpty(item.taskName)}',
-        child: AnimatedScale(
-          scale: active ? 1.02 : 1,
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onTap,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      _bgCard.withValues(alpha: 0.98),
-                      _bgTertiary.withValues(alpha: 0.9),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: borderColor),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: glowColor,
-                      blurRadius: active ? 24 : 18,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Container(
-                          width: 11,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            shape: BoxShape.circle,
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: accentColor.withValues(alpha: 0.32),
-                                blurRadius: 12,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _formatTimelineTime(item.occurredAt),
-                            style: TextStyle(
-                              color: _textMuted,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (isSelected)
-                          Icon(
-                            Icons.ads_click_rounded,
-                            size: 15,
-                            color: accentColor,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: Text(
-                        item.title.ifEmpty(item.taskName),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          height: 1.22,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: _textSecondary, fontSize: 11.5),
-                    ),
-                  ],
-                ),
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              color: tone,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineScenePainter extends CustomPainter {
-  const _TimelineScenePainter({
-    required this.scene,
-    required this.selectedEventId,
-  });
-
-  final _TimelineSceneLayout scene;
-  final int? selectedEventId;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final backgroundPaint = Paint()
-      ..shader = LinearGradient(
-        colors: <Color>[
-          Colors.white.withValues(alpha: 0.06),
-          Colors.white.withValues(alpha: 0.02),
         ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, backgroundPaint);
-
-    final laneFillPaint = Paint()..style = PaintingStyle.fill;
-    final laneStrokePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = _borderLight;
-    for (var index = 0; index < scene.lanes.length; index++) {
-      final lane = scene.lanes[index];
-      final laneRect = Rect.fromLTWH(
-        8,
-        lane.top,
-        scene.canvasWidth - 16,
-        lane.height,
-      );
-      laneFillPaint.color = lane.color.withValues(
-        alpha: index.isEven ? 0.05 : 0.025,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(laneRect, const Radius.circular(22)),
-        laneFillPaint,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(laneRect, const Radius.circular(22)),
-        laneStrokePaint,
-      );
-    }
-
-    final selectedEntry = selectedEventId == null
-        ? null
-        : scene.entries.cast<_TimelineSceneEntry?>().firstWhere(
-            (entry) => entry?.item.id == selectedEventId,
-            orElse: () => null,
-          );
-    if (selectedEntry != null) {
-      final selectedLinePaint = Paint()
-        ..color = selectedEntry.item.sourceColor.withValues(alpha: 0.26)
-        ..strokeWidth = 2;
-      canvas.drawLine(
-        Offset(selectedEntry.centerX, _timelineAxisHeaderHeight - 4),
-        Offset(selectedEntry.centerX, scene.canvasHeight),
-        selectedLinePaint,
-      );
-    }
-
-    final tickPaint = Paint()
-      ..color = _borderLight
-      ..strokeWidth = 1;
-    for (final tick in scene.ticks) {
-      canvas.drawLine(
-        Offset(tick.x, _timelineAxisHeaderHeight - 8),
-        Offset(tick.x, scene.canvasHeight - 10),
-        tickPaint,
-      );
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: tick.label,
-          style: TextStyle(
-            color: _textMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: 120);
-      textPainter.paint(canvas, Offset(tick.x - textPainter.width / 2, 14));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TimelineScenePainter oldDelegate) {
-    return scene != oldDelegate.scene ||
-        selectedEventId != oldDelegate.selectedEventId;
-  }
-}
-
-class _TimelineSceneLayout {
-  const _TimelineSceneLayout({
-    required this.canvasWidth,
-    required this.canvasHeight,
-    required this.lanes,
-    required this.entries,
-    required this.ticks,
-  });
-
-  factory _TimelineSceneLayout.build({
-    required List<TimelineEventItem> items,
-    required double viewportWidth,
-  }) {
-    final lanes = _buildTimelineLanes(items);
-    final minimumCanvasWidth = math.max(
-      viewportWidth - 36,
-      items.length * 156 + _timelineLaneLabelWidth + _timelinePlotRightPadding,
-    );
-    final plotStart = _timelineLaneLabelWidth + _timelinePlotInset;
-    final plotWidth =
-        minimumCanvasWidth -
-        plotStart -
-        _timelinePlotRightPadding -
-        _timelinePlotInset;
-    final start = items.first.occurredAt;
-    final end = items.last.occurredAt;
-    final durationMs = math.max(end.difference(start).inMilliseconds, 1);
-    final entries = <_TimelineSceneEntry>[];
-    final laneGeometries = <_TimelineLaneGeometry>[];
-    var laneTop = _timelineAxisHeaderHeight;
-
-    for (final lane in lanes) {
-      final laneItems = items
-          .where((item) => item.sourceKind == lane.sourceKind)
-          .toList(growable: false);
-      final positioned = <({TimelineEventItem item, double x, int track})>[];
-      final trackLastEdge = <double>[];
-      for (final item in laneItems) {
-        final elapsedMs = item.occurredAt.difference(start).inMilliseconds;
-        final fraction = elapsedMs / durationMs;
-        final x =
-            plotStart + (fraction * plotWidth).clamp(0, plotWidth.toDouble());
-        var track = 0;
-        while (track < trackLastEdge.length &&
-            x - trackLastEdge[track] < _timelineNodeWidth + _timelineNodeGap) {
-          track += 1;
-        }
-        if (track == trackLastEdge.length) {
-          trackLastEdge.add(x);
-        } else {
-          trackLastEdge[track] = x;
-        }
-        positioned.add((item: item, x: x, track: track));
-      }
-
-      final trackCount = math.max(trackLastEdge.length, 1);
-      final laneHeight =
-          trackCount * (_timelineNodeHeight + _timelineNodeGap) +
-          (_timelineLanePadding * 2) -
-          _timelineNodeGap;
-      laneGeometries.add(
-        _TimelineLaneGeometry(
-          sourceKind: lane.sourceKind,
-          label: lane.label,
-          color: lane.color,
-          top: laneTop,
-          height: laneHeight,
-        ),
-      );
-      for (final entry in positioned) {
-        final top =
-            laneTop +
-            _timelineLanePadding +
-            entry.track * (_timelineNodeHeight + _timelineNodeGap);
-        entries.add(
-          _TimelineSceneEntry(
-            item: entry.item,
-            left: entry.x - (_timelineNodeWidth / 2),
-            top: top,
-          ),
-        );
-      }
-      laneTop += laneHeight + _timelineLaneGap;
-    }
-
-    return _TimelineSceneLayout(
-      canvasWidth: minimumCanvasWidth,
-      canvasHeight: laneTop + _timelineCanvasBottomPadding,
-      lanes: laneGeometries,
-      entries: entries,
-      ticks: _buildTimelineTicks(
-        start: start,
-        end: end,
-        plotStart: plotStart,
-        plotWidth: plotWidth,
       ),
     );
   }
-
-  final double canvasWidth;
-  final double canvasHeight;
-  final List<_TimelineLaneGeometry> lanes;
-  final List<_TimelineSceneEntry> entries;
-  final List<_TimelineTick> ticks;
 }
 
-class _TimelineLaneDefinition {
-  const _TimelineLaneDefinition({
-    required this.sourceKind,
+class _TimelineDayGroup {
+  const _TimelineDayGroup({
+    required this.date,
     required this.label,
-    required this.color,
+    required this.dateLabel,
+    required this.isToday,
+    required this.items,
   });
 
-  final String sourceKind;
+  final DateTime date;
+  final String label;
+  final String dateLabel;
+  final bool isToday;
+  final List<TimelineEventItem> items;
+}
+
+class _TimelineChip {
+  const _TimelineChip({required this.label, required this.color});
+
   final String label;
   final Color color;
 }
 
-class _TimelineLaneGeometry {
-  const _TimelineLaneGeometry({
-    required this.sourceKind,
+class _TimelineDetailCell {
+  const _TimelineDetailCell({
     required this.label,
-    required this.color,
-    required this.top,
-    required this.height,
+    required this.value,
+    this.emphasized = false,
+    this.color,
   });
 
-  final String sourceKind;
   final String label;
-  final Color color;
-  final double top;
-  final double height;
-}
-
-class _TimelineSceneEntry {
-  const _TimelineSceneEntry({
-    required this.item,
-    required this.left,
-    required this.top,
-  });
-
-  final TimelineEventItem item;
-  final double left;
-  final double top;
-
-  double get centerX => left + (_timelineNodeWidth / 2);
-}
-
-class _TimelineTick {
-  const _TimelineTick({required this.x, required this.label});
-
-  final double x;
-  final String label;
+  final String value;
+  final bool emphasized;
+  final Color? color;
 }
 
 List<TimelineEventItem> _sortedTimelineEvents(List<TimelineEventItem> items) {
   final sorted = List<TimelineEventItem>.of(items);
   sorted.sort((a, b) {
-    final timestampCompare = a.occurredAt.compareTo(b.occurredAt);
+    final timestampCompare = b.occurredAt.compareTo(a.occurredAt);
     if (timestampCompare != 0) {
       return timestampCompare;
     }
-    return a.id.compareTo(b.id);
+    return b.id.compareTo(a.id);
   });
   return sorted;
 }
 
-List<_TimelineLaneDefinition> _buildTimelineLanes(
-  List<TimelineEventItem> items,
-) {
-  const preferredOrder = <String>['screen', 'tasks', 'runs'];
-  final firstBySource = <String, TimelineEventItem>{};
+List<_TimelineDayGroup> _groupTimelineEvents(List<TimelineEventItem> items) {
+  final groups = <_TimelineDayGroup>[];
+  final now = DateTime.now();
+  DateTime? activeDate;
+  final buffer = <TimelineEventItem>[];
+
+  void flush() {
+    if (activeDate == null || buffer.isEmpty) {
+      return;
+    }
+    final day = activeDate;
+    groups.add(
+      _TimelineDayGroup(
+        date: day,
+        label: _timelineDayLabel(day, now),
+        dateLabel: _formatTimelineDate(day),
+        isToday: _isSameDay(day, now),
+        items: List<TimelineEventItem>.of(buffer),
+      ),
+    );
+    buffer.clear();
+  }
+
   for (final item in items) {
-    firstBySource.putIfAbsent(item.sourceKind, () => item);
-  }
-
-  final lanes = <_TimelineLaneDefinition>[];
-  for (final kind in preferredOrder) {
-    final sample = firstBySource[kind];
-    if (sample == null) {
-      continue;
+    final local = item.occurredAt.toLocal();
+    final day = DateTime(local.year, local.month, local.day);
+    if (activeDate == null || !_isSameDay(activeDate, day)) {
+      flush();
+      activeDate = day;
     }
-    lanes.add(
-      _TimelineLaneDefinition(
-        sourceKind: kind,
-        label: sample.sourceLabel,
-        color: sample.sourceColor,
-      ),
-    );
+    buffer.add(item);
   }
-
-  final remaining =
-      firstBySource.keys
-          .where((kind) => !preferredOrder.contains(kind))
-          .toList()
-        ..sort();
-  for (final kind in remaining) {
-    final sample = firstBySource[kind]!;
-    lanes.add(
-      _TimelineLaneDefinition(
-        sourceKind: kind,
-        label: sample.sourceLabel,
-        color: sample.sourceColor,
-      ),
-    );
-  }
-  return lanes;
+  flush();
+  return groups;
 }
 
-List<_TimelineTick> _buildTimelineTicks({
-  required DateTime start,
-  required DateTime end,
-  required double plotStart,
-  required double plotWidth,
-}) {
-  final totalDuration = end.difference(start);
-  final step = _pickTimelineTickStep(totalDuration);
-  final rangeMs = math.max(totalDuration.inMilliseconds, 1);
-  final alignedStart = _alignTimelineTick(start, step);
-  final ticks = <_TimelineTick>[];
-
-  for (
-    var tick = alignedStart;
-    !tick.isAfter(end.add(step));
-    tick = tick.add(step)
-  ) {
-    final offsetMs = tick.difference(start).inMilliseconds;
-    final fraction = (offsetMs / rangeMs).clamp(0.0, 1.0);
-    ticks.add(
-      _TimelineTick(
-        x: plotStart + fraction * plotWidth,
-        label: _formatTimelineTick(tick, step),
+List<_TimelineChip> _timelineEventChips(TimelineEventItem item) {
+  final chips = <_TimelineChip>[];
+  if (item.sourceKind == 'screen') {
+    final duration = _timelineSpanDuration(item);
+    if (duration != null) {
+      chips.add(_TimelineChip(label: duration, color: _accent));
+    }
+    if (item.appName.trim().isNotEmpty) {
+      chips.add(_TimelineChip(label: item.appName.trim(), color: _info));
+    }
+    if (item.windowTitle.trim().isNotEmpty) {
+      chips.add(
+        _TimelineChip(label: item.windowTitle.trim(), color: _textSecondary),
+      );
+    }
+  } else if (item.sourceKind == 'tasks') {
+    chips.add(
+      _TimelineChip(
+        label: _titleCase(item.eventKind.replaceAll('_', ' ')),
+        color: _warning,
       ),
     );
-  }
-  if (ticks.length < 2) {
-    ticks.add(
-      _TimelineTick(
-        x: plotStart + plotWidth,
-        label: _formatTimelineTick(end, step),
+    if (item.taskName.trim().isNotEmpty &&
+        item.taskName.trim() != item.title.trim()) {
+      chips.add(_TimelineChip(label: item.taskName.trim(), color: _success));
+    }
+  } else if (item.sourceKind == 'runs') {
+    chips.add(
+      _TimelineChip(
+        label: _titleCase(item.eventKind.replaceAll('_', ' ')),
+        color: _success,
       ),
     );
+    if (item.runId.isNotEmpty) {
+      chips.add(_TimelineChip(label: 'Run linked', color: _accentAlt));
+    }
   }
-  return ticks;
+  if (item.deviceLabel.trim().isNotEmpty && item.sourceKind != 'screen') {
+    chips.add(_TimelineChip(label: item.deviceLabel.trim(), color: _info));
+  }
+  return chips.take(4).toList(growable: false);
 }
 
-Duration _pickTimelineTickStep(Duration range) {
-  final candidates = <Duration>[
-    const Duration(minutes: 15),
-    const Duration(minutes: 30),
-    const Duration(hours: 1),
-    const Duration(hours: 2),
-    const Duration(hours: 6),
-    const Duration(hours: 12),
-    const Duration(days: 1),
-    const Duration(days: 2),
-    const Duration(days: 7),
-    const Duration(days: 14),
-    const Duration(days: 30),
-    const Duration(days: 90),
+List<_TimelineDetailCell> _timelineDetailCells(TimelineEventItem item) {
+  final cells = <_TimelineDetailCell>[
+    _TimelineDetailCell(
+      label: 'SOURCE',
+      value: item.sourceLabel,
+      emphasized: true,
+      color: item.sourceColor,
+    ),
+    _TimelineDetailCell(
+      label: 'KIND',
+      value: _titleCase(item.eventKind.replaceAll('_', ' ')),
+    ),
+    _TimelineDetailCell(
+      label: 'TIME',
+      value:
+          '${_formatTimelineTime(item.occurredAt)}\n${_formatTimelineDate(item.occurredAt.toLocal())}',
+    ),
   ];
-  final targetTicks = math.max((range.inHours / 6).round(), 4);
-  for (final step in candidates) {
-    if (range.inMilliseconds / step.inMilliseconds <= targetTicks) {
-      return step;
-    }
+
+  if (item.sourceKind == 'screen') {
+    cells.add(
+      _TimelineDetailCell(
+        label: 'DURATION',
+        value: _timelineSpanDuration(item) ?? item.screenSpanLabel,
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'APP',
+        value: item.appName.ifEmpty('Unknown app'),
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'DEVICE',
+        value: item.deviceLabel.ifEmpty('Desktop'),
+      ),
+    );
+  } else if (item.sourceKind == 'tasks') {
+    cells.add(
+      _TimelineDetailCell(
+        label: 'TASK',
+        value: item.taskName.ifEmpty(item.title),
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'RUN LINK',
+        value: item.runId.isNotEmpty ? 'Available' : 'None',
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'SUMMARY',
+        value: item.summary.trim().ifEmpty('No summary'),
+      ),
+    );
+  } else if (item.sourceKind == 'runs') {
+    cells.add(
+      _TimelineDetailCell(
+        label: 'RUN',
+        value: item.runId.isNotEmpty ? item.runId : 'Unavailable',
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'SUMMARY',
+        value: item.summary.trim().ifEmpty('No summary'),
+      ),
+    );
+    cells.add(
+      _TimelineDetailCell(
+        label: 'TITLE',
+        value: item.title.ifEmpty('Untitled run event'),
+      ),
+    );
+  } else {
+    cells.add(
+      _TimelineDetailCell(
+        label: 'SUMMARY',
+        value: item.summary.trim().ifEmpty('No summary'),
+      ),
+    );
   }
-  return const Duration(days: 180);
+
+  if (cells.length.isOdd) {
+    cells.add(const _TimelineDetailCell(label: 'STATUS', value: 'Captured'));
+  }
+  return cells.take(6).toList(growable: false);
 }
 
-DateTime _alignTimelineTick(DateTime value, Duration step) {
-  final stepMs = math.max(step.inMilliseconds, 1);
-  final alignedMs = (value.millisecondsSinceEpoch ~/ stepMs) * stepMs;
-  return DateTime.fromMillisecondsSinceEpoch(alignedMs, isUtc: value.isUtc);
+String _timelineCardDescription(TimelineEventItem item) {
+  switch (item.sourceKind) {
+    case 'screen':
+      final preview = item.previewText.trim();
+      if (preview.isNotEmpty) {
+        return preview;
+      }
+      return '${item.deviceLabel.ifEmpty('Desktop')} · ${item.appName.ifEmpty('Unknown app')}';
+    case 'tasks':
+    case 'runs':
+      return item.summary.trim().ifEmpty(
+        _titleCase(item.eventKind.replaceAll('_', ' ')),
+      );
+    default:
+      return item.summary.trim().ifEmpty(item.sourceLabel);
+  }
+}
+
+String _timelineDetailDescription(TimelineEventItem item) {
+  final body = item.sourceKind == 'screen'
+      ? item.previewText.trim()
+      : item.summary.trim();
+  if (body.isNotEmpty) {
+    return body;
+  }
+  if (item.sourceKind == 'screen') {
+    return '${item.appName.ifEmpty('Unknown app')} on ${item.deviceLabel.ifEmpty('Desktop')}';
+  }
+  return _titleCase(item.eventKind.replaceAll('_', ' '));
+}
+
+String? _timelineSpanDuration(TimelineEventItem item) {
+  final start = item.startedAt;
+  final end = item.endedAt;
+  if (start == null || end == null) {
+    return null;
+  }
+  final span = end.difference(start);
+  if (span.inSeconds < 60) {
+    return '${span.inSeconds}s';
+  }
+  if (span.inMinutes < 60) {
+    final seconds = span.inSeconds % 60;
+    if (seconds == 0) {
+      return '${span.inMinutes}m';
+    }
+    return '${span.inMinutes}m ${seconds}s';
+  }
+  final minutes = span.inMinutes % 60;
+  if (minutes == 0) {
+    return '${span.inHours}h';
+  }
+  return '${span.inHours}h ${minutes}m';
+}
+
+Color _sourceColorForKind(String kind) {
+  switch (kind) {
+    case 'screen':
+      return _accent;
+    case 'tasks':
+      return _warning;
+    case 'runs':
+      return _success;
+    default:
+      return _textSecondary;
+  }
+}
+
+String _timelineDayLabel(DateTime day, DateTime now) {
+  if (_isSameDay(day, now)) {
+    return 'Today';
+  }
+  final yesterday = now.subtract(const Duration(days: 1));
+  if (_isSameDay(day, yesterday)) {
+    return 'Yesterday';
+  }
+  return _weekdayShort(day.weekday);
+}
+
+bool _isSameDay(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 String _formatTimelineRange(TimelineEventItem first, TimelineEventItem last) {
-  final start = first.occurredAt.toLocal();
-  final end = last.occurredAt.toLocal();
+  final start = last.occurredAt.toLocal();
+  final end = first.occurredAt.toLocal();
   final startDate = _formatTimelineDate(start);
   final endDate = _formatTimelineDate(end);
   final startTime = _formatTimelineTime(start);
   final endTime = _formatTimelineTime(end);
-  if (start.year == end.year &&
-      start.month == end.month &&
-      start.day == end.day) {
+  if (_isSameDay(start, end)) {
     return '$startDate · $startTime - $endTime';
   }
-  return '$startDate, $startTime -> $endDate, $endTime';
-}
-
-String _formatTimelineTick(DateTime value, Duration step) {
-  final local = value.toLocal();
-  if (step.inHours < 24) {
-    return _formatTimelineTime(local);
-  }
-  if (step.inDays < 30) {
-    return '${_monthShort(local.month)} ${local.day}';
-  }
-  return '${_monthShort(local.month)} ${local.year}';
+  return '$startDate -> $endDate';
 }
 
 String _formatTimelineDate(DateTime value) {
@@ -1130,21 +1281,9 @@ String _monthShort(int month) {
   return labels[(month - 1).clamp(0, labels.length - 1)];
 }
 
-String _timelineNodeSubtitle(TimelineEventItem item) {
-  switch (item.sourceKind) {
-    case 'screen':
-      return item.appName
-          .ifEmpty(item.windowTitle)
-          .ifEmpty(item.deviceLabel.ifEmpty('Passive capture'));
-    case 'tasks':
-      return _titleCase(item.eventKind.replaceAll('_', ' '));
-    case 'runs':
-      return item.summary.trim().ifEmpty(
-        _titleCase(item.eventKind.replaceAll('_', ' ')),
-      );
-    default:
-      return item.sourceLabel;
-  }
+String _weekdayShort(int weekday) {
+  const labels = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return labels[(weekday - 1).clamp(0, labels.length - 1)];
 }
 
 IconData _timelineLaneIcon(String sourceKind) {
@@ -1165,66 +1304,48 @@ List<Widget> _timelineDetailBody(
   VoidCallback? onOpenRun,
 ) {
   final content = <Widget>[];
-  final body = item.sourceKind == 'screen'
-      ? item.previewText.trim()
-      : item.summary.trim();
-  if (body.isNotEmpty) {
-    content.add(
-      Text(body, style: TextStyle(color: _textSecondary, height: 1.5)),
-    );
-    content.add(const SizedBox(height: 16));
-  }
 
-  switch (item.sourceKind) {
-    case 'screen':
-      content.addAll(<Widget>[
+  if (item.sourceKind == 'screen') {
+    content.addAll(<Widget>[
+      _TimelineMetaLine(
+        icon: Icons.computer_outlined,
+        text:
+            '${item.deviceLabel.ifEmpty('Desktop')} · ${item.appName.ifEmpty('Unknown app')}',
+      ),
+      if (item.windowTitle.isNotEmpty)
         _TimelineMetaLine(
-          icon: Icons.computer_outlined,
-          text:
-              '${item.deviceLabel.ifEmpty('Desktop')} · ${item.appName.ifEmpty('Unknown app')}',
+          icon: Icons.web_asset_outlined,
+          text: item.windowTitle,
         ),
-        if (item.windowTitle.isNotEmpty)
-          _TimelineMetaLine(
-            icon: Icons.web_asset_outlined,
-            text: item.windowTitle,
-          ),
-        _TimelineMetaLine(
-          icon: Icons.schedule_outlined,
-          text: item.screenSpanLabel,
-        ),
-      ]);
-      break;
-    case 'tasks':
-    case 'runs':
-      content.addAll(<Widget>[
-        _TimelineMetaLine(
-          icon: item.sourceKind == 'tasks'
-              ? Icons.task_alt_outlined
-              : Icons.monitor_heart_outlined,
-          text: _titleCase(item.eventKind.replaceAll('_', ' ')),
-        ),
-        if (item.runId.isNotEmpty && onOpenRun != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: onOpenRun,
-                icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('Open run'),
-              ),
+      _TimelineMetaLine(
+        icon: Icons.schedule_outlined,
+        text: item.screenSpanLabel,
+      ),
+    ]);
+  } else {
+    content.add(
+      _TimelineMetaLine(
+        icon: item.sourceKind == 'tasks'
+            ? Icons.task_alt_outlined
+            : Icons.monitor_heart_outlined,
+        text: _titleCase(item.eventKind.replaceAll('_', ' ')),
+      ),
+    );
+    if (item.runId.isNotEmpty && onOpenRun != null) {
+      content.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onOpenRun,
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: const Text('Open run'),
             ),
           ),
-      ]);
-      break;
-    default:
-      content.add(
-        _TimelineMetaLine(
-          icon: Icons.info_outline_rounded,
-          text: _titleCase(item.eventKind.replaceAll('_', ' ')),
         ),
       );
-      break;
+    }
   }
   return content;
 }
