@@ -3,13 +3,6 @@
 const db = require('../../db/database');
 
 class TaskRepository {
-  normalizeTriggerTimestamp(value) {
-    const text = String(value || '').trim();
-    if (!text) return new Date().toISOString();
-    const parsed = new Date(text);
-    return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
-  }
-
   createTask(userId, normalizedTask) {
     const result = db.prepare(
       `INSERT INTO scheduled_tasks (
@@ -131,20 +124,20 @@ class TaskRepository {
     ).all(userId, agentId);
   }
 
-  markTaskTriggered(taskId, userId, fingerprint, triggeredAt = null) {
+  markTaskTriggered(taskId, userId, fingerprint) {
     db.prepare(
       `UPDATE scheduled_tasks
-       SET last_triggered_at = ?, last_trigger_fingerprint = ?
+       SET last_triggered_at = datetime('now'), last_trigger_fingerprint = ?
        WHERE id = ? AND user_id = ?`
-    ).run(this.normalizeTriggerTimestamp(triggeredAt), fingerprint, taskId, userId);
+    ).run(fingerprint, taskId, userId);
   }
 
-  markTaskTriggerCheckpoint(taskId, fingerprint, userId, triggeredAt = null) {
+  markTaskTriggerCheckpoint(taskId, fingerprint, userId) {
     db.prepare(
       `UPDATE scheduled_tasks
-       SET last_triggered_at = ?, last_trigger_fingerprint = ?
+       SET last_triggered_at = datetime('now'), last_trigger_fingerprint = ?
        WHERE id = ? AND user_id = ?`
-    ).run(this.normalizeTriggerTimestamp(triggeredAt), fingerprint, taskId, userId);
+    ).run(fingerprint, taskId, userId);
   }
 
   markTaskRun(taskId, userId) {
