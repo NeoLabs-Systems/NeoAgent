@@ -290,12 +290,18 @@ function finalizeSegmentChunk(chunks, group, content, searchState, boundary = 'l
   const rendered = group.map((segment) => segment.content).join('\n\n');
   const position = findSegmentPosition(content, rendered, searchState.offset);
   searchState.offset = Math.max(searchState.offset, position.charEnd);
-  chunks.push({
+  const metadata = metadataForSegments(group, boundary);
+  for (const part of splitOversizedWithPos({
     content: rendered,
     charStart: position.charStart,
-    charEnd: position.charEnd,
-    metadata: metadataForSegments(group, boundary),
-  });
+  })) {
+    chunks.push({
+      content: part.content,
+      charStart: part.charStart,
+      charEnd: Math.min(part.charEnd, position.charEnd),
+      metadata,
+    });
+  }
 }
 
 function chunkLayoutSegments(document, content) {

@@ -11,7 +11,7 @@ cost, repeated failure, and risky side effects.
 - Cadence: user-defined schedules, integration polls, webhooks, and messaging events.
 - State: SQLite `agent_runs`, task lifecycle events, and `STATE.md`.
 - Budget: per-task `taskConfig.loopBudget` plus defaults in `loop-budget.md`.
-- Phase: autonomous with budget-triggered report-only mode.
+- Phase: autonomous until the task budget is exhausted or paused.
 - Handoff: exhausted budget, paused task loop, repeated failures, delivery errors, or approval-required tools.
 
 ### NeoAgent Maintenance Triage
@@ -23,7 +23,6 @@ cost, repeated failure, and risky side effects.
 ## Safety Gates
 
 - Keep scheduled/event tasks autonomous under budget.
-- At 80% of a task's daily loop budget, switch that task run to report-only mode.
 - At 100% budget or a pause flag, skip the task before calling the model.
 - Require verification for risky autonomous work such as code edits, shell/device actions, external writes, and repeated failed attempts.
 - Keep write, shell, Android, desktop, and high-impact integration actions on approval unless the task is explicitly trusted.

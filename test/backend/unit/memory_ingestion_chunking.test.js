@@ -118,3 +118,21 @@ test('chunkDocument falls back to raw text when segments are empty or malformed'
   assert.equal(chunks[0].content, 'Fallback content survives.');
   assert.equal(chunks[0].metadata.boundary, 'structural');
 });
+
+test('chunkDocument splits oversized layout segments', () => {
+  const longText = Array(1200).fill('word').join(' ');
+  const chunks = chunkDocument({
+    sourceType: 'docs',
+    title: 'Long segment',
+    content: longText,
+    payload: {
+      segments: [
+        { id: 'long-1', type: 'Text', text: longText, pageNumber: 1 },
+      ],
+    },
+  });
+
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every((chunk) => chunk.content.length <= 2200));
+  assert.ok(chunks.every((chunk) => chunk.metadata.segmentIds.includes('long-1')));
+});

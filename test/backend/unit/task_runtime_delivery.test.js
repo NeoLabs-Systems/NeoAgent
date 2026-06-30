@@ -237,59 +237,6 @@ describe('scheduled task result delivery', () => {
     assert.equal(result.budget.runCount, 1);
   });
 
-  test('routes near-budget automatic task runs into report-only mode', async () => {
-    const optionsSeen = [];
-    runtime = new TaskRuntime(createIoRecorder(), {
-      async runWithModel(_userId, prompt, options) {
-        optionsSeen.push(options);
-        assert.match(prompt, /Task loop budget guard/);
-        return { content: 'Report-only summary.' };
-      },
-    });
-    const task = await runtime.createTask(user.userId, {
-      name: 'Near budget task',
-      triggerType: 'schedule',
-      triggerConfig: {
-        mode: 'recurring',
-        cronExpression: '0 6 * * *',
-      },
-      taskConfig: {
-        prompt: 'Check the project state.',
-        loopBudget: {
-          maxRunsPerDay: 10,
-          maxTokensPerDay: 1000,
-          reportOnlyThreshold: 0.8,
-        },
-      },
-    });
-    ctx.db.prepare(
-      `INSERT INTO agent_runs (
-        id, user_id, agent_id, title, status, trigger_type, trigger_source,
-        total_tokens, metadata_json, created_at
-      ) VALUES (?, ?, ?, ?, 'completed', 'schedule', 'schedule', ?, ?, datetime('now'))`
-    ).run(
-      'budget-run-2',
-      user.userId,
-      task.agentId,
-      'Near budget task',
-      850,
-      JSON.stringify({ taskId: task.id }),
-    );
-
-    const result = await runtime._executeTaskSerial(task.id, user.userId, {
-      manual: false,
-      triggerType: 'schedule',
-      triggerSource: 'schedule',
-      scheduledAt: new Date().toISOString(),
-    });
-
-    assert.equal(result.content, 'Report-only summary.');
-    assert.equal(optionsSeen.length, 1);
-    assert.ok(optionsSeen[0].disallowedToolNames.includes('execute_command'));
-    assert.ok(optionsSeen[0].disallowedToolNames.includes('write_file'));
-    assert.equal(optionsSeen[0].bypassUserRateLimits, true);
-  });
-
   test('serializes normalized loop budget configuration for tasks', async () => {
     const task = await createScheduledTask({
       async runWithModel() {
@@ -301,6 +248,41 @@ describe('scheduled task result delivery', () => {
     assert.equal(task.loopBudget.paused, false);
     assert.equal(task.loopBudget.maxRunsPerDay, 24);
     assert.equal(task.loopBudget.maxTokensPerDay, 250000);
+  });
+
+  test('skips task execution when the task loop budget is paused', async () => {
+    let callCount = 0;
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        callCount += 1;
+        return { content: 'should not run' };
+      },
+    });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Paused budget task',
+      triggerType: 'schedule',
+      triggerConfig: {
+        mode: 'recurring',
+        cronExpression: '0 6 * * *',
+      },
+      taskConfig: {
+        prompt: 'Check the inbox.',
+        loopBudget: {
+          paused: true,
+        },
+      },
+    });
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(callCount, 0);
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'loop_budget_paused');
   });
 
   test('automatic scheduled runs deliver staged proactive replies after verification', async () => {

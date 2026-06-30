@@ -5296,6 +5296,24 @@ class _TasksPanelState extends State<TasksPanel> {
     }
   }
 
+  String _compactBudgetNumber(int value) {
+    if (value >= 1000000) {
+      final millions = value / 1000000;
+      return '${millions.toStringAsFixed(millions >= 10 ? 0 : 1)}M';
+    }
+    if (value >= 1000) {
+      final thousands = value / 1000;
+      return '${thousands.toStringAsFixed(thousands >= 10 ? 0 : 1)}k';
+    }
+    return '$value';
+  }
+
+  String _taskBudgetLabel(TaskItem task) {
+    final budget = task.loopBudget;
+    return 'Budget: ${budget.maxRunsPerDay} runs/day · '
+        '${_compactBudgetNumber(budget.maxTokensPerDay)} tokens/day';
+  }
+
   Future<void> _showLastRun(TaskItem task) async {
     final runId = task.lastRunId.trim();
     if (runId.isEmpty) return;
@@ -5512,6 +5530,10 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.loopBudget.paused) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(label: 'Loop paused', color: _warning),
+                  ],
                   if (task.hasLastRunStatus) ...<Widget>[
                     const SizedBox(width: 8),
                     _StatusPill(
@@ -5539,6 +5561,11 @@ class _TasksPanelState extends State<TasksPanel> {
               const SizedBox(height: 8),
               Text(
                 'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
+                style: TextStyle(color: _textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _taskBudgetLabel(task),
                 style: TextStyle(color: _textSecondary),
               ),
               const SizedBox(height: 8),
@@ -5631,6 +5658,10 @@ class _TasksPanelState extends State<TasksPanel> {
                     label: task.enabled ? 'Active' : 'Paused',
                     color: task.enabled ? _success : _textSecondary,
                   ),
+                  if (task.loopBudget.paused) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(label: 'Loop paused', color: _warning),
+                  ],
                   if (task.hasLastRunStatus) ...<Widget>[
                     const SizedBox(width: 8),
                     _StatusPill(
@@ -5657,6 +5688,11 @@ class _TasksPanelState extends State<TasksPanel> {
                 const SizedBox(height: 8),
                 Text(
                   '${linkedWidget.template} · ${linkedWidget.layoutVariant}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _taskBudgetLabel(task),
                   style: TextStyle(color: _textSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -5841,7 +5877,15 @@ class _TasksPanelState extends State<TasksPanel> {
       text: task?.triggerConfig['sender']?.toString() ?? '',
     );
     final promptController = TextEditingController(text: task?.prompt ?? '');
+    final loopBudget = task?.loopBudget ?? TaskLoopBudget.fromJson(const {});
+    final maxRunsController = TextEditingController(
+      text: loopBudget.maxRunsPerDay.toString(),
+    );
+    final maxTokensController = TextEditingController(
+      text: loopBudget.maxTokensPerDay.toString(),
+    );
     var enabled = task?.enabled ?? true;
+    var loopPaused = loopBudget.paused;
     var unreadOnly = task?.triggerConfig['unreadOnly'] == true;
     var ignoreGroups = task?.triggerConfig['ignoreGroups'] == true;
     var selectedModel = _ensureModelValue(
@@ -6144,6 +6188,88 @@ class _TasksPanelState extends State<TasksPanel> {
                           () => selectedModel = value ?? 'auto',
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _border.withValues(alpha: 0.8),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.speed_outlined,
+                                  size: 18,
+                                  color: _textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Loop budget',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 520;
+                                final fields = <Widget>[
+                                  TextField(
+                                    controller: maxRunsController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Max runs per day',
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: maxTokensController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Max tokens per day',
+                                    ),
+                                  ),
+                                ];
+                                if (stacked) {
+                                  return Column(
+                                    children: <Widget>[
+                                      fields[0],
+                                      const SizedBox(height: 12),
+                                      fields[1],
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: <Widget>[
+                                    Expanded(child: fields[0]),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: fields[1]),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              value: loopPaused,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Pause loop budget'),
+                              subtitle: const Text(
+                                'Skip this task before it calls the model.',
+                              ),
+                              onChanged: (value) =>
+                                  setLocalState(() => loopPaused = value),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (controller.agentProfiles.isNotEmpty) ...<Widget>[
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
@@ -6264,12 +6390,40 @@ class _TasksPanelState extends State<TasksPanel> {
                         triggerConfig['ignoreGroups'] = ignoreGroups;
                       }
                     }
+                    final maxRuns = int.tryParse(maxRunsController.text.trim());
+                    final maxTokens = int.tryParse(
+                      maxTokensController.text.trim(),
+                    );
+                    if (maxRuns == null ||
+                        maxRuns <= 0 ||
+                        maxTokens == null ||
+                        maxTokens <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Loop budget values must be positive numbers.',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    final taskConfig = <String, dynamic>{
+                      ...?task?.taskConfig,
+                      'loopBudget': <String, dynamic>{
+                        'enabled': true,
+                        'paused': loopPaused,
+                        'maxRunsPerDay': maxRuns,
+                        'maxTokensPerDay': maxTokens,
+                      },
+                    };
                     await controller.saveTask(
                       id: task?.id,
                       name: nameController.text.trim(),
                       triggerType: selectedTriggerType,
                       triggerConfig: triggerConfig,
                       prompt: promptController.text.trim(),
+                      taskConfig: taskConfig,
                       model: selectedModel == 'auto' ? null : selectedModel,
                       enabled: enabled,
                       agentId: selectedAgentId,

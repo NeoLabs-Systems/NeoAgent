@@ -4,9 +4,9 @@ Last run: manual initialization
 
 ## High Priority
 
-- Keep autonomous scheduled/event tasks under budget with report-only fallback at the warning threshold.
+- Keep autonomous scheduled/event tasks under budget with pause and daily-cap guardrails.
 - Verify that risky autonomous work still gets final evidence verification before delivery.
-- Watch for tasks that repeatedly hit `loop_budget_report_only` or `loop_budget_exhausted`.
+- Watch for tasks that repeatedly hit `loop_budget_exhausted`.
 
 ## Watch List
 
