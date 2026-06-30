@@ -4,6 +4,47 @@ const crypto = require('node:crypto');
 
 const TARGET_CHARS = 1400;
 const MAX_CHARS = 2200;
+const TARGET_SEGMENT_WORDS = 260;
+
+const SEGMENT_TYPES = new Set([
+  'Caption',
+  'Footnote',
+  'Formula',
+  'ListItem',
+  'Page',
+  'PageFooter',
+  'PageHeader',
+  'Picture',
+  'SectionHeader',
+  'Table',
+  'Text',
+  'Title',
+]);
+
+const SEGMENT_ALIASES = Object.freeze({
+  caption: 'Caption',
+  footnote: 'Footnote',
+  formula: 'Formula',
+  listitem: 'ListItem',
+  list_item: 'ListItem',
+  'list item': 'ListItem',
+  page: 'Page',
+  pagefooter: 'PageFooter',
+  page_footer: 'PageFooter',
+  'page footer': 'PageFooter',
+  pageheader: 'PageHeader',
+  page_header: 'PageHeader',
+  'page header': 'PageHeader',
+  picture: 'Picture',
+  image: 'Picture',
+  figure: 'Picture',
+  sectionheader: 'SectionHeader',
+  section_header: 'SectionHeader',
+  'section header': 'SectionHeader',
+  table: 'Table',
+  text: 'Text',
+  title: 'Title',
+});
 
 function contentHash(content) {
   return crypto.createHash('sha256').update(content).digest('hex');
@@ -107,9 +148,230 @@ function packBlocksWithPositions(blocksWithPos) {
   }));
 }
 
+function wordCount(text) {
+  return (String(text || '').trim().match(/\S+/g) || []).length;
+}
+
+function normalizeSegmentType(value) {
+  const raw = String(value || '').trim();
+  if (SEGMENT_TYPES.has(raw)) return raw;
+  return SEGMENT_ALIASES[raw.toLowerCase()] || 'Text';
+}
+
+function normalizeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeBoundingBox(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const left = normalizeNumber(value.left ?? value.x ?? value.x1);
+  const top = normalizeNumber(value.top ?? value.y ?? value.y1);
+  const width = normalizeNumber(value.width ?? (
+    value.x2 != null && left != null ? Number(value.x2) - left : null
+  ));
+  const height = normalizeNumber(value.height ?? (
+    value.y2 != null && top != null ? Number(value.y2) - top : null
+  ));
+  if ([left, top, width, height].some((number) => number == null)) return null;
+  return { left, top, width, height };
+}
+
+function segmentEmbedContent(segment) {
+  return [
+    segment.llm,
+    segment.markdown,
+    segment.html,
+    segment.text,
+    segment.content,
+  ].map((value) => String(value || '').trim()).find(Boolean) || '';
+}
+
+function normalizeLayoutSegments(document) {
+  const segments = Array.isArray(document?.payload?.segments)
+    ? document.payload.segments
+    : [];
+  const normalized = [];
+  for (const segment of segments) {
+    if (!segment || typeof segment !== 'object' || Array.isArray(segment)) continue;
+    const content = segmentEmbedContent(segment);
+    if (!content) continue;
+    const segmentType = normalizeSegmentType(segment.type || segment.segmentType || segment.segment_type);
+    normalized.push({
+      id: String(segment.id || segment.segmentId || segment.segment_id || '').trim() || null,
+      type: segmentType,
+      content,
+      wordCount: wordCount(content),
+      pageNumber: normalizeNumber(segment.pageNumber ?? segment.page_number),
+      pageWidth: normalizeNumber(segment.pageWidth ?? segment.page_width),
+      pageHeight: normalizeNumber(segment.pageHeight ?? segment.page_height),
+      bbox: normalizeBoundingBox(segment.bbox || segment.boundingBox || segment.bounding_box),
+      confidence: normalizeNumber(segment.confidence),
+    });
+  }
+  return normalized;
+}
+
+function segmentHierarchyLevel(type) {
+  if (type === 'Title') return 3;
+  if (type === 'SectionHeader') return 2;
+  return 1;
+}
+
+function isAssetType(type) {
+  return type === 'Picture' || type === 'Table';
+}
+
+function hasAdjacentAssetCaptionPair(segments) {
+  return segments.some((segment, index) => {
+    const nextType = segments[index + 1]?.type;
+    return (isAssetType(segment.type) && nextType === 'Caption')
+      || (segment.type === 'Caption' && isAssetType(nextType));
+  });
+}
+
+function findSegmentPosition(content, rendered, searchOffset) {
+  const pos = content.indexOf(rendered, searchOffset);
+  if (pos >= 0) return { charStart: pos, charEnd: pos + rendered.length };
+
+  const compactRendered = String(rendered || '').replace(/\s+/g, ' ').trim();
+  if (compactRendered && compactRendered.length <= 160) {
+    const compactContent = content.replace(/\s+/g, ' ');
+    const compactPos = compactContent.indexOf(compactRendered);
+    if (compactPos >= 0) {
+      return {
+        charStart: Math.min(compactPos, content.length),
+        charEnd: Math.min(compactPos + compactRendered.length, content.length),
+      };
+    }
+  }
+
+  return {
+    charStart: Math.min(searchOffset, content.length),
+    charEnd: Math.min(searchOffset + rendered.length, content.length),
+  };
+}
+
+function metadataForSegments(segments, boundary = 'layout_segments') {
+  const pageNumbers = [...new Set(
+    segments.map((segment) => segment.pageNumber).filter((number) => number != null),
+  )];
+  const segmentTypes = [...new Set(segments.map((segment) => segment.type))];
+  const resolvedBoundary = boundary === 'layout_segments' && hasAdjacentAssetCaptionPair(segments)
+    ? 'asset_caption_pair'
+    : boundary;
+  return {
+    boundary: resolvedBoundary,
+    segmentTypes,
+    segmentIds: segments.map((segment) => segment.id).filter(Boolean),
+    segments: segments.map((segment) => ({
+      id: segment.id,
+      type: segment.type,
+      pageNumber: segment.pageNumber,
+      pageWidth: segment.pageWidth,
+      pageHeight: segment.pageHeight,
+      confidence: segment.confidence,
+    })),
+    pageNumbers,
+    pages: pageNumbers,
+    bboxes: segments
+      .map((segment) => segment.bbox && {
+        segmentId: segment.id,
+        type: segment.type,
+        pageNumber: segment.pageNumber,
+        bbox: segment.bbox,
+      })
+      .filter(Boolean),
+  };
+}
+
+function finalizeSegmentChunk(chunks, group, content, searchState, boundary = 'layout_segments') {
+  if (!group.length) return;
+  const rendered = group.map((segment) => segment.content).join('\n\n');
+  const position = findSegmentPosition(content, rendered, searchState.offset);
+  searchState.offset = Math.max(searchState.offset, position.charEnd);
+  chunks.push({
+    content: rendered,
+    charStart: position.charStart,
+    charEnd: position.charEnd,
+    metadata: metadataForSegments(group, boundary),
+  });
+}
+
+function chunkLayoutSegments(document, content) {
+  const segments = normalizeLayoutSegments(document);
+  if (!segments.length) return null;
+
+  const chunks = [];
+  let group = [];
+  let groupWordCount = 0;
+  let previousHierarchyLevel = 1;
+  const searchState = { offset: 0 };
+
+  const finalize = (boundary = 'layout_segments') => {
+    finalizeSegmentChunk(chunks, group, content, searchState, boundary);
+    group = [];
+    groupWordCount = 0;
+  };
+
+  for (let i = 0; i < segments.length; i += 1) {
+    const segment = segments[i];
+    if (segment.type === 'PageHeader' || segment.type === 'PageFooter') {
+      continue;
+    }
+
+    const hierarchyLevel = segmentHierarchyLevel(segment.type);
+    if (segment.type === 'Title' || segment.type === 'SectionHeader') {
+      if (group.length && hierarchyLevel > previousHierarchyLevel) {
+        finalize('section');
+      }
+      group.push(segment);
+      groupWordCount += segment.wordCount;
+      previousHierarchyLevel = hierarchyLevel;
+      continue;
+    }
+
+    let keepWithNext = false;
+    if (isAssetType(segment.type)) {
+      keepWithNext = segments[i + 1]?.type === 'Caption';
+    } else if (segment.type === 'Caption') {
+      keepWithNext = isAssetType(segments[i + 1]?.type);
+    }
+
+    const nextSegment = keepWithNext ? segments[i + 1] : null;
+    const pairedWordCount = segment.wordCount + (nextSegment?.wordCount || 0);
+    const wouldOverflow = group.length && groupWordCount + pairedWordCount > TARGET_SEGMENT_WORDS;
+
+    if (wouldOverflow) finalize('layout_segments');
+
+    group.push(segment);
+    groupWordCount += segment.wordCount;
+
+    if (groupWordCount > TARGET_SEGMENT_WORDS && !keepWithNext) {
+      finalize('layout_segments');
+    }
+
+    previousHierarchyLevel = hierarchyLevel;
+  }
+
+  finalize('layout_segments');
+
+  return chunks.map((chunk, chunkIndex) => ({
+    chunkIndex,
+    charStart: chunk.charStart,
+    charEnd: chunk.charEnd,
+    content: chunk.content,
+    contentHash: contentHash(chunk.content),
+    metadata: chunk.metadata,
+  }));
+}
+
 function chunkDocument(document) {
   const content = String(document?.content || '').trim();
   if (!content) return [];
+
+  const layoutChunks = chunkLayoutSegments(document, content);
+  if (layoutChunks) return layoutChunks;
 
   const messages = messageBlocks(document);
   if (messages.length) {

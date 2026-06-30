@@ -77,6 +77,76 @@ test('memory ingestion writes typed documents and materialized views', async () 
   assert.deepEqual(sourceTypesForConnection('google_workspace', 'gmail'), ['email']);
 });
 
+test('memory ingestion stores layout segment metadata on source chunks', async () => {
+  ctx = createTestRuntime();
+  const { resolveAgentId } = require('../../../server/services/agents/manager');
+  const { MemoryManager } = require('../../../server/services/memory/manager');
+  const { MemoryIngestionService } = require('../../../server/services/memory/ingestion');
+  const user = await createTestUser(ctx.db, { username: 'layout_memory_user' });
+  const agentId = resolveAgentId(user.userId, null);
+  const memoryManager = new MemoryManager();
+  const service = new MemoryIngestionService({ memoryManager, intervalMs: 60_000 });
+
+  const result = await service.ingestDocuments(user.userId, [{
+    externalObjectId: 'deck-456',
+    sourceType: 'docs',
+    normalizedType: 'docs',
+    title: 'Architecture deck',
+    content: [
+      'Architecture Overview',
+      'The service uses workers for document parsing.',
+      'Figure 1. Pipeline',
+      'Diagram showing API, queue, worker, and memory storage.',
+    ].join('\n'),
+    payload: {
+      segments: [
+        { id: 'seg-title', type: 'Title', text: 'Architecture Overview', pageNumber: 1 },
+        {
+          id: 'seg-text',
+          type: 'Text',
+          text: 'The service uses workers for document parsing.',
+          pageNumber: 1,
+        },
+        {
+          id: 'seg-caption',
+          type: 'Caption',
+          text: 'Figure 1. Pipeline',
+          pageNumber: 2,
+          bbox: { left: 40, top: 500, width: 220, height: 28 },
+        },
+        {
+          id: 'seg-picture',
+          type: 'Picture',
+          text: 'Diagram showing API, queue, worker, and memory storage.',
+          pageNumber: 2,
+          bbox: { left: 30, top: 120, width: 540, height: 360 },
+        },
+      ],
+    },
+  }], {
+    agentId,
+    sourceType: 'docs',
+    providerKey: 'local_test',
+  });
+
+  assert.equal(result.status, 'completed');
+  const rows = ctx.db.prepare(
+    `SELECT metadata_json
+     FROM memory_source_chunks
+     WHERE document_id = ?
+     ORDER BY chunk_index`
+  ).all(result.documentIds[0]);
+  assert.equal(rows.length, 1);
+  const metadata = JSON.parse(rows[0].metadata_json);
+  assert.deepEqual(metadata.segmentIds, ['seg-title', 'seg-text', 'seg-caption', 'seg-picture']);
+  assert.deepEqual(metadata.pageNumbers, [1, 2]);
+  assert.ok(metadata.segmentTypes.includes('Picture'));
+  assert.equal(metadata.bboxes.length, 2);
+
+  const recall = await memoryManager.recallMemory(user.userId, 'What parses documents?', 3, { agentId });
+  assert.equal(recall.some((memory) => memory.content.includes('workers for document parsing')), true);
+});
+
 test('social video utilities normalize URLs, captions, frames, metadata, and result shape', () => {
   const { normalizeAndDetectPlatform } = require('../../../server/services/social_video/url');
   const { pickCaptionTrack, parseCaptionText, decideTranscriptPath } = require('../../../server/services/social_video/captions');
