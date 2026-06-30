@@ -101,3 +101,6 @@ Use [GitHub Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions
 for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 for reproducible bugs. Security reports belong in the process described by
 [SECURITY.md](SECURITY.md).
+
+*Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*
+
