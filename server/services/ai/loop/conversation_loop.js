@@ -571,7 +571,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let deliverableWorkflow = null;
   const timelineService = app?.locals?.timelineService || null;
 
-  const { releaseReservation } = enforceRateLimits(userId);
+  const { releaseReservation } = enforceRateLimits(userId, {
+    bypass: options.bypassUserRateLimits === true,
+  });
 
   try {
   const historyWindow = Math.max(

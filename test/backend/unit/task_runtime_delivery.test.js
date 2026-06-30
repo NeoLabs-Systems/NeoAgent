@@ -126,6 +126,8 @@ describe('scheduled task result delivery', () => {
     });
 
     assert.equal(calls.length, 2);
+    assert.equal(calls[0].options.bypassUserRateLimits, true);
+    assert.equal(calls[0].options.triggerSource, 'schedule');
     assert.match(calls[1].prompt, /Previous task attempt failed/);
     assert.equal(result.content, 'The daily summary is ready.');
     assert.equal(messagingManager.sent.length, 1);
@@ -157,8 +159,32 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent.length, 0);
     assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
     assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
+    assert.equal(optionsSeen[0].bypassUserRateLimits, true);
+    assert.equal(optionsSeen[0].triggerSource, 'schedule');
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
     assert.equal(optionsSeen[0].skipVerifier, false);
+  });
+
+  test('manual task runs bypass user token admission limits', async () => {
+    const optionsSeen = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        optionsSeen.push(options);
+        return { content: 'Manual task completed.' };
+      },
+    }, createMessagingManager());
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'manual',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'Manual task completed.');
+    assert.equal(optionsSeen.length, 1);
+    assert.equal(optionsSeen[0].bypassUserRateLimits, true);
+    assert.equal(optionsSeen[0].triggerSource, 'manual');
   });
 
   test('automatic scheduled runs deliver staged proactive replies after verification', async () => {

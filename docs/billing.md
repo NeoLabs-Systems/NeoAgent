@@ -61,6 +61,11 @@ Token limits are written directly to the user account when a subscription
 becomes active or is updated via webhook. The existing rate-limit enforcement
 in the runtime reads them with no additional configuration.
 
+Token limits gate interactive run starts. Background task executions are not
+blocked by the internal token admission check, so scheduled and integration
+tasks can still run while a user is over quota. Their token usage is still
+recorded and included in account and admin usage snapshots.
+
 ### Free plan
 
 Create a plan with **Price = 0** to serve as the default for new users. If a

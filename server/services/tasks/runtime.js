@@ -567,11 +567,12 @@ class TaskRuntime {
         const finalPrompt = basePrompt + recoveryNote;
         const runOptions = {
           triggerType: task.trigger_type || 'schedule',
-          triggerSource: task.trigger_type || 'schedule',
+          triggerSource: executionMeta.triggerSource || task.trigger_type || 'schedule',
           agentId,
           app: this.app,
           conversationId,
           taskId,
+          bypassUserRateLimits: true,
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           stageProactiveMessages: true,
