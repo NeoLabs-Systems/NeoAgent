@@ -62,6 +62,23 @@ when no reply is needed.
 Prefer official integrations or MCP tools over browser automation when both
 can perform the action. Structured tools are easier to restrict and diagnose.
 
+## Bot-protected pages
+
+The isolated VM browser uses native anti-detection hardening inspired by
+Botasaurus' public anti-detect browser patterns: stable browser profiles,
+common desktop viewport sizes, less mechanical pointer movement, referrer-aware
+navigation, and challenge detection telemetry. NeoAgent does not embed or
+depend on Botasaurus for this path.
+
+`browser_navigate` accepts optional `referrerMode` values of `direct`,
+`google`, or `current`. By default it also retries once with a Google referrer
+when a known bot challenge is detected. Browser results can include
+`botDetection` so runs can report that a page is blocked instead of treating the
+challenge page as ordinary content.
+
+Browser automation still must comply with the target site's terms and applicable
+law. URL safety checks and the VM device-access restrictions remain in effect.
+
 ## Runs and delivery
 
 Open **Runs** to inspect the trigger, tool calls, approvals, output, and error

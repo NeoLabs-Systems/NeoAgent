@@ -437,7 +437,9 @@ function getAvailableTools(app, options = {}) {
                     url: { type: 'string', description: 'URL to navigate to' },
                     screenshot: { type: 'boolean', description: 'Take a screenshot (default true)' },
                     waitFor: { type: 'string', description: 'CSS selector to wait for' },
-                    fullPage: { type: 'boolean', description: 'Full page screenshot (default false)' }
+                    fullPage: { type: 'boolean', description: 'Full page screenshot (default false)' },
+                    referrerMode: { type: 'string', enum: ['direct', 'google', 'current'], description: 'Navigation referrer strategy for the VM browser (default direct). google sends a Google referrer; current navigates from the current page when possible.' },
+                    challengeRetry: { type: 'boolean', description: 'Retry once with a Google referrer if a known bot challenge is detected (default true).' }
                 },
                 required: ['url']
             }
@@ -1787,7 +1789,9 @@ async function executeTool(toolName, args, context, engine) {
             return { ...await provider.navigate(args.url, {
                 screenshot: args.screenshot !== false,
                 waitFor: args.waitFor,
-                fullPage: args.fullPage
+                fullPage: args.fullPage,
+                referrerMode: args.referrerMode,
+                challengeRetry: args.challengeRetry
             }), backend };
         }
 

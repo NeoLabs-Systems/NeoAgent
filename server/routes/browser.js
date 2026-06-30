@@ -103,7 +103,14 @@ router.post('/navigate', async (req, res) => {
       return res.status(403).json({ error: 'This URL is not permitted.' });
     }
 
-    const result = await bc.navigate(url, { waitUntil: waitFor || 'domcontentloaded' });
+    const result = await bc.navigate(url, {
+      waitUntil: waitFor || req.body?.waitUntil || 'domcontentloaded',
+      waitFor,
+      screenshot: req.body?.screenshot !== false,
+      fullPage: req.body?.fullPage === true,
+      referrerMode: req.body?.referrerMode,
+      challengeRetry: req.body?.challengeRetry,
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
