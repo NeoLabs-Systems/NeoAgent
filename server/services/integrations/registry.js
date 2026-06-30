@@ -11,6 +11,7 @@ const { createSpotifyProvider } = require('./spotify/provider');
 const { createSlackProvider } = require('./slack/provider');
 const { createWeatherProvider } = require('./weather/provider');
 const { createWhatsAppPersonalProvider } = require('./whatsapp');
+const { createNeoMailProvider } = require('./neomail/provider');
 
 function createIntegrationRegistry(options = {}) {
   const providers = [
@@ -23,6 +24,7 @@ function createIntegrationRegistry(options = {}) {
     createTrelloProvider(),
     createWeatherProvider(),
     createSpotifyProvider(),
+    createNeoMailProvider(),
     createHomeAssistantProvider(),
     createWhatsAppPersonalProvider(options),
   ];

@@ -231,10 +231,260 @@ void _openOfficialIntegrationSetupDialog(
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
+    case 'neomail':
+      _showNeoMailSetupDialog(context, controller);
+      return;
     case 'trello':
       _showTrelloSetupDialog(context, controller);
       return;
   }
+}
+
+Future<void> _showNeoMailSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('neomail');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+
+  final savedBaseUrl = existing['baseUrl']?.toString() ?? '';
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final hasConnectedAccount =
+      existing['hasConnectedAccount'] == true || accountCount > 0;
+  var formError = '';
+  var busy = false;
+
+  final baseUrlController = TextEditingController(text: savedBaseUrl);
+
+  Future<void> saveConfig(
+    StateSetter setState, {
+    required BuildContext dialogContext,
+    required bool connectAfterSave,
+  }) async {
+    setState(() {
+      formError = '';
+      busy = true;
+    });
+    try {
+      final baseUrl = baseUrlController.text.trim();
+      if (baseUrl.isEmpty) {
+        setState(() {
+          formError = 'NeoMail backend URL is required.';
+          busy = false;
+        });
+        return;
+      }
+      await controller.saveOfficialIntegrationConfig(
+        'neomail',
+        config: <String, dynamic>{'baseUrl': baseUrl},
+      );
+      if (connectAfterSave) {
+        await controller.connectOfficialIntegration(
+          'neomail',
+          appId: 'mailbox',
+        );
+        if ((controller.errorMessage ?? '').trim().isNotEmpty) {
+          setState(() {
+            formError = controller.errorMessage!;
+            busy = false;
+          });
+          return;
+        }
+      }
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+      }
+    } catch (_) {
+      setState(() {
+        formError = controller.errorMessage ?? 'Could not save NeoMail setup.';
+        busy = false;
+      });
+    }
+  }
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: const Text('NeoMail Setup'),
+            content: SizedBox(
+              width: 540,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Add the NeoMail backend URL once. NeoAgent will then open NeoMail OAuth so the user can sign in and approve mailbox access without API keys.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  const _IntegrationSetupStatusItem(
+                    label: 'Connection Method',
+                    status: 'OAuth companion flow',
+                    isConnected: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _IntegrationSetupStatusItem(
+                    label: 'Backend URL',
+                    status: savedBaseUrl.trim().isNotEmpty
+                        ? 'Configured'
+                        : 'Not configured',
+                    isConnected: savedBaseUrl.trim().isNotEmpty,
+                  ),
+                  const SizedBox(height: 12),
+                  _IntegrationSetupStatusItem(
+                    label: 'Connected NeoMail User',
+                    status: hasConnectedAccount
+                        ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
+                        : 'Not connected',
+                    isConnected: hasConnectedAccount,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: baseUrlController,
+                    onChanged: (_) => setState(() {}),
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'NeoMail Backend URL',
+                      hintText: 'https://mail.example.com',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Use the public base URL of the NeoMail server. Local self-hosted URLs are also supported when NeoAgent can reach them.',
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
+                  ),
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _danger.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              if (savedBaseUrl.trim().isNotEmpty)
+                TextButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Disconnect NeoMail?'),
+                                    content: const Text(
+                                      'This removes the NeoMail backend URL and all connected NeoMail accounts for this agent.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text('Disconnect'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                          if (!shouldClear) {
+                            return;
+                          }
+                          setState(() {
+                            formError = '';
+                            busy = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'neomail',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  'Could not disconnect NeoMail.';
+                              busy = false;
+                            });
+                          }
+                        },
+                  child: const Text('Disconnect'),
+                ),
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+              if (!hasConnectedAccount)
+                TextButton(
+                  onPressed: busy
+                      ? null
+                      : () => saveConfig(
+                          setState,
+                          dialogContext: dialogContext,
+                          connectAfterSave: false,
+                        ),
+                  child: const Text('Save Only'),
+                ),
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => saveConfig(
+                        setState,
+                        dialogContext: dialogContext,
+                        connectAfterSave: !hasConnectedAccount,
+                      ),
+                child: Text(
+                  busy
+                      ? 'Working...'
+                      : hasConnectedAccount
+                      ? 'Update Setup'
+                      : 'Save & Connect',
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  baseUrlController.dispose();
 }
 
 Future<void> _showHomeAssistantSetupDialog(
@@ -1132,12 +1382,14 @@ class _OfficialIntegrationIcon extends StatelessWidget {
     final color = switch (item.icon) {
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
+      'neomail' => const Color(0xFF0F9D8A),
       'trello' => const Color(0xFF0C66E4),
       _ => _accent,
     };
     final label = switch (item.icon) {
       'google' => 'G',
       'home_assistant' => 'H',
+      'neomail' => 'N',
       'trello' => 'T',
       _ => item.label.isNotEmpty ? item.label[0] : '?',
     };

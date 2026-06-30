@@ -332,7 +332,12 @@ class TaskRuntime {
       triggerPayload: triggerPayload.context || {},
     });
     if (!result?.error && !result?.skipped) {
-      this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
+      this.taskRepository.markTaskTriggered(
+        taskId,
+        userId,
+        fingerprint,
+        triggerPayload.timestamp,
+      );
     }
     return result;
   }
