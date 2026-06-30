@@ -85,6 +85,29 @@ Open **Runs** to inspect the trigger, tool calls, approvals, output, and error
 for each execution. Delivery requires a configured messaging destination; a
 completed run can still have a delivery error.
 
+## Loop budgets
+
+Scheduled and event-triggered tasks run autonomously under a per-task loop
+budget. By default, a task can run 24 times or spend 250k model tokens per day.
+At 80% of either cap, NeoAgent keeps reasoning but disables side-effect tools
+for that run and asks the agent to produce a report-only result. At the cap, or
+when paused, the task is skipped before a model call.
+
+Advanced task configs can override the defaults:
+
+```json
+{
+  "loopBudget": {
+    "maxRunsPerDay": 12,
+    "maxTokensPerDay": 150000,
+    "reportOnlyThreshold": 0.8,
+    "paused": false
+  }
+}
+```
+
+Set `loopBudget.paused` or `loopPaused` to `true` as a per-task kill switch.
+
 ## Safety
 
 - Start with read-only integration accounts.

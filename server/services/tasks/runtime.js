@@ -19,6 +19,41 @@ const { isTransientError } = require('../ai/providerRetry');
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
+const DEFAULT_TASK_LOOP_BUDGET = Object.freeze({
+  maxRunsPerDay: 24,
+  maxTokensPerDay: 250000,
+  reportOnlyThreshold: 0.8,
+});
+const REPORT_ONLY_DISALLOWED_TOOLS = Object.freeze([
+  'execute_command',
+  'android_shell',
+  'android_open_app',
+  'android_tap',
+  'android_swipe',
+  'android_type',
+  'android_keyevent',
+  'android_screenshot',
+  'browser_click',
+  'browser_type',
+  'browser_evaluate',
+  'write_file',
+  'edit_file',
+  'replace_file_range',
+  'create_skill',
+  'update_skill',
+  'delete_skill',
+  'create_task',
+  'update_task',
+  'delete_task',
+  'create_ai_widget',
+  'update_ai_widget',
+  'delete_ai_widget',
+  'save_widget_snapshot',
+  'mcp_add_server',
+  'mcp_remove_server',
+  'spawn_subagent',
+  'cancel_subagent',
+]);
 
 function normalizeStoredString(value) {
   if (value == null) return '';
@@ -64,6 +99,48 @@ function stringifyTaskResult(result) {
   }
 
   return '';
+}
+
+function finitePositiveInteger(value, fallback, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.floor(parsed), max);
+}
+
+function normalizeReportOnlyThreshold(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 1) {
+    return DEFAULT_TASK_LOOP_BUDGET.reportOnlyThreshold;
+  }
+  return parsed;
+}
+
+function normalizeLoopBudgetConfig(taskConfig = {}) {
+  const raw = taskConfig.loopBudget && typeof taskConfig.loopBudget === 'object' && !Array.isArray(taskConfig.loopBudget)
+    ? taskConfig.loopBudget
+    : {};
+  const disabled = raw.enabled === false || raw.enabled === 'false';
+  const paused = raw.paused === true
+    || raw.pause === true
+    || taskConfig.loopPaused === true
+    || taskConfig.loop_paused === true;
+  return {
+    enabled: !disabled,
+    paused,
+    maxRunsPerDay: finitePositiveInteger(
+      raw.maxRunsPerDay ?? raw.max_runs_per_day,
+      DEFAULT_TASK_LOOP_BUDGET.maxRunsPerDay,
+      500,
+    ),
+    maxTokensPerDay: finitePositiveInteger(
+      raw.maxTokensPerDay ?? raw.max_tokens_per_day,
+      DEFAULT_TASK_LOOP_BUDGET.maxTokensPerDay,
+      20_000_000,
+    ),
+    reportOnlyThreshold: normalizeReportOnlyThreshold(
+      raw.reportOnlyThreshold ?? raw.report_only_threshold,
+    ),
+  };
 }
 
 class TaskRuntime {
@@ -487,6 +564,33 @@ class TaskRuntime {
       return { skipped: true, reason: 'stale_start_delay' };
     }
 
+    const budgetDecision = this._evaluateTaskLoopBudget(task, taskConfig, userId, {
+      manual: executionMeta.manual === true,
+    });
+    if (budgetDecision.mode === 'paused' || budgetDecision.mode === 'exhausted') {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: task.name || `Task ${taskId}`,
+        agentId,
+        eventKind: 'task_skipped',
+        reason: budgetDecision.reason,
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
+      this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+        taskId,
+        reason: budgetDecision.reason,
+        budget: budgetDecision.snapshot,
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        skipped: true,
+        reason: budgetDecision.reason,
+        budget: budgetDecision.snapshot,
+      };
+    }
+
     this.taskRepository.markTaskRun(taskId, userId);
     this.io.to(`user:${userId}`).emit('tasks:task_running', { taskId, timestamp: new Date().toISOString() });
     this._recordTaskLifecycle({
@@ -548,6 +652,14 @@ class TaskRuntime {
       const triggerPayloadText = executionMeta.triggerPayload
         ? `\nTrigger event context:\n${JSON.stringify(executionMeta.triggerPayload, null, 2)}\n`
         : '';
+      const budgetModeHint = budgetDecision.mode === 'report_only'
+        ? [
+          '\n\n[SYSTEM: Task loop budget guard]',
+          'This task has reached the report-only threshold for its daily loop budget.',
+          'Continue reasoning autonomously, but do not perform shell, file-write, browser/device-control, task-mutation, MCP-server-mutation, or sub-agent actions.',
+          'Use read-only tools and deliver a concise final report or blocker message.',
+        ].join('\n')
+        : '';
       const basePrompt = [
         '[SYSTEM: Executing Background Task]',
         `Task Name: ${taskName}`,
@@ -558,6 +670,7 @@ class TaskRuntime {
           : '',
         triggerPayloadText.trim(),
         notifyHint,
+        budgetModeHint,
       ].filter(Boolean).join('\n\n');
 
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
@@ -576,6 +689,9 @@ class TaskRuntime {
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           stageProactiveMessages: true,
+          disallowedToolNames: budgetDecision.mode === 'report_only'
+            ? REPORT_ONLY_DISALLOWED_TOOLS
+            : [],
           skipTaskAnalysis: true,
           skipDeliverableWorkflow: true,
           skipGlobalRecall: true,
@@ -741,6 +857,42 @@ class TaskRuntime {
     });
   }
 
+  _evaluateTaskLoopBudget(task, taskConfig, userId, options = {}) {
+    const budget = normalizeLoopBudgetConfig(taskConfig);
+    const usage = this.taskRepository.getTaskLoopUsageToday(task.id, userId);
+    const runCount = Number(usage.runCount || 0);
+    const totalTokens = Number(usage.totalTokens || 0);
+    const snapshot = {
+      enabled: budget.enabled,
+      paused: budget.paused,
+      runCount,
+      totalTokens,
+      maxRunsPerDay: budget.maxRunsPerDay,
+      maxTokensPerDay: budget.maxTokensPerDay,
+      reportOnlyThreshold: budget.reportOnlyThreshold,
+    };
+
+    if (!budget.enabled) {
+      return { mode: 'normal', reason: null, snapshot };
+    }
+    if (budget.paused) {
+      return { mode: 'paused', reason: 'loop_budget_paused', snapshot };
+    }
+
+    const projectedRunCount = options.manual === true ? runCount : runCount + 1;
+    if (projectedRunCount > budget.maxRunsPerDay || totalTokens >= budget.maxTokensPerDay) {
+      return { mode: 'exhausted', reason: 'loop_budget_exhausted', snapshot };
+    }
+
+    const runRatio = budget.maxRunsPerDay > 0 ? runCount / budget.maxRunsPerDay : 0;
+    const tokenRatio = budget.maxTokensPerDay > 0 ? totalTokens / budget.maxTokensPerDay : 0;
+    if (runRatio >= budget.reportOnlyThreshold || tokenRatio >= budget.reportOnlyThreshold) {
+      return { mode: 'report_only', reason: 'loop_budget_report_only', snapshot };
+    }
+
+    return { mode: 'normal', reason: null, snapshot };
+  }
+
   _normalizeJson(value) {
     return normalizeJsonObject(value);
   }
@@ -833,6 +985,7 @@ class TaskRuntime {
       lastTriggeredAt: row.last_triggered_at || null,
       taskType: row.task_type || 'agent_prompt',
       taskConfig,
+      loopBudget: normalizeLoopBudgetConfig(taskConfig),
       prompt: taskConfig.prompt || '',
       model: taskConfig.model || null,
       agentId,

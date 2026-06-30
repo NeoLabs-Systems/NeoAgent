@@ -17,11 +17,14 @@
  *       Use for self-improvement, memory consolidation, analytics.
  *       Errors are swallowed — this hook must not affect run outcome.
  *
+ *   on_loop_iteration(ctx: { userId, runId, agentId, iteration, triggerType, triggerSource, totalTokens })
+ *     → Steering. Return { systemSteering } to inject a system message for the
+ *       current iteration, or { stop: true, reason } to stop before more work.
+ *
  * ── NOT YET WIRED (planned) ────────────────────────────────────────────────
  *
  *   before_prompt_build — inject extra system messages before model call
  *   after_tool_call     — observe/transform tool result after execution
- *   on_loop_iteration   — called at the top of each iteration; can inject steering
  *
  *   To wire one, call globalHooks.run(event, ctx) at the relevant point in
  *   engine.js and handle the returned object. Follow the before_tool_call

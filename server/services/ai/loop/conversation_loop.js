@@ -1208,6 +1208,37 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       if (engine.isRunStopped(runId)) break;
       iteration = iterationBudget.used;
 
+      if (globalHooks.has('on_loop_iteration')) {
+        const hookResult = await globalHooks.run('on_loop_iteration', {
+          userId,
+          runId,
+          agentId,
+          iteration,
+          triggerType,
+          triggerSource,
+          totalTokens,
+          taskAnalysis: analysis,
+        });
+        if (hookResult?.stop === true) {
+          const reason = String(hookResult.reason || 'loop_iteration_hook_stop').slice(0, 200);
+          engine.recordRunEvent(userId, runId, 'loop_iteration_stopped', {
+            iteration,
+            reason,
+            stoppedBy: hookResult.stopped_by || hookResult.stoppedBy || null,
+          }, { agentId });
+          lastContent = reason;
+          break;
+        }
+        const systemSteering = String(hookResult?.systemSteering || hookResult?.system_steering || '').trim();
+        if (systemSteering) {
+          messages.push({ role: 'system', content: systemSteering });
+          engine.recordRunEvent(userId, runId, 'loop_iteration_steering', {
+            iteration,
+            source: hookResult.source || null,
+          }, { agentId });
+        }
+      }
+
       const systemSteeringAtLoopStart = engine.applyQueuedSystemSteering(runId, messages);
       messages = systemSteeringAtLoopStart.messages;
       const steeringAtLoopStart = engine.applyQueuedSteering(runId, messages, {
