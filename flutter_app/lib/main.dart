@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform, Process, ProcessSignal;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -20,6 +20,7 @@ import 'package:image/image.dart' as img;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -60,6 +61,7 @@ part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_voice_assistant.dart';
 part 'main_navigation.dart';
+part 'main_timeline.dart';
 part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
@@ -71,7 +73,9 @@ part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
+part 'main_billing.dart';
 part 'main_unified.dart';
+part 'main_install.dart';
 
 Future<void> main() async {
   await runNeoAgentApp(mode: _appModeFromEnvironment());

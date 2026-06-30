@@ -1,18 +1,10 @@
 'use strict';
 
 const crypto = require('crypto');
-const Sqlite = require('better-sqlite3');
-const { DATA_DIR } = require('../../../runtime/paths');
 const db = require('../../db/database');
+const sessionsDb = require('../../db/sessions_db');
 const { clientIpFromRequest, lookupIpLocation } = require('./geoip');
 const { getSessionSecret } = require('./session_secret');
-
-const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
-try {
-  sessionsDb.exec('CREATE TABLE IF NOT EXISTS sessions (sid PRIMARY KEY, sess, expire)');
-} catch {
-  // The primary session middleware owns schema normalization.
-}
 
 function sessionHash(sessionId) {
   return crypto.createHmac('sha256', getSessionSecret()).update(String(sessionId || '')).digest('hex');

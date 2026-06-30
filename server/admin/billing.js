@@ -1,0 +1,415 @@
+'use strict';
+
+let _billingPlans = [];
+let _billingSubsOffset = 0;
+const BILLING_SUBS_LIMIT = 50;
+
+async function loadBilling() {
+  // Check if billing is enabled by probing the plans endpoint.
+  try {
+    const r = await fetch('/admin/api/billing/plans');
+    if (!r.ok) {
+      document.getElementById('billing-plans-content').innerHTML =
+        '<div class="empty">Billing is not enabled on this server. Set <code>NEOAGENT_BILLING_ENABLED=1</code> to enable it.</div>';
+      document.getElementById('billing-subs-content').innerHTML = '';
+      return;
+    }
+    const data = await r.json();
+    _billingPlans = data.plans || [];
+    renderPlansTable(_billingPlans);
+  } catch {
+    document.getElementById('billing-plans-content').innerHTML = '<div class="empty">Failed to load billing data.</div>';
+  }
+  document.getElementById('nav-billing').style.display = '';
+  _billingSubsOffset = 0;
+  await loadBillingSubscriptions();
+}
+
+// Show the billing nav item on load if billing is enabled.
+(async function checkBillingEnabled() {
+  try {
+    const r = await fetch('/admin/api/billing/plans');
+    if (r.ok) document.getElementById('nav-billing').style.display = '';
+  } catch {}
+})();
+
+function planRowHtml(plan) {
+  const id = escAttr(plan.id);
+  const intervalLabel = plan.interval ? `/ ${plan.interval}` : '';
+  const price = plan.price_cents === 0 ? 'Free' : `${(plan.price_cents / 100).toFixed(2)} ${(plan.currency || 'usd').toUpperCase()} ${intervalLabel}`;
+  const status = plan.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>';
+  return `
+    <tr data-plan-id="${id}">
+      <td><strong>${esc(plan.name)}</strong><br><small style="color:var(--text-muted)">${esc(plan.id)}</small></td>
+      <td>${esc(price)}</td>
+      <td>${plan.token_limit_4h != null ? fmtTokens(plan.token_limit_4h) : '<span style="color:var(--text-muted)">Default</span>'}</td>
+      <td>${plan.token_limit_weekly != null ? fmtTokens(plan.token_limit_weekly) : '<span style="color:var(--text-muted)">Default</span>'}</td>
+      <td><code style="font-size:11px">${esc(plan.stripe_price_id || '—')}</code></td>
+      <td>${status}</td>
+      <td>
+        <button class="btn btn-sm" data-action="edit" data-plan-id="${id}">Edit</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-plan-id="${id}">Delete</button>
+      </td>
+    </tr>`;
+}
+
+function renderPlansTable(plans) {
+  const el = document.getElementById('billing-plans-content');
+  if (!plans.length) {
+    el.innerHTML = '<div class="empty">No plans yet. Create one above.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Plan</th><th>Price</th><th>4h Tokens</th><th>Weekly Tokens</th><th>Stripe Price ID</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${plans.map(planRowHtml).join('')}</tbody>
+    </table>`;
+  el.querySelector('tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const planId = btn.dataset.planId;
+    if (btn.dataset.action === 'edit') billingEditPlan(planId);
+    else if (btn.dataset.action === 'delete') billingDeletePlan(planId);
+  });
+}
+
+function billingShowNewPlanForm() {
+  billingOpenPlanModal(null);
+}
+
+function billingEditPlan(planId) {
+  const plan = _billingPlans.find((p) => p.id === planId);
+  billingOpenPlanModal(plan);
+}
+
+async function billingOpenPlanModal(plan) {
+  const isNew = !plan;
+  const title = isNew ? 'New Plan' : `Edit Plan: ${plan.name}`;
+  const allowedSet = new Set(plan?.allowed_models || []);
+
+  // Fetch available models to render the picker
+  let modelPickerHtml = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">Loading models…</div>';
+  let fetchedModels = [];
+  try {
+    const r = await fetch('/admin/api/models');
+    if (r.ok) {
+      const data = await r.json();
+      fetchedModels = (data.models || []).sort((a, b) => {
+        if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+        return (a.label || a.id).localeCompare(b.label || b.id);
+      });
+    }
+  } catch {}
+
+  if (fetchedModels.length) {
+    const rows = fetchedModels.map((m) => {
+      const checked = allowedSet.has(m.id) ? 'checked' : '';
+      return `
+        <tr class="bp-model-row" style="opacity:${checked ? '1' : '0.55'}" onclick="billingModelRowClick(this)">
+          <td style="width:36px;text-align:center;pointer-events:none;">
+            <input type="checkbox" class="bp-model-cb" value="${escAttr(m.id)}" ${checked}
+              onchange="this.closest('tr').style.opacity=this.checked?'1':'0.55'" onclick="event.stopPropagation()">
+          </td>
+          <td style="pointer-events:none;">
+            <div style="font-weight:600;color:var(--text);font-size:13px;">${esc(m.label || m.id)}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px;">${esc(m.id)}</div>
+          </td>
+          <td style="font-size:12px;text-transform:capitalize;color:var(--text-secondary);pointer-events:none;">${esc(m.provider)}</td>
+        </tr>`;
+    }).join('');
+
+    modelPickerHtml = `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:200px;overflow-y:auto;">
+        <table class="data-table" style="margin:0;">
+          <thead><tr>
+            <th style="width:36px;position:sticky;top:0;background:var(--bg-secondary);z-index:1;"></th>
+            <th style="position:sticky;top:0;background:var(--bg-secondary);z-index:1;">Model</th>
+            <th style="position:sticky;top:0;background:var(--bg-secondary);z-index:1;">Provider</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Check models to restrict this plan. Leave all unchecked to allow every model.</div>`;
+  } else {
+    modelPickerHtml = `
+      <input class="form-input" id="bp-models-fallback" value="${escAttr((plan?.allowed_models || []).join(', '))}" placeholder="claude-opus-4-8, gpt-4o (comma-separated, or blank for all)">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Configure providers first to use the model picker.</div>`;
+  }
+
+  const html = `
+    <div id="billing-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000" onclick="if(event.target===this)billingClosePlanModal()">
+      <div style="background:var(--bg-card);border-radius:12px;padding:28px;width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+        <h2 style="margin:0 0 20px;font-size:16px;font-weight:700;color:var(--text);">${esc(title)}</h2>
+        <form id="billing-plan-form" onsubmit="billingPlanFormSubmit(event)">
+          <input type="hidden" id="bp-id" value="${escAttr(plan?.id || '')}">
+
+          <label class="form-label">Plan ID <small>(set once, used as identifier)</small></label>
+          <input class="form-input" id="bp-slug" value="${escAttr(plan?.id || '')}" ${isNew ? '' : 'disabled'} placeholder="plan_pro" style="margin-bottom:14px">
+
+          <label class="form-label">Name</label>
+          <input class="form-input" id="bp-name" value="${escAttr(plan?.name || '')}" required placeholder="Pro" style="margin-bottom:14px">
+
+          <label class="form-label">Description</label>
+          <input class="form-input" id="bp-desc" value="${escAttr(plan?.description || '')}" placeholder="Optional description" style="margin-bottom:14px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="form-label">Price (cents)</label>
+              <input class="form-input" id="bp-price" type="number" min="0" value="${plan?.price_cents ?? 0}" required>
+            </div>
+            <div>
+              <label class="form-label">Currency</label>
+              <input class="form-input" id="bp-currency" value="${escAttr(plan?.currency || 'usd')}" placeholder="usd">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="form-label">Billing interval</label>
+              <select class="form-input" id="bp-interval">
+                <option value="month" ${plan?.interval === 'month' ? 'selected' : ''}>Monthly</option>
+                <option value="year" ${plan?.interval === 'year' ? 'selected' : ''}>Yearly</option>
+                <option value="" ${!plan?.interval ? 'selected' : ''}>One-time / Free</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Sort order</label>
+              <input class="form-input" id="bp-sort" type="number" value="${plan?.sort_order ?? 0}">
+            </div>
+          </div>
+
+          <label class="form-label">Stripe Price ID</label>
+          <input class="form-input" id="bp-stripe-price" value="${escAttr(plan?.stripe_price_id || '')}" placeholder="price_..." style="margin-bottom:14px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="form-label">4h token limit <small>(blank = default)</small></label>
+              <input class="form-input" id="bp-tok-4h" type="number" min="0" value="${plan?.token_limit_4h ?? ''}" placeholder="2500000">
+            </div>
+            <div>
+              <label class="form-label">Weekly token limit <small>(blank = default)</small></label>
+              <input class="form-input" id="bp-tok-weekly" type="number" min="0" value="${plan?.token_limit_weekly ?? ''}" placeholder="10000000">
+            </div>
+          </div>
+
+          <label class="form-label" style="margin-bottom:8px;">Allowed models <small>(unchecked = not allowed on this plan)</small></label>
+          <div id="bp-models-wrap" style="margin-bottom:14px">${modelPickerHtml}</div>
+
+          <label class="form-label">Features <small>(comma-separated, shown on pricing page)</small></label>
+          <input class="form-input" id="bp-features" value="${escAttr((plan?.features || []).join(', '))}" placeholder="Unlimited agents, Priority support" style="margin-bottom:14px">
+
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer;font-size:13px;color:var(--text-secondary);text-transform:none;letter-spacing:0;font-weight:500;">
+            <input type="checkbox" id="bp-active" ${!plan || plan.is_active ? 'checked' : ''}> Active
+          </label>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn btn-ghost" onclick="billingClosePlanModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">${isNew ? 'Create plan' : 'Save changes'}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function billingModelRowClick(row) {
+  const cb = row.querySelector('.bp-model-cb');
+  cb.checked = !cb.checked;
+  row.style.opacity = cb.checked ? '1' : '0.55';
+}
+
+function billingClosePlanModal() {
+  document.getElementById('billing-plan-modal')?.remove();
+}
+
+async function billingPlanFormSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('bp-id').value;
+  const slug = document.getElementById('bp-slug').value.trim();
+  const isNew = !id;
+
+  const parseTokenLimit = (val) => {
+    const n = parseInt(val, 10);
+    return isNaN(n) || val === '' ? null : n;
+  };
+  const parseModels = () => {
+    const cbs = document.querySelectorAll('.bp-model-cb');
+    if (cbs.length) return Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+    const fallback = document.getElementById('bp-models-fallback');
+    return fallback ? fallback.value.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  };
+  const parseFeatures = (val) => val.split(',').map((s) => s.trim()).filter(Boolean);
+
+  const body = {
+    id: isNew ? slug : undefined,
+    name: document.getElementById('bp-name').value.trim(),
+    description: document.getElementById('bp-desc').value.trim(),
+    price_cents: parseInt(document.getElementById('bp-price').value, 10),
+    currency: document.getElementById('bp-currency').value.trim() || 'usd',
+    interval: document.getElementById('bp-interval').value || null,
+    stripe_price_id: document.getElementById('bp-stripe-price').value.trim() || null,
+    token_limit_4h: parseTokenLimit(document.getElementById('bp-tok-4h').value),
+    token_limit_weekly: parseTokenLimit(document.getElementById('bp-tok-weekly').value),
+    allowed_models: parseModels(),
+    features: parseFeatures(document.getElementById('bp-features').value),
+    sort_order: parseInt(document.getElementById('bp-sort').value, 10) || 0,
+    is_active: document.getElementById('bp-active').checked,
+  };
+
+  try {
+    const url = isNew ? '/admin/api/billing/plans' : `/admin/api/billing/plans/${encodeURIComponent(id)}`;
+    const method = isNew ? 'POST' : 'PUT';
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await r.json();
+    if (!r.ok) { showToast(data.error || 'Failed to save plan.', 'error'); return; }
+    billingClosePlanModal();
+    await loadBilling();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function billingDeletePlan(planId) {
+  if (!await showConfirmModal({
+    title: `Delete plan "${esc(planId)}"?`,
+    body: 'The plan will be deactivated (not hard-deleted). Existing subscribers will keep access until their period ends.',
+    confirmLabel: 'Delete Plan',
+    confirmClass: 'btn-danger',
+  })) return;
+  try {
+    const r = await fetch(`/admin/api/billing/plans/${encodeURIComponent(planId)}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json(); showToast(d.error || 'Failed.', 'error'); return; }
+    await loadBilling();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function loadBillingSubscriptions() {
+  const statusFilter = document.getElementById('billing-sub-status-filter')?.value || '';
+  const el = document.getElementById('billing-subs-content');
+  el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+  try {
+    const params = new URLSearchParams({ limit: BILLING_SUBS_LIMIT, offset: _billingSubsOffset });
+    if (statusFilter) params.set('status', statusFilter);
+    const r = await fetch('/admin/api/billing/subscriptions?' + params);
+    if (!r.ok) { el.innerHTML = '<div class="empty">Failed to load subscriptions.</div>'; return; }
+    const data = await r.json();
+    renderSubsTable(data.subscriptions, data.total);
+  } catch {
+    el.innerHTML = '<div class="empty">Failed to load subscriptions.</div>';
+  }
+}
+
+function renderSubsTable(rows, total) {
+  const el = document.getElementById('billing-subs-content');
+  if (!rows.length) { el.innerHTML = '<div class="empty">No subscriptions found.</div>'; return; }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>User</th><th>Plan</th><th>Status</th><th>Period end</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows.map(subRowHtml).join('')}</tbody>
+    </table>`;
+
+  const pag = document.getElementById('billing-subs-pagination');
+  const hasPrev = _billingSubsOffset > 0;
+  const hasNext = _billingSubsOffset + BILLING_SUBS_LIMIT < total;
+  pag.innerHTML = `
+    <span style="color:var(--text-muted);font-size:13px">${total} total</span>
+    ${hasPrev ? `<button class="btn btn-sm" onclick="_billingSubsOffset-=${BILLING_SUBS_LIMIT};loadBillingSubscriptions()">← Prev</button>` : ''}
+    ${hasNext ? `<button class="btn btn-sm" onclick="_billingSubsOffset+=${BILLING_SUBS_LIMIT};loadBillingSubscriptions()">Next →</button>` : ''}`;
+}
+
+function subRowHtml(sub) {
+  const userLabel = esc(sub.display_name || sub.username || String(sub.user_id));
+  const email = sub.email ? `<br><small style="color:var(--text-muted)">${esc(sub.email)}</small>` : '';
+  const statusColor = { active: 'var(--success)', trialing: 'var(--warning)', past_due: 'var(--danger)', canceled: 'var(--text-muted)' }[sub.status] || 'var(--text-muted)';
+  const periodEnd = sub.current_period_end ? sub.current_period_end.slice(0, 10) : '—';
+  return `
+    <tr>
+      <td>${userLabel}${email}</td>
+      <td>${esc(sub.plan_name)}</td>
+      <td><span style="color:${statusColor}">${esc(sub.status)}</span></td>
+      <td>${periodEnd}</td>
+      <td><button class="btn btn-sm" onclick="billingOverrideSub(${sub.user_id})">Override</button></td>
+    </tr>`;
+}
+
+async function billingOverrideSub(userId) {
+  if (!_billingPlans.length) { showToast('No plans available.', 'error'); return; }
+  const activePlans = _billingPlans.filter((p) => p.is_active);
+  const planId = await billingPromptPlan(activePlans);
+  if (!planId) return;
+  try {
+    const r = await fetch(`/admin/api/billing/users/${userId}/subscription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId: planId.trim() }),
+    });
+    const data = await r.json();
+    if (!r.ok) { showToast(data.error || 'Failed.', 'error'); return; }
+    await loadBillingSubscriptions();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+function billingPromptPlan(plans) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99990;backdrop-filter:blur(2px);';
+    const optionsHtml = plans.map((p) => `<option value="${escAttr(p.id)}">${esc(p.id)} — ${esc(p.name)}</option>`).join('');
+    const modal = document.createElement('div');
+    modal.style.cssText = 'width:400px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">Assign plan</div>
+      <div style="margin-bottom:16px;">
+        <select id="billing-plan-select" style="width:100%;padding:8px 10px;background:var(--bg-input,#111);border:1px solid var(--border,#2a2a2a);border-radius:6px;color:var(--text,#fff);font-size:13px;">
+          ${optionsHtml}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="billing-plan-cancel" style="padding:8px 16px;">Cancel</button>
+        <button class="btn btn-primary" id="billing-plan-confirm" style="padding:8px 16px;">Assign</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    const cancel = () => { overlay.remove(); resolve(null); };
+    const confirm = () => {
+      const val = modal.querySelector('#billing-plan-select').value;
+      overlay.remove();
+      resolve(val || null);
+    };
+    modal.querySelector('#billing-plan-cancel').onclick = cancel;
+    modal.querySelector('#billing-plan-confirm').onclick = confirm;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { cancel(); document.removeEventListener('keydown', handler); }
+    });
+    modal.querySelector('#billing-plan-confirm').focus();
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escAttr(str) {
+  // JSON.stringify gives us a properly quoted JS string; strip the outer quotes
+  // so it can be embedded in an HTML attribute value (already inside quotes).
+  return JSON.stringify(String(str ?? '')).slice(1, -1).replace(/"/g, '&quot;');
+}
+
+function fmtTokens(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
+  return String(n);
+}

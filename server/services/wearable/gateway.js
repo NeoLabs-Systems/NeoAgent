@@ -27,11 +27,14 @@ function rejectUpgrade(socket, statusCode, message) {
 }
 
 function remoteAddressFromRequest(req) {
-  const forwarded = req.headers?.['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim();
+  const directPeer = req.socket?.remoteAddress || 'unknown';
+  if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
+    const forwarded = req.headers?.['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
   }
-  return req.socket?.remoteAddress || 'unknown';
+  return directPeer;
 }
 
 function createUpgradeLimiter() {
@@ -142,7 +145,7 @@ function createWearableVoiceSink(ws, voiceRuntimeManager) {
 }
 
 function bindWearableGateway(httpServer, app, sessionMiddleware) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
   const allowUpgradeAttempt = createUpgradeLimiter();
 
   httpServer.on('upgrade', (req, socket, head) => {

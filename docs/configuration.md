@@ -97,6 +97,28 @@ reset, email changes, and security notifications.
 | `NEOAGENT_EMAIL_PUBLIC_URL` | Base URL used in email links |
 | `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | Confirmation token lifetime |
 
+## Billing
+
+Billing is disabled by default. Use the interactive wizard to configure it:
+
+```bash
+neoagent billing setup    # guided Stripe key and webhook setup
+neoagent billing          # show current status
+neoagent billing enable   # activate billing and restart
+neoagent billing disable  # deactivate billing and restart
+```
+
+See [Billing](billing.md) for the full setup guide, webhook configuration, and
+plan management.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NEOAGENT_BILLING_ENABLED` | `false` | Enable the Stripe billing system |
+| `STRIPE_SECRET_KEY` | unset | Stripe server-side API key |
+| `STRIPE_PUBLISHABLE_KEY` | unset | Stripe client-side key (returned to clients) |
+| `STRIPE_WEBHOOK_SECRET` | unset | Webhook signing secret |
+| `BILLING_TRIAL_DAYS` | `14` | Free trial length in days |
+
 ## Isolated runtime
 
 | Variable | Purpose |

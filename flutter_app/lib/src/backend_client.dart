@@ -213,7 +213,11 @@ class BackendClient {
   }
 
   Future<Map<String, dynamic>> completeOnboarding(String baseUrl) async {
-    return postMap(baseUrl, '/api/auth/onboarding/complete', const <String, dynamic>{});
+    return postMap(
+      baseUrl,
+      '/api/auth/onboarding/complete',
+      const <String, dynamic>{},
+    );
   }
 
   Future<Map<String, dynamic>> fetchAgentProfiles(String baseUrl) async {
@@ -226,6 +230,23 @@ class BackendClient {
 
   Future<Map<String, dynamic>> fetchAccountUsage(String baseUrl) async {
     return getMap(baseUrl, '/api/account/usage');
+  }
+
+  /// GDPR data portability — returns a structured export of the signed-in
+  /// user's own data (credential fields are redacted server-side).
+  Future<Map<String, dynamic>> exportMyData(String baseUrl) async {
+    return getMap(baseUrl, '/api/account/export');
+  }
+
+  /// GDPR right to erasure — permanently deletes the signed-in user's account
+  /// and all associated data. [confirmUsername] must equal the account username.
+  Future<Map<String, dynamic>> deleteMyAccount({
+    required String baseUrl,
+    required String confirmUsername,
+  }) async {
+    return postMap(baseUrl, '/api/account/delete', <String, dynamic>{
+      'confirmUsername': confirmUsername,
+    });
   }
 
   Future<Map<String, dynamic>> updateAccountEmail({
@@ -342,6 +363,59 @@ class BackendClient {
     return deleteMap(baseUrl, '/api/account/sessions/$sessionId');
   }
 
+  // ── Billing ──────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getBillingPlans(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/plans', allowUnauthorized: true);
+  }
+
+  Future<Map<String, dynamic>> getBillingInfo(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/');
+  }
+
+  Future<Map<String, dynamic>> getBillingInvoices(String baseUrl) async {
+    return getMap(baseUrl, '/api/billing/invoices');
+  }
+
+  Future<Map<String, dynamic>> createCheckoutSession({
+    required String baseUrl,
+    required String planId,
+    required String successUrl,
+    required String cancelUrl,
+  }) async {
+    return postMap(baseUrl, '/api/billing/checkout', <String, dynamic>{
+      'planId': planId,
+      'successUrl': successUrl,
+      'cancelUrl': cancelUrl,
+    });
+  }
+
+  Future<Map<String, dynamic>> createPortalSession({
+    required String baseUrl,
+    required String returnUrl,
+  }) async {
+    return postMap(baseUrl, '/api/billing/portal', <String, dynamic>{
+      'returnUrl': returnUrl,
+    });
+  }
+
+  Future<Map<String, dynamic>> cancelBillingSubscription(String baseUrl) async {
+    return postMap(baseUrl, '/api/billing/cancel', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> startBillingTrial({
+    required String baseUrl,
+    required String planId,
+    String? deviceFingerprint,
+  }) async {
+    return postMap(baseUrl, '/api/billing/trial', <String, dynamic>{
+      'planId': planId,
+      if (deviceFingerprint != null) 'deviceFingerprint': deviceFingerprint,
+    });
+  }
+
+  // ── Agent profiles ────────────────────────────────────────────────────────
+
   Future<Map<String, dynamic>> createAgentProfile(
     String baseUrl,
     Map<String, dynamic> payload,
@@ -371,10 +445,23 @@ class BackendClient {
   Future<Map<String, dynamic>> fetchChatHistory(
     String baseUrl, {
     String? agentId,
+    int limit = 40,
+    String? beforeCreatedAt,
+    String? beforeSource,
+    String? beforeId,
   }) async {
+    final params = <String>[
+      'limit=$limit',
+      if (beforeCreatedAt != null && beforeCreatedAt.trim().isNotEmpty)
+        'beforeCreatedAt=${Uri.encodeQueryComponent(beforeCreatedAt.trim())}',
+      if (beforeSource != null && beforeSource.trim().isNotEmpty)
+        'beforeSource=${Uri.encodeQueryComponent(beforeSource.trim())}',
+      if (beforeId != null && beforeId.trim().isNotEmpty)
+        'beforeId=${Uri.encodeQueryComponent(beforeId.trim())}',
+    ];
     return getMap(
       baseUrl,
-      _withAgentQuery('/api/agents/chat-history?limit=120', agentId),
+      _withAgentQuery('/api/agents/chat-history?${params.join('&')}', agentId),
     );
   }
 
@@ -461,6 +548,32 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/agents?limit=20', agentId));
   }
 
+  Future<Map<String, dynamic>> fetchTimeline(
+    String baseUrl, {
+    Iterable<String>? sources,
+    String? agentId,
+    int limit = 50,
+    String? beforeOccurredAt,
+    int? beforeId,
+  }) async {
+    final query = <String>[
+      'limit=${limit.clamp(1, 200)}',
+      if (agentId?.trim().isNotEmpty == true)
+        'agentId=${Uri.encodeQueryComponent(agentId!.trim())}',
+      if (beforeOccurredAt?.trim().isNotEmpty == true)
+        'beforeOccurredAt=${Uri.encodeQueryComponent(beforeOccurredAt!.trim())}',
+      if (beforeId != null && beforeId > 0) 'beforeId=$beforeId',
+    ];
+    for (final source in (sources ?? const <String>[])) {
+      final normalized = source.trim().toLowerCase();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      query.add('source=${Uri.encodeQueryComponent(normalized)}');
+    }
+    return getMap(baseUrl, '/api/timeline?${query.join('&')}');
+  }
+
   Future<Map<String, dynamic>> fetchRunSteps(
     String baseUrl,
     String runId,
@@ -506,9 +619,11 @@ class BackendClient {
     String baseUrl, {
     required String tokenId,
   }) async {
-    return postMap(baseUrl, '/api/browser-extension/select-token', <String, dynamic>{
-      'tokenId': tokenId,
-    });
+    return postMap(
+      baseUrl,
+      '/api/browser-extension/select-token',
+      <String, dynamic>{'tokenId': tokenId},
+    );
   }
 
   Future<Map<String, dynamic>> launchBrowser(
@@ -1204,7 +1319,10 @@ class BackendClient {
     String? agentId,
   }) async {
     final response = await _httpClient.delete(
-      _resolveUri(baseUrl, _withAgentQuery('/api/integrations/$providerId/config', agentId)),
+      _resolveUri(
+        baseUrl,
+        _withAgentQuery('/api/integrations/$providerId/config', agentId),
+      ),
       headers: const <String, String>{'Accept': 'application/json'},
     );
     _throwIfError(response);
@@ -1549,6 +1667,7 @@ class BackendClient {
     required String triggerType,
     required Map<String, dynamic> triggerConfig,
     required String prompt,
+    Map<String, dynamic>? taskConfig,
     String? model,
     bool enabled = true,
     String? agentId,
@@ -1557,6 +1676,7 @@ class BackendClient {
       'name': name,
       'triggerType': triggerType,
       'triggerConfig': triggerConfig,
+      if (taskConfig != null) 'taskConfig': taskConfig,
       'prompt': prompt,
       'model': model,
       'enabled': enabled,
@@ -1710,10 +1830,11 @@ class BackendClient {
     required String audioBase64,
     String mimeType = 'audio/pcm;rate=16000;channels=1',
   }) {
-    return postMap(baseUrl, '/api/voice-assistant/transcribe', <String, dynamic>{
-      'audioBase64': audioBase64,
-      'mimeType': mimeType,
-    });
+    return postMap(
+      baseUrl,
+      '/api/voice-assistant/transcribe',
+      <String, dynamic>{'audioBase64': audioBase64, 'mimeType': mimeType},
+    );
   }
 
   Future<Map<String, dynamic>> runVoiceAssistantTurn(
@@ -2029,8 +2150,13 @@ class BackendClient {
     return getMap(baseUrl, '/api/security/mode');
   }
 
-  Future<Map<String, dynamic>> saveSecurityMode(String baseUrl, String mode) async {
-    return putMap(baseUrl, '/api/security/mode', <String, dynamic>{'mode': mode});
+  Future<Map<String, dynamic>> saveSecurityMode(
+    String baseUrl,
+    String mode,
+  ) async {
+    return putMap(baseUrl, '/api/security/mode', <String, dynamic>{
+      'mode': mode,
+    });
   }
 
   Future<Map<String, dynamic>> saveSecurityPolicy(
@@ -2053,13 +2179,17 @@ class BackendClient {
     String? toolName,
     Map<String, dynamic>? toolArgs,
   }) async {
-    return postMap(baseUrl, '/api/security/approvals/$approvalId', <String, dynamic>{
-      'decision': decision,
-      'scope': scope,
-      if (runId != null) 'runId': runId,
-      if (toolName != null) 'toolName': toolName,
-      if (toolArgs != null) 'toolArgs': toolArgs,
-    });
+    return postMap(
+      baseUrl,
+      '/api/security/approvals/$approvalId',
+      <String, dynamic>{
+        'decision': decision,
+        'scope': scope,
+        if (runId != null) 'runId': runId,
+        if (toolName != null) 'toolName': toolName,
+        if (toolArgs != null) 'toolArgs': toolArgs,
+      },
+    );
   }
 }
 

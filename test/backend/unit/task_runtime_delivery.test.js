@@ -126,10 +126,194 @@ describe('scheduled task result delivery', () => {
     });
 
     assert.equal(calls.length, 2);
+    assert.equal(calls[0].options.bypassUserRateLimits, true);
+    assert.equal(calls[0].options.triggerSource, 'schedule');
     assert.match(calls[1].prompt, /Previous task attempt failed/);
     assert.equal(result.content, 'The daily summary is ready.');
     assert.equal(messagingManager.sent.length, 1);
     assert.equal(messagingManager.sent[0].content, 'The daily summary is ready.');
+  });
+
+  test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
+    const messagingManager = createMessagingManager();
+    const prompts = [];
+    const optionsSeen = [];
+    const task = await createScheduledTask({
+      async runWithModel(userId, prompt, options) {
+        prompts.push({ userId, prompt });
+        optionsSeen.push(options);
+        return { content: 'No relevant calendar changes.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'No relevant calendar changes.');
+    assert.equal(result.taskDelivery.sent, false);
+    assert.equal(result.taskDelivery.reason, 'explicit_delivery_required');
+    assert.equal(messagingManager.sent.length, 0);
+    assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
+    assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
+    assert.equal(optionsSeen[0].bypassUserRateLimits, true);
+    assert.equal(optionsSeen[0].triggerSource, 'schedule');
+    assert.equal(optionsSeen[0].stageProactiveMessages, true);
+    assert.equal(optionsSeen[0].skipVerifier, false);
+  });
+
+  test('manual task runs bypass user token admission limits', async () => {
+    const optionsSeen = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        optionsSeen.push(options);
+        return { content: 'Manual task completed.' };
+      },
+    }, createMessagingManager());
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'manual',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'Manual task completed.');
+    assert.equal(optionsSeen.length, 1);
+    assert.equal(optionsSeen[0].bypassUserRateLimits, true);
+    assert.equal(optionsSeen[0].triggerSource, 'manual');
+  });
+
+  test('skips automatic task execution when the task loop budget is exhausted', async () => {
+    let callCount = 0;
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        callCount += 1;
+        return { content: 'should not run' };
+      },
+    });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Budgeted task',
+      triggerType: 'schedule',
+      triggerConfig: {
+        mode: 'recurring',
+        cronExpression: '0 6 * * *',
+      },
+      taskConfig: {
+        prompt: 'Check the inbox.',
+        loopBudget: {
+          maxRunsPerDay: 1,
+          maxTokensPerDay: 1000,
+        },
+      },
+    });
+    ctx.db.prepare(
+      `INSERT INTO agent_runs (
+        id, user_id, agent_id, title, status, trigger_type, trigger_source,
+        total_tokens, metadata_json, created_at
+      ) VALUES (?, ?, ?, ?, 'completed', 'schedule', 'schedule', ?, ?, datetime('now'))`
+    ).run(
+      'budget-run-1',
+      user.userId,
+      task.agentId,
+      'Budgeted task',
+      100,
+      JSON.stringify({ taskId: task.id }),
+    );
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(callCount, 0);
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'loop_budget_exhausted');
+    assert.equal(result.budget.runCount, 1);
+  });
+
+  test('serializes normalized loop budget configuration for tasks', async () => {
+    const task = await createScheduledTask({
+      async runWithModel() {
+        return { content: 'unused' };
+      },
+    }, createMessagingManager());
+
+    assert.equal(task.loopBudget.enabled, true);
+    assert.equal(task.loopBudget.paused, false);
+    assert.equal(task.loopBudget.maxRunsPerDay, 24);
+    assert.equal(task.loopBudget.maxTokensPerDay, 250000);
+  });
+
+  test('skips task execution when the task loop budget is paused', async () => {
+    let callCount = 0;
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        callCount += 1;
+        return { content: 'should not run' };
+      },
+    });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Paused budget task',
+      triggerType: 'schedule',
+      triggerConfig: {
+        mode: 'recurring',
+        cronExpression: '0 6 * * *',
+      },
+      taskConfig: {
+        prompt: 'Check the inbox.',
+        loopBudget: {
+          paused: true,
+        },
+      },
+    });
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(callCount, 0);
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'loop_budget_paused');
+  });
+
+  test('automatic scheduled runs deliver staged proactive replies after verification', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        options.deliveryState.proactiveMessageStaged = true;
+        options.deliveryState.stagedProactiveMessage = {
+          platform: 'whatsapp',
+          to: 'recipient',
+          content: 'Wetter in Braunschweig: sonnig. Keine neue Mail.',
+          purpose: 'final_result',
+          mediaPath: null,
+        };
+        return { content: 'Wetter in Braunschweig: sonnig. Keine neue Mail.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].platform, 'whatsapp');
+    assert.equal(messagingManager.sent[0].to, 'recipient');
+    assert.equal(messagingManager.sent[0].content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
   });
 
   test('delivers a failure notice when every attempt returns empty', async () => {
@@ -152,7 +336,8 @@ describe('scheduled task result delivery', () => {
     assert.equal(callCount, 2);
     assert.match(result.error, /without producing a result/);
     assert.equal(messagingManager.sent.length, 1);
-    assert.match(messagingManager.sent[0].content, /could not complete after retrying/);
+    assert.match(messagingManager.sent[0].content, /could not complete:/);
+    assert.match(messagingManager.sent[0].content, /without producing a result or an explicit no-response decision/);
   });
 
   test('accepts an explicit no-response decision without fallback delivery', async () => {
@@ -239,6 +424,70 @@ describe('scheduled task result delivery', () => {
     assert.equal(result.reason, 'no_response');
     assert.equal(runState.noResponse, true);
     assert.equal(deliveryState.noResponse, true);
+  });
+
+  test('accepts empty no-response content for proactive task runs', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const deliveryState = {};
+    const runState = {};
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {},
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: 'recipient',
+      content: '',
+      purpose: 'no_response',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'schedule',
+      deliveryState,
+    }, engine);
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'no_response');
+    assert.equal(runState.noResponse, true);
+    assert.equal(deliveryState.noResponse, true);
+  });
+
+  test('stages proactive send_message decisions for background verification', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sendCalls = [];
+    const deliveryState = {};
+    const runState = {};
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sendCalls.push(args);
+          return { success: true };
+        },
+      },
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: 'recipient',
+      content: 'Weather for Braunschweig: sunny.',
+      purpose: 'final_result',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'schedule',
+      deliveryState,
+      stageProactiveMessages: true,
+    }, engine);
+
+    assert.equal(result.staged, true);
+    assert.equal(sendCalls.length, 0);
+    assert.equal(runState.proactiveMessageStaged, true);
+    assert.equal(deliveryState.proactiveMessageStaged, true);
+    assert.equal(deliveryState.stagedProactiveMessage.platform, 'whatsapp');
+    assert.equal(deliveryState.stagedProactiveMessage.to, 'recipient');
+    assert.equal(deliveryState.stagedProactiveMessage.content, 'Weather for Braunschweig: sunny.');
   });
 
   test('failed explicit send_message does not mark terminal delivery', async () => {

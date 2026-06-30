@@ -241,6 +241,70 @@ std::string ForegroundWindowTitle() {
   return WideToUtf8(std::wstring(buffer, buffer + length));
 }
 
+std::string BasenameFromPath(const std::wstring& path) {
+  if (path.empty()) {
+    return std::string();
+  }
+  const size_t slash = path.find_last_of(L"\\/");
+  const std::wstring name =
+      slash == std::wstring::npos ? path : path.substr(slash + 1);
+  return WideToUtf8(name);
+}
+
+std::string ForegroundWindowApp() {
+  HWND window = GetForegroundWindow();
+  if (window == nullptr) {
+    return std::string();
+  }
+  DWORD process_id = 0;
+  GetWindowThreadProcessId(window, &process_id);
+  if (process_id == 0) {
+    return std::string();
+  }
+  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id);
+  if (process == nullptr) {
+    return std::string();
+  }
+  wchar_t buffer[MAX_PATH];
+  DWORD size = MAX_PATH;
+  std::string app_name;
+  if (QueryFullProcessImageNameW(process, 0, buffer, &size)) {
+    app_name = BasenameFromPath(std::wstring(buffer, size));
+  }
+  CloseHandle(process);
+  return app_name;
+}
+
+double UserIdleSeconds() {
+  LASTINPUTINFO info{};
+  info.cbSize = sizeof(LASTINPUTINFO);
+  if (!GetLastInputInfo(&info)) {
+    return 0;
+  }
+  const ULONGLONG now = GetTickCount64();
+  const ULONGLONG then = static_cast<ULONGLONG>(info.dwTime);
+  if (now < then) {
+    return 0;
+  }
+  return static_cast<double>(now - then) / 1000.0;
+}
+
+bool IsWorkstationLocked() {
+  HDESK input_desktop = OpenInputDesktop(0, FALSE, GENERIC_READ);
+  if (input_desktop == nullptr) {
+    return false;
+  }
+  wchar_t name[256];
+  DWORD needed = 0;
+  const bool ok = GetUserObjectInformationW(
+      input_desktop, UOI_NAME, name, sizeof(name), &needed);
+  CloseDesktop(input_desktop);
+  if (!ok) {
+    return false;
+  }
+  return _wcsicmp(name, L"Default") != 0;
+}
+
 void SendMouseButton(DWORD flag) {
   INPUT input{};
   input.type = INPUT_MOUSE;
@@ -329,6 +393,8 @@ bool FlutterWindow::OnCreate() {
         const auto* arguments = std::get_if<EncodableMap>(call.arguments());
 
         if (call.method_name() == "getStatus") {
+          const std::string frontmost_app = ForegroundWindowApp();
+          const double idle_seconds = UserIdleSeconds();
           EncodableMap permissions;
           permissions[EncodableValue("screenCapture")] = EncodableValue("available");
           permissions[EncodableValue("inputControl")] = EncodableValue("available");
@@ -339,6 +405,15 @@ bool FlutterWindow::OnCreate() {
           status[EncodableValue("displays")] = EncodableValue(DisplaysToEncodable());
           status[EncodableValue("activeDisplayId")] =
               EncodableValue(WideToUtf8(ResolveDisplay("").id));
+          status[EncodableValue("sessionLocked")] =
+              EncodableValue(IsWorkstationLocked());
+          status[EncodableValue("idleSeconds")] = EncodableValue(idle_seconds);
+          status[EncodableValue("userIdle")] =
+              EncodableValue(idle_seconds >= 300.0);
+          if (!frontmost_app.empty()) {
+            status[EncodableValue("frontmostApp")] =
+                EncodableValue(frontmost_app);
+          }
           const std::string window_title = ForegroundWindowTitle();
           if (!window_title.empty()) {
             status[EncodableValue("frontmostWindowTitle")] =

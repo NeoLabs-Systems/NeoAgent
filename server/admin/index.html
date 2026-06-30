@@ -7,10 +7,7 @@
   <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin/admin.css">
   <script>
-    // Set theme before first paint to avoid a flash of the wrong palette.
-    try {
-      document.documentElement.setAttribute('data-theme', localStorage.getItem('admin-theme') || 'dark');
-    } catch (_) { document.documentElement.setAttribute('data-theme', 'dark'); }
+    document.documentElement.setAttribute('data-theme', window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   </script>
   <style>
     /* ── Layout ────────────────────────────────────────────────────── */
@@ -66,6 +63,7 @@
       width: 100%;
       text-align: left;
       text-decoration: none;
+      position: relative;
     }
 
     .nav-item:hover { background: var(--row-hover); color: var(--text); }
@@ -85,7 +83,10 @@
     .nav-item.active svg { opacity: 1; }
 
     .nav-badge {
-      margin-left: auto;
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
       min-width: 18px;
       padding: 1px 6px;
       border-radius: 999px;
@@ -838,6 +839,27 @@
       font-size: 12px;
       flex-shrink: 0;
     }
+
+    /* ── Integration sections ──────────────────────────────────────── */
+    .integration-section {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+
+    .integration-section:last-child { border-bottom: none; }
+
+    .integration-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .integration-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -874,7 +896,7 @@
 
       <button class="nav-item" data-page="issues" onclick="showPage('issues',this)">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
         </svg>
         Issues
         <span class="nav-badge" id="issues-badge" hidden>0</span>
@@ -901,6 +923,14 @@
           <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
         </svg>
         Users
+      </button>
+
+      <button class="nav-item" id="nav-billing" data-page="billing" onclick="showPage('billing',this)" style="display:none">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+          <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+        </svg>
+        Billing
       </button>
 
       <button class="nav-item" data-page="sql" onclick="showPage('sql',this)">
@@ -933,6 +963,13 @@
         Models
       </button>
 
+      <button class="nav-item" data-page="integrations" onclick="showPage('integrations',this)">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/>
+        </svg>
+        Integrations
+      </button>
+
       <button class="nav-item" data-page="config" onclick="showPage('config',this)">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
@@ -942,12 +979,6 @@
     </nav>
 
     <div class="sidebar-footer">
-      <button class="nav-item" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark theme">
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
-        </svg>
-        <span id="theme-toggle-label">Light mode</span>
-      </button>
       <button class="nav-item btn-danger" onclick="signOut()">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
@@ -1178,15 +1209,53 @@
       </div>
     </section>
 
+    <!-- Integrations -->
+    <section id="page-integrations" class="page" aria-label="Integrations">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Integrations</h1>
+          <p class="page-subtitle">OAuth client credentials for official integrations — saved to .env, applied immediately</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card" style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:0;">OAuth Integrations</div>
+            <button class="btn btn-primary" onclick="saveIntegrationsConfig(this)">Save All</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;line-height:1.5;">
+            Redirect URIs should match <code style="font-family:var(--font-mono);font-size:11px;background:var(--bg-secondary);padding:1px 5px;border-radius:4px;color:var(--accent);">&lt;PUBLIC_URL&gt;/api/integrations/oauth/callback</code>
+          </div>
+          <div id="integrations-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Deepgram Configuration</div>
+          <div id="deepgram-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Configuration -->
     <section id="page-config" class="page" aria-label="Configuration">
       <div class="page-header">
         <div>
           <h1 class="page-title">Configuration</h1>
-          <p class="page-subtitle">Current environment settings (non-secret values only)</p>
+          <p class="page-subtitle">Server and runtime settings — saved to .env, applied immediately</p>
         </div>
       </div>
       <div class="content">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">General Settings</div>
+          <div id="general-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">VM Runtime</div>
+          <div id="vm-config-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">Stripe / Billing</div>
+          <div id="billing-setup-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
         <div class="card" style="margin-bottom:20px;">
           <div class="card-title">Service Email</div>
           <div id="email-config-content"><div class="empty"><span class="spinner"></span></div></div>
@@ -1198,6 +1267,39 @@
       </div>
     </section>
 
+    <section id="page-billing" class="page" aria-label="Billing">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Billing</h1>
+          <p class="page-subtitle">Subscription plans and user billing management</p>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-title">Subscription Plans</div>
+          <div style="margin-bottom:12px">
+            <button class="btn btn-primary" onclick="billingShowNewPlanForm()">+ New Plan</button>
+          </div>
+          <div id="billing-plans-content"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">User Subscriptions</div>
+          <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+            <select id="billing-sub-status-filter" onchange="loadBillingSubscriptions()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text)">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="trialing">Trialing</option>
+              <option value="past_due">Past due</option>
+              <option value="canceled">Canceled</option>
+            </select>
+            <button class="btn" onclick="loadBillingSubscriptions()">Refresh</button>
+          </div>
+          <div id="billing-subs-content"><div class="empty"><span class="spinner"></span></div></div>
+          <div id="billing-subs-pagination" style="margin-top:12px;display:flex;gap:8px;align-items:center"></div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <script src="/admin/admin.js"></script>
@@ -1205,5 +1307,6 @@
   <script src="/admin/users.js"></script>
   <script src="/admin/sql.js"></script>
   <script src="/admin/access.js"></script>
+  <script src="/admin/billing.js"></script>
 </body>
 </html>

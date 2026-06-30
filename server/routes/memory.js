@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
+const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
@@ -317,7 +318,6 @@ router.post('/memories', async (req, res) => {
 // Update a memory
 router.put('/memories/:id', async (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const db = require('../db/database');
   // Verify ownership before updating
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
@@ -335,7 +335,6 @@ router.put('/memories/:id', async (req, res) => {
 // Delete a memory
 router.delete('/memories/:id', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const db = require('../db/database');
   // Verify ownership before deleting
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
@@ -346,7 +345,6 @@ router.delete('/memories/:id', (req, res) => {
 
 router.post('/memories/bulk-delete', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const db = require('../db/database');
   const ids = normalizeMemoryIds(req.body?.ids);
   if (!ids.length) {
     return res.status(400).json({ error: 'ids is required' });
@@ -366,7 +364,6 @@ router.post('/memories/bulk-delete', (req, res) => {
 
 router.post('/memories/bulk-archive', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const db = require('../db/database');
   const ids = normalizeMemoryIds(req.body?.ids);
   const archived = req.body?.archived !== false;
   if (!ids.length) {

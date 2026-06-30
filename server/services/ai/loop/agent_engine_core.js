@@ -21,7 +21,9 @@ const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { runConversation } = require('./conversation_loop');
 const {
+  buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
+  normalizeChurnAssessment,
   normalizeCompletionDecision,
   resolveRunGoalContext,
 } = require('./completion_judge');
@@ -245,6 +247,13 @@ class AgentEngine {
     const { MemoryManager } = require('../../memory/manager');
     const memoryManager = this.memoryManager || new MemoryManager();
     const promptSections = await buildSystemPromptSections(userId, context, memoryManager);
+    const timelineService = context.timelineService || this.app?.locals?.timelineService || null;
+    const timelinePrompt = timelineService?.buildPromptContext?.(userId, {
+      agentId: context.agentId || null,
+      query: context.rawUserMessage || context.userMessage || '',
+      limit: 6,
+      sources: ['screen', 'tasks', 'runs'],
+    }) || '';
     const skillRunner = context.skillRunner || this.skillRunner || null;
     const skillsPrompt = skillRunner?.getSkillsForPrompt?.({
       userId,
@@ -254,7 +263,7 @@ class AgentEngine {
     }) || '';
     return {
       stable: [promptSections.stable, skillsPrompt].filter(Boolean).join('\n\n'),
-      dynamic: promptSections.dynamic,
+      dynamic: [promptSections.dynamic, timelinePrompt].filter(Boolean).join('\n\n'),
     };
   }
 
@@ -809,6 +818,46 @@ class AgentEngine {
       reason: judged.decision.reason,
       usage: judged.usage,
       raw: judged.raw,
+    };
+  }
+
+  async assessChurnState({
+    provider,
+    providerName,
+    model,
+    messages,
+    analysis,
+    plan,
+    toolExecutions,
+    readOnlyCount,
+    alreadyRead,
+    iteration,
+    options,
+  }) {
+    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
+    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
+    const response = await this.requestStructuredJson({
+      provider,
+      providerName,
+      model,
+      messages,
+      prompt: buildChurnAssessmentPrompt({
+        readOnlyCount,
+        alreadyRead,
+        goalContext,
+        toolExecutions,
+        iteration,
+      }),
+      maxTokens: 200,
+      normalize: normalizeChurnAssessment,
+      fallback: { assessment: 'churn', reason: 'churn assessment unavailable' },
+      reasoningEffort: this.getReasoningEffort(providerName, options),
+      telemetry: options,
+      phase: 'churn_assessment',
+    });
+    return {
+      assessment: response.value,
+      usage: response.usage,
     };
   }
 

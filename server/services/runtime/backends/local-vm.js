@@ -131,32 +131,50 @@ class RuntimeHttpClient {
   }
 
   async requestStream(method, pathname, stream, options = {}) {
-    const response = await fetch(`${this.baseUrl}${pathname}`, {
-      method,
-      headers: {
-        ...(options.contentType ? { 'content-type': options.contentType } : {}),
-        ...(options.contentLength != null ? { 'content-length': String(options.contentLength) } : {}),
-        ...(options.headers || {}),
-        ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-      },
-      body: stream,
-      duplex: 'half',
-    });
+    const retryCount = Math.max(0, Number(options.retryCount ?? 6));
+    const retryDelayMs = Math.max(100, Number(options.retryDelayMs ?? 1000));
+    let lastError = null;
 
-    if (response.ok && typeof this.onActivity === 'function') {
-      this.onActivity();
+    for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+      try {
+        const response = await fetch(`${this.baseUrl}${pathname}`, {
+          method,
+          headers: {
+            ...(options.contentType ? { 'content-type': options.contentType } : {}),
+            ...(options.contentLength != null ? { 'content-length': String(options.contentLength) } : {}),
+            ...(options.headers || {}),
+            ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+          },
+          body: stream,
+          duplex: 'half',
+        });
+
+        if (response.ok && typeof this.onActivity === 'function') {
+          this.onActivity();
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : { text: await response.text().catch(() => '') };
+
+        if (!response.ok) {
+          const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
+          throw new Error(errorMessage);
+        }
+        return payload;
+      } catch (error) {
+        lastError = error;
+        const message = String(error?.message || error);
+        const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|timed out/i.test(message);
+        if (!retryable || attempt === retryCount) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json')
-      ? await response.json().catch(() => ({}))
-      : { text: await response.text().catch(() => '') };
-
-    if (!response.ok) {
-      const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
-      throw new Error(errorMessage);
-    }
-    return payload;
+    throw lastError || new Error('Runtime request failed.');
   }
 }
 

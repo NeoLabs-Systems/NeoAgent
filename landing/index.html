@@ -640,7 +640,7 @@ p { margin: 0; text-wrap: pretty; }
 .hero-note { margin-top: 16px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); letter-spacing: 0.02em; }
 
 /* ---------- orbit system ---------- */
-.orbit-stage { position: relative; width: min(460px, 86vw); aspect-ratio: 1; margin-inline: auto; }
+.orbit-stage { position: relative; width: min(460px, 86vw, 100%); aspect-ratio: 1; margin-inline: auto; }
 .orbit-glow { position: absolute; inset: 16%; border-radius: 50%; background: radial-gradient(circle, rgba(199,154,82,0.28), transparent 65%); filter: blur(22px); animation: corepulse 7s ease-in-out infinite; }
 @media (prefers-color-scheme: dark) { .orbit-glow { background: radial-gradient(circle, rgba(228,197,141,0.22), transparent 65%); } }
 @keyframes corepulse { 0%,100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.07); } }
@@ -830,7 +830,7 @@ p { margin: 0; text-wrap: pretty; }
   .hero-actions { flex-direction: column; width: 100%; }
   .hero-actions .btn { width: 100%; justify-content: center; }
   .final .hero-actions .btn { width: auto; }
-  .orbit-stage { width: min(320px, 84vw); }
+  .orbit-stage { width: min(320px, 78vw); }
   .frame-bar .url { max-width: 70%; }
   .footer-inner { flex-direction: column; gap: 22px; }
   .footer-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -848,7 +848,7 @@ p { margin: 0; text-wrap: pretty; }
   .logo .ri { transform-box: fill-box; transform-origin: center; }
   .logo .ri-a { animation: spinA 18s linear infinite; }
   .logo .ri-b { animation: spinB 26s linear infinite; }
-  .logo .nd  { animation: nd 14s linear infinite; transform-box: fill-box; transform-origin: 50px 50px; }
+  .logo .nd  { animation: nd 14s linear infinite; transform-box: view-box; transform-origin: 50px 50px; }
   @keyframes spinA { to { transform: rotate(360deg); } }
   @keyframes spinB { to { transform: rotate(-360deg); } }
   @keyframes nd    { to { transform: rotate(360deg); } }
@@ -910,7 +910,7 @@ p { margin: 0; text-wrap: pretty; }
   <div class="wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <div class="pill"><span class="tag">New</span> <b>NeoAgent is now in private beta</b></div>
+        <div class="pill"><span class="tag">New</span> <b>NeoAgent is now in beta</b></div>
         <h1>
           <span class="h1-line"><span class="w" style="--i:0">One</span> <span class="w" style="--i:1">agent</span> <span class="w" style="--i:2">for</span> <span class="w" style="--i:3">your</span></span>
           <span class="h1-line"><span class="w" style="--i:4"><em>whole</em></span> <span class="w" style="--i:5"><em>digital</em></span> <span class="w" style="--i:6"><em>life</em></span></span>
@@ -1194,7 +1194,7 @@ p { margin: 0; text-wrap: pretty; }
 <section class="section-tight" id="cta" data-screen-label="cta">
   <div class="wrap">
     <div class="final reveal">
-      <span class="eyebrow" style="display:block;margin-bottom:20px;">Private beta · Limited spots</span>
+      <span class="eyebrow" style="display:block;margin-bottom:20px;">Beta · Limited spots</span>
       <h2>The agent that just <em>handles it.</em></h2>
       <p>Be first to put NeoAgent to work across your devices, channels, and life. We'll send your invite as spots open up.</p>
       <div class="hero-actions" style="justify-content:center;">

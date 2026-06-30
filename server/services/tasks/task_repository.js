@@ -3,6 +3,13 @@
 const db = require('../../db/database');
 
 class TaskRepository {
+  normalizeTriggerTimestamp(value) {
+    const text = String(value || '').trim();
+    if (!text) return new Date().toISOString();
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  }
+
   createTask(userId, normalizedTask) {
     const result = db.prepare(
       `INSERT INTO scheduled_tasks (
@@ -124,24 +131,37 @@ class TaskRepository {
     ).all(userId, agentId);
   }
 
-  markTaskTriggered(taskId, userId, fingerprint) {
+  markTaskTriggered(taskId, userId, fingerprint, triggeredAt = null) {
     db.prepare(
       `UPDATE scheduled_tasks
-       SET last_triggered_at = datetime('now'), last_trigger_fingerprint = ?
+       SET last_triggered_at = ?, last_trigger_fingerprint = ?
        WHERE id = ? AND user_id = ?`
-    ).run(fingerprint, taskId, userId);
+    ).run(this.normalizeTriggerTimestamp(triggeredAt), fingerprint, taskId, userId);
   }
 
-  markTaskTriggerCheckpoint(taskId, fingerprint, userId) {
+  markTaskTriggerCheckpoint(taskId, fingerprint, userId, triggeredAt = null) {
     db.prepare(
       `UPDATE scheduled_tasks
-       SET last_triggered_at = datetime('now'), last_trigger_fingerprint = ?
+       SET last_triggered_at = ?, last_trigger_fingerprint = ?
        WHERE id = ? AND user_id = ?`
-    ).run(fingerprint, taskId, userId);
+    ).run(this.normalizeTriggerTimestamp(triggeredAt), fingerprint, taskId, userId);
   }
 
   markTaskRun(taskId, userId) {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ? AND user_id = ?').run(taskId, userId);
+  }
+
+  getTaskLoopUsageToday(taskId, userId) {
+    return db.prepare(
+      `SELECT
+         COUNT(*) AS runCount,
+         COALESCE(SUM(total_tokens), 0) AS totalTokens
+       FROM agent_runs
+       WHERE user_id = ?
+         AND json_valid(metadata_json)
+         AND CAST(json_extract(metadata_json, '$.taskId') AS TEXT) = CAST(? AS TEXT)
+         AND date(created_at) = date('now')`
+    ).get(userId, String(taskId)) || { runCount: 0, totalTokens: 0 };
   }
 
   markAgentRunFailed(runId, userId, error) {

@@ -32,10 +32,7 @@ const { registerToolSecurityHooks } = require('./security/tool_security_hook');
 const { BrowserExtensionRegistry } = require('./browser/extension/registry');
 const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
-const {
-  ScreenRecorder,
-  hasOpenConnectionForUser,
-} = require('./desktop/screenRecorder');
+const { TimelineService } = require('./timeline/service');
 const { WearableService } = require('./wearable/service');
 const { getRuntimeValidation } = require('./runtime/validation');
 const {
@@ -94,6 +91,16 @@ function createDesktopCompanionRegistry(app) {
   );
   logServiceReady('Desktop companion registry ready');
   return registry;
+}
+
+function createTimelineService(app, io) {
+  const timelineService = registerLocal(
+    app,
+    'timelineService',
+    new TimelineService({ io }),
+  );
+  logServiceReady('Timeline service ready');
+  return timelineService;
 }
 
 function createMemoryManager(app) {
@@ -406,30 +413,6 @@ function createWearableService(app) {
   return wearableService;
 }
 
-function createScreenRecorder(app) {
-  const hasActiveCaptureSessionForUser = (userId) => {
-    return (
-      hasOpenConnectionForUser(app.locals.desktopCompanionRegistry, userId)
-      || hasOpenConnectionForUser(app.locals.browserExtensionRegistry, userId)
-    );
-  };
-
-  const screenRecorder = registerLocal(
-    app,
-    'screenRecorder',
-    new ScreenRecorder({ hasActiveCaptureSessionForUser }),
-  );
-  const status = screenRecorder.start();
-  if (status.state === 'running') {
-    logServiceReady(
-      `Screen recorder started for user ${status.ownerUserId} (${status.intervalMs}ms interval)`,
-    );
-  } else {
-    logServiceReady(`Screen recorder ${status.state}: ${status.reason}`);
-  }
-  return screenRecorder;
-}
-
 function restoreMessagingConnections(messagingManager) {
   void runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
@@ -486,6 +469,7 @@ async function startServices(app, io) {
     createWorkspaceManager(app);
     createBrowserExtensionRegistry(app);
     createDesktopCompanionRegistry(app);
+    createTimelineService(app, io);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);
@@ -531,7 +515,6 @@ async function startServices(app, io) {
     createSocialVideoService(app);
     createWidgetService(app);
     createWearableService(app);
-    createScreenRecorder(app);
 
     restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
@@ -559,6 +542,17 @@ async function startServices(app, io) {
     });
 
     resumePendingRecordingSessions(recordingManager);
+
+    // Sync billing rate limits for all active subscribers in case any
+    // Stripe webhooks were delivered while the server was offline.
+    try {
+      const { isBillingEnabled } = require('./billing/config');
+      if (isBillingEnabled()) {
+        require('./billing/subscriptions').syncAllSubscriberRateLimits();
+      }
+    } catch {
+      // Best-effort; never block startup.
+    }
 
     console.log('All services initialized');
   } catch (err) {
@@ -697,19 +691,6 @@ async function stopServices(app) {
           }),
       );
     }
-  }
-
-  if (app.locals.screenRecorder) {
-    tasks.push(
-      Promise.resolve()
-        .then(() => app.locals.screenRecorder.stop())
-        .then((status) => {
-          logServiceReady(`Screen recorder shutdown complete (${status.state})`);
-        })
-        .catch((err) => {
-          console.error('[ScreenRecorder] Stop error:', getErrorMessage(err));
-        }),
-    );
   }
 
   if (app.locals.browserExtensionRegistry) {

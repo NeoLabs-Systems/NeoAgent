@@ -43,6 +43,62 @@ function getChunkMetadata(req) {
   };
 }
 
+const WAV_HEADER_BYTES = 44;
+
+// Reads the canonical 44-byte WAV header our recorders emit. Returns the audio
+// format fields, or null when the file is not a canonical WAV (in which case
+// the caller streams the chunks unmodified instead of rebuilding a WAV).
+async function readCanonicalWavHeader(filePath) {
+  let handle;
+  try {
+    handle = await fs.promises.open(filePath, 'r');
+    const { bytesRead, buffer } = await handle.read(
+      Buffer.alloc(WAV_HEADER_BYTES),
+      0,
+      WAV_HEADER_BYTES,
+      0,
+    );
+    if (
+      bytesRead < WAV_HEADER_BYTES
+      || buffer.toString('ascii', 0, 4) !== 'RIFF'
+      || buffer.toString('ascii', 8, 12) !== 'WAVE'
+      || buffer.toString('ascii', 36, 40) !== 'data'
+    ) {
+      return null;
+    }
+    return {
+      audioFormat: buffer.readUInt16LE(20),
+      channelCount: buffer.readUInt16LE(22),
+      sampleRate: buffer.readUInt32LE(24),
+      bitsPerSample: buffer.readUInt16LE(34),
+    };
+  } catch {
+    return null;
+  } finally {
+    await handle?.close();
+  }
+}
+
+function buildWavHeader({ audioFormat, channelCount, sampleRate, bitsPerSample }, dataLength) {
+  const blockAlign = channelCount * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const header = Buffer.alloc(WAV_HEADER_BYTES);
+  header.write('RIFF', 0, 4, 'ascii');
+  header.writeUInt32LE(36 + dataLength, 4);
+  header.write('WAVE', 8, 4, 'ascii');
+  header.write('fmt ', 12, 4, 'ascii');
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(audioFormat, 20);
+  header.writeUInt16LE(channelCount, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36, 4, 'ascii');
+  header.writeUInt32LE(dataLength, 40);
+  return header;
+}
+
 function buildInlineFilename(sourceKey) {
   const original = `${String(sourceKey || 'recording').normalize('NFKC')}.audio`
     .replace(/[\r\n]+/g, ' ')
@@ -136,10 +192,7 @@ router.get('/:sessionId/audio/:sourceKey', async (req, res) => {
       });
     }
 
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Disposition', buildInlineFilename(source.source_key));
-
+    const readableChunks = [];
     for (const chunk of chunks) {
       const filePath = chunk.file_path;
       if (!filePath) {
@@ -147,10 +200,47 @@ router.get('/:sessionId/audio/:sourceKey', async (req, res) => {
       }
       try {
         await fs.promises.access(filePath, fs.constants.R_OK);
+        readableChunks.push(chunk);
       } catch {
-        continue;
+        // Skip chunk files that are missing or unreadable on disk.
       }
-      const stream = fs.createReadStream(filePath);
+    }
+    if (readableChunks.length === 0) {
+      return res.status(404).json({ error: 'No audio chunks available.' });
+    }
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Disposition', buildInlineFilename(source.source_key));
+
+    // Each WAV chunk is a self-contained file with its own 44-byte RIFF header
+    // whose declared length only covers that chunk. Streaming them back-to-back
+    // produces a file most players stop reading after the first chunk. Rebuild
+    // one continuous WAV: a single header sized for the combined PCM, followed
+    // by the raw sample data from every chunk. Non-WAV containers (e.g. WebM)
+    // concatenate into a valid stream as-is.
+    const wavFormat = /wav/i.test(mimeType)
+      ? await readCanonicalWavHeader(readableChunks[0].file_path)
+      : null;
+
+    if (wavFormat) {
+      let totalPcmBytes = 0;
+      for (const chunk of readableChunks) {
+        const { size } = await fs.promises.stat(chunk.file_path);
+        totalPcmBytes += Math.max(0, size - WAV_HEADER_BYTES);
+      }
+      res.write(buildWavHeader(wavFormat, totalPcmBytes));
+      for (const chunk of readableChunks) {
+        const stream = fs.createReadStream(chunk.file_path, { start: WAV_HEADER_BYTES });
+        stream.pipe(res, { end: false });
+        await finished(stream);
+      }
+      res.end();
+      return;
+    }
+
+    for (const chunk of readableChunks) {
+      const stream = fs.createReadStream(chunk.file_path);
       stream.pipe(res, { end: false });
       await finished(stream);
     }

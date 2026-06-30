@@ -16,7 +16,7 @@ router.post('/geofence', async (req, res) => {
     const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
     if (!userRow) return res.status(401).json({ error: 'Unauthorized' });
 
-    console.log(`[Triggers] Geofence entered: ${label} by user ${req.session.userId}`);
+    console.log(`[Triggers] Geofence event for user ${req.session.userId}`);
 
     res.json({ success: true, message: 'Geofence trigger processed' });
   } catch (err) {
@@ -51,7 +51,7 @@ router.post('/notification', async (req, res) => {
     const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
     if (!userRow) return res.status(401).json({ error: 'Unauthorized' });
 
-    console.log(`[Triggers] Notification received: ${app_package} - ${title} for user ${req.session.userId}`);
+    console.log(`[Triggers] Notification event for user ${req.session.userId}`);
 
     db.prepare(`
       INSERT INTO notification_history (user_id, app_package, title, body, action_taken)

@@ -31,9 +31,9 @@ async function saveDefaultRateLimits(btn) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rate_limit_4h: parse(v4h), rate_limit_weekly: parse(vw) }),
     });
-    if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error || 'Failed'); }
+    if (!res.ok) { const b = await res.json().catch(() => ({})); showToast(b.error || 'Failed', 'error'); }
     else { btn.textContent = 'Saved!'; setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000); return; }
-  } catch (_) { alert('Network error'); }
+  } catch (_) { showToast('Network error', 'error'); }
   btn.disabled = false;
   btn.textContent = orig;
 }
@@ -132,7 +132,7 @@ function renderUsersTable(el, users) {
 }
 
 async function forceLogout(id, username, btn) {
-  if (!confirm(`Force logout ${username}?\n\nThis will revoke all active sessions. They can log back in.`)) return;
+  if (!await showConfirmModal({ title: `Force logout @${esc(username)}?`, body: 'This will revoke all active sessions. They can log back in.', confirmLabel: 'Force Logout', confirmClass: 'btn-danger' })) return;
   btn.disabled = true;
   try {
     const res = await api(`/admin/api/users/${id}/sessions`, { method: 'DELETE' });
@@ -141,22 +141,22 @@ async function forceLogout(id, username, btn) {
       setTimeout(loadUsers, 800);
     } else {
       const b = await res.json().catch(() => ({}));
-      alert(b.error || 'Failed');
+      showToast(b.error || 'Failed', 'error');
       btn.disabled = false;
     }
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
     btn.disabled = false;
   }
 }
 
 async function deleteUser(id, displayName, btn) {
-  if (!confirm(
-    `⚠ GDPR Erasure — permanently delete "${displayName}"?\n\n` +
-    'This will delete the account and ALL associated data:\n' +
-    '• Agent runs, steps, and messages\n• Memories and conversations\n• Integrations and platform connections\n• Artifacts and files on disk\n• All sessions\n\n' +
-    'This action CANNOT be undone.'
-  )) return;
+  if (!await showConfirmModal({
+    title: `Delete "${esc(displayName)}"?`,
+    body: `<strong>GDPR Erasure</strong> — permanently deletes the account and <strong>all</strong> associated data:<br><br>• Agent runs, steps, and messages<br>• Memories and conversations<br>• Integrations and platform connections<br>• Artifacts and files on disk<br>• All sessions<br><br><span style="color:var(--danger)">This action cannot be undone.</span>`,
+    confirmLabel: 'Delete User',
+    confirmClass: 'btn-danger',
+  })) return;
   btn.disabled = true;
   btn.textContent = 'Deleting…';
   try {
@@ -170,12 +170,12 @@ async function deleteUser(id, displayName, btn) {
       }
     } else {
       const b = await res.json().catch(() => ({}));
-      alert(b.error || 'Failed to delete user');
+      showToast(b.error || 'Failed to delete user', 'error');
       btn.disabled = false;
       btn.textContent = 'Delete';
     }
   } catch (err) {
-    if (err.message !== 'unauthorized') alert('Network error');
+    if (err.message !== 'unauthorized') showToast('Network error', 'error');
     btn.disabled = false;
     btn.textContent = 'Delete';
   }
@@ -266,12 +266,12 @@ async function editRateLimits(id, username) {
         overlay.remove();
         await fetchUsers(document.getElementById('user-search')?.value?.trim() || '');
       } catch (_) {
-        alert('Failed to save rate limits');
+        showToast('Failed to save rate limits', 'error');
         bSave.disabled = false;
         bSave.textContent = 'Save';
       }
     };
   } catch (_) {
-    alert('Failed to fetch rate limits');
+    showToast('Failed to fetch rate limits', 'error');
   }
 }

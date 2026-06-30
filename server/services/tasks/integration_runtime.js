@@ -5,6 +5,7 @@ const { normalizeJsonObject } = require('./utils');
 
 const POLLED_TRIGGER_TYPES = Object.freeze([
   'gmail_message_received',
+  'neomail_email_received',
   'outlook_email_received',
   'slack_message_received',
   'teams_message_received',
@@ -13,10 +14,19 @@ const POLLED_TRIGGER_TYPES = Object.freeze([
 ]);
 
 function sortByTimestamp(left, right) {
-  return String(left.timestamp).localeCompare(String(right.timestamp));
+  const timeOrder = String(left.timestamp).localeCompare(String(right.timestamp));
+  if (timeOrder !== 0) return timeOrder;
+  return String(left.fingerprint).localeCompare(String(right.fingerprint));
 }
 
-async function fetchTriggerRows({ integrationManager, userId, agentId, triggerType, config }) {
+async function fetchTriggerRows({
+  integrationManager,
+  userId,
+  agentId,
+  triggerType,
+  config,
+  lastTriggeredAt,
+}) {
   if (!integrationManager) return [];
   const scopedAgentId = resolveAgentId(userId, agentId);
   const connectionArg = {
@@ -78,6 +88,53 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
         },
       }))
       .sort(sortByTimestamp);
+  }
+
+  if (triggerType === 'neomail_email_received') {
+    const provider = integrationManager.getProvider('neomail');
+    if (!provider || typeof provider.fetchTriggerEvents !== 'function') {
+      return [];
+    }
+    const connectionId = Number(config.connectionId);
+    if (!Number.isInteger(connectionId) || connectionId <= 0) {
+      return [];
+    }
+    const connection = integrationManager.getConnectionById(
+      userId,
+      connectionId,
+      scopedAgentId,
+    );
+    if (
+      !connection ||
+      String(connection.provider_key || '').trim() !== 'neomail' ||
+      String(connection.app_key || '').trim() !== 'mailbox' ||
+      String(connection.status || '').trim() !== 'connected'
+    ) {
+      return [];
+    }
+    const result = await provider.fetchTriggerEvents({
+      connection,
+      config,
+      since: lastTriggeredAt,
+      limit: 100,
+    });
+    if (result?.credentials) {
+      const existingCredentials = integrationManager.parseCredentials(
+        connection.credentials_json,
+      );
+      const mergedCredentials = integrationManager.mergeUpdatedCredentials(
+        existingCredentials,
+        result.credentials,
+      );
+      integrationManager.persistSharedCredentials(
+        userId,
+        scopedAgentId,
+        'neomail',
+        connection.account_email,
+        mergedCredentials,
+      );
+    }
+    return Array.isArray(result?.rows) ? result.rows.slice().sort(sortByTimestamp) : [];
   }
 
   if (triggerType === 'slack_message_received') {
@@ -262,13 +319,20 @@ async function pollIntegrationTask(runtime, task) {
     agentId: task.agent_id,
     triggerType: task.trigger_type,
     config,
+    lastTriggeredAt: task.last_triggered_at,
   });
   if (!rows.length) return;
 
   const existingFingerprint = String(task.last_trigger_fingerprint || '');
   const latestFingerprint = rows[rows.length - 1].fingerprint;
+  const latestTimestamp = rows[rows.length - 1].timestamp;
   if (!existingFingerprint) {
-    runtime.taskRepository.markTaskTriggerCheckpoint(task.id, latestFingerprint, task.user_id);
+    runtime.taskRepository.markTaskTriggerCheckpoint(
+      task.id,
+      latestFingerprint,
+      task.user_id,
+      latestTimestamp,
+    );
     return;
   }
 

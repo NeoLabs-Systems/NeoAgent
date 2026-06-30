@@ -1,5 +1,13 @@
 'use strict';
 
+function isHtmlContent(source) {
+  const ct = (source.headers?.['content-type'] || '').toLowerCase();
+  const body = String(source.body || '');
+  return ct.includes('text/html')
+    || /^\s*<!doctype\s+html/i.test(body)
+    || /^\s*<html[\s>]/i.test(body);
+}
+
 function clampText(value, maxLength = 2000) {
   const text = String(value || '').trim();
   if (text.length <= maxLength) return text;
@@ -87,16 +95,28 @@ function compactTextPayload(input, options = {}) {
 
 function compactHttpResult(result) {
   const source = result && typeof result === 'object' ? result : {};
-  const compactedBody = compactTextPayload(source.body || '', {
-    maxChars: 2200,
-    maxLines: 40,
-  });
+  let body = source.body || '';
+  const extraStrategies = [];
+
+  if (isHtmlContent(source)) {
+    try {
+      const { extractForLLM } = require('../browser/contentExtractor');
+      const extraction = extractForLLM(body, { url: source.url });
+      body = extraction.markdown;
+      extraStrategies.push('html_extraction', ...extraction.strategies);
+    } catch { /* fall through to regex pipeline */ }
+  }
+
+  const compactedBody = compactTextPayload(body, { maxChars: 2200, maxLines: 40 });
   return {
     result: {
       ...source,
       body: compactedBody.text,
     },
-    metrics: compactedBody.metrics,
+    metrics: {
+      ...compactedBody.metrics,
+      strategies: [...extraStrategies, ...compactedBody.metrics.strategies],
+    },
   };
 }
 

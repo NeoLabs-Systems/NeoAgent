@@ -78,8 +78,10 @@ function registerStaticRoutes(app) {
   app.get(/^\/app(\/.*)?$/, serveFlutterApp);
 
   // Landing page at /
-  app.use(express.static(LANDING_DIR));
-  app.get('/', (req, res) => res.sendFile(path.join(LANDING_DIR, 'index.html')));
+  if (fs.existsSync(path.join(LANDING_DIR, 'index.html'))) {
+    app.use(express.static(LANDING_DIR));
+    app.get('/', (req, res) => res.sendFile(path.join(LANDING_DIR, 'index.html')));
+  }
 }
 
 function serveFlutterApp(req, res) {

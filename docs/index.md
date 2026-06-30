@@ -45,6 +45,7 @@ Continue with:
 | [Recordings and health](recordings-and-health.md) | Audio transcription and Health Connect |
 | [Skills and MCP](skills.md) | Reusable instructions and external tool servers |
 | [Operations](operations.md) | Updates, backups, logs, and recovery |
+| [Billing](billing.md) | Stripe subscriptions, plans, trials, and webhooks |
 | [Configuration](configuration.md) | Environment and runtime reference |
 | [Why NeoAgent](why-neoagent.md) | Factual comparison with OpenClaw and Hermes |
 

@@ -51,13 +51,6 @@ function initializeDatabase(db, dbPath) {
   return db;
 }
 
-function sleepSync(ms) {
-  if (ms <= 0) return;
-  const buffer = new SharedArrayBuffer(4);
-  const view = new Int32Array(buffer);
-  Atomics.wait(view, 0, 0, ms);
-}
-
 function isSqliteBusyError(error) {
   return Boolean(
     error &&
@@ -69,7 +62,9 @@ function isSqliteBusyError(error) {
   );
 }
 
-function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite operation' } = {}) {
+function runWithBusyRetry(action, { attempts = 3, label = 'SQLite operation' } = {}) {
+  // busy_timeout pragma already handles waiting at the SQLite layer;
+  // this loop is a last-resort failsafe without adding extra main-thread blocking.
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -80,9 +75,8 @@ function runWithBusyRetry(action, { attempts = 5, delayMs = 50, label = 'SQLite 
         throw error;
       }
       console.warn(
-        `[Database] ${label} hit a busy lock on attempt ${attempt}/${attempts}; retrying in ${delayMs}ms.`,
+        `[Database] ${label} hit a busy lock on attempt ${attempt}/${attempts}; retrying.`,
       );
-      sleepSync(delayMs);
     }
   }
   throw lastError;
@@ -412,6 +406,9 @@ db.exec(`
     session_id INTEGER,
     last_connected_at TEXT,
     last_seen_at TEXT,
+    passive_history_enabled INTEGER DEFAULT 0,
+    passive_history_last_uploaded_at TEXT,
+    passive_history_last_error TEXT,
     revoked_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -509,7 +506,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_hash_status ON browser_extension_tokens(token_hash, status);
-  CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_messages_dedup ON messages(user_id, platform, platform_msg_id) WHERE platform_msg_id IS NOT NULL;
@@ -1026,9 +1022,32 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     timestamp TEXT DEFAULT (datetime('now')),
+    captured_at TEXT,
+    device_id TEXT,
+    device_label TEXT,
     app_name TEXT,
+    window_title TEXT,
     text_content TEXT,
+    ocr_engine TEXT,
+    ocr_confidence REAL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS timeline_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    agent_id TEXT,
+    source_kind TEXT NOT NULL,
+    event_kind TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT,
+    source_id TEXT,
+    group_key TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS notification_history (
@@ -1055,6 +1074,9 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_screen_history_user ON screen_history(user_id, timestamp DESC);
   CREATE INDEX IF NOT EXISTS idx_notification_history_user ON notification_history(user_id, timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_timeline_events_group ON timeline_events(user_id, source_kind, group_key, occurred_at DESC, id DESC);
 
   CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,
@@ -1320,14 +1342,24 @@ for (const col of [
   "ALTER TABLE desktop_companion_devices ADD COLUMN session_id INTEGER",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_connected_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_enabled INTEGER DEFAULT 0",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_uploaded_at TEXT",
+  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_error TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE screen_history ADD COLUMN captured_at TEXT",
+  "ALTER TABLE screen_history ADD COLUMN device_id TEXT",
+  "ALTER TABLE screen_history ADD COLUMN device_label TEXT",
+  "ALTER TABLE screen_history ADD COLUMN window_title TEXT",
+  "ALTER TABLE screen_history ADD COLUMN ocr_engine TEXT",
+  "ALTER TABLE screen_history ADD COLUMN ocr_confidence REAL",
   "ALTER TABLE memory_facts ADD COLUMN valid_from TEXT",
   "ALTER TABLE memory_facts ADD COLUMN valid_to TEXT",
   "ALTER TABLE memory_facts ADD COLUMN learned_at TEXT",
   "ALTER TABLE memory_facts ADD COLUMN invalidated_at TEXT",
   "ALTER TABLE memory_facts ADD COLUMN status TEXT DEFAULT 'active'",
   "ALTER TABLE memory_facts ADD COLUMN supersedes_fact_id TEXT",
+  "ALTER TABLE users ADD COLUMN billing_override_plan_id TEXT",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }
@@ -1340,6 +1372,30 @@ function tableHasColumn(tableName, columnName) {
       .some((column) => column.name === columnName);
   } catch {
     return false;
+  }
+}
+
+function createLegacyCompatibleIndexes() {
+  const deferredIndexes = [
+    {
+      table: 'desktop_companion_devices',
+      columns: ['user_id', 'status', 'created_at'],
+      sql: 'CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC)',
+    },
+    {
+      table: 'screen_history',
+      columns: ['user_id', 'device_id', 'captured_at'],
+      sql: 'CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC)',
+    },
+  ];
+
+  for (const { table, columns, sql } of deferredIndexes) {
+    if (!columns.every((column) => tableHasColumn(table, column))) continue;
+    try {
+      db.exec(sql);
+    } catch {
+      // Keep startup resilient for partially migrated local databases.
+    }
   }
 }
 
@@ -1879,7 +1935,7 @@ function migrateIntegrationProviderConfigsTable() {
 }
 
 function migrateIntegrationSecretStorage() {
-  try {
+  const migrate = db.transaction(() => {
     const connectionRows = db
       .prepare('SELECT id, credentials_json FROM integration_connections')
       .all();
@@ -1891,11 +1947,7 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateConnection.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
-  }
 
-  try {
     const stateRows = db
       .prepare('SELECT id, code_verifier FROM integration_oauth_states')
       .all();
@@ -1907,11 +1959,7 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateState.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
-  }
 
-  try {
     const providerRows = db
       .prepare('SELECT id, config_json FROM integration_provider_configs')
       .all();
@@ -1923,8 +1971,13 @@ function migrateIntegrationSecretStorage() {
       if (!current || isEncryptedValue(current)) continue;
       updateProviderConfig.run(encryptValue(current), row.id);
     }
-  } catch {
-    // Preserve startup even if a row cannot be re-encrypted.
+  });
+
+  try {
+    migrate();
+  } catch (err) {
+    console.error('[DB] Integration secret migration failed — startup cannot continue with partially migrated secrets:', err.message);
+    throw err;
   }
 }
 
@@ -1963,7 +2016,8 @@ function backfillTaskTriggers() {
       .all();
     const update = db.prepare(
       `UPDATE scheduled_tasks
-       SET trigger_type = ?, trigger_config = ?, execution_mode = COALESCE(NULLIF(execution_mode, ''), 'prompt')
+       SET trigger_type = ?, trigger_config = ?, cron_expression = ?, run_at = ?,
+           execution_mode = COALESCE(NULLIF(execution_mode, ''), 'prompt')
        WHERE id = ?`,
     );
     const tx = db.transaction(() => {
@@ -1975,17 +2029,39 @@ function backfillTaskTriggers() {
         } catch {
           parsedConfig = {};
         }
-        const hasConfig = parsedConfig && typeof parsedConfig === 'object' && !Array.isArray(parsedConfig) && Object.keys(parsedConfig).length > 0;
-        if (triggerType !== 'schedule' && hasConfig) {
-          update.run(triggerType, JSON.stringify(parsedConfig), row.id);
+        if (!parsedConfig || typeof parsedConfig !== 'object' || Array.isArray(parsedConfig)) {
+          parsedConfig = {};
+        }
+
+        // Non-schedule triggers keep their own config untouched.
+        if (triggerType !== 'schedule') {
+          if (Object.keys(parsedConfig).length > 0) {
+            update.run(triggerType, JSON.stringify(parsedConfig), row.cron_expression, row.run_at, row.id);
+          }
           continue;
         }
 
-        const mode = row.one_time ? 'one_time' : 'recurring';
-        const config = row.one_time
-          ? { mode, runAt: row.run_at || null }
-          : { mode, cronExpression: row.cron_expression || null };
-        update.run('schedule', JSON.stringify(config), row.id);
+        // Schedule triggers: reconcile the structured trigger_config with the
+        // legacy cron_expression/run_at columns WITHOUT discarding a value that
+        // exists in only one place. A prior version rebuilt trigger_config from
+        // the legacy columns unconditionally, which blanked cronExpression for
+        // tasks that carried it only in trigger_config and silently stopped them
+        // from ever being scheduled.
+        const cronExpression = String(parsedConfig.cronExpression || row.cron_expression || '').trim() || null;
+        const runAt = parsedConfig.runAt || row.run_at || null;
+        const isOneTime = cronExpression
+          ? false
+          : (Boolean(row.one_time) || parsedConfig.mode === 'one_time');
+        const config = isOneTime
+          ? { mode: 'one_time', runAt }
+          : { mode: 'recurring', cronExpression };
+        update.run(
+          'schedule',
+          JSON.stringify(config),
+          isOneTime ? null : cronExpression,
+          isOneTime ? runAt : null,
+          row.id,
+        );
       }
     });
     tx();
@@ -2000,7 +2076,34 @@ rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
+createLegacyCompatibleIndexes();
 createAgentScopedIndexes();
+
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS timeline_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      agent_id TEXT,
+      source_kind TEXT NOT NULL,
+      event_kind TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT,
+      source_id TEXT,
+      group_key TEXT,
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_timeline_events_group ON timeline_events(user_id, source_kind, group_key, occurred_at DESC, id DESC);
+  `);
+} catch {
+  // Keep startup resilient for partially migrated local databases.
+}
 migrateIntegrationSecretStorage();
 backfillVerifiedAccountEmails();
 rebuildFtsForAgents();

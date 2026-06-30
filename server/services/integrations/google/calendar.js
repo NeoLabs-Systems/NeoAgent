@@ -7,7 +7,7 @@ const calendarToolDefinitions = [
   {
     name: 'google_workspace_calendar_list_events',
     access: 'read',
-    description: 'List or search Google Calendar events for the connected account.',
+    description: 'List or search Google Calendar events for the connected account. Results include all-day/multi-day events (birthdays, anniversaries, full-day markers) that overlap the window. Each event has an allDay flag, timedCount/allDayCount summarize the mix, and timedEvents/nextTimedEvent expose the real timed appointments directly. For "what is scheduled / starting soon", decide from that single result instead of re-querying nearby windows to filter out all-day entries.',
     parameters: {
       type: 'object',
       properties: {
@@ -145,6 +145,12 @@ const calendarToolDefinitions = [
 ];
 
 function summarizeEvent(event) {
+  // An event is all-day when it carries a `date` but no `dateTime`. Google returns
+  // every all-day / multi-day event that *overlaps* the query window — recurring
+  // birthdays, anniversaries, full-day markers — so a 1-hour "what's coming up"
+  // query is easily flooded by them. Expose the flag so callers can tell a real
+  // timed appointment apart from an all-day marker without re-querying.
+  const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
   return {
     id: event.id || '',
     status: event.status || null,
@@ -152,11 +158,31 @@ function summarizeEvent(event) {
     description: event.description || null,
     location: event.location || null,
     htmlLink: event.htmlLink || null,
+    allDay: isAllDay,
     start: event.start?.dateTime || event.start?.date || null,
     end: event.end?.dateTime || event.end?.date || null,
     attendees: Array.isArray(event.attendees)
       ? event.attendees.map((attendee) => attendee.email).filter(Boolean)
       : [],
+  };
+}
+
+function summarizeListedEvents(items) {
+  const events = Array.isArray(items) ? items.map(summarizeEvent) : [];
+  const timedEvents = events.filter((event) => !event.allDay);
+  const allDayEvents = events.filter((event) => event.allDay);
+  return {
+    count: events.length,
+    timedCount: timedEvents.length,
+    allDayCount: allDayEvents.length,
+    hasTimedEvents: timedEvents.length > 0,
+    hasOnlyAllDayEvents: timedEvents.length === 0 && allDayEvents.length > 0,
+    nextTimedEvent: timedEvents[0] || null,
+    timedEvents,
+    allDayEvents,
+    // Keep the legacy merged list for existing callers, but put timed items first so
+    // the most actionable event is visible without extra filtering.
+    events: [...timedEvents, ...allDayEvents],
   };
 }
 
@@ -176,7 +202,7 @@ async function executeCalendarTool(toolName, args, auth) {
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
       });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
-      return { count: items.length, events: items.map(summarizeEvent) };
+      return summarizeListedEvents(items);
     }
 
     case 'google_workspace_calendar_create_event': {
@@ -280,4 +306,6 @@ async function executeCalendarTool(toolName, args, auth) {
 module.exports = {
   calendarToolDefinitions,
   executeCalendarTool,
+  summarizeEvent,
+  summarizeListedEvents,
 };

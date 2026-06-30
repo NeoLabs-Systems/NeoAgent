@@ -12,6 +12,7 @@ const {
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
+  isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
   buildMessagingFailureScenario,
@@ -48,9 +49,11 @@ test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
 test('progress update prompt forbids claiming changes from read-only evidence', () => {
   const prompt = buildProgressUpdatePrompt();
 
-  assert.match(prompt, /grounded ONLY in the actual recent tool activity/);
+  assert.match(prompt, /only if the actual recent tool activity/);
+  assert.match(prompt, /output an empty string/);
   assert.match(prompt, /only shows inspection or failed commands/);
   assert.match(prompt, /do not imply state-changing progress/);
+  assert.match(prompt, /internal status/);
 });
 
 test('toolWorkDescription maps tool names to human phrases', () => {
@@ -75,6 +78,12 @@ test('summarizeRecentWork describes at most two distinct activities', () => {
 test('hasFailureSignal detects error vocabulary', () => {
   assert.equal(hasFailureSignal('all good'), false);
   assert.equal(hasFailureSignal('command failed: permission denied'), true);
+});
+
+test('isInternalToolingFailure detects internal contract and file-access errors', () => {
+  assert.equal(isInternalToolingFailure('purpose=no_response requires content "[NO RESPONSE]".'), true);
+  assert.equal(isInternalToolingFailure('Failed to read file for user 1: ENOENT: no such file or directory'), true);
+  assert.equal(isInternalToolingFailure('disk full'), false);
 });
 
 test('extractToolFailureMessage prefers a direct error then parsed summaries', () => {
@@ -104,6 +113,17 @@ test('buildDeterministicMessagingFallback narrates work and blockers honestly', 
     buildDeterministicMessagingFallback({ failedStepCount: 0, stepIndex: 0, toolExecutions: [] }),
     'I could not produce a reliable final reply just now.',
   );
+
+  const sanitized = buildDeterministicMessagingFallback({
+    failedStepCount: 1,
+    stepIndex: 2,
+    toolExecutions: [{
+      toolName: 'read_file',
+      error: 'Failed to read file for user 1: ENOENT: no such file or directory, open \'/tmp/missing.txt\'',
+    }],
+  });
+  assert.doesNotMatch(sanitized, /ENOENT|Failed to read file for user|missing\.txt/);
+  assert.match(sanitized, /internal tool issue/);
 });
 
 test('buildMessagingFailureScenario assembles a structured evidence string', () => {
@@ -130,6 +150,13 @@ test('buildDeterministicMessagingErrorReply special-cases provider and timeout e
   assert.match(
     buildDeterministicMessagingErrorReply({ err: { message: '' }, toolExecutions: [{ error: 'blocked here' }] }),
     /blocked while checking this: blocked here/,
+  );
+  assert.match(
+    buildDeterministicMessagingErrorReply({
+      err: { message: 'purpose=no_response requires content "[NO RESPONSE]".' },
+      toolExecutions: [],
+    }),
+    /internal tool issue/,
   );
 });
 

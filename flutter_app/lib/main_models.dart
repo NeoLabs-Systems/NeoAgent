@@ -2302,6 +2302,96 @@ class RunSummary {
   }
 }
 
+class TimelineEventItem {
+  const TimelineEventItem({
+    required this.id,
+    required this.sourceKind,
+    required this.eventKind,
+    required this.occurredAt,
+    required this.title,
+    required this.summary,
+    required this.metadata,
+    this.agentId,
+    this.sourceId,
+  });
+
+  factory TimelineEventItem.fromJson(Map<dynamic, dynamic> json) {
+    return TimelineEventItem(
+      id: _asInt(json['id']),
+      sourceKind: json['sourceKind']?.toString() ?? '',
+      eventKind: json['eventKind']?.toString() ?? '',
+      occurredAt: _parseTimestamp(json['occurredAt']?.toString()),
+      title: json['title']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
+      agentId: json['agentId']?.toString(),
+      sourceId: json['sourceId']?.toString(),
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : const <String, dynamic>{},
+    );
+  }
+
+  final int id;
+  final String sourceKind;
+  final String eventKind;
+  final DateTime occurredAt;
+  final String title;
+  final String summary;
+  final String? agentId;
+  final String? sourceId;
+  final Map<String, dynamic> metadata;
+
+  String get occurredAtLabel => _formatTimestamp(occurredAt);
+
+  String get sourceLabel => switch (sourceKind) {
+    'screen' => 'Screen',
+    'tasks' => 'Task',
+    'runs' => 'Run',
+    _ => _titleCase(sourceKind.replaceAll('_', ' ')),
+  };
+
+  Color get sourceColor => switch (sourceKind) {
+    'screen' => _accent,
+    'tasks' => _warning,
+    'runs' => _success,
+    _ => _textSecondary,
+  };
+
+  String get appName => metadata['appName']?.toString() ?? '';
+  String get windowTitle => metadata['windowTitle']?.toString() ?? '';
+  String get deviceLabel =>
+      metadata['deviceLabel']?.toString() ??
+      metadata['deviceId']?.toString() ??
+      '';
+  String get previewText => metadata['previewText']?.toString() ?? summary;
+  String get runId => metadata['runId']?.toString() ?? sourceId ?? '';
+  String get taskName =>
+      metadata['taskName']?.toString().trim().isNotEmpty == true
+      ? metadata['taskName'].toString()
+      : title;
+  DateTime? get startedAt =>
+      _parseOptionalTimestamp(metadata['startedAt']?.toString());
+  DateTime? get endedAt =>
+      _parseOptionalTimestamp(metadata['endedAt']?.toString());
+
+  String get screenSpanLabel {
+    final start = startedAt;
+    final end = endedAt;
+    if (start == null) {
+      return occurredAtLabel;
+    }
+    final localStart = start.toLocal();
+    final startMinute = localStart.minute.toString().padLeft(2, '0');
+    if (end == null) {
+      return '${localStart.hour.toString().padLeft(2, '0')}:$startMinute';
+    }
+    final localEnd = end.toLocal();
+    final endMinute = localEnd.minute.toString().padLeft(2, '0');
+    return '${localStart.hour.toString().padLeft(2, '0')}:$startMinute'
+        ' - ${localEnd.hour.toString().padLeft(2, '0')}:$endMinute';
+  }
+}
+
 class TokenUsageSnapshot {
   const TokenUsageSnapshot({
     required this.totalTokens,
@@ -3147,6 +3237,8 @@ class TaskItem {
     required this.triggerType,
     required this.triggerSummary,
     required this.triggerConfig,
+    required this.taskConfig,
+    required this.loopBudget,
     required this.nextRun,
     required this.prompt,
     required this.model,
@@ -3178,6 +3270,11 @@ class TaskItem {
           : const <String, dynamic>{}),
     };
     final triggerSummary = json['triggerSummary']?.toString() ?? '';
+    final loopBudgetJson = json['loopBudget'] is Map
+        ? Map<String, dynamic>.from(json['loopBudget'] as Map)
+        : (taskConfig['loopBudget'] is Map
+              ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
+              : const <String, dynamic>{});
     return TaskItem(
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
@@ -3187,6 +3284,8 @@ class TaskItem {
           ? 'Task trigger'
           : triggerSummary,
       triggerConfig: triggerConfig,
+      taskConfig: taskConfig,
+      loopBudget: TaskLoopBudget.fromJson(loopBudgetJson),
       nextRun: _parseOptionalTimestamp(json['nextRun']?.toString()),
       prompt:
           json['prompt']?.toString().ifEmpty(
@@ -3222,6 +3321,8 @@ class TaskItem {
   final String triggerType;
   final String triggerSummary;
   final Map<String, dynamic> triggerConfig;
+  final Map<String, dynamic> taskConfig;
+  final TaskLoopBudget loopBudget;
   final DateTime? nextRun;
   final String prompt;
   final String model;
@@ -3243,6 +3344,47 @@ class TaskItem {
       lastRunStatus == 'failed' || lastRunStatus == 'error';
   bool get hasModelOverride => model.trim().isNotEmpty;
   bool get isWidgetRefresh => taskType == 'widget_refresh';
+}
+
+class TaskLoopBudget {
+  const TaskLoopBudget({
+    required this.enabled,
+    required this.paused,
+    required this.maxRunsPerDay,
+    required this.maxTokensPerDay,
+  });
+
+  factory TaskLoopBudget.fromJson(Map<String, dynamic> json) {
+    final maxRuns = _asInt(json['maxRunsPerDay'] ?? json['max_runs_per_day']);
+    final maxTokens = _asInt(
+      json['maxTokensPerDay'] ?? json['max_tokens_per_day'],
+    );
+    final enabled = json['enabled'] == false || json['enabled'] == 'false'
+        ? false
+        : true;
+    return TaskLoopBudget(
+      enabled: enabled,
+      paused:
+          json['paused'] == true ||
+          json['pause'] == true ||
+          json['paused'] == 'true' ||
+          json['pause'] == 'true',
+      maxRunsPerDay: maxRuns > 0 ? maxRuns : 24,
+      maxTokensPerDay: maxTokens > 0 ? maxTokens : 250000,
+    );
+  }
+
+  final bool enabled;
+  final bool paused;
+  final int maxRunsPerDay;
+  final int maxTokensPerDay;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'enabled': enabled,
+    'paused': paused,
+    'maxRunsPerDay': maxRunsPerDay,
+    'maxTokensPerDay': maxTokensPerDay,
+  };
 }
 
 class WidgetSnapshotItem {

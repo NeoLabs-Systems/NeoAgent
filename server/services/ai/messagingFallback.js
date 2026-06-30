@@ -55,9 +55,11 @@ function buildProgressUpdatePrompt() {
   // formatting guidelines as every other message and stays maintainable in one place.
   return [
     'You are mid-task and working autonomously while the user waits.',
-    'Send ONE brief progress ping saying what you are doing right now, grounded ONLY in the actual recent tool activity below.',
+    'Send ONE brief progress ping only if the actual recent tool activity below contains user-relevant progress or a real blocker.',
+    'If there is no materially useful update for the user, output an empty string.',
     'Describe what the evidence literally shows. Do not invent work, outcomes, systems, artifacts, or next steps that are not present in the activity.',
     'If the recent activity only shows inspection or failed commands, say that plainly and do not imply state-changing progress.',
+    'Do not mention progress checks, heartbeats, internal status, sent-message bookkeeping, or tool names unless the tool name itself matters to the user.',
     'This is not the final answer: do not claim the task is done and do not summarize results.',
     'No greeting, no question, no sign-off; vary the wording from your previous update.',
     'Follow your normal voice and formatting rules. Output only the message text.',
@@ -110,6 +112,21 @@ function hasFailureSignal(text) {
   return /\b(error|failed|failure|traceback|exception|timed out|timeout|not found|no such file|permission denied|unable to|cannot|could not|module not found)\b/i.test(normalized);
 }
 
+function isInternalToolingFailure(text) {
+  const normalized = normalizeOutgoingMessage(text);
+  if (!normalized) return false;
+  return /(purpose=no_response requires content|failed to read file for user|enoent|eisdir|illegal operation on a directory|outside the per-user workspace|outside the shared workspace|path is not a file|file not found:|no such file or directory|can.?t cd to|no such directory)/i.test(normalized);
+}
+
+function summarizeUserVisibleBlocker(text) {
+  const normalized = normalizeOutgoingMessage(text);
+  if (!normalized) return '';
+  if (isInternalToolingFailure(normalized)) {
+    return 'I hit an internal tool issue while checking that';
+  }
+  return normalized;
+}
+
 function extractToolFailureMessage(item) {
   const directError = normalizeOutgoingMessage(item?.error || '');
   if (directError) return directError;
@@ -150,6 +167,7 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolE
   const workSummary = summarizeRecentWork(toolExecutions);
   const blocker = [...toolExecutions].reverse()
     .map((item) => extractToolFailureMessage(item))
+    .map((message) => summarizeUserVisibleBlocker(message))
     .find(Boolean);
 
   if (workSummary && blocker) {
@@ -209,9 +227,14 @@ function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex
 
   const blocker = [...toolExecutions].reverse()
     .map((item) => extractToolFailureMessage(item))
+    .map((value) => summarizeUserVisibleBlocker(value))
     .find(Boolean);
   if (blocker) {
     return `I got blocked while checking this: ${blocker}.`;
+  }
+
+  if (isInternalToolingFailure(message)) {
+    return 'I hit an internal tool issue while checking that, so I do not have a verified answer yet.';
   }
 
   if (message) {
@@ -242,6 +265,7 @@ module.exports = {
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
+  isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
   buildMessagingFailureScenario,

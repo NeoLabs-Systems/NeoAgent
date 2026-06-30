@@ -113,12 +113,12 @@ async function setSignup(enabled) {
 }
 
 async function rotateApiKey(btn) {
-  if (!confirm(
-    'Rotate admin API key?\n\n' +
-    'The current key will stop working immediately.\n' +
-    'Any scripts using it must be updated.\n\n' +
-    'The new key will be shown once — copy it before leaving.'
-  )) return;
+  if (!await showConfirmModal({
+    title: 'Rotate admin API key?',
+    body: 'The current key will stop working immediately. Any scripts using it must be updated.<br><br>The new key will be shown once — copy it before leaving.',
+    confirmLabel: 'Rotate Key',
+    confirmClass: 'btn-danger',
+  })) return;
   btn.disabled = true;
   btn.textContent = 'Rotating…';
   try {
@@ -140,7 +140,12 @@ async function rotateApiKey(btn) {
 }
 
 async function revokeApiKey(btn) {
-  if (!confirm('Revoke admin API key?\n\nAll programmatic access using this key will stop immediately.')) return;
+  if (!await showConfirmModal({
+    title: 'Revoke admin API key?',
+    body: 'All programmatic access using this key will stop immediately.',
+    confirmLabel: 'Revoke Key',
+    confirmClass: 'btn-danger',
+  })) return;
   btn.disabled = true;
   btn.textContent = 'Revoking…';
   _revealedKey = null;

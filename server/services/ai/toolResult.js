@@ -323,6 +323,46 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
+    case 'google_workspace_calendar_list_events': {
+      // The raw result leads with a verbose `nextTimedEvent` plus full event
+      // objects (description/htmlLink/attendees), so generic JSON truncation
+      // cuts the actual `events` array off mid-object — the model never sees
+      // what is scheduled and re-queries adjacent windows forever. Emit a
+      // compact, COMPLETE digest instead: every event the model needs to reason
+      // about "what's coming up", none of the noise it doesn't.
+      const events = Array.isArray(toolResult?.events)
+        ? toolResult.events
+        : [
+          ...(Array.isArray(toolResult?.timedEvents) ? toolResult.timedEvents : []),
+          ...(Array.isArray(toolResult?.allDayEvents) ? toolResult.allDayEvents : []),
+        ];
+      const timed = events.filter((event) => !event?.allDay);
+      const allDay = events.filter((event) => event?.allDay);
+      envelope = trimObject({
+        tool: toolName,
+        count: typeof toolResult?.count === 'number' ? toolResult.count : events.length,
+        timedCount: typeof toolResult?.timedCount === 'number' ? toolResult.timedCount : timed.length,
+        allDayCount: typeof toolResult?.allDayCount === 'number' ? toolResult.allDayCount : allDay.length,
+        hasOnlyAllDayEvents: toolResult?.hasOnlyAllDayEvents === true ? true : undefined,
+        // Timed appointments are what "starting soon" cares about — keep them all,
+        // with the fields a reminder actually uses.
+        timed: timed.map((event) => trimObject({
+          summary: clampText(event?.summary || '(no title)', 140),
+          start: event?.start || null,
+          end: event?.end || null,
+          location: event?.location ? clampText(event.location, 80) : undefined,
+          status: event?.status && event.status !== 'confirmed' ? event.status : undefined,
+        })),
+        // All-day entries are usually birthdays / markers — names + dates suffice.
+        allDay: allDay.map((event) => trimObject({
+          summary: clampText(event?.summary || '(no title)', 140),
+          start: event?.start || null,
+          end: event?.end || null,
+        })),
+      });
+      break;
+    }
+
     default:
       envelope = trimObject({
         tool: toolName,

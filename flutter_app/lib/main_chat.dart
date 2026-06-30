@@ -11,6 +11,7 @@ class ChatPanel extends StatefulWidget {
 
 class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   static const double _autoScrollBottomThreshold = 120;
+  static const double _olderHistoryLoadThreshold = 180;
   static const int _autoScrollSettlePasses = 4;
 
   late final TextEditingController _composerController;
@@ -21,12 +22,19 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   String _lastScrollContentSignature = '';
   bool _stickToBottom = true;
   bool _ignoreScrollUpdates = false;
+  bool _loadingOlderHistory = false;
   int _scrollGeneration = 0;
+  // Opacity-hide the list while the initial batch of messages settles to the
+  // bottom, so the user never sees the layout jitter across settle passes.
+  bool _awaitingInitialScrollSettle = false;
+  int _visibleMessageCountAtLastSettle = 0;
   bool _isSendingChatMessage = false;
   bool _isDictating = false;
   bool _isTranscribing = false;
   LiveVoiceCapture? _dictationCapture;
   final List<Uint8List> _dictationChunks = [];
+  Timer? _connectionBannerTimer;
+  bool _showConnectionBanner = false;
 
   @override
   void initState() {
@@ -36,6 +44,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     _composerController.addListener(_handleComposerLayoutChanged);
     _scrollController.addListener(_handleScrollPositionChanged);
     widget.controller.addListener(_consumeQueuedDraft);
+    widget.controller.addListener(_updateConnectionBanner);
     _consumeQueuedDraft();
     _scheduleScrollToBottom(force: true);
   }
@@ -45,12 +54,35 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_consumeQueuedDraft);
+      oldWidget.controller.removeListener(_updateConnectionBanner);
       widget.controller.addListener(_consumeQueuedDraft);
+      widget.controller.addListener(_updateConnectionBanner);
       _appliedSharedPayloadSignature = null;
       _lastScrollContentSignature = '';
       _stickToBottom = true;
+      _awaitingInitialScrollSettle = false;
+      _visibleMessageCountAtLastSettle = 0;
       _consumeQueuedDraft();
       _scheduleScrollToBottom(force: true);
+    }
+  }
+
+  void _updateConnectionBanner() {
+    final connected = widget.controller.socketConnected;
+    if (connected) {
+      _connectionBannerTimer?.cancel();
+      _connectionBannerTimer = null;
+      if (_showConnectionBanner) {
+        setState(() => _showConnectionBanner = false);
+      }
+    } else if (!_showConnectionBanner && !widget.controller.isBooting) {
+      // ??= keeps the first timer alive; repeated disconnect events don't reset the 2s clock.
+      _connectionBannerTimer ??= Timer(const Duration(seconds: 2), () {
+        if (mounted && !widget.controller.socketConnected) {
+          setState(() => _showConnectionBanner = true);
+        }
+        _connectionBannerTimer = null;
+      });
     }
   }
 
@@ -58,11 +90,13 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_consumeQueuedDraft);
+    widget.controller.removeListener(_updateConnectionBanner);
     _composerController.removeListener(_handleComposerLayoutChanged);
     _scrollController.removeListener(_handleScrollPositionChanged);
     _composerController.dispose();
     _scrollController.dispose();
     _dictationCapture?.dispose();
+    _connectionBannerTimer?.cancel();
     super.dispose();
   }
 
@@ -267,8 +301,18 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return pos.pixels >= pos.maxScrollExtent - _autoScrollBottomThreshold;
   }
 
+  bool get _isNearTop {
+    if (!_scrollController.hasClients) return false;
+    final pos = _scrollController.position;
+    if (!pos.hasContentDimensions) return false;
+    return pos.pixels <= _olderHistoryLoadThreshold;
+  }
+
   void _handleScrollPositionChanged() {
     if (_ignoreScrollUpdates || !_scrollController.hasClients) return;
+    if (_isNearTop) {
+      unawaited(_maybeLoadOlderHistory());
+    }
     final nearBottom = _isNearBottom;
     if (_stickToBottom && !nearBottom) {
       _scrollGeneration++;
@@ -276,6 +320,46 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (_stickToBottom != nearBottom) {
       setState(() => _stickToBottom = nearBottom);
     }
+  }
+
+  Future<void> _maybeLoadOlderHistory() async {
+    final controller = widget.controller;
+    if (_loadingOlderHistory ||
+        controller.isLoadingOlderChatHistory ||
+        !controller.chatHistoryHasMore ||
+        !_isNearTop) {
+      return;
+    }
+    _loadingOlderHistory = true;
+    final hasClients = _scrollController.hasClients;
+    final previousPixels = hasClients ? _scrollController.position.pixels : 0.0;
+    final previousMaxExtent = hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    final loaded = await controller.loadOlderChatHistory();
+    if (!mounted || !loaded) {
+      _loadingOlderHistory = false;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        _loadingOlderHistory = false;
+        return;
+      }
+      final position = _scrollController.position;
+      final extentDelta = position.maxScrollExtent - previousMaxExtent;
+      final targetOffset = (previousPixels + extentDelta).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      _ignoreScrollUpdates = true;
+      _scrollController.jumpTo(targetOffset.toDouble());
+      _ignoreScrollUpdates = false;
+      _loadingOlderHistory = false;
+      if (_isNearTop) {
+        unawaited(_maybeLoadOlderHistory());
+      }
+    });
   }
 
   void _openModelPicker() {
@@ -345,6 +429,45 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (!force && !_stickToBottom) return;
     final generation = ++_scrollGeneration;
 
+    if (_awaitingInitialScrollSettle) {
+      // Frame-by-frame stability detection: keep jumping and checking until
+      // maxScrollExtent is the same two frames in a row, then reveal.
+      // Falls back to revealing after 120 frames (~2 s) to avoid infinite wait.
+      double? prevExtent;
+      void settleInitial(int framesLeft) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || generation != _scrollGeneration || !_scrollController.hasClients) {
+            return;
+          }
+          final pos = _scrollController.position;
+          double? currentExtent;
+          if (pos.hasContentDimensions) {
+            currentExtent = pos.maxScrollExtent;
+            _ignoreScrollUpdates = true;
+            _scrollController.jumpTo(currentExtent);
+            _ignoreScrollUpdates = false;
+          }
+          _stickToBottom = true;
+          final stable = currentExtent != null && currentExtent == prevExtent;
+          prevExtent = currentExtent;
+          if (stable || framesLeft <= 0) {
+            if (_awaitingInitialScrollSettle) {
+              setState(() {
+                _awaitingInitialScrollSettle = false;
+                _visibleMessageCountAtLastSettle =
+                    widget.controller.visibleChatMessages.length;
+              });
+            }
+            return;
+          }
+          settleInitial(framesLeft - 1);
+        });
+      }
+      settleInitial(120);
+      return;
+    }
+
+    // Regular settle (content already visible): fixed passes with short delay.
     void settle(int remainingPasses) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
@@ -384,6 +507,15 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     final isInitialContent = _lastScrollContentSignature.isEmpty;
     final shouldFollow = _stickToBottom || isInitialContent;
     _lastScrollContentSignature = signature;
+
+    if (messages.isEmpty) {
+      // Agent switch resets the settle tracker so the next batch triggers hiding.
+      _visibleMessageCountAtLastSettle = 0;
+    } else if (_visibleMessageCountAtLastSettle == 0 && !_awaitingInitialScrollSettle) {
+      // Messages just went from 0 → N: hide until the scroll position settles.
+      _awaitingInitialScrollSettle = true;
+    }
+
     if (shouldFollow) {
       _scheduleScrollToBottom(force: isInitialContent);
     }
@@ -396,6 +528,18 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     _maybeFollowChatContent(messages, controller);
 
     final threadChildren = <Widget>[
+      if (controller.isLoadingOlderChatHistory) ...<Widget>[
+        const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ],
       if (controller.usageAndLimits case final usage?
           when usage.hasLimits) ...<Widget>[
         _RateLimitStatusCard(usage: usage),
@@ -471,26 +615,29 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         Expanded(
           child: Stack(
             children: <Widget>[
-              SelectionArea(
-                child: ListView(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    sidePadding,
-                    30,
-                    sidePadding,
-                    18,
-                  ),
-                  children: <Widget>[
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 860),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: threadChildren,
+              Opacity(
+                opacity: _awaitingInitialScrollSettle ? 0.0 : 1.0,
+                child: SelectionArea(
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      sidePadding,
+                      30,
+                      sidePadding,
+                      18,
+                    ),
+                    children: <Widget>[
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 860),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: threadChildren,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (!_stickToBottom)
@@ -518,6 +665,20 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               constraints: const BoxConstraints(maxWidth: 860),
               child: Column(
                 children: <Widget>[
+                  if (_showConnectionBanner)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _ConnectionReconnectingBanner(
+                        hasNetwork: controller.hasNetworkConnection,
+                      ),
+                    ),
+                  if (controller.pendingApproval != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _PendingApprovalBanner(
+                        approval: controller.pendingApproval!,
+                      ),
+                    ),
                   if (_pendingSharedAttachments.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -1414,6 +1575,10 @@ class _MessagingPanelState extends State<MessagingPanel> {
           ),
           const SizedBox(height: 22),
         ],
+        if (controller.ignoredChats.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _IgnoredChatsPanel(controller: controller),
+        ],
         _MessagingActivityPanel(messages: controller.messagingMessages),
       ],
     );
@@ -1839,6 +2004,101 @@ class _MessagingGroupHeader extends StatelessWidget {
   }
 }
 
+class _IgnoredChatsPanel extends StatelessWidget {
+  const _IgnoredChatsPanel({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final ignored = controller.ignoredChats;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ignored Channels',
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
+                      style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              _StatusPill(label: '${ignored.length}', color: _textMuted),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final key in ignored)
+            Builder(builder: (context) {
+              final sep = key.indexOf(':');
+              final platform = sep > 0 ? key.substring(0, sep) : key;
+              final chatId = sep > 0 ? key.substring(sep + 1) : '';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _borderLight),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.block_rounded, size: 16, color: _textMuted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            platform.toUpperCase(),
+                            style: TextStyle(
+                              color: _textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          Text(
+                            chatId.isNotEmpty ? chatId : platform,
+                            style: TextStyle(color: _textPrimary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => controller.removeIgnoredChat(key),
+                      child: Text('Remove'),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
 class _MessagingActivityPanel extends StatelessWidget {
   const _MessagingActivityPanel({required this.messages});
 
@@ -1967,6 +2227,156 @@ class _MessagingActivityItem extends StatelessWidget {
   }
 }
 
+// ─── Connection reconnecting banner (#65) ─────────────────────────────────
+
+class _ConnectionReconnectingBanner extends StatelessWidget {
+  const _ConnectionReconnectingBanner({required this.hasNetwork});
+
+  final bool hasNetwork;
+
+  @override
+  Widget build(BuildContext context) {
+    final msg = hasNetwork ? 'Reconnecting to server…' : 'No network connection';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _warning.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        children: <Widget>[
+          if (hasNetwork)
+            SizedBox.square(
+              dimension: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: _warning),
+            )
+          else
+            Icon(Icons.wifi_off_outlined, size: 16, color: _warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              msg,
+              style: TextStyle(
+                color: _warning,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Pending approval banner (#62) ────────────────────────────────────────
+
+class _PendingApprovalBanner extends StatefulWidget {
+  const _PendingApprovalBanner({required this.approval});
+
+  final ToolApprovalRequest approval;
+
+  @override
+  State<_PendingApprovalBanner> createState() => _PendingApprovalBannerState();
+}
+
+class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
+  late Timer _timer;
+  int _secondsRemaining = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _secondsRemaining = _remaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _secondsRemaining = _remaining());
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _PendingApprovalBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.approval.approvalId != widget.approval.approvalId) {
+      _timer.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _secondsRemaining = _remaining());
+      });
+      setState(() => _secondsRemaining = _remaining());
+    }
+  }
+
+  int _remaining() {
+    final expiry = widget.approval.expiresAt;
+    if (expiry == null) return 30;
+    return expiry.difference(DateTime.now()).inSeconds.clamp(0, 300);
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final toolName = widget.approval.toolName.ifEmpty('tool');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _accent.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        children: <Widget>[
+          _PulseHalo(
+            color: _accent,
+            animate: true,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: _accent.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.security_outlined,
+                size: 13,
+                color: _accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(color: _textPrimary, fontSize: 13),
+                children: <TextSpan>[
+                  const TextSpan(
+                    text: 'Waiting for approval: ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  TextSpan(
+                    text: toolName,
+                    style: TextStyle(color: _accent),
+                  ),
+                  TextSpan(
+                    text: '  ${_secondsRemaining}s',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Runs page ─────────────────────────────────────────────────────────────
+
 class RunsPanel extends StatefulWidget {
   const RunsPanel({super.key, required this.controller, this.embedded = false});
 
@@ -1984,6 +2394,7 @@ class _RunsPanelState extends State<RunsPanel> {
   RunDetailSnapshot? _detail;
   bool _loadingDetail = false;
   String? _detailError;
+  String? _selectedGraphNodeId;
 
   @override
   void initState() {
@@ -2042,6 +2453,34 @@ class _RunsPanelState extends State<RunsPanel> {
   }
 
   void _syncSelection() {
+    final requestedRunId = widget.controller.requestedRunFocusId?.trim();
+    if (requestedRunId != null && requestedRunId.isNotEmpty) {
+      final requestedRunExists = widget.controller.recentRuns.any(
+        (run) => run.id == requestedRunId,
+      );
+      if (_filteredRuns.any((run) => run.id == requestedRunId)) {
+        widget.controller.clearRequestedRunFocus(requestedRunId);
+        if (_selectedRunId != requestedRunId) {
+          unawaited(_selectRun(requestedRunId));
+        }
+        return;
+      }
+      if (requestedRunExists) {
+        if (_statusFilter != 'all') {
+          if (mounted) {
+            setState(() {
+              _statusFilter = 'all';
+            });
+          } else {
+            _statusFilter = 'all';
+          }
+        }
+        if (_searchController.text.isNotEmpty) {
+          _searchController.clear();
+          return;
+        }
+      }
+    }
     final runs = _filteredRuns;
     if (runs.isEmpty) {
       _selectedRunId = null;
@@ -2160,107 +2599,135 @@ class _RunsPanelState extends State<RunsPanel> {
       orElse: () => null,
     );
     final detail = _detail?.run.id == selected?.id ? _detail : null;
+    final padding = widget.embedded ? EdgeInsets.zero : _pagePadding(context);
 
-    return ListView(
-      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
-      children: <Widget>[
-        if (!widget.embedded)
-          _PageTitle(
-            title: 'Runs',
-            subtitle:
-                'Inspect recent runs, failures, tool steps, and final responses.',
-            trailing: OutlinedButton.icon(
-              onPressed: _refreshRuns,
-              icon: Icon(Icons.refresh),
-              label: Text('Refresh'),
-            ),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: OutlinedButton.icon(
-                onPressed: _refreshRuns,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh'),
-              ),
-            ),
-          ),
-        if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
-          const SizedBox(height: 16),
-        ],
-        if (controller.activeRun != null ||
-            controller.toolEvents.isNotEmpty) ...<Widget>[
-          _RunStatusPanel(
-            run: controller.activeRun,
-            tools: controller.toolEvents,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (controller.recentRuns.isEmpty)
+    Widget header = const SizedBox.shrink();
+    if (!widget.embedded) {
+      header = _PageTitle(
+        title: 'Runs',
+        subtitle: 'Explore run flows, tool steps, and responses.',
+        trailing: OutlinedButton.icon(
+          onPressed: _refreshRuns,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Refresh'),
+        ),
+      );
+    }
+
+    if (controller.recentRuns.isEmpty) {
+      return ListView(
+        padding: padding,
+        children: <Widget>[
+          header,
           const _EmptyCard(
             title: 'No runs yet',
             subtitle:
                 'Send a task from chat and its execution history will show up here.',
-          )
-        else ...<Widget>[
-          _RunsMetricsStrip(
-            runs: filteredRuns,
-            totalLoaded: controller.recentRuns.length,
           ),
-          const SizedBox(height: 16),
-          _RunsFilterBar(
-            searchController: _searchController,
-            statusFilter: _statusFilter,
-            onStatusChanged: _setStatusFilter,
-          ),
-          const SizedBox(height: 16),
-          if (filteredRuns.isEmpty)
-            const _EmptyCard(
-              title: 'No matching runs',
-              subtitle:
-                  'Try clearing the search or switching the status filter.',
-            )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 1120;
-                final historyPane = _RunsHistoryPane(
-                  runs: filteredRuns,
-                  selectedRunId: _selectedRunId,
-                  onSelect: _selectRun,
-                );
-                final detailPane = _RunDetailWorkspace(
-                  run: selected,
-                  detail: detail,
-                  errorMessage: _detailError,
-                  loading: _loadingDetail,
-                  onDelete: _deleteSelectedRun,
-                  onCopyResponse: _copyResponse,
-                );
-                if (!wide) {
-                  return Column(
-                    children: <Widget>[
-                      detailPane,
-                      const SizedBox(height: 16),
-                      historyPane,
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    SizedBox(width: 360, child: historyPane),
-                    const SizedBox(width: 16),
-                    Expanded(child: detailPane),
-                  ],
-                );
-              },
-            ),
         ],
-      ],
+      );
+    }
+
+    final selectorRail = _RunSelectorRail(
+      controller: controller,
+      filteredRuns: filteredRuns,
+      selectedRunId: _selectedRunId,
+      searchController: _searchController,
+      statusFilter: _statusFilter,
+      onStatusChanged: _setStatusFilter,
+      onSelect: (id) {
+        _selectRun(id);
+        setState(() => _selectedGraphNodeId = null);
+      },
+      onRefresh: _refreshRuns,
+    );
+
+    final graphCanvas = _RunFlowGraphCanvas(
+      run: selected,
+      detail: detail,
+      loading: _loadingDetail,
+      errorMessage: _detailError,
+      selectedNodeId: _selectedGraphNodeId,
+      onNodeSelected: (id) => setState(() => _selectedGraphNodeId = id),
+    );
+
+    final detailPanel = _RunNodeDetailPanel(
+      run: selected,
+      detail: detail,
+      nodeId: _selectedGraphNodeId,
+      loading: _loadingDetail,
+      onDelete: _deleteSelectedRun,
+      onCopyResponse: _copyResponse,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1100;
+        final medium = constraints.maxWidth >= 760;
+
+        final body = wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SizedBox(width: 260, child: selectorRail),
+                  const SizedBox(width: 12),
+                  Expanded(child: graphCanvas),
+                  const SizedBox(width: 12),
+                  SizedBox(width: 310, child: detailPanel),
+                ],
+              )
+            : medium
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SizedBox(width: 220, child: selectorRail),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        graphCanvas,
+                        const SizedBox(height: 12),
+                        detailPanel,
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  graphCanvas,
+                  const SizedBox(height: 12),
+                  selectorRail,
+                  const SizedBox(height: 12),
+                  detailPanel,
+                ],
+              );
+
+        return SingleChildScrollView(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              header,
+              if (controller.errorMessage != null) ...<Widget>[
+                _InlineError(message: controller.errorMessage!),
+                const SizedBox(height: 12),
+              ],
+              if (controller.activeRun != null ||
+                  controller.toolEvents.isNotEmpty) ...<Widget>[
+                _RunStatusPanel(
+                  run: controller.activeRun,
+                  tools: controller.toolEvents,
+                ),
+                const SizedBox(height: 12),
+              ],
+              body,
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -3645,113 +4112,105 @@ class _RunHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            run.statusColor.withValues(alpha: 0.18),
-            _bgSecondary,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _StatusPill(
-                          label: run.statusLabel,
-                          color: run.statusColor,
-                        ),
-                        _MetaPill(
-                          label: run.triggerLabel,
-                          icon: Icons.bolt_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.modelLabel,
-                          icon: Icons.memory_outlined,
-                        ),
-                        if (run.deliverableType.trim().isNotEmpty)
-                          _MetaPill(
-                            label: run.deliverableType.replaceAll('_', ' '),
-                            icon: Icons.inventory_2_outlined,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      run.title,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _MetaPill(
-                          label: 'Started ${run.createdAtLabel}',
-                          icon: Icons.schedule_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.durationLabel,
-                          icon: Icons.timer_outlined,
-                        ),
-                        _MetaPill(
-                          label: '${run.totalTokensLabel} tokens',
-                          icon: Icons.toll_outlined,
-                        ),
-                        _MetaPill(
-                          label: run.id.length <= 12
-                              ? run.id
-                              : '${run.id.substring(0, 12)}…',
-                          icon: Icons.tag_outlined,
-                        ),
-                      ],
-                    ),
-                  ],
+    final statusColor = run.statusColor;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  run.statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Delete run',
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  onPressed: onDelete,
+                  visualDensity: VisualDensity.compact,
+                  color: _textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              run.title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: <Widget>[
+                _MetaPill(
+                  label: run.triggerLabel,
+                  icon: Icons.bolt_outlined,
+                ),
+                _MetaPill(
+                  label: run.modelLabel,
+                  icon: Icons.memory_outlined,
+                ),
+                _MetaPill(
+                  label: run.createdAtLabel,
+                  icon: Icons.schedule_outlined,
+                ),
+                _MetaPill(
+                  label: run.durationLabel,
+                  icon: Icons.timer_outlined,
+                ),
+                if (run.totalTokensLabel.isNotEmpty)
+                  _MetaPill(
+                    label: '${run.totalTokensLabel} tok',
+                    icon: Icons.toll_outlined,
+                  ),
+                if (run.deliverableType.trim().isNotEmpty)
+                  _MetaPill(
+                    label: run.deliverableType.replaceAll('_', ' '),
+                    icon: Icons.inventory_2_outlined,
+                  ),
+              ],
+            ),
+            if (run.error.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0x19EF4444),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x4CEF4444)),
+                ),
+                child: Text(
+                  run.error,
+                  style: TextStyle(fontSize: 12, height: 1.45),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: onDelete,
-                icon: Icon(Icons.delete_outline),
-                label: Text('Delete'),
-              ),
             ],
-          ),
-          if (run.error.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0x19EF4444),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x4CEF4444)),
-              ),
-              child: Text(run.error, style: TextStyle(height: 1.45)),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -4202,6 +4661,945 @@ class _RunDetailBlock extends StatelessWidget {
     );
   }
 }
+
+// ─── Run flow graph (#66) ─────────────────────────────────────────────────
+
+// ── Data model ──────────────────────────────────────────────────────────────
+
+class _FlowNode {
+  _FlowNode({
+    required this.id,
+    required this.label,
+    required this.nodeType,
+    required this.status,
+    this.step,
+  });
+
+  final String id;
+  final String label;
+  final String nodeType;
+  final String status;
+  final RunStepItem? step;
+  double x = 0;
+  double y = 0;
+  int lane = 0;
+
+  static const double w = 156.0;
+  static const double h = 64.0;
+  static const double hGap = 34.0;
+  static const double vGap = 80.0;
+
+  Color get nodeColor {
+    if (status == 'failed') return _danger;
+    switch (nodeType) {
+      case 'start':
+        return _accent;
+      case 'end':
+        return _success;
+      case 'fail':
+        return _danger;
+      case 'model':
+        return _info;
+      case 'plan':
+        return _warning;
+      case 'subagent':
+        return _accentHover;
+      case 'verify':
+        return const Color(0xFF8B5CF6);
+      default:
+        return _success;
+    }
+  }
+
+  IconData get nodeIcon {
+    switch (nodeType) {
+      case 'start':
+        return Icons.play_circle_outline;
+      case 'end':
+        return Icons.check_circle_outline;
+      case 'fail':
+        return Icons.error_outline;
+      case 'model':
+        return Icons.psychology_outlined;
+      case 'plan':
+        return Icons.list_alt_outlined;
+      case 'subagent':
+        return Icons.account_tree_outlined;
+      case 'verify':
+        return Icons.fact_check_outlined;
+      case 'note':
+        return Icons.notes_outlined;
+      default:
+        return Icons.build_circle_outlined;
+    }
+  }
+}
+
+List<_FlowNode> _buildRunFlowNodes(RunDetailSnapshot detail) {
+  final nodes = <_FlowNode>[];
+
+  nodes.add(
+    _FlowNode(
+      id: '__start__',
+      label: 'Start',
+      nodeType: 'start',
+      status: 'completed',
+    ),
+  );
+
+  int subLaneCounter = 0;
+  for (final step in detail.steps) {
+    final lower = '${step.type} ${step.toolName}'.toLowerCase();
+    String nodeType;
+    int nodeLane = 0;
+    if (lower.contains('model') ||
+        lower.contains('think') ||
+        lower.contains('llm')) {
+      nodeType = 'model';
+    } else if (lower.contains('plan')) {
+      nodeType = 'plan';
+    } else if (lower.contains('subagent') ||
+        lower.contains('helper') ||
+        lower.contains('delegat')) {
+      nodeType = 'subagent';
+      nodeLane = ++subLaneCounter;
+    } else if (lower.contains('verif')) {
+      nodeType = 'verify';
+    } else if (lower.contains('note') || lower.contains('analysis')) {
+      nodeType = 'note';
+    } else {
+      nodeType = 'tool';
+    }
+    nodes.add(
+      _FlowNode(
+        id: step.id,
+        label: step.label,
+        nodeType: nodeType,
+        status: step.status,
+        step: step,
+      )..lane = nodeLane,
+    );
+  }
+
+  nodes.add(
+    _FlowNode(
+      id: '__end__',
+      label: detail.run.isFailure ? 'Failed' : 'Done',
+      nodeType: detail.run.isFailure ? 'fail' : 'end',
+      status: detail.run.isFailure ? 'failed' : 'completed',
+    ),
+  );
+
+  // Layout positions
+  final mainNodes = nodes.where((n) => n.lane == 0).toList();
+  double cx = 0;
+  for (final n in mainNodes) {
+    n.x = cx;
+    n.y = 0;
+    cx += _FlowNode.w + _FlowNode.hGap;
+  }
+
+  final subLanes = <int, List<_FlowNode>>{};
+  for (final n in nodes.where((n) => n.lane > 0)) {
+    subLanes.putIfAbsent(n.lane, () => []).add(n);
+  }
+  int laneRow = 1;
+  for (final laneNodes in subLanes.values) {
+    double subCx = _FlowNode.w + _FlowNode.hGap;
+    for (final n in laneNodes) {
+      n.x = subCx;
+      n.y = laneRow * (_FlowNode.h + _FlowNode.vGap);
+      subCx += _FlowNode.w + _FlowNode.hGap;
+    }
+    laneRow++;
+  }
+
+  return nodes;
+}
+
+List<(String, String, bool)> _buildRunFlowEdges(List<_FlowNode> nodes) {
+  final edges = <(String, String, bool)>[];
+  final mainLane = nodes.where((n) => n.lane == 0).toList();
+  for (int i = 0; i + 1 < mainLane.length; i++) {
+    edges.add((mainLane[i].id, mainLane[i + 1].id, false));
+  }
+  // Delegation nodes: connect from start to their first node
+  for (final n in nodes.where((n) => n.lane > 0)) {
+    edges.add(('__start__', n.id, true));
+  }
+  return edges;
+}
+
+// ── Edge painter ──────────────────────────────────────────────────────────────
+
+class _RunGraphEdgePainter extends CustomPainter {
+  const _RunGraphEdgePainter({required this.nodeMap, required this.edges});
+
+  final Map<String, _FlowNode> nodeMap;
+  final List<(String, String, bool)> edges;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final (fromId, toId, isDelegation) in edges) {
+      final from = nodeMap[fromId];
+      final to = nodeMap[toId];
+      if (from == null || to == null) continue;
+
+      final color = isDelegation
+          ? _accentHover.withValues(alpha: 0.55)
+          : _border.withValues(alpha: 0.8);
+
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round;
+
+      final start = Offset(
+        from.x + _FlowNode.w,
+        from.y + _FlowNode.h / 2,
+      );
+      final end = Offset(to.x, to.y + _FlowNode.h / 2);
+
+      if (from.y != to.y) {
+        final mid = (start.dx + end.dx) / 2;
+        final path = Path()
+          ..moveTo(start.dx, start.dy)
+          ..cubicTo(mid, start.dy, mid, end.dy, end.dx, end.dy);
+        canvas.drawPath(path, paint);
+      } else {
+        canvas.drawLine(start, end, paint);
+      }
+
+      // Arrowhead
+      final arrowPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      const arrowSize = 6.0;
+      final arrow = Path()
+        ..moveTo(end.dx, end.dy)
+        ..lineTo(end.dx - arrowSize, end.dy - arrowSize * 0.5)
+        ..lineTo(end.dx - arrowSize, end.dy + arrowSize * 0.5)
+        ..close();
+      canvas.drawPath(arrow, arrowPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RunGraphEdgePainter old) =>
+      old.nodeMap != nodeMap || old.edges != edges;
+}
+
+// ── Individual node widget ────────────────────────────────────────────────────
+
+class _FlowNodeWidget extends StatelessWidget {
+  const _FlowNodeWidget({
+    required this.node,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _FlowNode node;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = node.nodeColor;
+    final isSpecial =
+        node.nodeType == 'start' ||
+        node.nodeType == 'end' ||
+        node.nodeType == 'fail';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: _FlowNode.w,
+        height: _FlowNode.h,
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.16)
+              : isSpecial
+              ? color.withValues(alpha: 0.10)
+              : _bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? color : color.withValues(alpha: 0.30),
+            width: selected ? 2.0 : 1.2,
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: color.withValues(alpha: selected ? 0.22 : 0.07),
+              blurRadius: selected ? 14 : 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(node.nodeIcon, size: 13, color: color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    node.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  isSpecial ? node.nodeType : node.status,
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Flow graph canvas ────────────────────────────────────────────────────────
+
+class _RunFlowGraphCanvas extends StatefulWidget {
+  const _RunFlowGraphCanvas({
+    required this.run,
+    required this.detail,
+    required this.loading,
+    required this.errorMessage,
+    required this.selectedNodeId,
+    required this.onNodeSelected,
+  });
+
+  final RunSummary? run;
+  final RunDetailSnapshot? detail;
+  final bool loading;
+  final String? errorMessage;
+  final String? selectedNodeId;
+  final ValueChanged<String?> onNodeSelected;
+
+  @override
+  State<_RunFlowGraphCanvas> createState() => _RunFlowGraphCanvasState();
+}
+
+class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
+  final TransformationController _transform = TransformationController();
+  String? _lastRunId;
+
+  @override
+  void didUpdateWidget(covariant _RunFlowGraphCanvas old) {
+    super.didUpdateWidget(old);
+    final currentId = widget.detail?.run.id ?? widget.run?.id;
+    if (currentId != _lastRunId && currentId != null) {
+      _lastRunId = currentId;
+      _transform.value = Matrix4.identity();
+    }
+  }
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.run == null) {
+      return const _EmptyCard(
+        title: 'Select a run',
+        subtitle: 'Pick a run from the list on the left to explore its flow.',
+      );
+    }
+
+    if (widget.loading && widget.detail == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 14),
+              Text(
+                'Loading run flow…',
+                style: TextStyle(color: _textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (widget.errorMessage != null) {
+      return _InlineError(message: widget.errorMessage!);
+    }
+
+    final detail = widget.detail;
+    if (detail == null) {
+      return const _EmptyCard(
+        title: 'No detail available',
+        subtitle: 'This run has no recorded step data.',
+      );
+    }
+
+    final nodes = _buildRunFlowNodes(detail);
+    final edges = _buildRunFlowEdges(nodes);
+    final nodeMap = <String, _FlowNode>{for (final n in nodes) n.id: n};
+
+    final canvasW =
+        nodes.fold(0.0, (m, n) => math.max(m, n.x + _FlowNode.w)) + 48;
+    final canvasH =
+        nodes.fold(0.0, (m, n) => math.max(m, n.y + _FlowNode.h)) + 48;
+
+    final stepCount = nodes.length - 2; // subtract start + end virtuals
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '$stepCount step${stepCount == 1 ? '' : 's'} · tap a node to inspect',
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+                if (widget.loading)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                TextButton.icon(
+                  onPressed: () => _transform.value = Matrix4.identity(),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                  ),
+                  icon: const Icon(Icons.center_focus_strong_outlined, size: 15),
+                  label: const Text('Reset view', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: math.max(220.0, math.min(canvasH + 24, 380.0)),
+            child: ClipRect(
+              child: InteractiveViewer(
+                transformationController: _transform,
+                constrained: false,
+                minScale: 0.2,
+                maxScale: 3.0,
+                boundaryMargin: const EdgeInsets.all(64),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: SizedBox(
+                    width: canvasW,
+                    height: canvasH,
+                    child: Stack(
+                      children: <Widget>[
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _RunGraphEdgePainter(
+                              nodeMap: nodeMap,
+                              edges: edges,
+                            ),
+                          ),
+                        ),
+                        ...nodes.map(
+                          (node) => Positioned(
+                            left: node.x,
+                            top: node.y,
+                            child: _FlowNodeWidget(
+                              node: node,
+                              selected: node.id == widget.selectedNodeId,
+                              onTap: () => widget.onNodeSelected(
+                                node.id == widget.selectedNodeId ? null : node.id,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: <Widget>[
+                _GraphLegendChip(color: _info, label: 'Model turn'),
+                _GraphLegendChip(color: _success, label: 'Tool'),
+                _GraphLegendChip(color: _warning, label: 'Plan'),
+                _GraphLegendChip(color: _accentHover, label: 'Sub-agent'),
+                _GraphLegendChip(color: _danger, label: 'Failed'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GraphLegendChip extends StatelessWidget {
+  const _GraphLegendChip({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(fontSize: 11, color: _textSecondary)),
+      ],
+    );
+  }
+}
+
+// ── Run selector rail ─────────────────────────────────────────────────────────
+
+class _RunSelectorRail extends StatelessWidget {
+  const _RunSelectorRail({
+    required this.controller,
+    required this.filteredRuns,
+    required this.selectedRunId,
+    required this.searchController,
+    required this.statusFilter,
+    required this.onStatusChanged,
+    required this.onSelect,
+    required this.onRefresh,
+  });
+
+  final NeoAgentController controller;
+  final List<RunSummary> filteredRuns;
+  final String? selectedRunId;
+  final TextEditingController searchController;
+  final String statusFilter;
+  final ValueChanged<String> onStatusChanged;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    const filters = <String>['all', 'running', 'completed', 'failed'];
+    final totalLoaded = controller.recentRuns.length;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '${filteredRuns.length}${filteredRuns.length != totalLoaded ? '/$totalLoaded' : ''} runs',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh, size: 18),
+                  onPressed: onRefresh,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Search runs…',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: searchController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        onPressed: searchController.clear,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: filters.map((f) {
+                return ChoiceChip(
+                  label: Text(
+                    _titleCase(f),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  selected: statusFilter == f,
+                  selectedColor: _accentMuted,
+                  backgroundColor: _bgSecondary,
+                  side: BorderSide(color: _border),
+                  onSelected: (_) => onStatusChanged(f),
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            if (filteredRuns.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'No matching runs',
+                  style: TextStyle(color: _textSecondary, fontSize: 12),
+                ),
+              )
+            else
+              ...<Widget>[
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: math.min(filteredRuns.length, 40),
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final run = filteredRuns[index];
+                    final isSelected = run.id == selectedRunId;
+                    return _RunSelectorRow(
+                      run: run,
+                      selected: isSelected,
+                      onTap: () => onSelect(run.id),
+                    );
+                  },
+                ),
+                if (filteredRuns.length > 40)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Showing 40 of ${filteredRuns.length} — use search to narrow results',
+                      style: TextStyle(color: _textSecondary, fontSize: 11),
+                    ),
+                  ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RunSelectorRow extends StatelessWidget {
+  const _RunSelectorRow({
+    required this.run,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final RunSummary run;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = run.statusColor;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected ? _accentMuted : _bgSecondary,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? _accent : _border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    run.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${run.createdAtLabel} · ${run.durationLabel}',
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Node detail panel ─────────────────────────────────────────────────────────
+
+class _RunNodeDetailPanel extends StatelessWidget {
+  const _RunNodeDetailPanel({
+    required this.run,
+    required this.detail,
+    required this.nodeId,
+    required this.loading,
+    required this.onDelete,
+    required this.onCopyResponse,
+  });
+
+  final RunSummary? run;
+  final RunDetailSnapshot? detail;
+  final String? nodeId;
+  final bool loading;
+  final Future<void> Function() onDelete;
+  final Future<void> Function(String) onCopyResponse;
+
+  RunStepItem? get _selectedStep {
+    if (nodeId == null || detail == null) return null;
+    return detail!.steps.cast<RunStepItem?>().firstWhere(
+      (s) => s?.id == nodeId,
+      orElse: () => null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = run;
+    final d = detail;
+    final step = _selectedStep;
+
+    if (r == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _RunHeroCard(run: r, onDelete: onDelete),
+        const SizedBox(height: 12),
+        if (step != null) ...<Widget>[
+          _RunSelectedStepCard(step: step),
+          const SizedBox(height: 12),
+        ] else if (d != null) ...<Widget>[
+          _RunResponseCard(
+            response: d.response,
+            onCopy: () => onCopyResponse(d.response),
+          ),
+          if (d.run.deliverableType.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            _DeliverableSummaryCard(run: d.run),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              _RunMetricCard(
+                title: 'Steps',
+                value: '${d.steps.length}',
+                helper: 'Recorded',
+                color: _info,
+              ),
+              _RunMetricCard(
+                title: 'Done',
+                value: '${d.completedTools}',
+                helper: 'Successful',
+                color: _success,
+              ),
+              _RunMetricCard(
+                title: 'Failed',
+                value: '${d.failedTools}',
+                helper: 'Errors',
+                color: _danger,
+              ),
+            ],
+          ),
+        ] else if (loading)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RunSelectedStepCard extends StatelessWidget {
+  const _RunSelectedStepCard({required this.step});
+
+  final RunStepItem step;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = step.statusColor;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.build_circle_outlined, size: 18, color: color),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        step.label,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        step.typeLabel,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _StatusPill(label: step.statusLabel, color: color),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                if (step.startedAt != null)
+                  _MetaPill(
+                    label: step.startedAtLabel!,
+                    icon: Icons.schedule_outlined,
+                  ),
+                if (step.durationLabel != null)
+                  _MetaPill(
+                    label: step.durationLabel!,
+                    icon: Icons.timer_outlined,
+                  ),
+                if (step.tokensUsed > 0)
+                  _MetaPill(
+                    label: '${_formatNumber(step.tokensUsed)} tokens',
+                    icon: Icons.toll_outlined,
+                  ),
+              ],
+            ),
+            if (step.description.trim().isNotEmpty &&
+                step.description.trim() != step.summary.trim()) ...<Widget>[
+              const SizedBox(height: 10),
+              _RunDetailBlock(label: 'Description', value: step.description),
+            ],
+            if (step.inputSummary.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              _RunDetailBlock(label: 'Input', value: step.inputSummary),
+            ],
+            if (step.error.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              _RunDetailBlock(label: 'Error', value: step.error, monospace: true),
+            ] else if (step.result.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              _RunDetailBlock(
+                label: 'Result',
+                value: _truncateRunText(step.result),
+                monospace: true,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 Future<void> openMessagingConfig(
   BuildContext context,

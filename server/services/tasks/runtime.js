@@ -14,10 +14,15 @@ const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
+const { isTransientError } = require('../ai/providerRetry');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
+const DEFAULT_TASK_LOOP_BUDGET = Object.freeze({
+  maxRunsPerDay: 24,
+  maxTokensPerDay: 250000,
+});
 
 function normalizeStoredString(value) {
   if (value == null) return '';
@@ -65,6 +70,37 @@ function stringifyTaskResult(result) {
   return '';
 }
 
+function finitePositiveInteger(value, fallback, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.floor(parsed), max);
+}
+
+function normalizeLoopBudgetConfig(taskConfig = {}) {
+  const raw = taskConfig.loopBudget && typeof taskConfig.loopBudget === 'object' && !Array.isArray(taskConfig.loopBudget)
+    ? taskConfig.loopBudget
+    : {};
+  const disabled = raw.enabled === false || raw.enabled === 'false';
+  const paused = raw.paused === true
+    || raw.pause === true
+    || taskConfig.loopPaused === true
+    || taskConfig.loop_paused === true;
+  return {
+    enabled: !disabled,
+    paused,
+    maxRunsPerDay: finitePositiveInteger(
+      raw.maxRunsPerDay ?? raw.max_runs_per_day,
+      DEFAULT_TASK_LOOP_BUDGET.maxRunsPerDay,
+      500,
+    ),
+    maxTokensPerDay: finitePositiveInteger(
+      raw.maxTokensPerDay ?? raw.max_tokens_per_day,
+      DEFAULT_TASK_LOOP_BUDGET.maxTokensPerDay,
+      20_000_000,
+    ),
+  };
+}
+
 class TaskRuntime {
   constructor(io, agentEngine, app = null, options = {}) {
     this.io = io;
@@ -87,6 +123,10 @@ class TaskRuntime {
 
   get integrationManager() {
     return this.app?.locals?.integrationManager || null;
+  }
+
+  get timelineService() {
+    return this.app?.locals?.timelineService || null;
   }
 
   getStatus() {
@@ -292,7 +332,12 @@ class TaskRuntime {
       triggerPayload: triggerPayload.context || {},
     });
     if (!result?.error && !result?.skipped) {
-      this.taskRepository.markTaskTriggered(taskId, userId, fingerprint);
+      this.taskRepository.markTaskTriggered(
+        taskId,
+        userId,
+        fingerprint,
+        triggerPayload.timestamp,
+      );
     }
     return result;
   }
@@ -376,9 +421,18 @@ class TaskRuntime {
     if (!task.enabled) return;
     if ((task.trigger_type || 'schedule') !== 'schedule') return;
     const triggerConfig = this._normalizeJson(task.trigger_config);
-    if (triggerConfig.mode === 'one_time') return;
-    const cronExpression = String(triggerConfig.cronExpression || '').trim();
-    if (!cronExpression) return;
+    // Resolve the cron expression from the structured trigger_config, falling
+    // back to the legacy cron_expression column. An older migration could leave
+    // the expression in only one of the two places; as long as either still
+    // holds it, the task must keep being scheduled.
+    const cronExpression = String(
+      triggerConfig.cronExpression || task.cron_expression || '',
+    ).trim();
+    // One-time runs are driven by the one-time poller, not node-cron. Only skip
+    // here when there is genuinely no recurring cron expression to honor.
+    if (!cronExpression) {
+      return;
+    }
     const job = this.cron.schedule(cronExpression, async () => {
       try {
         await this._executeTask(task.id, task.user_id, {
@@ -409,6 +463,16 @@ class TaskRuntime {
     }
     const executionKey = `${userId}:${taskId}`;
     if (this.runningTaskExecutions.has(executionKey)) {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: this.taskRepository.getTaskById(taskId, userId)?.name || `Task ${taskId}`,
+        agentId: this.taskRepository.getTaskById(taskId, userId)?.agent_id || null,
+        eventKind: 'task_skipped',
+        reason: 'already_running_or_queued',
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'already_running_or_queued',
@@ -444,6 +508,16 @@ class TaskRuntime {
       && (Date.now() - scheduledAtMs) > MAX_RECURRING_TASK_START_DELAY_MS
     );
     if (isLateRecurringRun) {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: task.name || `Task ${taskId}`,
+        agentId,
+        eventKind: 'task_skipped',
+        reason: 'stale_start_delay',
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'stale_start_delay',
@@ -453,14 +527,52 @@ class TaskRuntime {
       return { skipped: true, reason: 'stale_start_delay' };
     }
 
+    const budgetDecision = this._evaluateTaskLoopBudget(task, taskConfig, userId, {
+      manual: executionMeta.manual === true,
+    });
+    if (budgetDecision.mode === 'paused' || budgetDecision.mode === 'exhausted') {
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName: task.name || `Task ${taskId}`,
+        agentId,
+        eventKind: 'task_skipped',
+        reason: budgetDecision.reason,
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
+      });
+      this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+        taskId,
+        reason: budgetDecision.reason,
+        budget: budgetDecision.snapshot,
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        skipped: true,
+        reason: budgetDecision.reason,
+        budget: budgetDecision.snapshot,
+      };
+    }
+
     this.taskRepository.markTaskRun(taskId, userId);
     this.io.to(`user:${userId}`).emit('tasks:task_running', { taskId, timestamp: new Date().toISOString() });
+    this._recordTaskLifecycle({
+      userId,
+      taskId,
+      taskName: task.name || `Task ${taskId}`,
+      agentId,
+      eventKind: 'task_started',
+      triggerType: executionMeta.triggerType || null,
+      triggerSource: executionMeta.triggerSource || null,
+    });
 
     let normalizedConfig = taskConfig;
     const taskName = task.name || `Task ${taskId}`;
     const deliveryState = {
       messagingSent: false,
       noResponse: false,
+      proactiveMessageStaged: false,
+      stagedProactiveMessage: null,
       lastSentMessage: '',
       sentMessages: [],
     };
@@ -477,17 +589,27 @@ class TaskRuntime {
           scheduledAt: executionMeta.scheduledAt || null,
         });
         this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
+        this._recordTaskLifecycle({
+          userId,
+          taskId,
+          taskName,
+          agentId,
+          eventKind: 'task_completed',
+          triggerType: executionMeta.triggerType || null,
+          triggerSource: executionMeta.triggerSource || null,
+        });
         return result;
       }
 
       normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
+      const manualRun = executionMeta.manual === true;
 
       if (normalizedConfig.callTo) {
         notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${normalizedConfig.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${normalizedConfig.callGreeting || 'Hello, this is your task reminder.'}"`;
       } else if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]".`;
+        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic scheduled run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
       }
 
       const triggerPayloadText = executionMeta.triggerPayload
@@ -512,20 +634,22 @@ class TaskRuntime {
         const finalPrompt = basePrompt + recoveryNote;
         const runOptions = {
           triggerType: task.trigger_type || 'schedule',
-          triggerSource: task.trigger_type || 'schedule',
+          triggerSource: executionMeta.triggerSource || task.trigger_type || 'schedule',
           agentId,
           app: this.app,
           conversationId,
           taskId,
+          bypassUserRateLimits: true,
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
+          stageProactiveMessages: true,
           skipTaskAnalysis: true,
           skipDeliverableWorkflow: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
           skipConversationMaintenance: true,
           skipRunContextPersistence: true,
-          skipVerifier: true,
+          skipVerifier: false,
           stream: false,
           context: executionMeta.triggerPayload || {},
         };
@@ -541,6 +665,7 @@ class TaskRuntime {
             taskConfig: normalizedConfig,
             result,
             deliveryState,
+            allowPlainResultFallback: manualRun,
           });
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
@@ -560,12 +685,43 @@ class TaskRuntime {
             );
           }
           this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
+          this._recordTaskLifecycle({
+            userId,
+            taskId,
+            taskName,
+            agentId,
+            eventKind: 'task_completed',
+            runId: completedRunId,
+            triggerType: executionMeta.triggerType || null,
+            triggerSource: executionMeta.triggerSource || null,
+          });
           return result;
         } catch (err) {
-          if (completedRunId) {
+          const transientExecutionError = isTransientError(err);
+          if (completedRunId && !transientExecutionError) {
             this.taskRepository.markAgentRunFailed(completedRunId, userId, err.message);
           }
           if (err?.code === 'TASK_DELIVERY_FAILED') throw err;
+          if (transientExecutionError) {
+            this._recordTaskLifecycle({
+              userId,
+              taskId,
+              taskName,
+              agentId,
+              eventKind: 'task_skipped',
+              runId: completedRunId,
+              reason: 'transient_rate_limit',
+              error: err.message,
+              triggerType: executionMeta.triggerType || null,
+              triggerSource: executionMeta.triggerSource || null,
+            });
+            this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
+              taskId,
+              reason: 'transient_rate_limit',
+              timestamp: new Date().toISOString(),
+            });
+            return { skipped: true, reason: 'transient_rate_limit', runId: completedRunId, error: err.message };
+          }
           if (attempt >= MAX_AUTONOMOUS_RETRIES) throw err;
           attempt += 1;
           completedRunId = null;
@@ -584,24 +740,101 @@ class TaskRuntime {
     } catch (err) {
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
       if (err?.code !== 'TASK_DELIVERY_FAILED') {
-        await this._deliverTaskResultIfNeeded({
-          userId,
-          agentId,
-          taskId,
-          taskConfig: normalizedConfig,
-          result: {
-            content: `Background task "${taskName}" could not complete after retrying. Check the task run logs for details.`,
-          },
-          deliveryState,
-        });
+        const failureMessage = this._buildTaskFailureMessage(taskName, err);
+        // A null message means the failure is transient infrastructure (rate/quota
+        // limit) that is not user-actionable and would spam every run during the
+        // limit window — it is logged above, but not surfaced to the user.
+        if (failureMessage) {
+          await this._deliverTaskResultIfNeeded({
+            userId,
+            agentId,
+            taskId,
+            taskConfig: normalizedConfig,
+            result: {
+              content: failureMessage,
+            },
+            deliveryState,
+            allowPlainResultFallback: true,
+          });
+        }
       }
       this.io.to(`user:${userId}`).emit('tasks:task_skipped', {
         taskId,
         reason: 'execution_failed',
+        error: err.message,
         timestamp: new Date().toISOString(),
+      });
+      this._recordTaskLifecycle({
+        userId,
+        taskId,
+        taskName,
+        agentId,
+        eventKind: 'task_failed',
+        runId: completedRunId,
+        error: err.message,
+        triggerType: executionMeta.triggerType || null,
+        triggerSource: executionMeta.triggerSource || null,
       });
       return { skipped: false, error: err.message, runId: completedRunId };
     }
+  }
+
+  _recordTaskLifecycle({
+    userId,
+    taskId,
+    taskName,
+    agentId = null,
+    eventKind,
+    runId = null,
+    reason = null,
+    error = null,
+    triggerType = null,
+    triggerSource = null,
+  }) {
+    if (!this.timelineService?.recordTaskLifecycle) {
+      return;
+    }
+    this.timelineService.recordTaskLifecycle({
+      userId,
+      agentId,
+      taskId,
+      taskName,
+      eventKind,
+      runId,
+      reason,
+      error,
+      triggerType,
+      triggerSource,
+    });
+  }
+
+  _evaluateTaskLoopBudget(task, taskConfig, userId, options = {}) {
+    const budget = normalizeLoopBudgetConfig(taskConfig);
+    const usage = this.taskRepository.getTaskLoopUsageToday(task.id, userId);
+    const runCount = Number(usage.runCount || 0);
+    const totalTokens = Number(usage.totalTokens || 0);
+    const snapshot = {
+      enabled: budget.enabled,
+      paused: budget.paused,
+      runCount,
+      totalTokens,
+      maxRunsPerDay: budget.maxRunsPerDay,
+      maxTokensPerDay: budget.maxTokensPerDay,
+    };
+
+    if (!budget.enabled) {
+      return { mode: 'normal', reason: null, snapshot };
+    }
+    if (budget.paused) {
+      return { mode: 'paused', reason: 'loop_budget_paused', snapshot };
+    }
+
+    const projectedRunCount = options.manual === true ? runCount : runCount + 1;
+    if (projectedRunCount > budget.maxRunsPerDay || totalTokens >= budget.maxTokensPerDay) {
+      return { mode: 'exhausted', reason: 'loop_budget_exhausted', snapshot };
+    }
+
+    return { mode: 'normal', reason: null, snapshot };
   }
 
   _normalizeJson(value) {
@@ -696,6 +929,7 @@ class TaskRuntime {
       lastTriggeredAt: row.last_triggered_at || null,
       taskType: row.task_type || 'agent_prompt',
       taskConfig,
+      loopBudget: normalizeLoopBudgetConfig(taskConfig),
       prompt: taskConfig.prompt || '',
       model: taskConfig.model || null,
       agentId,
@@ -784,6 +1018,29 @@ class TaskRuntime {
     return normalized;
   }
 
+  // Build the user-facing notice for a task that errored out after retries.
+  // Returns null when the failure should NOT be surfaced (transient infra limits).
+  _buildTaskFailureMessage(taskName, err) {
+    const raw = String(err?.message || '').trim();
+    const lower = raw.toLowerCase();
+    // Rate/quota limits are transient, self-healing, and not user-actionable. Every
+    // scheduled run during the window would hit the same error, so a per-run notice
+    // would just be spam. Log only (done by the caller), no user message.
+    if (
+      lower.includes('rate limit')
+      || lower.includes('rate_limit')
+      || lower.includes('quota')
+      || lower.includes('tokens in the last')
+      || /\b429\b/.test(lower)
+    ) {
+      return null;
+    }
+    // Genuine failure: tell the user the actual reason instead of "check the logs",
+    // which they cannot do. Collapse whitespace and cap length to keep it readable.
+    const reason = raw ? raw.replace(/\s+/g, ' ').slice(0, 200) : 'an unknown error';
+    return `Background task "${taskName}" could not complete: ${reason}`;
+  }
+
   async _deliverTaskResultIfNeeded({
     userId,
     agentId,
@@ -791,10 +1048,42 @@ class TaskRuntime {
     taskConfig,
     result,
     deliveryState,
+    allowPlainResultFallback = true,
   }) {
     if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
     const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
+    const resultText = stringifyTaskResult(result).trim();
+    const resultLooksLikeError = Boolean(result?.error);
+    const stagedMessage = normalizeOutgoingMessageForPlatform(
+      deliveryState?.stagedProactiveMessage?.platform,
+      deliveryState?.stagedProactiveMessage?.content || '',
+      { stripNoResponseMarker: false },
+    );
+    const explicitStagedDelivery = deliveryState?.proactiveMessageStaged === true && Boolean(stagedMessage);
+    // A forced terminal wrap-up (read-only/blocked hard-stop) is the model's final
+    // answer produced WITHOUT the ability to call send_message itself. Gating it
+    // would silently drop a stuck scheduled task's result, so deliver it even on an
+    // automatic run. Ordinary mid-run plain text (model had send_message available
+    // and chose not to use it) is still gated below.
+    const forcedTerminal = deliveryState?.terminalWrapup === true && Boolean(resultText);
+    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal && !explicitStagedDelivery) {
+      // Automatic run produced substantive text but never made an explicit
+      // send_message decision (a deliberate no_response would have short-circuited
+      // above). We suppress to avoid recurring-check spam, but surface it so a
+      // genuinely dropped notification is visible rather than silently lost.
+      if (resultText) {
+        console.warn(
+          `[Tasks] Task ${taskId} produced an undelivered result on an automatic run `
+          + `(no explicit send_message decision): ${resultText.slice(0, 140)}`
+        );
+      }
+      return {
+        sent: false,
+        skipped: true,
+        reason: 'explicit_delivery_required',
+      };
+    }
 
     const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
     if (!manager) {
@@ -805,10 +1094,17 @@ class TaskRuntime {
     }
 
     let lastError = null;
-    for (const target of targets) {
+    const resolvedTargets = explicitStagedDelivery
+      ? [{
+        platform: deliveryState.stagedProactiveMessage.platform,
+        to: deliveryState.stagedProactiveMessage.to,
+        mediaPath: deliveryState.stagedProactiveMessage.mediaPath || null,
+      }]
+      : targets;
+    for (const target of resolvedTargets) {
       const message = normalizeOutgoingMessageForPlatform(
         target.platform,
-        stringifyTaskResult(result),
+        resultText || stagedMessage,
         { stripNoResponseMarker: false },
       );
       if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
@@ -824,10 +1120,13 @@ class TaskRuntime {
       try {
         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
           agentId,
+          mediaPath: target.mediaPath || null,
           runId: result?.runId || null,
           persistConversation: true,
         });
         deliveryState.messagingSent = true;
+        deliveryState.proactiveMessageStaged = false;
+        deliveryState.stagedProactiveMessage = null;
         deliveryState.lastSentMessage = message;
         if (!Array.isArray(deliveryState.sentMessages)) {
           deliveryState.sentMessages = [];

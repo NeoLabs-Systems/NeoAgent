@@ -64,3 +64,48 @@ test('rate-limit snapshot reports remaining usage and next decrease', async () =
       error.code === 'RATE_LIMIT_EXCEEDED',
   );
 });
+
+test('rate-limit enforcement can be bypassed without reserving capacity', async () => {
+  const user = await createTestUser(ctx.db);
+  ctx.db.prepare(
+    `INSERT INTO agent_runs (id, user_id, status, total_tokens, created_at)
+     VALUES ('limited-run', ?, 'completed', 600, datetime('now', '-1 hour'))`,
+  ).run(user.userId);
+  ctx.db.prepare(
+    'UPDATE users SET rate_limit_4h = 500, rate_limit_weekly = 2000 WHERE id = ?',
+  ).run(user.userId);
+  const {
+    enforceRateLimits,
+    getRateLimitSnapshot,
+  } = require('../../../server/services/ai/rate_limits');
+
+  const result = enforceRateLimits(user.userId, { bypass: true });
+  const snapshot = getRateLimitSnapshot(user.userId, { includeReservations: true });
+
+  assert.equal(result.bypassed, true);
+  assert.equal(snapshot.usage.fourHour, 600);
+  assert.equal(snapshot.usage.weekly, 600);
+  assert.doesNotThrow(() => result.releaseReservation());
+});
+
+test('rate-limit reservation is bounded below the full configured limit', async () => {
+  const user = await createTestUser(ctx.db);
+  ctx.db.prepare(
+    'UPDATE users SET rate_limit_4h = 1000, rate_limit_weekly = 2000 WHERE id = ?',
+  ).run(user.userId);
+  const {
+    enforceRateLimits,
+    getRateLimitSnapshot,
+  } = require('../../../server/services/ai/rate_limits');
+
+  const result = enforceRateLimits(user.userId);
+  const reservedSnapshot = getRateLimitSnapshot(user.userId, { includeReservations: true });
+
+  assert.equal(reservedSnapshot.usage.fourHour, 100);
+  assert.equal(reservedSnapshot.remaining.fourHour, 900);
+  assert.equal(reservedSnapshot.reached.any, false);
+
+  result.releaseReservation();
+  const releasedSnapshot = getRateLimitSnapshot(user.userId, { includeReservations: true });
+  assert.equal(releasedSnapshot.usage.fourHour, 0);
+});

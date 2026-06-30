@@ -141,11 +141,11 @@ function parseCronExpression(expression) {
 }
 
 function matchesCron(date, schedule) {
-  const minute = date.getUTCMinutes();
-  const hour = date.getUTCHours();
-  const dayOfMonth = date.getUTCDate();
-  const month = date.getUTCMonth() + 1;
-  const dayOfWeek = date.getUTCDay();
+  const minute = date.getMinutes();
+  const hour = date.getHours();
+  const dayOfMonth = date.getDate();
+  const month = date.getMonth() + 1;
+  const dayOfWeek = date.getDay();
 
   if (!schedule.minute.values.has(minute)) return false;
   if (!schedule.hour.values.has(hour)) return false;

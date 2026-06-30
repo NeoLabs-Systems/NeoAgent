@@ -86,6 +86,12 @@ class DesktopCompanionActions {
       'metadata': <String, Object?>{
         'captureSupported': _screenCapture.isSupported,
       },
+      if (platformStatus['sessionLocked'] != null)
+        'sessionLocked': platformStatus['sessionLocked'],
+      if (platformStatus['idleSeconds'] != null)
+        'idleSeconds': platformStatus['idleSeconds'],
+      if (platformStatus['userIdle'] != null)
+        'userIdle': platformStatus['userIdle'],
     };
   }
 
@@ -178,6 +184,12 @@ class DesktopCompanionActions {
         'frontmostApp': platformStatus['frontmostApp'],
       if (platformStatus['frontmostWindowTitle'] != null)
         'frontmostWindowTitle': platformStatus['frontmostWindowTitle'],
+      if (platformStatus['sessionLocked'] != null)
+        'sessionLocked': platformStatus['sessionLocked'],
+      if (platformStatus['idleSeconds'] != null)
+        'idleSeconds': platformStatus['idleSeconds'],
+      if (platformStatus['userIdle'] != null)
+        'userIdle': platformStatus['userIdle'],
     };
   }
 
@@ -206,10 +218,10 @@ class DesktopCompanionActions {
     if (_looksLikeJpeg(raw)) return raw;
     // Run the pure-Dart PNG decode + JPEG encode in a background isolate so the
     // main isolate's event loop stays responsive for incoming commands.
-    return compute(
-      _compressJpegInIsolate,
-      (bytes: raw, quality: quality.clamp(30, 95)),
-    );
+    return compute(_compressJpegInIsolate, (
+      bytes: raw,
+      quality: quality.clamp(30, 95),
+    ));
   }
 
   Future<Map<String, Object?>> observe({
@@ -265,19 +277,9 @@ class DesktopCompanionActions {
   }) async {
     await _assertInputSupported('mouseMove');
     if (_usesNativeDesktopBridge) {
-      await _nativeBridge.mouseMove(
-        x: x,
-        y: y,
-        displayId: displayId,
-      );
+      await _nativeBridge.mouseMove(x: x, y: y, displayId: displayId);
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
-      await _run(
-        _ShellCommand('xdotool', <String>[
-          'mousemove',
-          '$x',
-          '$y',
-        ]),
-      );
+      await _run(_ShellCommand('xdotool', <String>['mousemove', '$x', '$y']));
     } else {
       throw Exception('mouseMove is not supported on this platform.');
     }
@@ -464,9 +466,15 @@ class DesktopCompanionActions {
     int? timeoutMs,
     String? stdinInput,
   }) async {
-    final shell = Platform.isWindows ? 'cmd.exe' : (Platform.environment['SHELL'] ?? '/bin/sh');
-    final args = Platform.isWindows ? <String>['/c', command] : <String>['-lc', command];
-    final workingDir = cwd?.trim().isNotEmpty == true ? cwd : Platform.environment['HOME'];
+    final shell = Platform.isWindows
+        ? 'cmd.exe'
+        : (Platform.environment['SHELL'] ?? '/bin/sh');
+    final args = Platform.isWindows
+        ? <String>['/c', command]
+        : <String>['-lc', command];
+    final workingDir = cwd?.trim().isNotEmpty == true
+        ? cwd
+        : Platform.environment['HOME'];
     final startedAt = DateTime.now();
 
     final process = await Process.start(
@@ -495,7 +503,9 @@ class DesktopCompanionActions {
     });
 
     final effectiveTimeout = Duration(
-      milliseconds: (timeoutMs != null && timeoutMs > 0) ? timeoutMs : 15 * 60 * 1000,
+      milliseconds: (timeoutMs != null && timeoutMs > 0)
+          ? timeoutMs
+          : 15 * 60 * 1000,
     );
 
     bool timedOut = false;
@@ -513,7 +523,9 @@ class DesktopCompanionActions {
 
     String trimOutput(StringBuffer buf) {
       final s = buf.toString().trim();
-      return s.length > maxChars ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]' : s;
+      return s.length > maxChars
+          ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]'
+          : s;
     }
 
     return <String, Object?>{
@@ -607,7 +619,106 @@ class DesktopCompanionActions {
     if (_usesNativeDesktopBridge) {
       return await _nativeBridge.getStatus();
     }
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      return _linuxPlatformStatus();
+    }
     return const <String, Object?>{};
+  }
+
+  Future<Map<String, Object?>> _linuxPlatformStatus() async {
+    try {
+      final sessionState = await _linuxSessionState();
+      final windowIdResult = await Process.run('xdotool', <String>[
+        'getactivewindow',
+      ]);
+      if (windowIdResult.exitCode != 0) {
+        return sessionState;
+      }
+      final windowId = windowIdResult.stdout?.toString().trim() ?? '';
+      if (windowId.isEmpty) {
+        return sessionState;
+      }
+      final titleResult = await Process.run('xdotool', <String>[
+        'getwindowname',
+        windowId,
+      ]);
+      final classResult = await Process.run('xprop', <String>[
+        '-id',
+        windowId,
+        'WM_CLASS',
+      ]);
+      final windowTitle = titleResult.exitCode == 0
+          ? titleResult.stdout?.toString().trim() ?? ''
+          : '';
+      final appName = _parseLinuxWmClass(classResult.stdout?.toString() ?? '');
+      return <String, Object?>{
+        ...sessionState,
+        if (appName.isNotEmpty) 'frontmostApp': appName,
+        if (windowTitle.isNotEmpty) 'frontmostWindowTitle': windowTitle,
+      };
+    } catch (_) {
+      return const <String, Object?>{};
+    }
+  }
+
+  String _parseLinuxWmClass(String raw) {
+    final match = RegExp(r'"([^"]+)"\s*,\s*"([^"]+)"').firstMatch(raw);
+    if (match == null) {
+      return '';
+    }
+    final app = match.group(2)?.trim() ?? '';
+    if (app.isNotEmpty) {
+      return app;
+    }
+    return match.group(1)?.trim() ?? '';
+  }
+
+  Future<Map<String, Object?>> _linuxSessionState() async {
+    final state = <String, Object?>{};
+    final sessionId = Platform.environment['XDG_SESSION_ID']?.trim() ?? '';
+    if (sessionId.isNotEmpty) {
+      try {
+        final result = await Process.run('loginctl', <String>[
+          'show-session',
+          sessionId,
+          '-p',
+          'LockedHint',
+          '-p',
+          'IdleHint',
+        ]);
+        if (result.exitCode == 0) {
+          final lines = result.stdout
+              ?.toString()
+              .split(RegExp(r'\r?\n'))
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty)
+              .toList(growable: false) ??
+              const <String>[];
+          for (final line in lines) {
+            if (line.startsWith('LockedHint=')) {
+              state['sessionLocked'] =
+                  line.substring('LockedHint='.length).trim() == 'yes';
+            } else if (line.startsWith('IdleHint=')) {
+              state['userIdle'] =
+                  line.substring('IdleHint='.length).trim() == 'yes';
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    try {
+      final result = await Process.run('xprintidle', const <String>[]);
+      if (result.exitCode == 0) {
+        final idleMs = num.tryParse(result.stdout?.toString().trim() ?? '');
+        if (idleMs != null) {
+          final idleSeconds = idleMs / 1000;
+          state['idleSeconds'] = idleSeconds;
+          state['userIdle'] =
+              (state['userIdle'] == true) || idleSeconds >= 300;
+        }
+      }
+    } catch (_) {}
+    return state;
   }
 
   bool get _usesNativeDesktopBridge =>

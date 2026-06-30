@@ -47,6 +47,8 @@ class NeoAgentController extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _connectivityPluginAvailable = true;
   static const int _maxVisibleLogs = 400;
+  static const int _maxToolEvents =
+      500; // separate list from _maxVisibleLogs (chat diagnostics)
 
   static const String _configuredBackendUrl = String.fromEnvironment(
     'NEOAGENT_BACKEND_URL',
@@ -66,6 +68,7 @@ class NeoAgentController extends ChangeNotifier {
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
+  static const int _chatHistoryPageSize = 20;
   DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
@@ -98,6 +101,8 @@ class NeoAgentController extends ChangeNotifier {
   bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
+  bool isLoadingBilling = false;
+  bool showBillingSection = false;
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
@@ -142,12 +147,18 @@ class NeoAgentController extends ChangeNotifier {
   List<RecordingSessionItem> recordingSessions = const <RecordingSessionItem>[];
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
+  bool chatHistoryHasMore = false;
+  bool isLoadingOlderChatHistory = false;
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<RunSummary> recentRuns = const <RunSummary>[];
+  List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
+  Map<String, dynamic>? billingSubscription;
+  List<Map<String, dynamic>> billingPlans = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> billingInvoices = const <Map<String, dynamic>>[];
   UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
@@ -158,6 +169,7 @@ class NeoAgentController extends ChangeNotifier {
   MessagingQrState? pendingMessagingQr;
   ToolApprovalRequest? pendingApproval;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
+  final Set<String> _ignoredChats = <String>{};
   List<SkillItem> skills = const <SkillItem>[];
   List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
   List<OfficialIntegrationItem> officialIntegrations =
@@ -199,6 +211,10 @@ class NeoAgentController extends ChangeNotifier {
   String? _pendingChatDraft;
   List<SharedChatAttachment> _pendingSharedChatAttachments =
       const <SharedChatAttachment>[];
+  String? _chatHistoryBeforeCreatedAt;
+  String? _chatHistoryBeforeSource;
+  String? _chatHistoryBeforeId;
+  String? _requestedRunFocusId;
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -227,14 +243,23 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAutoShowFloatingToolbar = true;
   bool _desktopAssistantHotkeyEnabled = true;
+  bool isRefreshingTimeline = false;
+  Set<String> selectedTimelineSources = <String>{'screen', 'tasks', 'runs'};
 
   bool get desktopCompanionEnabled => _desktopCompanion.enabled;
+  bool get desktopPassiveHistoryEnabled =>
+      _desktopCompanion.passiveHistoryEnabled;
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get desktopCompanionConnected => _desktopCompanion.connected;
   bool get desktopCompanionConnecting => _desktopCompanion.connecting;
   bool get desktopCompanionPaused => _desktopCompanion.paused;
   String get desktopCompanionLabel => _desktopCompanion.label;
   String? get desktopCompanionErrorMessage => _desktopCompanion.errorMessage;
+  String? get desktopPassiveHistoryLastUploadedAt =>
+      _desktopCompanion.passiveHistoryLastUploadedAt;
+  String? get desktopPassiveHistoryLastError =>
+      _desktopCompanion.passiveHistoryLastError;
+  String? get requestedRunFocusId => _requestedRunFocusId;
   Map<String, Object?> get desktopCompanionStatus => _desktopCompanion.status;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
@@ -494,6 +519,103 @@ class NeoAgentController extends ChangeNotifier {
     ];
   }
 
+  void _resetChatHistoryPagination() {
+    chatHistoryHasMore = false;
+    isLoadingOlderChatHistory = false;
+    _chatHistoryBeforeCreatedAt = null;
+    _chatHistoryBeforeSource = null;
+    _chatHistoryBeforeId = null;
+  }
+
+  void _applyChatHistoryCursor(Map<String, dynamic> history) {
+    chatHistoryHasMore = history['hasMore'] == true;
+    _chatHistoryBeforeCreatedAt = _optionalIdFrom(
+      history['nextBeforeCreatedAt'],
+    );
+    _chatHistoryBeforeSource = _optionalIdFrom(history['nextBeforeSource']);
+    _chatHistoryBeforeId = _optionalIdFrom(history['nextBeforeId']);
+  }
+
+  String _chatEntryKey(ChatEntry entry) {
+    final stableId = entry.id.trim();
+    if (stableId.isNotEmpty) {
+      return [
+        stableId,
+        entry.platform,
+        entry.role,
+        entry.createdAt.toIso8601String(),
+      ].join('|');
+    }
+    return [
+      entry.role,
+      entry.platform,
+      entry.createdAt.toIso8601String(),
+      entry.content,
+    ].join('|');
+  }
+
+  List<ChatEntry> _chatHistoryEntriesFromResponse(
+    Map<String, dynamic> history,
+  ) {
+    return _decodeModelList(
+      'chat_history',
+      history['messages'],
+      ChatEntry.fromJson,
+      fallbackToMapValues: true,
+    );
+  }
+
+  Future<bool> loadOlderChatHistory() async {
+    if (!isAuthenticated ||
+        isLoadingOlderChatHistory ||
+        !chatHistoryHasMore ||
+        _chatHistoryBeforeCreatedAt == null ||
+        _chatHistoryBeforeSource == null ||
+        _chatHistoryBeforeId == null) {
+      return false;
+    }
+
+    final agentId = _scopedAgentId;
+    final beforeCreatedAt = _chatHistoryBeforeCreatedAt;
+    final beforeSource = _chatHistoryBeforeSource;
+    final beforeId = _chatHistoryBeforeId;
+    isLoadingOlderChatHistory = true;
+    notifyListeners();
+    try {
+      final history = await _backendClient.fetchChatHistory(
+        backendUrl,
+        agentId: agentId,
+        limit: _chatHistoryPageSize,
+        beforeCreatedAt: beforeCreatedAt,
+        beforeSource: beforeSource,
+        beforeId: beforeId,
+      );
+      if (agentId != _scopedAgentId) {
+        return false;
+      }
+      final olderMessages = _chatHistoryEntriesFromResponse(history);
+      _applyChatHistoryCursor(history);
+      if (olderMessages.isEmpty) {
+        return false;
+      }
+      final existingKeys = chatMessages.map(_chatEntryKey).toSet();
+      final prepended = olderMessages
+          .where((entry) => existingKeys.add(_chatEntryKey(entry)))
+          .toList(growable: false);
+      if (prepended.isEmpty) {
+        return false;
+      }
+      chatMessages = <ChatEntry>[...prepended, ...chatMessages];
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isLoadingOlderChatHistory = false;
+      notifyListeners();
+    }
+  }
+
   String _settingString(String key, String fallback, {bool lowercase = false}) {
     final value = settings[key]?.toString().trim() ?? '';
     if (value.isEmpty) {
@@ -631,6 +753,8 @@ class NeoAgentController extends ChangeNotifier {
   BlockedSenderNotice? get pendingBlockedSenderNotice =>
       _blockedSenderQueue.isEmpty ? null : _blockedSenderQueue.first;
 
+  List<String> get ignoredChats => _ignoredChats.toList();
+
   void _handleRecordingBridgeChanged() {
     _logRecording('bridge.changed');
     notifyListeners();
@@ -716,6 +840,9 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
+    _ignoredChats.addAll(
+      _prefs?.getStringList('messaging.ignored_chats') ?? <String>[],
+    );
     await _desktopCompanion.bootstrap(_prefs!);
     final configured = _configuredBackendUrl.trim();
     final savedBackendUrl = _prefs?.getString('backend_url')?.trim() ?? '';
@@ -1552,11 +1679,14 @@ class NeoAgentController extends ChangeNotifier {
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     settings = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
+    _resetChatHistoryPagination();
     agentProfiles = const <AgentProfile>[];
     selectedAgentId = null;
     supportedModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
+    timelineItems = const <TimelineEventItem>[];
+    isRefreshingTimeline = false;
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
     _serverLogs = const <LogEntry>[];
@@ -1680,10 +1810,32 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
+    if (section == AppSection.timeline) {
+      unawaited(refreshTimeline());
+    }
     if (section == AppSection.accountSettings) {
       unawaited(refreshAccountSettings());
     }
+    if (section == AppSection.billing) {
+      unawaited(refreshBilling());
+    }
     notifyListeners();
+  }
+
+  Future<void> openRunDetails(String runId) async {
+    final normalized = runId.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    _requestedRunFocusId = normalized;
+    setSelectedSection(AppSection.runs);
+    await refreshRunsOnly();
+  }
+
+  void clearRequestedRunFocus(String runId) {
+    if (_requestedRunFocusId == runId) {
+      _requestedRunFocusId = null;
+    }
   }
 
   void _ensureSelectedAgent() {
@@ -1711,6 +1863,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     selectedAgentId = id;
     chatMessages = const <ChatEntry>[];
+    _resetChatHistoryPagination();
     recentRuns = const <RunSummary>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
@@ -1914,20 +2067,50 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> allowMessagingSuggestion(
     String platform,
-    QuickAllowSuggestion suggestion,
-  ) async {
+    QuickAllowSuggestion suggestion, {
+    String? chatId,
+  }) async {
     try {
       final nextPolicy = _policyWithAddedRule(
         currentMessagingAccessPolicy(platform),
         suggestion,
       );
       await saveMessagingAccessPolicy(platform, nextPolicy);
+      if (chatId != null) {
+        _blockedSenderQueue.removeWhere(
+          (notice) => notice.platform == platform && notice.chatId == chatId,
+        );
+      }
       errorMessage = null;
       notifyListeners();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
+  }
+
+  Future<void> ignoreBlockedSender(BlockedSenderNotice notice) async {
+    final key = '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
+    _ignoredChats.add(key);
+    _blockedSenderQueue.removeWhere(
+      (n) =>
+          n.platform == notice.platform &&
+          (n.chatId == notice.chatId || n.sender == notice.sender),
+    );
+    await _prefs?.setStringList(
+      'messaging.ignored_chats',
+      _ignoredChats.toList(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> removeIgnoredChat(String key) async {
+    _ignoredChats.remove(key);
+    await _prefs?.setStringList(
+      'messaging.ignored_chats',
+      _ignoredChats.toList(),
+    );
+    notifyListeners();
   }
 
   void consumeBlockedSenderNotice(String id) {
@@ -1940,6 +2123,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _enqueueBlockedSenderNotice(BlockedSenderNotice notice) {
+    final ignoreKey =
+        '${notice.platform}:${notice.chatId ?? notice.sender ?? ''}';
+    if (_ignoredChats.contains(ignoreKey)) return;
     final exists = _blockedSenderQueue.any((item) => item.id == notice.id);
     if (!exists) {
       _blockedSenderQueue.add(notice);
@@ -2009,8 +2195,12 @@ class NeoAgentController extends ChangeNotifier {
 
       final historyFuture = _softRefreshLoad<Map<String, dynamic>>(
         'chat_history',
-        _backendClient.fetchChatHistory(backendUrl, agentId: agentId),
-        const <String, dynamic>{'messages': <dynamic>[]},
+        _backendClient.fetchChatHistory(
+          backendUrl,
+          agentId: agentId,
+          limit: _chatHistoryPageSize,
+        ),
+        const <String, dynamic>{'messages': <dynamic>[], 'hasMore': false},
       );
       final modelsFuture = _softRefreshLoad<Map<String, dynamic>>(
         'supported_models',
@@ -2031,6 +2221,15 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         _backendClient.fetchRuns(backendUrl, agentId: agentId),
         const <String, dynamic>{'runs': <dynamic>[]},
+      );
+      final timelineFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'timeline',
+        _backendClient.fetchTimeline(
+          backendUrl,
+          sources: selectedTimelineSources,
+          limit: 50,
+        ),
+        const <String, dynamic>{'items': <dynamic>[]},
       );
       final versionFuture = _softRefreshLoad<Map<String, dynamic>>(
         'version',
@@ -2113,6 +2312,7 @@ class NeoAgentController extends ChangeNotifier {
       final recordingsFuture = _backendClient
           .fetchRecordingSessions(backendUrl)
           .catchError((_) => const <Map<String, dynamic>>[]);
+      unawaited(checkBillingEnabled());
       final browserFuture = _backendClient
           .fetchBrowserStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
@@ -2154,6 +2354,7 @@ class NeoAgentController extends ChangeNotifier {
       final providersResponse = await providersFuture;
       final settingsResponse = await settingsFuture;
       final runsResponse = await runsFuture;
+      final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
       final tokenResponse = await tokenFuture;
       final rateLimitResponse = await rateLimitFuture;
@@ -2177,12 +2378,8 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
 
-      chatMessages = _decodeModelList(
-        'chat_history',
-        history['messages'],
-        ChatEntry.fromJson,
-        fallbackToMapValues: true,
-      );
+      chatMessages = _chatHistoryEntriesFromResponse(history);
+      _applyChatHistoryCursor(history);
 
       supportedModels = _decodeModelList(
         'supported_models',
@@ -2203,6 +2400,12 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         runsResponse['runs'],
         RunSummary.fromJson,
+        fallbackToMapValues: true,
+      );
+      timelineItems = _decodeModelList(
+        'timeline',
+        timelineResponse['items'],
+        TimelineEventItem.fromJson,
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
@@ -2396,6 +2599,62 @@ class NeoAgentController extends ChangeNotifier {
       );
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> refreshTimeline({
+    Set<String>? sources,
+    bool notify = true,
+  }) async {
+    if (!isAuthenticated) {
+      return;
+    }
+    if (sources != null) {
+      selectedTimelineSources = sources
+          .map((value) => value.trim().toLowerCase())
+          .where((value) => value.isNotEmpty)
+          .toSet();
+    }
+    isRefreshingTimeline = true;
+    if (notify) {
+      notifyListeners();
+    }
+    try {
+      final response = await _backendClient.fetchTimeline(
+        backendUrl,
+        sources: selectedTimelineSources,
+        limit: 50,
+      );
+      timelineItems = _decodeModelList(
+        'timeline',
+        response['items'],
+        TimelineEventItem.fromJson,
+        fallbackToMapValues: true,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRefreshingTimeline = false;
+      if (notify) {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> toggleTimelineSource(String sourceKind) async {
+    final normalized = sourceKind.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final next = <String>{...selectedTimelineSources};
+    if (next.contains(normalized)) {
+      if (next.length == 1) {
+        return;
+      }
+      next.remove(normalized);
+    } else {
+      next.add(normalized);
+    }
+    await refreshTimeline(sources: next);
   }
 
   Future<void> refreshMessaging() async {
@@ -3732,6 +3991,19 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> setDesktopPassiveHistoryEnabled(bool value) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      await _desktopCompanion.setPassiveHistoryEnabled(value, prefs);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> rotateDesktopCompanionIdentity() async {
     final prefs = _prefs;
     if (prefs == null) {
@@ -4525,12 +4797,17 @@ class NeoAgentController extends ChangeNotifier {
     _appendChatMessage(content, role: 'user', platform: platform);
   }
 
+  List<ToolEventItem> _capToolEvents(List<ToolEventItem> events) {
+    if (events.length <= _maxToolEvents) return events;
+    return events.sublist(events.length - _maxToolEvents);
+  }
+
   void _appendToolNote(String summary, {String toolName = 'note'}) {
     final trimmed = summary.trim();
     if (trimmed.isEmpty) {
       return;
     }
-    toolEvents = <ToolEventItem>[
+    toolEvents = _capToolEvents(<ToolEventItem>[
       ...toolEvents,
       ToolEventItem(
         id: 'note-${DateTime.now().microsecondsSinceEpoch}',
@@ -4539,7 +4816,7 @@ class NeoAgentController extends ChangeNotifier {
         status: 'completed',
         summary: trimmed,
       ),
-    ];
+    ]);
   }
 
   Future<void> refreshUpdateStatus() async {
@@ -4815,6 +5092,96 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
   }
+
+  // ── Billing ──────────────────────────────────────────────────────────────
+
+  Future<void> checkBillingEnabled() async {
+    try {
+      final r = await _backendClient.getBillingPlans(backendUrl);
+      final enabled = r['plans'] != null;
+      if (showBillingSection != enabled) {
+        showBillingSection = enabled;
+        notifyListeners();
+      }
+    } catch (_) {
+      if (showBillingSection) {
+        showBillingSection = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> refreshBilling() async {
+    if (!isAuthenticated || !showBillingSection) return;
+    isLoadingBilling = true;
+    notifyListeners();
+    try {
+      final results = await Future.wait(<Future<Map<String, dynamic>>>[
+        _backendClient.getBillingInfo(backendUrl),
+        _backendClient.getBillingPlans(backendUrl),
+        _backendClient.getBillingInvoices(backendUrl),
+      ]);
+      billingSubscription = results[0]['subscription'] as Map<String, dynamic>?;
+      billingPlans = _asDynList(
+        results[1]['plans'],
+      ).cast<Map<String, dynamic>>();
+      billingInvoices = _asDynList(
+        results[2]['invoices'],
+      ).cast<Map<String, dynamic>>();
+    } catch (_) {
+      // retain previous data on error
+    } finally {
+      isLoadingBilling = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> createCheckoutSession(String planId) async {
+    try {
+      final serverUrl = backendUrl;
+      final result = await _backendClient.createCheckoutSession(
+        baseUrl: serverUrl,
+        planId: planId,
+        successUrl: '$serverUrl/',
+        cancelUrl: '$serverUrl/',
+      );
+      return result['url'] as String?;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<String?> createPortalSession() async {
+    try {
+      final serverUrl = backendUrl;
+      final result = await _backendClient.createPortalSession(
+        baseUrl: serverUrl,
+        returnUrl: '$serverUrl/',
+      );
+      return result['url'] as String?;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> cancelBillingSubscription() async {
+    try {
+      await _backendClient.cancelBillingSubscription(backendUrl);
+      await refreshBilling();
+      return true;
+    } catch (e) {
+      errorMessage = _friendlyErrorMessage(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  List<dynamic> _asDynList(dynamic val) =>
+      val is List ? val : const <dynamic>[];
 
   Future<bool> updateAccountEmail({
     required String email,
@@ -5709,6 +6076,7 @@ class NeoAgentController extends ChangeNotifier {
     required String triggerType,
     required Map<String, dynamic> triggerConfig,
     required String prompt,
+    Map<String, dynamic>? taskConfig,
     String? model,
     bool enabled = true,
     String? agentId,
@@ -5720,6 +6088,7 @@ class NeoAgentController extends ChangeNotifier {
       triggerType: triggerType,
       triggerConfig: triggerConfig,
       prompt: prompt,
+      taskConfig: taskConfig,
       model: model,
       enabled: enabled,
       agentId: agentId ?? _scopedAgentId,
@@ -6764,6 +7133,9 @@ class NeoAgentController extends ChangeNotifier {
       }
       unawaited(_refreshRecordingSessionById(sessionId));
     });
+    socket.on('timeline:updated', (dynamic _) {
+      unawaited(refreshTimeline());
+    });
     socket.on('voice:session_ready', (dynamic data) {
       final payload = _jsonMap(data);
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
@@ -6982,7 +7354,7 @@ class NeoAgentController extends ChangeNotifier {
         'verification: ${payload['verification_need']?.toString() ?? 'none'}',
         'freshness: ${payload['freshness_risk']?.toString() ?? 'none'}',
       ].join(' | ');
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'analysis-${DateTime.now().microsecondsSinceEpoch}',
@@ -6991,7 +7363,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'completed',
           summary: summary,
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Analyzing');
       }
@@ -7016,7 +7388,7 @@ class NeoAgentController extends ChangeNotifier {
           .where((item) => item.trim().isNotEmpty)
           .take(4)
           .join(' | ');
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'plan-${DateTime.now().microsecondsSinceEpoch}',
@@ -7025,7 +7397,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'completed',
           summary: steps.ifEmpty('Execution plan created.'),
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Planning');
       }
@@ -7065,10 +7437,10 @@ class NeoAgentController extends ChangeNotifier {
         status: 'running',
         summary: _summarizeToolArgs(payload['toolArgs']),
       );
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents.where((event) => event.id != item.id),
         item,
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Running tool');
       }
@@ -7083,7 +7455,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'verification-${DateTime.now().microsecondsSinceEpoch}',
@@ -7098,7 +7470,7 @@ class NeoAgentController extends ChangeNotifier {
               ) ??
               'Verification completed.',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Verifying');
       }
@@ -7138,7 +7510,7 @@ class NeoAgentController extends ChangeNotifier {
               'Subagent update.',
         ),
       );
-      toolEvents = nextEvents;
+      toolEvents = _capToolEvents(nextEvents);
       notifyListeners();
     });
     socket.on('run:tool_end', (dynamic data) {
@@ -7171,7 +7543,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!replaced) {
         next.add(updated);
       }
-      toolEvents = next;
+      toolEvents = _capToolEvents(next);
       final toolName = payload['toolName']?.toString() ?? '';
       final screenshotPath =
           payload['screenshotPath']?.toString() ??
@@ -7220,7 +7592,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'steer-queued-${DateTime.now().microsecondsSinceEpoch}',
@@ -7230,7 +7602,7 @@ class NeoAgentController extends ChangeNotifier {
           summary:
               'Queued as steering for the current run: ${payload['content']?.toString() ?? ''}',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),
@@ -7247,7 +7619,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_backgroundRunIds.contains(runId)) {
         return;
       }
-      toolEvents = <ToolEventItem>[
+      toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
         ToolEventItem(
           id: 'steer-applied-${DateTime.now().microsecondsSinceEpoch}',
@@ -7258,7 +7630,7 @@ class NeoAgentController extends ChangeNotifier {
               ? 'Applied the latest steering update to the current run.'
               : 'Applied ${_asInt(payload['count'])} queued steering updates to the current run.',
         ),
-      ];
+      ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),

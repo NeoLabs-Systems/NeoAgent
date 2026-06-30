@@ -34,6 +34,7 @@ const routeRegistry = [
   { basePath: '/api/wearable', modulePath: '../routes/wearable' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' },
   { basePath: '/api/screen-history', modulePath: '../routes/screenHistory' },
+  { basePath: '/api/timeline', modulePath: '../routes/timeline' },
   { basePath: '/api/triggers', modulePath: '../routes/triggers' },
   { basePath: '/api/security', modulePath: '../routes/security' },
 ];
@@ -46,6 +47,15 @@ function registerApiRoutes(app) {
     } else {
       app.use(handler);
     }
+  }
+
+  // Billing routes are mounted conditionally — only when billing is enabled.
+  // The webhook must be mounted before express.json() consumes the raw body;
+  // billing_webhook.js applies express.raw() inline for its own route.
+  const { isBillingEnabled } = require('../services/billing/config');
+  if (isBillingEnabled()) {
+    app.use('/api/billing/webhook', require('../routes/billing_webhook'));
+    app.use('/api/billing', require('../routes/billing'));
   }
 
   setupTelnyxWebhook(app);

@@ -1,0 +1,50 @@
+{
+  "name": "NeoAgent memory retrieval benchmark",
+  "k": 5,
+  "memories": [
+    {
+      "id": "alice_owner",
+      "content": "Alice owns the NeoAgent memory architecture and prefers structured recall summaries.",
+      "category": "semantic",
+      "importance": 7
+    },
+    {
+      "id": "bob_release",
+      "content": "Bob maintains the NeoAgent release automation and checks semantic-release configuration before publishing.",
+      "category": "semantic",
+      "importance": 6
+    },
+    {
+      "id": "carol_devices",
+      "content": "Carol validates Android device flows in NeoAgent and focuses on ADB-based automation coverage.",
+      "category": "semantic",
+      "importance": 6
+    }
+  ],
+  "queries": [
+    {
+      "id": "owner_query",
+      "category": "people",
+      "query": "Who owns the NeoAgent memory architecture?",
+      "relevantMemoryIds": [
+        "alice_owner"
+      ]
+    },
+    {
+      "id": "release_query",
+      "category": "operations",
+      "query": "Who checks semantic-release before publishing NeoAgent releases?",
+      "relevantMemoryIds": [
+        "bob_release"
+      ]
+    },
+    {
+      "id": "android_query",
+      "category": "devices",
+      "query": "Who focuses on ADB automation coverage in NeoAgent?",
+      "relevantMemoryIds": [
+        "carol_devices"
+      ]
+    }
+  ]
+}

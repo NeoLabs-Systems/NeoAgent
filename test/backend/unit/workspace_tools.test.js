@@ -44,6 +44,31 @@ test('read_file accepts model-emitted file_path and line range aliases', async (
   assert.deepEqual(result.rangeShown, [2, 3]);
 });
 
+test('workspace file tools accept the VM /workspace mount path', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'workspace_mount_alias' });
+  const { WorkspaceManager } = require('../../../server/services/workspace/manager');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const workspaceManager = new WorkspaceManager();
+
+  workspaceManager.writeFile(user.userId, {
+    path: 'NeoAgent/service.js',
+    content: 'module.exports = true;\n',
+  });
+
+  const result = await executeTool('read_file', {
+    path: '/workspace/NeoAgent/service.js',
+  }, {
+    userId: user.userId,
+  }, {
+    workspaceManager,
+  });
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.path.endsWith('/NeoAgent/service.js'), true);
+  assert.equal(result.content, 'module.exports = true;\n');
+});
+
 test('file tool schemas expose compatibility aliases without over-requiring fields', () => {
   ctx = createTestRuntime();
   const { getAvailableTools } = require('../../../server/services/ai/tools');

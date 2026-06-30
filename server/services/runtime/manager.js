@@ -19,7 +19,6 @@ class RuntimeManager {
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
       runtimeProfile: 'browser_cli',
-      image: 'mcr.microsoft.com/playwright:v1.44.0-focal',
       memoryMb: DEFAULT_VM_MEMORY_MB,
       cpus: DEFAULT_VM_CPUS,
     });

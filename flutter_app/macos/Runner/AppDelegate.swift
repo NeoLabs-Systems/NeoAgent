@@ -16,6 +16,7 @@ class AppDelegate: FlutterAppDelegate {
 
 final class DesktopCompanionNativePlugin: NSObject {
   private static let channelName = "neoagent/desktop_companion_native"
+  private static let idleThresholdSeconds: Double = 300
   private static var channelAssociationKey: UInt8 = 0
   private static var instanceAssociationKey: UInt8 = 0
 
@@ -268,6 +269,7 @@ final class DesktopCompanionNativePlugin: NSObject {
 
   private func buildDesktopStatus() -> [String: Any] {
     let accessibilityTrusted = isAccessibilityTrusted()
+    let idleSeconds = userIdleSeconds()
     var status: [String: Any] = [
       "permissions": [
         "screenCapture": preflightScreenCapturePermission() ? "available" : "required",
@@ -276,6 +278,9 @@ final class DesktopCompanionNativePlugin: NSObject {
       ],
       "displays": desktopDisplays(),
       "activeDisplayId": defaultDisplayIdentifier(),
+      "sessionLocked": isSessionLocked(),
+      "idleSeconds": idleSeconds,
+      "userIdle": idleSeconds >= Self.idleThresholdSeconds,
     ]
 
     if let appName = NSWorkspace.shared.frontmostApplication?.localizedName {
@@ -422,6 +427,26 @@ final class DesktopCompanionNativePlugin: NSObject {
       return nil
     }
     return title
+  }
+
+  private func isSessionLocked() -> Bool {
+    guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else {
+      return false
+    }
+    if let locked = session["CGSSessionScreenIsLocked"] as? Bool {
+      return locked
+    }
+    if let locked = session["CGSSessionScreenIsLocked"] as? NSNumber {
+      return locked.boolValue
+    }
+    return false
+  }
+
+  private func userIdleSeconds() -> Double {
+    CGEventSource.secondsSinceLastEventType(
+      .combinedSessionState,
+      eventType: .null
+    )
   }
 
   private func performClick(x: Double, y: Double, button: String, displayId: String?) {

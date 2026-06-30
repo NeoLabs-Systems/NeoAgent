@@ -10,6 +10,154 @@ const { buildAgentRunContext } = require('./_helpers/agentRunContext');
 
 router.use(requireAuth);
 
+const CHAT_HISTORY_DEFAULT_LIMIT = 40;
+const CHAT_HISTORY_MAX_LIMIT = 100;
+
+function normalizedTimestampExpression(valueSql) {
+  return `julianday(CASE WHEN instr(${valueSql}, 'T') > 0 THEN ${valueSql} ELSE replace(${valueSql}, ' ', 'T') || 'Z' END)`;
+}
+
+function normalizeChatHistoryLimit(rawLimit) {
+  const parsed = Number.parseInt(rawLimit, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return CHAT_HISTORY_DEFAULT_LIMIT;
+  }
+  return Math.min(parsed, CHAT_HISTORY_MAX_LIMIT);
+}
+
+function parseChatHistoryCursor(query) {
+  const createdAt = query.beforeCreatedAt?.toString().trim() || '';
+  const source = query.beforeSource?.toString().trim() || '';
+  const id = query.beforeId?.toString().trim() || '';
+  if (!createdAt || !source || !id) {
+    return null;
+  }
+  return { createdAt, source, id };
+}
+
+function chatHistoryTimestampMs(value) {
+  if (!value) return 0;
+  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
+  const parsed = new Date(normalized).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareChatHistoryDesc(left, right) {
+  const timestampDiff =
+    chatHistoryTimestampMs(right.created_at) - chatHistoryTimestampMs(left.created_at);
+  if (timestampDiff !== 0) {
+    return timestampDiff;
+  }
+  const sourceDiff = String(right.history_source || '').localeCompare(
+    String(left.history_source || '')
+  );
+  if (sourceDiff !== 0) {
+    return sourceDiff;
+  }
+  return String(right.id || '').localeCompare(String(left.id || ''));
+}
+
+function buildRunUsageSummary(runId) {
+  const rows = db.prepare(`
+    SELECT
+      provider,
+      model,
+      phase,
+      input_tokens,
+      output_tokens,
+      reasoning_tokens,
+      cached_read_tokens,
+      cache_write_tokens,
+      total_tokens,
+      estimated_cost_usd,
+      latency_ms
+    FROM agent_model_usage
+    WHERE run_id = ?
+    ORDER BY id ASC
+  `).all(runId);
+  const totals = {
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cachedReadTokens: 0,
+    cacheWriteTokens: 0,
+    totalTokens: 0,
+    estimatedCostUsd: 0,
+    pricedCallCount: 0,
+    latencyMs: 0,
+  };
+  const models = new Map();
+
+  for (const row of rows) {
+    const inputTokens = Number(row.input_tokens || 0);
+    const outputTokens = Number(row.output_tokens || 0);
+    const reasoningTokens = Number(row.reasoning_tokens || 0);
+    const cachedReadTokens = Number(row.cached_read_tokens || 0);
+    const cacheWriteTokens = Number(row.cache_write_tokens || 0);
+    const totalTokens = Number(row.total_tokens || 0);
+    const latencyMs = Number(row.latency_ms || 0);
+    const estimatedCostUsd = Number(row.estimated_cost_usd);
+    const key = `${row.provider}:${row.model}`;
+
+    totals.inputTokens += inputTokens;
+    totals.outputTokens += outputTokens;
+    totals.reasoningTokens += reasoningTokens;
+    totals.cachedReadTokens += cachedReadTokens;
+    totals.cacheWriteTokens += cacheWriteTokens;
+    totals.totalTokens += totalTokens;
+    totals.latencyMs += latencyMs;
+    if (Number.isFinite(estimatedCostUsd)) {
+      totals.estimatedCostUsd += estimatedCostUsd;
+      totals.pricedCallCount += 1;
+    }
+
+    if (!models.has(key)) {
+      models.set(key, {
+        provider: row.provider,
+        model: row.model,
+        callCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cachedReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0,
+        pricedCallCount: 0,
+        latencyMs: 0,
+        phases: new Set(),
+      });
+    }
+
+    const aggregate = models.get(key);
+    aggregate.callCount += 1;
+    aggregate.inputTokens += inputTokens;
+    aggregate.outputTokens += outputTokens;
+    aggregate.reasoningTokens += reasoningTokens;
+    aggregate.cachedReadTokens += cachedReadTokens;
+    aggregate.cacheWriteTokens += cacheWriteTokens;
+    aggregate.totalTokens += totalTokens;
+    aggregate.latencyMs += latencyMs;
+    aggregate.phases.add(String(row.phase || '').trim() || 'model_turn');
+    if (Number.isFinite(estimatedCostUsd)) {
+      aggregate.estimatedCostUsd += estimatedCostUsd;
+      aggregate.pricedCallCount += 1;
+    }
+  }
+
+  return {
+    totals: {
+      ...totals,
+      estimatedCostUsd: totals.pricedCallCount > 0 ? totals.estimatedCostUsd : null,
+    },
+    models: [...models.values()].map((entry) => ({
+      ...entry,
+      estimatedCostUsd: entry.pricedCallCount > 0 ? entry.estimatedCostUsd : null,
+      phases: [...entry.phases],
+    })),
+  };
+}
+
 // List agent runs
 router.get('/', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
@@ -23,9 +171,31 @@ router.get('/', (req, res) => {
 
 // Chat history (web + social messages merged)
 router.get('/chat-history', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  const limit = normalizeChatHistoryLimit(req.query.limit);
+  const queryLimit = limit + 1;
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const cursor = parseChatHistoryCursor(req.query);
+  const cursorTimestampSql = normalizedTimestampExpression('@beforeCreatedAt');
+  const historyTimestampSql = normalizedTimestampExpression('created_at');
+  const cursorClause = (sourceName) =>
+    cursor
+      ? `AND (
+        ${historyTimestampSql} < ${cursorTimestampSql}
+        OR (${historyTimestampSql} = ${cursorTimestampSql} AND '${sourceName}' < @beforeSource)
+        OR (${historyTimestampSql} = ${cursorTimestampSql} AND '${sourceName}' = @beforeSource AND CAST(id AS TEXT) < @beforeId)
+      )`
+      : '';
+  const queryParams = cursor
+    ? {
+        userId,
+        agentId,
+        limit: queryLimit,
+        beforeCreatedAt: cursor.createdAt,
+        beforeSource: cursor.source,
+        beforeId: cursor.id,
+      }
+    : { userId, agentId, limit: queryLimit };
 
   const webMsgs = db.prepare(`
     SELECT
@@ -37,9 +207,14 @@ router.get('/chat-history', (req, res) => {
       created_at,
       agent_run_id AS run_id,
       metadata,
-      NULL AS tool_calls
-    FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?
-  `).all(userId, agentId, limit);
+      NULL AS tool_calls,
+      'conversation' AS history_source
+    FROM conversation_history
+    WHERE user_id = @userId AND agent_id = @agentId
+    ${cursorClause('conversation')}
+    ORDER BY ${historyTimestampSql} DESC, CAST(id AS TEXT) DESC
+    LIMIT @limit
+  `).all(queryParams);
 
   const socialMsgs = db.prepare(`
     SELECT
@@ -51,23 +226,27 @@ router.get('/chat-history', (req, res) => {
       created_at,
       run_id,
       metadata,
-      tool_calls
-    FROM messages WHERE user_id = ? AND agent_id = ? AND platform != 'web'
-    ORDER BY created_at DESC LIMIT ?
-  `).all(userId, agentId, limit);
+      tool_calls,
+      'message' AS history_source
+    FROM messages
+    WHERE user_id = @userId AND agent_id = @agentId AND platform != 'web'
+    ${cursorClause('message')}
+    ORDER BY ${historyTimestampSql} DESC, CAST(id AS TEXT) DESC
+    LIMIT @limit
+  `).all(queryParams);
 
-  // Normalize SQL datetime ('YYYY-MM-DD HH:MM:SS', treated as local) and ISO-Z strings to ms
-  const toMs = (s) => {
-    if (!s) return 0;
-    const normalized = s.includes('T') ? s : s.replace(' ', 'T') + 'Z';
-    return new Date(normalized).getTime();
-  };
+  const merged = [...webMsgs, ...socialMsgs].sort(compareChatHistoryDesc);
+  const page = merged.slice(0, limit);
+  const oldest = page.length > 0 ? page[page.length - 1] : null;
 
-  const all = [...webMsgs, ...socialMsgs]
-    .sort((a, b) => toMs(a.created_at) - toMs(b.created_at))
-    .slice(-limit);
-
-  res.json({ messages: all, agentId });
+  res.json({
+    messages: [...page].reverse(),
+    agentId,
+    hasMore: merged.length > limit,
+    nextBeforeCreatedAt: oldest?.created_at || null,
+    nextBeforeSource: oldest?.history_source || null,
+    nextBeforeId: oldest?.id?.toString() || null,
+  });
 });
 
 // Create new agent run
@@ -130,6 +309,7 @@ router.post('/', async (req, res) => {
 
     res.json(result);
   } catch (err) {
+    console.error('[Agents] Run failed:', err?.stack || err);
     res.status(err?.statusCode || err?.status || 500).json({
       error: sanitizeError(err),
       code: err?.code,
@@ -145,8 +325,9 @@ router.get('/:id', (req, res) => {
 
   const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(run.id);
   const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(run.id);
+  const usage = buildRunUsageSummary(run.id);
 
-  res.json({ run, steps, history });
+  res.json({ run, steps, history, usage });
 });
 
 // Get detailed steps for a run (for activity history replay)
@@ -180,8 +361,9 @@ router.get('/:id/steps', (req, res) => {
     || latestHistoryAssistant?.content
     || run.final_response
     || null;
+  const usage = buildRunUsageSummary(run.id);
 
-  res.json({ run, steps, events: listRunEvents(run.id), response });
+  res.json({ run, steps, events: listRunEvents(run.id), response, usage });
 });
 
 // Abort a run

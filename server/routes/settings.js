@@ -34,6 +34,7 @@ const {
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
+const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -193,14 +194,12 @@ async function resetEnvBackedSettingValue(req, key) {
 
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
-  const { getSupportedModels } = require('../services/ai/models');
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const models = await getSupportedModels(req.session.userId, agentId);
   res.json({ models });
 });
 
 router.get('/meta/ai-providers', async (req, res) => {
-  const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const [providers, models] = await Promise.all([
     getProviderHealthCatalog(req.session.userId, agentId),

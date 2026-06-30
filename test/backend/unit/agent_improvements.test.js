@@ -21,6 +21,12 @@ const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server
 const {
   buildCompletionDecisionPrompt,
 } = require('../../../server/services/ai/loop/completion_judge');
+const { buildLoopPolicy } = require('../../../server/services/ai/loopPolicy');
+const {
+  resolveTaskTriggerArgs,
+} = require('../../../server/services/ai/tools');
+const { compactToolResult } = require('../../../server/services/ai/toolResult');
+const { classifyToolExecution, gatheredNewEvidence } = require('../../../server/services/ai/toolEvidence');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
   assert.deepEqual(normalizeUsage({
@@ -158,6 +164,108 @@ test('task analysis keeps short immediate work out of task automation flow', () 
   assert.match(prompt, /future, recurring, scheduled, monitored, background/);
 });
 
+test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
+  const standard = buildLoopPolicy({}, 'messaging', 'execute');
+  const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
+    autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
+  });
+  const clamped = buildLoopPolicy(
+    { max_iterations: 1_000_000, max_consecutive_read_only_iterations: 999 },
+    'messaging',
+    'execute',
+  );
+
+  // The ceiling is a runaway safety net, not the primary stop signal.
+  assert.equal(standard.maxIterations, 250);
+  assert.equal(complex.maxIterations, 250);
+  assert.equal(clamped.maxIterations, 400);
+  // The real "stop when stuck" guard: consecutive read-only turns without progress.
+  assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
+  assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
+});
+
+test('create_task accepts schedule config as object, JSON string, or bare cron', () => {
+  // Canonical object shape.
+  const obj = resolveTaskTriggerArgs({
+    trigger: { type: 'schedule', config: { mode: 'recurring', cronExpression: '0 11 * * 1-5' } },
+  });
+  assert.equal(obj.triggerType, 'schedule');
+  assert.equal(obj.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // JSON-stringified config with a "cron" alias key.
+  const stringified = resolveTaskTriggerArgs({
+    trigger_type: 'schedule',
+    trigger_config: '{"cron": "0 11 * * 1-5"}',
+  });
+  assert.equal(stringified.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // Bare 5-field cron string passed directly as the config.
+  const bareCron = resolveTaskTriggerArgs({
+    trigger: { type: 'schedule', config: '0 11 * * 1-5' },
+  });
+  assert.equal(bareCron.triggerConfig.mode, 'recurring');
+  assert.equal(bareCron.triggerConfig.cronExpression, '0 11 * * 1-5');
+
+  // Bare ISO datetime string becomes a one_time run.
+  const oneTime = resolveTaskTriggerArgs({
+    trigger_type: 'schedule',
+    trigger_config: '2026-07-01T09:00:00+02:00',
+  });
+  assert.equal(oneTime.triggerConfig.mode, 'one_time');
+  assert.equal(oneTime.triggerConfig.runAt, '2026-07-01T09:00:00+02:00');
+});
+
+test('calendar summarizeEvent flags all-day vs timed events', () => {
+  const { summarizeEvent } = require('../../../server/services/integrations/google/calendar');
+
+  const allDay = summarizeEvent({
+    id: 'a',
+    summary: 'Handy Geburtstag',
+    start: { date: '2018-06-17' },
+    end: { date: '2018-06-18' },
+  });
+  assert.equal(allDay.allDay, true);
+  assert.equal(allDay.start, '2018-06-17');
+
+  const timed = summarizeEvent({
+    id: 'b',
+    summary: 'Standup',
+    start: { dateTime: '2026-06-17T09:00:00+02:00' },
+    end: { dateTime: '2026-06-17T09:15:00+02:00' },
+  });
+  assert.equal(timed.allDay, false);
+  assert.equal(timed.start, '2026-06-17T09:00:00+02:00');
+});
+
+test('calendar summarizeListedEvents exposes timed events separately for reminder logic', () => {
+  const { summarizeListedEvents } = require('../../../server/services/integrations/google/calendar');
+
+  const result = summarizeListedEvents([
+    {
+      id: 'all-day',
+      summary: 'Abreise Bali',
+      start: { date: '2026-06-19' },
+      end: { date: '2026-06-20' },
+    },
+    {
+      id: 'timed',
+      summary: 'Airport transfer',
+      start: { dateTime: '2026-06-19T03:15:00+02:00' },
+      end: { dateTime: '2026-06-19T03:45:00+02:00' },
+    },
+  ]);
+
+  assert.equal(result.count, 2);
+  assert.equal(result.timedCount, 1);
+  assert.equal(result.allDayCount, 1);
+  assert.equal(result.hasTimedEvents, true);
+  assert.equal(result.hasOnlyAllDayEvents, false);
+  assert.equal(result.nextTimedEvent?.id, 'timed');
+  assert.deepEqual(result.timedEvents.map((event) => event.id), ['timed']);
+  assert.deepEqual(result.allDayEvents.map((event) => event.id), ['all-day']);
+  assert.deepEqual(result.events.map((event) => event.id), ['timed', 'all-day']);
+});
+
 test('task analysis keeps source checkouts in the shared workspace', () => {
   const prompt = buildExecutionGuidance({
     analysis: {
@@ -222,4 +330,59 @@ test('structured data parser handles quoted delimiters and newlines', () => {
     { name: 'Neo', note: 'one,two' },
     { name: 'A', note: 'line 1\nline 2' },
   ]);
+});
+
+test('calendar compaction surfaces every event instead of truncating the array', () => {
+  // A realistic flood: one stale verbose timed event followed by many all-day
+  // markers. The generic JSON path would clamp this and drop the events; the
+  // dedicated digest must keep them all so the model never re-queries blindly.
+  const events = [
+    {
+      id: 'stale', status: 'confirmed', summary: 'Abreise Bali', allDay: false,
+      start: '2018-09-01T10:00:00+02:00', end: '2018-09-01T12:00:00+02:00',
+      description: 'x'.repeat(4000), htmlLink: 'https://calendar.google.com/'.padEnd(300, 'y'),
+      attendees: ['a@example.com', 'b@example.com'],
+    },
+    {
+      id: 'real', status: 'confirmed', summary: 'Zahnarzt Termin', allDay: false,
+      start: '2026-06-22T14:30:00+02:00', end: '2026-06-22T15:00:00+02:00',
+      location: 'Praxis Dr. Müller',
+    },
+    ...Array.from({ length: 9 }, (_, i) => ({
+      id: `ad${i}`, status: 'confirmed', summary: `Geburtstag Person ${i}`, allDay: true,
+      start: '2026-06-22', end: '2026-06-23',
+    })),
+  ];
+  const result = {
+    count: events.length, timedCount: 2, allDayCount: 9,
+    hasTimedEvents: true, hasOnlyAllDayEvents: false,
+    nextTimedEvent: events[0], timedEvents: events.slice(0, 2), allDayEvents: events.slice(2), events,
+  };
+  const compact = compactToolResult('google_workspace_calendar_list_events', {}, result, {
+    softLimit: 2400, hardLimit: 4800,
+  });
+  const parsed = JSON.parse(compact);
+  assert.equal(parsed.timed.length, 2, 'all timed events survive compaction');
+  assert.equal(parsed.allDay.length, 9, 'all all-day events survive compaction');
+  assert.ok(parsed.timed.some((e) => e.summary === 'Zahnarzt Termin'), 'the real upcoming event is visible');
+  assert.ok(!compact.includes('xxxx'), 'verbose description noise is dropped');
+  assert.ok(compact.length <= 4800, 'digest stays within the hard budget');
+});
+
+test('new-evidence reads count as progress but churn does not', () => {
+  const freshSearch = classifyToolExecution('web_search', { query: 'cafeteria menu' }, {
+    results: [{ title: 'Menu', url: 'https://example.com' }],
+  });
+  assert.equal(gatheredNewEvidence(freshSearch, { unchangedCount: 1 }), true);
+
+  // Re-running the same call to an unchanged result is churn, not progress.
+  assert.equal(gatheredNewEvidence(freshSearch, { unchangedCount: 2 }), false);
+
+  // A failed read is not progress.
+  const failedRead = classifyToolExecution('read_file', { path: '/missing' }, { error: 'not found' });
+  assert.equal(gatheredNewEvidence(failedRead, { unchangedCount: 1 }), false);
+
+  // Pure thinking gathers no evidence.
+  const thought = classifyToolExecution('think', { thought: 'hmm' }, { thought: 'hmm' });
+  assert.equal(gatheredNewEvidence(thought, { unchangedCount: 1 }), false);
 });

@@ -2,27 +2,20 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
+const {
+  chooseBrowserIdentity,
+  detectBotChallenge,
+  generateHumanMousePath,
+  normalizeChallengeRetry,
+  normalizeReferrerMode,
+  rand,
+} = require('./anti_detection');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 const BROWSER_PROFILE_ROOT = path.join(DATA_DIR, 'browser-profiles');
 if (!fs.existsSync(BROWSER_PROFILE_ROOT)) fs.mkdirSync(BROWSER_PROFILE_ROOT, { recursive: true });
 const BROWSER_READY_MARKER = '/var/lib/neoagent/browser-runtime-ready';
-
-const USER_AGENTS = [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-];
-
-const VIEWPORTS = [
-  { width: 1280, height: 800 },
-  { width: 1366, height: 768 },
-  { width: 1440, height: 900 },
-  { width: 1920, height: 1080 },
-];
 
 // Injected into every page in the cloud VM browser context to deny local device access.
 const DEVICE_DENY_SCRIPT = `(() => {
@@ -166,10 +159,6 @@ function installPlaywrightBrowserBinary(browserName) {
   });
 }
 
-function rand(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
@@ -241,10 +230,15 @@ class BrowserController {
     this.launchPromise = null;
     this.browserBinaryInstallPromise = null;
     this.headless = false;
-    this._viewport = VIEWPORTS[0];
-    this._userAgent = USER_AGENTS[0];
     this.profileDir = path.join(BROWSER_PROFILE_ROOT, this.userId || 'default');
     if (!fs.existsSync(this.profileDir)) fs.mkdirSync(this.profileDir, { recursive: true });
+    this._identity = chooseBrowserIdentity(this.userId || this.profileDir);
+    this._viewport = this._identity.viewport;
+    this._userAgent = this._identity.userAgent;
+    this._mousePosition = {
+      x: Math.round(this._viewport.width / 2),
+      y: Math.round(this._viewport.height / 2),
+    };
   }
 
   async setHeadless(val) {
@@ -260,6 +254,7 @@ class BrowserController {
   async _applyStealthToPage(page) {
     const ua = this._userAgent;
     const vp = this._viewport;
+    const identity = this._identity || chooseBrowserIdentity(this.userId || this.profileDir);
 
     if (typeof page.setUserAgent === 'function') {
       await page.setUserAgent(ua);
@@ -281,9 +276,9 @@ class BrowserController {
 
         // Realistic language/platform
         Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
-        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${rand(4, 16)} });
-        Object.defineProperty(navigator, 'deviceMemory', { get: () => ${[4, 8, 16][rand(0, 2)]} });
+        Object.defineProperty(navigator, 'platform', { get: () => ${JSON.stringify(identity.platform)} });
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${Number(identity.hardwareConcurrency) || 8} });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => ${Number(identity.deviceMemory) || 8} });
 
         // Make it look like a real Chrome install
         window.chrome = {
@@ -323,9 +318,9 @@ class BrowserController {
           apply: function(target, ctx, args) {
             const param = args[0];
             // UNMASKED_VENDOR_WEBGL
-            if (param === 37445) return 'Google Inc. (Apple)';
+            if (param === 37445) return ${JSON.stringify(identity.webglVendor)};
             // UNMASKED_RENDERER_WEBGL
-            if (param === 37446) return 'ANGLE (Apple, Apple M2, OpenGL 4.1)';
+            if (param === 37446) return ${JSON.stringify(identity.webglRenderer)};
             return Reflect.apply(target, ctx, args);
           }
         };
@@ -388,8 +383,13 @@ class BrowserController {
       }
       await this.ensureVirtualDisplay();
 
-      this._userAgent = USER_AGENTS[rand(0, USER_AGENTS.length - 1)];
-      this._viewport = VIEWPORTS[rand(0, VIEWPORTS.length - 1)];
+      this._identity = chooseBrowserIdentity(this.userId || this.profileDir);
+      this._userAgent = this._identity.userAgent;
+      this._viewport = this._identity.viewport;
+      this._mousePosition = {
+        x: Math.round(this._viewport.width / 2),
+        y: Math.round(this._viewport.height / 2),
+      };
 
       let executablePath = resolveBrowserExecutablePath();
       if (!executablePath) {
@@ -414,18 +414,28 @@ class BrowserController {
       };
 
       const launchArgs = [
+        '--start-maximized',
+        '--remote-allow-origins=*',
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--no-service-autorun',
         '--disable-crash-reporter',
+        '--disable-breakpad',
         '--disable-background-networking',
         '--disable-component-update',
         '--disable-blink-features=AutomationControlled',
         '--disable-infobars',
+        '--disable-session-crashed-bubble',
+        '--disable-search-engine-choice-screen',
         '--no-first-run',
         '--no-default-browser-check',
+        '--homepage=about:blank',
+        '--no-pings',
+        '--password-store=basic',
         '--disable-gpu',
         '--lang=en-US,en',
+        `--user-agent=${this._userAgent}`,
         `--window-size=${this._viewport.width},${this._viewport.height}`,
         // Cloud security: disable hardware device APIs at the Chromium level
         '--disable-features=WebBluetooth,WebUSB,WebSerial,WebOTP,DirectSockets',
@@ -440,6 +450,8 @@ class BrowserController {
         env: launchEnv,
         args: launchArgs,
         viewport: this._viewport,
+        userAgent: this._userAgent,
+        locale: 'en-US',
         ignoreHTTPSErrors: false,
         timeout: 120000,
       });
@@ -535,13 +547,48 @@ class BrowserController {
     return page.screenshot(screenshotOptions);
   }
 
+  async _navigatePage(page, url, options = {}) {
+    const referrerMode = normalizeReferrerMode(options.referrerMode);
+    const waitUntil = normalizeWaitUntil(options.waitUntil);
+    if (referrerMode === 'current' && page.url() && page.url() !== 'about:blank') {
+      const previousUrl = page.url();
+      await page.evaluate((nextUrl) => { window.location.href = nextUrl; }, url);
+      await page.waitForFunction((oldUrl) => window.location.href !== oldUrl, previousUrl, { timeout: 10000 }).catch(() => {});
+      await page.waitForLoadState(waitUntil, { timeout: 30000 }).catch(() => {});
+      return null;
+    }
+
+    const gotoOptions = {
+      waitUntil,
+      timeout: 30000,
+    };
+    if (referrerMode === 'google') {
+      gotoOptions.referer = 'https://www.google.com/';
+    } else if (referrerMode === 'current' && page.url() && page.url() !== 'about:blank') {
+      gotoOptions.referer = page.url();
+    }
+    return page.goto(url, gotoOptions);
+  }
+
+  async _getBotDetection(page, rawHtml, pageContent) {
+    const title = await page.title().catch(() => '');
+    return detectBotChallenge({
+      title,
+      url: page.url(),
+      html: rawHtml,
+      pageContent,
+    });
+  }
+
   async navigate(url, options = {}) {
     const page = await this.ensurePage();
 
     try {
-      const response = await page.goto(url, {
-        waitUntil: normalizeWaitUntil(options.waitUntil),
-        timeout: 30000
+      const requestedReferrerMode = normalizeReferrerMode(options.referrerMode);
+      let activeReferrerMode = requestedReferrerMode;
+      let response = await this._navigatePage(page, url, {
+        ...options,
+        referrerMode: activeReferrerMode,
       });
 
       if (options.waitFor) {
@@ -549,7 +596,34 @@ class BrowserController {
       }
 
       // Simulate human reading delay
-      await sleep(rand(500, 1500));
+      await sleep(rand(700, 1800));
+
+      let rawHtml = await page.content();
+      const { extractForLLM } = require('./contentExtractor');
+      let extraction = extractForLLM(rawHtml, { url: page.url() });
+      let botDetection = await this._getBotDetection(page, rawHtml, extraction.markdown);
+      let challengeRetried = false;
+
+      if (
+        botDetection.detected
+        && normalizeChallengeRetry(options.challengeRetry)
+        && requestedReferrerMode === 'direct'
+      ) {
+        challengeRetried = true;
+        activeReferrerMode = 'google';
+        await sleep(rand(1200, 2600));
+        response = await this._navigatePage(page, url, {
+          ...options,
+          referrerMode: activeReferrerMode,
+        });
+        if (options.waitFor) {
+          await page.waitForSelector(options.waitFor, { timeout: 10000 }).catch(() => { });
+        }
+        await sleep(rand(900, 2200));
+        rawHtml = await page.content();
+        extraction = extractForLLM(rawHtml, { url: page.url() });
+        botDetection = await this._getBotDetection(page, rawHtml, extraction.markdown);
+      }
 
       const title = await page.title();
       const currentUrl = page.url();
@@ -559,19 +633,14 @@ class BrowserController {
         screenshot = await this.takeScreenshot({ fullPage: options.fullPage });
       }
 
-      const bodyText = await page.evaluate(() => {
-        const body = document.body;
-        if (!body) return '';
-        const clone = body.cloneNode(true);
-        clone.querySelectorAll('script, style, noscript').forEach(s => s.remove());
-        return clone.innerText.slice(0, 10000);
-      });
-
       return {
         title,
         url: currentUrl,
         status: response?.status() || 0,
-        bodyText,
+        pageContent: extraction.markdown,
+        botDetection,
+        referrerMode: activeReferrerMode,
+        challengeRetried,
         screenshotPath: screenshot?.screenshotPath || null,
         artifactId: screenshot?.artifactId || null,
         fullPath: screenshot?.fullPath || null
@@ -582,11 +651,42 @@ class BrowserController {
       return {
         error: err.message,
         url,
+        botDetection: { detected: false, provider: null },
         screenshotPath: screenshot?.screenshotPath || null,
         artifactId: screenshot?.artifactId || null,
         fullPath: screenshot?.fullPath || null
       };
     }
+  }
+
+  async _moveMouseTo(page, x, y, options = {}) {
+    const target = {
+      x: Math.max(0, Math.min(this._viewport.width, Math.round(Number(x) || 0))),
+      y: Math.max(0, Math.min(this._viewport.height, Math.round(Number(y) || 0))),
+    };
+    const path = generateHumanMousePath(this._mousePosition, target, this._viewport);
+    for (const point of path) {
+      await page.mouse.move(point.x, point.y);
+      if (!options.fast) {
+        await sleep(rand(2, 10));
+      }
+    }
+    this._mousePosition = target;
+    return target;
+  }
+
+  async _pointForElement(element) {
+    await element.scrollIntoViewIfNeeded?.().catch(() => {});
+    const box = await element.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) {
+      return null;
+    }
+    const xRatio = rand(25, 75) / 100;
+    const yRatio = rand(30, 70) / 100;
+    return {
+      x: box.x + box.width * xRatio,
+      y: box.y + box.height * yRatio,
+    };
   }
 
   async click(selector, text, screenshot = true) {
@@ -612,10 +712,14 @@ class BrowserController {
         return { error: 'Either selector or text required' };
       }
 
-      // Human-like: hover first, then click with a hold delay
-      await target.hover();
-      await sleep(rand(80, 250));
-      await target.click({ delay: rand(50, 150) });
+      const point = await this._pointForElement(target);
+      if (!point) return { error: 'Element has no visible clickable area' };
+
+      await this._moveMouseTo(page, point.x, point.y);
+      await sleep(rand(170, 320));
+      await page.mouse.down();
+      await sleep(rand(80, 260));
+      await page.mouse.up();
 
       await sleep(rand(800, 1800));
 
@@ -641,10 +745,10 @@ class BrowserController {
     try {
       const px = Math.max(0, Math.round(Number(x) || 0));
       const py = Math.max(0, Math.round(Number(y) || 0));
-      await page.mouse.move(px, py, { steps: rand(4, 10) });
-      await sleep(rand(40, 140));
+      await this._moveMouseTo(page, px, py);
+      await sleep(rand(90, 220));
       await page.mouse.down();
-      await sleep(rand(30, 110));
+      await sleep(rand(70, 240));
       await page.mouse.up();
       await sleep(rand(500, 1200));
 
@@ -671,7 +775,7 @@ class BrowserController {
     try {
       const px = Math.max(0, Math.round(Number(x) || 0));
       const py = Math.max(0, Math.round(Number(y) || 0));
-      await page.mouse.move(px, py, { steps: options.steps || 1 });
+      await this._moveMouseTo(page, px, py, { fast: Number(options.steps) <= 1 });
       return {
         success: true,
         x: px,
@@ -688,11 +792,19 @@ class BrowserController {
     const page = await this.ensurePage();
 
     try {
-      await page.mouse.wheel({
-        deltaX: Math.round(Number(deltaX) || 0),
-        deltaY: Math.round(Number(deltaY) || 0),
-      });
-      await sleep(rand(300, 900));
+      const x = Math.max(10, Math.min(this._viewport.width - 10, this._mousePosition.x + rand(-80, 80)));
+      const y = Math.max(10, Math.min(this._viewport.height - 10, this._mousePosition.y + rand(-80, 80)));
+      await this._moveMouseTo(page, x, y);
+      const totalX = Math.round(Number(deltaX) || 0);
+      const totalY = Math.round(Number(deltaY) || 0);
+      const chunks = Math.max(1, Math.min(6, Math.ceil(Math.max(Math.abs(totalX), Math.abs(totalY)) / 450)));
+      for (let i = 0; i < chunks; i += 1) {
+        await page.mouse.wheel({
+          deltaX: Math.round(totalX / chunks),
+          deltaY: Math.round(totalY / chunks),
+        });
+        await sleep(rand(120, 360));
+      }
 
       let screenshotResult = null;
       if (screenshot) screenshotResult = await this.takeScreenshot();
@@ -715,12 +827,20 @@ class BrowserController {
 
     try {
       if (options.clear !== false) {
-        await page.click(selector, { clickCount: 3 });
+        const element = await page.$(selector);
+        if (element) {
+          const point = await this._pointForElement(element);
+          if (point) {
+            await this._moveMouseTo(page, point.x, point.y);
+            await sleep(rand(120, 260));
+          }
+        }
+        await page.click(selector, { clickCount: 3, delay: rand(40, 120) });
         await page.keyboard.press('Backspace');
       }
 
       for (const char of text) {
-        await page.type(selector, char, { delay: rand(30, 150) });
+        await page.type(selector, char, { delay: rand(45, 180) });
       }
 
       if (options.pressEnter) {
@@ -748,7 +868,7 @@ class BrowserController {
 
     try {
       for (const char of String(text || '')) {
-        await page.keyboard.type(char, { delay: rand(25, 110) });
+        await page.keyboard.type(char, { delay: rand(45, 160) });
       }
 
       if (options.pressEnter) {
@@ -801,6 +921,8 @@ class BrowserController {
     const page = await this.ensurePage();
 
     try {
+      const rawHtml = await page.content().catch(() => '');
+      const botDetection = await this._getBotDetection(page, rawHtml, '').catch(() => ({ detected: false, provider: null }));
       if (all) {
         const results = await page.$$eval(selector || 'body', (elements, attr) => {
           return elements.map(el => {
@@ -810,7 +932,7 @@ class BrowserController {
             return el.innerText || '';
           });
         }, attribute);
-        return { results: results.slice(0, 100) };
+        return { results: results.slice(0, 100), botDetection };
       }
 
       const result = await page.$eval(selector || 'body', (el, attr) => {
@@ -820,7 +942,7 @@ class BrowserController {
         return el.innerText || '';
       }, attribute);
 
-      return { result: typeof result === 'string' ? result.slice(0, 50000) : result };
+      return { result: typeof result === 'string' ? result.slice(0, 50000) : result, botDetection };
     } catch (err) {
       return { error: err.message };
     }

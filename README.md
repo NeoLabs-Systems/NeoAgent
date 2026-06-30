@@ -19,6 +19,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3ddc84?style=flat-square&logo=android&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="iOS" src="https://img.shields.io/badge/iOS-coming_soon-lightgrey?style=flat-square&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="https://www.producthunt.com/products/neoagent-2?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-neoagent-2" target="_blank" rel="noopener noreferrer"><img alt="NeoAgent - The next-gen self-hosted AI agent that works beyond chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1171573&theme=light&t=1781447653039"></a>
 </p>
 
@@ -28,14 +34,19 @@
 
 ## 🚀 Install
 
-NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer; the
-installer handles the rest of the application setup and attempts to install
-QEMU for the isolated browser and terminal runtime.
+NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer and
+Docker for the isolated browser and terminal runtime; the installer handles the
+rest of the application setup and pre-builds the guest runtime image when Docker
+is available.
 
 ```bash
 npm install -g neoagent
 neoagent install
 ```
+
+<p align="center">
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download macOS app" src="https://img.shields.io/badge/macOS_app-download-black?style=flat-square&logo=apple&logoColor=white"></a>
+</p>
 
 Open `http://localhost:3333`, create the first account, and configure a model.
 Local models can run through [Ollama](https://ollama.com/); hosted providers
@@ -51,6 +62,7 @@ service to a network.
 - **It operates real devices.** The agent can use an isolated browser and shell, control an Android device or emulator over ADB, or work through a paired Chrome extension and desktop companion.
 - **Automation can start without a message.** Tasks can run on a schedule or from supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events. Android notifications can also start an agent run.
 - **Agents and users have separate state.** Specialist agents can have their own memory, settings, tools, account assignments, conversations, and task history. Multi-user deployments include administrative account controls and optional email confirmation.
+- **SaaS billing is built in and off by default.** Set `NEOAGENT_BILLING_ENABLED=true` to activate Stripe subscriptions, plan management, free trials, and model access restrictions. When disabled, no payment routes or UI appear anywhere. See [Billing](docs/billing.md).
 - **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, a Chrome extension, and firmware for a supported ESP32-S3 wearable.
 
 ## 🖥️ Interfaces
@@ -79,8 +91,16 @@ changes and rough edges. Review the
 [security boundaries](docs/security-boundaries.md) before connecting sensitive
 accounts or giving the agent access to a personal workstation.
 
+## 📊 Benchmarks
+
+![NeoAgent benchmark dashboard](static/benchmarks/latest-dashboard.png)
+See [Benchmarking](docs/benchmarking.md) for the reproducibility details and suite coverage.
+
 Start with the [documentation](https://neolabs-systems.github.io/NeoAgent/docs/).
 Use [GitHub Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions)
 for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
 for reproducible bugs. Security reports belong in the process described by
 [SECURITY.md](SECURITY.md).
+
+*Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*
+

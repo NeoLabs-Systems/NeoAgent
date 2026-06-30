@@ -1,15 +1,13 @@
 'use strict';
 
 const session = require('express-session');
-const Sqlite = require('better-sqlite3');
 const SQLiteStore = require('better-sqlite3-session-store')(session);
 const helmet = require('helmet');
 const cors = require('cors');
-const { DATA_DIR } = require('../../runtime/paths');
 const { logRequestSummary } = require('../utils/logger');
 const { getSessionSecret } = require('../services/account/session_secret');
 
-const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
+const sessionsDb = require('../db/sessions_db');
 const LEGACY_SESSION_EXPIRE_FALLBACK = 0;
 
 function boolEnv(name, fallback = false) {
@@ -89,7 +87,9 @@ function buildHelmetOptions({ secureCookies }) {
   }
 
   return {
-    strictTransportSecurity: false,
+    strictTransportSecurity: secureCookies
+      ? { maxAge: Number(process.env.NEOAGENT_HSTS_MAX_AGE ?? 86400), includeSubDomains: false }
+      : false,
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: { policy: 'same-site' },
     originAgentCluster: false,

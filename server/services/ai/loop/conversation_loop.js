@@ -49,7 +49,7 @@ const {
   selectDeliverableWorkflow,
   validateDeliverableExecution,
 } = require('../deliverables');
-const { buildLoopPolicy, resolveToolResultLimits } = require('../loopPolicy');
+const { buildLoopPolicy, resolveToolResultLimits, resolveChurnNudgeThreshold } = require('../loopPolicy');
 const { globalHooks } = require('../hooks');
 const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('../completion');
 const { enforceRateLimits } = require('../rate_limits');
@@ -58,7 +58,10 @@ const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { IterationBudget } = require('./iteration_budget');
 const {
   buildBlankAfterToolFailureGuidance,
+  buildRecoverableToolFailureGuidance,
+  isRecoverableInternalToolFailure,
   shouldContinueAfterBlankToolFailure,
+  shouldContinueAfterRecoverableToolFailure,
 } = require('./blank_recovery');
 const {
   shouldSendMessagingErrorFallback,
@@ -142,6 +145,7 @@ const {
 } = require('../messagingFallback');
 const {
   classifyToolExecution,
+  gatheredNewEvidence,
   isSubstantiveProgressToolName,
   summarizeProgressToolExecutions,
   summarizeToolExecutions,
@@ -210,6 +214,9 @@ function buildErrorPatternGuidance(key, count) {
   // multiple iterations before self-correcting.
   const immediateGuides = {
     eisdir: 'That path is a directory or outside the workspace file-tool boundary. Use list_directory for workspace directories. Keep source files in the shared workspace before reading them with file tools.',
+    enoent: 'That path does not exist. Do not keep retrying the same missing file. Locate the correct file first with list_directory/search_files or verify whether the evidence only exists in the user-provided logs.',
+    outside_workspace: 'That path is outside the shared workspace. Use the workspace root and its file tools, or rely on the user-provided evidence if the file only exists on another server.',
+    bad_cwd: 'The current working directory is wrong for that path. Reconfirm the workspace root with pwd/list_directory before reading files.',
     owner_repo_format: 'The parameter "owner_repo" expects a single combined string like "NeoLabs-Systems/NeoAgent" — not separate owner/repo fields. Pass the full "owner/repo" as one value.',
   };
   if (immediateGuides[key]) {
@@ -282,6 +289,24 @@ function summarizeReadTargets(toolExecutions = []) {
     if (targets.length >= 8) break;
   }
   return targets.join('; ');
+}
+
+function buildNoProgressWrapupPrompt({ readOnlyCount = 0, alreadyRead = '', platform = null } = {}) {
+  return [
+    `This is the final turn for this run (no further tool calls; ${Math.max(0, Number(readOnlyCount) || 0)} read-only turns without a state change).`,
+    alreadyRead ? `Already gathered: ${alreadyRead}.` : '',
+    'Write the answer now from everything you have already gathered in this conversation. Deliver the useful result you DO have — calendar, weather, emails, search findings, whatever was collected — formatted as the actual answer to the original request.',
+    'If one part could not be retrieved, still deliver everything else and note the missing part in at most one short clause. Never withhold a useful answer because a single detail is missing.',
+    'Only report a pure blocker if you genuinely gathered nothing usable at all. Do not describe the result as unfinished, unconfirmed, "blocked", or "still working" when you have something useful — this IS the final answer.',
+    buildMaxIterationWrapupPrompt(platform),
+  ].filter(Boolean).join('\n\n');
+}
+
+function isDeliveryTerminated(runMeta, deliveryState) {
+  return runMeta?.noResponse === true
+    || deliveryState?.noResponse === true
+    || runMeta?.finalDeliverySent === true
+    || deliveryState?.finalDeliverySent === true;
 }
 
 function cloneInterimHistory(history = []) {
@@ -483,6 +508,7 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
   const pool = enabledIds.length > 0
     ? availableModels.filter((model) => enabledIds.includes(model.id))
     : availableModels;
+  const fallbackSearchPool = pool.length > 0 ? pool : availableModels;
   const currentModel = pool.find((model) => model.id === currentModelId)
     || availableModels.find((model) => model.id === currentModelId)
     || null;
@@ -493,27 +519,26 @@ async function getFailureFallbackModelId(userId, agentId, currentModelId, prefer
   const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
 
   if (preferredFallbackId && preferredFallbackId !== currentModelId && !isProviderRateLimit) {
-    const preferred = pool.find((model) => model.id === preferredFallbackId)
+    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
   }
 
   if (currentModel?.provider) {
-    const differentProvider = pool.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider)
-      || availableModels.find((model) => model.id !== currentModelId && model.provider !== currentModel.provider);
+    const differentProvider = fallbackSearchPool.find((model) =>
+      model.id !== currentModelId && model.provider !== currentModel.provider);
     if (differentProvider) return differentProvider.id;
   }
 
   // If no different-provider model exists, still try the preferred fallback
   // even on rate limits (it's better than nothing).
   if (preferredFallbackId && preferredFallbackId !== currentModelId) {
-    const preferred = pool.find((model) => model.id === preferredFallbackId)
+    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
       || availableModels.find((model) => model.id === preferredFallbackId);
     if (preferred) return preferred.id;
   }
 
-  const differentModel = pool.find((model) => model.id !== currentModelId)
-    || availableModels.find((model) => model.id !== currentModelId);
+  const differentModel = fallbackSearchPool.find((model) => model.id !== currentModelId);
   return differentModel?.id || null;
 }
 
@@ -529,13 +554,28 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
   ensureDefaultAiSettings(userId, agentId);
   const aiSettings = getAiSettings(userId, agentId);
-
-  enforceRateLimits(userId);
-
   const runId = options.runId || uuidv4();
   const conversationId = options.conversationId;
   const app = options.app || engine.app;
   const triggerSource = options.triggerSource || 'web';
+  let provider = null;
+  let model = null;
+  let providerName = null;
+  let messages = [];
+  let iteration = 0;
+  let totalTokens = 0;
+  let lastContent = '';
+  let stepIndex = 0;
+  let failedStepCount = 0;
+  let toolExecutions = [];
+  let deliverableWorkflow = null;
+  const timelineService = app?.locals?.timelineService || null;
+
+  const { releaseReservation } = enforceRateLimits(userId, {
+    bypass: options.bypassUserRateLimits === true,
+  });
+
+  try {
   const historyWindow = Math.max(
     1,
     Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
@@ -563,9 +603,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     _modelOverride,
     providerStatusConfig
   );
-  let provider = selectedProvider.provider;
-  let model = selectedProvider.model;
-  let providerName = selectedProvider.providerName;
+  provider = selectedProvider.provider;
+  model = selectedProvider.model;
+  providerName = selectedProvider.providerName;
   const switchToFallbackModel = async (failedModel, error, phase) => {
     const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id, error);
     if (!fallbackModelId || fallbackModelId === failedModel) return false;
@@ -696,6 +736,15 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     triggerType,
     triggerSource,
   }, { agentId });
+  timelineService?.recordRunLifecycle?.({
+    userId,
+    agentId,
+    runId,
+    title: runTitle,
+    eventKind: 'run_started',
+    status: 'running',
+    triggerSource,
+  });
   console.info(
     `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
   );
@@ -779,7 +828,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     historyMessages = (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
   }
 
-  let messages = engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
+  messages = engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
   if (capabilitySummary) {
     messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
   }
@@ -809,14 +858,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       .run(conversationId, 'user', userMessage);
   }
 
-  let iteration = 0;
-  let totalTokens = 0;
-  let lastContent = '';
-  let stepIndex = 0;
-  let failedStepCount = 0;
+  iteration = 0;
+  totalTokens = 0;
+  lastContent = '';
+  stepIndex = 0;
+  failedStepCount = 0;
   let modelFailureRecoveries = 0;
   let promptMetrics = {};
-  let toolExecutions = [];
+  toolExecutions = [];
   let compactionMetrics = [];
   let analysis = null;
   let plan = null;
@@ -877,15 +926,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
   }
   let verification = null;
-  let deliverableWorkflow = null;
+  deliverableWorkflow = null;
   let deliverablePlan = null;
   let deliverableArtifacts = [];
   let deliverableValidation = null;
   let directAnswerEligible = false;
   let analysisUsage = 0;
 
-  try {
-    if (options.skipTaskAnalysis === true) {
+  if (options.skipTaskAnalysis === true) {
       analysis = buildSkipTaskAnalysisResult(options.forceMode);
     } else {
       const analysisResult = await runWithModelFallback('task analysis', () => engine.analyzeTask({
@@ -1160,6 +1208,37 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       if (engine.isRunStopped(runId)) break;
       iteration = iterationBudget.used;
 
+      if (globalHooks.has('on_loop_iteration')) {
+        const hookResult = await globalHooks.run('on_loop_iteration', {
+          userId,
+          runId,
+          agentId,
+          iteration,
+          triggerType,
+          triggerSource,
+          totalTokens,
+          taskAnalysis: analysis,
+        });
+        if (hookResult?.stop === true) {
+          const reason = String(hookResult.reason || 'loop_iteration_hook_stop').slice(0, 200);
+          engine.recordRunEvent(userId, runId, 'loop_iteration_stopped', {
+            iteration,
+            reason,
+            stoppedBy: hookResult.stopped_by || hookResult.stoppedBy || null,
+          }, { agentId });
+          lastContent = reason;
+          break;
+        }
+        const systemSteering = String(hookResult?.systemSteering || hookResult?.system_steering || '').trim();
+        if (systemSteering) {
+          messages.push({ role: 'system', content: systemSteering });
+          engine.recordRunEvent(userId, runId, 'loop_iteration_steering', {
+            iteration,
+            source: hookResult.source || null,
+          }, { agentId });
+        }
+      }
+
       const systemSteeringAtLoopStart = engine.applyQueuedSystemSteering(runId, messages);
       messages = systemSteeringAtLoopStart.messages;
       const steeringAtLoopStart = engine.applyQueuedSteering(runId, messages, {
@@ -1169,17 +1248,163 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       messages = steeringAtLoopStart.messages;
       messages = sanitizeConversationMessages(messages);
 
-      // Analysis-paralysis gate: fire at the start of every iteration where
-      // the agent has spent N turns only reading/listing/searching without
-      // taking any concrete action. Escalates in urgency each turn.
+      // Analysis-paralysis gate: AI self-assesses at churnNudgeThreshold; hard
+      // force-wrap-up fires at maxConsecutiveReadOnlyIterations unconditionally.
       if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
         const readOnlyCount = engine.getRunMeta(runId)?.consecutiveReadOnlyIterations || 0;
-        if (readOnlyCount >= 3) {
-          const alreadyRead = summarizeReadTargets(toolExecutions);
-          messages.push({
-            role: 'system',
-            content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
-          });
+        const iterMeta = engine.getRunMeta(runId);
+        const latestFailedExecution = toolExecutions.length > 0
+          ? [...toolExecutions].reverse().find((item) => item && item.ok === false) || null
+          : null;
+
+        if (readOnlyCount >= 2) {
+          const runGoalCtx = resolveRunGoalContext(engine.getRunMeta(runId), analysis, plan);
+          const churnNudgeThreshold = resolveChurnNudgeThreshold(runGoalCtx.goalContract);
+
+          let triggerForceWrapup = false;
+          let forceWrapupSource = 'hard_limit';
+          let alreadyRead = '';
+
+          if (readOnlyCount >= loopPolicy.maxConsecutiveReadOnlyIterations) {
+            if (
+              isRecoverableInternalToolFailure(latestFailedExecution)
+              && iterMeta
+              && iterMeta.recoverableReadOnlyDeferralUsed !== true
+            ) {
+              iterMeta.recoverableReadOnlyDeferralUsed = true;
+              iterMeta.consecutiveReadOnlyIterations = Math.max(0, loopPolicy.maxConsecutiveReadOnlyIterations - 2);
+              messages.push({
+                role: 'system',
+                content: buildRecoverableToolFailureGuidance(toolExecutions),
+              });
+              engine.recordRunEvent(userId, runId, 'read_only_wrapup_deferred_for_recovery', {
+                iteration,
+                readOnlyCount,
+                toolName: latestFailedExecution?.toolName || null,
+              }, { agentId });
+              continue;
+            }
+            alreadyRead = summarizeReadTargets(toolExecutions);
+            triggerForceWrapup = true;
+          } else if (readOnlyCount >= churnNudgeThreshold) {
+            alreadyRead = summarizeReadTargets(toolExecutions);
+            let churnResult;
+            try {
+              churnResult = await engine.assessChurnState({
+                provider,
+                providerName,
+                model,
+                messages,
+                analysis,
+                plan,
+                toolExecutions,
+                readOnlyCount,
+                alreadyRead,
+                iteration,
+                options: { ...options, triggerSource, runId, userId, agentId },
+              });
+            } catch (churnErr) {
+              console.warn(`[Run ${shortenRunId(runId)}] churn_assessment failed: ${summarizeForLog(churnErr?.message || churnErr, 120)}`);
+              churnResult = { assessment: { assessment: 'churn', reason: '' }, usage: 0 };
+            }
+            totalTokens += churnResult.usage || 0;
+            engine.recordRunEvent(userId, runId, 'churn_assessment', {
+              assessment: churnResult.assessment.assessment,
+              reason: churnResult.assessment.reason,
+              readOnlyCount,
+              churnNudgeThreshold,
+              iteration,
+            }, { agentId });
+
+            const churnVerdict = churnResult.assessment.assessment;
+            if (churnVerdict === 'blocked') {
+              triggerForceWrapup = true;
+              forceWrapupSource = 'ai_blocked';
+            } else if (churnVerdict === 'progressing') {
+              // Model is genuinely on track — partially reset so it gets
+              // re-assessed after one more read-only turn rather than immediately.
+              const iterMeta = engine.getRunMeta(runId);
+              if (iterMeta) {
+                iterMeta.consecutiveReadOnlyIterations = Math.max(0, churnNudgeThreshold - 1);
+              }
+            } else {
+              // 'churn' — model acknowledges it is spinning; inject the nudge
+              // so it can course-correct in the next iteration.
+              messages.push({
+                role: 'system',
+                content: buildReadOnlyChurnGuidance({ readOnlyCount, alreadyRead }),
+              });
+            }
+          }
+
+          if (triggerForceWrapup) {
+            console.warn(
+              `[Run ${shortenRunId(runId)}] no_progress_wrapup source=${forceWrapupSource} readOnlyCount=${readOnlyCount}`
+            );
+            engine.updateRunProgress(runId, {
+              currentPhase: 'model',
+              currentStep: 'model:no_progress_wrapup',
+              currentTool: null,
+              currentStepStartedAt: isoNow(),
+            });
+            let wrapTokens = 0;
+            try {
+              const wrapResponse = await withModelCallTimeout(
+                provider.chat(
+                  sanitizeConversationMessages([
+                    ...messages,
+                    {
+                      role: 'system',
+                      content: buildNoProgressWrapupPrompt({
+                        readOnlyCount,
+                        alreadyRead,
+                        platform: options?.source || null,
+                      }),
+                    },
+                  ]),
+                  [],
+                  { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+                ),
+                options,
+                'No-progress wrap-up',
+              );
+              wrapTokens = wrapResponse.usage?.totalTokens || 0;
+              lastContent = sanitizeModelOutput(wrapResponse.content || '', { model });
+            } catch (wrapErr) {
+              console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
+            }
+            totalTokens += wrapTokens;
+            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
+            if (!usableWrap) {
+              lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
+            }
+            messages.push({ role: 'assistant', content: lastContent });
+            if (conversationId) {
+              db.prepare('INSERT INTO conversation_messages (conversation_id, role, content, tokens) VALUES (?, ?, ?, ?)')
+                .run(conversationId, 'assistant', lastContent, usableWrap ? wrapTokens : 0);
+            }
+            engine.recordRunEvent(userId, runId, 'no_progress_wrapup_delivered', {
+              iteration,
+              readOnlyCount,
+              source: usableWrap ? 'model' : 'deterministic',
+              forceWrapupSource,
+              stepIndex,
+            }, { agentId });
+            // This wrap-up is a forced, tool-less terminal answer: the model had no
+            // way to call send_message itself. On automatic background runs the plain
+            // result is normally gated, which would silently drop this. Mark it so the
+            // task runtime delivers it — a stuck/blocked scheduled task must still
+            // surface its result instead of going silent.
+            if (
+              (triggerSource === 'schedule' || triggerSource === 'tasks')
+              && options.deliveryState
+              && !engine.activeRuns.get(runId)?.messagingSent
+            ) {
+              options.deliveryState.terminalWrapup = true;
+            }
+            directAnswerEligible = true;
+            break;
+          }
         }
       }
 
@@ -1410,6 +1635,22 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           lastContent = '';
           continue;
         }
+        if (shouldContinueAfterRecoverableToolFailure({
+          lastContent,
+          remainingIterations: iterationBudget.remaining,
+          toolExecutions,
+        })) {
+          engine.recordRunEvent(userId, runId, 'recoverable_tool_failure_continued', {
+            iteration,
+            remainingIterations: iterationBudget.remaining,
+          }, { agentId });
+          messages.push({
+            role: 'system',
+            content: buildRecoverableToolFailureGuidance(toolExecutions),
+          });
+          lastContent = '';
+          continue;
+        }
         const loopDecision = await engine.decideLoopState({
           provider,
           providerName,
@@ -1474,6 +1715,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           options,
         });
         stepIndex = batch.endingStepIndex;
+        let batchGatheredNewEvidence = false;
         for (const item of batch.results) {
           const execution = classifyToolExecution(
             item.toolName,
@@ -1484,7 +1726,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           execution.input = item.toolArgs;
           execution.artifacts = await extractArtifactsFromResult(item.toolName, item.result);
           toolExecutions.push(execution);
-          engine.getRunMeta(runId)?.repetitionGuard?.observe(item.toolName, item.toolArgs, item.result);
+          const observation = engine.getRunMeta(runId)?.repetitionGuard?.observe(item.toolName, item.toolArgs, item.result);
+          if (gatheredNewEvidence(execution, observation)) batchGatheredNewEvidence = true;
           if (item.error) failedStepCount += 1;
           const modelPayload = compactPayloadForModel(item.toolName, item.result);
           const toolResultLimits = resolveToolResultLimits(item.toolName, loopPolicy);
@@ -1523,7 +1766,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
           const iterMeta = engine.getRunMeta(runId);
           if (iterMeta) {
-            iterMeta.consecutiveReadOnlyIterations = (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
+            iterMeta.consecutiveReadOnlyIterations = batchGatheredNewEvidence
+              ? 0
+              : (iterMeta.consecutiveReadOnlyIterations || 0) + 1;
           }
         }
         continue;
@@ -1744,10 +1989,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
         const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
         execution.input = toolArgs;
-        if (execution.stateChanged && isProgressToolCall(toolName, toolArgs)) {
+        const repetitionObservation = repetitionGuard?.observe(toolName, toolArgs, toolResult);
+        if ((execution.stateChanged && isProgressToolCall(toolName, toolArgs))
+          || gatheredNewEvidence(execution, repetitionObservation)) {
           iterationConcreteProgress = true;
         }
-        repetitionGuard?.observe(toolName, toolArgs, toolResult);
         execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
         toolExecutions.push(execution);
         if (deliverableWorkflow && Array.isArray(execution.artifacts) && execution.artifacts.length > 0) {
@@ -1908,6 +2154,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         if (runMeta?.terminalInterim) {
           break;
         }
+        if (isDeliveryTerminated(runMeta, options.deliveryState)) {
+          break;
+        }
       }
 
       // Update analysis-paralysis counter after each iteration's tool calls.
@@ -1924,6 +2173,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
       if (engine.isRunStopped(runId)) break;
       if (engine.getRunMeta(runId)?.terminalInterim) break;
+      if (isDeliveryTerminated(engine.getRunMeta(runId), options.deliveryState)) break;
       if (engine.getRunMeta(runId)?.widgetSnapshotSaved) break;
       if (!engine.activeRuns.has(runId)) break;
     }
@@ -1974,6 +2224,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       lastContent = 'Widget snapshot updated.';
     }
     const messagingSent = runMeta?.messagingSent || false;
+    const stagedProactiveReply = normalizeOutgoingMessage(
+      runMeta?.stagedProactiveMessage?.content
+      || options?.deliveryState?.stagedProactiveMessage?.content
+      || '',
+      options?.source || null,
+    );
     const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
 
     // Hermes _handle_max_iterations: if the run exhausted its step budget without a
@@ -2079,6 +2335,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     if (
       !normalizeOutgoingMessage(lastContent, options?.source || null)
       && !messagingSent
+      && !stagedProactiveReply
       && runMeta?.widgetSnapshotSaved !== true
     ) {
       const explicitNoResponse = (
@@ -2128,10 +2385,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     const normalizedLastContent = normalizeOutgoingMessage(lastContent, options?.source || null);
     let finalResponseText = messagingSent
       ? (sentMessageText || (normalizedLastContent ? lastContent.trim() : ''))
-      : (normalizedLastContent ? lastContent.trim() : sentMessageText);
+      : (normalizedLastContent ? lastContent.trim() : (stagedProactiveReply || sentMessageText));
     const lastFinalDeliveryMessage = normalizeOutgoingMessage(
       runMeta?.lastSentMessage
       || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
+      || runMeta?.stagedProactiveMessage?.content
       || '',
       options?.source || null
     );
@@ -2309,6 +2567,15 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       executionMode: analysis?.mode || 'execute',
       verificationStatus: verification?.status || 'skipped',
     }, { agentId });
+    timelineService?.recordRunLifecycle?.({
+      userId,
+      agentId,
+      runId,
+      title: runTitle,
+      eventKind: 'run_completed',
+      status: 'completed',
+      triggerSource,
+    });
     // ── on_loop_end hook ──
     // Fire-and-forget: plugins can use this for self-improvement, memory
     // consolidation, analytics, or other post-run housekeeping.
@@ -2457,6 +2724,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       iterations: iteration,
       deliverableType: deliverableWorkflow?.selection?.type || null,
     }, { agentId });
+    timelineService?.recordRunLifecycle?.({
+      userId,
+      agentId,
+      runId,
+      title: runTitle,
+      eventKind: 'run_failed',
+      status: 'failed',
+      triggerSource,
+      error: err.message,
+    });
 
     if (messagingFailureContent) {
       return {
@@ -2469,7 +2746,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
 
     throw err;
+  } finally {
+    releaseReservation();
   }
 }
 
-module.exports = { runConversation };
+module.exports = {
+  getFailureFallbackModelId,
+  runConversation,
+};

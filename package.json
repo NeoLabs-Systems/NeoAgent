@@ -1,6 +1,6 @@
 {
   "name": "neoagent",
-  "version": "3.0.0",
+  "version": "3.0.1-beta.34",
   "description": "Self-hosted AI agent for long-running tasks, automation, messaging, device control, and local memory",
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
@@ -51,10 +51,14 @@
     "flutter:test": "cd flutter_app && flutter test ../test/flutter/unit ../test/flutter/widget",
     "flutter:test:unit": "cd flutter_app && flutter test ../test/flutter/unit",
     "flutter:test:widget": "cd flutter_app && flutter test ../test/flutter/widget",
+    "benchmark:setup": "node benchmark/cli.js setup",
+    "benchmark:run": "node benchmark/cli.js run",
+    "benchmark:report": "node benchmark/cli.js report",
     "benchmark:tokens": "node scripts/benchmark-token-cost.js",
     "benchmark:memory": "node scripts/benchmark-memory.js",
     "benchmark:memorybench:install": "node scripts/install-memorybench-provider.js",
-    "release": "npx semantic-release"
+    "release": "npx semantic-release",
+    "audit:ci": "npm audit --omit=dev --audit-level=high"
   },
   "repository": {
     "type": "git",
@@ -99,11 +103,12 @@
     "remotion": "^4.0.459",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
+    "stripe": "^22.2.1",
     "telegraf": "^4.16.3",
     "telnyx": "^5.51.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^11.1.0",
-    "ws": "^8.19.0"
+    "ws": "^8.21.0"
   },
   "overrides": {
     "axios": "^1.15.2",
@@ -113,7 +118,8 @@
     "protobufjs": "^7.5.5",
     "serialize-javascript": "^7.0.5",
     "undici": "^6.24.0",
-    "webpackbar": "^7.0.0"
+    "webpackbar": "^7.0.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@docusaurus/core": "3.10.0",

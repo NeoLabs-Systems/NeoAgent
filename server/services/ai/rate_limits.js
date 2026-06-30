@@ -2,8 +2,14 @@
 
 const db = require('../../db/database');
 
+// In-process reservation map: userId -> reserved token count for in-flight runs.
+// Prevents concurrent run starts from collectively bypassing the per-user budget.
+const _reservations = new Map();
+
 const DEFAULT_RATE_LIMIT_4H = 2_500_000;
 const DEFAULT_RATE_LIMIT_WEEKLY = 10_000_000;
+
+const MAX_RUN_RESERVATION_TOKENS = 100_000;
 
 const WINDOWS = {
   fourHour: {
@@ -83,7 +89,7 @@ function nextDecreaseAt(rows, durationMs, usage, limit) {
   return null;
 }
 
-function getRateLimitSnapshot(userId) {
+function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
   const userLimits = db.prepare(
     'SELECT rate_limit_4h, rate_limit_weekly FROM users WHERE id = ?',
   ).get(userId);
@@ -100,6 +106,7 @@ function getRateLimitSnapshot(userId) {
     fourHourIsCustom: customFourHour != null,
     weeklyIsCustom: customWeekly != null,
   };
+  const reserved = includeReservations ? (_reservations.get(String(userId)) || 0) : 0;
   const usage = {};
   const remaining = {};
   const reached = {};
@@ -107,7 +114,8 @@ function getRateLimitSnapshot(userId) {
 
   for (const [windowKey, config] of Object.entries(WINDOWS)) {
     const rows = usageRows(userId, config.durationMs);
-    const used = rows.reduce((total, row) => total + Number(row.tokens || 0), 0);
+    const committed = rows.reduce((total, row) => total + Number(row.tokens || 0), 0);
+    const used = committed + reserved;
     const limit = limits[windowKey];
     usage[windowKey] = used;
     remaining[windowKey] = limit == null ? null : Math.max(0, limit - used);
@@ -129,22 +137,61 @@ function getRateLimitSnapshot(userId) {
   };
 }
 
-function enforceRateLimits(userId) {
-  const snapshot = getRateLimitSnapshot(userId);
+function noopReleaseReservation() {}
+
+function calculateReservation(limits) {
+  const finiteLimits = [limits.fourHour, limits.weekly]
+    .filter((limit) => Number.isFinite(limit) && limit > 0);
+  if (finiteLimits.length === 0) return 1;
+  const minFiniteLimit = Math.min(...finiteLimits);
+  return Math.min(
+    MAX_RUN_RESERVATION_TOKENS,
+    Math.max(1, Math.floor(minFiniteLimit * 0.1)),
+  );
+}
+
+function enforceRateLimits(userId, options = {}) {
+  if (options.bypass === true) {
+    return {
+      snapshot: getRateLimitSnapshot(userId, { includeReservations: false }),
+      releaseReservation: noopReleaseReservation,
+      bypassed: true,
+    };
+  }
+
+  const snapshot = getRateLimitSnapshot(userId, { includeReservations: true });
   if (snapshot.reached.fourHour) {
     throw new RateLimitExceededError('fourHour', snapshot);
   }
   if (snapshot.reached.weekly) {
     throw new RateLimitExceededError('weekly', snapshot);
   }
-  return snapshot;
+  // Reserve a bounded placeholder so concurrent starts see this run as
+  // in-flight without letting one run consume the user's entire budget.
+  const key = String(userId);
+  const reserve = calculateReservation(snapshot.limits);
+  _reservations.set(key, (_reservations.get(key) || 0) + reserve);
+  return { snapshot, releaseReservation: () => releaseReservation(userId, reserve) };
+}
+
+function releaseReservation(userId, amount) {
+  const key = String(userId);
+  const current = _reservations.get(key) || 0;
+  const next = current - amount;
+  if (next <= 0) {
+    _reservations.delete(key);
+  } else {
+    _reservations.set(key, next);
+  }
 }
 
 module.exports = {
   DEFAULT_RATE_LIMIT_4H,
   DEFAULT_RATE_LIMIT_WEEKLY,
+  MAX_RUN_RESERVATION_TOKENS,
   RateLimitExceededError,
   configuredDefaultLimits,
   enforceRateLimits,
   getRateLimitSnapshot,
+  releaseReservation,
 };
