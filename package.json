@@ -79,6 +79,7 @@
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.8.1",
     "better-sqlite3-session-store": "^0.1.0",
+    "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
     "discord.js": "^14.25.1",
     "dotenv": "^16.4.7",
