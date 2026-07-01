@@ -1108,6 +1108,7 @@ async function saveBillingSetupConfig(event) {
     } else {
       showToast('Billing configuration saved — restart the server to apply changes', 'success');
       setTimeout(loadBillingSetupConfig, 600);
+      if (typeof refreshBillingNav === 'function') refreshBillingNav();
     }
   } catch (err) {
     if (err.message !== 'unauthorized') showToast('Network error', 'error');
