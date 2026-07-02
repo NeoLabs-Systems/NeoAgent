@@ -1,14 +1,6 @@
 'use strict';
 
 const PLATFORM_DEFINITIONS = Object.freeze({
-  web: {
-    id: 'web',
-    label: 'Web',
-    tier: 0,
-    setupKind: 'none',
-    hosts: [],
-    domains: [],
-  },
   rss: {
     id: 'rss',
     label: 'RSS / Atom',
@@ -33,21 +25,26 @@ const PLATFORM_DEFINITIONS = Object.freeze({
     hosts: ['github.com', 'www.github.com'],
     domains: ['github.com'],
   },
-  youtube: {
-    id: 'youtube',
-    label: 'YouTube',
+  social_video: {
+    id: 'social_video',
+    label: 'Social video links',
     tier: 0,
     setupKind: 'none',
-    hosts: ['youtube.com', 'www.youtube.com', 'youtu.be'],
-    domains: ['youtube.com', 'youtu.be'],
-  },
-  linkedin: {
-    id: 'linkedin',
-    label: 'LinkedIn',
-    tier: 2,
-    setupKind: 'public_read_only',
-    hosts: ['linkedin.com', 'www.linkedin.com'],
-    domains: ['linkedin.com'],
+    hosts: [
+      'youtube.com',
+      'www.youtube.com',
+      'youtu.be',
+      'tiktok.com',
+      'www.tiktok.com',
+      'instagram.com',
+      'www.instagram.com',
+      'instagr.am',
+      'x.com',
+      'www.x.com',
+      'twitter.com',
+      'www.twitter.com',
+    ],
+    domains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'x.com', 'twitter.com'],
   },
   xueqiu: {
     id: 'xueqiu',
@@ -57,11 +54,11 @@ const PLATFORM_DEFINITIONS = Object.freeze({
     hosts: ['xueqiu.com', 'www.xueqiu.com', 'stock.xueqiu.com'],
     domains: ['xueqiu.com'],
   },
-  twitter: {
-    id: 'twitter',
+  x: {
+    id: 'x',
     label: 'X / Twitter',
     tier: 2,
-    setupKind: 'unsupported_node_only',
+    setupKind: 'none',
     hosts: ['x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'],
     domains: ['x.com', 'twitter.com'],
   },
@@ -69,63 +66,16 @@ const PLATFORM_DEFINITIONS = Object.freeze({
     id: 'reddit',
     label: 'Reddit',
     tier: 2,
-    setupKind: 'unsupported_node_only',
+    setupKind: 'none',
     hosts: ['reddit.com', 'www.reddit.com', 'old.reddit.com'],
     domains: ['reddit.com'],
-  },
-  facebook: {
-    id: 'facebook',
-    label: 'Facebook',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: ['facebook.com', 'www.facebook.com'],
-    domains: ['facebook.com'],
-  },
-  instagram: {
-    id: 'instagram',
-    label: 'Instagram',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: ['instagram.com', 'www.instagram.com'],
-    domains: ['instagram.com'],
-  },
-  bilibili: {
-    id: 'bilibili',
-    label: 'Bilibili',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: ['bilibili.com', 'www.bilibili.com', 'b23.tv'],
-    domains: ['bilibili.com', 'b23.tv'],
-  },
-  xiaohongshu: {
-    id: 'xiaohongshu',
-    label: 'Xiaohongshu',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: ['xiaohongshu.com', 'www.xiaohongshu.com', 'xhslink.com'],
-    domains: ['xiaohongshu.com', 'xhslink.com'],
-  },
-  xiaoyuzhou: {
-    id: 'xiaoyuzhou',
-    label: 'Xiaoyuzhou',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: ['xiaoyuzhoufm.com', 'www.xiaoyuzhoufm.com'],
-    domains: ['xiaoyuzhoufm.com'],
-  },
-  exa_search: {
-    id: 'exa_search',
-    label: 'Exa Search',
-    tier: 2,
-    setupKind: 'unsupported_node_only',
-    hosts: [],
-    domains: [],
   },
 });
 
 function normalizePlatformId(value) {
   const id = String(value || '').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_');
-  if (id === 'x') return 'twitter';
+  if (id === 'twitter') return 'x';
+  if (id === 'youtube' || id === 'tiktok' || id === 'instagram' || id === 'reels') return 'social_video';
   return id;
 }
 

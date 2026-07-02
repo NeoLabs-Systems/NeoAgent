@@ -44,7 +44,8 @@ function sanitizeCookies(cookies = [], allowedDomains = []) {
 class SocialReachService {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
-    this.channels = createChannels();
+    this.socialVideoService = options.socialVideoService || null;
+    this.channels = createChannels({ socialVideoService: this.socialVideoService });
     this.channelById = new Map(this.channels.map((channel) => [channel.id, channel]));
   }
 
@@ -55,8 +56,7 @@ class SocialReachService {
 
   detectChannelForUrl(url) {
     const parsed = assertHttpUrl(url);
-    return this.channels.find((channel) => channel.id !== 'web' && channel.canHandleUrl(parsed.toString()))
-      || this.getChannel('web');
+    return this.channels.find((channel) => channel.canHandleUrl(parsed.toString())) || null;
   }
 
   async getStatus(userId) {
@@ -91,7 +91,9 @@ class SocialReachService {
     const platform = normalizePlatformId(args.platform || '');
     const channel = platform ? this.getChannel(platform) : this.detectChannelForUrl(args.url);
     if (!channel) {
-      const error = new Error(`Unsupported social reach platform: ${platform || 'unknown'}`);
+      const error = new Error(platform
+        ? `${platform} is not available in Social Reach.`
+        : 'This link is not available in Social Reach. Use the browser reader for general web pages.');
       error.status = 400;
       throw error;
     }
@@ -102,7 +104,7 @@ class SocialReachService {
     const platform = normalizePlatformId(args.platform || '');
     const channel = this.getChannel(platform);
     if (!channel) {
-      const error = new Error('platform is required and must be supported.');
+      const error = new Error('Choose a searchable Social Reach platform.');
       error.status = 400;
       throw error;
     }

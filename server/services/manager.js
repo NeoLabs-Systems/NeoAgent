@@ -400,6 +400,7 @@ function createSocialReachService(app) {
     'socialReachService',
     new SocialReachService({
       browserExtensionRegistry: app.locals.browserExtensionRegistry,
+      socialVideoService: app.locals.socialVideoService,
     }),
   );
   logServiceReady('Social reach service ready');

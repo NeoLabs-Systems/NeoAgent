@@ -39,14 +39,14 @@ class SocialReachChannel {
   }
 
   async read() {
-    const error = new Error(`${this.label} reading is not implemented.`);
-    error.status = 501;
+    const error = new Error(`${this.label} reading is not available from this screen.`);
+    error.status = 400;
     throw error;
   }
 
   async search() {
-    const error = new Error(`${this.label} search is not implemented.`);
-    error.status = 501;
+    const error = new Error(`${this.label} search is not available from this screen.`);
+    error.status = 400;
     throw error;
   }
 }

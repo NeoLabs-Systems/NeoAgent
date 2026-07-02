@@ -1530,7 +1530,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'social_reach_status',
-            description: 'List Node-native social reach platforms, setup state, active backend, and limitations for web/social content access.',
+            description: 'List available Social Reach platforms, setup state, and active backend for social content access.',
             parameters: {
                 type: 'object',
                 properties: {}
@@ -1538,12 +1538,12 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'social_reach_read',
-            description: 'Read a supported public web or social URL using NeoAgent social reach. Supports web pages, RSS/Atom, V2EX, GitHub repositories, YouTube public metadata/page text, LinkedIn public pages, and configured Xueqiu data.',
+            description: 'Read a supported public social URL using NeoAgent Social Reach. Supports RSS/Atom, V2EX, Reddit, X posts, GitHub repositories, configured Xueqiu data, and social video links from YouTube, TikTok, Instagram/Reels, or X.',
             parameters: {
                 type: 'object',
                 properties: {
                     url: { type: 'string', description: 'HTTP or HTTPS URL to read.' },
-                    platform: { type: 'string', description: 'Optional platform override such as web, rss, v2ex, github, youtube, linkedin, or xueqiu.' },
+                    platform: { type: 'string', description: 'Optional platform override such as rss, v2ex, reddit, x, github, social_video, youtube, tiktok, instagram, reels, or xueqiu.' },
                     symbol: { type: 'string', description: 'Optional Xueqiu stock symbol when platform is xueqiu.' },
                     limit: { type: 'number', description: 'Maximum number of feed/results/replies to return.' }
                 }
@@ -1551,11 +1551,11 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'social_reach_search',
-            description: 'Search a supported Node-native social reach platform. Supports GitHub repositories, V2EX hot/node topics, and configured Xueqiu stock search.',
+            description: 'Search a supported Social Reach platform. Supports GitHub repositories, V2EX hot/node topics, Reddit posts, and configured Xueqiu stock search.',
             parameters: {
                 type: 'object',
                 properties: {
-                    platform: { type: 'string', description: 'Platform to search: github, v2ex, or xueqiu.' },
+                    platform: { type: 'string', description: 'Platform to search: github, v2ex, reddit, or xueqiu.' },
                     query: { type: 'string', description: 'Search query. For V2EX, use "hot" or a node name.' },
                     limit: { type: 'number', description: 'Maximum result count.' }
                 },

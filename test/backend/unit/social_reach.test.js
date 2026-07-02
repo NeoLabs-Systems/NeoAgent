@@ -11,7 +11,7 @@ function loadSocialReach() {
   return require('../../../server/services/social_reach/service');
 }
 
-test('social reach status includes ready native and unsupported node-only platforms', async () => {
+test('social reach status only exposes working consumer-facing platforms', async () => {
   const ctx = createTestRuntime();
   const { SocialReachService } = loadSocialReach();
   const service = new SocialReachService();
@@ -19,11 +19,16 @@ test('social reach status includes ready native and unsupported node-only platfo
     const status = await service.getStatus(1);
     const platforms = new Map(status.platforms.map((item) => [item.platform, item]));
 
-    assert.equal(platforms.get('web').status, 'ok');
     assert.equal(platforms.get('rss').status, 'ok');
     assert.equal(platforms.get('v2ex').status, 'ok');
-    assert.equal(platforms.get('twitter').status, 'off');
-    assert.equal(platforms.get('twitter').setupKind, 'unsupported_node_only');
+    assert.equal(platforms.get('reddit').status, 'ok');
+    assert.equal(platforms.get('x').status, 'ok');
+    assert.equal(platforms.has('web'), false);
+    assert.equal(platforms.has('linkedin'), false);
+    assert.equal(platforms.has('twitter'), false);
+    assert.equal(platforms.has('instagram'), false);
+    assert.equal(status.platforms.some((item) => item.setupKind === 'unsupported_node_only'), false);
+    assert.equal(JSON.stringify(status).includes('not implemented'), false);
   } finally {
     teardownTestRuntime(ctx);
   }
@@ -44,16 +49,93 @@ test('social reach cookie sanitizer keeps only allowlisted platform domains', ()
   teardownTestRuntime(ctx);
 });
 
-test('social reach unsupported platforms fail explicitly', async () => {
+test('social reach routes social video platforms through the existing extractor', async () => {
   const ctx = createTestRuntime();
   const { SocialReachService } = loadSocialReach();
+  const calls = [];
+  const service = new SocialReachService({
+    socialVideoService: {
+      async getHealthStatus() {
+        return { ready: true, dependencies: [] };
+      },
+      async extractFromUrl(userId, url, options) {
+        calls.push({ userId, url, options });
+        return { platform: 'tiktok', title: 'Video title', transcript: 'Video transcript' };
+      },
+    },
+  });
+  try {
+    const result = await service.read(7, {
+      platform: 'tiktok',
+      url: 'https://www.tiktok.com/@neo/video/123',
+      include_frame: false,
+    });
+    assert.equal(result.platform, 'social_video');
+    assert.equal(result.videoPlatform, 'tiktok');
+    assert.equal(result.title, 'Video title');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].userId, 7);
+    assert.equal(calls[0].options.includeFrame, false);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
+test('social reach reads reddit public JSON posts and comments', async () => {
+  const ctx = createTestRuntime();
+  const { SocialReachService } = loadSocialReach();
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => ({
+    ok: true,
+    status: 200,
+    async text() {
+      assert.match(String(url), /reddit\.com\/r\/neoagent\/comments\/abc123\/post\.json/);
+      return JSON.stringify([
+        {
+          data: {
+            children: [{
+              kind: 't3',
+              data: {
+                id: 'abc123',
+                title: 'NeoAgent post',
+                subreddit: 'neoagent',
+                author: 'neo',
+                selftext: 'Body',
+                permalink: '/r/neoagent/comments/abc123/post/',
+                score: 42,
+                num_comments: 2,
+                created_utc: 1700000000,
+              },
+            }],
+          },
+        },
+        {
+          data: {
+            children: [{
+              kind: 't1',
+              data: {
+                id: 'c1',
+                author: 'reader',
+                body: 'Comment body',
+                score: 3,
+                created_utc: 1700000100,
+              },
+            }],
+          },
+        },
+      ]);
+    },
+  });
   const service = new SocialReachService();
   try {
-    await assert.rejects(
-      () => service.search(1, { platform: 'instagram', query: 'neoagent' }),
-      /not implemented under the Node-only constraint/i,
-    );
+    const result = await service.read(1, {
+      url: 'https://www.reddit.com/r/neoagent/comments/abc123/post/?utm_source=x',
+    });
+    assert.equal(result.platform, 'reddit');
+    assert.equal(result.post.title, 'NeoAgent post');
+    assert.equal(result.comments[0].text, 'Comment body');
   } finally {
+    global.fetch = originalFetch;
     teardownTestRuntime(ctx);
   }
 });

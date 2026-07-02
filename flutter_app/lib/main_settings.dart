@@ -971,8 +971,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final ready = platforms
         .where((item) => item['ready'] == true || item['status'] == 'ok')
         .length;
-    final unsupported = platforms
-        .where((item) => item['setupKind'] == 'unsupported_node_only')
+    final cookieSetup = platforms
+        .where((item) => item['setupKind'] == 'cookies')
         .length;
     return Card(
       child: Padding(
@@ -1018,7 +1018,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Node-native web and social content access for agents.',
+              'Social sources agents can read directly, including feeds, repositories, Reddit, X, videos, and cookie-backed market data.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -1032,15 +1032,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   color: _success,
                 ),
                 _MetaPill(
-                  icon: Icons.code_outlined,
-                  label: 'Node-only mode',
+                  icon: Icons.play_circle_outline,
+                  label: 'Video links',
                   color: _info,
                 ),
-                _MetaPill(
-                  icon: Icons.block_outlined,
-                  label: '$unsupported unavailable',
-                  color: _warning,
-                ),
+                if (cookieSetup > 0)
+                  _MetaPill(
+                    icon: Icons.extension_outlined,
+                    label: 'Cookie setup',
+                    color: _warning,
+                  ),
               ],
             ),
             if (_socialReachActionResult != null) ...<Widget>[
