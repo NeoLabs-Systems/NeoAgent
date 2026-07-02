@@ -10,13 +10,44 @@ function normalizeWhatsAppId(value) {
   return primary;
 }
 
+function normalizeWhatsAppGroupId(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const jid = raw.includes('@') ? raw.split(':')[0] : raw;
+  return jid.endsWith('@g.us') ? jid : '';
+}
+
+function normalizeWhatsAppWhitelistEntry(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const prefixed = raw.match(/^([a-z_]+):(.*)$/i);
+  if (prefixed) {
+    const scope = prefixed[1].trim().toLowerCase();
+    const scopedValue = prefixed[2].trim();
+    if (scope === 'group' || scope === 'chat') {
+      const groupId = normalizeWhatsAppGroupId(scopedValue);
+      if (groupId) return `${scope}:${groupId}`;
+    }
+    if (scope === 'user' || scope === 'phone' || scope === 'phone_number') {
+      const normalized = normalizeWhatsAppId(scopedValue);
+      return normalized ? `${scope === 'phone' ? 'phone_number' : scope}:${normalized}` : '';
+    }
+  }
+
+  const groupId = normalizeWhatsAppGroupId(raw);
+  if (groupId) return `group:${groupId}`;
+
+  return normalizeWhatsAppId(raw);
+}
+
 function normalizeWhatsAppWhitelist(values) {
   if (!Array.isArray(values)) return [];
 
   const seen = new Set();
   const normalized = [];
   for (const value of values) {
-    const entry = normalizeWhatsAppId(value);
+    const entry = normalizeWhatsAppWhitelistEntry(value);
     if (!entry || seen.has(entry)) continue;
     seen.add(entry);
     normalized.push(entry);
@@ -41,6 +72,7 @@ function toWhatsAppJid(value) {
 
 module.exports = {
   normalizeWhatsAppId,
+  normalizeWhatsAppGroupId,
   normalizeWhatsAppWhitelist,
   toWhatsAppJid,
 };
