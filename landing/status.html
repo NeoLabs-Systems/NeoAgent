@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NeoAgent Status</title>
+  <meta name="description" content="Public status for NeoAgent systems.">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f3ea;
+      --ink: #171512;
+      --muted: #6f675a;
+      --line: rgba(33, 28, 20, 0.14);
+      --panel: rgba(255, 252, 245, 0.82);
+      --good: #14874d;
+      --warn: #b56a09;
+      --bad: #b3261e;
+      --accent: #9d7635;
+      --shadow: 0 22px 70px rgba(52, 38, 17, 0.14);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11100e;
+        --ink: #f5efe5;
+        --muted: #b8ac9b;
+        --line: rgba(245, 239, 229, 0.14);
+        --panel: rgba(31, 29, 25, 0.82);
+        --good: #49d18b;
+        --warn: #efb35d;
+        --bad: #ff827a;
+        --accent: #e5c58d;
+        --shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(229, 197, 141, 0.24), transparent 34rem),
+        radial-gradient(circle at 88% 20%, rgba(74, 118, 158, 0.12), transparent 32rem),
+        var(--bg);
+      color: var(--ink);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; }
+    .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 750; }
+    .mark { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #171512, var(--accent)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+    .nav a:last-child { color: var(--muted); font-size: 14px; font-weight: 650; }
+
+    .hero { padding: clamp(54px, 8vw, 104px) 0 34px; }
+    .eyebrow { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { max-width: 850px; margin: 14px 0 18px; font-size: clamp(42px, 8vw, 84px); line-height: .96; letter-spacing: 0; font-weight: 520; }
+    .lede { max-width: 680px; margin: 0; color: var(--muted); font-size: clamp(17px, 2vw, 21px); line-height: 1.55; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+      margin: 34px 0 22px;
+      padding: clamp(20px, 4vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .status { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: clamp(24px, 4vw, 42px); }
+    .dot { width: .72em; height: .72em; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 6px color-mix(in srgb, var(--good) 16%, transparent); }
+    .status.degraded .dot { background: var(--warn); box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 18%, transparent); }
+    .status.unavailable .dot { background: var(--bad); box-shadow: 0 0 0 6px color-mix(in srgb, var(--bad) 18%, transparent); }
+    .meta { color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .note { margin-top: 12px; color: var(--muted); }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px 0 64px; }
+    .card { border: 1px solid var(--line); border-radius: 8px; padding: 18px; background: color-mix(in srgb, var(--panel) 86%, transparent); }
+    .card-top { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+    .group { margin-bottom: 8px; color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
+    .pill { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--good); font-size: 12px; font-weight: 800; }
+    .pill.degraded { color: var(--warn); }
+    .pill.unavailable { color: var(--bad); }
+    .description { margin: 12px 0 0; color: var(--muted); line-height: 1.55; }
+    .footer { border-top: 1px solid var(--line); color: var(--muted); padding: 24px 0 36px; font-size: 14px; }
+
+    @media (max-width: 720px) {
+      .summary, .grid { grid-template-columns: 1fr; }
+      .nav { align-items: flex-start; }
+      .card-top { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="nav">
+      <a class="brand" href="/"><span class="mark" aria-hidden="true"></span><span>NeoAgent</span></a>
+      <a href="/app">Sign in</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Public status</div>
+        <h1>All the important systems, minus the secret knobs.</h1>
+        <p class="lede">A live, public overview of NeoAgent platform health. We show broad system posture here, not private account, device, or workspace details.</p>
+      </section>
+
+      <section class="summary" aria-live="polite">
+        <div>
+          <div id="overall" class="status"><span class="dot" aria-hidden="true"></span><span>Checking systems</span></div>
+          <div id="note" class="note">The robots are tapping gauges with tiny clipboards.</div>
+        </div>
+        <div id="meta" class="meta">Last checked: loading</div>
+      </section>
+
+      <section id="components" class="grid" aria-label="System components"></section>
+    </main>
+
+    <footer class="footer">Status data refreshes automatically. No incident confetti is deployed on this page.</footer>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      const labels = {
+        operational: 'Operational',
+        degraded: 'Degraded',
+        unavailable: 'Unavailable',
+        maintenance: 'Maintenance'
+      };
+      const fallback = {
+        product: 'NeoAgent',
+        status: 'degraded',
+        updatedAt: new Date().toISOString(),
+        note: 'Live status is taking the scenic route.',
+        components: [
+          { group: 'Core', name: 'Web App & API', status: 'degraded', description: 'The public page loaded, but live component data is unavailable.' }
+        ]
+      };
+
+      function esc(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+        });
+      }
+
+      function render(data) {
+        const status = data.status || 'degraded';
+        const overall = document.getElementById('overall');
+        overall.className = 'status ' + status;
+        overall.querySelector('span:last-child').textContent = labels[status] || 'Status unknown';
+        document.getElementById('note').textContent = data.note || '';
+        document.getElementById('meta').textContent = 'Last checked: ' + new Date(data.updatedAt || Date.now()).toLocaleString();
+        document.getElementById('components').innerHTML = (data.components || []).map(function (item) {
+          const itemStatus = item.status || 'degraded';
+          return '<article class="card">' +
+            '<div class="card-top"><div><div class="group">' + esc(item.group) + '</div><h2>' + esc(item.name) + '</h2></div>' +
+            '<div class="pill ' + esc(itemStatus) + '">' + esc(labels[itemStatus] || itemStatus) + '</div></div>' +
+            '<p class="description">' + esc(item.description) + '</p></article>';
+        }).join('');
+      }
+
+      fetch('/api/public/status', { headers: { accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('Status unavailable')); })
+        .then(render)
+        .catch(function () { render(fallback); });
+    })();
+  </script>
+</body>
+</html>

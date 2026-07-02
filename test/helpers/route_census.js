@@ -20,6 +20,7 @@ const ROUTE_BASES = {
   memory: '/api/memory',
   messaging: '/api/messaging',
   'mobile-health': '/api/mobile/health',
+  public_status: '/api/public',
   recordings: '/api/recordings',
   runtime: '/api/runtime',
   screenHistory: '/api/screen-history',

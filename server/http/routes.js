@@ -6,6 +6,7 @@ const { getVersionInfo } = require('../utils/version');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 const routeRegistry = [
+  { basePath: '/api/public', modulePath: '../routes/public_status' },
   { basePath: '/api/runtime', modulePath: '../routes/runtime' },
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
