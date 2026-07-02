@@ -22,4 +22,22 @@ void main() {
     expect(task.lastRunError, 'Messaging delivery is unavailable.');
     expect(task.lastRun, isNotNull);
   });
+
+  test('TaskDeliveryTarget parses discovery metadata', () {
+    final target = TaskDeliveryTarget.fromJson(<String, dynamic>{
+      'platform': 'slack',
+      'platformLabel': 'Slack',
+      'to': 'C123',
+      'label': '#ops',
+      'subtitle': 'Slack channel',
+      'source': 'discovered',
+      'connected': true,
+      'supportsDelivery': true,
+    });
+
+    expect(target.id, 'slack:C123');
+    expect(target.label, '#ops');
+    expect(target.sourceLabel, 'Discovered');
+    expect(target.selectable, isTrue);
+  });
 }

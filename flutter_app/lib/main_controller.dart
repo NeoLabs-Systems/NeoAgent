@@ -2796,6 +2796,23 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
+    String? query,
+    String? platform,
+    String? agentId,
+  }) async {
+    final rows = await _backendClient.fetchTaskDeliveryTargets(
+      backendUrl,
+      query: query,
+      platform: platform,
+      agentId: agentId ?? _scopedAgentId,
+    );
+    return rows
+        .map(TaskDeliveryTarget.fromJson)
+        .where((target) => target.platform.isNotEmpty && target.to.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<void> refreshWidgets({bool all = false}) async {
     widgets = _decodeModelList(
       'widgets',

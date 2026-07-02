@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { TaskDeliveryTargetService } = require('../services/tasks/delivery_targets');
 
 router.use(requireAuth);
 
@@ -25,6 +26,22 @@ router.get('/catalog', (req, res) => {
   } catch (error) {
     (req.app.locals.logger?.error || console.error)('[Tasks] Failed to load trigger catalog', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/delivery-targets', async (req, res) => {
+  try {
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    const service = new TaskDeliveryTargetService({ app: req.app });
+    const targets = await service.listTargets(req.session.userId, {
+      agentId,
+      platform: req.query.platform,
+      q: req.query.q,
+    });
+    res.json(targets);
+  } catch (error) {
+    (req.app.locals.logger?.error || console.error)('[Tasks] Failed to discover delivery targets', error);
+    res.status(500).json({ error: sanitizeError(error) });
   }
 });
 

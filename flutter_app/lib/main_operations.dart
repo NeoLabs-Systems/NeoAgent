@@ -5289,6 +5289,426 @@ Future<String?> _pickTaskTriggerType(
   );
 }
 
+IconData _taskDeliveryPlatformIcon(String platform) {
+  for (final descriptor in messagingPlatforms) {
+    if (descriptor.id == platform) return descriptor.icon;
+  }
+  return Icons.forum_rounded;
+}
+
+Color _taskDeliveryPlatformColor(String platform) {
+  for (final descriptor in messagingPlatforms) {
+    if (descriptor.id == platform) return descriptor.accent;
+  }
+  return _accent;
+}
+
+String _taskDeliveryPlatformLabel(String platform) {
+  for (final descriptor in messagingPlatforms) {
+    if (descriptor.id == platform) return descriptor.label;
+  }
+  return platform.replaceAll('_', ' ').toUpperCase();
+}
+
+TaskDeliveryTarget? _taskDeliveryTargetFromTask(TaskItem? task) {
+  final platform = task?.taskConfig['notifyPlatform']?.toString().trim() ?? '';
+  final to = task?.taskConfig['notifyTo']?.toString().trim() ?? '';
+  if (platform.isEmpty || to.isEmpty) return null;
+  return TaskDeliveryTarget(
+    platform: platform,
+    platformLabel: _taskDeliveryPlatformLabel(platform),
+    to: to,
+    label: to,
+    subtitle: 'Saved delivery destination',
+    source: 'manual',
+    connected: true,
+    supportsDelivery: true,
+  );
+}
+
+Future<TaskDeliveryTarget?> _pickTaskDeliveryTarget(
+  BuildContext context, {
+  required NeoAgentController controller,
+  required String? agentId,
+  required TaskDeliveryTarget? selected,
+}) {
+  return showModalBottomSheet<TaskDeliveryTarget?>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _bgCard,
+    builder: (context) => _TaskDeliveryTargetPickerSheet(
+      controller: controller,
+      agentId: agentId,
+      selected: selected,
+    ),
+  );
+}
+
+class _TaskDeliveryTargetPickerSheet extends StatefulWidget {
+  const _TaskDeliveryTargetPickerSheet({
+    required this.controller,
+    required this.agentId,
+    required this.selected,
+  });
+
+  final NeoAgentController controller;
+  final String? agentId;
+  final TaskDeliveryTarget? selected;
+
+  @override
+  State<_TaskDeliveryTargetPickerSheet> createState() =>
+      _TaskDeliveryTargetPickerSheetState();
+}
+
+class _TaskDeliveryTargetPickerSheetState
+    extends State<_TaskDeliveryTargetPickerSheet> {
+  late final TextEditingController _queryController;
+  late final TextEditingController _manualController;
+  Timer? _debounce;
+  Future<List<TaskDeliveryTarget>>? _targetsFuture;
+  String? _platformFilter;
+  String? _manualPlatform;
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController = TextEditingController();
+    _manualController = TextEditingController();
+    _manualPlatform = widget.selected?.platform;
+    _loadTargets();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _queryController.dispose();
+    _manualController.dispose();
+    super.dispose();
+  }
+
+  void _loadTargets() {
+    setState(() {
+      _targetsFuture = widget.controller.fetchTaskDeliveryTargets(
+        query: _queryController.text,
+        platform: _platformFilter,
+        agentId: widget.agentId,
+      );
+    });
+  }
+
+  void _scheduleSearch() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 220), _loadTargets);
+  }
+
+  List<String> _platformIds(List<TaskDeliveryTarget> targets) {
+    final ids = <String>{
+      if (widget.selected?.platform.isNotEmpty == true)
+        widget.selected!.platform,
+      ...targets.map((target) => target.platform),
+      ...messagingPlatforms
+          .where(
+            (platform) =>
+                platform.id == 'whatsapp' ||
+                platform.id == 'discord' ||
+                platform.id == 'telegram' ||
+                platform.id == 'slack',
+          )
+          .map((platform) => platform.id),
+    }.toList();
+    ids.sort(
+      (left, right) => _taskDeliveryPlatformLabel(
+        left,
+      ).compareTo(_taskDeliveryPlatformLabel(right)),
+    );
+    return ids;
+  }
+
+  void _submitManual() {
+    final to = _manualController.text.trim();
+    final platform =
+        _manualPlatform ?? _platformFilter ?? widget.selected?.platform ?? '';
+    if (to.isEmpty || platform.isEmpty) return;
+    Navigator.of(context).pop(
+      TaskDeliveryTarget(
+        platform: platform,
+        platformLabel: _taskDeliveryPlatformLabel(platform),
+        to: to,
+        label: to,
+        subtitle: 'Manual destination',
+        source: 'manual',
+        connected: true,
+        supportsDelivery: true,
+      ),
+    );
+  }
+
+  Widget _buildTargetTile(TaskDeliveryTarget target) {
+    final color = _taskDeliveryPlatformColor(target.platform);
+    final selected = widget.selected?.id == target.id;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(_taskDeliveryPlatformIcon(target.platform), color: color),
+      ),
+      title: Text(
+        target.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        '${target.platformLabel} · ${target.subtitle.ifEmpty(target.to)}',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          _StatusPill(label: target.sourceLabel, color: color),
+          Icon(
+            selected ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+            color: selected ? color : _textSecondary,
+          ),
+        ],
+      ),
+      enabled: target.selectable,
+      onTap: target.selectable ? () => Navigator.of(context).pop(target) : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 18,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+        child: FutureBuilder<List<TaskDeliveryTarget>>(
+          future: _targetsFuture,
+          builder: (context, snapshot) {
+            final targets = snapshot.data ?? const <TaskDeliveryTarget>[];
+            final platformIds = _platformIds(targets);
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Result Delivery',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).pop(
+                          const TaskDeliveryTarget(
+                            platform: '',
+                            platformLabel: '',
+                            to: '',
+                            label: '',
+                            subtitle: '',
+                            source: 'default',
+                            connected: true,
+                            supportsDelivery: true,
+                          ),
+                        ),
+                        icon: const Icon(Icons.auto_mode_rounded),
+                        label: const Text('Use default'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Search discovered messaging channels, contacts, groups, and recent conversations.',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _queryController,
+                    onChanged: (_) => _scheduleSearch(),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      labelText: 'Search channels',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: const Text('All'),
+                            selected: _platformFilter == null,
+                            onSelected: (_) {
+                              _platformFilter = null;
+                              _loadTargets();
+                            },
+                          ),
+                        ),
+                        ...platformIds.map((platform) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              avatar: Icon(
+                                _taskDeliveryPlatformIcon(platform),
+                                size: 16,
+                              ),
+                              label: Text(_taskDeliveryPlatformLabel(platform)),
+                              selected: _platformFilter == platform,
+                              onSelected: (_) {
+                                _platformFilter = platform;
+                                _loadTargets();
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (snapshot.hasError)
+                    _TaskDeliveryNotice(
+                      icon: Icons.warning_amber_rounded,
+                      title: 'Discovery failed',
+                      detail: snapshot.error.toString(),
+                    )
+                  else if (targets.isEmpty)
+                    _TaskDeliveryNotice(
+                      icon: Icons.search_off_rounded,
+                      title: 'No channels found',
+                      detail:
+                          'Try another search, connect a messaging platform, or enter a destination ID manually.',
+                    )
+                  else
+                    ...targets.take(40).map(_buildTargetTile),
+                  const Divider(height: 28),
+                  Text(
+                    'Manual destination',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        flex: 2,
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _manualPlatform,
+                          decoration: const InputDecoration(
+                            labelText: 'Platform',
+                          ),
+                          items: platformIds
+                              .map(
+                                (platform) => DropdownMenuItem<String>(
+                                  value: platform,
+                                  child: Text(
+                                    _taskDeliveryPlatformLabel(platform),
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) =>
+                              setState(() => _manualPlatform = value),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _manualController,
+                          decoration: const InputDecoration(
+                            labelText: 'Destination ID',
+                          ),
+                          onSubmitted: (_) => _submitManual(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Use manual destination',
+                        onPressed: _submitManual,
+                        icon: const Icon(Icons.check_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskDeliveryNotice extends StatelessWidget {
+  const _TaskDeliveryNotice({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, color: _textSecondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(detail, style: TextStyle(color: _textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class TasksPanel extends StatefulWidget {
   const TasksPanel({super.key, required this.controller});
 
@@ -5871,6 +6291,9 @@ class _TasksPanelState extends State<TasksPanel> {
           ? task!.triggerConfig['connectionId'] as int
           : int.tryParse(task?.triggerConfig['connectionId']?.toString() ?? ''),
     );
+    final selectedDeliveryTarget = ValueNotifier<TaskDeliveryTarget?>(
+      _taskDeliveryTargetFromTask(task),
+    );
     final queryController = TextEditingController(
       text:
           task?.triggerConfig['query']?.toString() ??
@@ -6203,6 +6626,101 @@ class _TasksPanelState extends State<TasksPanel> {
                         decoration: const InputDecoration(labelText: 'Prompt'),
                       ),
                       const SizedBox(height: 12),
+                      ValueListenableBuilder<TaskDeliveryTarget?>(
+                        valueListenable: selectedDeliveryTarget,
+                        builder: (context, deliveryTarget, _) {
+                          final color = deliveryTarget == null
+                              ? _textSecondary
+                              : _taskDeliveryPlatformColor(
+                                  deliveryTarget.platform,
+                                );
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () async {
+                              final picked = await _pickTaskDeliveryTarget(
+                                context,
+                                controller: controller,
+                                agentId: selectedAgentId,
+                                selected: deliveryTarget,
+                              );
+                              if (picked == null) return;
+                              selectedDeliveryTarget.value =
+                                  picked.platform.isEmpty ? null : picked;
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Result Delivery',
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      deliveryTarget == null
+                                          ? Icons.auto_mode_rounded
+                                          : _taskDeliveryPlatformIcon(
+                                              deliveryTarget.platform,
+                                            ),
+                                      color: color,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        Text(
+                                          deliveryTarget == null
+                                              ? 'Use default channel'
+                                              : deliveryTarget.label,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          deliveryTarget == null
+                                              ? 'AI-created and unspecified tasks use the current default.'
+                                              : '${deliveryTarget.platformLabel} · ${deliveryTarget.to}',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: _textSecondary,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (deliveryTarget != null)
+                                    IconButton(
+                                      tooltip: 'Use default channel',
+                                      onPressed: () =>
+                                          selectedDeliveryTarget.value = null,
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      Icons.unfold_more_rounded,
+                                      color: _textSecondary,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: selectedModel,
                         decoration: const InputDecoration(
@@ -6322,8 +6840,10 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) =>
-                              setLocalState(() => selectedAgentId = value),
+                          onChanged: (value) => setLocalState(() {
+                            selectedAgentId = value;
+                            selectedDeliveryTarget.value = null;
+                          }),
                         ),
                       ],
                       const SizedBox(height: 12),
@@ -6459,6 +6979,14 @@ class _TasksPanelState extends State<TasksPanel> {
                         'maxTokensPerDay': maxTokens,
                       },
                     };
+                    final deliveryTarget = selectedDeliveryTarget.value;
+                    if (deliveryTarget == null) {
+                      taskConfig.remove('notifyPlatform');
+                      taskConfig.remove('notifyTo');
+                    } else {
+                      taskConfig['notifyPlatform'] = deliveryTarget.platform;
+                      taskConfig['notifyTo'] = deliveryTarget.to;
+                    }
                     await controller.saveTask(
                       id: task?.id,
                       name: nameController.text.trim(),

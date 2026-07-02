@@ -1660,6 +1660,26 @@ class BackendClient {
     return getList(baseUrl, _withAgentQuery('/api/tasks', agentId));
   }
 
+  Future<List<Map<String, dynamic>>> fetchTaskDeliveryTargets(
+    String baseUrl, {
+    String? query,
+    String? platform,
+    String? agentId,
+  }) async {
+    final params = <String>[
+      if (query != null && query.trim().isNotEmpty)
+        'q=${Uri.encodeQueryComponent(query.trim())}',
+      if (platform != null && platform.trim().isNotEmpty)
+        'platform=${Uri.encodeQueryComponent(platform.trim())}',
+      if (agentId != null && agentId.trim().isNotEmpty)
+        'agentId=${Uri.encodeQueryComponent(agentId.trim())}',
+    ];
+    final path = params.isEmpty
+        ? _withAgentQuery('/api/tasks/delivery-targets', agentId)
+        : '/api/tasks/delivery-targets?${params.join('&')}';
+    return getList(baseUrl, path);
+  }
+
   Future<Map<String, dynamic>> saveTask(
     String baseUrl, {
     int? id,
