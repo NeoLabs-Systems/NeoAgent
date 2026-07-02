@@ -588,7 +588,7 @@ class _PageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
     final titleStyle = compact
-        ? _displayTitleStyle(26)
+        ? _displayTitleStyle(22)
         : _displayTitleStyle(32);
     final subtitleStyle = TextStyle(
       color: _textSecondary,
@@ -603,7 +603,12 @@ class _PageTitle extends StatelessWidget {
                 children: <Widget>[
                   Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
                   const SizedBox(height: 6),
-                  Text(title, style: titleStyle),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
                   const SizedBox(height: 8),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 720),

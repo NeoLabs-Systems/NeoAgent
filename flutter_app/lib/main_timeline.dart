@@ -51,6 +51,67 @@ class _TimelinePanelState extends State<TimelinePanel> {
     return items.first;
   }
 
+  Future<void> _showMobileEventDetails(
+    List<TimelineEventItem> items,
+    TimelineEventItem initialEvent,
+  ) async {
+    _selectEvent(initialEvent);
+    var selectedIndex = items.indexWhere((item) => item.id == initialEvent.id);
+    if (selectedIndex < 0) {
+      selectedIndex = 0;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final selectedEvent = items[selectedIndex];
+            void selectOffset(int offset) {
+              final nextIndex = (selectedIndex + offset).clamp(
+                0,
+                items.length - 1,
+              );
+              if (nextIndex == selectedIndex) {
+                return;
+              }
+              setSheetState(() {
+                selectedIndex = nextIndex;
+              });
+              _selectEvent(items[nextIndex]);
+            }
+
+            return FractionallySizedBox(
+              heightFactor: 0.9,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: _TimelineDetailPane(
+                  items: items,
+                  selectedEvent: selectedEvent,
+                  selectedIndex: selectedIndex,
+                  onSelectPrevious: selectedIndex > 0
+                      ? () => selectOffset(-1)
+                      : null,
+                  onSelectNext: selectedIndex < items.length - 1
+                      ? () => selectOffset(1)
+                      : null,
+                  onOpenRun: selectedEvent.runId.isNotEmpty
+                      ? () => unawaited(
+                          widget.controller.openRunDetails(selectedEvent.runId),
+                        )
+                      : null,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _sortedTimelineEvents(widget.controller.timelineItems);
@@ -87,10 +148,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth >= 1180;
+                      final isCompact = constraints.maxWidth < 760;
                       final feedPane = _TimelineFeedPane(
                         groups: groups,
                         selectedEventId: selectedEvent?.id,
-                        onSelectEvent: _selectEvent,
+                        onSelectEvent: isCompact
+                            ? (item) => unawaited(
+                                _showMobileEventDetails(items, item),
+                              )
+                            : _selectEvent,
                       );
                       final detailPane = _TimelineDetailPane(
                         items: items,
@@ -126,6 +192,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
                         );
                       }
 
+                      if (isCompact) {
+                        return feedPane;
+                      }
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
@@ -156,13 +226,14 @@ class _TimelineHeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
     final focusedDay =
         selectedEvent?.occurredAt ??
         (items.isEmpty ? null : items.first.occurredAt);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(compact ? 16 : 22),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: <Color>[
@@ -172,7 +243,7 @@ class _TimelineHeroHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(compact ? 20 : 28),
         border: Border.all(color: _borderLight),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -195,27 +266,27 @@ class _TimelineHeroHeader extends StatelessWidget {
                     'ACTIVITY FEED',
                     style: TextStyle(
                       color: _accentHover,
-                      fontSize: 13,
+                      fontSize: compact ? 11 : 13,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 4.2,
+                      letterSpacing: compact ? 2.4 : 4.2,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
+                  SizedBox(height: compact ? 8 : 14),
+                  Text(
                     'Timeline',
                     style: TextStyle(
-                      fontSize: 40,
+                      fontSize: compact ? 28 : 40,
                       fontWeight: FontWeight.w800,
                       height: 1,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: compact ? 8 : 14),
                   Text(
                     'Emails, AI actions, recordings, tasks and run activity in one chronological feed.',
                     style: TextStyle(
                       color: _textSecondary,
-                      fontSize: 16.5,
-                      height: 1.35,
+                      fontSize: compact ? 13.5 : 16.5,
+                      height: compact ? 1.28 : 1.35,
                     ),
                   ),
                 ],
