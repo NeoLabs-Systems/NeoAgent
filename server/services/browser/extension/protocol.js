@@ -15,6 +15,7 @@ const EXTENSION_COMMANDS = Object.freeze({
   SCREENSHOT: 'screenshot',
   CLOSE: 'close',
   GET_PAGE_INFO: 'getPageInfo',
+  GET_COOKIES: 'getCookies',
 });
 
 class ExtensionBrowserUnavailableError extends Error {

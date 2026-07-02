@@ -14,6 +14,7 @@ const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { RecordingManager } = require('./recordings/manager');
 const { SocialVideoService } = require('./social_video');
+const { SocialReachService } = require('./social_reach');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
@@ -393,6 +394,18 @@ function createSocialVideoService(app) {
   return socialVideoService;
 }
 
+function createSocialReachService(app) {
+  const socialReachService = registerLocal(
+    app,
+    'socialReachService',
+    new SocialReachService({
+      browserExtensionRegistry: app.locals.browserExtensionRegistry,
+    }),
+  );
+  logServiceReady('Social reach service ready');
+  return socialReachService;
+}
+
 function createWidgetService(app) {
   const widgetService = registerLocal(
     app,
@@ -513,6 +526,7 @@ async function startServices(app, io) {
     const messagingManager = createMessagingManager(app, io, agentEngine);
     const recordingManager = createRecordingManager(app, io);
     createSocialVideoService(app);
+    createSocialReachService(app);
     createWidgetService(app);
     createWearableService(app);
 

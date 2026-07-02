@@ -182,6 +182,7 @@ class NeoAgentController extends ChangeNotifier {
   List<AiWidgetItem> widgets = const <AiWidgetItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
+  Map<String, dynamic> socialReachStatus = const <String, dynamic>{};
   Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
   List<Map<String, dynamic>> browserExtensionTokens =
       const <Map<String, dynamic>>[];
@@ -2316,6 +2317,9 @@ class NeoAgentController extends ChangeNotifier {
       final browserFuture = _backendClient
           .fetchBrowserStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
+      final socialReachFuture = _backendClient
+          .fetchSocialReachStatus(backendUrl)
+          .catchError((_) => const <String, dynamic>{});
       final browserExtensionFuture = _backendClient
           .fetchBrowserExtensionStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
@@ -2371,6 +2375,7 @@ class NeoAgentController extends ChangeNotifier {
       final mcpResponse = await mcpFuture;
       final recordingsResponse = await recordingsFuture;
       final browserResponse = await browserFuture;
+      final socialReachResponse = await socialReachFuture;
       final browserExtensionResponse = await browserExtensionFuture;
       final androidResponse = await androidFuture;
       final desktopResponse = await desktopFuture;
@@ -2468,6 +2473,7 @@ class NeoAgentController extends ChangeNotifier {
         RecordingSessionItem.fromJson,
       );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
+      socialReachStatus = Map<String, dynamic>.from(socialReachResponse);
       browserExtensionStatus = Map<String, dynamic>.from(
         browserExtensionResponse,
       );
@@ -5890,6 +5896,32 @@ class NeoAgentController extends ChangeNotifier {
       isSavingSettings = false;
       notifyListeners();
     }
+  }
+
+  Future<Map<String, dynamic>> refreshSocialReachStatus() async {
+    final response = await _backendClient.fetchSocialReachStatus(backendUrl);
+    socialReachStatus = Map<String, dynamic>.from(response);
+    notifyListeners();
+    return socialReachStatus;
+  }
+
+  Future<Map<String, dynamic>> importSocialReachCookies(String platform) async {
+    final response = await _backendClient.importSocialReachCookies(
+      backendUrl,
+      platform,
+      tokenId: selectedBrowserExtensionTokenId,
+    );
+    await refreshSocialReachStatus();
+    return response;
+  }
+
+  Future<Map<String, dynamic>> clearSocialReachCookies(String platform) async {
+    final response = await _backendClient.clearSocialReachCookies(
+      backendUrl,
+      platform,
+    );
+    await refreshSocialReachStatus();
+    return response;
   }
 
   Future<void> disconnectMessagingPlatform(String platform) async {

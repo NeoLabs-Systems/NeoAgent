@@ -1529,6 +1529,40 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'social_reach_status',
+            description: 'List Node-native social reach platforms, setup state, active backend, and limitations for web/social content access.',
+            parameters: {
+                type: 'object',
+                properties: {}
+            }
+        },
+        {
+            name: 'social_reach_read',
+            description: 'Read a supported public web or social URL using NeoAgent social reach. Supports web pages, RSS/Atom, V2EX, GitHub repositories, YouTube public metadata/page text, LinkedIn public pages, and configured Xueqiu data.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url: { type: 'string', description: 'HTTP or HTTPS URL to read.' },
+                    platform: { type: 'string', description: 'Optional platform override such as web, rss, v2ex, github, youtube, linkedin, or xueqiu.' },
+                    symbol: { type: 'string', description: 'Optional Xueqiu stock symbol when platform is xueqiu.' },
+                    limit: { type: 'number', description: 'Maximum number of feed/results/replies to return.' }
+                }
+            }
+        },
+        {
+            name: 'social_reach_search',
+            description: 'Search a supported Node-native social reach platform. Supports GitHub repositories, V2EX hot/node topics, and configured Xueqiu stock search.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    platform: { type: 'string', description: 'Platform to search: github, v2ex, or xueqiu.' },
+                    query: { type: 'string', description: 'Search query. For V2EX, use "hot" or a node name.' },
+                    limit: { type: 'number', description: 'Maximum result count.' }
+                },
+                required: ['platform', 'query']
+            }
+        },
+        {
             name: 'social_video_extract',
             description: 'Extract title, description, transcript, and one representative frame image from a public social video URL (YouTube, TikTok, Instagram, or X) without social API keys.',
             parameters: {
@@ -1713,6 +1747,7 @@ async function executeTool(toolName, args, context, engine) {
     const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const rec = () => app?.locals?.recordingManager || null;
     const socialVideo = () => app?.locals?.socialVideoService || null;
+    const socialReach = () => app?.locals?.socialReachService || null;
     const widgets = () => app?.locals?.widgetService || null;
     const artifactStore = app?.locals?.artifactStore || null;
 
@@ -2398,6 +2433,30 @@ async function executeTool(toolName, args, context, engine) {
                 forceStt: args.force_stt === true,
                 agentId,
             });
+        }
+
+        case 'social_reach_status': {
+            const service = socialReach();
+            if (!service || typeof service.getStatus !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.getStatus(userId);
+        }
+
+        case 'social_reach_read': {
+            const service = socialReach();
+            if (!service || typeof service.read !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.read(userId, args || {});
+        }
+
+        case 'social_reach_search': {
+            const service = socialReach();
+            if (!service || typeof service.search !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.search(userId, args || {});
         }
 
         case 'memory_write': {

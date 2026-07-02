@@ -117,6 +117,22 @@ const _modelsSettingsSection = _SettingsSection('models', <String>[
   'smart selector',
 ]);
 
+const _socialReachSettingsSection = _SettingsSection('social reach', <String>[
+  'social',
+  'reach',
+  'web',
+  'rss',
+  'github',
+  'youtube',
+  'linkedin',
+  'xueqiu',
+  'twitter',
+  'reddit',
+  'instagram',
+  'facebook',
+  'cookies',
+]);
+
 const _voiceRecordingSettingsSection = _SettingsSection(
   'voice recording',
   <String>[
@@ -164,6 +180,7 @@ const _securitySettingsSection = _SettingsSection('security', <String>[
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
   _workspaceSettingsSection,
+  _socialReachSettingsSection,
   _modelsSettingsSection,
   _voiceRecordingSettingsSection,
   _desktopSettingsSection,
@@ -201,6 +218,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   Map<String, dynamic>? _extensionTestResult;
   bool _desktopTestRunning = false;
   Map<String, dynamic>? _desktopTestResult;
+  bool _socialReachRefreshing = false;
+  String? _socialReachBusyPlatform;
+  Map<String, dynamic>? _socialReachActionResult;
 
   @override
   void initState() {
@@ -397,6 +417,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             _workspaceSettingsSection,
           )) ...<Widget>[
             _buildWorkspaceSection(controller),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
+            _socialReachSettingsSection,
+          )) ...<Widget>[
+            _buildSocialReachSection(controller),
             const SizedBox(height: 16),
           ],
           if (_matchesSettingsSection(
@@ -920,6 +947,278 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  List<Map<String, dynamic>> _socialReachPlatforms(
+    NeoAgentController controller,
+  ) {
+    final raw = controller.socialReachStatus['platforms'];
+    if (raw is! List) return const <Map<String, dynamic>>[];
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Color _socialReachStatusColor(Map<String, dynamic> platform) {
+    final status = platform['status']?.toString().toLowerCase() ?? '';
+    if (platform['ready'] == true || status == 'ok') return _success;
+    if (status == 'warn') return _warning;
+    if (status == 'error') return _danger;
+    return _textSecondary;
+  }
+
+  Widget _buildSocialReachSection(NeoAgentController controller) {
+    final platforms = _socialReachPlatforms(controller);
+    final ready = platforms
+        .where((item) => item['ready'] == true || item['status'] == 'ok')
+        .length;
+    final unsupported = platforms
+        .where((item) => item['setupKind'] == 'unsupported_node_only')
+        .length;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Expanded(child: _SectionTitle('Social Reach')),
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: _socialReachRefreshing
+                      ? null
+                      : () async {
+                          setState(() {
+                            _socialReachRefreshing = true;
+                            _socialReachActionResult = null;
+                          });
+                          try {
+                            await controller.refreshSocialReachStatus();
+                          } catch (e) {
+                            if (mounted) {
+                              setState(
+                                () => _socialReachActionResult =
+                                    <String, dynamic>{'error': e.toString()},
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _socialReachRefreshing = false);
+                            }
+                          }
+                        },
+                  icon: _socialReachRefreshing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Node-native web and social content access for agents.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _MetaPill(
+                  icon: Icons.check_circle_outline,
+                  label: '$ready ready',
+                  color: _success,
+                ),
+                _MetaPill(
+                  icon: Icons.code_outlined,
+                  label: 'Node-only mode',
+                  color: _info,
+                ),
+                _MetaPill(
+                  icon: Icons.block_outlined,
+                  label: '$unsupported unavailable',
+                  color: _warning,
+                ),
+              ],
+            ),
+            if (_socialReachActionResult != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color:
+                      (_socialReachActionResult!['error'] == null
+                              ? _success
+                              : _danger)
+                          .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color:
+                        (_socialReachActionResult!['error'] == null
+                                ? _success
+                                : _danger)
+                            .withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Text(
+                  _socialReachActionResult!['error']?.toString() ??
+                      'Social Reach updated.',
+                  style: TextStyle(
+                    color: _socialReachActionResult!['error'] == null
+                        ? _success
+                        : _danger,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (platforms.isEmpty)
+              Text(
+                'Status is not loaded yet.',
+                style: TextStyle(color: _textSecondary),
+              )
+            else
+              ...platforms.map(
+                (platform) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildSocialReachPlatformRow(controller, platform),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialReachPlatformRow(
+    NeoAgentController controller,
+    Map<String, dynamic> platform,
+  ) {
+    final id = platform['platform']?.toString() ?? '';
+    final label = platform['label']?.toString() ?? id;
+    final setupKind = platform['setupKind']?.toString() ?? '';
+    final status = platform['status']?.toString() ?? 'off';
+    final message = platform['message']?.toString() ?? '';
+    final cookie = platform['cookie'] is Map
+        ? Map<String, dynamic>.from(platform['cookie'] as Map)
+        : const <String, dynamic>{};
+    final busy = _socialReachBusyPlatform == id;
+    final canImport = setupKind == 'cookies';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _StatusPill(
+                label: status,
+                color: _socialReachStatusColor(platform),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(message, style: TextStyle(color: _textSecondary, height: 1.35)),
+          if (cookie.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              cookie['configured'] == true
+                  ? '${cookie['count'] ?? 0} cookies imported'
+                  : 'Cookies not configured',
+              style: TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+          ],
+          if (canImport) ...<Widget>[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: busy
+                      ? null
+                      : () => _runSocialReachAction(
+                          controller,
+                          id,
+                          () => controller.importSocialReachCookies(id),
+                        ),
+                  icon: busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.extension_outlined, size: 18),
+                  label: const Text('Import from extension'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: busy
+                      ? null
+                      : () => _runSocialReachAction(
+                          controller,
+                          id,
+                          () => controller.clearSocialReachCookies(id),
+                        ),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Clear'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runSocialReachAction(
+    NeoAgentController controller,
+    String platform,
+    Future<Map<String, dynamic>> Function() action,
+  ) async {
+    setState(() {
+      _socialReachBusyPlatform = platform;
+      _socialReachActionResult = null;
+    });
+    try {
+      final result = await action();
+      if (mounted) {
+        setState(() => _socialReachActionResult = result);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _socialReachActionResult = <String, dynamic>{
+            'error': e.toString(),
+          },
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _socialReachBusyPlatform = null);
+      }
+    }
+  }
+
   Widget _buildModelsSection({
     required BuildContext context,
     required NeoAgentController controller,
@@ -1075,11 +1374,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     selectedIds: _enabledModels,
                   ),
                 );
-                if (result != null)
+                if (result != null) {
                   setState(() {
                     _enabledModels = result;
                     _hasUnsavedChanges = true;
                   });
+                }
               },
             ),
           ],

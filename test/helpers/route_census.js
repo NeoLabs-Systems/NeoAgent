@@ -26,6 +26,7 @@ const ROUTE_BASES = {
   screenHistory: '/api/screen-history',
   settings: '/api/settings',
   skills: '/api/skills',
+  social_reach: '/api/social-reach',
   social_video: '/api/social-video',
   store: '/api/store',
   stream: '/api/stream',
