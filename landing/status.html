@@ -52,7 +52,7 @@
     .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
     .nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; }
     .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 750; }
-    .mark { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #171512, var(--accent)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+    .brand-logo { display: block; width: 34px; height: 34px; border-radius: 10px; }
     .nav a:last-child { color: var(--muted); font-size: 14px; font-weight: 650; }
 
     .hero { padding: clamp(54px, 8vw, 104px) 0 34px; }
@@ -102,7 +102,7 @@
 <body>
   <div class="shell">
     <header class="nav">
-      <a class="brand" href="/"><span class="mark" aria-hidden="true"></span><span>NeoAgent</span></a>
+      <a class="brand" href="/"><img class="brand-logo" src="assets/logo.svg" alt="" width="34" height="34"><span>NeoAgent</span></a>
       <a href="/app">Sign in</a>
     </header>
 
@@ -110,7 +110,7 @@
       <section class="hero">
         <div class="eyebrow">Public status</div>
         <h1>All the important systems, minus the secret knobs.</h1>
-        <p class="lede">A live, public overview of NeoAgent platform health. We show broad system posture here, not private account, device, or workspace details.</p>
+        <p class="lede">A live, public overview of NeoAgent platform health.</p>
       </section>
 
       <section class="summary" aria-live="polite">
