@@ -26,6 +26,12 @@ const {
   findEmbeddingCandidates,
   replaceMemoryEmbeddingIndex,
 } = require('./embedding_index');
+const { getRouteCategoryBoost, routeMemoryQuery } = require('./routing');
+const {
+  getReinforcedStrength,
+  getRetentionScoreMultiplier,
+  isArchiveEligible,
+} = require('./retention');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const { buildFtsQuery } = require('../../db/ftsQuery');
@@ -72,6 +78,7 @@ const CATEGORIES = [
   'events',
   'tasks',
   'episodic',
+  'procedural',
   'assistant_self',
   'user_fact',
   'preference',
@@ -167,6 +174,9 @@ function serializeMemoryRow(row) {
     importance: Number(row.importance || 0),
     confidence: row.confidence == null ? 0.7 : Number(row.confidence),
     access_count: Number(row.access_count || 0),
+    memoryStrength: row.memory_strength == null ? 1 : Number(row.memory_strength),
+    lastAccessedAt: row.last_accessed_at || null,
+    pinned: Number(row.pinned || 0) === 1,
     archived: Number(row.archived || 0),
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -1729,9 +1739,9 @@ class MemoryManager {
       `INSERT OR IGNORE INTO memories (
         id, user_id, agent_id, category, scope_type, scope_id, source_type, source_id, source_label,
         stale_after_days, metadata_json, content, summary, importance, confidence, memory_hash, embedding,
-        embedding_provider, embedding_model, embedding_dimensions, embedded_at
+        memory_strength, pinned, embedding_provider, embedding_model, embedding_dimensions, embedded_at
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       userId,
@@ -1750,6 +1760,8 @@ class MemoryManager {
       confidence,
       memoryHash,
       embedding ? serializeEmbedding(embedding) : null,
+      1,
+      0,
       embeddingResult?.provider || null,
       embeddingResult?.model || null,
       embeddingResult?.dimensions || null,
@@ -1830,6 +1842,7 @@ class MemoryManager {
     const agentId = this._agentId(userId, options);
     const scope = normalizeScope(options.scope, agentId);
     const limit = Math.max(1, Math.min(Number(topK) || 6, 50));
+    const route = routeMemoryQuery(query);
 
     const suppliedQueryEmbedding = options.queryEmbedding;
     const queryVec = suppliedQueryEmbedding
@@ -1887,7 +1900,8 @@ class MemoryManager {
     const candidateIdList = [...candidateIds];
     const candidatePlaceholders = candidateIdList.map(() => '?').join(', ');
     let all = db.prepare(
-      `SELECT id, category, content, summary, importance, confidence, embedding, access_count, created_at, updated_at,
+      `SELECT id, category, content, summary, importance, confidence, embedding, access_count,
+              memory_strength, last_accessed_at, pinned, created_at, updated_at,
               scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
        FROM memories
        WHERE id IN (${candidatePlaceholders})
@@ -1987,12 +2001,17 @@ class MemoryManager {
       const ftsScore = lexicalRanks.has(mem.id) ? 0.42 : 0;
       const entityScore = entityRanks.has(mem.id) ? 0.48 : 0;
       const relationScore = relationRanks.has(mem.id) ? 0.36 : 0;
+      const directSignal = Math.max(mem.semanticScore, lexicalScore, ftsScore, entityScore, relationScore);
+      const routeScore = directSignal > 0.08
+        ? getRouteCategoryBoost(route, normalizeMemoryCategory(mem.category))
+        : 0;
       const baseScore = Math.max(
         mem.semanticScore * (0.65 + Number(mem.importance || 5) / 25),
         lexicalScore,
         ftsScore,
         entityScore,
         relationScore,
+        routeScore,
       );
       const score = scoreMemoryCandidate({
         semanticRank: semanticRanks.get(mem.id) ?? -1,
@@ -2003,7 +2022,7 @@ class MemoryManager {
         confidence: mem.confidence,
         accessCount: mem.access_count,
         freshness: computeFreshnessMultiplier(mem),
-      });
+      }) * getRetentionScoreMultiplier(mem);
       return {
         ...mem,
         score,
@@ -2013,6 +2032,8 @@ class MemoryManager {
           fullText: ftsScore,
           entity: entityScore,
           relation: relationScore,
+          route: routeScore,
+          routeIntent: route.intent,
           vectorCandidateRank: vectorRanks.get(mem.id) ?? -1,
           candidateCount: all.length,
         },
@@ -2026,9 +2047,19 @@ class MemoryManager {
 
     // Update access counts
     if (results.length) {
-      const ids = results.map(r => r.id);
-      const placeholders = ids.map(() => '?').join(',');
-      db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id IN (${placeholders})`).run(...ids);
+      const updates = db.prepare(
+        `UPDATE memories
+         SET access_count = access_count + 1,
+             memory_strength = ?,
+             last_accessed_at = datetime('now')
+         WHERE id = ?`
+      );
+      const reinforce = db.transaction(() => {
+        for (const result of results) {
+          updates.run(getReinforcedStrength(result), result.id);
+        }
+      });
+      reinforce();
     }
 
     const enrichedResults = this._attachSourceContext(
@@ -2061,7 +2092,8 @@ class MemoryManager {
    */
   listMemories(userId, { category, limit = 50, offset = 0, includeArchived = false, agentId = null } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
-    let sql = `SELECT id, category, content, summary, importance, confidence, access_count, archived, created_at, updated_at,
+    let sql = `SELECT id, category, content, summary, importance, confidence, access_count,
+                      memory_strength, last_accessed_at, pinned, archived, created_at, updated_at,
                       scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
                FROM memories WHERE user_id = ? AND agent_id = ? AND archived = ?`;
     const params = [userId, scopedAgentId, includeArchived ? 1 : 0];
@@ -2195,6 +2227,27 @@ class MemoryManager {
           `UPDATE memories SET archived = ? WHERE id IN (${placeholders})`
         ).run(archived ? 1 : 0, ...uniqueIds);
     return result.changes || 0;
+  }
+
+  archiveWeakMemories(userId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const limit = Math.max(1, Math.min(Number(options.limit) || 100, 500));
+    const rows = db.prepare(
+      `SELECT id, category, importance, archived, memory_strength, last_accessed_at,
+              pinned, stale_after_days, created_at, updated_at
+       FROM memories
+       WHERE user_id = ? AND agent_id = ? AND archived = 0
+       ORDER BY updated_at ASC
+       LIMIT ?`
+    ).all(userId, agentId, limit);
+    const archiveIds = rows
+      .filter((row) => isArchiveEligible(row, options))
+      .map((row) => row.id);
+    return {
+      scanned: rows.length,
+      archived: this.archiveMemories(archiveIds, true, userId),
+      memoryIds: archiveIds,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2942,7 +2995,14 @@ class MemoryManager {
       if (recalled.length) {
         const memoryLines = [];
         let memoryChars = 0;
+        const seenMemoryText = new Set();
+        const categoryCounts = new Map();
         for (const m of recalled) {
+          const category = normalizeMemoryCategory(m.category);
+          const summaryKey = stableHash(summarizeForPrompt(m).slice(0, 220));
+          if (seenMemoryText.has(summaryKey)) continue;
+          const categoryCount = categoryCounts.get(category) || 0;
+          if (memoryLines.length >= 3 && categoryCount >= 2) continue;
           const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
           const entities = Array.isArray(m.entities) && m.entities.length
             ? ` (entities: ${m.entities.slice(0, 4).map((entity) => entity.name).join(', ')})`
@@ -2963,6 +3023,8 @@ class MemoryManager {
           const line = `- ${summarizeForPrompt(m)}${badge}${entities}${historySuffix}${sourceSuffix}`;
           if (memoryLines.length && memoryChars + line.length > 1600) break;
           memoryLines.push(line);
+          seenMemoryText.add(summaryKey);
+          categoryCounts.set(category, categoryCount + 1);
           memoryChars += line.length;
         }
         sections.push(`Relevant memory:\n${memoryLines.join('\n')}`);

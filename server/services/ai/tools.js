@@ -837,7 +837,7 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     content: { type: 'string', description: 'The complete, self-contained fact. Must be readable standalone — no references to "above", "the dump", or "chat history". Write as a clear declarative sentence.' },
-                    category: { type: 'string', enum: ['user_fact', 'preference', 'personality', 'episodic'], description: 'user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings' },
+                    category: { type: 'string', enum: ['user_fact', 'preference', 'personality', 'episodic', 'procedural'], description: 'user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings, procedural: reusable workflows or repeatable tool-use procedures' },
                     importance: { type: 'number', description: 'Importance 1-10. 1=trivial, 5=default, 8+=critical. High-importance memories rank higher in recall.' }
                 },
                 required: ['content']

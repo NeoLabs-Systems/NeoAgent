@@ -9,6 +9,7 @@ const MEMORY_CATEGORIES = new Set([
   'events',
   'tasks',
   'episodic',
+  'procedural',
   'assistant_self',
 ]);
 
@@ -99,6 +100,7 @@ function buildMemoryConsolidationInstructions(currentDateTime) {
     'Use relation="extends" when it adds compatible detail without replacing the prior fact.',
     'Use relation="derives" only for a strongly supported inference and lower its confidence.',
     'Use is_static=true only for stable identity or durable preference facts.',
+    'Use category="procedural" only for reusable workflows or repeatable tool-use procedures, not one-off task status.',
     'Set valid_from, valid_to, or forget_after as ISO-8601 timestamps when the thread provides temporal boundaries.',
     'Return an empty memory_candidates array when nothing is worth retaining.',
   ].join(' ');

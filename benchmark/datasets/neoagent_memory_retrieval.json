@@ -19,6 +19,12 @@
       "content": "Carol validates Android device flows in NeoAgent and focuses on ADB-based automation coverage.",
       "category": "semantic",
       "importance": 6
+    },
+    {
+      "id": "release_procedure",
+      "content": "NeoAgent release procedure: check semantic-release configuration, verify backend tests, then publish through the release pipeline.",
+      "category": "procedural",
+      "importance": 7
     }
   ],
   "queries": [
@@ -44,6 +50,14 @@
       "query": "Who focuses on ADB automation coverage in NeoAgent?",
       "relevantMemoryIds": [
         "carol_devices"
+      ]
+    },
+    {
+      "id": "release_procedure_query",
+      "category": "procedural",
+      "query": "How do I run the NeoAgent release procedure?",
+      "relevantMemoryIds": [
+        "release_procedure"
       ]
     }
   ]
