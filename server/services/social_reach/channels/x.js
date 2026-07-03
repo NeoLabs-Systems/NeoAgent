@@ -2,7 +2,8 @@
 
 const { SocialReachChannel } = require('./base');
 const { getPlatformDefinition } = require('../platforms');
-const { assertHttpUrl, compactText, fetchJson } = require('../utils');
+const { cookieHeaderForPlatform, getCookieSummary } = require('../store');
+const { DEFAULT_UA, assertHttpUrl, compactText, fetchJson } = require('../utils');
 
 function extractStatusId(url) {
   const parsed = assertHttpUrl(url);
@@ -21,15 +22,28 @@ class XChannel extends SocialReachChannel {
     return Boolean(extractStatusId(url));
   }
 
-  async check() {
+  #headers(userId) {
+    const cookie = cookieHeaderForPlatform(userId, this.id);
     return {
-      ...(await super.check()),
-      activeBackend: 'x_syndication_public',
-      message: 'Reads public X post links when X allows anonymous access.',
+      'user-agent': DEFAULT_UA,
+      referer: 'https://x.com/',
+      ...(cookie ? { cookie } : {}),
     };
   }
 
-  async read({ url }) {
+  async check({ userId } = {}) {
+    const cookies = getCookieSummary(userId, this.id);
+    return {
+      ...(await super.check()),
+      cookie: cookies,
+      activeBackend: cookies.configured ? 'x_syndication_cookies' : 'x_syndication_public',
+      message: cookies.configured
+        ? 'Reads X post links using imported cookies for better reliability.'
+        : 'Reads public X post links when X allows anonymous access. Import cookies from the Chrome extension for better reliability.',
+    };
+  }
+
+  async read({ userId, url }) {
     const id = extractStatusId(url);
     if (!id) {
       const error = new Error('A public X post URL is required.');
@@ -37,7 +51,11 @@ class XChannel extends SocialReachChannel {
       throw error;
     }
 
-    const data = await fetchJson(`https://cdn.syndication.twimg.com/tweet-result?id=${encodeURIComponent(id)}&lang=en`);
+    const source = cookieHeaderForPlatform(userId, this.id) ? 'x_syndication_cookies' : 'x_syndication_public';
+    const data = await fetchJson(
+      `https://cdn.syndication.twimg.com/tweet-result?id=${encodeURIComponent(id)}&lang=en`,
+      { headers: this.#headers(userId) },
+    );
     return {
       platform: this.id,
       id,
@@ -60,7 +78,7 @@ class XChannel extends SocialReachChannel {
         bitrate: video.bitrate || null,
       })),
       url: `https://x.com/i/web/status/${id}`,
-      source: 'x_syndication_public',
+      source,
     };
   }
 }

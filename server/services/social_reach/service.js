@@ -6,7 +6,7 @@ const { deleteCookieBundle, getCookieSummary, writeCookieBundle } = require('./s
 const { domainsForPlatform, getPlatformDefinition, normalizePlatformId } = require('./platforms');
 const { assertHttpUrl } = require('./utils');
 
-const COOKIE_IMPORT_PLATFORMS = new Set(['xueqiu']);
+const COOKIE_IMPORT_PLATFORMS = new Set(['xueqiu', 'x']);
 const MAX_IMPORTED_COOKIES = 80;
 const MAX_COOKIE_NAME_CHARS = 256;
 const MAX_COOKIE_VALUE_CHARS = 4096;

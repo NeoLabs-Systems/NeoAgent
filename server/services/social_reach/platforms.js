@@ -58,7 +58,7 @@ const PLATFORM_DEFINITIONS = Object.freeze({
     id: 'x',
     label: 'X / Twitter',
     tier: 2,
-    setupKind: 'none',
+    setupKind: 'cookies',
     hosts: ['x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'],
     domains: ['x.com', 'twitter.com'],
   },
