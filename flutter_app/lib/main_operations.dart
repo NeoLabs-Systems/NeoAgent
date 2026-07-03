@@ -5087,7 +5087,273 @@ _TaskTriggerOption _taskTriggerOptionForType(String type) {
   );
 }
 
+class _TaskSchedulePreset {
+  const _TaskSchedulePreset({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
 
+  final String id;
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+const List<_TaskSchedulePreset> _taskSchedulePresets = <_TaskSchedulePreset>[
+  _TaskSchedulePreset(
+    id: 'every_15_minutes',
+    label: 'Every 15 minutes',
+    description: 'Runs four times per hour.',
+    icon: Icons.timer_outlined,
+  ),
+  _TaskSchedulePreset(
+    id: 'every_30_minutes',
+    label: 'Every 30 minutes',
+    description: 'Runs twice per hour.',
+    icon: Icons.timelapse_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'hourly',
+    label: 'Hourly',
+    description: 'Runs once per hour.',
+    icon: Icons.schedule_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'daily',
+    label: 'Daily',
+    description: 'Runs every day at the selected time.',
+    icon: Icons.today_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'weekdays',
+    label: 'Weekdays',
+    description: 'Runs Monday through Friday.',
+    icon: Icons.work_outline_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'weekly',
+    label: 'Weekly',
+    description: 'Runs on selected weekdays.',
+    icon: Icons.view_week_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'monthly',
+    label: 'Monthly',
+    description: 'Runs once per month on the selected day.',
+    icon: Icons.calendar_month_rounded,
+  ),
+];
+
+const List<String> _taskWeekdayLabels = <String>[
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+  'Sun',
+];
+
+_TaskSchedulePreset _taskSchedulePresetForId(String id) {
+  return _taskSchedulePresets.firstWhere(
+    (entry) => entry.id == id,
+    orElse: () => _taskSchedulePresets[1],
+  );
+}
+
+class _TaskScheduleDraft {
+  _TaskScheduleDraft({
+    required this.mode,
+    required this.presetId,
+    required this.time,
+    required this.weekdays,
+    required this.monthDay,
+    required this.preservedCronExpression,
+  });
+
+  factory _TaskScheduleDraft.fromTask(TaskItem? task) {
+    final runAt = task?.triggerConfig['runAt']?.toString().trim() ?? '';
+    if (runAt.isNotEmpty) {
+      return _TaskScheduleDraft(
+        mode: 'one_time',
+        presetId: 'daily',
+        time: const TimeOfDay(hour: 9, minute: 0),
+        weekdays: <int>{1},
+        monthDay: 1,
+        preservedCronExpression: '',
+      );
+    }
+    final cron =
+        task?.triggerConfig['cronExpression']?.toString().trim() ??
+        '*/30 * * * *';
+    final parsed = _parseCronExpression(cron);
+    if (parsed != null) return parsed;
+    return _TaskScheduleDraft(
+      mode: 'recurring',
+      presetId: 'existing',
+      time: const TimeOfDay(hour: 9, minute: 0),
+      weekdays: <int>{1},
+      monthDay: 1,
+      preservedCronExpression: cron,
+    );
+  }
+
+  String mode;
+  String presetId;
+  TimeOfDay time;
+  Set<int> weekdays;
+  int monthDay;
+  String preservedCronExpression;
+
+  bool get usesTime =>
+      presetId == 'daily' ||
+      presetId == 'weekdays' ||
+      presetId == 'weekly' ||
+      presetId == 'monthly';
+
+  String get cronExpression {
+    if (presetId == 'existing') return preservedCronExpression;
+    final minute = time.minute.toString();
+    final hour = time.hour.toString();
+    return switch (presetId) {
+      'every_15_minutes' => '*/15 * * * *',
+      'every_30_minutes' => '*/30 * * * *',
+      'hourly' => '0 * * * *',
+      'daily' => '$minute $hour * * *',
+      'weekdays' => '$minute $hour * * 1-5',
+      'weekly' => '$minute $hour * * ${_cronWeekdays(weekdays)}',
+      'monthly' => '$minute $hour $monthDay * *',
+      _ => '*/30 * * * *',
+    };
+  }
+
+  String get summary {
+    if (mode == 'one_time') return 'One-time run';
+    if (presetId == 'existing') return 'Existing schedule';
+    final preset = _taskSchedulePresetForId(presetId);
+    if (!usesTime) return preset.label;
+    final timeLabel = _formatTaskScheduleTime(time);
+    if (presetId == 'weekly') {
+      return '${preset.label} ${_formatTaskWeekdays(weekdays)} at $timeLabel';
+    }
+    if (presetId == 'monthly') {
+      return '${preset.label} on day $monthDay at $timeLabel';
+    }
+    return '${preset.label} at $timeLabel';
+  }
+}
+
+_TaskScheduleDraft? _parseCronExpression(String cron) {
+  final fields = cron.trim().split(RegExp(r'\s+'));
+  if (fields.length != 5) return null;
+  final minute = fields[0];
+  final hour = fields[1];
+  final dayOfMonth = fields[2];
+  final month = fields[3];
+  final dayOfWeek = fields[4];
+  if (cron == '*/15 * * * *') {
+    return _recurringScheduleDraft('every_15_minutes');
+  }
+  if (cron == '*/30 * * * *') {
+    return _recurringScheduleDraft('every_30_minutes');
+  }
+  if (cron == '0 * * * *') return _recurringScheduleDraft('hourly');
+  final parsedMinute = int.tryParse(minute);
+  final parsedHour = int.tryParse(hour);
+  if (parsedMinute == null ||
+      parsedMinute < 0 ||
+      parsedMinute > 59 ||
+      parsedHour == null ||
+      parsedHour < 0 ||
+      parsedHour > 23 ||
+      month != '*') {
+    return null;
+  }
+  final time = TimeOfDay(hour: parsedHour, minute: parsedMinute);
+  if (dayOfMonth == '*' && dayOfWeek == '*') {
+    return _recurringScheduleDraft('daily', time: time);
+  }
+  if (dayOfMonth == '*' && dayOfWeek == '1-5') {
+    return _recurringScheduleDraft('weekdays', time: time);
+  }
+  if (dayOfMonth == '*') {
+    final weekdays = _parseCronWeekdays(dayOfWeek);
+    if (weekdays == null || weekdays.isEmpty) return null;
+    return _recurringScheduleDraft('weekly', time: time, weekdays: weekdays);
+  }
+  if (dayOfWeek == '*') {
+    final parsedDay = int.tryParse(dayOfMonth);
+    if (parsedDay == null || parsedDay < 1 || parsedDay > 31) return null;
+    return _recurringScheduleDraft('monthly', time: time, monthDay: parsedDay);
+  }
+  return null;
+}
+
+_TaskScheduleDraft _recurringScheduleDraft(
+  String presetId, {
+  TimeOfDay time = const TimeOfDay(hour: 9, minute: 0),
+  Set<int> weekdays = const <int>{1},
+  int monthDay = 1,
+}) {
+  return _TaskScheduleDraft(
+    mode: 'recurring',
+    presetId: presetId,
+    time: time,
+    weekdays: Set<int>.from(weekdays),
+    monthDay: monthDay,
+    preservedCronExpression: '',
+  );
+}
+
+Set<int>? _parseCronWeekdays(String value) {
+  final result = <int>{};
+  for (final part in value.split(',')) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty) return null;
+    final rangeParts = trimmed.split('-');
+    if (rangeParts.length == 2) {
+      final start = _parseCronWeekday(rangeParts[0]);
+      final end = _parseCronWeekday(rangeParts[1]);
+      if (start == null || end == null || start > end) return null;
+      for (var day = start; day <= end; day += 1) {
+        result.add(day);
+      }
+    } else if (rangeParts.length == 1) {
+      final day = _parseCronWeekday(trimmed);
+      if (day == null) return null;
+      result.add(day);
+    } else {
+      return null;
+    }
+  }
+  return result;
+}
+
+int? _parseCronWeekday(String value) {
+  final parsed = int.tryParse(value.trim());
+  if (parsed == null || parsed < 0 || parsed > 7) return null;
+  return parsed == 0 ? 7 : parsed;
+}
+
+String _cronWeekdays(Set<int> weekdays) {
+  final sorted = weekdays.where((day) => day >= 1 && day <= 7).toList()..sort();
+  if (sorted.isEmpty) return '1';
+  return sorted.join(',');
+}
+
+String _formatTaskScheduleTime(TimeOfDay time) {
+  final hour = time.hour.toString().padLeft(2, '0');
+  final minute = time.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+String _formatTaskWeekdays(Set<int> weekdays) {
+  final sorted = weekdays.where((day) => day >= 1 && day <= 7).toList()..sort();
+  if (sorted.isEmpty) return 'Monday';
+  return sorted.map((day) => _taskWeekdayLabels[day - 1]).join(', ');
+}
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
   String selectedType,
@@ -6255,9 +6521,7 @@ class _TasksPanelState extends State<TasksPanel> {
   }) async {
     final nameController = TextEditingController(text: task?.name ?? '');
     final triggerType = ValueNotifier<String>(task?.triggerType ?? 'schedule');
-    final cronController = TextEditingController(
-      text: task?.triggerConfig['cronExpression']?.toString() ?? '*/30 * * * *',
-    );
+    final scheduleDraft = _TaskScheduleDraft.fromTask(task);
     final runAtController = TextEditingController(
       text: task?.triggerConfig['runAt']?.toString() ?? '',
     );
@@ -6463,21 +6727,226 @@ class _TasksPanelState extends State<TasksPanel> {
                           if (selectedTriggerType == 'schedule') {
                             return Column(
                               children: <Widget>[
-                                TextField(
-                                  controller: cronController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Cron Expression',
-                                    helperText:
-                                        'Use cron for recurring tasks. Leave Run At empty for recurring schedules.',
-                                  ),
+                                SegmentedButton<String>(
+                                  segments: const <ButtonSegment<String>>[
+                                    ButtonSegment<String>(
+                                      value: 'recurring',
+                                      icon: Icon(Icons.repeat_rounded),
+                                      label: Text('Recurring'),
+                                    ),
+                                    ButtonSegment<String>(
+                                      value: 'one_time',
+                                      icon: Icon(Icons.event_rounded),
+                                      label: Text('Once'),
+                                    ),
+                                  ],
+                                  selected: <String>{scheduleDraft.mode},
+                                  onSelectionChanged: (selection) {
+                                    setLocalState(() {
+                                      scheduleDraft.mode = selection.first;
+                                      if (scheduleDraft.mode == 'recurring') {
+                                        runAtController.clear();
+                                      }
+                                    });
+                                  },
                                 ),
                                 const SizedBox(height: 12),
-                                TextField(
-                                  controller: runAtController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Run At (optional ISO datetime)',
+                                if (scheduleDraft.mode == 'one_time')
+                                  TextField(
+                                    controller: runAtController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Run At',
+                                      helperText:
+                                          'Use a date and time, for example 2026-07-03T09:00:00.',
+                                    ),
+                                  )
+                                else ...<Widget>[
+                                  DropdownButtonFormField<String>(
+                                    initialValue: scheduleDraft.presetId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Repeat',
+                                    ),
+                                    items: <DropdownMenuItem<String>>[
+                                      if (scheduleDraft.presetId == 'existing')
+                                        const DropdownMenuItem<String>(
+                                          value: 'existing',
+                                          child: Text('Existing schedule'),
+                                        ),
+                                      ..._taskSchedulePresets.map(
+                                        (preset) => DropdownMenuItem<String>(
+                                          value: preset.id,
+                                          child: Text(preset.label),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setLocalState(() {
+                                        scheduleDraft.presetId = value;
+                                      });
+                                    },
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  if (scheduleDraft.usesTime) ...<Widget>[
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: scheduleDraft.time,
+                                        );
+                                        if (picked == null) return;
+                                        setLocalState(() {
+                                          scheduleDraft.time = picked;
+                                        });
+                                      },
+                                      child: InputDecorator(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Time',
+                                        ),
+                                        child: Row(
+                                          children: <Widget>[
+                                            const Icon(
+                                              Icons.access_time_rounded,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                _formatTaskScheduleTime(
+                                                  scheduleDraft.time,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.unfold_more_rounded,
+                                              color: _textSecondary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (scheduleDraft.presetId ==
+                                      'weekly') ...<Widget>[
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: List<Widget>.generate(7, (
+                                          index,
+                                        ) {
+                                          final day = index + 1;
+                                          return ChoiceChip(
+                                            label: Text(
+                                              _taskWeekdayLabels[index],
+                                            ),
+                                            selected: scheduleDraft.weekdays
+                                                .contains(day),
+                                            onSelected: (selected) {
+                                              setLocalState(() {
+                                                if (selected) {
+                                                  scheduleDraft.weekdays.add(
+                                                    day,
+                                                  );
+                                                } else if (scheduleDraft
+                                                        .weekdays
+                                                        .length >
+                                                    1) {
+                                                  scheduleDraft.weekdays.remove(
+                                                    day,
+                                                  );
+                                                }
+                                              });
+                                            },
+                                          );
+                                        }),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (scheduleDraft.presetId ==
+                                      'monthly') ...<Widget>[
+                                    DropdownButtonFormField<int>(
+                                      initialValue: scheduleDraft.monthDay,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Day of month',
+                                      ),
+                                      items:
+                                          List<DropdownMenuItem<int>>.generate(
+                                            31,
+                                            (index) => DropdownMenuItem<int>(
+                                              value: index + 1,
+                                              child: Text('Day ${index + 1}'),
+                                            ),
+                                          ),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setLocalState(() {
+                                          scheduleDraft.monthDay = value;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  InputDecorator(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Schedule',
+                                    ),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final preset =
+                                            scheduleDraft.presetId == 'existing'
+                                            ? null
+                                            : _taskSchedulePresetForId(
+                                                scheduleDraft.presetId,
+                                              );
+                                        return Row(
+                                          children: <Widget>[
+                                            Icon(
+                                              preset?.icon ??
+                                                  Icons.event_repeat_rounded,
+                                              color: _accent,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: <Widget>[
+                                                  Text(
+                                                    scheduleDraft.summary,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  if (preset !=
+                                                      null) ...<Widget>[
+                                                    const SizedBox(height: 3),
+                                                    Text(
+                                                      preset.description,
+                                                      style: TextStyle(
+                                                        color: _textSecondary,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ],
                             );
                           }
@@ -6835,13 +7304,32 @@ class _TasksPanelState extends State<TasksPanel> {
                       // Manual trigger uses no trigger-specific config.
                     } else if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
-                      triggerConfig['mode'] = runAt.isEmpty
-                          ? 'recurring'
-                          : 'one_time';
-                      if (runAt.isEmpty) {
-                        triggerConfig['cronExpression'] = cronController.text
+                      triggerConfig['mode'] = scheduleDraft.mode;
+                      if (scheduleDraft.mode == 'recurring') {
+                        final cronExpression = scheduleDraft.cronExpression
                             .trim();
+                        if (cronExpression.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please choose a schedule.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        triggerConfig['cronExpression'] = cronExpression;
                       } else {
+                        if (runAt.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter when the task should run.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
                         triggerConfig['runAt'] = runAt;
                       }
                     } else {
