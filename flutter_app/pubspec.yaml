@@ -40,6 +40,7 @@ dependencies:
   video_player: ^2.9.2
   flutter_animate: ^4.5.2
   flutter_local_notifications: ^18.0.0
+  flutter_svg: ^2.3.0
 
 dependency_overrides:
   flutter_secure_storage_linux:
@@ -62,4 +63,5 @@ flutter:
     - assets/branding/app_icon_light_1024.png
     - assets/branding/tray_icon_template.png
     - assets/branding/tray_icon_light_template.png
+    - assets/branding/neomail_logo.svg
     - assets/branding/onboarding_intro.mp4
