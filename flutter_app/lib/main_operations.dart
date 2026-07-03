@@ -5144,6 +5144,12 @@ const List<_TaskSchedulePreset> _taskSchedulePresets = <_TaskSchedulePreset>[
     description: 'Runs once per month on the selected day.',
     icon: Icons.calendar_month_rounded,
   ),
+  _TaskSchedulePreset(
+    id: 'custom',
+    label: 'Custom Cron',
+    description: 'Advanced manual schedule for special cases.',
+    icon: Icons.tune_rounded,
+  ),
 ];
 
 const List<String> _taskWeekdayLabels = <String>[
@@ -5170,7 +5176,7 @@ class _TaskScheduleDraft {
     required this.time,
     required this.weekdays,
     required this.monthDay,
-    required this.preservedCronExpression,
+    required this.customCronExpression,
   });
 
   factory _TaskScheduleDraft.fromTask(TaskItem? task) {
@@ -5182,7 +5188,7 @@ class _TaskScheduleDraft {
         time: const TimeOfDay(hour: 9, minute: 0),
         weekdays: <int>{1},
         monthDay: 1,
-        preservedCronExpression: '',
+        customCronExpression: '',
       );
     }
     final cron =
@@ -5192,11 +5198,11 @@ class _TaskScheduleDraft {
     if (parsed != null) return parsed;
     return _TaskScheduleDraft(
       mode: 'recurring',
-      presetId: 'existing',
+      presetId: 'custom',
       time: const TimeOfDay(hour: 9, minute: 0),
       weekdays: <int>{1},
       monthDay: 1,
-      preservedCronExpression: cron,
+      customCronExpression: cron,
     );
   }
 
@@ -5205,7 +5211,7 @@ class _TaskScheduleDraft {
   TimeOfDay time;
   Set<int> weekdays;
   int monthDay;
-  String preservedCronExpression;
+  String customCronExpression;
 
   bool get usesTime =>
       presetId == 'daily' ||
@@ -5214,7 +5220,7 @@ class _TaskScheduleDraft {
       presetId == 'monthly';
 
   String get cronExpression {
-    if (presetId == 'existing') return preservedCronExpression;
+    if (presetId == 'custom') return customCronExpression;
     final minute = time.minute.toString();
     final hour = time.hour.toString();
     return switch (presetId) {
@@ -5225,13 +5231,14 @@ class _TaskScheduleDraft {
       'weekdays' => '$minute $hour * * 1-5',
       'weekly' => '$minute $hour * * ${_cronWeekdays(weekdays)}',
       'monthly' => '$minute $hour $monthDay * *',
+      'custom' => customCronExpression,
       _ => '*/30 * * * *',
     };
   }
 
   String get summary {
     if (mode == 'one_time') return 'One-time run';
-    if (presetId == 'existing') return 'Existing schedule';
+    if (presetId == 'custom') return 'Custom Cron';
     final preset = _taskSchedulePresetForId(presetId);
     if (!usesTime) return preset.label;
     final timeLabel = _formatTaskScheduleTime(time);
@@ -5291,6 +5298,10 @@ _TaskScheduleDraft? _parseCronExpression(String cron) {
   return null;
 }
 
+bool _looksLikeCronExpression(String cron) {
+  return cron.trim().split(RegExp(r'\s+')).length == 5;
+}
+
 _TaskScheduleDraft _recurringScheduleDraft(
   String presetId, {
   TimeOfDay time = const TimeOfDay(hour: 9, minute: 0),
@@ -5303,7 +5314,7 @@ _TaskScheduleDraft _recurringScheduleDraft(
     time: time,
     weekdays: Set<int>.from(weekdays),
     monthDay: monthDay,
-    preservedCronExpression: '',
+    customCronExpression: '',
   );
 }
 
@@ -6522,6 +6533,9 @@ class _TasksPanelState extends State<TasksPanel> {
     final nameController = TextEditingController(text: task?.name ?? '');
     final triggerType = ValueNotifier<String>(task?.triggerType ?? 'schedule');
     final scheduleDraft = _TaskScheduleDraft.fromTask(task);
+    final customCronController = TextEditingController(
+      text: scheduleDraft.customCronExpression,
+    );
     final runAtController = TextEditingController(
       text: task?.triggerConfig['runAt']?.toString() ?? '',
     );
@@ -6768,11 +6782,6 @@ class _TasksPanelState extends State<TasksPanel> {
                                       labelText: 'Repeat',
                                     ),
                                     items: <DropdownMenuItem<String>>[
-                                      if (scheduleDraft.presetId == 'existing')
-                                        const DropdownMenuItem<String>(
-                                          value: 'existing',
-                                          child: Text('Existing schedule'),
-                                        ),
                                       ..._taskSchedulePresets.map(
                                         (preset) => DropdownMenuItem<String>(
                                           value: preset.id,
@@ -6783,11 +6792,37 @@ class _TasksPanelState extends State<TasksPanel> {
                                     onChanged: (value) {
                                       if (value == null) return;
                                       setLocalState(() {
+                                        final currentCron =
+                                            scheduleDraft.cronExpression;
                                         scheduleDraft.presetId = value;
+                                        if (value == 'custom' &&
+                                            customCronController.text
+                                                .trim()
+                                                .isEmpty) {
+                                          customCronController.text =
+                                              currentCron;
+                                          scheduleDraft.customCronExpression =
+                                              currentCron;
+                                        }
                                       });
                                     },
                                   ),
                                   const SizedBox(height: 12),
+                                  if (scheduleDraft.presetId ==
+                                      'custom') ...<Widget>[
+                                    TextField(
+                                      controller: customCronController,
+                                      onChanged: (value) =>
+                                          scheduleDraft.customCronExpression =
+                                              value,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Cron expression',
+                                        helperText:
+                                            'Advanced: minute hour day month weekday.',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
                                   if (scheduleDraft.usesTime) ...<Widget>[
                                     InkWell(
                                       borderRadius: BorderRadius.circular(14),
@@ -6795,6 +6830,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                         final picked = await showTimePicker(
                                           context: context,
                                           initialTime: scheduleDraft.time,
+                                          builder: (context, child) {
+                                            return MediaQuery(
+                                              data: MediaQuery.of(context)
+                                                  .copyWith(
+                                                    alwaysUse24HourFormat: true,
+                                                  ),
+                                              child: child!,
+                                            );
+                                          },
                                         );
                                         if (picked == null) return;
                                         setLocalState(() {
@@ -6900,19 +6944,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                     ),
                                     child: Builder(
                                       builder: (context) {
-                                        final preset =
-                                            scheduleDraft.presetId == 'existing'
-                                            ? null
-                                            : _taskSchedulePresetForId(
-                                                scheduleDraft.presetId,
-                                              );
+                                        final preset = _taskSchedulePresetForId(
+                                          scheduleDraft.presetId,
+                                        );
                                         return Row(
                                           children: <Widget>[
-                                            Icon(
-                                              preset?.icon ??
-                                                  Icons.event_repeat_rounded,
-                                              color: _accent,
-                                            ),
+                                            Icon(preset.icon, color: _accent),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Column(
@@ -6927,17 +6964,14 @@ class _TasksPanelState extends State<TasksPanel> {
                                                           FontWeight.w700,
                                                     ),
                                                   ),
-                                                  if (preset !=
-                                                      null) ...<Widget>[
-                                                    const SizedBox(height: 3),
-                                                    Text(
-                                                      preset.description,
-                                                      style: TextStyle(
-                                                        color: _textSecondary,
-                                                        fontSize: 12,
-                                                      ),
+                                                  const SizedBox(height: 3),
+                                                  Text(
+                                                    preset.description,
+                                                    style: TextStyle(
+                                                      color: _textSecondary,
+                                                      fontSize: 12,
                                                     ),
-                                                  ],
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -7306,12 +7340,24 @@ class _TasksPanelState extends State<TasksPanel> {
                       final runAt = runAtController.text.trim();
                       triggerConfig['mode'] = scheduleDraft.mode;
                       if (scheduleDraft.mode == 'recurring') {
+                        scheduleDraft.customCronExpression =
+                            customCronController.text.trim();
                         final cronExpression = scheduleDraft.cronExpression
                             .trim();
                         if (cronExpression.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please choose a schedule.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (scheduleDraft.presetId == 'custom' &&
+                            !_looksLikeCronExpression(cronExpression)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Custom Cron must have 5 fields.'),
                               backgroundColor: Colors.red,
                             ),
                           );
