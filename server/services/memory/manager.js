@@ -151,16 +151,6 @@ function parseJsonArray(value, fallback = []) {
   }
 }
 
-function computeFreshnessMultiplier(row) {
-  const staleAfterDays = Number(row?.stale_after_days);
-  if (!Number.isFinite(staleAfterDays) || staleAfterDays <= 0) return 1;
-  const updatedAt = Date.parse(row?.updated_at || row?.created_at || '');
-  if (!Number.isFinite(updatedAt)) return 1;
-  const ageDays = Math.max(0, (Date.now() - updatedAt) / (1000 * 60 * 60 * 24));
-  if (ageDays <= staleAfterDays) return 1;
-  return Math.max(0.35, 1 - ((ageDays - staleAfterDays) / Math.max(staleAfterDays, 1)) * 0.2);
-}
-
 function serializeMemoryRow(row) {
   const metadata = parseJsonObject(row?.metadata_json, {});
   const entities = Array.isArray(row?.entities)
@@ -2021,7 +2011,6 @@ class MemoryManager {
         importance: mem.importance,
         confidence: mem.confidence,
         accessCount: mem.access_count,
-        freshness: computeFreshnessMultiplier(mem),
       }) * getRetentionScoreMultiplier(mem);
       return {
         ...mem,

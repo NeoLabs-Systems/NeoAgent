@@ -111,30 +111,67 @@ function splitSentences(text) {
     .filter(Boolean);
 }
 
+function pickEntitySentence(sentences, entityName) {
+  const needle = String(entityName || '').trim().toLowerCase();
+  if (!needle) return null;
+  for (const sentence of sentences) {
+    if (sentence.toLowerCase().includes(needle)) return sentence;
+  }
+  return null;
+}
+
+// Local fallback used when the LLM consolidation pass did not supply structured
+// facts (manual saves, imports). It emits atomic, entity-anchored facts instead
+// of one pseudo-fact per sentence: a single memory-level fact plus at most one
+// fact per additional distinct entity. Every fact keeps a unique subject so none
+// immediately supersedes another within the same memory, and no low-signal
+// "detail" rows are written to the fact index.
 function buildFacts({ content, category, sourceRef, metadata } = {}) {
-  const sentences = splitSentences(content);
-  const entities = extractEntities(content);
-  const keywords = extractKeywords(content, { maxKeywords: 10 });
-  const subject = entities[0]?.name || String(category || 'memory').replace(/_/g, ' ');
-  const predicate = String(category || 'episodic').replace(/_/g, ' ');
+  const text = String(content || '').trim();
+  if (!text) return [];
+
+  const sentences = splitSentences(text);
+  const entities = extractEntities(text);
+  const keywords = extractKeywords(text, { maxKeywords: 10 });
   const sourceType = sourceRef?.sourceType || metadata?.sourceType || null;
+  const predicate = String(category || 'episodic').replace(/_/g, ' ');
+  const confidence = sourceType === 'llm_import' ? 0.74 : 0.68;
+  const factMetadata = {
+    keywords,
+    sourceType,
+    extractedBy: 'local_memory_intelligence',
+  };
 
-  const factTexts = sentences.length
-    ? sentences.slice(0, 6)
-    : [String(content || '').trim()].filter(Boolean);
-
-  return factTexts.map((text, index) => ({
-    subject: String(subject || 'memory').slice(0, 180),
-    predicate: index === 0 ? predicate : 'detail',
-    object: text.slice(0, 900),
+  const primarySubject = String(entities[0]?.name || predicate).slice(0, 180);
+  const facts = [{
+    subject: primarySubject,
+    predicate,
+    object: (sentences[0] || text).slice(0, 900),
     category,
-    confidence: sourceType === 'llm_import' ? 0.74 : 0.68,
-    metadata: {
-      keywords,
-      sourceType,
-      extractedBy: 'local_memory_intelligence',
-    },
-  }));
+    confidence,
+    metadata: factMetadata,
+  }];
+
+  const usedSubjects = new Set([primarySubject.toLowerCase()]);
+  for (const entity of entities.slice(1)) {
+    if (facts.length >= 6) break;
+    const subject = String(entity.name || '').slice(0, 180);
+    const key = subject.toLowerCase();
+    if (!subject || usedSubjects.has(key)) continue;
+    const sentence = pickEntitySentence(sentences, entity.name);
+    if (!sentence) continue;
+    usedSubjects.add(key);
+    facts.push({
+      subject,
+      predicate,
+      object: sentence.slice(0, 900),
+      category,
+      confidence,
+      metadata: factMetadata,
+    });
+  }
+
+  return facts;
 }
 
 function summarizeForPrompt(memory) {
