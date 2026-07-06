@@ -22,6 +22,7 @@ const { configuredDefaultLimits } = require('../services/ai/rate_limits');
 
 const router = express.Router();
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
+const qrcode = require('qrcode');
 
 const fs   = require('fs');
 
@@ -78,19 +79,27 @@ router.post('/api/login', loginLimiter, express.json(), async (req, res) => {
   if (tfStatus.enabled) {
     // Park the session in a "password OK, waiting for TOTP" state
     req.session.adminPendingTwoFactor = true;
+    delete req.session.adminPendingTwoFactorSetup;
     delete req.session.isAdmin;
     return req.session.save((err) => {
       if (err) return res.status(500).json({ error: 'Session error' });
       res.json({ ok: false, requiresTwoFactor: true });
     });
   }
-  req.session.regenerate((err) => {
+  const setup = adminTwoFactor.beginSetup();
+  const qrDataUrl = await qrcode.toDataURL(setup.otpauthUrl, { width: 200, margin: 2 });
+  req.session.adminPendingTwoFactorSetup = true;
+  delete req.session.adminPendingTwoFactor;
+  delete req.session.isAdmin;
+  return req.session.save((err) => {
     if (err) return res.status(500).json({ error: 'Session error' });
-    req.session.isAdmin = true;
-    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
-    req.session.save((saveErr) => {
-      if (saveErr) return res.status(500).json({ error: 'Session error' });
-      res.json({ ok: true });
+    res.json({
+      ok: false,
+      requiresTwoFactorSetup: true,
+      setup: {
+        manualKey: setup.manualKey,
+        qrDataUrl,
+      },
     });
   });
 });
@@ -116,6 +125,27 @@ router.post('/api/2fa/verify', loginLimiter, express.json(), async (req, res) =>
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/login/2fa/setup/enable', loginLimiter, express.json(), async (req, res) => {
+  if (!req.session?.adminPendingTwoFactorSetup) {
+    return res.status(400).json({ error: 'No pending 2FA setup' });
+  }
+  try {
+    const adminTwoFactor = require('../services/account/admin_two_factor');
+    const { recoveryCodes } = await adminTwoFactor.enable(req.body?.code);
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      req.session.isAdmin = true;
+      req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+      req.session.save((saveErr) => {
+        if (saveErr) return res.status(500).json({ error: 'Session error' });
+        res.json({ ok: true, recoveryCodes });
+      });
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 

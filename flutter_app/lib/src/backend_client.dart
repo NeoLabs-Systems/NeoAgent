@@ -524,6 +524,36 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchSocialReachStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/social-reach/status');
+  }
+
+  Future<Map<String, dynamic>> importSocialReachCookies(
+    String baseUrl,
+    String platform, {
+    String? tokenId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/social-reach/cookies/import',
+      <String, dynamic>{
+        'platform': platform,
+        if (tokenId != null && tokenId.trim().isNotEmpty)
+          'tokenId': tokenId.trim(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> clearSocialReachCookies(
+    String baseUrl,
+    String platform,
+  ) async {
+    return deleteMap(
+      baseUrl,
+      '/api/social-reach/cookies/${Uri.encodeComponent(platform)}',
+    );
+  }
+
   Future<Map<String, dynamic>> fetchUpdateStatus(String baseUrl) async {
     return getMap(baseUrl, '/api/settings/update/status');
   }
@@ -1658,6 +1688,26 @@ class BackendClient {
     String? agentId,
   }) async {
     return getList(baseUrl, _withAgentQuery('/api/tasks', agentId));
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTaskDeliveryTargets(
+    String baseUrl, {
+    String? query,
+    String? platform,
+    String? agentId,
+  }) async {
+    final params = <String>[
+      if (query != null && query.trim().isNotEmpty)
+        'q=${Uri.encodeQueryComponent(query.trim())}',
+      if (platform != null && platform.trim().isNotEmpty)
+        'platform=${Uri.encodeQueryComponent(platform.trim())}',
+      if (agentId != null && agentId.trim().isNotEmpty)
+        'agentId=${Uri.encodeQueryComponent(agentId.trim())}',
+    ];
+    final path = params.isEmpty
+        ? _withAgentQuery('/api/tasks/delivery-targets', agentId)
+        : '/api/tasks/delivery-targets?${params.join('&')}';
+    return getList(baseUrl, path);
   }
 
   Future<Map<String, dynamic>> saveTask(

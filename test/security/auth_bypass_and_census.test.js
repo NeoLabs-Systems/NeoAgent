@@ -15,6 +15,7 @@ const PUBLIC_ROUTES = new Set([
   'GET /api/auth/email/confirm',
   'GET /api/auth/password/reset',
   'GET /api/browser-extension/latest',
+  'GET /api/public/status',
   'GET /api/runtime/config',
   'GET /api/settings/meta/models',
   'GET /api/settings/meta/ai-providers',
@@ -88,6 +89,19 @@ describe('route census and auth bypass coverage', () => {
     assert.equal(classifications.every(([, value]) => Boolean(value)), true);
     assert.equal(classifications.some(([, value]) => value === 'protected'), true);
     assert.equal(classifications.some(([, value]) => value === 'public'), true);
+  });
+
+  test('public status exposes only sanitized component health', async () => {
+    const res = await request(app).get('/api/public/status').expect(200);
+    assert.equal(res.body.product, 'NeoAgent');
+    assert.match(res.body.status, /^(operational|degraded|unavailable)$/);
+    assert.equal(typeof res.body.updatedAt, 'string');
+    assert.ok(Array.isArray(res.body.components));
+    assert.ok(res.body.components.length >= 6);
+
+    const serialized = JSON.stringify(res.body);
+    assert.doesNotMatch(serialized, /api[_-]?key|secret|token|password/i);
+    assert.doesNotMatch(serialized, /OPENAI|ANTHROPIC|GOOGLE|OPENROUTER/i);
   });
 
   test('protected API routes reject unauthenticated requests before route logic', async () => {

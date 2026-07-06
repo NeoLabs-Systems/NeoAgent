@@ -101,6 +101,12 @@ function serializeRuntimeSettingValue(key, value) {
 }
 
 function redactRuntimeSettingValue(key, value) {
+  if (/^social_reach_cookies_/i.test(String(key || ''))) {
+    return {
+      configured: Boolean(value),
+      redacted: true,
+    };
+  }
   return value;
 }
 

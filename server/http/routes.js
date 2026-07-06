@@ -6,6 +6,7 @@ const { getVersionInfo } = require('../utils/version');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 const routeRegistry = [
+  { basePath: '/api/public', modulePath: '../routes/public_status' },
   { basePath: '/api/runtime', modulePath: '../routes/runtime' },
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
@@ -30,6 +31,7 @@ const routeRegistry = [
   { basePath: '/api/stream', modulePath: '../routes/stream' },
   { basePath: '/api/recordings', modulePath: '../routes/recordings' },
   { basePath: '/api/social-video', modulePath: '../routes/social_video' },
+  { basePath: '/api/social-reach', modulePath: '../routes/social_reach' },
   { basePath: '/api/voice-assistant', modulePath: '../routes/voice_assistant' },
   { basePath: '/api/wearable', modulePath: '../routes/wearable' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' },

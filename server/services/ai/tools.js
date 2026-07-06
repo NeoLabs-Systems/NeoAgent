@@ -837,7 +837,7 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     content: { type: 'string', description: 'The complete, self-contained fact. Must be readable standalone — no references to "above", "the dump", or "chat history". Write as a clear declarative sentence.' },
-                    category: { type: 'string', enum: ['user_fact', 'preference', 'personality', 'episodic'], description: 'user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings' },
+                    category: { type: 'string', enum: ['user_fact', 'preference', 'personality', 'episodic', 'procedural'], description: 'user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings, procedural: reusable workflows or repeatable tool-use procedures' },
                     importance: { type: 'number', description: 'Importance 1-10. 1=trivial, 5=default, 8+=critical. High-importance memories rank higher in recall.' }
                 },
                 required: ['content']
@@ -1529,6 +1529,40 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'social_reach_status',
+            description: 'List available Social Reach platforms, setup state, and active backend for social content access.',
+            parameters: {
+                type: 'object',
+                properties: {}
+            }
+        },
+        {
+            name: 'social_reach_read',
+            description: 'Read a supported public social URL using NeoAgent Social Reach. Supports RSS/Atom, V2EX, Reddit, X posts, GitHub repositories, configured Xueqiu data, and social video links from YouTube, TikTok, Instagram/Reels, or X.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url: { type: 'string', description: 'HTTP or HTTPS URL to read.' },
+                    platform: { type: 'string', description: 'Optional platform override such as rss, v2ex, reddit, x, github, social_video, youtube, tiktok, instagram, reels, or xueqiu.' },
+                    symbol: { type: 'string', description: 'Optional Xueqiu stock symbol when platform is xueqiu.' },
+                    limit: { type: 'number', description: 'Maximum number of feed/results/replies to return.' }
+                }
+            }
+        },
+        {
+            name: 'social_reach_search',
+            description: 'Search a supported Social Reach platform. Supports GitHub repositories, V2EX hot/node topics, Reddit posts, and configured Xueqiu stock search.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    platform: { type: 'string', description: 'Platform to search: github, v2ex, reddit, or xueqiu.' },
+                    query: { type: 'string', description: 'Search query. For V2EX, use "hot" or a node name.' },
+                    limit: { type: 'number', description: 'Maximum result count.' }
+                },
+                required: ['platform', 'query']
+            }
+        },
+        {
             name: 'social_video_extract',
             description: 'Extract title, description, transcript, and one representative frame image from a public social video URL (YouTube, TikTok, Instagram, or X) without social API keys.',
             parameters: {
@@ -1713,6 +1747,7 @@ async function executeTool(toolName, args, context, engine) {
     const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const rec = () => app?.locals?.recordingManager || null;
     const socialVideo = () => app?.locals?.socialVideoService || null;
+    const socialReach = () => app?.locals?.socialReachService || null;
     const widgets = () => app?.locals?.widgetService || null;
     const artifactStore = app?.locals?.artifactStore || null;
 
@@ -2398,6 +2433,30 @@ async function executeTool(toolName, args, context, engine) {
                 forceStt: args.force_stt === true,
                 agentId,
             });
+        }
+
+        case 'social_reach_status': {
+            const service = socialReach();
+            if (!service || typeof service.getStatus !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.getStatus(userId);
+        }
+
+        case 'social_reach_read': {
+            const service = socialReach();
+            if (!service || typeof service.read !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.read(userId, args || {});
+        }
+
+        case 'social_reach_search': {
+            const service = socialReach();
+            if (!service || typeof service.search !== 'function') {
+                return { error: 'Social reach service is unavailable.' };
+            }
+            return await service.search(userId, args || {});
         }
 
         case 'memory_write': {

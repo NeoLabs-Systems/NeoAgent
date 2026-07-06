@@ -37,7 +37,7 @@ const SHARED_RAW_ID_PLATFORMS = new Set([
   'webchat',
 ]);
 
-const DIRECT_ONLY_PHONE_PLATFORMS = new Set(['telnyx', 'whatsapp']);
+const DIRECT_ONLY_PHONE_PLATFORMS = new Set(['telnyx']);
 
 function capabilityTemplate(overrides = {}) {
   return Object.freeze({
@@ -300,6 +300,17 @@ function addRule(bucket, rule, state) {
   state[bucket].push(rule);
 }
 
+function isWhatsAppGroupId(value) {
+  return String(value || '').trim().toLowerCase().split(':')[0].endsWith('@g.us');
+}
+
+function normalizeWhatsAppDirectId(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const base = raw.includes('@') ? raw.split('@')[0] : raw;
+  const primary = base.includes(':') ? base.split(':')[0] : base;
+  return primary.replace(/\D/g, '') || primary;
+}
+
 function migrateLegacyWhitelist(platform, entries) {
   const capabilities = getPlatformAccessCapabilities(platform);
   const policy = createDefaultAccessPolicy(platform);
@@ -327,6 +338,22 @@ function migrateLegacyWhitelist(platform, entries) {
     const scope = normalizeScope(rawScope);
     const value = sanitizeValue(scope || 'chat', rawValue);
     if (!value) continue;
+
+    if (platform === 'whatsapp') {
+      if (scope === 'group' || isWhatsAppGroupId(value)) {
+        addRule('sharedSpaceRules', normalizeRule({ scope: 'group', value }, new Set(capabilities.sharedSpaceRuleScopes)), state);
+        continue;
+      }
+      const directValue = scope === 'chat' ? value : normalizeWhatsAppDirectId(value);
+      if (!directValue) continue;
+      if (scope === 'chat') {
+        addRule('directRules', normalizeRule({ scope: 'chat', value: directValue }, new Set(capabilities.directRuleScopes)), state);
+      } else {
+        addRule('directRules', normalizeRule({ scope: 'phone_number', value: directValue }, new Set(capabilities.directRuleScopes)), state);
+        addRule('sharedActorRules', normalizeRule({ scope: 'phone_number', value: directValue }, new Set(capabilities.sharedActorRuleScopes)), state);
+      }
+      continue;
+    }
 
     if (DIRECT_ONLY_PHONE_PLATFORMS.has(platform)) {
       addRule('directRules', normalizeRule({ scope: 'phone_number', value }, new Set(capabilities.directRuleScopes)), state);
@@ -641,7 +668,17 @@ function classifyRecentTarget(platform, row) {
   if (!chatId && !sender) return null;
 
   const isDirect = !String(metadata.isGroup || '').match(/^(true|1)$/i) && (!chatId || chatId === sender || chatId === `dm_${sender}`);
-  if (DIRECT_ONLY_PHONE_PLATFORMS.has(platform)) {
+  if (platform === 'whatsapp' && !isDirect && chatId) {
+    return {
+      source: 'recent',
+      bucket: 'sharedSpaceRules',
+      scope: 'group',
+      value: chatId,
+      label: groupName || chatId,
+      subtitle: 'Recent WhatsApp group',
+    };
+  }
+  if (DIRECT_ONLY_PHONE_PLATFORMS.has(platform) || platform === 'whatsapp') {
     const value = normalizePhone(sender || chatId);
     if (!value) return null;
     return {

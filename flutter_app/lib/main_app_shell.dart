@@ -357,8 +357,9 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     if (!mounted) return;
     setState(() {
       _phase = exit == 0 ? _LocalInstallPhase.done : _LocalInstallPhase.failed;
-      if (exit != 0)
+      if (exit != 0) {
         _errorMsg = 'Installation failed (exit $exit). Check the log above.';
+      }
     });
   }
 
@@ -471,8 +472,9 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                     final proc = _proc;
                     proc?.kill(ProcessSignal.sigterm);
                     await proc?.exitCode;
-                    if (mounted)
+                    if (mounted) {
                       setState(() => _phase = _LocalInstallPhase.ready);
+                    }
                   },
                   child: const Text('Cancel'),
                 ),
@@ -1607,7 +1609,11 @@ class _HomeViewState extends State<HomeView> {
           titleSpacing: 0,
           leadingWidth: 44,
           centerTitle: false,
-          title: Text(controller.selectedSection.navigationTitle),
+          title: Text(
+            controller.selectedSection.navigationTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           titleTextStyle: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),

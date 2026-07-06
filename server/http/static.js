@@ -80,6 +80,7 @@ function registerStaticRoutes(app) {
   // Landing page at /
   if (fs.existsSync(path.join(LANDING_DIR, 'index.html'))) {
     app.use(express.static(LANDING_DIR));
+    app.get('/status', (req, res) => res.sendFile(path.join(LANDING_DIR, 'status.html')));
     app.get('/', (req, res) => res.sendFile(path.join(LANDING_DIR, 'index.html')));
   }
 }

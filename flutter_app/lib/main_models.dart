@@ -643,6 +643,61 @@ class MessagingMessage {
   }
 }
 
+class TaskDeliveryTarget {
+  const TaskDeliveryTarget({
+    required this.platform,
+    required this.platformLabel,
+    required this.to,
+    required this.label,
+    required this.subtitle,
+    required this.source,
+    required this.connected,
+    required this.supportsDelivery,
+  });
+
+  factory TaskDeliveryTarget.fromJson(Map<dynamic, dynamic> json) {
+    final platform = json['platform']?.toString() ?? '';
+    final to = json['to']?.toString() ?? '';
+    return TaskDeliveryTarget(
+      platform: platform,
+      platformLabel:
+          json['platformLabel']?.toString().ifEmpty(platform.toUpperCase()) ??
+          platform.toUpperCase(),
+      to: to,
+      label: json['label']?.toString().ifEmpty(to) ?? to,
+      subtitle: json['subtitle']?.toString() ?? '',
+      source: json['source']?.toString().ifEmpty('discovered') ?? 'discovered',
+      connected: json['connected'] != false,
+      supportsDelivery: json['supportsDelivery'] != false,
+    );
+  }
+
+  final String platform;
+  final String platformLabel;
+  final String to;
+  final String label;
+  final String subtitle;
+  final String source;
+  final bool connected;
+  final bool supportsDelivery;
+
+  String get id => '$platform:$to';
+  bool get selectable => connected && supportsDelivery;
+
+  String get sourceLabel {
+    switch (source) {
+      case 'default':
+        return 'Default';
+      case 'recent':
+        return 'Recent';
+      case 'manual':
+        return 'Manual';
+      default:
+        return 'Discovered';
+    }
+  }
+}
+
 class MessagingQrState {
   const MessagingQrState({required this.platform, required this.qr});
 

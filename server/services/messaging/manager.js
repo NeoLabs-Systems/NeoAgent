@@ -818,14 +818,19 @@ class MessagingManager extends EventEmitter {
     );
   }
 
-  async getAccessCatalog(userId, platformName, options = {}) {
+  async listAccessTargets(userId, platformName, options = {}) {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
-    let discoveredTargets = [];
-    if (platform?.listAccessTargets) {
-      discoveredTargets = await Promise.resolve(platform.listAccessTargets()).catch(() => []);
+    if (!platform || typeof platform.listAccessTargets !== 'function') {
+      return [];
     }
+    return Promise.resolve(platform.listAccessTargets()).catch(() => []);
+  }
+
+  async getAccessCatalog(userId, platformName, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const discoveredTargets = await this.listAccessTargets(userId, platformName, { agentId });
 
     const recentRows = db.prepare(
       `SELECT platform_chat_id, metadata

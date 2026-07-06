@@ -5,7 +5,7 @@
   "version_name": "2.4.1-beta.8",
   "description": "Connect this Chrome browser to NeoAgent for browser automation.",
   "minimum_chrome_version": "118",
-  "permissions": ["alarms", "debugger", "storage", "tabs"],
+  "permissions": ["alarms", "cookies", "debugger", "storage", "tabs"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "icons": {
     "16": "icons/icon16.png",

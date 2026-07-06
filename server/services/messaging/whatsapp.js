@@ -298,11 +298,10 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   async markRead(chatId, messageId) {
-    if (!this.sock) return;
+    if (!this.sock || typeof this.sock.readMessages !== 'function' || !messageId) return;
     const jid = toWhatsAppJid(chatId);
     if (!jid) return;
-    // readMessages expects full message keys; we do a best-effort read
-    await this.sock.sendReadReceipt(jid, null, [messageId]).catch(() => { });
+    await this.sock.readMessages([{ remoteJid: jid, id: messageId, fromMe: false }]).catch(() => { });
   }
 
   async sendTyping(chatId, isTyping) {

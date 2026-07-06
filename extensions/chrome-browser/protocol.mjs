@@ -12,6 +12,7 @@ export const COMMANDS = Object.freeze({
   SCREENSHOT: 'screenshot',
   CLOSE: 'close',
   GET_PAGE_INFO: 'getPageInfo',
+  GET_COOKIES: 'getCookies',
 });
 
 function chromeCall(chromeApi, namespace, method, ...args) {
@@ -221,6 +222,41 @@ export function createBrowserProtocol(chromeApi) {
 
   async function run(command, payload = {}) {
     switch (command) {
+      case COMMANDS.GET_COOKIES: {
+        const domains = Array.isArray(payload.domains)
+          ? payload.domains.map((item) => String(item || '').replace(/^\./, '').toLowerCase()).filter(Boolean)
+          : [];
+        if (domains.length === 0) throw new Error('At least one cookie domain is required.');
+        const all = [];
+        for (const domain of domains) {
+          const cookies = await chromeCall(chromeApi, 'cookies', 'getAll', { domain });
+          all.push(...(Array.isArray(cookies) ? cookies : []));
+        }
+        const seen = new Set();
+        const filtered = all.filter((cookie) => {
+          const cookieDomain = String(cookie?.domain || '').replace(/^\./, '').toLowerCase();
+          const allowed = domains.some((domain) => cookieDomain === domain || cookieDomain.endsWith(`.${domain}`));
+          if (!allowed) return false;
+          const key = `${cookie.name}\n${cookie.domain}\n${cookie.path}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return {
+          platform: String(payload.platform || ''),
+          domains,
+          cookies: filtered.map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            secure: cookie.secure === true,
+            httpOnly: cookie.httpOnly === true,
+            sameSite: cookie.sameSite || null,
+            expirationDate: cookie.expirationDate || null,
+          })),
+        };
+      }
       case COMMANDS.LAUNCH:
         await attach();
         return pageSnapshot({ screenshot: false });

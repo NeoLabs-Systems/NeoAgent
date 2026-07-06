@@ -270,6 +270,23 @@ function createFakeAppLocals() {
         return { platform: 'unknown', transcript: '', metadata: {}, setup: {} };
       },
     },
+    socialReachService: {
+      async getStatus() {
+        return { platforms: [], generatedAt: new Date(0).toISOString() };
+      },
+      async read() {
+        return { platform: 'web', content: '' };
+      },
+      async search() {
+        return { platform: 'web', results: [] };
+      },
+      async importCookiesFromExtension() {
+        return { platform: 'xueqiu', configured: true, count: 1 };
+      },
+      clearCookies(platform) {
+        return { platform, configured: false, count: 0 };
+      },
+    },
     artifactStore: {
       getArtifact() {
         return null;

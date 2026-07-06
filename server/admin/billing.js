@@ -4,34 +4,54 @@ let _billingPlans = [];
 let _billingSubsOffset = 0;
 const BILLING_SUBS_LIMIT = 50;
 
+async function billingIsEnabled() {
+  try {
+    const r = await fetch('/admin/api/config/billing-setup');
+    if (!r.ok) return false;
+    const data = await r.json();
+    return data.settings?.billingEnabled === true;
+  } catch {
+    return false;
+  }
+}
+
+function renderBillingDisabled() {
+  document.getElementById('billing-plans-content').innerHTML =
+    '<div class="empty">Billing is not enabled on this server.</div>';
+  document.getElementById('billing-subs-content').innerHTML = '';
+  const pagination = document.getElementById('billing-subs-pagination');
+  if (pagination) pagination.innerHTML = '';
+}
+
+async function refreshBillingNav() {
+  const nav = document.getElementById('nav-billing');
+  if (!nav) return false;
+  const enabled = await billingIsEnabled();
+  nav.style.display = enabled ? '' : 'none';
+  return enabled;
+}
+
 async function loadBilling() {
-  // Check if billing is enabled by probing the plans endpoint.
+  if (!(await refreshBillingNav())) {
+    renderBillingDisabled();
+    return;
+  }
+
   try {
     const r = await fetch('/admin/api/billing/plans');
-    if (!r.ok) {
-      document.getElementById('billing-plans-content').innerHTML =
-        '<div class="empty">Billing is not enabled on this server. Set <code>NEOAGENT_BILLING_ENABLED=1</code> to enable it.</div>';
-      document.getElementById('billing-subs-content').innerHTML = '';
-      return;
-    }
+    if (!r.ok) throw new Error('plans unavailable');
     const data = await r.json();
     _billingPlans = data.plans || [];
     renderPlansTable(_billingPlans);
   } catch {
     document.getElementById('billing-plans-content').innerHTML = '<div class="empty">Failed to load billing data.</div>';
+    return;
   }
-  document.getElementById('nav-billing').style.display = '';
   _billingSubsOffset = 0;
   await loadBillingSubscriptions();
 }
 
-// Show the billing nav item on load if billing is enabled.
-(async function checkBillingEnabled() {
-  try {
-    const r = await fetch('/admin/api/billing/plans');
-    if (r.ok) document.getElementById('nav-billing').style.display = '';
-  } catch {}
-})();
+refreshBillingNav();
 
 function planRowHtml(plan) {
   const id = escAttr(plan.id);

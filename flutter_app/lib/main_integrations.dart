@@ -39,14 +39,16 @@ class OfficialIntegrationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleIntegrations = controller.officialIntegrations
-        .where(
-          (item) =>
-              item.env.configured ||
-              item.env.setupMode == 'user' ||
-              item.isConnected,
-        )
-        .toList();
+    final visibleIntegrations =
+        controller.officialIntegrations
+            .where(
+              (item) =>
+                  item.env.configured ||
+                  item.env.setupMode == 'user' ||
+                  item.isConnected,
+            )
+            .toList()
+          ..sort(_compareOfficialIntegrationItems);
 
     if (visibleIntegrations.isEmpty) {
       return Card(
@@ -1129,6 +1131,18 @@ class _OfficialIntegrationIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.icon == 'neomail') {
+      return Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SvgPicture.asset(_neoMailLogoAsset, fit: BoxFit.cover),
+      );
+    }
     final color = switch (item.icon) {
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
@@ -1160,6 +1174,25 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       ),
     );
   }
+}
+
+int _compareOfficialIntegrationItems(
+  OfficialIntegrationItem a,
+  OfficialIntegrationItem b,
+) {
+  final rankDelta = _officialIntegrationRank(a) - _officialIntegrationRank(b);
+  if (rankDelta != 0) {
+    return rankDelta;
+  }
+  return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+}
+
+int _officialIntegrationRank(OfficialIntegrationItem item) {
+  return switch (item.id) {
+    'neomail' => 0,
+    'google_workspace' => 1,
+    _ => 10,
+  };
 }
 
 class _IntegrationSectionTitle extends StatelessWidget {

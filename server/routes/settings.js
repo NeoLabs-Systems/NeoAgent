@@ -89,6 +89,10 @@ const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
 ]);
 
+function isProtectedSecretSettingKey(key) {
+  return /^social_reach_cookies_/i.test(String(key || ''));
+}
+
 function toOptionalTrimmedString(value) {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -284,6 +288,10 @@ router.put('/', async (req, res) => {
   }
 
   for (const key of Object.keys(normalizedBody)) {
+    if (isProtectedSecretSettingKey(key)) {
+      delete normalizedBody[key];
+      continue;
+    }
     if (READ_ONLY_ENV_SETTING_KEYS.has(key)) {
       delete normalizedBody[key];
       continue;
@@ -505,6 +513,12 @@ router.put('/:key', async (req, res) => {
       success: false,
       error: `${req.params.key} is managed via environment only`,
       value: readEnvBackedSettingValue(req.params.key),
+    });
+  }
+  if (isProtectedSecretSettingKey(req.params.key)) {
+    return res.status(403).json({
+      success: false,
+      error: `${req.params.key} is managed by Social Reach cookie setup`,
     });
   }
   if (isEnvBackedSettingKey(req.params.key)) {

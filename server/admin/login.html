@@ -194,6 +194,35 @@
             onclick="backToCredentials()">← Back</button>
         </div>
       </div>
+
+      <div id="step-setup" style="display:none;">
+        <h1 class="login-heading">Set up two-factor authentication</h1>
+        <p class="login-sub">Admin access requires 2FA. Scan the QR code, enter the current authenticator code, and save the recovery codes before continuing.</p>
+        <div class="alert alert-error" id="setup-error" role="alert"></div>
+        <div style="display:flex;justify-content:center;margin-bottom:14px;">
+          <div style="background:white;padding:12px;border-radius:16px;">
+            <img id="setup-qr" alt="Admin 2FA QR code" width="200" height="200">
+          </div>
+        </div>
+        <div class="field">
+          <label for="setup-manual-key">Manual key</label>
+          <input id="setup-manual-key" type="text" readonly>
+        </div>
+        <form id="setup-form" novalidate>
+          <div class="field">
+            <label for="setup-code">Authenticator code</label>
+            <input id="setup-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="16" placeholder="123 456" spellcheck="false" autocorrect="off" autocapitalize="none" required>
+          </div>
+          <button type="submit" class="btn btn-primary submit-btn" id="setup-btn">Enable 2FA</button>
+        </form>
+      </div>
+
+      <div id="step-recovery" style="display:none;">
+        <h1 class="login-heading">Save recovery codes</h1>
+        <p class="login-sub">These codes are shown once. Store them now before you continue into the admin dashboard.</p>
+        <div id="recovery-codes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;"></div>
+        <button type="button" class="btn btn-primary submit-btn" id="recovery-btn">Continue to admin</button>
+      </div>
     </div>
   </div>
 
@@ -204,15 +233,48 @@
     const totpForm  = document.getElementById('totp-form');
     const totpBtn   = document.getElementById('totp-btn');
     const totpError = document.getElementById('totp-error');
+    const setupForm = document.getElementById('setup-form');
+    const setupBtn = document.getElementById('setup-btn');
+    const setupError = document.getElementById('setup-error');
+    const recoveryBtn = document.getElementById('recovery-btn');
 
     function showStep(step) {
-      document.getElementById('step-credentials').style.display = step === 1 ? '' : 'none';
-      document.getElementById('step-totp').style.display        = step === 2 ? '' : 'none';
-      if (step === 2) setTimeout(() => document.getElementById('totp-code')?.focus(), 50);
-      if (step === 1) setTimeout(() => document.getElementById('username')?.focus(), 50);
+      document.getElementById('step-credentials').style.display = step === 'credentials' ? '' : 'none';
+      document.getElementById('step-totp').style.display        = step === 'totp' ? '' : 'none';
+      document.getElementById('step-setup').style.display       = step === 'setup' ? '' : 'none';
+      document.getElementById('step-recovery').style.display    = step === 'recovery' ? '' : 'none';
+      if (step === 'totp') setTimeout(() => document.getElementById('totp-code')?.focus(), 50);
+      if (step === 'setup') setTimeout(() => document.getElementById('setup-code')?.focus(), 50);
+      if (step === 'credentials') setTimeout(() => document.getElementById('username')?.focus(), 50);
     }
 
-    function backToCredentials() { showStep(1); }
+    function backToCredentials() { showStep('credentials'); }
+
+    function loadSetup(setup) {
+      document.getElementById('setup-qr').src = setup.qrDataUrl || '';
+      document.getElementById('setup-manual-key').value = setup.manualKey || '';
+      document.getElementById('setup-code').value = '';
+      setupError.classList.remove('visible');
+      showStep('setup');
+    }
+
+    function showRecoveryCodes(codes) {
+      const container = document.getElementById('recovery-codes');
+      container.innerHTML = '';
+      for (const code of (Array.isArray(codes) ? codes : [])) {
+        const pill = document.createElement('div');
+        pill.textContent = code;
+        pill.style.padding = '10px 12px';
+        pill.style.border = '1px solid var(--border)';
+        pill.style.borderRadius = '12px';
+        pill.style.background = 'var(--bg-secondary)';
+        pill.style.fontFamily = 'var(--font-mono)';
+        pill.style.fontSize = '12px';
+        pill.style.color = 'var(--text)';
+        container.appendChild(pill);
+      }
+      showStep('recovery');
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -232,10 +294,12 @@
 
         const body = await res.json().catch(() => ({}));
 
-        if (res.ok || body.requiresTwoFactor) {
-          if (body.requiresTwoFactor) {
+        if (res.ok || body.requiresTwoFactor || body.requiresTwoFactorSetup) {
+          if (body.requiresTwoFactorSetup) {
+            loadSetup(body.setup || {});
+          } else if (body.requiresTwoFactor) {
             // Password accepted — go to 2FA step
-            showStep(2);
+            showStep('totp');
           } else {
             window.location.replace('/admin');
           }
@@ -251,6 +315,37 @@
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign in';
       }
+    });
+
+    setupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setupError.classList.remove('visible');
+      setupBtn.disabled = true;
+      setupBtn.textContent = 'Enabling…';
+      try {
+        const res = await fetch('/admin/api/login/2fa/setup/enable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: document.getElementById('setup-code').value.trim(),
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(body.error || '2FA setup failed');
+        }
+        showRecoveryCodes(body.recoveryCodes || []);
+      } catch (error) {
+        setupError.textContent = error.message || '2FA setup failed';
+        setupError.classList.add('visible');
+      } finally {
+        setupBtn.disabled = false;
+        setupBtn.textContent = 'Enable 2FA';
+      }
+    });
+
+    recoveryBtn.addEventListener('click', () => {
+      window.location.replace('/admin');
     });
 
     totpForm.addEventListener('submit', async (e) => {
