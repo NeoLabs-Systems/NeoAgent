@@ -21,37 +21,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     });
   }
 
-  void _moveSelection(List<TimelineEventItem> items, int offset) {
-    if (items.isEmpty) {
-      return;
-    }
-    final currentIndex = items.indexWhere(
-      (item) => item.id == _selectedEventId,
-    );
-    final baseIndex = currentIndex == -1
-        ? (offset > 0 ? 0 : items.length - 1)
-        : currentIndex;
-    final nextIndex = (baseIndex + offset).clamp(0, items.length - 1);
-    setState(() {
-      _selectedEventId = items[nextIndex].id;
-    });
-  }
-
-  TimelineEventItem? _resolveSelectedEvent(List<TimelineEventItem> items) {
-    if (items.isEmpty) {
-      _selectedEventId = null;
-      return null;
-    }
-    for (final item in items) {
-      if (item.id == _selectedEventId) {
-        return item;
-      }
-    }
-    _selectedEventId = items.first.id;
-    return items.first;
-  }
-
-  Future<void> _showMobileEventDetails(
+  Future<void> _showEventDetailsPopup(
     List<TimelineEventItem> items,
     TimelineEventItem initialEvent,
   ) async {
@@ -61,49 +31,82 @@ class _TimelinePanelState extends State<TimelinePanel> {
       selectedIndex = 0;
     }
 
-    await showModalBottomSheet<void>(
+    Widget buildDetail(StateSetter setPopupState) {
+      final selectedEvent = items[selectedIndex];
+      void selectOffset(int offset) {
+        final nextIndex = (selectedIndex + offset).clamp(
+          0,
+          items.length - 1,
+        );
+        if (nextIndex == selectedIndex) {
+          return;
+        }
+        setPopupState(() {
+          selectedIndex = nextIndex;
+        });
+        _selectEvent(items[nextIndex]);
+      }
+
+      return _TimelineDetailPane(
+        items: items,
+        selectedEvent: selectedEvent,
+        selectedIndex: selectedIndex,
+        onSelectPrevious: selectedIndex > 0 ? () => selectOffset(-1) : null,
+        onSelectNext: selectedIndex < items.length - 1
+            ? () => selectOffset(1)
+            : null,
+        onOpenRun: selectedEvent.runId.isNotEmpty
+            ? () => unawaited(
+                widget.controller.openRunDetails(selectedEvent.runId),
+              )
+            : null,
+        onClose: () => Navigator.of(context).pop(),
+      );
+    }
+
+    final compact = MediaQuery.sizeOf(context).width < 760;
+
+    if (compact) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              return FractionallySizedBox(
+                heightFactor: 0.9,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: buildDetail(setSheetState),
+                ),
+              );
+            },
+          );
+        },
+      );
+      return;
+    }
+
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final selectedEvent = items[selectedIndex];
-            void selectOffset(int offset) {
-              final nextIndex = (selectedIndex + offset).clamp(
-                0,
-                items.length - 1,
-              );
-              if (nextIndex == selectedIndex) {
-                return;
-              }
-              setSheetState(() {
-                selectedIndex = nextIndex;
-              });
-              _selectEvent(items[nextIndex]);
-            }
-
-            return FractionallySizedBox(
-              heightFactor: 0.9,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: _TimelineDetailPane(
-                  items: items,
-                  selectedEvent: selectedEvent,
-                  selectedIndex: selectedIndex,
-                  onSelectPrevious: selectedIndex > 0
-                      ? () => selectOffset(-1)
-                      : null,
-                  onSelectNext: selectedIndex < items.length - 1
-                      ? () => selectOffset(1)
-                      : null,
-                  onOpenRun: selectedEvent.runId.isNotEmpty
-                      ? () => unawaited(
-                          widget.controller.openRunDetails(selectedEvent.runId),
-                        )
-                      : null,
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 40,
+                vertical: 40,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 640,
+                  maxHeight: 780,
                 ),
+                child: buildDetail(setDialogState),
               ),
             );
           },
@@ -116,22 +119,59 @@ class _TimelinePanelState extends State<TimelinePanel> {
   Widget build(BuildContext context) {
     final items = _sortedTimelineEvents(widget.controller.timelineItems);
     final groups = _groupTimelineEvents(items);
-    final selectedEvent = _resolveSelectedEvent(items);
-    final selectedIndex = selectedEvent == null
-        ? -1
-        : items.indexWhere((item) => item.id == selectedEvent.id);
+    final controller = widget.controller;
 
     return Padding(
       padding: _pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _TimelineHeroHeader(
-            items: items,
-            selectedEvent: selectedEvent,
-            controller: widget.controller,
+          _PageTitle(
+            title: 'Timeline',
+            subtitle:
+                'Emails, AI actions, recordings, tasks and run activity in one chronological feed.',
+            trailing: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                for (final filter in const <({String id, String label})>[
+                  (id: 'screen', label: 'Screen'),
+                  (id: 'tasks', label: 'Tasks'),
+                  (id: 'runs', label: 'Runs'),
+                ])
+                  FilterChip(
+                    selected: controller.selectedTimelineSources.contains(
+                      filter.id,
+                    ),
+                    label: Text(filter.label),
+                    onSelected: (_) =>
+                        controller.toggleTimelineSource(filter.id),
+                    avatar: Icon(
+                      _timelineLaneIcon(filter.id),
+                      size: 16,
+                      color:
+                          controller.selectedTimelineSources.contains(
+                            filter.id,
+                          )
+                          ? _bgSecondary
+                          : _sourceColorForKind(filter.id),
+                    ),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: controller.isRefreshingTimeline
+                      ? null
+                      : controller.refreshTimeline,
+                  icon: controller.isRefreshingTimeline
+                      ? const SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync_outlined),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
           Expanded(
             child: items.isEmpty
                 ? Card(
@@ -145,240 +185,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       ),
                     ),
                   )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth >= 1180;
-                      final isCompact = constraints.maxWidth < 760;
-                      final feedPane = _TimelineFeedPane(
-                        groups: groups,
-                        selectedEventId: selectedEvent?.id,
-                        onSelectEvent: isCompact
-                            ? (item) => unawaited(
-                                _showMobileEventDetails(items, item),
-                              )
-                            : _selectEvent,
-                      );
-                      final detailPane = _TimelineDetailPane(
-                        items: items,
-                        selectedEvent: selectedEvent,
-                        selectedIndex: selectedIndex,
-                        onSelectPrevious: selectedIndex > 0
-                            ? () => _moveSelection(items, -1)
-                            : null,
-                        onSelectNext:
-                            selectedIndex >= 0 &&
-                                selectedIndex < items.length - 1
-                            ? () => _moveSelection(items, 1)
-                            : null,
-                        onOpenRun:
-                            selectedEvent != null &&
-                                selectedEvent.runId.isNotEmpty
-                            ? () => unawaited(
-                                widget.controller.openRunDetails(
-                                  selectedEvent.runId,
-                                ),
-                              )
-                            : null,
-                      );
-
-                      if (isWide) {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Expanded(flex: 10, child: feedPane),
-                            const SizedBox(width: 16),
-                            SizedBox(width: 420, child: detailPane),
-                          ],
-                        );
-                      }
-
-                      if (isCompact) {
-                        return feedPane;
-                      }
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Expanded(flex: 11, child: feedPane),
-                          const SizedBox(height: 16),
-                          Expanded(flex: 8, child: detailPane),
-                        ],
-                      );
-                    },
+                : _TimelineFeedPane(
+                    groups: groups,
+                    selectedEventId: _selectedEventId,
+                    onSelectEvent: (item) =>
+                        unawaited(_showEventDetailsPopup(items, item)),
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineHeroHeader extends StatelessWidget {
-  const _TimelineHeroHeader({
-    required this.items,
-    required this.selectedEvent,
-    required this.controller,
-  });
-
-  final List<TimelineEventItem> items;
-  final TimelineEventItem? selectedEvent;
-  final NeoAgentController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 760;
-    final focusedDay =
-        selectedEvent?.occurredAt ??
-        (items.isEmpty ? null : items.first.occurredAt);
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(compact ? 16 : 22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            _bgSecondary.withValues(alpha: 0.96),
-            _bgPrimary.withValues(alpha: 0.9),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(compact ? 20 : 28),
-        border: Border.all(color: _borderLight),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 26,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 940;
-              final heading = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'ACTIVITY FEED',
-                    style: TextStyle(
-                      color: _accentHover,
-                      fontSize: compact ? 11 : 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: compact ? 2.4 : 4.2,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 8 : 14),
-                  Text(
-                    'Timeline',
-                    style: TextStyle(
-                      fontSize: compact ? 28 : 40,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 8 : 14),
-                  Text(
-                    'Emails, AI actions, recordings, tasks and run activity in one chronological feed.',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: compact ? 13.5 : 16.5,
-                      height: compact ? 1.28 : 1.35,
-                    ),
-                  ),
-                ],
-              );
-              final summary = Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: isWide ? WrapAlignment.end : WrapAlignment.start,
-                children: <Widget>[
-                  if (items.isNotEmpty)
-                    _TimelineStatPill(
-                      icon: Icons.event_note_rounded,
-                      label: '${items.length} events',
-                    ),
-                  if (items.length > 1)
-                    _TimelineStatPill(
-                      icon: Icons.schedule_outlined,
-                      label: _formatTimelineRange(items.first, items.last),
-                    ),
-                  if (focusedDay != null)
-                    _TimelineStatPill(
-                      icon: Icons.calendar_today_outlined,
-                      label: _formatTimelineDate(focusedDay.toLocal()),
-                    ),
-                ],
-              );
-
-              if (isWide) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(child: heading),
-                    const SizedBox(width: 20),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 440),
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: summary,
-                      ),
-                    ),
-                  ],
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  heading,
-                  const SizedBox(height: 18),
-                  summary,
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              for (final filter in const <({String id, String label})>[
-                (id: 'screen', label: 'Screen'),
-                (id: 'tasks', label: 'Tasks'),
-                (id: 'runs', label: 'Runs'),
-              ])
-                FilterChip(
-                  selected: controller.selectedTimelineSources.contains(
-                    filter.id,
-                  ),
-                  label: Text(filter.label),
-                  onSelected: (_) => controller.toggleTimelineSource(filter.id),
-                  avatar: Icon(
-                    _timelineLaneIcon(filter.id),
-                    size: 16,
-                    color:
-                        controller.selectedTimelineSources.contains(filter.id)
-                        ? _bgSecondary
-                        : _sourceColorForKind(filter.id),
-                  ),
-                ),
-              OutlinedButton.icon(
-                onPressed: controller.isRefreshingTimeline
-                    ? null
-                    : controller.refreshTimeline,
-                icon: controller.isRefreshingTimeline
-                    ? const SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync_outlined),
-                label: const Text('Refresh'),
-              ),
-            ],
           ),
         ],
       ),
@@ -751,6 +563,7 @@ class _TimelineDetailPane extends StatelessWidget {
     this.onSelectPrevious,
     this.onSelectNext,
     this.onOpenRun,
+    this.onClose,
   });
 
   final List<TimelineEventItem> items;
@@ -759,6 +572,7 @@ class _TimelineDetailPane extends StatelessWidget {
   final VoidCallback? onSelectPrevious;
   final VoidCallback? onSelectNext;
   final VoidCallback? onOpenRun;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -814,6 +628,12 @@ class _TimelineDetailPane extends StatelessWidget {
                   onPressed: onSelectNext,
                   icon: const Icon(Icons.chevron_right_rounded),
                 ),
+                if (onClose != null)
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
               ],
             ),
           ),
@@ -1308,19 +1128,6 @@ String _timelineDayLabel(DateTime day, DateTime now) {
 
 bool _isSameDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
-}
-
-String _formatTimelineRange(TimelineEventItem first, TimelineEventItem last) {
-  final start = last.occurredAt.toLocal();
-  final end = first.occurredAt.toLocal();
-  final startDate = _formatTimelineDate(start);
-  final endDate = _formatTimelineDate(end);
-  final startTime = _formatTimelineTime(start);
-  final endTime = _formatTimelineTime(end);
-  if (_isSameDay(start, end)) {
-    return '$startDate · $startTime - $endTime';
-  }
-  return '$startDate -> $endDate';
 }
 
 String _formatTimelineDate(DateTime value) {
