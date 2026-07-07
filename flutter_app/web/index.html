@@ -32,8 +32,182 @@
 
   <title>NeoAgent</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* NeoAgent "Control Surface" splash — mirrors flutter_app/lib/src/theme/palette.dart
+       so the pre-Flutter paint matches the app instead of flashing white. */
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0E1511;
+    }
+    @media (prefers-color-scheme: light) {
+      html, body { background: #F4F1E8; }
+    }
+
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: radial-gradient(120% 120% at 50% 38%, #131b16 0%, #0A0F0C 70%, #0E1511 100%);
+      transition: opacity 0.5s ease;
+    }
+    @media (prefers-color-scheme: light) {
+      #splash {
+        background: radial-gradient(120% 120% at 50% 38%, #FDFCF8 0%, #EDE9DC 70%, #F4F1E8 100%);
+      }
+    }
+    #splash.splash-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #splash-mark {
+      width: 88px;
+      height: 88px;
+      filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
+      animation: splash-breathe 2.4s ease-in-out infinite;
+    }
+    @media (prefers-color-scheme: light) {
+      #splash-mark { filter: drop-shadow(0 6px 16px rgba(28, 33, 23, 0.18)); }
+    }
+    #splash-mark .orbit {
+      transform-origin: 50px 50px;
+      animation: splash-spin 5.5s linear infinite;
+    }
+    #splash-mark .orbit-2 {
+      animation-duration: 8.5s;
+      animation-direction: reverse;
+    }
+
+    #splash-word {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #AEB7A6;
+      opacity: 0.92;
+    }
+    @media (prefers-color-scheme: light) {
+      #splash-word { color: #49503F; }
+    }
+
+    #splash-dots {
+      display: flex;
+      gap: 6px;
+    }
+    #splash-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #E1B052;
+      opacity: 0.35;
+      animation: splash-dot 1.2s ease-in-out infinite;
+    }
+    @media (prefers-color-scheme: light) {
+      #splash-dots span { background: #B07D2B; }
+    }
+    #splash-dots span:nth-child(2) { animation-delay: 0.15s; }
+    #splash-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes splash-breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.045); }
+    }
+    @keyframes splash-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes splash-dot {
+      0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-3px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #splash-mark, #splash-mark .orbit, #splash-dots span {
+        animation: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash" role="presentation" aria-hidden="true">
+    <svg id="splash-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="splash-tile" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#705331"/>
+          <stop offset="100%" stop-color="#22564c"/>
+        </linearGradient>
+        <radialGradient id="splash-shine" cx="26%" cy="14%" r="72%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="splash-core" cx="38%" cy="32%" r="75%">
+          <stop offset="0%" stop-color="#fffdf6"/>
+          <stop offset="48%" stop-color="#eee3cc"/>
+          <stop offset="100%" stop-color="#b5a888"/>
+        </radialGradient>
+        <radialGradient id="splash-node" cx="36%" cy="30%" r="80%">
+          <stop offset="0%" stop-color="#f8dca8"/>
+          <stop offset="52%" stop-color="#d3a85f"/>
+          <stop offset="100%" stop-color="#9b6f2f"/>
+        </radialGradient>
+        <linearGradient id="splash-tube" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#fffaf0"/>
+          <stop offset="52%" stop-color="#efe7d6"/>
+          <stop offset="100%" stop-color="#cabf9f"/>
+        </linearGradient>
+        <clipPath id="splash-tc"><rect x="0" y="0" width="100" height="100" rx="22.5"/></clipPath>
+      </defs>
+      <g clip-path="url(#splash-tc)">
+        <rect x="0" y="0" width="100" height="100" fill="url(#splash-tile)"/>
+        <rect x="0" y="0" width="100" height="100" fill="url(#splash-shine)"/>
+        <g fill="none" stroke="url(#splash-tube)" stroke-linecap="round">
+          <circle class="orbit orbit-1" cx="50" cy="50" r="17" stroke-width="5" stroke-dasharray="78 29" transform="rotate(-35 50 50)" stroke-opacity="0.92"/>
+          <circle class="orbit orbit-2" cx="50" cy="50" r="30" stroke-width="5" stroke-dasharray="150 39" transform="rotate(70 50 50)" stroke-opacity="0.8"/>
+        </g>
+        <circle cx="50" cy="50" r="7" fill="url(#splash-core)"/>
+        <circle cx="50" cy="20" r="5.6" fill="url(#splash-node)"/>
+        <circle cx="48" cy="18.4" r="1.7" fill="#fff7e6" fill-opacity="0.8"/>
+      </g>
+      <rect x="0.6" y="0.6" width="98.8" height="98.8" rx="22" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.2"/>
+    </svg>
+    <div id="splash-word">NeoAgent</div>
+    <div id="splash-dots"><span></span><span></span><span></span></div>
+  </div>
+
+  <script>
+    // Fade the splash once Flutter mounts its view (or after a safety timeout),
+    // so we never get stuck showing it if the mutation never fires.
+    (function () {
+      var splash = document.getElementById('splash');
+      var hidden = false;
+
+      function hideSplash() {
+        if (hidden) return;
+        hidden = true;
+        splash.classList.add('splash-hidden');
+        setTimeout(function () { splash.remove(); }, 550);
+      }
+
+      var observer = new MutationObserver(function () {
+        if (document.querySelector('flt-glass-pane, flutter-view')) {
+          hideSplash();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      setTimeout(hideSplash, 6000);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
