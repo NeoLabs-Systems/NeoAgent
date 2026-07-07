@@ -182,6 +182,24 @@ class WhatsAppPlatform extends BasePlatform {
         if (!content && !mediaType) continue;
         if (isGroup && !this._isGroupAddressedToBot(msg.message || {})) continue;
 
+        const senderId = normalizeWhatsAppId(sender);
+        const access = this._checkInboundAccess({
+          platform: 'whatsapp',
+          senderId,
+          chatId,
+          isDirect: !isGroup,
+          isShared: isGroup,
+          groupId: isGroup ? chatId : '',
+          phoneNumber: senderId,
+          wasMentioned: isGroup,
+        }, {
+          senderName: pushName || senderId,
+          meta: isGroup ? `Group: ${chatId}` : '',
+          groupLabel: chatId,
+        });
+
+        if (!access.allowed) continue;
+
         let localMediaPath = null;
         if (mediaType && mediaType !== 'sticker') {
           try {

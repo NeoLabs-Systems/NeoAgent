@@ -1848,7 +1848,6 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_extract': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            if (!args.selector) return { error: 'browser_extract requires a "selector" argument' };
             return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
         }
 
