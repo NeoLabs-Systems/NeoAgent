@@ -79,12 +79,30 @@ function limitCases(items, maxItems) {
   return items.slice(0, maxItems);
 }
 
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const limit = Math.max(1, Math.min(Number(concurrency) || 1, items.length || 1));
+
+  async function runNext() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: limit }, runNext));
+  return results;
+}
+
 module.exports = {
   commandExists,
   ensureDir,
   executeCommand,
   exists,
   limitCases,
+  mapWithConcurrency,
   readJson,
   readJsonLines,
   writeJson,

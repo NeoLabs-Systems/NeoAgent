@@ -4,223 +4,41 @@ const path = require('node:path');
 const sharp = require('sharp');
 const { ensureDir, writeJson, writeText } = require('./utils');
 
-function round(value, digits = 3) {
-  return Number.isFinite(Number(value))
-    ? Number(Number(value).toFixed(digits))
-    : null;
+function round(value, digits = 4) {
+  return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(digits)) : null;
 }
 
-function formatUsdPerMillion(value) {
-  if (value == null || value === '') return 'n/a';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 'n/a';
-  if (numeric === 0) return '$0';
-  if (numeric < 0.01) return `$${numeric.toFixed(4)}`;
-  if (numeric < 1) return `$${numeric.toFixed(2)}`;
-  return `$${numeric.toFixed(2)}`;
-}
-
-function resolveSummaryModels(results, config) {
-  const selectedModels = Array.isArray(config.selectedModels) ? config.selectedModels : [];
-  if (selectedModels.length > 0) {
-    return selectedModels.map((model) => ({
-      id: model.id,
-      name: model.name || model.id,
-      provider: model.provider || null,
-      priceTier: model.priceTier || null,
-      inputCostPerM: Number.isFinite(Number(model.inputCostPerM)) ? Number(model.inputCostPerM) : null,
-      outputCostPerM: Number.isFinite(Number(model.outputCostPerM)) ? Number(model.outputCostPerM) : null,
-      supportsVision: model.supportsVision === true,
-    }));
+function mostCommon(values) {
+  const counts = new Map();
+  for (const value of values) {
+    if (!value) continue;
+    counts.set(value, (counts.get(value) || 0) + 1);
   }
-
-  const modelMap = new Map();
-  for (const result of results) {
-    if (!result?.modelId) continue;
-    if (!modelMap.has(result.modelId)) {
-      modelMap.set(result.modelId, {
-        id: result.modelId,
-        name: result.modelName || result.modelId,
-        provider: result.provider || null,
-        priceTier: result.priceTier || null,
-        inputCostPerM: Number.isFinite(Number(result.modelInputCostPerM))
-          ? Number(result.modelInputCostPerM)
-          : null,
-        outputCostPerM: Number.isFinite(Number(result.modelOutputCostPerM))
-          ? Number(result.modelOutputCostPerM)
-          : null,
-        supportsVision: result.modelSupportsVision === true,
-      });
-      continue;
-    }
-    const model = modelMap.get(result.modelId);
-    if (model.name == null && result.modelName) model.name = result.modelName;
-    if (model.provider == null && result.provider) model.provider = result.provider;
-    if (model.priceTier == null && result.priceTier) model.priceTier = result.priceTier;
-    if (model.inputCostPerM == null && Number.isFinite(Number(result.modelInputCostPerM))) {
-      model.inputCostPerM = Number(result.modelInputCostPerM);
-    }
-    if (model.outputCostPerM == null && Number.isFinite(Number(result.modelOutputCostPerM))) {
-      model.outputCostPerM = Number(result.modelOutputCostPerM);
-    }
-    if (result.modelSupportsVision === true) model.supportsVision = true;
-  }
-
-  return [...modelMap.values()];
-}
-
-function formatModelPricing(model) {
-  return `${formatUsdPerMillion(model.inputCostPerM)}/${formatUsdPerMillion(model.outputCostPerM)} per 1M in/out`;
-}
-
-function buildDashboardPricingLine(summary) {
-  if (!Array.isArray(summary.models) || summary.models.length === 0) return 'Pricing n/a';
-  if (summary.models.length === 1) {
-    return `Pricing ${formatModelPricing(summary.models[0])}`;
-  }
-  return `Pricing varies across ${summary.models.length} models`;
-}
-
-function formatBenchmarkType(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'first_party') return 'First-party';
-  if (normalized === 'public') return 'Public';
-  return normalized
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function buildBenchmarkSummary(results, config) {
-  const suites = new Map();
-  const models = resolveSummaryModels(results, config);
-  const totals = {
-    cases: results.length,
-    passed: 0,
-    failed: 0,
-    blocked: 0,
-    skipped: 0,
-    error: 0,
-    score: 0,
-    scoredCases: 0,
-    latencyMs: 0,
-    totalTokens: 0,
-    estimatedCostUsd: 0,
-    pricedCases: 0,
-  };
-
-  for (const result of results) {
-    if (!suites.has(result.suiteId)) {
-      suites.set(result.suiteId, {
-        suiteId: result.suiteId,
-        suiteLabel: result.suiteLabel,
-        benchmarkType: result.benchmarkType,
-        modelDriven: result.modelDriven === true,
-        cases: 0,
-        passed: 0,
-        failed: 0,
-        blocked: 0,
-        skipped: 0,
-        error: 0,
-        score: 0,
-        scoredCases: 0,
-        totalTokens: 0,
-        estimatedCostUsd: 0,
-        pricedCases: 0,
-      });
-    }
-    const suite = suites.get(result.suiteId);
-    suite.cases += 1;
-    if (Object.prototype.hasOwnProperty.call(suite, result.status)) {
-      suite[result.status] += 1;
-    }
-    if (Object.prototype.hasOwnProperty.call(totals, result.status)) {
-      totals[result.status] += 1;
-    }
-    if (Number.isFinite(result.score)) {
-      suite.score += Number(result.score);
-      suite.scoredCases += 1;
-      totals.score += Number(result.score);
-      totals.scoredCases += 1;
-    }
-    suite.totalTokens += Number(result.tokenUsage?.totalTokens || 0);
-    totals.totalTokens += Number(result.tokenUsage?.totalTokens || 0);
-    totals.latencyMs += Number(result.latencyMs || 0);
-    if (Number.isFinite(result.estimatedCostUsd)) {
-      suite.estimatedCostUsd += Number(result.estimatedCostUsd);
-      suite.pricedCases += 1;
-      totals.estimatedCostUsd += Number(result.estimatedCostUsd);
-      totals.pricedCases += 1;
+  let best = null;
+  let bestCount = 0;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      best = value;
+      bestCount = count;
     }
   }
+  return best;
+}
 
+function scoreGroup(rows) {
+  const correct = rows.filter((row) => row.label === 'CORRECT').length;
+  const wrong = rows.filter((row) => row.label === 'WRONG').length;
+  const error = rows.filter((row) => row.label === 'ERROR').length;
+  const total = rows.length;
   return {
-    generatedAt: new Date().toISOString(),
-    serverBaseUrl: config.serverBaseUrl,
-    modelIds: models.map((model) => model.id),
-    models,
-    totals: {
-      ...totals,
-      averageScore: totals.scoredCases ? round(totals.score / totals.scoredCases) : null,
-      estimatedCostUsd: totals.pricedCases ? round(totals.estimatedCostUsd, 4) : null,
-    },
-    suites: [...suites.values()].map((suite) => ({
-      ...suite,
-      averageScore: suite.scoredCases ? round(suite.score / suite.scoredCases) : null,
-      estimatedCostUsd: suite.pricedCases ? round(suite.estimatedCostUsd, 4) : null,
-    })).sort((left, right) => left.suiteId.localeCompare(right.suiteId)),
+    total,
+    correct,
+    wrong,
+    error,
+    // Errors count against accuracy rather than being excluded, so a broken run can't
+    // look better than it is.
+    accuracy: total ? round(correct / total) : null,
   };
-}
-
-function renderSummaryMarkdown(summary) {
-  const lines = [
-    '# NeoAgent Benchmark Summary',
-    '',
-    `Generated at: ${summary.generatedAt}`,
-    `Target server: ${summary.serverBaseUrl}`,
-    summary.modelIds.length ? `Models: ${summary.modelIds.join(', ')}` : 'Models: model-independent suites only',
-    '',
-    '## Model pricing',
-    '',
-  ];
-
-  if (summary.models.length > 0) {
-    for (const model of summary.models) {
-      lines.push(
-        `- ${model.id}: ${formatModelPricing(model)}${model.priceTier ? `, tier ${model.priceTier}` : ''}`,
-      );
-    }
-  } else {
-    lines.push('- n/a');
-  }
-
-  lines.push(
-    '',
-    '## Totals',
-    '',
-    `- Cases: ${summary.totals.cases}`,
-    `- Passed: ${summary.totals.passed}`,
-    `- Failed: ${summary.totals.failed}`,
-    `- Blocked: ${summary.totals.blocked}`,
-    `- Skipped: ${summary.totals.skipped}`,
-    `- Errors: ${summary.totals.error}`,
-    `- Average score: ${summary.totals.averageScore == null ? 'n/a' : summary.totals.averageScore}`,
-    `- Total tokens: ${summary.totals.totalTokens}`,
-    `- Estimated cost (USD): ${summary.totals.estimatedCostUsd == null ? 'n/a' : summary.totals.estimatedCostUsd}`,
-    '',
-    '## Suites',
-    '',
-    '| Suite | Type | Cases | Passed | Failed | Blocked | Avg score | Tokens | Cost (USD) |',
-    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
-  );
-
-  for (const suite of summary.suites) {
-    lines.push(
-      `| ${suite.suiteLabel} | ${suite.benchmarkType} | ${suite.cases} | ${suite.passed} | ${suite.failed} | ${suite.blocked} | ${suite.averageScore == null ? 'n/a' : suite.averageScore} | ${suite.totalTokens} | ${suite.estimatedCostUsd == null ? 'n/a' : suite.estimatedCostUsd} |`,
-    );
-  }
-
-  lines.push('');
-  return `${lines.join('\n')}\n`;
 }
 
 function escapeXml(value) {
@@ -233,61 +51,99 @@ function escapeXml(value) {
   }[character]));
 }
 
-function formatMetric(value, options = {}) {
-  if (value == null || value === '') return options.fallback || 'n/a';
-  const prefix = options.prefix || '';
-  const suffix = options.suffix || '';
-  return `${prefix}${value}${suffix}`;
+function buildBenchmarkSummary(rows, config) {
+  const latencies = rows.map((row) => Number(row.latencyMs || 0)).filter((value) => value > 0);
+  const totalTokens = rows.reduce((sum, row) => sum + (
+    Number(row.answerUsage?.inputTokens || 0)
+    + Number(row.answerUsage?.outputTokens || 0)
+    + Number(row.judgeUsage?.inputTokens || 0)
+    + Number(row.judgeUsage?.outputTokens || 0)
+  ), 0);
+
+  const categories = new Map();
+  for (const row of rows) {
+    const category = row.questionType || 'uncategorized';
+    if (!categories.has(category)) categories.set(category, []);
+    categories.get(category).push(row);
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    serverBaseUrl: config.serverBaseUrl,
+    dataset: 'LoCoMo',
+    answerModelId: mostCommon(rows.map((row) => row.answerModelId)),
+    judgeModelId: mostCommon(rows.map((row) => row.judgeModelId)),
+    totals: {
+      ...scoreGroup(rows),
+      averageLatencyMs: latencies.length ? round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length, 0) : null,
+      totalTokens,
+    },
+    categories: [...categories.entries()]
+      .map(([questionType, categoryRows]) => ({ questionType, ...scoreGroup(categoryRows) }))
+      .sort((left, right) => left.questionType.localeCompare(right.questionType)),
+  };
 }
 
-function selectDashboardSuites(summary) {
-  return summary.suites.filter((suite) => (suite.passed + suite.failed) > 0);
+function renderSummaryMarkdown(summary) {
+  const lines = [
+    '# NeoAgent LoCoMo Memory Benchmark',
+    '',
+    `Generated at: ${summary.generatedAt}`,
+    `Target server: ${summary.serverBaseUrl}`,
+    `Answer model: ${summary.answerModelId || 'n/a'}`,
+    `Judge model: ${summary.judgeModelId || 'n/a'}`,
+    '',
+    '## Overall',
+    '',
+    `- Questions: ${summary.totals.total}`,
+    `- Correct: ${summary.totals.correct}`,
+    `- Wrong: ${summary.totals.wrong}`,
+    `- Errors: ${summary.totals.error}`,
+    `- Accuracy: ${summary.totals.accuracy == null ? 'n/a' : `${(summary.totals.accuracy * 100).toFixed(1)}%`}`,
+    `- Average latency: ${summary.totals.averageLatencyMs == null ? 'n/a' : `${summary.totals.averageLatencyMs}ms`}`,
+    `- Total tokens: ${summary.totals.totalTokens}`,
+    '',
+    '## By category',
+    '',
+    '| Category | Questions | Correct | Wrong | Errors | Accuracy |',
+    '| --- | ---: | ---: | ---: | ---: | ---: |',
+  ];
+
+  for (const category of summary.categories) {
+    lines.push(
+      `| ${category.questionType} | ${category.total} | ${category.correct} | ${category.wrong} | `
+      + `${category.error} | ${category.accuracy == null ? 'n/a' : `${(category.accuracy * 100).toFixed(1)}%`} |`,
+    );
+  }
+
+  lines.push('');
+  return `${lines.join('\n')}\n`;
 }
 
 function renderDashboardSvg(summary) {
-  const dashboardSuites = selectDashboardSuites(summary);
   const width = 1440;
   const margin = 72;
-  const metricGap = 24;
-  const metricCardWidth = 306;
-  const metricCardHeight = 126;
-  const suiteCardHeight = 108;
-  const suiteGap = 18;
   const headerY = 82;
   const metricsY = 198;
-  const suitesY = metricsY + metricCardHeight + 72;
-  const footerHeight = 90;
+  const metricCardWidth = 306;
+  const metricCardHeight = 126;
+  const metricGap = 24;
+  const barsY = metricsY + metricCardHeight + 72;
+  const barHeight = 46;
+  const barGap = 20;
   const emptyStateHeight = 136;
-  const suiteSectionHeight = dashboardSuites.length
-    ? (dashboardSuites.length * suiteCardHeight) + ((dashboardSuites.length - 1) * suiteGap)
+  const barsSectionHeight = summary.categories.length
+    ? (summary.categories.length * barHeight) + ((summary.categories.length - 1) * barGap)
     : emptyStateHeight;
-  const height = Math.max(760, suitesY + suiteSectionHeight + footerHeight);
-  const completedCases = summary.totals.passed + summary.totals.failed;
+  const height = Math.max(760, barsY + barsSectionHeight + 90);
+  const barMaxWidth = width - (margin * 2) - 260;
+
+  const accuracyPct = summary.totals.accuracy == null ? null : Math.round(summary.totals.accuracy * 1000) / 10;
   const metrics = [
-    {
-      label: 'Completed cases',
-      value: completedCases,
-      accent: '#f8fafc',
-      tone: '#d7e3ff',
-    },
-    {
-      label: 'Passed',
-      value: summary.totals.passed,
-      accent: '#d7ffcc',
-      tone: '#9ad18b',
-    },
-    {
-      label: 'Failed',
-      value: summary.totals.failed,
-      accent: '#ffd3c2',
-      tone: '#f6a68d',
-    },
-    {
-      label: 'Average score',
-      value: summary.totals.averageScore == null ? 'n/a' : summary.totals.averageScore,
-      accent: '#fff0bf',
-      tone: '#e7bf57',
-    },
+    { label: 'Questions', value: summary.totals.total, tone: '#d7e3ff' },
+    { label: 'Correct', value: summary.totals.correct, tone: '#9ad18b' },
+    { label: 'Wrong', value: summary.totals.wrong, tone: '#f6a68d' },
+    { label: 'Accuracy', value: accuracyPct == null ? 'n/a' : `${accuracyPct}%`, tone: '#e7bf57' },
   ];
 
   const metricCards = metrics.map((metric, index) => {
@@ -296,53 +152,43 @@ function renderDashboardSvg(summary) {
       <g transform="translate(${x} ${metricsY})">
         <rect width="${metricCardWidth}" height="${metricCardHeight}" rx="24" fill="rgba(8,14,27,0.74)" stroke="rgba(162,186,232,0.16)" />
         <text x="28" y="42" font-size="20" font-weight="600" fill="${metric.tone}">${escapeXml(metric.label)}</text>
-        <text x="28" y="92" font-size="52" font-weight="800" fill="${metric.accent}">${escapeXml(String(metric.value))}</text>
+        <text x="28" y="92" font-size="52" font-weight="800" fill="#f8fafc">${escapeXml(String(metric.value))}</text>
       </g>
     `;
   }).join('\n');
 
-  const suiteCards = dashboardSuites.map((suite, index) => {
-    const y = suitesY + (index * (suiteCardHeight + suiteGap));
+  const bars = summary.categories.map((category, index) => {
+    const y = barsY + (index * (barHeight + barGap));
+    const pct = category.accuracy == null ? 0 : category.accuracy;
+    const barWidth = Math.max(4, Math.round(barMaxWidth * pct));
+    const label = `${category.questionType} (${category.correct}/${category.total})`;
     return `
       <g transform="translate(${margin} ${y})">
-        <rect width="${width - (margin * 2)}" height="${suiteCardHeight}" rx="22" fill="rgba(7,12,24,0.72)" stroke="rgba(150,176,223,0.14)" />
-        <text x="28" y="37" font-size="26" font-weight="700" fill="#f8fbff">${escapeXml(suite.suiteLabel)}</text>
-        <text x="28" y="66" font-size="16" fill="#9eb0d0">${escapeXml(formatBenchmarkType(suite.benchmarkType))}</text>
-
-        <text x="640" y="34" font-size="16" fill="#8da0c5">Completed</text>
-        <text x="640" y="64" font-size="28" font-weight="700" fill="#f0f5ff">${suite.passed + suite.failed}/${suite.cases}</text>
-
-        <text x="820" y="34" font-size="16" fill="#8da0c5">Pass / fail</text>
-        <text x="820" y="64" font-size="28" font-weight="700" fill="#d8ffe0">${suite.passed}<tspan fill="#ffd0c2"> / ${suite.failed}</tspan></text>
-
-        <text x="1010" y="34" font-size="16" fill="#8da0c5">Score</text>
-        <text x="1010" y="64" font-size="28" font-weight="700" fill="#fff0bf">${suite.averageScore == null ? 'n/a' : suite.averageScore}</text>
-        <text x="1010" y="86" font-size="15" fill="#dce7ff">Tokens ${suite.totalTokens}</text>
-
-        <text x="1205" y="34" font-size="16" fill="#8da0c5">Cost</text>
-        <text x="1205" y="64" font-size="28" font-weight="700" fill="#f6f0d0">${escapeXml(formatMetric(suite.estimatedCostUsd, { prefix: '$' }))}</text>
+        <text x="0" y="18" font-size="17" fill="#dce7ff">${escapeXml(label)}</text>
+        <rect x="260" y="0" width="${barMaxWidth}" height="30" rx="8" fill="rgba(148,171,214,0.15)" />
+        <rect x="260" y="0" width="${barWidth}" height="30" rx="8" fill="url(#line)" />
+        <text x="${260 + barMaxWidth + 12}" y="22" font-size="17" font-weight="700" fill="#fff0bf">${category.accuracy == null ? 'n/a' : `${(category.accuracy * 100).toFixed(0)}%`}</text>
       </g>
     `;
   }).join('\n');
 
-  const emptyState = dashboardSuites.length
+  const emptyState = summary.categories.length
     ? ''
     : `
-      <g transform="translate(${margin} ${suitesY})">
+      <g transform="translate(${margin} ${barsY})">
         <rect width="${width - (margin * 2)}" height="${emptyStateHeight}" rx="24" fill="rgba(7,12,24,0.68)" stroke="rgba(150,176,223,0.14)" />
-        <text x="32" y="56" font-size="28" font-weight="700" fill="#f6f8ff">No completed suites yet</text>
-        <text x="32" y="90" font-size="18" fill="#9eb0d0">Blocked, skipped, and error-only suites are intentionally omitted from the dashboard image.</text>
+        <text x="32" y="56" font-size="28" font-weight="700" fill="#f6f8ff">No questions scored yet</text>
+        <text x="32" y="90" font-size="18" fill="#9eb0d0">Run "npm run benchmark:run" to populate this dashboard.</text>
       </g>
     `;
 
-  const subtitle = summary.modelIds.length
-    ? summary.modelIds.join(', ')
-    : 'Model-independent benchmark run';
+  const subtitle = summary.answerModelId
+    ? `Answer: ${summary.answerModelId}  •  Judge: ${summary.judgeModelId || 'n/a'}`
+    : 'No run yet';
   const runMeta = [
     `Generated ${summary.generatedAt}`,
     `Tokens ${summary.totals.totalTokens}`,
-    `Cost ${formatMetric(summary.totals.estimatedCostUsd, { prefix: '$' })}`,
-    buildDashboardPricingLine(summary),
+    summary.totals.averageLatencyMs == null ? 'Latency n/a' : `Avg latency ${summary.totals.averageLatencyMs}ms`,
   ].join('  •  ');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -363,24 +209,23 @@ function renderDashboardSvg(summary) {
   <circle cx="1220" cy="96" r="190" fill="rgba(110,231,249,0.08)" />
   <circle cx="180" cy="${height - 110}" r="170" fill="rgba(250,204,21,0.08)" />
 
-  <text x="${margin}" y="${headerY}" font-size="54" font-weight="800" fill="#ffffff">NeoAgent Benchmark Dashboard</text>
+  <text x="${margin}" y="${headerY}" font-size="54" font-weight="800" fill="#ffffff">NeoAgent LoCoMo Memory Benchmark</text>
   <rect x="${margin}" y="${headerY + 20}" width="520" height="10" rx="5" fill="url(#line)" />
   <text x="${margin}" y="${headerY + 74}" font-size="22" fill="#d7e3ff">${escapeXml(subtitle)}</text>
   <text x="${margin}" y="${headerY + 108}" font-size="18" fill="#9eb0d0">${escapeXml(runMeta)}</text>
 
   ${metricCards}
 
-  <text x="${margin}" y="${suitesY - 20}" font-size="24" font-weight="700" fill="#f7fbff">Completed suites</text>
-  <text x="${margin + 188}" y="${suitesY - 20}" font-size="18" fill="#9eb0d0">Only suites with at least one passed or failed case are shown here.</text>
+  <text x="${margin}" y="${barsY - 20}" font-size="24" font-weight="700" fill="#f7fbff">Accuracy by category</text>
 
-  ${suiteCards}
+  ${bars}
   ${emptyState}
 </svg>`;
 }
 
-async function writeReportArtifacts({ results, config }) {
-  const outputs = config.suitePaths.outputs;
-  const summary = buildBenchmarkSummary(results, config);
+async function writeReportArtifacts({ rows, config }) {
+  const outputs = config.outputs;
+  const summary = buildBenchmarkSummary(rows, config);
   const markdown = renderSummaryMarkdown(summary);
   const svg = renderDashboardSvg(summary);
 
@@ -388,7 +233,7 @@ async function writeReportArtifacts({ results, config }) {
     ensureDir(path.dirname(outputs.resultsJsonPath)),
     ensureDir(path.dirname(outputs.dashboardPngPath)),
   ]);
-  await writeJson(outputs.resultsJsonPath, results);
+  await writeJson(outputs.resultsJsonPath, rows);
   await writeJson(outputs.summaryJsonPath, summary);
   await writeText(outputs.summaryMarkdownPath, markdown);
   await sharp(Buffer.from(svg)).png().toFile(outputs.dashboardPngPath);
@@ -401,8 +246,6 @@ async function writeReportArtifacts({ results, config }) {
 
 module.exports = {
   buildBenchmarkSummary,
-  buildDashboardPricingLine,
-  formatModelPricing,
   renderDashboardSvg,
   renderSummaryMarkdown,
   writeReportArtifacts,

@@ -67,10 +67,6 @@ class NeoAgentHttpClient {
     return body;
   }
 
-  async getAuthStatus() {
-    return this.request('GET', '/api/auth/status');
-  }
-
   async ensureAuthenticated(auth) {
     try {
       await this.login(auth);
@@ -119,43 +115,24 @@ class NeoAgentHttpClient {
     });
   }
 
-  async getRun(runId) {
-    return this.request('GET', `/api/agents/${encodeURIComponent(runId)}`);
-  }
-
-  async getRunSteps(runId) {
-    return this.request('GET', `/api/agents/${encodeURIComponent(runId)}/steps`);
-  }
-
-  async getHealth() {
-    return this.request('GET', '/api/health');
-  }
-
-  async getSystemHealthCheck() {
-    return this.request('GET', '/api/system/health-check');
-  }
-
-  async writeWorkspaceFile(filePath, content) {
-    return this.request('PUT', '/api/workspace/files/content', {
-      json: {
-        path: filePath,
-        content,
-      },
-    });
-  }
-
-  async createMemory(payload) {
-    return this.request('POST', '/api/memory/memories', { json: payload });
-  }
-
   async recallMemories(query, limit) {
     return this.request('POST', '/api/memory/memories/recall', {
       json: { query, limit },
     });
   }
 
-  async listMemories() {
-    return this.request('GET', '/api/memory/memories');
+  async ingestDocuments(documents, options = {}) {
+    return this.request('POST', '/api/memory/ingestion/documents', {
+      json: {
+        documents,
+        sourceType: options.sourceType,
+        metadata: options.metadata,
+      },
+    });
+  }
+
+  async getIngestionStatus() {
+    return this.request('GET', '/api/memory/ingestion/status');
   }
 }
 

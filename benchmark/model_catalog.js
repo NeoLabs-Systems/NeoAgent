@@ -1,12 +1,5 @@
 'use strict';
 
-const PRICE_TIER_ORDER = Object.freeze({
-  free: 0,
-  cheap: 1,
-  medium: 2,
-  expensive: 3,
-});
-
 function normalizeOpenRouterModel(raw = {}) {
   const inputPerM = raw.pricing?.prompt != null
     ? Number(raw.pricing.prompt) * 1_000_000
@@ -14,21 +7,11 @@ function normalizeOpenRouterModel(raw = {}) {
   const outputPerM = raw.pricing?.completion != null
     ? Number(raw.pricing.completion) * 1_000_000
     : null;
-  const inputModalities = Array.isArray(raw.architecture?.input_modalities)
-    ? raw.architecture.input_modalities.map((value) => String(value).toLowerCase())
-    : [];
-  const outputModalities = Array.isArray(raw.architecture?.output_modalities)
-    ? raw.architecture.output_modalities.map((value) => String(value).toLowerCase())
-    : [];
-
   return {
     id: String(raw.id || '').trim(),
     name: String(raw.name || raw.id || '').trim(),
     inputCostPerM: Number.isFinite(inputPerM) ? inputPerM : null,
     outputCostPerM: Number.isFinite(outputPerM) ? outputPerM : null,
-    supportsVision: inputModalities.includes('image'),
-    inputModalities,
-    outputModalities,
   };
 }
 
@@ -49,46 +32,45 @@ async function fetchOpenRouterCatalog(config = {}) {
     : [];
 }
 
-function enrichAppModels(appModels, rawOpenRouterModels) {
-  const rawById = new Map(rawOpenRouterModels.map((model) => [model.id, model]));
-  return appModels.map((model) => ({
-    ...model,
-    ...(rawById.get(model.id) || {}),
-    supportsVision: rawById.get(model.id)?.supportsVision === true,
-  }));
-}
+// mem0/Zep/Letta/Omi all answer and judge LoCoMo with gpt-4o-mini specifically — an
+// arbitrary "cheapest model on the market this week" pick would both weaken answer/judge
+// quality (confounding the memory-quality signal we're trying to measure) and break
+// comparability with those published numbers, so it's preferred by default whenever it's
+// available on OpenRouter.
+const PREFERRED_DEFAULT_MODEL_ID = 'openai/gpt-4o-mini';
 
-function assertExplicitModelsAvailable(explicitModelIds, models) {
-  const availableIds = new Set(models.map((model) => model.id));
-  const missing = explicitModelIds.filter((id) => !availableIds.has(id));
-  if (missing.length) {
-    throw new Error(`Configured benchmark models are unavailable: ${missing.join(', ')}`);
+// Falls back to the cheapest priced model if the preferred default isn't available (e.g.
+// no OpenRouter access to it) or an explicit model id is configured. Free-tier models are
+// excluded from that fallback since they're commonly rate-limited/unstable at benchmark
+// scale; only used if nothing priced is available either.
+function selectModel(models, explicitModelId) {
+  if (explicitModelId) {
+    const found = models.find((model) => model.id === explicitModelId);
+    if (!found) {
+      throw new Error(`Configured benchmark model is unavailable on OpenRouter: ${explicitModelId}`);
+    }
+    return found;
   }
-}
+  const preferred = models.find((model) => model.id === PREFERRED_DEFAULT_MODEL_ID);
+  if (preferred) return preferred;
 
-function selectBenchmarkModels({ appModels, rawOpenRouterModels, explicitModelIds = [], priceTierCeiling = 'cheap' }) {
-  const enriched = enrichAppModels(
-    appModels.filter((model) => model.provider === 'openrouter' && model.available !== false),
-    rawOpenRouterModels,
-  );
-  if (explicitModelIds.length > 0) {
-    assertExplicitModelsAvailable(explicitModelIds, enriched);
-    return explicitModelIds.map((id) => enriched.find((model) => model.id === id)).filter(Boolean);
+  const priced = models.filter((model) => (
+    Number.isFinite(model.inputCostPerM) && model.inputCostPerM > 0
+  ));
+  const candidates = priced.length ? priced : models;
+  const fallback = [...candidates].sort((left, right) => {
+    const leftCost = (left.inputCostPerM || 0) + (left.outputCostPerM || 0);
+    const rightCost = (right.inputCostPerM || 0) + (right.outputCostPerM || 0);
+    if (leftCost !== rightCost) return leftCost - rightCost;
+    return left.id.localeCompare(right.id);
+  })[0] || null;
+  if (fallback) {
+    console.warn(
+      `[locomo] ${PREFERRED_DEFAULT_MODEL_ID} is unavailable on OpenRouter; falling back to `
+      + `${fallback.id}. Scores won't be directly comparable to mem0/Zep/Letta/Omi's published numbers.`,
+    );
   }
-
-  const ceilingRank = PRICE_TIER_ORDER[priceTierCeiling] ?? PRICE_TIER_ORDER.cheap;
-  const selected = enriched.filter((model) => {
-    const rank = PRICE_TIER_ORDER[model.priceTier] ?? Number.MAX_SAFE_INTEGER;
-    return rank <= ceilingRank;
-  });
-  if (!selected.length) {
-    throw new Error(`No available OpenRouter models matched price tier <= ${priceTierCeiling}.`);
-  }
-  return selected.sort((left, right) => {
-    const rankDelta = (PRICE_TIER_ORDER[left.priceTier] ?? 99) - (PRICE_TIER_ORDER[right.priceTier] ?? 99);
-    if (rankDelta !== 0) return rankDelta;
-    return String(left.id).localeCompare(String(right.id));
-  });
+  return fallback;
 }
 
 function estimateRunCost(usage, model) {
@@ -103,10 +85,8 @@ function estimateRunCost(usage, model) {
 }
 
 module.exports = {
-  PRICE_TIER_ORDER,
-  enrichAppModels,
   estimateRunCost,
   fetchOpenRouterCatalog,
   normalizeOpenRouterModel,
-  selectBenchmarkModels,
+  selectModel,
 };

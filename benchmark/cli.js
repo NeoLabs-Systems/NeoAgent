@@ -1,10 +1,8 @@
 'use strict';
 
 const { loadBenchmarkEnv } = require('./bootstrap_env');
-const { BenchmarkHarness } = require('./harness');
-const { readJson } = require('./utils');
+const memoryBenchmark = require('./memory_benchmark');
 const { resolveBenchmarkConfig } = require('./config');
-const { writeReportArtifacts } = require('./reporting');
 
 function parseCommand(argv) {
   const [command = 'run'] = argv;
@@ -15,36 +13,28 @@ async function main(argv = process.argv.slice(2)) {
   loadBenchmarkEnv();
   const command = parseCommand(argv);
   const config = resolveBenchmarkConfig();
-  const harness = new BenchmarkHarness(config);
 
   switch (command) {
     case 'setup': {
-      const result = await harness.setup();
+      const result = await memoryBenchmark.setup(config);
       console.log(JSON.stringify({ command, result }, null, 2));
       return;
     }
     case 'run': {
-      const result = await harness.run();
+      const result = await memoryBenchmark.run(config);
       console.log(JSON.stringify({
         command,
-        totals: result.report.summary.totals,
-        outputs: result.report.outputs,
+        totals: result.summary.totals,
+        outputs: result.outputs,
       }, null, 2));
       return;
     }
     case 'report': {
-      try {
-        config.selectedModels = await harness.resolveSelectedModels();
-      } catch {}
-      let results = [];
-      try {
-        results = await readJson(config.suitePaths.outputs.resultsJsonPath);
-      } catch {}
-      const report = await writeReportArtifacts({ results, config });
+      const result = await memoryBenchmark.report(config);
       console.log(JSON.stringify({
         command,
-        totals: report.summary.totals,
-        outputs: report.outputs,
+        totals: result.summary.totals,
+        outputs: result.outputs,
       }, null, 2));
       return;
     }

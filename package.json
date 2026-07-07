@@ -54,9 +54,6 @@
     "benchmark:setup": "node benchmark/cli.js setup",
     "benchmark:run": "node benchmark/cli.js run",
     "benchmark:report": "node benchmark/cli.js report",
-    "benchmark:tokens": "node scripts/benchmark-token-cost.js",
-    "benchmark:memory": "node scripts/benchmark-memory.js",
-    "benchmark:memorybench:install": "node scripts/install-memorybench-provider.js",
     "release": "npx semantic-release",
     "audit:ci": "npm audit --omit=dev --audit-level=high"
   },
