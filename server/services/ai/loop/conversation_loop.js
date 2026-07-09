@@ -440,7 +440,10 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
 
   if (modelOverride && typeof modelOverride === 'string') {
     const requested = models.find((m) => m.id === modelOverride.trim());
-    if (requested && requested.available !== false && enabledIds.includes(requested.id)) {
+    // An explicit override (e.g. a failure fallback picked by getFailureFallbackModelId)
+    // may intentionally sit outside the user's enabled_models pool — that's the whole
+    // point when no in-pool cross-provider option exists. Only require availability.
+    if (requested && requested.available !== false) {
       selectedModelDef = requested;
       return {
         provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
