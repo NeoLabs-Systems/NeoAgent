@@ -569,6 +569,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let failedStepCount = 0;
   let toolExecutions = [];
   let deliverableWorkflow = null;
+  let runTitle;
   const timelineService = app?.locals?.timelineService || null;
 
   const { releaseReservation } = enforceRateLimits(userId, {
@@ -638,7 +639,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
   };
 
-  const runTitle = generateTitle(userMessage);
+  runTitle = generateTitle(userMessage);
   const initialRunMetadata = buildInitialRunMetadata(options);
   db.prepare(`INSERT INTO agent_runs(
     id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
