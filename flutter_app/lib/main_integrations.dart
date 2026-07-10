@@ -233,10 +233,215 @@ void _openOfficialIntegrationSetupDialog(
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
+    case 'neoarchive':
+      _showNeoArchiveSetupDialog(context, controller);
+      return;
     case 'trello':
       _showTrelloSetupDialog(context, controller);
       return;
   }
+}
+
+Future<void> _showNeoArchiveSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('neoarchive');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+  final savedBaseUrl = existing['baseUrl']?.toString() ?? '';
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final connected = existing['hasConnectedAccount'] == true || accountCount > 0;
+  final baseUrlController = TextEditingController(text: savedBaseUrl);
+  var errorText = '';
+  var busy = false;
+
+  Future<void> save(
+    StateSetter setState,
+    BuildContext dialogContext, {
+    required bool connect,
+  }) async {
+    setState(() {
+      errorText = '';
+      busy = true;
+    });
+    try {
+      final baseUrl = baseUrlController.text.trim();
+      if (baseUrl.isEmpty) {
+        setState(() {
+          errorText = 'NeoArchive backend URL is required.';
+          busy = false;
+        });
+        return;
+      }
+      await controller.saveOfficialIntegrationConfig(
+        'neoarchive',
+        config: <String, dynamic>{'baseUrl': baseUrl},
+      );
+      if (connect) {
+        await controller.connectOfficialIntegration(
+          'neoarchive',
+          appId: 'archive',
+        );
+        if ((controller.errorMessage ?? '').trim().isNotEmpty) {
+          setState(() {
+            errorText = controller.errorMessage!;
+            busy = false;
+          });
+          return;
+        }
+      }
+      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+    } catch (_) {
+      setState(() {
+        errorText =
+            controller.errorMessage ?? 'Could not save NeoArchive setup.';
+        busy = false;
+      });
+    }
+  }
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: const Text('NeoArchive Setup'),
+        content: SizedBox(
+          width: 540,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Add the NeoArchive backend URL once. NeoAgent will open NeoArchive OAuth so the user can sign in and approve archive access without API keys.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              const SizedBox(height: 16),
+              const _IntegrationSetupStatusItem(
+                label: 'Connection Method',
+                status: 'OAuth companion flow',
+                isConnected: true,
+              ),
+              const SizedBox(height: 12),
+              _IntegrationSetupStatusItem(
+                label: 'Connected NeoArchive User',
+                status: connected
+                    ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
+                    : 'Not connected',
+                isConnected: connected,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: baseUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'NeoArchive Backend URL',
+                  hintText: 'https://archive.example.com',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Use the public base URL of the NeoArchive server. Local self-hosted URLs are supported when NeoAgent can reach them.',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
+              if (errorText.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(errorText, style: TextStyle(color: _danger, fontSize: 12)),
+              ],
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          if (savedBaseUrl.isNotEmpty)
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final confirm =
+                          await showDialog<bool>(
+                            context: dialogContext,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Disconnect NeoArchive?'),
+                              content: const Text(
+                                'This removes the NeoArchive backend URL and all connected NeoArchive accounts for this agent.',
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
+                                  child: const Text('Disconnect'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                      if (!confirm) return;
+                      setState(() {
+                        busy = true;
+                        errorText = '';
+                      });
+                      try {
+                        await controller.clearOfficialIntegrationConfig(
+                          'neoarchive',
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (_) {
+                        setState(() {
+                          errorText =
+                              controller.errorMessage ??
+                              'Could not disconnect NeoArchive.';
+                          busy = false;
+                        });
+                      }
+                    },
+              child: const Text('Disconnect'),
+            ),
+          TextButton(
+            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+          if (!connected)
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => save(setState, dialogContext, connect: false),
+              child: const Text('Save Only'),
+            ),
+          FilledButton(
+            onPressed: busy
+                ? null
+                : () => save(setState, dialogContext, connect: !connected),
+            child: Text(
+              busy
+                  ? 'Working...'
+                  : connected
+                  ? 'Update Setup'
+                  : 'Save & Connect',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+  baseUrlController.dispose();
 }
 
 Future<void> _showHomeAssistantSetupDialog(
@@ -1144,12 +1349,14 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       );
     }
     final color = switch (item.icon) {
+      'neoarchive' => const Color(0xFFE3B655),
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
       'trello' => const Color(0xFF0C66E4),
       _ => _accent,
     };
     final label = switch (item.icon) {
+      'neoarchive' => 'A',
       'google' => 'G',
       'home_assistant' => 'H',
       'trello' => 'T',
@@ -1189,8 +1396,9 @@ int _compareOfficialIntegrationItems(
 
 int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
+    'neoarchive' => 1,
     'neomail' => 0,
-    'google_workspace' => 1,
+    'google_workspace' => 2,
     _ => 10,
   };
 }
