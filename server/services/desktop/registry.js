@@ -101,9 +101,8 @@ class DesktopCompanionRegistry {
       `INSERT INTO desktop_companion_devices (
          id, user_id, device_id, activation_id, label, hostname, platform, platform_version, app_version,
          companion_enabled, paused, status, display_count, active_display_id, permissions_json, capabilities_json,
-         metadata_json, session_id, last_connected_at, last_seen_at, passive_history_enabled, passive_history_last_uploaded_at,
-         passive_history_last_error, revoked_at, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+         metadata_json, session_id, last_connected_at, last_seen_at, revoked_at, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
        ON CONFLICT(user_id, device_id) DO UPDATE SET
          activation_id = excluded.activation_id,
          revoked_at = NULL,
@@ -123,9 +122,6 @@ class DesktopCompanionRegistry {
          session_id = excluded.session_id,
          last_connected_at = excluded.last_connected_at,
          last_seen_at = excluded.last_seen_at,
-         passive_history_enabled = excluded.passive_history_enabled,
-         passive_history_last_uploaded_at = excluded.passive_history_last_uploaded_at,
-         passive_history_last_error = excluded.passive_history_last_error,
          updated_at = excluded.updated_at`
     ).run(
       rowId,
@@ -147,9 +143,6 @@ class DesktopCompanionRegistry {
       sessionId,
       now,
       now,
-      hello.passiveHistoryEnabled ? 1 : 0,
-      hello.passiveHistoryLastUploadedAt || null,
-      hello.passiveHistoryLastError || null,
       existing?.created_at || now,
       now,
     );
@@ -197,9 +190,6 @@ class DesktopCompanionRegistry {
       sessionId: row.session_id || null,
       lastConnectedAt: row.last_connected_at || null,
       lastSeenAt: row.last_seen_at || null,
-      passiveHistoryEnabled: row.passive_history_enabled === 1,
-      passiveHistoryLastUploadedAt: row.passive_history_last_uploaded_at || null,
-      passiveHistoryLastError: row.passive_history_last_error || null,
       revokedAt: row.revoked_at || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at || row.created_at,
@@ -288,9 +278,6 @@ class DesktopCompanionRegistry {
            permissions_json = ?,
            capabilities_json = ?,
            metadata_json = ?,
-           passive_history_enabled = ?,
-           passive_history_last_uploaded_at = ?,
-           passive_history_last_error = ?,
            last_seen_at = datetime('now'),
            updated_at = datetime('now')
        WHERE user_id = ? AND device_id = ?`
@@ -303,13 +290,6 @@ class DesktopCompanionRegistry {
       safeJson(patch.permissions || existing.permissions),
       safeJson(patch.capabilities || existing.capabilities),
       safeJson(metadata),
-      patch.passiveHistoryEnabled == null
-        ? (existing.passiveHistoryEnabled ? 1 : 0)
-        : (patch.passiveHistoryEnabled === true ? 1 : 0),
-      patch.passiveHistoryLastUploadedAt || existing.passiveHistoryLastUploadedAt || null,
-      patch.passiveHistoryLastError == null
-        ? (existing.passiveHistoryLastError || null)
-        : (patch.passiveHistoryLastError || null),
       userId,
       deviceId,
     );
@@ -534,34 +514,6 @@ class DesktopCompanionRegistry {
       deviceId: normalizedDeviceId,
       paused,
     };
-  }
-
-  updatePassiveHistoryState(userId, deviceId, patch = {}) {
-    const normalizedDeviceId = String(deviceId || '').trim();
-    if (!normalizedDeviceId) {
-      throw new DesktopCompanionUnavailableError();
-    }
-    const existing = this.db.prepare(
-      `SELECT device_id FROM desktop_companion_devices WHERE user_id = ? AND device_id = ?`
-    ).get(userId, normalizedDeviceId);
-    if (!existing) {
-      throw new DesktopCompanionUnavailableError();
-    }
-    this.db.prepare(
-      `UPDATE desktop_companion_devices
-       SET passive_history_enabled = ?,
-           passive_history_last_uploaded_at = COALESCE(?, passive_history_last_uploaded_at),
-           passive_history_last_error = ?,
-           updated_at = datetime('now')
-       WHERE user_id = ? AND device_id = ?`
-    ).run(
-      patch.enabled === true ? 1 : 0,
-      patch.lastUploadedAt || null,
-      patch.lastError || null,
-      userId,
-      normalizedDeviceId,
-    );
-    return this.getDeviceRecordByDeviceId(userId, normalizedDeviceId);
   }
 
   closeAll() {

@@ -7,8 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'desktop_companion_actions.dart';
-import 'desktop_ocr_bridge.dart';
-import 'desktop_passive_history.dart';
 import 'desktop_screen_capture.dart';
 
 const String desktopCompanionEnabledPrefsKey = 'desktop.companion.enabled';
@@ -22,16 +20,9 @@ const String desktopCompanionActiveDisplayPrefsKey =
 
 class DesktopCompanionManager extends ChangeNotifier {
   DesktopCompanionManager({required DesktopScreenCapture screenCapture})
-    : _actions = DesktopCompanionActions(screenCapture: screenCapture),
-      _passiveHistory = DesktopPassiveHistoryManager(
-        actions: DesktopCompanionActions(screenCapture: screenCapture),
-        ocrBridge: createDesktopOcrBridge(),
-      ) {
-    _passiveHistory.addListener(_handlePassiveHistoryChanged);
-  }
+    : _actions = DesktopCompanionActions(screenCapture: screenCapture);
 
   final DesktopCompanionActions _actions;
-  final DesktopPassiveHistoryManager _passiveHistory;
   WebSocket? _socket;
   Timer? _reconnectTimer;
   Timer? _connectionWatchdogTimer;
@@ -63,7 +54,6 @@ class DesktopCompanionManager extends ChangeNotifier {
   Map<String, Object?> _status = const <String, Object?>{};
 
   bool get enabled => _enabled;
-  bool get passiveHistoryEnabled => _passiveHistory.enabled;
   bool get paused => _paused;
   bool get connecting => _connecting;
   bool get connected => _connected;
@@ -71,8 +61,6 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get label => _label;
   String get deviceId => _deviceId;
   String get activationId => _activationId;
-  String? get passiveHistoryLastUploadedAt => _passiveHistory.lastUploadedAt;
-  String? get passiveHistoryLastError => _passiveHistory.lastError;
   Map<String, Object?> get status => _status;
 
   Future<void> bootstrap(SharedPreferences prefs) async {
@@ -93,7 +81,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         'primary';
     await prefs.setString(desktopCompanionDeviceIdPrefsKey, _deviceId);
     await prefs.setString(desktopCompanionActivationIdPrefsKey, _activationId);
-    await _passiveHistory.bootstrap(prefs);
   }
 
   Future<void> updateSession({
@@ -104,7 +91,6 @@ class DesktopCompanionManager extends ChangeNotifier {
     _backendUrl = backendUrl.trim();
     _sessionCookie = sessionCookie.trim();
     _authenticated = authenticated;
-    _syncPassiveHistoryRuntimeState();
     if (!_authenticated || !_enabled || _sessionCookie.isEmpty) {
       await disconnect();
       return;
@@ -129,7 +115,6 @@ class DesktopCompanionManager extends ChangeNotifier {
       await disconnect();
       return;
     }
-    _syncPassiveHistoryRuntimeState();
     await _ensureConnected();
   }
 
@@ -138,7 +123,6 @@ class DesktopCompanionManager extends ChangeNotifier {
     _label = normalized;
     await prefs.setString(desktopCompanionLabelPrefsKey, normalized);
     notifyListeners();
-    _syncPassiveHistoryRuntimeState();
     if (_connected) {
       _status = {..._status, 'label': normalized};
       await _sendEvent('statusChanged', <String, Object?>{'label': normalized});
@@ -148,21 +132,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
     _paused = value;
     notifyListeners();
-    _syncPassiveHistoryRuntimeState();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{'paused': value});
-    }
-  }
-
-  Future<void> setPassiveHistoryEnabled(
-    bool value,
-    SharedPreferences prefs,
-  ) async {
-    await _passiveHistory.setEnabled(value, prefs);
-    _syncPassiveHistoryRuntimeState();
-    _mergePassiveHistoryStatus();
-    if (_connected) {
-      await _sendEvent('statusChanged', _passiveHistory.statusPayload());
     }
   }
 
@@ -181,7 +152,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         await socket.close();
       } catch (_) {}
     }
-    _syncPassiveHistoryRuntimeState();
     notifyListeners();
   }
 
@@ -210,9 +180,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       'hostname': _localHostname(),
       'companionEnabled': _enabled,
       'paused': _paused,
-      ..._passiveHistory.statusPayload(),
     };
-    _syncPassiveHistoryRuntimeState();
     notifyListeners();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{
@@ -220,7 +188,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         'capabilities': _status['capabilities'],
         'displays': _status['displays'],
         'activeDisplayId': _status['activeDisplayId'],
-        ..._passiveHistory.statusPayload(),
       });
     }
     return _status;
@@ -280,7 +247,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         paused: _paused,
         activeDisplayId: _activeDisplayId,
       );
-      hello.addAll(_passiveHistory.statusPayload());
       socket.add(
         jsonEncode(<String, Object?>{'type': 'hello', 'device': hello}),
       );
@@ -315,8 +281,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         _status = device is Map
             ? device.map((key, value) => MapEntry(key.toString(), value))
             : const <String, Object?>{};
-        _mergePassiveHistoryStatus();
-        _syncPassiveHistoryRuntimeState();
         _activeDisplayId =
             _status['activeDisplayId']?.toString() ?? _activeDisplayId;
         notifyListeners();
@@ -503,7 +467,6 @@ class DesktopCompanionManager extends ChangeNotifier {
     _socket = null;
     _connecting = false;
     _connected = false;
-    _syncPassiveHistoryRuntimeState();
     notifyListeners();
     _scheduleReconnect();
   }
@@ -518,8 +481,6 @@ class DesktopCompanionManager extends ChangeNotifier {
     _connecting = false;
     _connected = false;
     _enabled = false;
-    _passiveHistory.removeListener(_handlePassiveHistoryChanged);
-    _passiveHistory.dispose();
     final socket = _socket;
     _socket = null;
     if (socket != null) {
@@ -564,31 +525,6 @@ class DesktopCompanionManager extends ChangeNotifier {
         'payload': payload,
       }),
     );
-  }
-
-  void _syncPassiveHistoryRuntimeState() {
-    _passiveHistory.updateRuntimeState(
-      backendUrl: _backendUrl,
-      sessionCookie: _sessionCookie,
-      authenticated: _authenticated,
-      connected: _connected,
-      paused: _paused,
-      deviceId: _deviceId,
-      activationId: _activationId,
-      label: _label,
-    );
-  }
-
-  void _mergePassiveHistoryStatus() {
-    _status = <String, Object?>{..._status, ..._passiveHistory.statusPayload()};
-  }
-
-  void _handlePassiveHistoryChanged() {
-    _mergePassiveHistoryStatus();
-    if (_connected) {
-      unawaited(_sendEvent('statusChanged', _passiveHistory.statusPayload()));
-    }
-    notifyListeners();
   }
 
   Future<Map<String, Object?>> _startStreaming(

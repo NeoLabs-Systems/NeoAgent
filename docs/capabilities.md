@@ -14,7 +14,7 @@ capabilities by workflow instead of maintaining one long inventory.
 
 - [Integrations and messaging](integrations.md)
 - [Devices and interfaces](devices.md)
-- [Recordings and health](recordings-and-health.md)
+- [Health](health.md)
 
 ## Run unattended work
 

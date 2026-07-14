@@ -44,7 +44,7 @@ Some features use separate providers:
 
 - Embeddings for memory search use a configured supported embedding provider
   and fall back to lexical retrieval when embeddings are unavailable.
-- Recording transcription uses Deepgram when enabled.
+- Voice transcription can use Deepgram when enabled.
 - Image generation and analysis depend on the selected provider and model.
 
 ## Credential handling

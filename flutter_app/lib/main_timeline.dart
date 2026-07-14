@@ -34,10 +34,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     Widget buildDetail(StateSetter setPopupState) {
       final selectedEvent = items[selectedIndex];
       void selectOffset(int offset) {
-        final nextIndex = (selectedIndex + offset).clamp(
-          0,
-          items.length - 1,
-        );
+        final nextIndex = (selectedIndex + offset).clamp(0, items.length - 1);
         if (nextIndex == selectedIndex) {
           return;
         }
@@ -129,13 +126,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
           _PageTitle(
             title: 'Timeline',
             subtitle:
-                'Emails, AI actions, recordings, tasks and run activity in one chronological feed.',
+                'Emails, AI actions, tasks and run activity in one chronological feed.',
             trailing: Wrap(
               spacing: 10,
               runSpacing: 10,
               children: <Widget>[
                 for (final filter in const <({String id, String label})>[
-                  (id: 'screen', label: 'Screen'),
                   (id: 'tasks', label: 'Tasks'),
                   (id: 'runs', label: 'Runs'),
                 ])
@@ -150,9 +146,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       _timelineLaneIcon(filter.id),
                       size: 16,
                       color:
-                          controller.selectedTimelineSources.contains(
-                            filter.id,
-                          )
+                          controller.selectedTimelineSources.contains(filter.id)
                           ? _bgSecondary
                           : _sourceColorForKind(filter.id),
                     ),
@@ -915,20 +909,7 @@ List<_TimelineDayGroup> _groupTimelineEvents(List<TimelineEventItem> items) {
 
 List<_TimelineChip> _timelineEventChips(TimelineEventItem item) {
   final chips = <_TimelineChip>[];
-  if (item.sourceKind == 'screen') {
-    final duration = _timelineSpanDuration(item);
-    if (duration != null) {
-      chips.add(_TimelineChip(label: duration, color: _accent));
-    }
-    if (item.appName.trim().isNotEmpty) {
-      chips.add(_TimelineChip(label: item.appName.trim(), color: _info));
-    }
-    if (item.windowTitle.trim().isNotEmpty) {
-      chips.add(
-        _TimelineChip(label: item.windowTitle.trim(), color: _textSecondary),
-      );
-    }
-  } else if (item.sourceKind == 'tasks') {
+  if (item.sourceKind == 'tasks') {
     chips.add(
       _TimelineChip(
         label: _titleCase(item.eventKind.replaceAll('_', ' ')),
@@ -950,7 +931,7 @@ List<_TimelineChip> _timelineEventChips(TimelineEventItem item) {
       chips.add(_TimelineChip(label: 'Run linked', color: _accentAlt));
     }
   }
-  if (item.deviceLabel.trim().isNotEmpty && item.sourceKind != 'screen') {
+  if (item.deviceLabel.trim().isNotEmpty) {
     chips.add(_TimelineChip(label: item.deviceLabel.trim(), color: _info));
   }
   return chips.take(4).toList(growable: false);
@@ -975,26 +956,7 @@ List<_TimelineDetailCell> _timelineDetailCells(TimelineEventItem item) {
     ),
   ];
 
-  if (item.sourceKind == 'screen') {
-    cells.add(
-      _TimelineDetailCell(
-        label: 'DURATION',
-        value: _timelineSpanDuration(item) ?? item.screenSpanLabel,
-      ),
-    );
-    cells.add(
-      _TimelineDetailCell(
-        label: 'APP',
-        value: item.appName.ifEmpty('Unknown app'),
-      ),
-    );
-    cells.add(
-      _TimelineDetailCell(
-        label: 'DEVICE',
-        value: item.deviceLabel.ifEmpty('Desktop'),
-      ),
-    );
-  } else if (item.sourceKind == 'tasks') {
+  if (item.sourceKind == 'tasks') {
     cells.add(
       _TimelineDetailCell(
         label: 'TASK',
@@ -1049,12 +1011,6 @@ List<_TimelineDetailCell> _timelineDetailCells(TimelineEventItem item) {
 
 String _timelineCardDescription(TimelineEventItem item) {
   switch (item.sourceKind) {
-    case 'screen':
-      final preview = item.previewText.trim();
-      if (preview.isNotEmpty) {
-        return preview;
-      }
-      return '${item.deviceLabel.ifEmpty('Desktop')} · ${item.appName.ifEmpty('Unknown app')}';
     case 'tasks':
     case 'runs':
       return item.summary.trim().ifEmpty(
@@ -1066,46 +1022,15 @@ String _timelineCardDescription(TimelineEventItem item) {
 }
 
 String _timelineDetailDescription(TimelineEventItem item) {
-  final body = item.sourceKind == 'screen'
-      ? item.previewText.trim()
-      : item.summary.trim();
+  final body = item.summary.trim();
   if (body.isNotEmpty) {
     return body;
-  }
-  if (item.sourceKind == 'screen') {
-    return '${item.appName.ifEmpty('Unknown app')} on ${item.deviceLabel.ifEmpty('Desktop')}';
   }
   return _titleCase(item.eventKind.replaceAll('_', ' '));
 }
 
-String? _timelineSpanDuration(TimelineEventItem item) {
-  final start = item.startedAt;
-  final end = item.endedAt;
-  if (start == null || end == null) {
-    return null;
-  }
-  final span = end.difference(start);
-  if (span.inSeconds < 60) {
-    return '${span.inSeconds}s';
-  }
-  if (span.inMinutes < 60) {
-    final seconds = span.inSeconds % 60;
-    if (seconds == 0) {
-      return '${span.inMinutes}m';
-    }
-    return '${span.inMinutes}m ${seconds}s';
-  }
-  final minutes = span.inMinutes % 60;
-  if (minutes == 0) {
-    return '${span.inHours}h';
-  }
-  return '${span.inHours}h ${minutes}m';
-}
-
 Color _sourceColorForKind(String kind) {
   switch (kind) {
-    case 'screen':
-      return _accent;
     case 'tasks':
       return _warning;
     case 'runs':
@@ -1166,8 +1091,6 @@ String _weekdayShort(int weekday) {
 
 IconData _timelineLaneIcon(String sourceKind) {
   switch (sourceKind) {
-    case 'screen':
-      return Icons.desktop_windows_outlined;
     case 'tasks':
       return Icons.task_alt_outlined;
     case 'runs':
@@ -1183,47 +1106,28 @@ List<Widget> _timelineDetailBody(
 ) {
   final content = <Widget>[];
 
-  if (item.sourceKind == 'screen') {
-    content.addAll(<Widget>[
-      _TimelineMetaLine(
-        icon: Icons.computer_outlined,
-        text:
-            '${item.deviceLabel.ifEmpty('Desktop')} · ${item.appName.ifEmpty('Unknown app')}',
-      ),
-      if (item.windowTitle.isNotEmpty)
-        _TimelineMetaLine(
-          icon: Icons.web_asset_outlined,
-          text: item.windowTitle,
-        ),
-      _TimelineMetaLine(
-        icon: Icons.schedule_outlined,
-        text: item.screenSpanLabel,
-      ),
-    ]);
-  } else {
+  content.add(
+    _TimelineMetaLine(
+      icon: item.sourceKind == 'tasks'
+          ? Icons.task_alt_outlined
+          : Icons.monitor_heart_outlined,
+      text: _titleCase(item.eventKind.replaceAll('_', ' ')),
+    ),
+  );
+  if (item.runId.isNotEmpty && onOpenRun != null) {
     content.add(
-      _TimelineMetaLine(
-        icon: item.sourceKind == 'tasks'
-            ? Icons.task_alt_outlined
-            : Icons.monitor_heart_outlined,
-        text: _titleCase(item.eventKind.replaceAll('_', ' ')),
-      ),
-    );
-    if (item.runId.isNotEmpty && onOpenRun != null) {
-      content.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: onOpenRun,
-              icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: const Text('Open run'),
-            ),
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onOpenRun,
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('Open run'),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
   return content;
 }

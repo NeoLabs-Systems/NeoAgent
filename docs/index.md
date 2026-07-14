@@ -8,7 +8,7 @@ sidebar_label: Overview
 
 NeoAgent is a self-hosted AI agent that runs continuously on a macOS or Linux
 server. It provides an operator interface for chat, automation, integrations,
-memory, recordings, and connected devices.
+memory, and connected devices.
 
 NeoAgent is beta software. Install it on a machine you administer, start with
 restricted tool permissions, and read the security guide before connecting
@@ -42,7 +42,7 @@ Continue with:
 | [Memory](memory.md) | What NeoAgent remembers and how to manage it |
 | [Integrations](integrations.md) | Connected app accounts and messaging channels |
 | [Devices and interfaces](devices.md) | Android, desktop, Chrome, launcher, and wearable surfaces |
-| [Recordings and health](recordings-and-health.md) | Audio transcription and Health Connect |
+| [Health](health.md) | Health Connect |
 | [Skills and MCP](skills.md) | Reusable instructions and external tool servers |
 | [Operations](operations.md) | Updates, backups, logs, and recovery |
 | [Billing](billing.md) | Stripe subscriptions, plans, trials, and webhooks |

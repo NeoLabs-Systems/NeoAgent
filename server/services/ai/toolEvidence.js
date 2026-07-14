@@ -29,7 +29,7 @@ const EVIDENCE_SOURCE_RULES = [
   { source: 'skills', match: (name) => name.includes('skill') },
   { source: 'tasks', match: (name) => name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget') },
   { source: 'messaging', match: (name) => name === 'send_message' || name === 'make_call' },
-  { source: 'data', match: (name) => name.startsWith('recordings_') || name === 'read_health_data' },
+  { source: 'data', match: (name) => name === 'read_health_data' },
   { source: 'vision', match: (name) => name === 'analyze_image' },
   { source: 'subagent', match: (name) => name.includes('subagent') },
 ];
@@ -55,9 +55,6 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'memory_recall',
     'analyze_image',
     'read_health_data',
-    'recordings_list',
-    'recordings_get',
-    'recordings_search',
     'list_tasks',
     'wait_subagent',
   ]);

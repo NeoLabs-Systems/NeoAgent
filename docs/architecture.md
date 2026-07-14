@@ -36,7 +36,7 @@ bridge files and native Android code where required.
 
 NeoAgent uses one `better-sqlite3` database instance. It stores users, agents,
 settings, conversations, runs, tasks, integration connections, memory,
-recordings, health data, permissions, and operational state.
+health data, permissions, and operational state.
 
 Runtime files live outside the package source under `NEOAGENT_HOME`. Schema
 changes are applied through the migration layer rather than ad hoc service SQL.

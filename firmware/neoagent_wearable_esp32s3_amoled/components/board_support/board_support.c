@@ -1377,88 +1377,6 @@ static void board_create_widget_screen(const char *title, const char *metric, co
     board_load_screen(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
 }
 
-static void board_create_recording_screen(
-    const char *status,
-    const char *headline,
-    const char *detail,
-    bool active,
-    bool busy,
-    const char *timer_text
-) {
-    lv_obj_t *screen = lv_obj_create(NULL);
-    board_style_base_screen(screen);
-    board_create_header(screen, "RECORD");
-
-    lv_obj_t *status_pill = lv_obj_create(screen);
-    lv_obj_set_size(status_pill, 148, 30);
-    lv_obj_set_pos(status_pill, BOARD_UI_CONTENT_X + 42, 58);
-    lv_obj_set_style_radius(status_pill, 15, 0);
-    lv_obj_set_style_bg_color(status_pill, lv_color_hex(0x111a23), 0);
-    lv_obj_set_style_border_width(status_pill, 1, 0);
-    lv_obj_set_style_border_color(status_pill, active ? lv_color_hex(0x6f2c33) : lv_color_hex(0x273746), 0);
-    lv_obj_clear_flag(status_pill, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *status_label = lv_label_create(status_pill);
-    lv_obj_set_style_text_font(status_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(status_label, active ? lv_color_hex(0xffd8da) : lv_color_hex(0xe8bf6e), 0);
-    lv_label_set_text(status_label, status != NULL ? status : "Recording ready");
-    lv_obj_center(status_label);
-
-    lv_obj_t *timer_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(timer_label, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(timer_label, lv_color_hex(0xf2f4f8), 0);
-    lv_label_set_text(timer_label, timer_text != NULL ? timer_text : "00:00");
-    lv_obj_set_pos(timer_label, BOARD_UI_CONTENT_X + 90, 98);
-
-    lv_obj_t *cta_orb = lv_obj_create(screen);
-    lv_obj_set_size(cta_orb, 138, 138);
-    lv_obj_set_pos(cta_orb, BOARD_UI_CONTENT_X + 56, 132);
-    lv_obj_set_style_radius(cta_orb, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(cta_orb, active ? lv_color_hex(0xa63e48) : lv_color_hex(0xe0a908), 0);
-    lv_obj_set_style_bg_grad_color(cta_orb, active ? lv_color_hex(0xa63e48) : lv_color_hex(0xe0a908), 0);
-    lv_obj_set_style_bg_grad_dir(cta_orb, LV_GRAD_DIR_NONE, 0);
-    lv_obj_set_style_border_width(cta_orb, 0, 0);
-    lv_obj_set_style_shadow_width(cta_orb, busy ? 44 : 34, 0);
-    lv_obj_set_style_shadow_opa(cta_orb, LV_OPA_40, 0);
-    lv_obj_set_style_shadow_color(cta_orb, active ? lv_color_hex(0xbb505c) : lv_color_hex(0xf0b310), 0);
-    lv_obj_clear_flag(cta_orb, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *cta_label = lv_label_create(cta_orb);
-    lv_obj_set_width(cta_label, 120);
-    lv_label_set_long_mode(cta_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(cta_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(cta_label, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(cta_label, lv_color_hex(0x101010), 0);
-    lv_label_set_text(cta_label, busy ? "Working..." : (active ? "Stop" : "Start"));
-    lv_obj_center(cta_label);
-
-    lv_obj_t *headline_label = lv_label_create(screen);
-    lv_obj_set_width(headline_label, 178);
-    lv_label_set_long_mode(headline_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(headline_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(headline_label, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(headline_label, lv_color_hex(0xe8eef5), 0);
-    lv_label_set_text(headline_label, headline != NULL ? headline : "Background capture");
-    lv_obj_set_pos(headline_label, BOARD_UI_CONTENT_X + 214, 132);
-
-    if (detail != NULL && detail[0] != '\0') {
-        lv_obj_t *detail_label = lv_label_create(screen);
-        lv_obj_set_width(detail_label, 178);
-        lv_label_set_long_mode(detail_label, LV_LABEL_LONG_WRAP);
-        lv_obj_set_style_text_align(detail_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(detail_label, &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(detail_label, lv_color_hex(0x9fb1c4), 0);
-        lv_label_set_text(detail_label, detail);
-        lv_obj_set_pos(detail_label, BOARD_UI_CONTENT_X + 214, 198);
-    }
-
-    board_create_nav_bar(screen, 2);
-    board_animate_entry(cta_orb);
-
-    s_runtime.qr_screen_active = false;
-    board_load_screen(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
-}
-
 static void board_create_settings_screen(const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset) {
     lv_obj_t *screen = lv_obj_create(NULL);
     board_style_base_screen(screen);
@@ -1852,17 +1770,6 @@ esp_err_t board_support_show_widget_card(board_support_t *board, const char *tit
     return ESP_OK;
 }
 
-esp_err_t board_support_show_recording(board_support_t *board, const char *status, const char *headline, const char *detail, bool active, bool busy, const char *timer_text) {
-    if (board == NULL || !s_runtime.initialized) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    if (!board_lock(1000)) {
-        return ESP_ERR_TIMEOUT;
-    }
-    board_create_recording_screen(status, headline, detail, active, busy, timer_text);
-    board_unlock();
-    return ESP_OK;
-}
 
 esp_err_t board_support_show_settings(board_support_t *board, const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset) {
     if (board == NULL || !s_runtime.initialized) {

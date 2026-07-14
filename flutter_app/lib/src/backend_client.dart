@@ -1800,81 +1800,6 @@ class BackendClient {
     return getList(baseUrl, _withAgentQuery('/api/mcp', agentId));
   }
 
-  Future<List<Map<String, dynamic>>> fetchRecordingSessions(
-    String baseUrl, {
-    int limit = 24,
-  }) async {
-    _log(
-      'recording.fetch_sessions.request',
-      data: <String, Object?>{'limit': limit},
-    );
-    return getList(baseUrl, '/api/recordings?limit=$limit');
-  }
-
-  Future<Map<String, dynamic>> fetchRecordingSession(
-    String baseUrl,
-    String sessionId,
-  ) async {
-    _log(
-      'recording.fetch_session.request',
-      data: <String, Object?>{'sessionId': sessionId},
-    );
-    return getMap(baseUrl, '/api/recordings/$sessionId');
-  }
-
-  Future<Map<String, dynamic>> createRecordingSession(
-    String baseUrl,
-    Map<String, dynamic> payload,
-  ) async {
-    _log(
-      'recording.create.request',
-      data: <String, Object?>{
-        'platform': payload['platform']?.toString(),
-        'sourceCount': (payload['sources'] as List?)?.length ?? 0,
-      },
-    );
-    return postMap(baseUrl, '/api/recordings', payload);
-  }
-
-  Future<Map<String, dynamic>> finalizeRecordingSession(
-    String baseUrl,
-    String sessionId, {
-    String stopReason = 'stopped',
-  }) async {
-    _log(
-      'recording.finalize.request',
-      data: <String, Object?>{'sessionId': sessionId, 'stopReason': stopReason},
-    );
-    return postMap(
-      baseUrl,
-      '/api/recordings/$sessionId/finalize',
-      <String, dynamic>{'stopReason': stopReason},
-    );
-  }
-
-  Future<Map<String, dynamic>> retryRecordingSession(
-    String baseUrl,
-    String sessionId,
-  ) async {
-    return postMap(
-      baseUrl,
-      '/api/recordings/$sessionId/retry',
-      const <String, dynamic>{},
-    );
-  }
-
-  Future<Map<String, dynamic>> deleteRecordingTranscriptSegment(
-    String baseUrl,
-    String sessionId,
-    int segmentId,
-  ) async {
-    return deleteMap(baseUrl, '/api/recordings/$sessionId/segments/$segmentId');
-  }
-
-  Future<void> deleteRecordingSession(String baseUrl, String sessionId) async {
-    await deleteMap(baseUrl, '/api/recordings/$sessionId');
-  }
-
   Future<Map<String, dynamic>> transcribeAudio(
     String baseUrl, {
     required String audioBase64,
@@ -1884,33 +1809,6 @@ class BackendClient {
       baseUrl,
       '/api/voice-assistant/transcribe',
       <String, dynamic>{'audioBase64': audioBase64, 'mimeType': mimeType},
-    );
-  }
-
-  Future<Map<String, dynamic>> runVoiceAssistantTurn(
-    String baseUrl, {
-    required String sessionId,
-    String ttsProvider = 'openai',
-    String ttsVoice = 'alloy',
-    String ttsModel = 'gpt-4o-mini-tts',
-    String? agentId,
-    String? screenshotBase64,
-    String? screenshotMimeType,
-  }) async {
-    final payload = <String, dynamic>{
-      'sessionId': sessionId,
-      'ttsProvider': ttsProvider,
-      'ttsVoice': ttsVoice,
-      'ttsModel': ttsModel,
-      if ((screenshotBase64?.trim().isNotEmpty ?? false))
-        'screenshotBase64': screenshotBase64!.trim(),
-      if ((screenshotMimeType?.trim().isNotEmpty ?? false))
-        'screenshotMimeType': screenshotMimeType!.trim(),
-    };
-    return postMap(
-      baseUrl,
-      _withAgentQuery('/api/voice-assistant/respond', agentId),
-      payload,
     );
   }
 

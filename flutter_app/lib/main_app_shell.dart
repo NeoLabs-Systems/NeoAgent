@@ -2521,8 +2521,6 @@ class _SectionBody extends StatelessWidget {
         return VoiceAssistantPanel(controller: controller);
       case AppSection.devices:
         return DevicesPanel(key: devicesPanelKey, controller: controller);
-      case AppSection.recordings:
-        return RecordingsPanel(controller: controller);
       case AppSection.messaging:
         return MessagingPanel(controller: controller);
       case AppSection.runs:

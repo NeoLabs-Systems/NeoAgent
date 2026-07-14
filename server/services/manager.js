@@ -12,7 +12,6 @@ const { TaskRuntime } = require('./tasks/runtime');
 const { WidgetService } = require('./widgets/service');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
-const { RecordingManager } = require('./recordings/manager');
 const { SocialVideoService } = require('./social_video');
 const { SocialReachService } = require('./social_reach');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
@@ -371,16 +370,6 @@ function createVoiceRuntimeManager(app, io, { agentEngine, memoryManager }) {
   return voiceRuntimeManager;
 }
 
-function createRecordingManager(app, io) {
-  const recordingManager = registerLocal(
-    app,
-    'recordingManager',
-    new RecordingManager(io),
-  );
-  logServiceReady('Recording manager ready');
-  return recordingManager;
-}
-
 function createSocialVideoService(app) {
   const socialVideoService = registerLocal(
     app,
@@ -459,7 +448,6 @@ function configureRealtime(app, io, services) {
     mcpClient: services.mcpClient,
     integrationManager: services.integrationManager,
     taskRuntime: services.taskRuntime,
-    recordingManager: services.recordingManager,
     memoryManager: services.memoryManager,
     voiceRuntimeManager: services.voiceRuntimeManager,
     streamHub: app.locals.streamHub || services.streamHub || null,
@@ -467,12 +455,6 @@ function configureRealtime(app, io, services) {
   });
   app.locals.io = io;
   logServiceReady('WebSocket handlers registered');
-}
-
-function resumePendingRecordingSessions(recordingManager) {
-  void runBackgroundTask('[Recordings] Resume error:', () =>
-    recordingManager.resumePendingSessions(),
-  );
 }
 
 async function startServices(app, io) {
@@ -525,7 +507,6 @@ async function startServices(app, io) {
     });
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
-    const recordingManager = createRecordingManager(app, io);
     createSocialVideoService(app);
     createSocialReachService(app);
     createWidgetService(app);
@@ -550,13 +531,10 @@ async function startServices(app, io) {
       integrationManager,
       mcpClient,
       taskRuntime,
-      recordingManager,
       memoryManager,
       voiceRuntimeManager,
       streamHub: app.locals.streamHub || null,
     });
-
-    resumePendingRecordingSessions(recordingManager);
 
     // Sync billing rate limits for all active subscribers in case any
     // Stripe webhooks were delivered while the server was offline.

@@ -6,15 +6,11 @@ class NeoAgentController extends ChangeNotifier {
     required BackendClient backendClient,
     required HealthBridge healthBridge,
     required WidgetBridge widgetBridge,
-    required RecordingBridge recordingBridge,
     OAuthLauncher? oauthLauncher,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
        _widgetBridge = widgetBridge,
-       _recordingBridge = recordingBridge,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
-    _recordingBridge.onRecordingStopped = _handleRecordingStopped;
-    _recordingBridge.addListener(_handleRecordingBridgeChanged);
     _desktopCompanion.addListener(notifyListeners);
 
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
@@ -33,13 +29,10 @@ class NeoAgentController extends ChangeNotifier {
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final WidgetBridge _widgetBridge;
-  final RecordingBridge _recordingBridge;
   final OAuthLauncher _oauthLauncher;
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
       app_release_updater.AppReleaseUpdater();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
-  final DesktopScreenCapture _desktopScreenCapture =
-      createDesktopScreenCapture();
   final DesktopCompanionManager _desktopCompanion = DesktopCompanionManager(
     screenCapture: createDesktopScreenCapture(),
   );
@@ -106,8 +99,6 @@ class NeoAgentController extends ChangeNotifier {
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
-  bool _desktopFloatingToolbarPopupRequested = false;
-  bool _voiceAssistantIncludeScreenContext = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
@@ -144,7 +135,6 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
   HealthBridgeStatus? deviceHealthStatus;
-  List<RecordingSessionItem> recordingSessions = const <RecordingSessionItem>[];
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
   bool chatHistoryHasMore = false;
@@ -220,8 +210,6 @@ class NeoAgentController extends ChangeNotifier {
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
   String streamingAssistant = '';
-  bool isStartingRecording = false;
-  bool isStoppingRecording = false;
   bool _isStartingLiveVoice = false;
   bool _isStoppingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
@@ -242,24 +230,17 @@ class NeoAgentController extends ChangeNotifier {
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
   bool _desktopAskOnClose = true;
   bool _desktopKeepRunningOnClose = true;
-  bool _desktopAutoShowFloatingToolbar = true;
   bool _desktopAssistantHotkeyEnabled = true;
   bool isRefreshingTimeline = false;
-  Set<String> selectedTimelineSources = <String>{'screen', 'tasks', 'runs'};
+  Set<String> selectedTimelineSources = <String>{'tasks', 'runs'};
 
   bool get desktopCompanionEnabled => _desktopCompanion.enabled;
-  bool get desktopPassiveHistoryEnabled =>
-      _desktopCompanion.passiveHistoryEnabled;
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get desktopCompanionConnected => _desktopCompanion.connected;
   bool get desktopCompanionConnecting => _desktopCompanion.connecting;
   bool get desktopCompanionPaused => _desktopCompanion.paused;
   String get desktopCompanionLabel => _desktopCompanion.label;
   String? get desktopCompanionErrorMessage => _desktopCompanion.errorMessage;
-  String? get desktopPassiveHistoryLastUploadedAt =>
-      _desktopCompanion.passiveHistoryLastUploadedAt;
-  String? get desktopPassiveHistoryLastError =>
-      _desktopCompanion.passiveHistoryLastError;
   String? get requestedRunFocusId => _requestedRunFocusId;
   Map<String, Object?> get desktopCompanionStatus => _desktopCompanion.status;
 
@@ -367,20 +348,14 @@ class NeoAgentController extends ChangeNotifier {
     _appReleaseUpdater.dispose();
     _desktopCompanion.removeListener(notifyListeners);
     unawaited(_desktopCompanion.disconnect());
-    _recordingBridge.removeListener(_handleRecordingBridgeChanged);
-    _recordingBridge.dispose();
     unawaited(_liveVoiceCapture.dispose());
     _oauthLauncher.dispose();
     super.dispose();
   }
 
-  RecordingRuntimeStatus get recordingRuntime => _recordingBridge.status;
-
   bool get desktopAskOnClose => _desktopAskOnClose;
 
   bool get desktopKeepRunningOnClose => _desktopKeepRunningOnClose;
-
-  bool get desktopAutoShowFloatingToolbar => _desktopAutoShowFloatingToolbar;
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
 
@@ -401,15 +376,6 @@ class NeoAgentController extends ChangeNotifier {
     pendingApproval = null;
     notifyListeners();
   }
-
-  bool get desktopFloatingToolbarPopupRequested =>
-      _desktopFloatingToolbarPopupRequested;
-
-  bool get voiceAssistantIncludeScreenContext =>
-      _voiceAssistantIncludeScreenContext;
-
-  bool get canCaptureVoiceAssistantScreenContext =>
-      _desktopScreenCapture.isSupported;
 
   bool get isLiveVoiceCaptureEngaged =>
       _isStartingLiveVoice || _liveVoiceCaptureActive;
@@ -436,53 +402,6 @@ class NeoAgentController extends ChangeNotifier {
     final local = checkedAt.toLocal();
     final minute = local.minute.toString().padLeft(2, '0');
     return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$minute';
-  }
-
-  bool get canStartDesktopRecording =>
-      _supportsDesktopShell &&
-      isAuthenticated &&
-      !isBooting &&
-      !requiresBackendUrlSetup &&
-      backendUrl.trim().isNotEmpty &&
-      !isStartingRecording &&
-      !isLiveVoiceCaptureActive &&
-      !isLiveVoiceCaptureStarting &&
-      !recordingRuntime.active &&
-      recordingRuntime.supportsSystemAudio;
-
-  Map<String, Object?> _recordingRuntimeSnapshot() {
-    final runtime = recordingRuntime;
-    return <String, Object?>{
-      'runtimeActive': runtime.active,
-      'runtimePaused': runtime.paused,
-      'runtimeSessionId': runtime.sessionId,
-      'runtimeStartedAt': runtime.startedAt?.toIso8601String(),
-      'runtimeError': runtime.errorMessage,
-      'runtimeSupportsSystemAudio': runtime.supportsSystemAudio,
-      'runtimeFloatingToolbarVisible': runtime.floatingToolbarVisible,
-      'sessionsLoaded': recordingSessions.length,
-    };
-  }
-
-  void _upsertRecordingSession(RecordingSessionItem session) {
-    final existingIndex = recordingSessions.indexWhere(
-      (item) => item.id == session.id,
-    );
-    if (existingIndex >= 0) {
-      recordingSessions = <RecordingSessionItem>[
-        ...recordingSessions.sublist(0, existingIndex),
-        session,
-        ...recordingSessions.sublist(existingIndex + 1),
-      ];
-      return;
-    }
-    recordingSessions = <RecordingSessionItem>[session, ...recordingSessions];
-  }
-
-  void _removeRecordingSession(String sessionId) {
-    recordingSessions = recordingSessions
-        .where((item) => item.id != sessionId)
-        .toList();
   }
 
   void _appendChatMessage(
@@ -625,141 +544,10 @@ class NeoAgentController extends ChangeNotifier {
     return lowercase ? value.toLowerCase() : value;
   }
 
-  Future<void> _finalizeRecordingSessionQuietly(String? sessionId) async {
-    final trimmed = sessionId?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return;
-    }
-    try {
-      await _backendClient.finalizeRecordingSession(
-        backendUrl,
-        trimmed,
-        stopReason: 'cancelled',
-      );
-    } catch (_) {}
-  }
-
-  Future<void> _startRecordingCapture({
-    required String logKey,
-    required Map<String, dynamic> payload,
-    required Future<void> Function(String sessionId) startCapture,
-  }) async {
-    if (isStartingRecording || recordingRuntime.active) {
-      return;
-    }
-    isStartingRecording = true;
-    errorMessage = null;
-    notifyListeners();
-
-    String? sessionId;
-    try {
-      _logRecording('$logKey.request');
-      final response = await _backendClient.createRecordingSession(
-        backendUrl,
-        payload,
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      sessionId = session.id;
-      _upsertRecordingSession(session);
-      await startCapture(session.id);
-      _logRecording(
-        '$logKey.done',
-        data: <String, Object?>{'sessionId': session.id},
-      );
-      notifyListeners();
-    } catch (error) {
-      _logRecording(
-        '$logKey.failed',
-        data: <String, Object?>{'sessionId': sessionId},
-        error: error,
-      );
-      await _finalizeRecordingSessionQuietly(sessionId);
-      errorMessage = _friendlyErrorMessage(error);
-      await refreshRecordings();
-    } finally {
-      isStartingRecording = false;
-      notifyListeners();
-    }
-  }
-
-  void _logRecording(
-    String event, {
-    Map<String, Object?> data = const <String, Object?>{},
-    Object? error,
-    StackTrace? stackTrace,
-  }) {
-    AppDiagnostics.log(
-      'recording.controller',
-      event,
-      data: <String, Object?>{..._recordingRuntimeSnapshot(), ...data},
-      error: error,
-      stackTrace: stackTrace,
-    );
-  }
-
-  void _logRecordingConsistency(String reason) {
-    final activeSessionId = recordingRuntime.sessionId;
-    RecordingSessionItem? activeSession;
-    if (activeSessionId != null) {
-      for (final session in recordingSessions) {
-        if (session.id == activeSessionId) {
-          activeSession = session;
-          break;
-        }
-      }
-    }
-
-    final serverRecordingCount = recordingSessions
-        .where((session) => session.status == 'recording')
-        .length;
-
-    _logRecording(
-      'consistency.snapshot',
-      data: <String, Object?>{
-        'reason': reason,
-        'activeSessionId': activeSessionId,
-        'activeSessionStatus': activeSession?.status,
-        'serverRecordingCount': serverRecordingCount,
-      },
-    );
-
-    if (!recordingRuntime.active &&
-        activeSession != null &&
-        activeSession.status == 'recording') {
-      _logRecording(
-        'consistency.mismatch_runtime_inactive_server_recording',
-        data: <String, Object?>{
-          'reason': reason,
-          'sessionId': activeSession.id,
-        },
-      );
-    }
-
-    if (recordingRuntime.active &&
-        activeSession != null &&
-        activeSession.status != 'recording') {
-      _logRecording(
-        'consistency.mismatch_runtime_active_server_not_recording',
-        data: <String, Object?>{
-          'reason': reason,
-          'sessionId': activeSession.id,
-          'serverStatus': activeSession.status,
-        },
-      );
-    }
-  }
-
   BlockedSenderNotice? get pendingBlockedSenderNotice =>
       _blockedSenderQueue.isEmpty ? null : _blockedSenderQueue.first;
 
   List<String> get ignoredChats => _ignoredChats.toList();
-
-  void _handleRecordingBridgeChanged() {
-    _logRecording('bridge.changed');
-    notifyListeners();
-  }
 
   static LogEntry _logEntryFromDiagnostic(AppDiagnosticEntry entry) {
     final buffer = StringBuffer('[${entry.area}] ${entry.event}');
@@ -812,33 +600,6 @@ class NeoAgentController extends ChangeNotifier {
         : merged;
   }
 
-  Future<void> _handleRecordingStopped(String sessionId) async {
-    _logRecording(
-      'bridge.on_recording_stopped',
-      data: <String, Object?>{'sessionId': sessionId},
-    );
-    try {
-      await _backendClient.finalizeRecordingSession(
-        backendUrl,
-        sessionId,
-        stopReason: 'ended',
-      );
-      _logRecording(
-        'finalize.ok',
-        data: <String, Object?>{'sessionId': sessionId, 'stopReason': 'ended'},
-      );
-      await refreshRecordings();
-    } catch (error) {
-      _logRecording(
-        'finalize.failed',
-        data: <String, Object?>{'sessionId': sessionId, 'stopReason': 'ended'},
-        error: error,
-      );
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
     _ignoredChats.addAll(
@@ -853,14 +614,9 @@ class NeoAgentController extends ChangeNotifier {
     _desktopAskOnClose = _prefs?.getBool('desktop.askOnClose') ?? true;
     _desktopKeepRunningOnClose =
         _prefs?.getBool('desktop.keepRunningOnClose') ?? true;
-    _desktopAutoShowFloatingToolbar =
-        _prefs?.getBool('desktop.autoShowFloatingToolbar') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
     _restoreSelectedSectionFromPrefs();
-    _voiceAssistantIncludeScreenContext =
-        (_prefs?.getBool('voiceAssistant.includeScreenContext') ?? false) &&
-        canCaptureVoiceAssistantScreenContext;
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
         ? 'beta'
@@ -917,7 +673,6 @@ class NeoAgentController extends ChangeNotifier {
       _backendClient.clearSessionCookie();
     }
 
-    await _recordingBridge.refreshStatus();
     notifyListeners();
 
     if (appUpdaterConfigured &&
@@ -1598,20 +1353,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    final recordingSessionId = recordingRuntime.sessionId;
-    if (recordingRuntime.active && recordingSessionId != null) {
-      try {
-        await _recordingBridge.stopActiveRecording();
-        if (!recordingRuntime.supportsBackgroundMic) {
-          await _backendClient.finalizeRecordingSession(
-            backendUrl,
-            recordingSessionId,
-            stopReason: 'ended',
-          );
-        }
-      } catch (_) {}
-    }
-
     final logoutFuture = _backendClient.logout(backendUrl);
     _authCycle += 1;
     _clearAuthenticatedState();
@@ -1728,7 +1469,6 @@ class NeoAgentController extends ChangeNotifier {
     androidUiDumpPath = null;
     versionInfo = null;
     backendHealthStatus = null;
-    recordingSessions = const <RecordingSessionItem>[];
     activeRun = null;
     toolEvents = const <ToolEventItem>[];
     streamingAssistant = '';
@@ -2310,9 +2050,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchMcpServers(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
-      final recordingsFuture = _backendClient
-          .fetchRecordingSessions(backendUrl)
-          .catchError((_) => const <Map<String, dynamic>>[]);
       unawaited(checkBillingEnabled());
       final browserFuture = _backendClient
           .fetchBrowserStatus(backendUrl)
@@ -2373,7 +2110,6 @@ class NeoAgentController extends ChangeNotifier {
       final tasksResponse = await tasksFuture;
       final widgetsResponse = await widgetsFuture;
       final mcpResponse = await mcpFuture;
-      final recordingsResponse = await recordingsFuture;
       final browserResponse = await browserFuture;
       final socialReachResponse = await socialReachFuture;
       final browserExtensionResponse = await browserExtensionFuture;
@@ -2467,11 +2203,6 @@ class NeoAgentController extends ChangeNotifier {
         mcpResponse,
         McpServerItem.fromJson,
       );
-      recordingSessions = _decodeModelList(
-        'recordings',
-        recordingsResponse,
-        RecordingSessionItem.fromJson,
-      );
       browserRuntime = Map<String, dynamic>.from(browserResponse);
       socialReachStatus = Map<String, dynamic>.from(socialReachResponse);
       browserExtensionStatus = Map<String, dynamic>.from(
@@ -2494,10 +2225,6 @@ class NeoAgentController extends ChangeNotifier {
         desktopRuntime['devices'],
         fallbackToMapValues: true,
       );
-      await _recordingBridge.refreshStatus();
-      if (!_isCurrentAuthCycle(authCycle)) {
-        return;
-      }
       deviceHealthStatus = await _healthBridge.getStatus();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
@@ -2845,69 +2572,6 @@ class NeoAgentController extends ChangeNotifier {
       McpServerItem.fromJson,
     );
     notifyListeners();
-  }
-
-  Future<void> refreshRecordings() async {
-    _logRecording('refresh.request');
-    recordingSessions = _decodeModelList(
-      'recordings',
-      await _backendClient.fetchRecordingSessions(backendUrl),
-      RecordingSessionItem.fromJson,
-    );
-    await _recordingBridge.refreshStatus();
-    _logRecording(
-      'refresh.done',
-      data: <String, Object?>{
-        'sessionStatuses': recordingSessions
-            .take(5)
-            .map((item) => '${item.id}:${item.status}')
-            .join(','),
-      },
-    );
-    _logRecordingConsistency('refreshRecordings');
-    notifyListeners();
-  }
-
-  Future<void> _refreshRecordingSessionById(String sessionId) async {
-    final trimmed = sessionId.trim();
-    if (trimmed.isEmpty || !isAuthenticated) {
-      return;
-    }
-
-    try {
-      _logRecording(
-        'refresh_by_id.request',
-        data: <String, Object?>{'sessionId': trimmed},
-      );
-      final response = await _backendClient.fetchRecordingSession(
-        backendUrl,
-        trimmed,
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      _upsertRecordingSession(session);
-
-      await _recordingBridge.refreshStatus();
-      _logRecording(
-        'refresh_by_id.done',
-        data: <String, Object?>{
-          'sessionId': trimmed,
-          'status': session.status,
-          'endedAt': session.endedAt?.toIso8601String(),
-        },
-      );
-      _logRecordingConsistency('refreshRecordingSessionById');
-      notifyListeners();
-    } catch (error) {
-      _logRecording(
-        'refresh_by_id.fallback_full_refresh',
-        data: <String, Object?>{'sessionId': trimmed},
-        error: error,
-      );
-      // Session may have been pruned or unavailable; fall back to full refresh.
-      await refreshRecordings();
-    }
   }
 
   Future<void> refreshDevices() async {
@@ -3769,25 +3433,6 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
-  Uri resolveRecordingSourceAudioUri(String sessionId, String sourceKey) {
-    final encodedSessionId = Uri.encodeComponent(sessionId);
-    final encodedSourceKey = Uri.encodeComponent(sourceKey);
-    return resolveRuntimeAsset(
-      '/api/recordings/$encodedSessionId/audio/$encodedSourceKey',
-    );
-  }
-
-  Future<Uint8List> fetchRecordingSourceAudioBytes(
-    String sessionId,
-    String sourceKey,
-  ) {
-    final encodedSessionId = Uri.encodeComponent(sessionId);
-    final encodedSourceKey = Uri.encodeComponent(sourceKey);
-    return fetchRuntimeAssetBytes(
-      '/api/recordings/$encodedSessionId/audio/$encodedSourceKey',
-    );
-  }
-
   Future<Uint8List> fetchRuntimeAssetBytes(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.fetchBinary(
@@ -3804,153 +3449,6 @@ class NeoAgentController extends ChangeNotifier {
     return <String, String>{'Cookie': cookie};
   }
 
-  Future<void> startWebRecording() async {
-    await _startRecordingCapture(
-      logKey: 'start_web',
-      payload: buildWebScreenAndMicRecordingPayload(),
-      startCapture: (sessionId) => _recordingBridge.startWebRecording(
-        baseUrl: backendUrl,
-        sessionId: sessionId,
-      ),
-    );
-  }
-
-  Future<void> startWebMicrophoneRecording() async {
-    await _startRecordingCapture(
-      logKey: 'start_web_mic_only',
-      payload: buildWebMicrophoneRecordingPayload(),
-      startCapture: (sessionId) => _recordingBridge.startWebMicrophoneRecording(
-        baseUrl: backendUrl,
-        sessionId: sessionId,
-      ),
-    );
-  }
-
-  Future<void> startBackgroundRecording() async {
-    await _startRecordingCapture(
-      logKey: 'start_background',
-      payload: buildAndroidBackgroundRecordingPayload(),
-      startCapture: (sessionId) => _recordingBridge.startBackgroundRecording(
-        baseUrl: backendUrl,
-        sessionCookie: _backendClient.sessionCookie ?? '',
-        sessionId: sessionId,
-      ),
-    );
-  }
-
-  Future<void> startDesktopRecording() async {
-    if (isLiveVoiceCaptureActive || isLiveVoiceCaptureStarting) {
-      errorMessage =
-          'Finish assistant push-to-talk before starting desktop recording.';
-      notifyListeners();
-      return;
-    }
-    if (!canStartDesktopRecording) {
-      if (!isAuthenticated || requiresBackendUrlSetup) {
-        errorMessage =
-            'Sign in and finish backend setup before starting desktop recording.';
-        notifyListeners();
-      }
-      return;
-    }
-    await _startRecordingCapture(
-      logKey: 'start_desktop',
-      payload: buildDesktopRecordingPayload(),
-      startCapture: (sessionId) => _recordingBridge.startDesktopAudioRecording(
-        baseUrl: backendUrl,
-        sessionCookie: _backendClient.sessionCookie ?? '',
-        sessionId: sessionId,
-        autoShowToolbar: _desktopAutoShowFloatingToolbar,
-      ),
-    );
-  }
-
-  Future<void> pauseBackgroundRecording() async {
-    try {
-      _logRecording('pause_background.request');
-      await _recordingBridge.pauseBackgroundRecording();
-      _logRecording('pause_background.done');
-    } catch (error) {
-      _logRecording('pause_background.failed', error: error);
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> resumeBackgroundRecording() async {
-    try {
-      _logRecording('resume_background.request');
-      await _recordingBridge.resumeBackgroundRecording();
-      _logRecording('resume_background.done');
-    } catch (error) {
-      _logRecording('resume_background.failed', error: error);
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> pauseDesktopRecording() async {
-    try {
-      _logRecording('pause_desktop.request');
-      await _recordingBridge.pauseDesktopRecording();
-      _logRecording('pause_desktop.done');
-    } catch (error) {
-      _logRecording('pause_desktop.failed', error: error);
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> resumeDesktopRecording() async {
-    try {
-      _logRecording('resume_desktop.request');
-      await _recordingBridge.resumeDesktopRecording();
-      _logRecording('resume_desktop.done');
-    } catch (error) {
-      _logRecording('resume_desktop.failed', error: error);
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> showDesktopFloatingToolbar() async {
-    try {
-      _desktopFloatingToolbarPopupRequested = true;
-      await _recordingBridge.showFloatingToolbar();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> hideDesktopFloatingToolbar() async {
-    try {
-      _desktopFloatingToolbarPopupRequested = false;
-      await _recordingBridge.hideFloatingToolbar();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> openDesktopMicrophoneSettings() async {
-    try {
-      await _recordingBridge.openMicrophoneSettings();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> openDesktopSystemAudioSettings() async {
-    try {
-      await _recordingBridge.openSystemAudioSettings();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
   Future<void> setDesktopClosePreference({
     required bool askOnClose,
     required bool keepRunningOnClose,
@@ -3959,12 +3457,6 @@ class NeoAgentController extends ChangeNotifier {
     _desktopKeepRunningOnClose = keepRunningOnClose;
     await _prefs?.setBool('desktop.askOnClose', askOnClose);
     await _prefs?.setBool('desktop.keepRunningOnClose', keepRunningOnClose);
-    notifyListeners();
-  }
-
-  Future<void> setDesktopAutoShowFloatingToolbar(bool value) async {
-    _desktopAutoShowFloatingToolbar = value;
-    await _prefs?.setBool('desktop.autoShowFloatingToolbar', value);
     notifyListeners();
   }
 
@@ -4014,19 +3506,6 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> setDesktopPassiveHistoryEnabled(bool value) async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-    try {
-      await _desktopCompanion.setPassiveHistoryEnabled(value, prefs);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
   Future<void> rotateDesktopCompanionIdentity() async {
     final prefs = _prefs;
     if (prefs == null) {
@@ -4059,302 +3538,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
-  }
-
-  Future<void> setVoiceAssistantIncludeScreenContext(bool value) async {
-    _voiceAssistantIncludeScreenContext =
-        value && canCaptureVoiceAssistantScreenContext;
-    await _prefs?.setBool(
-      'voiceAssistant.includeScreenContext',
-      _voiceAssistantIncludeScreenContext,
-    );
-    notifyListeners();
-  }
-
-  Future<void> toggleVoiceAssistantScreenContext() {
-    return setVoiceAssistantIncludeScreenContext(
-      !voiceAssistantIncludeScreenContext,
-    );
-  }
-
-  void acknowledgeDesktopFloatingToolbarPopupRequest() {
-    _desktopFloatingToolbarPopupRequested = false;
-  }
-
-  Future<Map<String, String>> _captureVoiceAssistantScreenshotPayload() async {
-    if (!_voiceAssistantIncludeScreenContext ||
-        !canCaptureVoiceAssistantScreenContext) {
-      return const <String, String>{};
-    }
-
-    try {
-      final capture = await _desktopScreenCapture.captureCurrentScreen();
-      if (capture == null || capture.bytes.isEmpty) {
-        return const <String, String>{};
-      }
-      final optimized = _optimizeVoiceAssistantScreenshotPayload(capture);
-      if (optimized == null) {
-        AppDiagnostics.log(
-          'desktop.assistant',
-          'screen_capture.optimize_failed',
-          data: <String, Object?>{
-            'mimeType': capture.mimeType,
-            'originalByteLength': capture.bytes.length,
-          },
-        );
-        return const <String, String>{};
-      }
-      AppDiagnostics.log(
-        'desktop.assistant',
-        'screen_capture.success',
-        data: <String, Object?>{
-          'mimeType': optimized.mimeType,
-          'byteLength': optimized.bytes.length,
-          'originalByteLength': capture.bytes.length,
-          'resizedOrReencoded': optimized.resizedOrReencoded,
-        },
-      );
-      return <String, String>{
-        'screenshotMimeType': optimized.mimeType,
-        'screenshotBase64': base64Encode(optimized.bytes),
-      };
-    } catch (error, stackTrace) {
-      AppDiagnostics.log(
-        'desktop.assistant',
-        'screen_capture.failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return const <String, String>{};
-    }
-  }
-
-  Future<Map<String, String>> buildVoiceAssistantContextPayload() async {
-    return _captureVoiceAssistantScreenshotPayload();
-  }
-
-  _OptimizedScreenshotPayload? _optimizeVoiceAssistantScreenshotPayload(
-    DesktopScreenCaptureResult capture,
-  ) {
-    final sourceBytes = Uint8List.fromList(capture.bytes);
-    final sourceMime = _normalizeScreenshotMimeType(capture.mimeType);
-    final decoded = img.decodeImage(sourceBytes);
-    if (decoded == null) {
-      if (sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
-        return _OptimizedScreenshotPayload(
-          bytes: sourceBytes,
-          mimeType: sourceMime,
-          resizedOrReencoded: false,
-        );
-      }
-      return null;
-    }
-
-    var workingImage = decoded;
-    var transformed = false;
-    if (workingImage.width > _voiceAssistantScreenshotMaxDimension ||
-        workingImage.height > _voiceAssistantScreenshotMaxDimension) {
-      final scale = math.min(
-        _voiceAssistantScreenshotMaxDimension / workingImage.width,
-        _voiceAssistantScreenshotMaxDimension / workingImage.height,
-      );
-      final nextWidth = math.max(1, (workingImage.width * scale).round());
-      final nextHeight = math.max(1, (workingImage.height * scale).round());
-      workingImage = img.copyResize(
-        workingImage,
-        width: nextWidth,
-        height: nextHeight,
-        interpolation: img.Interpolation.average,
-      );
-      transformed = true;
-    }
-
-    if (!transformed &&
-        sourceBytes.length <= _voiceAssistantScreenshotMaxBytes) {
-      return _OptimizedScreenshotPayload(
-        bytes: sourceBytes,
-        mimeType: sourceMime,
-        resizedOrReencoded: false,
-      );
-    }
-
-    final qualitySteps = <int>[84, 74, 64, 54, 46, 40];
-    var bestBytes = Uint8List(0);
-    for (var pass = 0; pass < qualitySteps.length; pass += 1) {
-      final encoded = Uint8List.fromList(
-        img.encodeJpg(workingImage, quality: qualitySteps[pass]),
-      );
-      if (bestBytes.isEmpty || encoded.length < bestBytes.length) {
-        bestBytes = encoded;
-      }
-      if (encoded.length <= _voiceAssistantScreenshotMaxBytes) {
-        return _OptimizedScreenshotPayload(
-          bytes: encoded,
-          mimeType: 'image/jpeg',
-          resizedOrReencoded: true,
-        );
-      }
-      if (pass % 2 == 1) {
-        final nextWidth = math.max(1, (workingImage.width * 0.85).round());
-        final nextHeight = math.max(1, (workingImage.height * 0.85).round());
-        if (nextWidth == workingImage.width &&
-            nextHeight == workingImage.height) {
-          continue;
-        }
-        workingImage = img.copyResize(
-          workingImage,
-          width: nextWidth,
-          height: nextHeight,
-          interpolation: img.Interpolation.average,
-        );
-      }
-    }
-
-    if (bestBytes.isNotEmpty &&
-        bestBytes.length <= _voiceAssistantScreenshotMaxBytes) {
-      return _OptimizedScreenshotPayload(
-        bytes: bestBytes,
-        mimeType: 'image/jpeg',
-        resizedOrReencoded: true,
-      );
-    }
-    return null;
-  }
-
-  String _normalizeScreenshotMimeType(String mimeType) {
-    final normalized = mimeType.trim().toLowerCase();
-    if (normalized.startsWith('image/')) {
-      return normalized;
-    }
-    return 'image/png';
-  }
-
-  Future<void> stopRecording({String stopReason = 'stopped'}) async {
-    final sessionId = recordingRuntime.sessionId;
-    if (sessionId == null || isStoppingRecording) {
-      return;
-    }
-    final isAndroidBackgroundStop =
-        recordingRuntime.supportsBackgroundMic &&
-        !recordingRuntime.supportsScreenAndMic;
-    isStoppingRecording = true;
-    errorMessage = null;
-    _logRecording(
-      'stop.request',
-      data: <String, Object?>{
-        'sessionId': sessionId,
-        'isAndroidBackgroundStop': isAndroidBackgroundStop,
-      },
-    );
-    notifyListeners();
-    try {
-      _desktopFloatingToolbarPopupRequested = false;
-      await _recordingBridge.stopActiveRecording();
-      if (isAndroidBackgroundStop) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-      } else {
-        await _backendClient.finalizeRecordingSession(
-          backendUrl,
-          sessionId,
-          stopReason: stopReason,
-        );
-      }
-      await refreshRecordings();
-      _logRecording(
-        'stop.done',
-        data: <String, Object?>{'sessionId': sessionId},
-      );
-    } catch (error) {
-      _logRecording(
-        'stop.failed',
-        data: <String, Object?>{
-          'sessionId': sessionId,
-          'isAndroidBackgroundStop': isAndroidBackgroundStop,
-        },
-        error: error,
-      );
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    } finally {
-      isStoppingRecording = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> retryRecording(String sessionId) async {
-    try {
-      await _backendClient.retryRecordingSession(backendUrl, sessionId);
-      await refreshRecordings();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> deleteRecordingSegment(String sessionId, int segmentId) async {
-    try {
-      errorMessage = null;
-      final response = await _backendClient.deleteRecordingTranscriptSegment(
-        backendUrl,
-        sessionId,
-        segmentId,
-      );
-      final session = RecordingSessionItem.fromJson(
-        _jsonMap(response['session']),
-      );
-      _upsertRecordingSession(session);
-      notifyListeners();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> deleteRecordingSession(String sessionId) async {
-    try {
-      errorMessage = null;
-      await _backendClient.deleteRecordingSession(backendUrl, sessionId);
-      _removeRecordingSession(sessionId);
-      notifyListeners();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<VoiceAssistantTurnResult> runVoiceAssistantTurn({
-    required String sessionId,
-    String? ttsProvider,
-    String? ttsVoice,
-    String? ttsModel,
-  }) async {
-    final screenshotPayload = await buildVoiceAssistantContextPayload();
-    final response = await _backendClient.runVoiceAssistantTurn(
-      backendUrl,
-      sessionId: sessionId,
-      ttsProvider:
-          ttsProvider?.trim().ifEmpty(voiceTtsProvider) ?? voiceTtsProvider,
-      ttsVoice: ttsVoice?.trim().ifEmpty(voiceTtsVoice) ?? voiceTtsVoice,
-      ttsModel: ttsModel?.trim().ifEmpty(voiceTtsModel) ?? voiceTtsModel,
-      agentId: _scopedAgentId,
-      screenshotBase64: screenshotPayload['screenshotBase64'],
-      screenshotMimeType: screenshotPayload['screenshotMimeType'],
-    );
-
-    final result = VoiceAssistantTurnResult.fromJson(response);
-    _upsertRecordingSession(result.session);
-
-    if (result.transcript.trim().isNotEmpty) {
-      _appendUserChatMessage(result.transcript, platform: 'voice_assistant');
-    }
-    if (result.replyText.trim().isNotEmpty) {
-      _appendAssistantChatMessage(
-        result.replyText,
-        platform: 'voice_assistant',
-      );
-    }
-    notifyListeners();
-    return result;
   }
 
   Future<bool> _ensureSocketReady({
@@ -4556,11 +3739,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> startLiveVoiceCapture() async {
-    if (recordingRuntime.active || isStartingRecording || isStoppingRecording) {
-      throw StateError(
-        'Stop recording before starting the assistant push-to-talk flow.',
-      );
-    }
     if (_isStartingLiveVoice || _isStoppingLiveVoice) {
       return;
     }
@@ -4726,7 +3904,6 @@ class NeoAgentController extends ChangeNotifier {
         );
         return;
       }
-      final screenshotPayload = await buildVoiceAssistantContextPayload();
       AppDiagnostics.log(
         'desktop.assistant',
         'ptt.capture_committing',
@@ -4737,12 +3914,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       _liveVoiceFinalSequence = _liveVoiceBufferedChunks.length - 1;
       _liveVoiceCommitPending = true;
-      _liveVoicePendingCommitPayload = <String, dynamic>{
-        if ((screenshotPayload['screenshotBase64'] ?? '').isNotEmpty)
-          'screenshotBase64': screenshotPayload['screenshotBase64'],
-        if ((screenshotPayload['screenshotMimeType'] ?? '').isNotEmpty)
-          'screenshotMimeType': screenshotPayload['screenshotMimeType'],
-      };
+      _liveVoicePendingCommitPayload = <String, dynamic>{};
       _setLiveVoiceRecoveryWindow();
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         state: 'transcribing',
@@ -4992,10 +4164,6 @@ class NeoAgentController extends ChangeNotifier {
     required String defaultChatModel,
     required String defaultSubagentModel,
     required String defaultSpeechModel,
-    required String defaultRecordingTranscriptionProvider,
-    required String defaultRecordingTranscriptionModel,
-    required String defaultRecordingSummaryProvider,
-    required String defaultRecordingSummaryModel,
     required String fallbackModel,
     required String voiceSttProvider,
     required String voiceSttModel,
@@ -5025,12 +4193,6 @@ class NeoAgentController extends ChangeNotifier {
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
       'default_speech_model': defaultSpeechModel,
-      'default_recording_transcription_provider':
-          defaultRecordingTranscriptionProvider,
-      'default_recording_transcription_model':
-          defaultRecordingTranscriptionModel,
-      'default_recording_summary_provider': defaultRecordingSummaryProvider,
-      'default_recording_summary_model': defaultRecordingSummaryModel,
       'fallback_model_id': fallbackModel,
       'voice_stt_provider': voiceSttProvider,
       'voice_stt_model': voiceSttModel,
@@ -6812,24 +5974,6 @@ class NeoAgentController extends ChangeNotifier {
   String get defaultSpeechModel =>
       settings['default_speech_model']?.toString() ?? 'auto';
 
-  String get defaultRecordingTranscriptionModel =>
-      settings['default_recording_transcription_model']?.toString() ?? 'nova-3';
-
-  String get defaultRecordingTranscriptionProvider => _settingString(
-    'default_recording_transcription_provider',
-    'deepgram',
-    lowercase: true,
-  );
-
-  String get defaultRecordingSummaryModel =>
-      settings['default_recording_summary_model']?.toString() ?? 'auto';
-
-  String get defaultRecordingSummaryProvider => _settingString(
-    'default_recording_summary_provider',
-    'auto',
-    lowercase: true,
-  );
-
   String get fallbackModel =>
       settings['fallback_model_id']?.toString() ??
       _firstAvailableModelId(supportedModels);
@@ -7172,15 +6316,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage =
           payload['error']?.toString() ?? 'Messaging error. Please try again.';
       notifyListeners();
-    });
-    socket.on('recordings:updated', (dynamic data) {
-      final payload = _jsonMap(data);
-      final sessionId = payload['sessionId']?.toString() ?? '';
-      if (sessionId.isEmpty) {
-        unawaited(refreshRecordings());
-        return;
-      }
-      unawaited(_refreshRecordingSessionById(sessionId));
     });
     socket.on('timeline:updated', (dynamic _) {
       unawaited(refreshTimeline());

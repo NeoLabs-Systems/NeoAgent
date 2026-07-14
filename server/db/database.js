@@ -406,9 +406,6 @@ db.exec(`
     session_id INTEGER,
     last_connected_at TEXT,
     last_seen_at TEXT,
-    passive_history_enabled INTEGER DEFAULT 0,
-    passive_history_last_uploaded_at TEXT,
-    passive_history_last_error TEXT,
     revoked_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -948,94 +945,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_health_metric_samples_user ON health_metric_samples(user_id, metric_type, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_health_metric_samples_time ON health_metric_samples(user_id, start_time DESC, end_time DESC);
 
-  CREATE TABLE IF NOT EXISTS recording_sessions (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    title TEXT,
-    platform TEXT DEFAULT 'unknown',
-    status TEXT DEFAULT 'recording',
-    transcript_text TEXT,
-    transcript_language TEXT,
-    transcript_model TEXT,
-    structured_content_json TEXT,
-    started_at TEXT DEFAULT (datetime('now')),
-    ended_at TEXT,
-    duration_ms INTEGER DEFAULT 0,
-    last_error TEXT,
-    metadata_json TEXT DEFAULT '{}',
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS recording_sources (
-    id TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL,
-    source_key TEXT NOT NULL,
-    source_kind TEXT NOT NULL,
-    media_kind TEXT NOT NULL,
-    mime_type TEXT,
-    status TEXT DEFAULT 'recording',
-    chunk_count INTEGER DEFAULT 0,
-    bytes_received INTEGER DEFAULT 0,
-    duration_ms INTEGER DEFAULT 0,
-    metadata_json TEXT DEFAULT '{}',
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (session_id) REFERENCES recording_sessions(id) ON DELETE CASCADE,
-    UNIQUE(session_id, source_key)
-  );
-
-  CREATE TABLE IF NOT EXISTS recording_chunks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_id TEXT NOT NULL,
-    sequence_index INTEGER NOT NULL,
-    start_ms INTEGER DEFAULT 0,
-    end_ms INTEGER DEFAULT 0,
-    byte_count INTEGER DEFAULT 0,
-    mime_type TEXT,
-    file_path TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (source_id) REFERENCES recording_sources(id) ON DELETE CASCADE,
-    UNIQUE(source_id, sequence_index)
-  );
-
-  CREATE TABLE IF NOT EXISTS recording_transcript_segments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL,
-    source_id TEXT,
-    source_key TEXT,
-    speaker TEXT,
-    text TEXT NOT NULL,
-    start_ms INTEGER DEFAULT 0,
-    end_ms INTEGER DEFAULT 0,
-    confidence REAL,
-    words_json TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (session_id) REFERENCES recording_sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_id) REFERENCES recording_sources(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_recording_sessions_user ON recording_sessions(user_id, created_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_recording_sources_session ON recording_sources(session_id, source_key);
-  CREATE INDEX IF NOT EXISTS idx_recording_chunks_source ON recording_chunks(source_id, sequence_index);
-  CREATE INDEX IF NOT EXISTS idx_recording_segments_session ON recording_transcript_segments(session_id, start_ms, created_at);
-
-  CREATE TABLE IF NOT EXISTS screen_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    timestamp TEXT DEFAULT (datetime('now')),
-    captured_at TEXT,
-    device_id TEXT,
-    device_label TEXT,
-    app_name TEXT,
-    window_title TEXT,
-    text_content TEXT,
-    ocr_engine TEXT,
-    ocr_confidence REAL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
   CREATE TABLE IF NOT EXISTS timeline_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -1075,7 +984,6 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
-  CREATE INDEX IF NOT EXISTS idx_screen_history_user ON screen_history(user_id, timestamp DESC);
   CREATE INDEX IF NOT EXISTS idx_notification_history_user ON notification_history(user_id, timestamp DESC);
   CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
   CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
@@ -1105,6 +1013,7 @@ db.exec(`
 `);
 
 runSchemaMigrations(db);
+fs.rmSync(path.join(DATA_DIR, 'recordings'), { recursive: true, force: true });
 
 function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
   const normalizedReason = String(reason || STALE_RUN_INTERRUPTED_ERROR).trim()
@@ -1159,29 +1068,6 @@ interruptStaleAgentRuns();
 
 try {
   db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS screen_history_fts USING fts5(
-      text_content,
-      app_name,
-      timestamp UNINDEXED,
-      user_id UNINDEXED,
-      tokenize = 'porter unicode61'
-    );
-
-    CREATE TRIGGER IF NOT EXISTS screen_history_fts_ai AFTER INSERT ON screen_history BEGIN
-      INSERT INTO screen_history_fts(rowid, text_content, app_name, timestamp, user_id)
-      VALUES (new.id, COALESCE(new.text_content, ''), COALESCE(new.app_name, ''), new.timestamp, new.user_id);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS screen_history_fts_ad AFTER DELETE ON screen_history BEGIN
-      DELETE FROM screen_history_fts WHERE rowid = old.id;
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS screen_history_fts_au AFTER UPDATE ON screen_history BEGIN
-      DELETE FROM screen_history_fts WHERE rowid = old.id;
-      INSERT INTO screen_history_fts(rowid, text_content, app_name, timestamp, user_id)
-      VALUES (new.id, COALESCE(new.text_content, ''), COALESCE(new.app_name, ''), new.timestamp, new.user_id);
-    END;
-
     CREATE VIRTUAL TABLE IF NOT EXISTS conversation_history_fts USING fts5(
       content,
       role UNINDEXED,
@@ -1330,10 +1216,6 @@ for (const col of [
   "ALTER TABLE conversations ADD COLUMN working_state_json TEXT",
   "ALTER TABLE conversations ADD COLUMN last_verified_facts_json TEXT",
   "ALTER TABLE conversations ADD COLUMN last_summary TEXT",
-  "ALTER TABLE recording_sessions ADD COLUMN transcript_language TEXT",
-  "ALTER TABLE recording_sessions ADD COLUMN transcript_model TEXT",
-  "ALTER TABLE recording_sessions ADD COLUMN duration_ms INTEGER DEFAULT 0",
-  "ALTER TABLE recording_sessions ADD COLUMN structured_content_json TEXT",
   "ALTER TABLE artifacts ADD COLUMN metadata_json TEXT DEFAULT '{}'",
   "ALTER TABLE desktop_companion_devices ADD COLUMN activation_id TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN app_version TEXT",
@@ -1348,17 +1230,8 @@ for (const col of [
   "ALTER TABLE desktop_companion_devices ADD COLUMN session_id INTEGER",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_connected_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_enabled INTEGER DEFAULT 0",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_uploaded_at TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN passive_history_last_error TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
   "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
-  "ALTER TABLE screen_history ADD COLUMN captured_at TEXT",
-  "ALTER TABLE screen_history ADD COLUMN device_id TEXT",
-  "ALTER TABLE screen_history ADD COLUMN device_label TEXT",
-  "ALTER TABLE screen_history ADD COLUMN window_title TEXT",
-  "ALTER TABLE screen_history ADD COLUMN ocr_engine TEXT",
-  "ALTER TABLE screen_history ADD COLUMN ocr_confidence REAL",
   "ALTER TABLE memory_facts ADD COLUMN valid_from TEXT",
   "ALTER TABLE memory_facts ADD COLUMN valid_to TEXT",
   "ALTER TABLE memory_facts ADD COLUMN learned_at TEXT",
@@ -1387,11 +1260,6 @@ function createLegacyCompatibleIndexes() {
       table: 'desktop_companion_devices',
       columns: ['user_id', 'status', 'created_at'],
       sql: 'CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC)',
-    },
-    {
-      table: 'screen_history',
-      columns: ['user_id', 'device_id', 'captured_at'],
-      sql: 'CREATE INDEX IF NOT EXISTS idx_screen_history_device ON screen_history(user_id, device_id, captured_at DESC)',
     },
   ];
 

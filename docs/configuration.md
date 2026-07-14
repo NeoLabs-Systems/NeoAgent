@@ -49,7 +49,7 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible base URL override |
 | `OLLAMA_URL` | Ollama server URL |
 | `BRAVE_SEARCH_API_KEY` | Web search |
-| `DEEPGRAM_API_KEY` | Recording transcription |
+| `DEEPGRAM_API_KEY` | Voice transcription |
 | `DEEPGRAM_BASE_URL` | Deepgram-compatible base URL override |
 | `DEEPGRAM_MODEL` | Speech model |
 | `DEEPGRAM_LANGUAGE` | Speech language mode |

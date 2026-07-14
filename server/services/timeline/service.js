@@ -2,7 +2,6 @@
 
 const db = require('../../db/database');
 
-const DEFAULT_SCREEN_SESSION_GAP_MS = 5 * 60 * 1000;
 const DEFAULT_FEED_LIMIT = 50;
 const MAX_FEED_LIMIT = 200;
 const DEFAULT_PROMPT_CONTEXT_LIMIT = 6;
@@ -78,9 +77,6 @@ class TimelineService {
   constructor(options = {}) {
     this.db = options.db || db;
     this.io = options.io || null;
-    this.screenSessionGapMs = Number(
-      options.screenSessionGapMs || DEFAULT_SCREEN_SESSION_GAP_MS,
-    );
   }
 
   _emitUpdated(userId) {
@@ -316,231 +312,11 @@ class TimelineService {
     return item;
   }
 
-  storeScreenEntries({
-    userId,
-    deviceId,
-    deviceLabel = '',
-    entries = [],
-    ocrEngine = 'local_tesseract',
-  }) {
-    const normalizedDeviceId = String(deviceId || '').trim();
-    const normalizedDeviceLabel = normalizeText(deviceLabel, 180);
-    const normalizedEntries = Array.isArray(entries)
-      ? entries
-          .map((entry) => ({
-            capturedAt: normalizeTimestamp(entry?.capturedAt),
-            appName: normalizeText(entry?.frontmostApp || entry?.appName, 180),
-            windowTitle: normalizeText(entry?.windowTitle, 240),
-            text: normalizeText(entry?.text, 8000),
-            ocrConfidence: Number.isFinite(Number(entry?.ocrConfidence))
-              ? Number(entry.ocrConfidence)
-              : null,
-          }))
-          .filter((entry) => entry.text.length > 0)
-          .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt))
-      : [];
-
-    if (!normalizedDeviceId) {
-      throw new Error('deviceId is required.');
-    }
-    if (normalizedEntries.length === 0) {
-      return { insertedCount: 0, timelineItems: [] };
-    }
-
-    const batchDedupKeys = new Set();
-    const findExistingEntry = this.db.prepare(
-      `SELECT id
-       FROM screen_history
-       WHERE user_id = ?
-         AND captured_at = ?
-         AND device_id = ?
-         AND COALESCE(app_name, '') = ?
-         AND COALESCE(window_title, '') = ?
-         AND text_content = ?
-       LIMIT 1`
-    );
-
-    const tx = this.db.transaction(() => {
-      const timelineItems = [];
-      let insertedCount = 0;
-      for (const entry of normalizedEntries) {
-        const dedupKey = JSON.stringify([
-          entry.capturedAt,
-          normalizedDeviceId,
-          entry.appName,
-          entry.windowTitle,
-          entry.text,
-        ]);
-        if (batchDedupKeys.has(dedupKey)) {
-          continue;
-        }
-        batchDedupKeys.add(dedupKey);
-        const existing = findExistingEntry.get(
-          userId,
-          entry.capturedAt,
-          normalizedDeviceId,
-          entry.appName || '',
-          entry.windowTitle || '',
-          entry.text,
-        );
-        if (existing) {
-          continue;
-        }
-        const insert = this.db.prepare(
-          `INSERT INTO screen_history (
-             user_id, timestamp, captured_at, device_id, device_label, app_name, window_title, text_content, ocr_engine, ocr_confidence
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).run(
-          userId,
-          entry.capturedAt,
-          entry.capturedAt,
-          normalizedDeviceId,
-          normalizedDeviceLabel || null,
-          entry.appName || null,
-          entry.windowTitle || null,
-          entry.text,
-          ocrEngine,
-          entry.ocrConfidence,
-        );
-        insertedCount += 1;
-        const screenHistoryId = Number(insert.lastInsertRowid);
-        const timelineItem = this._upsertScreenSession({
-          userId,
-          deviceId: normalizedDeviceId,
-          deviceLabel: normalizedDeviceLabel,
-          screenHistoryId,
-          capturedAt: entry.capturedAt,
-          appName: entry.appName,
-          windowTitle: entry.windowTitle,
-          text: entry.text,
-          ocrConfidence: entry.ocrConfidence,
-        });
-        if (timelineItem) {
-          timelineItems.push(timelineItem);
-        }
-      }
-      return {
-        insertedCount,
-        timelineItems,
-      };
-    });
-
-    const result = tx();
-    this._emitUpdated(userId);
-    return result;
-  }
-
-  _upsertScreenSession({
-    userId,
-    deviceId,
-    deviceLabel,
-    screenHistoryId,
-    capturedAt,
-    appName,
-    windowTitle,
-    text,
-    ocrConfidence,
-  }) {
-    const groupKey = JSON.stringify([
-      String(deviceId || '').trim(),
-      normalizeText(appName, 180),
-      normalizeText(windowTitle, 240),
-    ]);
-    const latest = this.db.prepare(
-      `SELECT id, occurred_at, title, summary, group_key, metadata_json
-       FROM timeline_events
-       WHERE user_id = ? AND source_kind = 'screen'
-       ORDER BY occurred_at DESC, id DESC
-       LIMIT 1`
-    ).get(userId);
-    const previewText = normalizeText(text, 280);
-    const title = windowTitle
-      ? `${appName || 'Screen activity'} · ${windowTitle}`
-      : (appName || 'Screen activity');
-    const summary = previewText || (deviceLabel || deviceId);
-    const occurredMs = new Date(capturedAt).getTime();
-
-    if (latest && latest.group_key === groupKey) {
-      const latestMs = new Date(String(latest.occurred_at || '')).getTime();
-      if (
-        Number.isFinite(occurredMs)
-        && Number.isFinite(latestMs)
-        && (occurredMs - latestMs) <= this.screenSessionGapMs
-      ) {
-        const metadata = parseJson(latest.metadata_json, {});
-        const entryCount = Number(metadata.entryCount || 0) + 1;
-        const nextMetadata = {
-          ...metadata,
-          deviceId,
-          deviceLabel: deviceLabel || metadata.deviceLabel || null,
-          appName: appName || metadata.appName || null,
-          windowTitle: windowTitle || metadata.windowTitle || null,
-          startedAt: metadata.startedAt || capturedAt,
-          endedAt: capturedAt,
-          entryCount,
-          previewText: previewText || metadata.previewText || '',
-          lastScreenHistoryId: screenHistoryId,
-          lastOcrConfidence: ocrConfidence,
-        };
-        this.db.prepare(
-          `UPDATE timeline_events
-           SET occurred_at = ?, title = ?, summary = ?, source_id = ?, metadata_json = ?
-           WHERE id = ?`
-        ).run(
-          capturedAt,
-          normalizeText(title, 240),
-          normalizeText(summary, 1000),
-          String(screenHistoryId),
-          safeJson(nextMetadata),
-          latest.id,
-        );
-        const row = this.db.prepare(
-          `SELECT id, user_id, agent_id, source_kind, event_kind, occurred_at, title, summary, source_id, group_key, metadata_json
-           FROM timeline_events
-           WHERE id = ?`
-        ).get(latest.id);
-        return row ? toFeedItem(row) : null;
-      }
-    }
-
-    return this._insertEvent({
-      userId,
-      sourceKind: 'screen',
-      eventKind: 'screen_session',
-      occurredAt: capturedAt,
-      title,
-      summary,
-      sourceId: String(screenHistoryId),
-      groupKey,
-      metadata: {
-        deviceId,
-        deviceLabel: deviceLabel || null,
-        appName: appName || null,
-        windowTitle: windowTitle || null,
-        startedAt: capturedAt,
-        endedAt: capturedAt,
-        entryCount: 1,
-        previewText,
-        lastScreenHistoryId: screenHistoryId,
-        lastOcrConfidence: ocrConfidence,
-      },
-    });
-  }
-
   _formatPromptLine(item) {
     const metadata = item.metadata && typeof item.metadata === 'object'
       ? item.metadata
       : {};
     const when = formatPromptTimestamp(item.occurredAt);
-    if (item.sourceKind === 'screen') {
-      const detail = [
-        metadata.deviceLabel || metadata.deviceId || 'Desktop',
-        metadata.appName || 'Unknown app',
-        metadata.windowTitle || null,
-      ].filter(Boolean).join(' · ');
-      const preview = normalizeText(metadata.previewText || item.summary, 160);
-      return `- [screen ${when}] ${detail}${preview ? ` — ${preview}` : ''}`;
-    }
     if (item.sourceKind === 'tasks') {
       const taskName = normalizeText(metadata.taskName || item.title, 120) || item.title;
       const runId = normalizeText(metadata.runId, 80);

@@ -32,9 +32,6 @@ function isReadOnlyToolCall(toolCall) {
     'list_tasks',
     'list_skills',
     'list_subagents',
-    'recordings_list',
-    'recordings_get',
-    'recordings_search',
     'read_health_data',
   ]);
   if (name === 'http_request') {

@@ -133,19 +133,13 @@ const _socialReachSettingsSection = _SettingsSection('social reach', <String>[
   'cookies',
 ]);
 
-const _voiceRecordingSettingsSection = _SettingsSection(
-  'voice recording',
-  <String>[
-    'voice',
-    'recording',
-    'transcription',
-    'summary',
-    'speech',
-    'tts',
-    'stt',
-    'live',
-  ],
-);
+const _voiceSettingsSection = _SettingsSection('voice', <String>[
+  'voice',
+  'speech',
+  'tts',
+  'stt',
+  'live',
+]);
 
 const _desktopSettingsSection = _SettingsSection('desktop', <String>[
   'desktop',
@@ -182,7 +176,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _workspaceSettingsSection,
   _socialReachSettingsSection,
   _modelsSettingsSection,
-  _voiceRecordingSettingsSection,
+  _voiceSettingsSection,
   _desktopSettingsSection,
   _securitySettingsSection,
   _diagnosticsSettingsSection,
@@ -198,8 +192,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
-  late String _defaultRecordingTranscriptionModel;
-  late String _defaultRecordingSummaryModel;
   late String _fallbackModel;
   late String _defaultSpeechModel;
   late String _voiceLiveProvider;
@@ -273,9 +265,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
-    _defaultRecordingTranscriptionModel =
-        controller.defaultRecordingTranscriptionModel;
-    _defaultRecordingSummaryModel = controller.defaultRecordingSummaryModel;
     _fallbackModel = controller.fallbackModel;
     _defaultSpeechModel = controller.defaultSpeechModel;
     _voiceLiveProvider = controller.voiceLiveProvider;
@@ -370,8 +359,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           if (!widget.embedded)
             _PageTitle(
               title: 'Settings',
-              subtitle:
-                  'Workspace, models, recording, and diagnostics controls.',
+              subtitle: 'Workspace, models, and diagnostics controls.',
               trailing: _settingsSaveButton(controller),
             )
           else
@@ -442,9 +430,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ],
           if (_matchesSettingsSection(
             searchQuery,
-            _voiceRecordingSettingsSection,
+            _voiceSettingsSection,
           )) ...<Widget>[
-            _buildVoiceAndRecordingSection(
+            _buildVoiceSection(
               controller: controller,
               modelChoices: modelChoices,
               routingModels: routingModels,
@@ -520,13 +508,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
       defaultSubagentModel: _defaultSubagentModel,
-      defaultRecordingTranscriptionProvider: 'deepgram',
-      defaultRecordingTranscriptionModel: _defaultRecordingTranscriptionModel,
-      defaultRecordingSummaryProvider: _providerForSelectedModel(
-        _defaultRecordingSummaryModel,
-        controller.supportedModels,
-      ),
-      defaultRecordingSummaryModel: _defaultRecordingSummaryModel,
       fallbackModel: _fallbackModel,
       defaultSpeechModel: _defaultSpeechModel,
       voiceSttProvider: controller.voiceSttProvider,
@@ -587,7 +568,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Overview'),
             const SizedBox(height: 10),
             Text(
-              'Configure workspace behavior, models, and recording defaults.',
+              'Configure workspace behavior and model defaults.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -1389,7 +1370,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _buildVoiceAndRecordingSection({
+  Widget _buildVoiceSection({
     required NeoAgentController controller,
     required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
@@ -1402,76 +1383,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Voice & Recording'),
+            const _SectionTitle('Voice'),
             const SizedBox(height: 10),
             Text(
-              'Defaults for transcription, summaries, and live voice.',
+              'Defaults for speech processing and live voice.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Recording Defaults',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 940;
-                final cardWidth = compact
-                    ? constraints.maxWidth
-                    : (constraints.maxWidth - 12) / 2;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: <Widget>[
-                    SizedBox(
-                      width: cardWidth,
-                      child: _RoutingSelectCard(
-                        label: 'Recording Summary',
-                        icon: Icons.summarize_outlined,
-                        value: _ensureModelValue(
-                          _defaultRecordingSummaryModel,
-                          routingModels,
-                          allowAuto: true,
-                        ),
-                        options: modelChoices,
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _defaultRecordingSummaryModel = value;
-                              _hasUnsavedChanges = true;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _RoutingSelectCard(
-                        label: 'Recording Transcription',
-                        icon: Icons.hearing_outlined,
-                        value: _defaultRecordingTranscriptionModel,
-                        options: _recordingTranscriptionOptions(
-                          _defaultRecordingTranscriptionModel,
-                        ),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _defaultRecordingTranscriptionModel = value;
-                              _hasUnsavedChanges = true;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const Divider(height: 32),
             Text(
               'Speech Processing',
               style: TextStyle(
@@ -1630,7 +1548,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const _SectionTitle('Desktop'),
             const SizedBox(height: 10),
             Text(
-              'Desktop-only recording and companion controls for this computer.',
+              'Desktop-only companion controls for this computer.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1656,16 +1574,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ),
             SwitchListTile.adaptive(
-              value: controller.desktopAutoShowFloatingToolbar,
-              contentPadding: EdgeInsets.zero,
-              title: Text('Auto-show floating toolbar'),
-              subtitle: Text(
-                'Open the compact recording bar automatically whenever a desktop studio session starts.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: controller.setDesktopAutoShowFloatingToolbar,
-            ),
-            SwitchListTile.adaptive(
               value: controller.desktopAssistantHotkeyEnabled,
               contentPadding: EdgeInsets.zero,
               title: Text('Reserve assistant hotkey'),
@@ -1673,24 +1581,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 'Register $_desktopAssistantHotkeyLabel so the desktop shell is ready for the upcoming voice assistant summon flow.',
                 style: TextStyle(color: _textSecondary),
               ),
-              onChanged: controller.recordingRuntime.supportsGlobalHotkeys
-                  ? controller.setDesktopAssistantHotkeyEnabled
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _RecordingPermissionBadge(
-                  label: 'Microphone',
-                  state: controller.recordingRuntime.microphonePermission,
-                ),
-                _RecordingPermissionBadge(
-                  label: 'System audio',
-                  state: controller.recordingRuntime.systemAudioPermission,
-                ),
-              ],
+              onChanged: controller.setDesktopAssistantHotkeyEnabled,
             ),
             const Divider(height: 32),
             Text(
@@ -1721,18 +1612,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
               onChanged: controller.desktopCompanionEnabled
                   ? controller.setDesktopCompanionPaused
-                  : null,
-            ),
-            SwitchListTile.adaptive(
-              value: controller.desktopPassiveHistoryEnabled,
-              contentPadding: EdgeInsets.zero,
-              title: Text('Passive screen history on this computer'),
-              subtitle: Text(
-                'Capture OCR text plus app/window context locally for the user-wide Timeline. Screenshots stay transient and are not uploaded.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: controller.desktopCompanionEnabled
-                  ? controller.setDesktopPassiveHistoryEnabled
                   : null,
             ),
             const SizedBox(height: 12),
@@ -1769,49 +1648,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ? _warning
                       : _success,
                 ),
-                _DotStatus(
-                  label: controller.desktopPassiveHistoryEnabled
-                      ? 'History enabled'
-                      : 'History disabled',
-                  color: controller.desktopPassiveHistoryEnabled
-                      ? _accent
-                      : _textMuted,
-                ),
               ],
             ),
-            if (controller.desktopPassiveHistoryLastUploadedAt != null ||
-                controller.desktopPassiveHistoryLastError != null) ...<Widget>[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _bgSecondary.withValues(alpha: 0.66),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _borderLight),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (controller.desktopPassiveHistoryLastUploadedAt
-                        case final uploadedAt?)
-                      Text(
-                        'Last upload: ${_formatTimestamp(DateTime.parse(uploadedAt))}',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                    if (controller.desktopPassiveHistoryLastError
-                        case final passiveError?)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Last error: $passiveError',
-                          style: TextStyle(color: _danger),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
             if (controller.desktopCompanionErrorMessage
                 case final message?) ...<Widget>[
               const SizedBox(height: 12),
@@ -2089,18 +1927,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  String _providerForSelectedModel(String modelId, List<ModelMeta> models) {
-    if (modelId.trim().isEmpty || modelId == 'auto') {
-      return 'auto';
-    }
-    for (final model in models) {
-      if (model.id == modelId) {
-        return model.provider.trim().isEmpty ? 'auto' : model.provider;
-      }
-    }
-    return 'auto';
-  }
-
   Map<String, dynamic> _buildProviderPayload() {
     final providerIds = <String>{
       ...widget.controller.aiProviders.map((provider) => provider.id),
@@ -2169,14 +1995,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ],
       ),
     );
-  }
-
-  List<_ModelPickerOption> _recordingTranscriptionOptions(String current) {
-    const List<String> defaults = <String>['nova-3', 'nova-2-general'];
-    final String normalizedCurrent = current.trim();
-    final Set<String> values = <String>{...defaults};
-    if (normalizedCurrent.isNotEmpty) values.add(normalizedCurrent);
-    return _simplePickerOptions(values.toList());
   }
 
   // Shared helper: small "Test" button + inline result row.

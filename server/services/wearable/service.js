@@ -113,10 +113,6 @@ class WearableService {
           'voice:error',
         ],
       },
-      recordings: {
-        basePath: '/api/recordings',
-        voiceAssistantRespondPath: '/api/voice-assistant/respond',
-      },
       firmware: await this.buildFirmwareManifest(req),
       version,
       user: {
@@ -127,7 +123,6 @@ class WearableService {
         qrPairing: true,
         widgets: true,
         voice: true,
-        recordings: true,
         otaManifest: true,
       },
     };

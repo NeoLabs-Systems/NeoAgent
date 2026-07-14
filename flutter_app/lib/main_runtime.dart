@@ -23,24 +23,16 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   Timer? _assistantHotKeyHoldTimer;
   bool _desktopShellInitialized = false;
   bool _handlingDesktopClose = false;
-  bool _desktopToolbarWindowMode = false;
   bool _desktopAssistantPopupWindowMode = false;
-  bool _syncingDesktopPresentation = false;
   bool _assistantHotKeyPressed = false;
   bool _assistantHotKeyHandledAsHold = false;
   bool _assistantPttActive = false;
-  bool _desktopAssistantBlockedHintVisible = false;
   bool _desktopAssistantReturnToHidden = false;
-  bool _desktopToolbarReturnToHidden = false;
   Rect? _desktopNormalWindowBounds;
 
-  static const Size _desktopToolbarWindowSize = Size(840, 128);
   static const Size _desktopAssistantPopupWindowSize = Size(460, 112);
   static const Duration _desktopAssistantHoldThreshold = Duration(
     milliseconds: 220,
-  );
-  static const Duration _desktopAssistantBlockedHintDuration = Duration(
-    milliseconds: 1400,
   );
 
   @override
@@ -52,7 +44,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       backendClient: backendClient,
       healthBridge: HealthBridge(),
       widgetBridge: WidgetBridge(),
-      recordingBridge: createRecordingBridge(),
     )..bootstrap();
     _webAppUpdateMonitor = createWebAppUpdateMonitor()..start();
     _controller.addListener(_handleControllerChanged);
@@ -155,80 +146,12 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     }
     await _syncTrayMenu();
     await _syncAssistantHotkey();
-    await _syncDesktopPresentation();
-  }
-
-  Future<void> _syncDesktopPresentation() async {
-    if (_syncingDesktopPresentation) {
-      return;
-    }
-    _syncingDesktopPresentation = true;
-    try {
-      final runtime = _controller.recordingRuntime;
-      if (_desktopAssistantPopupWindowMode) {
-        return;
-      }
-      final isWindowVisible = await windowManager.isVisible();
-      if (_desktopToolbarWindowMode &&
-          (!runtime.active || !runtime.floatingToolbarVisible)) {
-        await _restoreMainWindowPresentation(
-          hideAfterRestore: _desktopToolbarReturnToHidden,
-          focusWindow: false,
-        );
-        _desktopToolbarReturnToHidden = false;
-        return;
-      }
-      if (!_desktopToolbarWindowMode &&
-          runtime.active &&
-          runtime.supportsFloatingToolbar &&
-          runtime.floatingToolbarVisible &&
-          (_controller.desktopFloatingToolbarPopupRequested ||
-              !isWindowVisible)) {
-        await _showDetachedToolbarWindow(
-          focusWindow:
-              _controller.desktopFloatingToolbarPopupRequested ||
-              isWindowVisible,
-        );
-        _controller.acknowledgeDesktopFloatingToolbarPopupRequest();
-      }
-    } finally {
-      _syncingDesktopPresentation = false;
-    }
   }
 
   Future<void> _syncTrayMenu() async {
-    final runtime = _controller.recordingRuntime;
-    final isRecordingActive = runtime.active;
-    final pauseLabel = runtime.paused ? 'Resume' : 'Pause';
-    final toolbarLabel = runtime.floatingToolbarVisible
-        ? 'Hide floating bar'
-        : 'Show floating bar';
     _trayMenu = Menu(
       items: <MenuItem>[
         MenuItem(key: 'open', label: 'Open'),
-        MenuItem(
-          key: 'start_recording',
-          label: 'Start recording',
-          disabled: isRecordingActive || !_controller.canStartDesktopRecording,
-        ),
-        MenuItem(
-          key: 'pause_resume_recording',
-          label: pauseLabel,
-          disabled: !isRecordingActive,
-        ),
-        MenuItem(
-          key: 'stop_recording',
-          label: 'Stop',
-          disabled: !isRecordingActive,
-        ),
-        MenuItem.separator(),
-        MenuItem(
-          key: 'toggle_toolbar',
-          label: toolbarLabel,
-          disabled:
-              !_controller.recordingRuntime.supportsFloatingToolbar ||
-              !isRecordingActive,
-        ),
         MenuItem(key: 'open_voice_assistant', label: 'Open voice assistant'),
         MenuItem.separator(),
         MenuItem(key: 'quit', label: 'Quit'),
@@ -238,9 +161,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   }
 
   Future<void> _syncAssistantHotkey() async {
-    final shouldRegister =
-        _controller.desktopAssistantHotkeyEnabled &&
-        _controller.recordingRuntime.supportsGlobalHotkeys;
+    final shouldRegister = _controller.desktopAssistantHotkeyEnabled;
     if (!shouldRegister) {
       if (_assistantHotKey != null) {
         await hotKeyManager.unregister(_assistantHotKey!);
@@ -278,7 +199,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _assistantHotKeyPressed = true;
     _assistantHotKeyHandledAsHold = false;
     _assistantPttActive = false;
-    _desktopAssistantBlockedHintVisible = false;
     _assistantHotKeyHoldTimer?.cancel();
     _assistantHotKeyHoldTimer = Timer(
       _desktopAssistantHoldThreshold,
@@ -291,7 +211,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _assistantHotKeyHoldTimer?.cancel();
     if (_assistantHotKeyHandledAsHold) {
       _assistantHotKeyHandledAsHold = false;
-      _desktopAssistantBlockedHintVisible = false;
       if (_assistantPttActive ||
           _controller.isLiveVoiceCaptureStarting ||
           _controller.isLiveVoiceCaptureActive) {
@@ -314,12 +233,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (!_assistantHotKeyPressed) {
       return;
     }
-    _desktopAssistantBlockedHintVisible = false;
     _assistantHotKeyHandledAsHold = true;
-    if (_controller.recordingRuntime.active) {
-      await _showAssistantBlockedHint();
-      return;
-    }
     try {
       await _showAssistantPopupWindow();
       await _controller.startLiveVoiceCapture();
@@ -332,19 +246,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         error: error,
         stackTrace: stackTrace,
       );
-      await _hideAssistantPopupWindow();
-    }
-  }
-
-  Future<void> _showAssistantBlockedHint() async {
-    _desktopAssistantBlockedHintVisible = true;
-    await _showAssistantPopupWindow();
-    if (mounted) {
-      setState(() {});
-    }
-    await Future<void>.delayed(_desktopAssistantBlockedHintDuration);
-    if (_desktopAssistantBlockedHintVisible) {
-      _desktopAssistantBlockedHintVisible = false;
       await _hideAssistantPopupWindow();
     }
   }
@@ -363,31 +264,15 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   }
 
   Future<void> _openMainWindow() async {
-    if (_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode) {
+    if (_desktopAssistantPopupWindowMode) {
       await _restoreMainWindowPresentation();
     }
-    _controller.acknowledgeDesktopFloatingToolbarPopupRequest();
-    _desktopToolbarReturnToHidden = false;
     await windowManager.show();
     await windowManager.focus();
   }
 
   Future<void> _hideMainWindow() async {
-    final runtime = _controller.recordingRuntime;
     if (_desktopAssistantPopupWindowMode) {
-      await _restoreMainWindowPresentation(
-        hideAfterRestore: true,
-        focusWindow: false,
-      );
-      return;
-    }
-    if (runtime.active &&
-        runtime.supportsFloatingToolbar &&
-        runtime.floatingToolbarVisible) {
-      await _showDetachedToolbarWindow(focusWindow: false);
-      return;
-    }
-    if (_desktopToolbarWindowMode) {
       await _restoreMainWindowPresentation(
         hideAfterRestore: true,
         focusWindow: false,
@@ -397,54 +282,12 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     await windowManager.hide();
   }
 
-  Future<void> _showDetachedToolbarWindow({required bool focusWindow}) async {
-    final runtime = _controller.recordingRuntime;
-    if (!runtime.active || !runtime.supportsFloatingToolbar) {
-      return;
-    }
-    final isVisible = await windowManager.isVisible();
-    _desktopToolbarReturnToHidden =
-        !isVisible &&
-        !_desktopToolbarWindowMode &&
-        !_desktopAssistantPopupWindowMode;
-    if (!_desktopToolbarWindowMode && !_desktopAssistantPopupWindowMode) {
-      _desktopNormalWindowBounds = await windowManager.getBounds();
-    }
-    if (mounted &&
-        (!_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
-      setState(() {
-        _desktopToolbarWindowMode = true;
-        _desktopAssistantPopupWindowMode = false;
-      });
-    }
-    await windowManager.setTitle('NeoAgent');
-    await windowManager.setBackgroundColor(Colors.transparent);
-    await windowManager.setTitleBarStyle(
-      TitleBarStyle.hidden,
-      windowButtonVisibility: false,
-    );
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
-      await windowManager.setHasShadow(false);
-    }
-    await windowManager.setResizable(false);
-    await windowManager.setAlwaysOnTop(true);
-    await windowManager.setSkipTaskbar(true);
-    await windowManager.setSize(_desktopToolbarWindowSize);
-    await windowManager.center();
-    await windowManager.show(inactive: !focusWindow);
-    if (focusWindow) {
-      await windowManager.focus();
-    }
-  }
-
   Future<void> _restoreMainWindowPresentation({
     bool hideAfterRestore = false,
     bool focusWindow = true,
   }) async {
-    if (mounted &&
-        (_desktopToolbarWindowMode || _desktopAssistantPopupWindowMode)) {
+    if (mounted && _desktopAssistantPopupWindowMode) {
       setState(() {
-        _desktopToolbarWindowMode = false;
         _desktopAssistantPopupWindowMode = false;
       });
     }
@@ -476,13 +319,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   Future<void> _showAssistantPopupWindow() async {
     final isVisible = await windowManager.isVisible();
     _desktopAssistantReturnToHidden = !isVisible;
-    if (!_desktopToolbarWindowMode && !_desktopAssistantPopupWindowMode) {
+    if (!_desktopAssistantPopupWindowMode) {
       _desktopNormalWindowBounds = await windowManager.getBounds();
     }
-    if (mounted &&
-        (!_desktopAssistantPopupWindowMode || _desktopToolbarWindowMode)) {
+    if (mounted && !_desktopAssistantPopupWindowMode) {
       setState(() {
-        _desktopToolbarWindowMode = false;
         _desktopAssistantPopupWindowMode = true;
       });
     }
@@ -508,7 +349,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     if (!_desktopAssistantPopupWindowMode) {
       return;
     }
-    _desktopAssistantBlockedHintVisible = false;
     final shouldHideWindow = _desktopAssistantReturnToHidden;
     _desktopAssistantReturnToHidden = false;
     await _restoreMainWindowPresentation(
@@ -532,9 +372,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   }
 
   Future<void> _toggleAssistantPopupCaptureFromUi() async {
-    if (_desktopAssistantBlockedHintVisible) {
-      return;
-    }
     try {
       _assistantPttActive = !_controller.isLiveVoiceCaptureEngaged;
       await _controller.toggleLiveVoiceCapture();
@@ -568,11 +405,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}'
             '|refresh:${_controller.isRefreshing}'
             '|section:${_controller.selectedSection.name}'
-            '|toolbarMode:$_desktopToolbarWindowMode'
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
-            '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}'
-            '|assistantBlockedHint:$_desktopAssistantBlockedHintVisible';
+            '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
           _navigatorKey = GlobalKey<NavigatorState>();
@@ -591,8 +426,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             return Stack(
               children: <Widget>[
                 if (child != null) child,
-                if (!_desktopToolbarWindowMode &&
-                    !_desktopAssistantPopupWindowMode &&
+                if (!_desktopAssistantPopupWindowMode &&
                     _controller.showOfflineBanner)
                   Positioned(
                     top: 0,
@@ -613,8 +447,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                       ),
                     ),
                   ),
-                if (!_desktopToolbarWindowMode &&
-                    !_desktopAssistantPopupWindowMode &&
+                if (!_desktopAssistantPopupWindowMode &&
                     _webAppUpdateMonitor.isSupported &&
                     _webAppUpdateMonitor.updateAvailable)
                   Positioned(
@@ -636,26 +469,16 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                       ),
                     ),
                   ),
-                if (_supportsDesktopShell &&
-                    !_desktopToolbarWindowMode &&
-                    !_desktopAssistantPopupWindowMode)
-                  _DesktopFloatingToolbar(controller: _controller),
               ],
             );
           },
           home: _desktopAssistantPopupWindowMode
               ? _DesktopAssistantPopupShell(
                   controller: _controller,
-                  blockedHintVisible: _desktopAssistantBlockedHintVisible,
                   onPrimaryAction: _toggleAssistantPopupCaptureFromUi,
                   onCancel: _cancelAssistantPopupFromUi,
                 )
-              : (_desktopToolbarWindowMode
-                    ? _DetachedDesktopFloatingToolbarShell(
-                        controller: _controller,
-                        onOpenMainWindow: _openMainWindow,
-                      )
-                    : NeoAgentRoot(controller: _controller)),
+              : NeoAgentRoot(controller: _controller),
         );
       },
     );
@@ -675,28 +498,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     switch (key) {
       case 'open':
         unawaited(_openMainWindow());
-        break;
-      case 'start_recording':
-        if (_controller.canStartDesktopRecording) {
-          unawaited(_controller.startDesktopRecording());
-        }
-        break;
-      case 'pause_resume_recording':
-        if (_controller.recordingRuntime.paused) {
-          unawaited(_controller.resumeDesktopRecording());
-        } else {
-          unawaited(_controller.pauseDesktopRecording());
-        }
-        break;
-      case 'stop_recording':
-        unawaited(_controller.stopRecording());
-        break;
-      case 'toggle_toolbar':
-        if (_controller.recordingRuntime.floatingToolbarVisible) {
-          unawaited(_controller.hideDesktopFloatingToolbar());
-        } else {
-          unawaited(_controller.showDesktopFloatingToolbar());
-        }
         break;
       case 'open_voice_assistant':
         unawaited(_openMainWindow());
