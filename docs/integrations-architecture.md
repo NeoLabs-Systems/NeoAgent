@@ -35,6 +35,12 @@ chunks.
 Provider snapshots shown in the client are decorated with ingestion coverage
 and status.
 
+NeoRecall is intentionally queried on demand instead of being copied into
+NeoAgent memory. Its integration uses a dynamic public OAuth client with PKCE,
+rotating refresh tokens, and read-only scopes. The available tools call
+NeoRecall's local hybrid search and evidence APIs; they cannot access audio or
+trigger NeoRecall's Ask endpoint.
+
 ## Messaging
 
 Messaging providers are long-running channel adapters managed separately from

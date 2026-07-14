@@ -19,6 +19,8 @@ Connect accounts in **Integrations**.
 | Notion | Pages, databases, blocks, search |
 | Slack | Conversations, history, search, messages |
 | Figma | Files, nodes, rendered images, comments |
+| NeoArchive | Documents, extracted text, metadata, search, upload, archive, reprocessing |
+| NeoRecall | Local hybrid recall search, memories, mini-memories, daily summaries, conversations, transcript evidence |
 | Home Assistant | Entity state and service calls |
 | Trello | Boards, lists, cards, comments, search |
 | Spotify | Playback, history, search, queue |
@@ -48,7 +50,19 @@ Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth appli
    - `GITHUB_CLIENT_ID=your_id_here`
    - `GITHUB_CLIENT_SECRET=your_secret_here`
 
-Home Assistant and Trello can be configured for a user from the application. See Configuration.
+NeoArchive, NeoRecall, Home Assistant, and Trello can be configured for a user from the application. See Configuration.
+
+### NeoRecall
+
+Open **Integrations**, choose **NeoRecall**, and enter the base URL of the
+NeoRecall server. NeoAgent validates the server and opens NeoRecall's own
+authorization page. Sign in there and approve the three read-only scopes.
+
+NeoRecall contributes seven on-demand tools for local hybrid search and for
+reading memories, mini-memories, daily summaries, conversations, and transcript
+evidence. It does not expose audio, recording, memory mutation, consolidation,
+or NeoRecall Ask. This keeps the products isolated and avoids a second LLM call
+when NeoAgent only needs retrieval context.
 
 ## Messaging channels
 

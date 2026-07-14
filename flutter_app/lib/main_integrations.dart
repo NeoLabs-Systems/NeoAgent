@@ -236,10 +236,201 @@ void _openOfficialIntegrationSetupDialog(
     case 'neoarchive':
       _showNeoArchiveSetupDialog(context, controller);
       return;
+    case 'neorecall':
+      _showNeoRecallSetupDialog(context, controller);
+      return;
     case 'trello':
       _showTrelloSetupDialog(context, controller);
       return;
   }
+}
+
+Future<void> _showNeoRecallSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('neorecall');
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+  final savedBaseUrl = existing['baseUrl']?.toString() ?? '';
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final connected = existing['hasConnectedAccount'] == true || accountCount > 0;
+  final baseUrlController = TextEditingController(text: savedBaseUrl);
+  var errorText = '';
+  var busy = false;
+
+  Future<void> save(
+    StateSetter setState,
+    BuildContext dialogContext, {
+    required bool connect,
+  }) async {
+    setState(() {
+      errorText = '';
+      busy = true;
+    });
+    try {
+      final baseUrl = baseUrlController.text.trim();
+      if (baseUrl.isEmpty) {
+        setState(() {
+          errorText = 'NeoRecall backend URL is required.';
+          busy = false;
+        });
+        return;
+      }
+      await controller.saveOfficialIntegrationConfig(
+        'neorecall',
+        config: <String, dynamic>{'baseUrl': baseUrl},
+      );
+      if (connect) {
+        await controller.connectOfficialIntegration(
+          'neorecall',
+          appId: 'recall',
+        );
+        if ((controller.errorMessage ?? '').trim().isNotEmpty) {
+          setState(() {
+            errorText = controller.errorMessage!;
+            busy = false;
+          });
+          return;
+        }
+      }
+      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+    } catch (_) {
+      setState(() {
+        errorText = controller.errorMessage ?? 'Could not save NeoRecall setup.';
+        busy = false;
+      });
+    }
+  }
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: const Text('NeoRecall Setup'),
+        content: SizedBox(
+          width: 540,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.',
+                style: TextStyle(color: _textSecondary),
+              ),
+              const SizedBox(height: 16),
+              const _IntegrationSetupStatusItem(
+                label: 'Connection Method',
+                status: 'OAuth with PKCE',
+                isConnected: true,
+              ),
+              const SizedBox(height: 12),
+              _IntegrationSetupStatusItem(
+                label: 'Connected NeoRecall User',
+                status: connected
+                    ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
+                    : 'Not connected',
+                isConnected: connected,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: baseUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'NeoRecall Backend URL',
+                  hintText: 'https://recall.example.com',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
+              if (errorText.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(errorText, style: TextStyle(color: _danger, fontSize: 12)),
+              ],
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          if (savedBaseUrl.isNotEmpty)
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final confirm =
+                          await showDialog<bool>(
+                            context: dialogContext,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Disconnect NeoRecall?'),
+                              content: const Text(
+                                'This removes the NeoRecall backend URL and all connected NeoRecall accounts for this agent.',
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: const Text('Disconnect'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                      if (!confirm) return;
+                      setState(() {
+                        busy = true;
+                        errorText = '';
+                      });
+                      try {
+                        await controller.clearOfficialIntegrationConfig('neorecall');
+                        if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                      } catch (_) {
+                        setState(() {
+                          errorText = controller.errorMessage ?? 'Could not disconnect NeoRecall.';
+                          busy = false;
+                        });
+                      }
+                    },
+              child: const Text('Disconnect'),
+            ),
+          TextButton(
+            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: busy ? null : () => save(setState, dialogContext, connect: false),
+            child: const Text('Save Only'),
+          ),
+          FilledButton(
+            onPressed: busy ? null : () => save(setState, dialogContext, connect: true),
+            child: Text(
+              busy
+                  ? 'Working...'
+                  : connected
+                  ? 'Connect Another Account'
+                  : 'Save & Connect',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+  baseUrlController.dispose();
 }
 
 Future<void> _showNeoArchiveSetupDialog(
@@ -1350,6 +1541,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
     }
     final color = switch (item.icon) {
       'neoarchive' => const Color(0xFFE3B655),
+      'neorecall' => const Color(0xFFD98AA6),
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
       'trello' => const Color(0xFF0C66E4),
@@ -1357,6 +1549,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
     };
     final label = switch (item.icon) {
       'neoarchive' => 'A',
+      'neorecall' => 'R',
       'google' => 'G',
       'home_assistant' => 'H',
       'trello' => 'T',
@@ -1398,7 +1591,8 @@ int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
     'neoarchive' => 1,
     'neomail' => 0,
-    'google_workspace' => 2,
+    'neorecall' => 2,
+    'google_workspace' => 3,
     _ => 10,
   };
 }

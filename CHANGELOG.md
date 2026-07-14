@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added a native NeoRecall integration with per-agent server configuration, PKCE OAuth, local hybrid search, and seven read-only recall tools without exposing audio or NeoRecall Ask.
+
 ## v3.0.0 - 2026-06-16
 
 NeoAgent 3.0 promotes the beta agent-loop work to the stable release channel.
