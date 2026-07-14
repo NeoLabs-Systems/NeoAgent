@@ -54,7 +54,6 @@ jobs:
           path: dist
           name: neoagent-wearable-firmware
           merge-multiple: true
-        continue-on-error: true
 
       - name: Collect release files
         id: release_files
@@ -72,12 +71,21 @@ jobs:
           for firmware_file in \
             dist/neoagent-wearable-firmware.bin \
             dist/neoagent-wearable-bootloader.bin \
-            dist/neoagent-wearable-partition-table.bin
+            dist/neoagent-wearable-partition-table.bin \
+            dist/neoagent-wearable-firmware.bin.sha256
           do
             if [ -f "$firmware_file" ]; then
               files+=("$firmware_file")
             fi
           done
+          if [ ! -f dist/neoagent-wearable-firmware.bin ]; then
+            echo "The required wearable firmware release asset is missing."
+            exit 1
+          fi
+          if [ ! -f dist/neoagent-wearable-firmware.bin.sha256 ]; then
+            echo "The required wearable firmware checksum is missing."
+            exit 1
+          fi
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No release artifacts were downloaded."
             exit 1

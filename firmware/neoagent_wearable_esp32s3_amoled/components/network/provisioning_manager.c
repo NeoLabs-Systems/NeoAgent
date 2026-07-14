@@ -837,6 +837,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
                 ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
                 return;
             }
+            if (!s_active_manager->station_connecting) {
+                esp_err_t reconnect_err = esp_wifi_connect();
+                if (reconnect_err != ESP_OK) {
+                    ESP_LOGW(TAG, "station reconnect request failed: %s", esp_err_to_name(reconnect_err));
+                } else {
+                    ESP_LOGI(TAG, "station reconnect requested after disconnect");
+                }
+                return;
+            }
             if (s_active_manager->wifi_events != NULL) {
                 xEventGroupSetBits(s_active_manager->wifi_events, WIFI_EVENT_STA_FAILED_BIT);
             }
@@ -1385,6 +1394,10 @@ const char *provisioning_manager_ap_password(const provisioning_manager_t *manag
 
 bool provisioning_manager_portal_saved_config(const provisioning_manager_t *manager) {
     return manager != NULL && manager->portal_saved_config;
+}
+
+bool provisioning_manager_is_connected(const provisioning_manager_t *manager) {
+    return manager != NULL && manager->wifi_connected;
 }
 
 esp_err_t provisioning_manager_sync_time(provisioning_manager_t *manager, const char *server_url, int timeout_ms) {

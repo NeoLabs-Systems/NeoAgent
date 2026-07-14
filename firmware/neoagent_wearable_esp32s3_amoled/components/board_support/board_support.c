@@ -71,6 +71,7 @@ static const char *TAG = "BoardSupport";
 #define BOARD_LVGL_TICK_PERIOD_MS 2
 #define BOARD_LVGL_TASK_STACK_SIZE (4 * 1024)
 #define BOARD_BUTTON_LONG_PRESS_US 700000
+#define BOARD_TOUCH_SWIPE_DISTANCE 60
 #define BOARD_AUDIO_SAMPLE_RATE 24000
 #define BOARD_AUDIO_BITS_PER_SAMPLE I2S_DATA_BIT_WIDTH_16BIT
 #define BOARD_AUDIO_CHANNELS 1
@@ -1427,8 +1428,9 @@ static void board_create_settings_screen(const char *section_title, const char *
             lv_label_set_text(setup_label, "Re-enter setup mode");
             lv_obj_center(setup_label);
         } else if (section_title != NULL && strcmp(section_title, "Settings") == 0) {
-            board_create_list_row(frame, 28, LV_SYMBOL_WIFI, "Network", false);
-            board_create_list_row(frame, 104, LV_SYMBOL_REFRESH, "Update", false);
+            board_create_list_row(frame, 0, LV_SYMBOL_WIFI, "Network", false);
+            board_create_list_row(frame, 62, LV_SYMBOL_REFRESH, "Update", false);
+            board_create_list_row(frame, 124, LV_SYMBOL_SETTINGS, "Device info", false);
         } else {
             lv_obj_t *headline_label = lv_label_create(frame);
             lv_obj_set_width(headline_label, 268);
@@ -1832,11 +1834,17 @@ esp_err_t board_support_poll_touch(board_support_t *board, board_touch_event_t *
         event->y = s_runtime.last_touch_y;
         int32_t delta_y = (int32_t)s_runtime.last_touch_y - (int32_t)s_runtime.touch_start_y;
         int32_t delta_x = (int32_t)s_runtime.last_touch_x - (int32_t)s_runtime.touch_start_x;
-        if (delta_y <= -60 && abs(delta_y) > abs(delta_x)) {
+        if (delta_y <= -BOARD_TOUCH_SWIPE_DISTANCE && abs(delta_y) > abs(delta_x)) {
             event->swipe_up = true;
             event->tapped = false;
-        } else if (delta_y >= 60 && abs(delta_y) > abs(delta_x)) {
+        } else if (delta_y >= BOARD_TOUCH_SWIPE_DISTANCE && abs(delta_y) > abs(delta_x)) {
             event->swipe_down = true;
+            event->tapped = false;
+        } else if (delta_x <= -BOARD_TOUCH_SWIPE_DISTANCE && abs(delta_x) > abs(delta_y)) {
+            event->swipe_left = true;
+            event->tapped = false;
+        } else if (delta_x >= BOARD_TOUCH_SWIPE_DISTANCE && abs(delta_x) > abs(delta_y)) {
+            event->swipe_right = true;
             event->tapped = false;
         }
         return ESP_OK;

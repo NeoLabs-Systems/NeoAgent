@@ -25,6 +25,8 @@ typedef struct {
     bool released;
     bool swipe_up;
     bool swipe_down;
+    bool swipe_left;
+    bool swipe_right;
     uint16_t x;
     uint16_t y;
 } board_touch_event_t;

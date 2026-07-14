@@ -7,4 +7,42 @@ menu "NeoAgent Wearable Configuration"
             Advertise the wearable setup page through DHCP option 114 so phones can
             open the portal automatically after joining the setup hotspot.
 
+    config NEOAGENT_DISPLAY_TIMEOUT_SECONDS
+        int "Display standby timeout in seconds"
+        range 10 300
+        default 30
+        help
+            Turn off the AMOLED after this period without touch or button input.
+            Voice capture and playback keep the display awake. Networking remains
+            connected so the wearable wakes without a full reboot.
+
+    config NEOAGENT_AUTO_OTA
+        bool "Automatically install firmware releases"
+        default y
+        help
+            Periodically query the paired NeoAgent server for the latest GitHub
+            release on the selected stable or beta channel. When a newer release
+            is available, download its firmware asset over HTTPS and reboot into it.
+
+    config NEOAGENT_AUTO_OTA_INITIAL_DELAY_SECONDS
+        int "Initial automatic update delay in seconds"
+        depends on NEOAGENT_AUTO_OTA
+        range 30 900
+        default 90
+
+    config NEOAGENT_AUTO_OTA_CHECK_INTERVAL_MINUTES
+        int "Automatic update check interval in minutes"
+        depends on NEOAGENT_AUTO_OTA
+        range 5 1440
+        default 60
+
+    config NEOAGENT_AUTO_OTA_MIN_BATTERY_PERCENT
+        int "Minimum battery percentage for automatic updates"
+        depends on NEOAGENT_AUTO_OTA
+        range 10 80
+        default 30
+        help
+            Automatic updates wait while the measured battery is below this
+            value unless external power is connected. Manual updates remain available.
+
 endmenu

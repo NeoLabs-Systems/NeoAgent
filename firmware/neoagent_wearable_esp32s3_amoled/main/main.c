@@ -7,6 +7,7 @@
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
 #include "esp_app_desc.h"
+#include "esp_ota_ops.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "esp_log.h"
@@ -47,10 +48,12 @@ static const char *TAG = "NeoAgentWearable";
 #define NEOAGENT_WIDGET_NEXT_MIN_X 384
 #define NEOAGENT_WIDGET_BODY_TOP_Y 58
 #define NEOAGENT_WIDGET_BODY_BOTTOM_Y 308
-#define NEOAGENT_SETTINGS_NETWORK_TOP_Y 96
-#define NEOAGENT_SETTINGS_NETWORK_BOTTOM_Y 158
-#define NEOAGENT_SETTINGS_UPDATE_TOP_Y 170
-#define NEOAGENT_SETTINGS_UPDATE_BOTTOM_Y 232
+#define NEOAGENT_SETTINGS_NETWORK_TOP_Y 64
+#define NEOAGENT_SETTINGS_NETWORK_BOTTOM_Y 118
+#define NEOAGENT_SETTINGS_UPDATE_TOP_Y 126
+#define NEOAGENT_SETTINGS_UPDATE_BOTTOM_Y 180
+#define NEOAGENT_SETTINGS_ABOUT_TOP_Y 188
+#define NEOAGENT_SETTINGS_ABOUT_BOTTOM_Y 244
 #define NEOAGENT_SETTINGS_UPDATE_STABLE_TOP_Y 70
 #define NEOAGENT_SETTINGS_UPDATE_STABLE_BOTTOM_Y 126
 #define NEOAGENT_SETTINGS_UPDATE_BETA_TOP_Y 124
@@ -74,6 +77,7 @@ typedef enum {
     SETTINGS_VIEW_ROOT = 0,
     SETTINGS_VIEW_NETWORK = 1,
     SETTINGS_VIEW_UPDATE = 2,
+    SETTINGS_VIEW_ABOUT = 3,
 } settings_view_t;
 
 static session_store_t s_session_store;
@@ -92,7 +96,24 @@ static bool is_voice_available(void);
 static esp_err_t persist_firmware_update_channel(const char *channel);
 static size_t configured_wifi_network_count(const neoagent_device_config_t *device_config);
 
-static void start_firmware_update(const neoagent_device_config_t *device_config, const neoagent_session_state_t *session_state);
+static bool start_firmware_update(
+    const neoagent_device_config_t *device_config,
+    const neoagent_session_state_t *session_state,
+    bool interactive,
+    bool *display_sleeping
+);
+static bool wake_display_from_standby(bool *display_sleeping);
+
+typedef struct {
+    bool *display_sleeping;
+    bool install_started;
+} firmware_install_context_t;
+
+static void log_ui_result(esp_err_t err, const char *operation) {
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "ui operation=%s failed: %s", operation, esp_err_to_name(err));
+    }
+}
 
 static size_t configured_wifi_network_count(const neoagent_device_config_t *device_config) {
     if (device_config == NULL) {
@@ -215,6 +236,20 @@ static void log_internal_heap(const char *stage) {
     );
 }
 
+static void confirm_healthy_ota_boot(void) {
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
+    if (running == NULL || esp_ota_get_state_partition(running, &state) != ESP_OK || state != ESP_OTA_IMG_PENDING_VERIFY) {
+        return;
+    }
+    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "confirmed healthy OTA image");
+    } else {
+        ESP_LOGE(TAG, "failed to confirm OTA image: %s", esp_err_to_name(err));
+    }
+}
+
 static void format_time_label(char *buffer, size_t buffer_size) {
     time_t now = time(NULL);
     if (buffer == NULL || buffer_size == 0) {
@@ -326,7 +361,7 @@ static void render_assistant_tab(
     }
     sanitize_display_text(display_hint, sizeof(display_hint), hint);
     (void)device_config;
-    ESP_ERROR_CHECK(ui_renderer_show_assistant_home(&s_ui, status, display_hint, mic_active, visual_state));
+    log_ui_result(ui_renderer_show_assistant_home(&s_ui, status, display_hint, mic_active, visual_state), "assistant");
 }
 
 static bool is_voice_available(void) {
@@ -335,7 +370,7 @@ static bool is_voice_available(void) {
 
 static void render_widget_tab(const widget_repository_t *widgets, size_t widget_index, esp_err_t last_widget_status) {
     if (widgets != NULL && widgets->count > 0) {
-        ESP_ERROR_CHECK(ui_renderer_show_widget(&s_ui, &widgets->items[widget_index], widget_index, widgets->count));
+        log_ui_result(ui_renderer_show_widget(&s_ui, &widgets->items[widget_index], widget_index, widgets->count), "widget");
         return;
     }
 
@@ -349,7 +384,7 @@ static void render_widget_tab(const widget_repository_t *widgets, size_t widget_
         snprintf(empty_widget.metric, sizeof(empty_widget.metric), "%s", esp_err_to_name(last_widget_status));
         empty_widget.body[0] = '\0';
     }
-    ESP_ERROR_CHECK(ui_renderer_show_widget(&s_ui, &empty_widget, 0, 1));
+    log_ui_result(ui_renderer_show_widget(&s_ui, &empty_widget, 0, 1), "widget_empty");
 }
 
 static void render_settings_tab(
@@ -363,21 +398,39 @@ static void render_settings_tab(
     char body[220];
 
     if (show_reset) {
-        ESP_ERROR_CHECK(ui_renderer_show_settings(&s_ui, "Reset", "Forget this device", "Clear pairing and Wi-Fi setup, then return to provisioning.", NULL, true));
+        log_ui_result(ui_renderer_show_settings(&s_ui, "Reset", "Forget this device", "Clear pairing and Wi-Fi setup, then return to provisioning.", NULL, true), "settings_reset");
         return;
     }
 
     if (settings_view == SETTINGS_VIEW_ROOT) {
         snprintf(headline, sizeof(headline), "Device settings");
         body[0] = '\0';
-        ESP_ERROR_CHECK(ui_renderer_show_settings(&s_ui, "Settings", headline, body, NULL, false));
+        log_ui_result(ui_renderer_show_settings(&s_ui, "Settings", headline, body, NULL, false), "settings_root");
         return;
     }
 
     if (settings_view == SETTINGS_VIEW_UPDATE) {
         headline[0] = '\0';
         body[0] = '\0';
-        ESP_ERROR_CHECK(ui_renderer_show_settings(&s_ui, "Update", headline, body, update_manager_channel(&s_updates), false));
+        log_ui_result(ui_renderer_show_settings(&s_ui, "Update", headline, body, update_manager_channel(&s_updates), false), "settings_update");
+        return;
+    }
+
+    if (settings_view == SETTINGS_VIEW_ABOUT) {
+        const esp_app_desc_t *app_desc = esp_app_get_description();
+        const uint32_t uptime_seconds = (uint32_t)(esp_timer_get_time() / 1000000);
+        snprintf(headline, sizeof(headline), "%s", device_config != NULL && device_config->device_label[0] != '\0' ? device_config->device_label : "NeoAgent wearable");
+        snprintf(
+            body,
+            sizeof(body),
+            "Firmware %s\nUptime %uh %um\nFree memory %u KB\nWi-Fi %s",
+            app_desc != NULL ? app_desc->version : "unknown",
+            (unsigned)(uptime_seconds / 3600),
+            (unsigned)((uptime_seconds / 60) % 60),
+            (unsigned)(esp_get_free_heap_size() / 1024),
+            provisioning_manager_is_connected(&s_provisioning) ? "connected" : "reconnecting"
+        );
+        log_ui_result(ui_renderer_show_settings(&s_ui, "Device", headline, body, NULL, false), "settings_device");
         return;
     }
 
@@ -393,7 +446,7 @@ static void render_settings_tab(
         sizeof(body),
         device_config != NULL && device_config->server_url[0] != '\0' ? device_config->server_url : "No backend configured"
     );
-    ESP_ERROR_CHECK(ui_renderer_show_settings(&s_ui, "Network", headline, body, NULL, false));
+    log_ui_result(ui_renderer_show_settings(&s_ui, "Network", headline, body, NULL, false), "settings_network");
 }
 
 static esp_err_t persist_firmware_update_channel(const char *channel) {
@@ -407,41 +460,92 @@ static esp_err_t persist_firmware_update_channel(const char *channel) {
     return session_store_save_firmware_update_settings(&s_session_store, &update_settings);
 }
 
-static void start_firmware_update(const neoagent_device_config_t *device_config, const neoagent_session_state_t *session_state) {
+static void show_firmware_install_started(void *context) {
+    firmware_install_context_t *install_context = (firmware_install_context_t *)context;
+    bool *display_sleeping = install_context != NULL ? install_context->display_sleeping : NULL;
+    if (install_context != NULL) {
+        install_context->install_started = true;
+    }
+    if (display_sleeping != NULL && *display_sleeping && !wake_display_from_standby(display_sleeping)) {
+        ESP_LOGW(TAG, "firmware install started while the display remained asleep");
+    }
+    log_ui_result(
+        board_support_show_message(
+            &s_board,
+            "Installing Firmware",
+            "Downloading the latest GitHub release...",
+            "Keep the device powered on."
+        ),
+        "update_install"
+    );
+}
+
+static bool start_firmware_update(
+    const neoagent_device_config_t *device_config,
+    const neoagent_session_state_t *session_state,
+    bool interactive,
+    bool *display_sleeping
+) {
     if (device_config == NULL || session_state == NULL) {
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Update Failed", "Missing device state", "Cannot start OTA without a saved server and session."));
-        return;
+        if (interactive) {
+            log_ui_result(board_support_show_message(&s_board, "Update Failed", "Missing device state", "Cannot start OTA without a saved server and session."), "update_missing_state");
+        }
+        return false;
     }
 
-    ESP_ERROR_CHECK(board_support_show_message(&s_board, "Updating Firmware", "Checking the manifest...", "Do not power off the device."));
-    vTaskDelay(pdMS_TO_TICKS(250));
+    if (interactive) {
+        log_ui_result(board_support_show_message(&s_board, "Checking For Updates", "Looking for the latest GitHub release...", "This can take a moment."), "update_start");
+        vTaskDelay(pdMS_TO_TICKS(250));
+    }
 
-    esp_err_t update_err = update_manager_auto_update(&s_updates, device_config->server_url, session_state);
+    firmware_install_context_t install_context = {
+        .display_sleeping = display_sleeping,
+        .install_started = false,
+    };
+    esp_err_t update_err = update_manager_auto_update(
+        &s_updates,
+        device_config->server_url,
+        session_state,
+        show_firmware_install_started,
+        &install_context
+    );
     if (update_err == ESP_OK) {
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Update Complete", "Rebooting into new firmware", "The device will restart now."));
+        log_ui_result(board_support_show_message(&s_board, "Update Complete", "Rebooting into new firmware", "The device will restart now."), "update_complete");
         vTaskDelay(pdMS_TO_TICKS(1500));
         esp_restart();
-        return;
+        return true;
     }
 
     if (update_err == ESP_ERR_INVALID_STATE) {
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Already Up To Date", "No firmware update was installed", "The current version matches the configured release."));
-        return;
+        ESP_LOGI(TAG, "firmware is already current");
+        if (interactive) {
+            log_ui_result(board_support_show_message(&s_board, "Already Up To Date", "No firmware update was installed", "The current version matches the configured release."), "update_current");
+        }
+        return false;
     }
 
     if (update_err == ESP_ERR_NOT_FOUND) {
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Update Unavailable", "No firmware download is configured", "The manifest did not publish an OTA image."));
-        return;
+        ESP_LOGW(TAG, "firmware release asset is unavailable");
+        if (interactive) {
+            log_ui_result(board_support_show_message(&s_board, "Update Unavailable", "No firmware download is configured", "The manifest did not publish an OTA image."), "update_unavailable");
+        }
+        return false;
     }
 
     if (update_err == ESP_ERR_INVALID_ARG) {
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Update Failed", "Missing server or session", "Connect the device and sign in before trying again."));
-        return;
+        ESP_LOGW(TAG, "firmware update is missing server or session state");
+        if (interactive) {
+            log_ui_result(board_support_show_message(&s_board, "Update Failed", "Missing server or session", "Connect the device and sign in before trying again."), "update_invalid_state");
+        }
+        return false;
     }
 
     char error_line[160];
     snprintf(error_line, sizeof(error_line), "%s", esp_err_to_name(update_err));
-    ESP_ERROR_CHECK(board_support_show_message(&s_board, "Update Failed", error_line, "Check the manifest and try again."));
+    if (interactive || install_context.install_started) {
+        log_ui_result(board_support_show_message(&s_board, "Update Failed", error_line, "Check the manifest and try again."), "update_failed");
+    }
+    return false;
 }
 
 static void render_current_tab(
@@ -463,10 +567,11 @@ static void render_current_tab(
     if (power_status != NULL) {
         chrome = *power_status;
     }
-    chrome.wifi_connected = wifi_connected;
+    chrome.wifi_connected = provisioning_manager_is_connected(&s_provisioning);
     chrome.paired = session_state != NULL && session_state->authenticated;
     format_time_label(time_label, sizeof(time_label));
-    ESP_ERROR_CHECK(board_support_set_chrome(&s_board, &chrome, time_label));
+    (void)wifi_connected;
+    log_ui_result(board_support_set_chrome(&s_board, &chrome, time_label), "chrome");
 
     switch (current_tab) {
         case SHELL_TAB_ASSISTANT:
@@ -580,21 +685,17 @@ static void enter_deep_sleep(const wearable_voice_snapshot_t *voice_snapshot) {
     esp_deep_sleep_start();
 }
 
-static void enter_charging_display_standby(bool *display_sleeping) {
-    esp_err_t display_err = board_support_set_display_awake(&s_board, true);
+static bool enter_display_standby(bool *display_sleeping) {
+    esp_err_t display_err = board_support_set_display_awake(&s_board, false);
     if (display_err != ESP_OK) {
-        ESP_LOGW(TAG, "display standby wake failed: %s", esp_err_to_name(display_err));
-        return;
-    }
-    esp_err_t boot_err = board_support_show_boot_screen(&s_board);
-    if (boot_err != ESP_OK) {
-        ESP_LOGW(TAG, "charging standby boot screen failed: %s", esp_err_to_name(boot_err));
-        return;
+        ESP_LOGW(TAG, "display standby failed: %s", esp_err_to_name(display_err));
+        return false;
     }
     if (display_sleeping != NULL) {
         *display_sleeping = true;
     }
-    ESP_LOGI(TAG, "charging standby -> boot screen");
+    ESP_LOGI(TAG, "display -> standby");
+    return true;
 }
 
 static bool wake_display_from_standby(bool *display_sleeping) {
@@ -626,6 +727,12 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
     bool display_sleeping = false;
     bool suppress_power_until_release = false;
     bool suppress_boot_until_release = false;
+    TickType_t last_activity = xTaskGetTickCount();
+#if CONFIG_NEOAGENT_AUTO_OTA
+    const TickType_t shell_started_at = last_activity;
+    TickType_t last_auto_update_check = 0;
+    bool completed_initial_auto_update_check = false;
+#endif
 
     if (wearable_ws_url != NULL && wearable_ws_url[0] != '\0') {
         esp_err_t voice_err = wearable_voice_client_init(
@@ -663,17 +770,19 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
                     last_chrome_refresh = 0;
                     last_widget_refresh = 0;
+                    last_activity = now;
                 }
                 vTaskDelay(pdMS_TO_TICKS(20));
                 continue;
             }
             if (board_support_poll_touch(&s_board, &touch_event) == ESP_OK &&
-                (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down)) {
+                (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down || touch_event.swipe_left || touch_event.swipe_right)) {
                 if (wake_display_from_standby(&display_sleeping)) {
                     update_power_chrome();
                     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
                     last_chrome_refresh = 0;
                     last_widget_refresh = 0;
+                    last_activity = now;
                 }
                 vTaskDelay(pdMS_TO_TICKS(20));
                 continue;
@@ -685,7 +794,17 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 ESP_LOGW(TAG, "voice poll failed: %s", esp_err_to_name(voice_poll_err));
             }
         }
-        // Keep network/voice alive while charging standby has only turned the AMOLED off.
+        if (voice_snapshot.recording || voice_snapshot.assistant_speaking) {
+            last_activity = now;
+        }
+        if (!display_sleeping && !voice_snapshot.recording && !voice_snapshot.assistant_speaking &&
+            now - last_activity >= pdMS_TO_TICKS(CONFIG_NEOAGENT_DISPLAY_TIMEOUT_SECONDS * 1000)) {
+            if (enter_display_standby(&display_sleeping)) {
+                continue;
+            }
+            last_activity = now;
+        }
+        // Keep network and voice alive while standby has turned only the AMOLED off.
         if (!display_sleeping) {
             if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
                 bool chrome_changed = update_power_chrome();
@@ -721,7 +840,7 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 } else {
                     ESP_LOGW(TAG, "widget refresh failed: %s", esp_err_to_name(refresh_err));
                 }
-                if (refresh_err == ESP_OK) {
+                if (current_tab == SHELL_TAB_WIDGETS) {
                     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
                 }
                 last_widget_refresh = now;
@@ -737,19 +856,46 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             }
         }
 
+#if CONFIG_NEOAGENT_AUTO_OTA
+        const TickType_t auto_update_delay = completed_initial_auto_update_check
+            ? pdMS_TO_TICKS(CONFIG_NEOAGENT_AUTO_OTA_CHECK_INTERVAL_MINUTES * 60 * 1000)
+            : pdMS_TO_TICKS(CONFIG_NEOAGENT_AUTO_OTA_INITIAL_DELAY_SECONDS * 1000);
+        const TickType_t auto_update_elapsed = completed_initial_auto_update_check
+            ? now - last_auto_update_check
+            : now - shell_started_at;
+        const neoagent_status_chrome_t *auto_update_power = power_manager_get_status(&s_power_manager);
+        const bool auto_update_power_ready = auto_update_power == NULL
+            || auto_update_power->charging
+            || auto_update_power->battery_percent < 0
+            || auto_update_power->battery_percent >= CONFIG_NEOAGENT_AUTO_OTA_MIN_BATTERY_PERCENT;
+        if (auto_update_elapsed >= auto_update_delay
+            && provisioning_manager_is_connected(&s_provisioning)
+            && auto_update_power_ready
+            && !voice_snapshot.recording
+            && !voice_snapshot.assistant_speaking) {
+            completed_initial_auto_update_check = true;
+            last_auto_update_check = now;
+            ESP_LOGI(TAG, "checking GitHub release channel=%s", update_manager_channel(&s_updates));
+            start_firmware_update(device_config, session_state, false, &display_sleeping);
+        }
+#endif
+
         if (board_support_poll_touch(&s_board, &touch_event) == ESP_OK &&
-            (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down)) {
+            (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down || touch_event.swipe_left || touch_event.swipe_right)) {
             ESP_LOGI(
                 TAG,
-                "touch event x=%u y=%u pressed=%d released=%d tapped=%d swipe_up=%d swipe_down=%d",
+                "touch event x=%u y=%u pressed=%d released=%d tapped=%d swipe_up=%d swipe_down=%d swipe_left=%d swipe_right=%d",
                 touch_event.x,
                 touch_event.y,
                 touch_event.pressed,
                 touch_event.released,
                 touch_event.tapped,
                 touch_event.swipe_up,
-                touch_event.swipe_down
+                touch_event.swipe_down,
+                touch_event.swipe_left,
+                touch_event.swipe_right
             );
+            last_activity = now;
             if (display_sleeping) {
                 if (!wake_display_from_standby(&display_sleeping)) {
                     continue;
@@ -802,12 +948,19 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
                 }
             } else if (current_tab == SHELL_TAB_WIDGETS) {
-                if (touch_event.tapped && touch_event.y >= NEOAGENT_WIDGET_BODY_TOP_Y && touch_event.y <= NEOAGENT_WIDGET_BODY_BOTTOM_Y && touch_event.x <= NEOAGENT_WIDGET_PREV_MAX_X && s_widgets.count > 0) {
+                if (touch_event.swipe_right && s_widgets.count > 0) {
+                    widget_index = widget_index == 0 ? s_widgets.count - 1 : widget_index - 1;
+                } else if (touch_event.swipe_left && s_widgets.count > 0) {
+                    widget_index = (widget_index + 1) % s_widgets.count;
+                } else if (touch_event.tapped && touch_event.y >= NEOAGENT_WIDGET_BODY_TOP_Y && touch_event.y <= NEOAGENT_WIDGET_BODY_BOTTOM_Y && touch_event.x <= NEOAGENT_WIDGET_PREV_MAX_X && s_widgets.count > 0) {
                     widget_index = widget_index == 0 ? s_widgets.count - 1 : widget_index - 1;
                 } else if (touch_event.tapped && touch_event.y >= NEOAGENT_WIDGET_BODY_TOP_Y && touch_event.y <= NEOAGENT_WIDGET_BODY_BOTTOM_Y && touch_event.x >= NEOAGENT_WIDGET_NEXT_MIN_X && s_widgets.count > 0) {
                     widget_index = (widget_index + 1) % s_widgets.count;
                 } else if (touch_event.tapped) {
+                    log_ui_result(ui_renderer_show_status_card(&s_ui, NEOAGENT_SCREEN_WIDGETS, "Refreshing Widgets", "Fetching the latest cards...", "Keep this screen open."), "widget_refreshing");
                     last_widget_refresh = 0;
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                    continue;
                 }
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
             } else if (current_tab == SHELL_TAB_SETTINGS) {
@@ -821,6 +974,9 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 } else if (!settings_show_reset && settings_view == SETTINGS_VIEW_ROOT && touch_event.tapped &&
                            touch_event.y >= NEOAGENT_SETTINGS_UPDATE_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_BOTTOM_Y) {
                     settings_view = SETTINGS_VIEW_UPDATE;
+                } else if (!settings_show_reset && settings_view == SETTINGS_VIEW_ROOT && touch_event.tapped &&
+                           touch_event.y >= NEOAGENT_SETTINGS_ABOUT_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_ABOUT_BOTTOM_Y) {
+                    settings_view = SETTINGS_VIEW_ABOUT;
                 } else if (!settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
                            touch_event.y >= NEOAGENT_SETTINGS_UPDATE_STABLE_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_STABLE_BOTTOM_Y) {
                     if (persist_firmware_update_channel("stable") == ESP_OK) {
@@ -838,7 +994,7 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 } else if (!settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
                            touch_event.y >= NEOAGENT_SETTINGS_UPDATE_ACTION_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_ACTION_BOTTOM_Y) {
                     render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
-                    start_firmware_update(device_config, session_state);
+                    start_firmware_update(device_config, session_state, true, &display_sleeping);
                     continue;
                 } else if (!settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
                            touch_event.y >= NEOAGENT_SETTINGS_SETUP_ACTION_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_SETUP_ACTION_BOTTOM_Y) {
@@ -899,13 +1055,14 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 ESP_LOGI(TAG, "power long press -> %s", charging ? "charging standby" : "deep sleep");
                 if (charging) {
                     if (!display_sleeping) {
-                        enter_charging_display_standby(&display_sleeping);
+                        enter_display_standby(&display_sleeping);
                         continue;
                     }
                 } else {
                     enter_deep_sleep(&voice_snapshot);
                 }
             } else if (button_event.power_short_press) {
+                last_activity = now;
                 current_tab = (shell_tab_t)((current_tab + 1) % 3);
                 ESP_LOGI(TAG, "power short press -> tab=%d", (int)current_tab);
                 render_current_tab(current_tab, device_config, session_state, &s_widgets, widget_index, settings_view, last_widget_status, &voice_snapshot, true, settings_show_reset);
@@ -941,10 +1098,11 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             }
         }
 
-        const bool touch_activity = touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down;
+        const bool touch_activity = touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down || touch_event.swipe_left || touch_event.swipe_right;
         const bool button_activity = button_event.power_pressed || button_event.power_released || button_event.power_short_press || button_event.power_long_press || button_event.boot_pressed || button_event.boot_released || button_event.boot_short_press || button_event.boot_long_press;
 
         if (touch_activity || button_activity) {
+            last_activity = now;
             if (display_sleeping) {
                 if (!wake_display_from_standby(&display_sleeping)) {
                     vTaskDelay(pdMS_TO_TICKS(80));
@@ -1060,6 +1218,7 @@ static void wearable_runtime_task(void *arg) {
     ESP_ERROR_CHECK(app_shell_init(&s_shell, NEOAGENT_SCREEN_PROVISIONING));
     ESP_ERROR_CHECK(board_support_init(&s_board));
     ESP_ERROR_CHECK(ui_renderer_init(&s_ui, &s_board));
+    confirm_healthy_ota_boot();
     const esp_app_desc_t *app_desc = esp_app_get_description();
     ESP_ERROR_CHECK(update_manager_init(&s_updates, app_desc != NULL ? app_desc->version : "unknown"));
 

@@ -1,5 +1,7 @@
 #include "update_manager.h"
 
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -79,8 +81,74 @@ static const char *trim_version_prefix(const char *version) {
     return version;
 }
 
-static bool version_equals(const char *left, const char *right) {
-    return strcmp(trim_version_prefix(left), trim_version_prefix(right)) == 0;
+typedef struct {
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+    uint32_t beta;
+    bool prerelease;
+} firmware_version_t;
+
+static bool parse_version_number(const char **cursor, uint32_t *value) {
+    if (cursor == NULL || *cursor == NULL || value == NULL || **cursor < '0' || **cursor > '9') {
+        return false;
+    }
+    char *end = NULL;
+    unsigned long parsed = strtoul(*cursor, &end, 10);
+    if (end == *cursor || parsed > UINT32_MAX) {
+        return false;
+    }
+    *cursor = end;
+    *value = (uint32_t)parsed;
+    return true;
+}
+
+static bool parse_firmware_version(const char *value, firmware_version_t *version) {
+    if (value == NULL || version == NULL) {
+        return false;
+    }
+    memset(version, 0, sizeof(*version));
+    const char *cursor = trim_version_prefix(value);
+    if (!parse_version_number(&cursor, &version->major) || *cursor++ != '.'
+        || !parse_version_number(&cursor, &version->minor) || *cursor++ != '.'
+        || !parse_version_number(&cursor, &version->patch)) {
+        return false;
+    }
+    if (*cursor == '\0') {
+        return true;
+    }
+    if (strncmp(cursor, "-beta.", 6) != 0) {
+        return false;
+    }
+    cursor += 6;
+    version->prerelease = true;
+    return parse_version_number(&cursor, &version->beta) && *cursor == '\0';
+}
+
+static int compare_firmware_versions(const firmware_version_t *left, const firmware_version_t *right) {
+    if (left->major != right->major) return left->major > right->major ? 1 : -1;
+    if (left->minor != right->minor) return left->minor > right->minor ? 1 : -1;
+    if (left->patch != right->patch) return left->patch > right->patch ? 1 : -1;
+    if (left->prerelease != right->prerelease) return left->prerelease ? -1 : 1;
+    if (left->beta != right->beta) return left->beta > right->beta ? 1 : -1;
+    return 0;
+}
+
+static esp_err_t should_install_version(const char *current, const char *latest, bool *should_install) {
+    if (should_install == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    firmware_version_t latest_version;
+    if (!parse_firmware_version(latest, &latest_version)) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    firmware_version_t current_version;
+    if (!parse_firmware_version(current, &current_version)) {
+        *should_install = true;
+        return ESP_OK;
+    }
+    *should_install = compare_firmware_versions(&latest_version, &current_version) > 0;
+    return ESP_OK;
 }
 
 static void copy_channel(char *destination, size_t destination_size, const char *value) {
@@ -205,7 +273,13 @@ esp_err_t update_manager_set_channel(update_manager_t *manager, const char *chan
     return ESP_OK;
 }
 
-esp_err_t update_manager_auto_update(update_manager_t *manager, const char *server_url, const neoagent_session_state_t *session) {
+esp_err_t update_manager_auto_update(
+    update_manager_t *manager,
+    const char *server_url,
+    const neoagent_session_state_t *session,
+    update_manager_install_callback_t install_callback,
+    void *callback_context
+) {
     if (manager == NULL || server_url == NULL || server_url[0] == '\0' || session == NULL ||
         !session->authenticated || session->session_cookie[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
@@ -243,8 +317,14 @@ esp_err_t update_manager_auto_update(update_manager_t *manager, const char *serv
         return err;
     }
 
-    if (version_equals(manager->current_version, manager->latest_version)) {
-        ESP_LOGI(TAG, "firmware already current version=%s", manager->current_version);
+    bool should_install = false;
+    err = should_install_version(manager->current_version, manager->latest_version, &should_install);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "manifest returned invalid firmware version=%s", manager->latest_version);
+        return err;
+    }
+    if (!should_install) {
+        ESP_LOGI(TAG, "firmware is current or newer current=%s latest=%s", manager->current_version, manager->latest_version);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -262,6 +342,10 @@ esp_err_t update_manager_auto_update(update_manager_t *manager, const char *serv
     esp_https_ota_config_t ota_config = {
         .http_config = &http_config,
     };
+
+    if (install_callback != NULL) {
+        install_callback(callback_context);
+    }
 
     ESP_LOGI(
         TAG,
