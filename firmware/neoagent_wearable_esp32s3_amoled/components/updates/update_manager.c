@@ -103,7 +103,35 @@ static bool parse_version_number(const char **cursor, uint32_t *value) {
     return true;
 }
 
-static bool parse_firmware_version(const char *value, firmware_version_t *version) {
+static bool is_hex_digit(char value) {
+    return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f') || (value >= 'A' && value <= 'F');
+}
+
+static bool is_git_build_suffix(const char *suffix) {
+    if (suffix == NULL || suffix[0] != '-') {
+        return false;
+    }
+    if (strcmp(suffix, "-dirty") == 0) {
+        return true;
+    }
+    const char *cursor = suffix + 1;
+    uint32_t commit_count = 0;
+    if (!parse_version_number(&cursor, &commit_count) || strncmp(cursor, "-g", 2) != 0) {
+        return false;
+    }
+    (void)commit_count;
+    cursor += 2;
+    const char *hash_start = cursor;
+    while (is_hex_digit(*cursor)) {
+        cursor++;
+    }
+    if (cursor == hash_start) {
+        return false;
+    }
+    return *cursor == '\0' || strcmp(cursor, "-dirty") == 0;
+}
+
+static bool parse_firmware_version(const char *value, firmware_version_t *version, bool allow_build_suffix) {
     if (value == NULL || version == NULL) {
         return false;
     }
@@ -118,11 +146,34 @@ static bool parse_firmware_version(const char *value, firmware_version_t *versio
         return true;
     }
     if (strncmp(cursor, "-beta.", 6) != 0) {
-        return false;
+        return allow_build_suffix && is_git_build_suffix(cursor);
     }
     cursor += 6;
     version->prerelease = true;
-    return parse_version_number(&cursor, &version->beta) && *cursor == '\0';
+    if (!parse_version_number(&cursor, &version->beta)) {
+        return false;
+    }
+    return *cursor == '\0' || (allow_build_suffix && is_git_build_suffix(cursor));
+}
+
+static bool is_development_build_version(const char *value) {
+    firmware_version_t version;
+    if (value == NULL || !parse_firmware_version(value, &version, true)) {
+        return false;
+    }
+
+    const char *cursor = trim_version_prefix(value);
+    for (int separator_count = 0; *cursor != '\0'; cursor++) {
+        if (*cursor != '-') {
+            continue;
+        }
+        separator_count++;
+        if (strncmp(cursor, "-beta.", 6) == 0 && separator_count == 1) {
+            continue;
+        }
+        return is_git_build_suffix(cursor);
+    }
+    return false;
 }
 
 static int compare_firmware_versions(const firmware_version_t *left, const firmware_version_t *right) {
@@ -139,11 +190,11 @@ static esp_err_t should_install_version(const char *current, const char *latest,
         return ESP_ERR_INVALID_ARG;
     }
     firmware_version_t latest_version;
-    if (!parse_firmware_version(latest, &latest_version)) {
+    if (!parse_firmware_version(latest, &latest_version, false)) {
         return ESP_ERR_INVALID_RESPONSE;
     }
     firmware_version_t current_version;
-    if (!parse_firmware_version(current, &current_version)) {
+    if (!parse_firmware_version(current, &current_version, true)) {
         *should_install = true;
         return ESP_OK;
     }
@@ -277,12 +328,18 @@ esp_err_t update_manager_auto_update(
     update_manager_t *manager,
     const char *server_url,
     const neoagent_session_state_t *session,
+    bool allow_development_build_update,
     update_manager_install_callback_t install_callback,
     void *callback_context
 ) {
     if (manager == NULL || server_url == NULL || server_url[0] == '\0' || session == NULL ||
         !session->authenticated || session->session_cookie[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!allow_development_build_update && is_development_build_version(manager->current_version)) {
+        ESP_LOGI(TAG, "automatic ota skipped for development build=%s", manager->current_version);
+        return ESP_ERR_INVALID_STATE;
     }
 
     char manifest_url[NEOAGENT_SERVER_URL_MAX + 64];
@@ -297,15 +354,15 @@ esp_err_t update_manager_auto_update(
     if (capture == NULL) {
         return ESP_ERR_NO_MEM;
     }
-    int status_code = 0;
-    esp_err_t err = fetch_json(manifest_url, session->session_cookie, capture, &status_code);
+    int manifest_status_code = 0;
+    esp_err_t err = fetch_json(manifest_url, session->session_cookie, capture, &manifest_status_code);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "manifest fetch failed: %s", esp_err_to_name(err));
         free(capture);
         return err;
     }
-    if (status_code < 200 || status_code >= 300) {
-        ESP_LOGW(TAG, "manifest fetch returned http=%d body=%s", status_code, capture->body);
+    if (manifest_status_code < 200 || manifest_status_code >= 300) {
+        ESP_LOGW(TAG, "manifest fetch returned http=%d body=%s", manifest_status_code, capture->body);
         free(capture);
         return ESP_FAIL;
     }
@@ -333,7 +390,10 @@ esp_err_t update_manager_auto_update(
         .method = HTTP_METHOD_GET,
         .timeout_ms = 60000,
         .user_agent = "NeoAgentWearable/ota",
-        .keep_alive_enable = true,
+        .max_redirection_count = 5,
+        .buffer_size = 4096,
+        .buffer_size_tx = 1024,
+        .keep_alive_enable = false,
     };
     if (url_is_https(manager->download_url)) {
         http_config.crt_bundle_attach = esp_crt_bundle_attach;
@@ -343,10 +403,6 @@ esp_err_t update_manager_auto_update(
         .http_config = &http_config,
     };
 
-    if (install_callback != NULL) {
-        install_callback(callback_context);
-    }
-
     ESP_LOGI(
         TAG,
         "starting ota current=%s latest=%s mandatory=%d download=%s",
@@ -355,9 +411,75 @@ esp_err_t update_manager_auto_update(
         manager->mandatory,
         manager->download_url
     );
-    err = esp_https_ota(&ota_config);
+
+    esp_https_ota_handle_t ota_handle = NULL;
+    err = esp_https_ota_begin(&ota_config, &ota_handle);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "ota failed: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "ota stage=connect failed: %s (0x%x)", esp_err_to_name(err), (unsigned int)err);
+        return err;
     }
+
+    int status_code = esp_https_ota_get_status_code(ota_handle);
+    if (status_code < 200 || status_code >= 300) {
+        ESP_LOGW(TAG, "ota stage=response failed: http=%d", status_code);
+        esp_https_ota_abort(ota_handle);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    esp_app_desc_t new_app_info = {0};
+    err = esp_https_ota_get_img_desc(ota_handle, &new_app_info);
+    if (err != ESP_OK) {
+        ESP_LOGW(
+            TAG,
+            "ota stage=image_header failed: %s (0x%x) http=%d",
+            esp_err_to_name(err),
+            (unsigned int)err,
+            status_code
+        );
+        esp_https_ota_abort(ota_handle);
+        return err;
+    }
+
+    ESP_LOGI(
+        TAG,
+        "ota image accepted project=%s version=%s size=%d http=%d",
+        new_app_info.project_name,
+        new_app_info.version,
+        esp_https_ota_get_image_size(ota_handle),
+        status_code
+    );
+    if (install_callback != NULL) {
+        install_callback(callback_context);
+    }
+
+    do {
+        err = esp_https_ota_perform(ota_handle);
+    } while (err == ESP_ERR_HTTPS_OTA_IN_PROGRESS);
+
+    const int bytes_read = esp_https_ota_get_image_len_read(ota_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(
+            TAG,
+            "ota stage=download failed: %s (0x%x) http=%d bytes=%d",
+            esp_err_to_name(err),
+            (unsigned int)err,
+            esp_https_ota_get_status_code(ota_handle),
+            bytes_read
+        );
+        esp_https_ota_abort(ota_handle);
+        return err;
+    }
+    if (!esp_https_ota_is_complete_data_received(ota_handle)) {
+        ESP_LOGW(TAG, "ota stage=download failed: incomplete image bytes=%d", bytes_read);
+        esp_https_ota_abort(ota_handle);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    err = esp_https_ota_finish(ota_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "ota stage=verify failed: %s (0x%x) bytes=%d", esp_err_to_name(err), (unsigned int)err, bytes_read);
+        return err;
+    }
+    ESP_LOGI(TAG, "ota complete bytes=%d version=%s", bytes_read, new_app_info.version);
     return err;
 }

@@ -221,9 +221,14 @@ static esp_err_t wait_for_connected(wearable_voice_client_t *client, int timeout
     const int64_t deadline = esp_timer_get_time() + ((int64_t)timeout_ms * 1000);
     while (esp_timer_get_time() < deadline) {
         bool ready = false;
+        bool authentication_rejected = false;
         voice_client_lock(client);
         ready = client->websocket_connected && client->hello_complete && (!require_session || client->session_ready);
+        authentication_rejected = client->authentication_rejected;
         voice_client_unlock(client);
+        if (authentication_rejected) {
+            return ESP_ERR_INVALID_STATE;
+        }
         if (ready) {
             return ESP_OK;
         }
@@ -572,6 +577,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
     switch (event_id) {
         case WEBSOCKET_EVENT_CONNECTED:
             voice_client_lock(client);
+            client->authentication_rejected = false;
             client->websocket_connected = true;
             client->hello_complete = false;
             client->session_ready = false;
@@ -603,6 +609,14 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
             break;
         case WEBSOCKET_EVENT_ERROR:
             if (data != NULL) {
+                if (data->error_handle.esp_ws_handshake_status_code == 401 ||
+                    data->error_handle.esp_ws_handshake_status_code == 403) {
+                    voice_client_lock(client);
+                    client->authentication_rejected = true;
+                    voice_client_unlock(client);
+                    set_last_error(client, "Pairing expired; reconnect device");
+                    break;
+                }
                 char message[160];
                 snprintf(
                     message,
@@ -698,7 +712,11 @@ esp_err_t wearable_voice_client_init(
         wearable_voice_client_cleanup_resources(client);
         return ESP_ERR_NOT_SUPPORTED;
     }
-    return ensure_transport_ready(client);
+    esp_err_t ready_err = ensure_transport_ready(client);
+    if (ready_err == ESP_ERR_INVALID_STATE) {
+        wearable_voice_client_cleanup_resources(client);
+    }
+    return ready_err;
 }
 
 esp_err_t wearable_voice_client_deinit(wearable_voice_client_t *client) {
@@ -833,6 +851,7 @@ esp_err_t wearable_voice_client_interrupt(wearable_voice_client_t *client) {
     }
     voice_client_lock(client);
     client->recording = false;
+    copy_bounded(client->current_state, sizeof(client->current_state), "idle");
     voice_client_unlock(client);
     return client->active_session_id[0] != '\0' ? send_interrupt(client) : ESP_OK;
 }

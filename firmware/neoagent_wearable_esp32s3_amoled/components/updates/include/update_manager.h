@@ -28,6 +28,7 @@ esp_err_t update_manager_auto_update(
     update_manager_t *manager,
     const char *server_url,
     const neoagent_session_state_t *session,
+    bool allow_development_build_update,
     update_manager_install_callback_t install_callback,
     void *callback_context
 );

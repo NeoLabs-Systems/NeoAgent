@@ -61,6 +61,7 @@ esp_err_t board_support_show_assistant(board_support_t *board, const char *statu
 esp_err_t board_support_show_widget_card(board_support_t *board, const char *title, const char *metric, const char *detail, const char *footer, size_t index, size_t total);
 esp_err_t board_support_show_settings(board_support_t *board, const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset);
 esp_err_t board_support_poll_touch(board_support_t *board, board_touch_event_t *event);
+bool board_support_touch_is_active(const board_support_t *board);
 esp_err_t board_support_poll_buttons(board_support_t *board, board_button_event_t *event);
 bool board_support_audio_is_ready(const board_support_t *board);
 const board_audio_format_t *board_support_audio_format(const board_support_t *board);

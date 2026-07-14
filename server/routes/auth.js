@@ -62,6 +62,8 @@ const passwordResetLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const WEARABLE_SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
 function getAuthProviderManager(req) {
   return req.app?.locals?.authProviderManager;
 }
@@ -81,7 +83,7 @@ function toUserPayload(user) {
   };
 }
 
-function establishSession(req, res, user) {
+function establishSession(req, res, user, options = {}) {
   req.session.regenerate((regenerateError) => {
     if (regenerateError) {
       console.error('Auth session regenerate error:', regenerateError);
@@ -90,6 +92,9 @@ function establishSession(req, res, user) {
 
     req.session.userId = user.id;
     req.session.username = user.username;
+    if (Number.isFinite(options.maxAgeMs) && options.maxAgeMs > 0) {
+      req.session.cookie.maxAge = options.maxAgeMs;
+    }
     req.session.save((saveError) => {
       if (saveError) {
         console.error('Auth session save error:', saveError);
@@ -648,7 +653,11 @@ router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, (req,
       pollToken,
     });
     updateLastLogin(result.user.id);
-    return establishSession(req, res, result.user);
+    const requestedPlatform = String(result.challenge?.requestedDevice?.metadata?.platform || '');
+    const sessionOptions = requestedPlatform === 'esp32-s3-amoled'
+      ? { maxAgeMs: WEARABLE_SESSION_MAX_AGE_MS }
+      : {};
+    return establishSession(req, res, result.user, sessionOptions);
   } catch (error) {
     const statusCode = Number(error?.statusCode || 500);
     return res.status(statusCode).json({

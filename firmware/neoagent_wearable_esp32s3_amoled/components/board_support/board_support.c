@@ -101,6 +101,15 @@ typedef struct {
     lv_obj_t *title_label;
     lv_obj_t *line1_label;
     lv_obj_t *line2_label;
+    lv_obj_t *header_time_label;
+    lv_obj_t *header_battery_pill;
+    lv_obj_t *header_battery_symbol;
+    lv_obj_t *header_battery_label;
+    lv_obj_t *assistant_status_label;
+    lv_obj_t *assistant_orb;
+    lv_obj_t *assistant_caption_label;
+    lv_obj_t *assistant_output_card;
+    lv_obj_t *assistant_output_label;
     lv_obj_t *qr_code;
     esp_lcd_panel_handle_t panel_handle;
     lv_disp_drv_t disp_drv;
@@ -293,10 +302,6 @@ static void board_load_screen(lv_obj_t *screen, lv_scr_load_anim_t animation) {
     }
 }
 
-static void board_set_translate_y(void *object, int32_t value) {
-    lv_obj_set_style_translate_y((lv_obj_t *)object, (lv_coord_t)value, 0);
-}
-
 static void board_format_battery_text(char *text, size_t text_size) {
     if (text == NULL || text_size == 0) {
         return;
@@ -371,6 +376,11 @@ static lv_obj_t *board_create_header(lv_obj_t *screen, const char *title) {
     lv_label_set_text(battery_label, battery_text);
     lv_obj_align(battery_label, LV_ALIGN_RIGHT_MID, -8, 0);
 
+    s_runtime.header_time_label = time_label;
+    s_runtime.header_battery_pill = battery_pill;
+    s_runtime.header_battery_symbol = battery_symbol;
+    s_runtime.header_battery_label = battery_label;
+
     return header;
 }
 
@@ -401,7 +411,7 @@ static lv_obj_t *board_create_surface(lv_obj_t *screen) {
 }
 
 static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
-    static const char *icons[] = {LV_SYMBOL_AUDIO, LV_SYMBOL_IMAGE, LV_SYMBOL_PLAY, LV_SYMBOL_SETTINGS};
+    static const char *icons[] = {LV_SYMBOL_AUDIO, LV_SYMBOL_SETTINGS};
     lv_obj_t *nav = lv_obj_create(screen);
     lv_obj_set_size(nav, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES);
     lv_obj_set_pos(nav, 0, 0);
@@ -411,10 +421,10 @@ static lv_obj_t *board_create_nav_bar(lv_obj_t *screen, size_t active_index) {
     lv_obj_set_style_pad_all(nav, 0, 0);
     lv_obj_clear_flag(nav, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < 2; ++i) {
         lv_obj_t *segment = lv_obj_create(nav);
-        lv_obj_set_size(segment, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES / 4);
-        lv_obj_set_pos(segment, 0, (lv_coord_t)(i * (BOARD_LCD_V_RES / 4)));
+        lv_obj_set_size(segment, BOARD_UI_NAV_WIDTH, BOARD_LCD_V_RES / 2);
+        lv_obj_set_pos(segment, 0, (lv_coord_t)(i * (BOARD_LCD_V_RES / 2)));
         lv_obj_set_style_radius(segment, 0, 0);
         lv_obj_set_style_bg_opa(segment, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(segment, 0, 0);
@@ -545,16 +555,6 @@ static lv_obj_t *board_create_list_row(lv_obj_t *parent, lv_coord_t y_ofs, const
     lv_obj_align(text_label, LV_ALIGN_LEFT_MID, 40, 0);
 
     return row;
-}
-
-static void board_animate_entry(lv_obj_t *object) {
-    lv_anim_t animation;
-    lv_anim_init(&animation);
-    lv_anim_set_var(&animation, object);
-    lv_anim_set_values(&animation, 10, 0);
-    lv_anim_set_time(&animation, 90);
-    lv_anim_set_exec_cb(&animation, board_set_translate_y);
-    lv_anim_start(&animation);
 }
 
 static esp_err_t board_audio_open_codec(uint32_t sample_rate_hz, uint8_t channels, uint8_t bits_per_sample) {
@@ -1117,10 +1117,6 @@ static void board_create_qr_screen(const char *title, const char *subtitle, cons
 }
 
 static void board_create_assistant_screen(const char *status, const char *hint, bool mic_active, board_assistant_state_t state) {
-    lv_obj_t *screen = lv_obj_create(NULL);
-    board_style_base_screen(screen);
-    board_create_header(screen, "ASSISTANT");
-
     lv_color_t orb_start = lv_color_hex(0xe0a908);
     lv_color_t shadow_color = lv_color_hex(0xf0b310);
     const char *caption = "";
@@ -1135,17 +1131,14 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
         case BOARD_ASSISTANT_STATE_TRANSCRIBING:
             orb_start = lv_color_hex(0xf0b34c);
             shadow_color = lv_color_hex(0xf0b34c);
-            caption = "Transcribing";
             break;
         case BOARD_ASSISTANT_STATE_THINKING:
             orb_start = lv_color_hex(0x9c8c4e);
             shadow_color = lv_color_hex(0xc3a45c);
-            caption = "Thinking";
             break;
         case BOARD_ASSISTANT_STATE_SPEAKING:
             orb_start = lv_color_hex(0xf0bc4d);
             shadow_color = lv_color_hex(0xf2c86f);
-            caption = "Speaking";
             break;
         case BOARD_ASSISTANT_STATE_ERROR:
             orb_start = lv_color_hex(0xb86f58);
@@ -1156,6 +1149,33 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
         default:
             break;
     }
+
+    if (s_runtime.assistant_orb != NULL && lv_obj_is_valid(s_runtime.assistant_orb)) {
+        lv_label_set_text(s_runtime.assistant_status_label, status != NULL ? status : "Ready");
+        lv_obj_set_style_bg_color(s_runtime.assistant_orb, orb_start, 0);
+        lv_obj_set_style_bg_grad_color(s_runtime.assistant_orb, orb_start, 0);
+        lv_obj_set_style_shadow_width(s_runtime.assistant_orb, mic_active ? 44 : 34, 0);
+        lv_obj_set_style_shadow_color(s_runtime.assistant_orb, shadow_color, 0);
+        lv_obj_set_style_shadow_opa(s_runtime.assistant_orb, mic_active ? LV_OPA_50 : LV_OPA_40, 0);
+        lv_label_set_text(s_runtime.assistant_caption_label, caption);
+        if (caption[0] == '\0') {
+            lv_obj_add_flag(s_runtime.assistant_caption_label, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_clear_flag(s_runtime.assistant_caption_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (show_output_card) {
+            lv_label_set_text(s_runtime.assistant_output_label, hint);
+            lv_obj_clear_flag(s_runtime.assistant_output_card, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_label_set_text(s_runtime.assistant_output_label, "");
+            lv_obj_add_flag(s_runtime.assistant_output_card, LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
+    }
+
+    lv_obj_t *screen = lv_obj_create(NULL);
+    board_style_base_screen(screen);
+    board_create_header(screen, "ASSISTANT");
 
     lv_obj_t *status_pill = lv_obj_create(screen);
     lv_obj_set_size(status_pill, 132, 30);
@@ -1185,42 +1205,48 @@ static void board_create_assistant_screen(const char *status, const char *hint, 
     lv_obj_set_style_shadow_opa(orb_glow, mic_active ? LV_OPA_50 : LV_OPA_40, 0);
     lv_obj_clear_flag(orb_glow, LV_OBJ_FLAG_SCROLLABLE);
 
-    if (caption[0] != '\0') {
-        lv_obj_t *caption_label = lv_label_create(screen);
-        lv_obj_set_width(caption_label, 220);
-        lv_label_set_long_mode(caption_label, LV_LABEL_LONG_WRAP);
-        lv_obj_set_style_text_align(caption_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(caption_label, &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(caption_label, lv_color_hex(0x9baabd), 0);
-        lv_label_set_text(caption_label, caption);
-        lv_obj_align(caption_label, LV_ALIGN_CENTER, BOARD_UI_NAV_WIDTH / 2, 56);
+    lv_obj_t *caption_label = lv_label_create(screen);
+    lv_obj_set_width(caption_label, 220);
+    lv_label_set_long_mode(caption_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(caption_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(caption_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(caption_label, lv_color_hex(0x9baabd), 0);
+    lv_label_set_text(caption_label, caption);
+    lv_obj_align(caption_label, LV_ALIGN_CENTER, BOARD_UI_NAV_WIDTH / 2, 56);
+    if (caption[0] == '\0') {
+        lv_obj_add_flag(caption_label, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if (show_output_card) {
-        lv_obj_t *output_card = lv_obj_create(screen);
-        lv_obj_set_size(output_card, 328, 78);
-        lv_obj_align(output_card, LV_ALIGN_BOTTOM_MID, BOARD_UI_NAV_WIDTH / 2, -18);
-        lv_obj_set_style_radius(output_card, 20, 0);
-        lv_obj_set_style_bg_color(output_card, lv_color_hex(0x111a23), 0);
-        lv_obj_set_style_border_width(output_card, 1, 0);
-        lv_obj_set_style_border_color(output_card, lv_color_hex(0x223343), 0);
-        lv_obj_set_style_pad_all(output_card, 14, 0);
-        lv_obj_clear_flag(output_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *output_card = lv_obj_create(screen);
+    lv_obj_set_size(output_card, 328, 78);
+    lv_obj_align(output_card, LV_ALIGN_BOTTOM_MID, BOARD_UI_NAV_WIDTH / 2, -18);
+    lv_obj_set_style_radius(output_card, 20, 0);
+    lv_obj_set_style_bg_color(output_card, lv_color_hex(0x111a23), 0);
+    lv_obj_set_style_border_width(output_card, 1, 0);
+    lv_obj_set_style_border_color(output_card, lv_color_hex(0x223343), 0);
+    lv_obj_set_style_pad_all(output_card, 14, 0);
+    lv_obj_clear_flag(output_card, LV_OBJ_FLAG_SCROLLABLE);
 
-        lv_obj_t *output_label = lv_label_create(output_card);
-        lv_obj_set_width(output_label, 296);
-        lv_label_set_long_mode(output_label, LV_LABEL_LONG_WRAP);
-        lv_obj_set_style_text_align(output_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(output_label, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(output_label, lv_color_hex(0xe8eef5), 0);
-        lv_label_set_text(output_label, hint);
-        lv_obj_center(output_label);
+    lv_obj_t *output_label = lv_label_create(output_card);
+    lv_obj_set_width(output_label, 296);
+    lv_label_set_long_mode(output_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(output_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(output_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(output_label, lv_color_hex(0xe8eef5), 0);
+    lv_label_set_text(output_label, show_output_card ? hint : "");
+    lv_obj_center(output_label);
+    if (!show_output_card) {
+        lv_obj_add_flag(output_card, LV_OBJ_FLAG_HIDDEN);
     }
 
     board_create_nav_bar(screen, 0);
-    board_animate_entry(orb_glow);
 
     s_runtime.qr_screen_active = false;
+    s_runtime.assistant_status_label = status_label;
+    s_runtime.assistant_orb = orb_glow;
+    s_runtime.assistant_caption_label = caption_label;
+    s_runtime.assistant_output_card = output_card;
+    s_runtime.assistant_output_label = output_label;
     board_load_screen(screen, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
 }
 
@@ -1372,7 +1398,6 @@ static void board_create_widget_screen(const char *title, const char *metric, co
     }
 
     board_create_nav_bar(screen, 1);
-    board_animate_entry(surface);
 
     s_runtime.qr_screen_active = false;
     board_load_screen(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
@@ -1490,7 +1515,7 @@ static void board_create_settings_screen(const char *section_title, const char *
     }
 
     if (show_reset || (section_title != NULL && strcmp(section_title, "Settings") == 0)) {
-        board_create_nav_bar(screen, 3);
+        board_create_nav_bar(screen, 1);
     } else {
         lv_obj_t *back = lv_obj_create(screen);
         lv_obj_set_size(back, 318, 42);
@@ -1507,7 +1532,6 @@ static void board_create_settings_screen(const char *section_title, const char *
         lv_label_set_text(back_label, LV_SYMBOL_LEFT " Back");
         lv_obj_center(back_label);
     }
-    board_animate_entry(frame);
 
     s_runtime.qr_screen_active = false;
     board_load_screen(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
@@ -1686,6 +1710,26 @@ esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status
     } else {
         snprintf(s_runtime.chrome_time, sizeof(s_runtime.chrome_time), "--:--");
     }
+    if (s_runtime.header_time_label != NULL && lv_obj_is_valid(s_runtime.header_time_label)) {
+        char battery_text[12];
+        lv_label_set_text(s_runtime.header_time_label, s_runtime.chrome_time);
+        board_format_battery_text(battery_text, sizeof(battery_text));
+        lv_label_set_text(s_runtime.header_battery_label, battery_text);
+        lv_label_set_text(
+            s_runtime.header_battery_symbol,
+            s_runtime.chrome.charging ? LV_SYMBOL_CHARGE : LV_SYMBOL_BATTERY_FULL
+        );
+        lv_obj_set_style_text_color(
+            s_runtime.header_battery_symbol,
+            s_runtime.chrome.charging ? lv_color_hex(0x77cfb8) : lv_color_hex(0xe6edf5),
+            0
+        );
+        lv_obj_set_style_border_color(
+            s_runtime.header_battery_pill,
+            s_runtime.chrome.charging ? lv_color_hex(0x77cfb8) : lv_color_hex(0x314355),
+            0
+        );
+    }
     board_unlock();
     return ESP_OK;
 }
@@ -1851,6 +1895,13 @@ esp_err_t board_support_poll_touch(board_support_t *board, board_touch_event_t *
     }
 
     return ESP_OK;
+}
+
+bool board_support_touch_is_active(const board_support_t *board) {
+    if (board == NULL || !s_runtime.initialized || s_runtime.touch_handle == NULL) {
+        return false;
+    }
+    return s_runtime.touch_down || gpio_get_level(BOARD_TOUCH_INT) == 0;
 }
 
 static void board_update_button_state(
