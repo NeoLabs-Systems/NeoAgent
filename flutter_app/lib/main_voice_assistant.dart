@@ -528,7 +528,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         .toDouble();
     final assistantUi = _DesktopAssistantControlState.fromController(
       controller,
-      blockedHintVisible: false,
     );
     final liveCaptureEngaged = assistantUi.isCapturing;
     final isBusy = _pttPressed || liveCaptureEngaged;
@@ -697,10 +696,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                       icon: Icons.refresh,
                       label: 'Refresh',
                       onTap: controller.ensureLiveVoiceSession,
-                    ),
-                    _VoiceAssistantScreenContextButton(
-                      controller: controller,
-                      compact: false,
                     ),
                   ],
                 ),

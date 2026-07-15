@@ -1347,7 +1347,16 @@ class MemoryManager {
     const ids = normalizeStringArray(memories.map((memory) => memory.id), 200, 80);
     if (!ids.length) return memories;
     const placeholders = ids.map(() => '?').join(', ');
-    const rows = db.prepare(
+
+    // Facts and their supersession chain: one row per fact. Relations are deliberately
+    // queried separately below instead of joined in here — memory_relations is keyed by
+    // memory_id, not fact_id, so joining it alongside memory_facts.current produces a
+    // full cross product (every fact of a memory duplicated once per relation x related
+    // fact). On memories with even a modest number of facts and relations this exploded
+    // into thousands of duplicate entries, which then blew up the retrieval-enhancement
+    // LLM prompt (buildRerankerPrompt in retrieval_reasoning.js) past the model's context
+    // limit once an account accumulated enough memories.
+    const factRows = db.prepare(
       `SELECT
          current.memory_id,
          current.id,
@@ -1362,24 +1371,48 @@ class MemoryManager {
          previous.object AS previous_object,
          previous.valid_from AS previous_valid_from,
          previous.valid_to AS previous_valid_to,
-         previous.learned_at AS previous_learned_at,
+         previous.learned_at AS previous_learned_at
+       FROM memory_facts current
+       LEFT JOIN memory_facts previous ON previous.id = current.supersedes_fact_id
+       WHERE current.memory_id IN (${placeholders})
+         AND current.status = 'active'
+       ORDER BY current.learned_at DESC, current.created_at DESC`
+    ).all(...ids);
+
+    // Related facts via memory_relations, kept per-memory (not per-fact) and capped so a
+    // richly-linked memory can't reintroduce an unbounded prompt.
+    const MAX_RELATED_PER_MEMORY = 5;
+    const relationRows = db.prepare(
+      `SELECT
+         relation.from_memory_id,
          relation.to_memory_id AS relation_target_memory_id,
          relation.relation_type,
          related.id AS related_fact_id,
          related.subject AS related_subject,
          related.predicate AS related_predicate,
          related.object AS related_object
-       FROM memory_facts current
-       LEFT JOIN memory_facts previous ON previous.id = current.supersedes_fact_id
-       LEFT JOIN memory_relations relation ON relation.from_memory_id = current.memory_id
-       LEFT JOIN memory_facts related ON related.memory_id = relation.to_memory_id
-       WHERE current.memory_id IN (${placeholders})
-         AND current.status = 'active'
-       ORDER BY current.learned_at DESC, current.created_at DESC`
+       FROM memory_relations relation
+       JOIN memory_facts related ON related.memory_id = relation.to_memory_id AND related.status = 'active'
+       WHERE relation.from_memory_id IN (${placeholders})
+       ORDER BY related.learned_at DESC, related.created_at DESC`
     ).all(...ids);
 
+    const relatedByMemory = new Map();
+    for (const row of relationRows) {
+      const bucket = relatedByMemory.get(row.from_memory_id) || [];
+      if (bucket.length >= MAX_RELATED_PER_MEMORY) continue;
+      bucket.push({
+        factId: row.related_fact_id,
+        relation: row.relation_type,
+        subject: row.related_subject,
+        predicate: row.related_predicate,
+        object: row.related_object,
+      });
+      relatedByMemory.set(row.from_memory_id, bucket);
+    }
+
     const byMemory = new Map();
-    for (const row of rows) {
+    for (const row of factRows) {
       if (!byMemory.has(row.memory_id)) byMemory.set(row.memory_id, []);
       const metadata = parseJsonObject(row.metadata_json, {});
       byMemory.get(row.memory_id).push({
@@ -1400,15 +1433,7 @@ class MemoryManager {
             learnedAt: row.previous_learned_at || null,
           }
           : null,
-        related: row.relation_target_memory_id
-          ? {
-            factId: row.related_fact_id,
-            relation: row.relation_type,
-            subject: row.related_subject,
-            predicate: row.related_predicate,
-            object: row.related_object,
-          }
-          : null,
+        related: relatedByMemory.get(row.memory_id) || [],
       });
     }
 

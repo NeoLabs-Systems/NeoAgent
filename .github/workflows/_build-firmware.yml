@@ -9,8 +9,7 @@ on:
         type: string
       release_tag:
         description: Release tag used to version artifacts
-        required: false
-        default: ''
+        required: true
         type: string
 
 permissions:
@@ -26,12 +25,25 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Set firmware version from release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          firmware_version="${RELEASE_TAG#v}"
+          if [[ ! "$firmware_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+            echo "Invalid firmware release tag: $RELEASE_TAG"
+            exit 1
+          fi
+          printf '%s\n' "$firmware_version" > firmware/neoagent_wearable_esp32s3_amoled/version.txt
+
       - name: Build ESP-IDF firmware
         uses: espressif/esp-idf-ci-action@v1
         with:
           path: firmware/neoagent_wearable_esp32s3_amoled
           target: esp32s3
-          esp_idf_version: latest
+          esp_idf_version: v5.4.2
 
       - name: Collect firmware release files
         shell: bash
@@ -48,7 +60,19 @@ jobs:
             exit 1
           fi
 
+          expected_version="${{ inputs.release_tag }}"
+          expected_version="${expected_version#v}"
+          actual_version="$(jq -r '.project_version // empty' "$build_dir/project_description.json")"
+          if [ "$actual_version" != "$expected_version" ]; then
+            echo "Firmware version mismatch: expected $expected_version, built $actual_version"
+            exit 1
+          fi
+
           cp "$app_bin" "$dist_dir/neoagent-wearable-firmware.bin"
+          (
+            cd "$dist_dir"
+            sha256sum neoagent-wearable-firmware.bin > neoagent-wearable-firmware.bin.sha256
+          )
 
           if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
             cp "$build_dir/bootloader/bootloader.bin" "$dist_dir/neoagent-wearable-bootloader.bin"

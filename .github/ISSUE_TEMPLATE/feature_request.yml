@@ -37,7 +37,7 @@ body:
         - Integrations
         - Messaging
         - Operations and installation
-        - Recordings and memory
+        - Memory
         - Security
     validations:
       required: true

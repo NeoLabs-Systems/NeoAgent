@@ -145,16 +145,8 @@ function readStoredSetting(userId, agentId, key) {
 }
 
 function resolveVoiceSttConfigFromSettings(settings = {}) {
-  const provider = String(
-    settings.voice_stt_provider
-    || settings.default_recording_transcription_provider
-    || '',
-  ).trim().toLowerCase() || 'openai';
-  const model = String(
-    settings.voice_stt_model
-    || settings.default_recording_transcription_model
-    || '',
-  ).trim();
+  const provider = String(settings.voice_stt_provider || '').trim().toLowerCase() || 'openai';
+  const model = String(settings.voice_stt_model || '').trim();
   return {
     provider,
     model: resolveSttModel(provider, model),
@@ -595,16 +587,6 @@ class SocialVideoService {
     return resolveVoiceSttConfigFromSettings({
       voice_stt_provider: readStoredSetting(userId, agentId, 'voice_stt_provider'),
       voice_stt_model: readStoredSetting(userId, agentId, 'voice_stt_model'),
-      default_recording_transcription_provider: readStoredSetting(
-        userId,
-        agentId,
-        'default_recording_transcription_provider',
-      ),
-      default_recording_transcription_model: readStoredSetting(
-        userId,
-        agentId,
-        'default_recording_transcription_model',
-      ),
     });
   }
 

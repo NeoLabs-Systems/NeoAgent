@@ -42,3 +42,4 @@ int provisioning_manager_time_offset_seconds(void);
 const char *provisioning_manager_ap_ssid(const provisioning_manager_t *manager);
 const char *provisioning_manager_ap_password(const provisioning_manager_t *manager);
 bool provisioning_manager_portal_saved_config(const provisioning_manager_t *manager);
+bool provisioning_manager_is_connected(const provisioning_manager_t *manager);

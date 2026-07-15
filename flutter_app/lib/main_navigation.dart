@@ -17,7 +17,6 @@ enum AppSection {
   timeline,
   voiceAssistant,
   devices,
-  recordings,
   messaging,
   runs,
   settings,
@@ -34,7 +33,7 @@ enum AppSection {
   billing,
 }
 
-enum SidebarGroup { chat, timeline, recordings, automation, settings }
+enum SidebarGroup { chat, timeline, automation, settings }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
@@ -43,8 +42,6 @@ extension SidebarGroupX on SidebarGroup {
         return 'Chat';
       case SidebarGroup.timeline:
         return 'Timeline';
-      case SidebarGroup.recordings:
-        return 'Recordings';
       case SidebarGroup.automation:
         return 'Automation';
       case SidebarGroup.settings:
@@ -58,8 +55,6 @@ extension SidebarGroupX on SidebarGroup {
         return Icons.chat_bubble_outline;
       case SidebarGroup.timeline:
         return Icons.timeline_rounded;
-      case SidebarGroup.recordings:
-        return Icons.fiber_smart_record_outlined;
       case SidebarGroup.automation:
         return Icons.auto_awesome_outlined;
       case SidebarGroup.settings:
@@ -79,8 +74,6 @@ extension AppSectionX on AppSection {
         return 'Voice assistant';
       case AppSection.devices:
         return 'Devices';
-      case AppSection.recordings:
-        return 'Recordings';
       case AppSection.messaging:
         return 'Messaging';
       case AppSection.runs:
@@ -122,8 +115,6 @@ extension AppSectionX on AppSection {
         return Icons.keyboard_voice_outlined;
       case AppSection.devices:
         return Icons.devices_other_outlined;
-      case AppSection.recordings:
-        return Icons.fiber_smart_record_outlined;
       case AppSection.messaging:
         return Icons.forum_outlined;
       case AppSection.runs:
@@ -162,8 +153,6 @@ extension AppSectionX on AppSection {
         return SidebarGroup.chat;
       case AppSection.timeline:
         return SidebarGroup.timeline;
-      case AppSection.recordings:
-        return SidebarGroup.recordings;
       case AppSection.devices:
       case AppSection.skills:
       case AppSection.integrations:
@@ -210,8 +199,7 @@ extension AppSectionX on AppSection {
       return effectiveSection.label;
     }
     if (effectiveSection.group == SidebarGroup.chat ||
-        effectiveSection.group == SidebarGroup.timeline ||
-        effectiveSection.group == SidebarGroup.recordings) {
+        effectiveSection.group == SidebarGroup.timeline) {
       return groupLabel;
     }
     if (groupLabel == effectiveSection.label) {

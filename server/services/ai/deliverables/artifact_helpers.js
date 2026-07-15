@@ -124,7 +124,7 @@ const ARTIFACT_CONTAINER_KEYS = new Set([
 
 const CONTAINER_URL_KEYS = new Set(['url', 'urls', 'uri', 'uris', 'href', 'hrefs']);
 
-const EVIDENCE_RESULT_TOOLS = /^(execute_command|github_|list_|search_|read_|get_|find_|http_request|web_search|browser_get|browser_read|code_navigate|query_structured_data|memory_|session_search|recordings_|read_health_data)/;
+const EVIDENCE_RESULT_TOOLS = /^(execute_command|github_|list_|search_|read_|get_|find_|http_request|web_search|browser_get|browser_read|code_navigate|query_structured_data|memory_|session_search|read_health_data)/;
 
 function allowsGenericCandidateKeys(toolName = '') {
   return !EVIDENCE_RESULT_TOOLS.test(String(toolName || ''));

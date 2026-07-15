@@ -440,7 +440,10 @@ async function getProviderForUser(userId, task = '', isSubagent = false, modelOv
 
   if (modelOverride && typeof modelOverride === 'string') {
     const requested = models.find((m) => m.id === modelOverride.trim());
-    if (requested && requested.available !== false && enabledIds.includes(requested.id)) {
+    // An explicit override (e.g. a failure fallback picked by getFailureFallbackModelId)
+    // may intentionally sit outside the user's enabled_models pool — that's the whole
+    // point when no in-pool cross-provider option exists. Only require availability.
+    if (requested && requested.available !== false) {
       selectedModelDef = requested;
       return {
         provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
@@ -569,6 +572,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let failedStepCount = 0;
   let toolExecutions = [];
   let deliverableWorkflow = null;
+  let runTitle;
   const timelineService = app?.locals?.timelineService || null;
 
   const { releaseReservation } = enforceRateLimits(userId, {
@@ -638,7 +642,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     }
   };
 
-  const runTitle = generateTitle(userMessage);
+  runTitle = generateTitle(userMessage);
   const initialRunMetadata = buildInitialRunMetadata(options);
   db.prepare(`INSERT INTO agent_runs(
     id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json

@@ -11,15 +11,11 @@ import android.provider.Settings
 import android.provider.OpenableColumns
 import android.view.KeyEvent
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import com.neoagent.flutter_app.health.HealthConnectGateway
 import com.neoagent.flutter_app.health.HealthSyncScheduler
-import com.neoagent.flutter_app.recording.RecordingForegroundService
-import com.neoagent.flutter_app.recording.RecordingStateStore
 import com.neoagent.flutter_app.widgets.AiHomeWidgetProvider
 import com.neoagent.flutter_app.widgets.AiWidgetStore
 import com.neoagent.flutter_app.widgets.VoiceLaunchWidgetProvider
@@ -46,12 +42,8 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var healthGateway: HealthConnectGateway
     private lateinit var healthSyncScheduler: HealthSyncScheduler
     private lateinit var widgetSyncScheduler: WidgetSyncScheduler
-    private lateinit var recordingStateStore: RecordingStateStore
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
-    private lateinit var microphonePermissionLauncher: ActivityResultLauncher<String>
     private var pendingPermissionResult: MethodChannel.Result? = null
-    private var pendingRecordingResult: MethodChannel.Result? = null
-    private var pendingRecordingArgs: Map<*, *>? = null
     private var launcherButtonSink: EventChannel.EventSink? = null
     private var widgetEventSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
@@ -76,7 +68,6 @@ class MainActivity : FlutterFragmentActivity() {
                 .build()
             telecomManager.registerPhoneAccount(phoneAccount)
         }
-        recordingStateStore = RecordingStateStore(this)
         permissionLauncher = registerForActivityResult(
             PermissionController.createRequestPermissionResultContract(),
         ) {
@@ -84,32 +75,6 @@ class MainActivity : FlutterFragmentActivity() {
             pendingPermissionResult = null
             lifecycleScope.launch {
                 pending?.success(buildStatusMap())
-            }
-        }
-        microphonePermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission(),
-        ) { granted ->
-            val pending = pendingRecordingResult
-            val args = pendingRecordingArgs
-            pendingRecordingResult = null
-            pendingRecordingArgs = null
-            if (!granted) {
-                pending?.error(
-                    "recording_permission_denied",
-                    "Microphone permission is required for background recording.",
-                    null,
-                )
-                return@registerForActivityResult
-            }
-            try {
-                startRecordingService(args)
-                pending?.success(recordingStateStore.statusMap())
-            } catch (err: Exception) {
-                pending?.error(
-                    "recording_start_failed",
-                    err.message ?: err.javaClass.simpleName,
-                    null,
-                )
             }
         }
         MethodChannel(
@@ -252,56 +217,6 @@ class MainActivity : FlutterFragmentActivity() {
                         sessionCookie = sessionCookie,
                     )
                     result.success(null)
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "neoagent/recordings",
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "status" -> result.success(recordingStateStore.statusMap())
-
-                "startBackgroundRecording" -> {
-                    try {
-                        val args = call.arguments as? Map<*, *>
-                        if (ContextCompat.checkSelfPermission(
-                                this,
-                                android.Manifest.permission.RECORD_AUDIO,
-                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                        ) {
-                            startRecordingService(args)
-                            result.success(recordingStateStore.statusMap())
-                        } else {
-                            pendingRecordingResult = result
-                            pendingRecordingArgs = args
-                            microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                        }
-                    } catch (err: Exception) {
-                        result.error(
-                            "recording_start_failed",
-                            err.message ?: err.javaClass.simpleName,
-                            null,
-                        )
-                    }
-                }
-
-                "pauseBackgroundRecording" -> {
-                    startService(RecordingForegroundService.buildPauseIntent(this))
-                    result.success(recordingStateStore.statusMap())
-                }
-
-                "resumeBackgroundRecording" -> {
-                    startService(RecordingForegroundService.buildResumeIntent(this))
-                    result.success(recordingStateStore.statusMap())
-                }
-
-                "stopBackgroundRecording" -> {
-                    startService(RecordingForegroundService.buildStopIntent(this))
-                    result.success(recordingStateStore.statusMap())
                 }
 
                 else -> result.notImplemented()
@@ -611,19 +526,6 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         emitLauncherButtonEvent(event, "up")
         return super.onKeyUp(keyCode, event)
-    }
-
-    private fun startRecordingService(args: Map<*, *>?) {
-        val backendUrl = args?.get("backendUrl")?.toString().orEmpty()
-        val sessionCookie = args?.get("sessionCookie")?.toString().orEmpty()
-        val sessionId = args?.get("sessionId")?.toString().orEmpty()
-        val intent = RecordingForegroundService.buildStartIntent(
-            this,
-            backendUrl = backendUrl,
-            sessionCookie = sessionCookie,
-            sessionId = sessionId,
-        )
-        ContextCompat.startForegroundService(this, intent)
     }
 
     private fun currentAppMode(): String {

@@ -7,7 +7,6 @@ import Foundation
 
 import audioplayers_darwin
 import connectivity_plus
-import desktop_audio_capture
 import file_picker
 import flutter_local_notifications
 import flutter_secure_storage_macos
@@ -28,7 +27,6 @@ import window_manager
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AudioplayersDarwinPlugin.register(with: registry.registrar(forPlugin: "AudioplayersDarwinPlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
-  AudioCapturePlugin.register(with: registry.registrar(forPlugin: "AudioCapturePlugin"))
   FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   FlutterSecureStoragePlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStoragePlugin"))

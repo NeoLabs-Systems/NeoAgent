@@ -88,7 +88,7 @@ function toolWorkDescription(toolName) {
   if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
   if (name.startsWith('browser_')) return 'checked the browser state';
   if (name.startsWith('android_')) return 'checked the Android state';
-  if (name === 'read_health_data' || name.startsWith('recordings_')) return 'checked stored data';
+  if (name === 'read_health_data') return 'checked stored data';
   return '';
 }
 

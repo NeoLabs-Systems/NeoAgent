@@ -71,8 +71,6 @@ esp_err_t ui_renderer_set_screen(ui_renderer_t *renderer, neoagent_screen_id_t s
             return board_support_show_message(renderer->board, "Ready To Pair", "Setup is saved.", "Next step is QR approval from an existing NeoAgent session.");
         case NEOAGENT_SCREEN_ASSISTANT:
             return board_support_show_message(renderer->board, "NeoAgent Ready", "Pairing completed.", "Loading assistant home...");
-        case NEOAGENT_SCREEN_RECORDER:
-            return board_support_show_recording(renderer->board, "Recording ready", "Background capture", "Loading recorder.", false, false, "00:00");
         case NEOAGENT_SCREEN_SETTINGS:
             return board_support_show_settings(renderer->board, "Settings", "Preparing controls", "Loading device settings.", NULL, false);
         default:
@@ -132,21 +130,6 @@ esp_err_t ui_renderer_show_widget(ui_renderer_t *renderer, const neoagent_widget
     return board_support_show_widget_card(renderer->board, snapshot->title, metric, detail, footer[0] != '\0' ? footer : NULL, index, total);
 }
 
-esp_err_t ui_renderer_show_recording(
-    ui_renderer_t *renderer,
-    const char *status,
-    const char *headline,
-    const char *detail,
-    bool active,
-    bool busy,
-    const char *timer_text
-) {
-    if (renderer == NULL || renderer->board == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    renderer->visible_screen = NEOAGENT_SCREEN_RECORDER;
-    return board_support_show_recording(renderer->board, status, headline, detail, active, busy, timer_text);
-}
 
 esp_err_t ui_renderer_show_provisioning(ui_renderer_t *renderer, const char *ssid, const char *password) {
     if (renderer == NULL || renderer->board == NULL) {

@@ -28,7 +28,7 @@ the current NeoAgent source.
 - You want structured memory and integration ingestion without a separate
   memory service.
 - You need multiple users or specialist agents with separate state.
-- Launcher mode, Health Connect, recordings, or the bundled device interfaces
+- Launcher mode, Health Connect, or the bundled device interfaces
   are part of the use case.
 
 ## Consider OpenClaw when

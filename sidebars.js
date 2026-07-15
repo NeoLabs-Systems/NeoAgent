@@ -14,7 +14,7 @@ const sidebars = {
         'memory',
         'integrations',
         'devices',
-        'recordings-and-health',
+        'health',
         'skills',
         'security-boundaries',
         'operations',

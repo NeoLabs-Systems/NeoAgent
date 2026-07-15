@@ -1143,239 +1143,6 @@ MessagingAccessRule? _ruleFromPrefixedEntry(String platform, String entry) {
   return MessagingAccessRule(scope: 'chat', value: normalized);
 }
 
-class RecordingSessionItem {
-  const RecordingSessionItem({
-    required this.id,
-    required this.title,
-    required this.platform,
-    required this.status,
-    required this.startedAt,
-    required this.endedAt,
-    required this.durationMs,
-    required this.transcriptText,
-    required this.lastError,
-    required this.sources,
-    required this.transcriptSegments,
-    this.structuredContent = const <String, dynamic>{},
-  });
-
-  factory RecordingSessionItem.fromJson(Map<dynamic, dynamic> json) {
-    final rawSources = json['sources'];
-    final sourceRows = rawSources is List
-        ? rawSources
-        : rawSources is Map
-        ? rawSources.values.toList(growable: false)
-        : const <dynamic>[];
-    final rawSegments = json['transcriptSegments'];
-    final transcriptSegmentRows = rawSegments is List
-        ? rawSegments
-        : rawSegments is Map
-        ? rawSegments.values.toList(growable: false)
-        : const <dynamic>[];
-    return RecordingSessionItem(
-      id: json['id']?.toString() ?? '',
-      title: json['title']?.toString().ifEmpty('Recording') ?? 'Recording',
-      platform: json['platform']?.toString() ?? 'unknown',
-      status: json['status']?.toString() ?? 'recording',
-      startedAt: _parseTimestamp(json['startedAt']?.toString()),
-      endedAt: _parseOptionalTimestamp(json['endedAt']?.toString()),
-      durationMs: _asInt(json['durationMs']),
-      transcriptText: json['transcriptText']?.toString() ?? '',
-      lastError: json['lastError']?.toString(),
-      sources: sourceRows
-          .whereType<Map<dynamic, dynamic>>()
-          .map(RecordingSourceItem.fromJson)
-          .toList(),
-      transcriptSegments: transcriptSegmentRows
-          .whereType<Map<dynamic, dynamic>>()
-          .map(RecordingTranscriptSegment.fromJson)
-          .toList(),
-      structuredContent: _jsonMap(json['structuredContent']),
-    );
-  }
-
-  final String id;
-  final String title;
-  final String platform;
-  final String status;
-  final DateTime startedAt;
-  final DateTime? endedAt;
-  final int durationMs;
-  final String transcriptText;
-  final String? lastError;
-  final List<RecordingSourceItem> sources;
-  final List<RecordingTranscriptSegment> transcriptSegments;
-  final Map<String, dynamic> structuredContent;
-
-  String get startedAtLabel => _formatTimestamp(startedAt);
-
-  String get platformLabel {
-    switch (platform) {
-      case 'web':
-        return 'Web';
-      case 'android':
-        return 'Android';
-      default:
-        return platform.ifEmpty('Unknown');
-    }
-  }
-
-  String get durationLabel => _formatDuration(durationMs);
-
-  String get statusLabel {
-    switch (status) {
-      case 'recording':
-        return 'Recording';
-      case 'processing':
-        return 'Processing';
-      case 'completed':
-        return 'Completed';
-      case 'failed':
-        return 'Failed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  }
-
-  Color get statusColor {
-    switch (status) {
-      case 'recording':
-        return _danger;
-      case 'processing':
-        return _warning;
-      case 'completed':
-        return _success;
-      case 'failed':
-        return _danger;
-      case 'cancelled':
-        return _textSecondary;
-      default:
-        return _textSecondary;
-    }
-  }
-}
-
-class RecordingSourceItem {
-  const RecordingSourceItem({
-    required this.sourceKey,
-    required this.sourceKind,
-    required this.mediaKind,
-    required this.mimeType,
-    required this.durationMs,
-    required this.chunkCount,
-  });
-
-  factory RecordingSourceItem.fromJson(Map<dynamic, dynamic> json) {
-    return RecordingSourceItem(
-      sourceKey: json['sourceKey']?.toString() ?? '',
-      sourceKind: json['sourceKind']?.toString() ?? '',
-      mediaKind: json['mediaKind']?.toString() ?? '',
-      mimeType: json['mimeType']?.toString() ?? '',
-      durationMs: _asInt(json['durationMs']),
-      chunkCount: _asInt(json['chunkCount']),
-    );
-  }
-
-  final String sourceKey;
-  final String sourceKind;
-  final String mediaKind;
-  final String mimeType;
-  final int durationMs;
-  final int chunkCount;
-
-  String get label {
-    switch (sourceKind) {
-      case 'screen-share':
-        return 'Screen';
-      case 'microphone':
-        return 'Microphone';
-      default:
-        return sourceKind.ifEmpty(sourceKey);
-    }
-  }
-
-  String get durationLabel => _formatDuration(durationMs);
-}
-
-class RecordingTranscriptSegment {
-  const RecordingTranscriptSegment({
-    required this.id,
-    required this.speaker,
-    required this.text,
-    required this.startMs,
-  });
-
-  factory RecordingTranscriptSegment.fromJson(Map<dynamic, dynamic> json) {
-    return RecordingTranscriptSegment(
-      id: _asInt(json['id']),
-      speaker:
-          json['speaker']?.toString() ?? json['sourceKey']?.toString() ?? '',
-      text: json['text']?.toString() ?? '',
-      startMs: _asInt(json['startMs']),
-    );
-  }
-
-  final int id;
-  final String speaker;
-  final String text;
-  final int startMs;
-
-  String get timestampLabel => _formatDuration(startMs);
-
-  String get displayText {
-    if (speaker.trim().isEmpty) {
-      return text;
-    }
-    return '${speaker.replaceAll('-', ' ')}: $text';
-  }
-}
-
-class VoiceAssistantTurnResult {
-  const VoiceAssistantTurnResult({
-    required this.session,
-    required this.transcript,
-    required this.replyText,
-    required this.audioMimeType,
-    required this.audioBytes,
-    this.runId,
-    this.ttsProvider,
-    this.ttsModel,
-    this.ttsVoice,
-    this.ttsError,
-  });
-
-  factory VoiceAssistantTurnResult.fromJson(Map<dynamic, dynamic> json) {
-    final audioBase64 = json['audioBase64']?.toString() ?? '';
-    return VoiceAssistantTurnResult(
-      session: RecordingSessionItem.fromJson(_jsonMap(json['session'])),
-      transcript: json['transcript']?.toString() ?? '',
-      replyText: json['replyText']?.toString() ?? '',
-      audioMimeType: json['audioMimeType']?.toString() ?? 'audio/mpeg',
-      audioBytes: audioBase64.trim().isEmpty
-          ? Uint8List(0)
-          : base64Decode(audioBase64),
-      runId: json['runId']?.toString(),
-      ttsProvider: json['ttsProvider']?.toString(),
-      ttsModel: json['ttsModel']?.toString(),
-      ttsVoice: json['ttsVoice']?.toString(),
-      ttsError: json['ttsError']?.toString(),
-    );
-  }
-
-  final RecordingSessionItem session;
-  final String transcript;
-  final String replyText;
-  final String audioMimeType;
-  final Uint8List audioBytes;
-  final String? runId;
-  final String? ttsProvider;
-  final String? ttsModel;
-  final String? ttsVoice;
-  final String? ttsError;
-}
-
 class MemoryTransferImportResult {
   const MemoryTransferImportResult({
     required this.importedCount,
@@ -2399,52 +2166,26 @@ class TimelineEventItem {
   String get occurredAtLabel => _formatTimestamp(occurredAt);
 
   String get sourceLabel => switch (sourceKind) {
-    'screen' => 'Screen',
     'tasks' => 'Task',
     'runs' => 'Run',
     _ => _titleCase(sourceKind.replaceAll('_', ' ')),
   };
 
   Color get sourceColor => switch (sourceKind) {
-    'screen' => _accent,
     'tasks' => _warning,
     'runs' => _success,
     _ => _textSecondary,
   };
 
-  String get appName => metadata['appName']?.toString() ?? '';
-  String get windowTitle => metadata['windowTitle']?.toString() ?? '';
   String get deviceLabel =>
       metadata['deviceLabel']?.toString() ??
       metadata['deviceId']?.toString() ??
       '';
-  String get previewText => metadata['previewText']?.toString() ?? summary;
   String get runId => metadata['runId']?.toString() ?? sourceId ?? '';
   String get taskName =>
       metadata['taskName']?.toString().trim().isNotEmpty == true
       ? metadata['taskName'].toString()
       : title;
-  DateTime? get startedAt =>
-      _parseOptionalTimestamp(metadata['startedAt']?.toString());
-  DateTime? get endedAt =>
-      _parseOptionalTimestamp(metadata['endedAt']?.toString());
-
-  String get screenSpanLabel {
-    final start = startedAt;
-    final end = endedAt;
-    if (start == null) {
-      return occurredAtLabel;
-    }
-    final localStart = start.toLocal();
-    final startMinute = localStart.minute.toString().padLeft(2, '0');
-    if (end == null) {
-      return '${localStart.hour.toString().padLeft(2, '0')}:$startMinute';
-    }
-    final localEnd = end.toLocal();
-    final endMinute = localEnd.minute.toString().padLeft(2, '0');
-    return '${localStart.hour.toString().padLeft(2, '0')}:$startMinute'
-        ' - ${localEnd.hour.toString().padLeft(2, '0')}:$endMinute';
-  }
 }
 
 class TokenUsageSnapshot {

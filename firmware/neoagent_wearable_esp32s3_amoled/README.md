@@ -15,7 +15,6 @@ ESP-IDF firmware target for the Waveshare `ESP32-S3-Touch-AMOLED-1.8` wearable c
 - `components/ui`: UI state model for wearable screens
 - `components/updates`: firmware manifest handling
 - `components/voice`: raw wearable voice message codec and session state
-- `components/widgets`: widget snapshot cache and decode helpers
 
 ## Build
 
@@ -32,7 +31,7 @@ idf.py set-target esp32s3
 idf.py build
 ```
 
-The project is structured so hardware-specific drivers can be expanded behind stable interfaces without changing pairing, widget, voice, or storage contracts.
+The project is structured so hardware-specific drivers can be expanded behind stable interfaces without changing pairing, voice, update, or storage contracts.
 
 ## Managed components
 

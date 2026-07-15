@@ -146,7 +146,6 @@ function createSessionMiddleware({ secureCookies, trustProxy }) {
 }
 
 function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware, validateOrigin }) {
-  const rawRecordingChunkBody = require('express').raw({ limit: '50mb', type: '*/*' });
   const jsonBody = require('express').json({
     limit: '10mb',
     verify: (req, _res, buf) => {
@@ -154,10 +153,6 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
     },
   });
   const urlencodedBody = require('express').urlencoded({ extended: true });
-  const isRecordingChunkPath = (value = '') => {
-    const path = `${value}`.split('?')[0];
-    return /^\/api\/recordings\/[^/]+\/chunks$/i.test(path);
-  };
   const isBrowserExtensionCorsPath = (value = '') => {
     const path = `${value}`.split('?')[0];
     return path === '/api/browser-extension/latest'
@@ -178,14 +173,6 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       return '';
     }
   };
-  const requestPath = (req) => req.originalUrl || req.url || req.path || '';
-  const applyOnlyToRecordingChunk = (handler) => (req, res, next) => (
-    isRecordingChunkPath(requestPath(req)) ? handler(req, res, next) : next()
-  );
-  const skipRecordingChunk = (handler) => (req, res, next) => (
-    isRecordingChunkPath(requestPath(req)) ? next() : handler(req, res, next)
-  );
-
   if (trustProxy) {
     app.set('trust proxy', 1);
     console.log('[HTTP] trust proxy enabled for proxied deployment handling');
@@ -262,9 +249,8 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
 
     next();
   });
-  app.use(applyOnlyToRecordingChunk(rawRecordingChunkBody));
-  app.use(skipRecordingChunk(jsonBody));
-  app.use(skipRecordingChunk(urlencodedBody));
+  app.use(jsonBody);
+  app.use(urlencodedBody);
   app.use(sessionMiddleware);
 }
 

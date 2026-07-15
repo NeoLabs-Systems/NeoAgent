@@ -17,7 +17,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image/image.dart' as img;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,8 +38,6 @@ import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
-import 'src/recording_bridge.dart';
-import 'src/recording_payloads.dart';
 import 'src/security/password_strength.dart';
 import 'src/stream_renderer.dart';
 import 'src/theme/palette.dart';
@@ -66,7 +63,6 @@ part 'main_timeline.dart';
 part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
-part 'main_recordings.dart';
 part 'main_chat.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
@@ -104,8 +100,6 @@ const String _neoMailLogoAsset = 'assets/branding/neomail_logo.svg';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
 const String _sessionCookieSecureStorageKey = 'auth.sessionCookie.secure';
-const int _voiceAssistantScreenshotMaxDimension = 1600;
-const int _voiceAssistantScreenshotMaxBytes = 900 * 1024;
 
 String get _desktopTrayIconAsset =>
     defaultTargetPlatform == TargetPlatform.macOS

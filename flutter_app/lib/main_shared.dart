@@ -418,7 +418,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
     AppSection.timeline,
-    AppSection.recordings,
     AppSection.devices,
     AppSection.tasks,
     AppSection.widgets,
@@ -2416,63 +2415,6 @@ class _DesktopCloseDecision {
   final bool rememberChoice;
 }
 
-class _RecordingPermissionBadge extends StatelessWidget {
-  const _RecordingPermissionBadge({required this.label, required this.state});
-
-  final String label;
-  final RecordingPermissionState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final (color, icon, text) = switch (state) {
-      RecordingPermissionState.granted => (
-        _success,
-        Icons.check_circle,
-        'Ready',
-      ),
-      RecordingPermissionState.denied => (
-        _danger,
-        Icons.lock_outline,
-        'Blocked',
-      ),
-      RecordingPermissionState.needsRestart => (
-        _warning,
-        Icons.restart_alt_rounded,
-        'Restart needed',
-      ),
-      RecordingPermissionState.unsupported => (
-        _textSecondary,
-        Icons.do_not_disturb_alt_outlined,
-        'Unsupported',
-      ),
-      RecordingPermissionState.unknown => (
-        _warning,
-        Icons.help_outline,
-        'Check access',
-      ),
-    };
-
-    return _GlassSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      borderRadius: BorderRadius.circular(16),
-      blurSigma: 10,
-      fillColor: color.withValues(alpha: 0.09),
-      borderColor: color.withValues(alpha: 0.22),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            '$label · $text',
-            style: TextStyle(color: color, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _CompanionPermissionBadge extends StatelessWidget {
   const _CompanionPermissionBadge({required this.label, required this.state});
 
@@ -2509,254 +2451,6 @@ class _CompanionPermissionBadge extends StatelessWidget {
             style: TextStyle(color: color, fontWeight: FontWeight.w700),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AudioLevelBar extends StatelessWidget {
-  const _AudioLevelBar({
-    required this.label,
-    required this.valueDb,
-    required this.color,
-    this.compact = false,
-  });
-
-  final String label;
-  final double valueDb;
-  final Color color;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = ((valueDb + 72) / 72).clamp(0.0, 1.0);
-    return _GlassSurface(
-      width: compact ? 168 : 240,
-      padding: const EdgeInsets.all(12),
-      borderRadius: BorderRadius.circular(18),
-      blurSigma: 10,
-      fillColor: _bgCard.withValues(alpha: 0.88),
-      borderColor: _borderLight,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(
-                label,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: compact ? 11 : 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                valueDb <= -119 ? 'Silent' : '${valueDb.toStringAsFixed(0)} dB',
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: compact ? 11 : 12,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              builder: (context, animatedValue, _) {
-                return LinearProgressIndicator(
-                  value: animatedValue,
-                  minHeight: compact ? 7 : 8,
-                  color: color,
-                  backgroundColor: _borderLight,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DesktopFloatingToolbar extends StatefulWidget {
-  const _DesktopFloatingToolbar({required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<_DesktopFloatingToolbar> createState() =>
-      _DesktopFloatingToolbarState();
-}
-
-class _DesktopFloatingToolbarState extends State<_DesktopFloatingToolbar> {
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncTicker();
-  }
-
-  @override
-  void didUpdateWidget(covariant _DesktopFloatingToolbar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncTicker();
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  void _syncTicker() {
-    final runtime = widget.controller.recordingRuntime;
-    final shouldTick =
-        runtime.active &&
-        runtime.startedAt != null &&
-        runtime.floatingToolbarVisible;
-    if (!shouldTick) {
-      _ticker?.cancel();
-      _ticker = null;
-      return;
-    }
-    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final runtime = controller.recordingRuntime;
-    if (!runtime.supportsFloatingToolbar ||
-        !runtime.active ||
-        !runtime.floatingToolbarVisible) {
-      return const SizedBox.shrink();
-    }
-
-    final elapsed = runtime.startedAt == null
-        ? '00:00'
-        : _formatDuration(
-            DateTime.now().difference(runtime.startedAt!).inMilliseconds,
-          );
-
-    return Positioned(
-      top: 10,
-      left: 0,
-      right: 0,
-      child: SafeArea(
-        child: IgnorePointer(
-          ignoring: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: _DesktopFloatingToolbarSurface(
-              controller: controller,
-              elapsedLabel: elapsed,
-              compactWindow: false,
-              onOpenMainWindow: null,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DetachedDesktopFloatingToolbarShell extends StatefulWidget {
-  const _DetachedDesktopFloatingToolbarShell({
-    required this.controller,
-    required this.onOpenMainWindow,
-  });
-
-  final NeoAgentController controller;
-  final Future<void> Function() onOpenMainWindow;
-
-  @override
-  State<_DetachedDesktopFloatingToolbarShell> createState() =>
-      _DetachedDesktopFloatingToolbarShellState();
-}
-
-class _DetachedDesktopFloatingToolbarShellState
-    extends State<_DetachedDesktopFloatingToolbarShell> {
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncTicker();
-  }
-
-  @override
-  void didUpdateWidget(
-    covariant _DetachedDesktopFloatingToolbarShell oldWidget,
-  ) {
-    super.didUpdateWidget(oldWidget);
-    _syncTicker();
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  void _syncTicker() {
-    final runtime = widget.controller.recordingRuntime;
-    final shouldTick =
-        runtime.active &&
-        runtime.startedAt != null &&
-        runtime.floatingToolbarVisible;
-    if (!shouldTick) {
-      _ticker?.cancel();
-      _ticker = null;
-      return;
-    }
-    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final runtime = widget.controller.recordingRuntime;
-    if (!runtime.active || !runtime.floatingToolbarVisible) {
-      return const SizedBox.shrink();
-    }
-
-    final elapsed = runtime.startedAt == null
-        ? '00:00'
-        : _formatDuration(
-            DateTime.now().difference(runtime.startedAt!).inMilliseconds,
-          );
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.transparent),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: _DesktopFloatingToolbarSurface(
-                controller: widget.controller,
-                elapsedLabel: elapsed,
-                compactWindow: true,
-                onOpenMainWindow: widget.onOpenMainWindow,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -2802,10 +2496,6 @@ String _desktopAssistantIdleHint() {
       : 'Hold Ctrl+Shift+Space to talk';
 }
 
-String _desktopAssistantScreenContextHint(bool enabled) {
-  return enabled ? 'Current screen will be attached' : 'Audio only';
-}
-
 class _DesktopAssistantControlState {
   const _DesktopAssistantControlState({
     required this.isCapturing,
@@ -2819,17 +2509,13 @@ class _DesktopAssistantControlState {
     required this.primaryIcon,
     required this.primaryColor,
     required this.idleHint,
-    required this.screenContextHint,
-    required this.sourceSummary,
   });
 
   factory _DesktopAssistantControlState.fromController(
-    NeoAgentController controller, {
-    required bool blockedHintVisible,
-  }) {
+    NeoAgentController controller,
+  ) {
     final liveState = controller.voiceAssistantLiveState;
     final isCapturing = controller.isLiveVoiceCaptureEngaged;
-    final includeScreenContext = controller.voiceAssistantIncludeScreenContext;
     final useToggleCapture = _desktopAssistantUsesToggleControls();
     final transcriptPreview = liveState.partialTranscript.trim().isEmpty
         ? liveState.finalTranscript.trim()
@@ -2838,24 +2524,16 @@ class _DesktopAssistantControlState {
       isCapturing: isCapturing,
       isBusy: liveState.isBusy,
       useToggleCapture: useToggleCapture,
-      statusLabel: blockedHintVisible
-          ? 'Assistant unavailable while recording'
-          : (isCapturing
-                ? _desktopAssistantPrimaryLabel(true)
-                : _desktopAssistantStatusLabel(liveState.state)),
-      statusColor: blockedHintVisible
-          ? _warning
-          : (isCapturing ? _success : _accent),
+      statusLabel: isCapturing
+          ? _desktopAssistantPrimaryLabel(true)
+          : _desktopAssistantStatusLabel(liveState.state),
+      statusColor: isCapturing ? _success : _accent,
       transcriptPreview: transcriptPreview,
       primaryLabel: _desktopAssistantPrimaryLabel(isCapturing),
       primaryCaption: _desktopAssistantPrimaryCaption(isCapturing),
       primaryIcon: isCapturing ? Icons.stop_rounded : Icons.mic,
       primaryColor: isCapturing ? _warning : _success,
       idleHint: _desktopAssistantIdleHint(),
-      screenContextHint: _desktopAssistantScreenContextHint(
-        includeScreenContext,
-      ),
-      sourceSummary: includeScreenContext ? 'Mic + screen' : 'Direct mic',
     );
   }
 
@@ -2870,72 +2548,16 @@ class _DesktopAssistantControlState {
   final IconData primaryIcon;
   final Color primaryColor;
   final String idleHint;
-  final String screenContextHint;
-  final String sourceSummary;
-}
-
-class _VoiceAssistantScreenContextButton extends StatelessWidget {
-  const _VoiceAssistantScreenContextButton({
-    required this.controller,
-    required this.compact,
-  });
-
-  final NeoAgentController controller;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = controller.voiceAssistantIncludeScreenContext;
-    final onPressed = controller.canCaptureVoiceAssistantScreenContext
-        ? () {
-            unawaited(controller.toggleVoiceAssistantScreenContext());
-          }
-        : null;
-
-    if (compact) {
-      return IconButton(
-        tooltip: enabled
-            ? 'Stop including the current screen'
-            : 'Include the current screen',
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.all(8),
-          minimumSize: const Size(30, 30),
-          backgroundColor: enabled
-              ? _accent.withValues(alpha: 0.14)
-              : _bgSecondary.withValues(alpha: 0.9),
-          foregroundColor: enabled ? _accent : _textSecondary,
-        ),
-        icon: Icon(
-          enabled
-              ? Icons.desktop_windows_rounded
-              : Icons.desktop_windows_outlined,
-          size: 15,
-        ),
-      );
-    }
-
-    return _VoiceAssistantActionButton(
-      icon: enabled
-          ? Icons.desktop_windows_rounded
-          : Icons.desktop_windows_outlined,
-      label: enabled ? 'Screen on' : 'Screen off',
-      onTap: onPressed,
-    );
-  }
 }
 
 class _DesktopAssistantPopupShell extends StatelessWidget {
   const _DesktopAssistantPopupShell({
     required this.controller,
-    required this.blockedHintVisible,
     required this.onPrimaryAction,
     required this.onCancel,
   });
 
   final NeoAgentController controller;
-  final bool blockedHintVisible;
   final Future<void> Function() onPrimaryAction;
   final Future<void> Function() onCancel;
 
@@ -2943,7 +2565,6 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final assistantUi = _DesktopAssistantControlState.fromController(
       controller,
-      blockedHintVisible: blockedHintVisible,
     );
 
     return DecoratedBox(
@@ -3011,34 +2632,26 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                                 fontSize: 12.5,
                               ),
                             ),
-                            if (!blockedHintVisible)
-                              Text(
-                                assistantUi.transcriptPreview.isEmpty
-                                    ? '${assistantUi.idleHint} • ${assistantUi.screenContextHint}'
-                                    : assistantUi.transcriptPreview,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _textMuted,
-                                  fontSize: 11.5,
-                                  height: 1.35,
-                                ),
+                            Text(
+                              assistantUi.transcriptPreview.isEmpty
+                                  ? assistantUi.idleHint
+                                  : assistantUi.transcriptPreview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _textMuted,
+                                fontSize: 11.5,
+                                height: 1.35,
                               ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _VoiceAssistantScreenContextButton(
-                        controller: controller,
-                        compact: true,
-                      ),
-                      const SizedBox(width: 4),
                       FilledButton.icon(
-                        onPressed: blockedHintVisible
-                            ? null
-                            : () {
-                                unawaited(onPrimaryAction());
-                              },
+                        onPressed: () {
+                          unawaited(onPrimaryAction());
+                        },
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(
@@ -3224,190 +2837,6 @@ class _DesktopAssistantWaveformState extends State<_DesktopAssistantWaveform>
             }),
           );
         },
-      ),
-    );
-  }
-}
-
-class _DesktopFloatingToolbarSurface extends StatelessWidget {
-  const _DesktopFloatingToolbarSurface({
-    required this.controller,
-    required this.elapsedLabel,
-    required this.compactWindow,
-    required this.onOpenMainWindow,
-  });
-
-  final NeoAgentController controller;
-  final String elapsedLabel;
-  final bool compactWindow;
-  final Future<void> Function()? onOpenMainWindow;
-
-  @override
-  Widget build(BuildContext context) {
-    final runtime = controller.recordingRuntime;
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: compactWindow ? double.infinity : 680,
-        ),
-        margin: compactWindow
-            ? EdgeInsets.zero
-            : const EdgeInsets.symmetric(horizontal: 16),
-        padding: EdgeInsets.symmetric(
-          horizontal: compactWindow ? 10 : 14,
-          vertical: compactWindow ? 8 : 12,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[
-              _bgCard.withValues(alpha: 0.98),
-              _bgCard.withValues(alpha: 0.92),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(compactWindow ? 22 : 24),
-          border: Border.all(color: _borderLight),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
-            if (compactWindow)
-              const _BrandLockup(
-                logoSize: 34,
-                titleFontSize: 16,
-                direction: Axis.horizontal,
-                spacing: 10,
-                alignment: CrossAxisAlignment.start,
-              ),
-            if (compactWindow)
-              DragToMoveArea(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _bgSecondary.withValues(alpha: 0.78),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _borderLight),
-                  ),
-                  child: Icon(
-                    Icons.drag_indicator_rounded,
-                    size: 14,
-                    color: _textMuted,
-                  ),
-                ),
-              ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: (runtime.paused ? _warning : _danger).withValues(
-                  alpha: 0.10,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: (runtime.paused ? _warning : _danger).withValues(
-                    alpha: 0.20,
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    runtime.paused
-                        ? Icons.pause_circle_outline
-                        : Icons.fiber_manual_record_rounded,
-                    color: runtime.paused ? _warning : _danger,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    runtime.paused ? 'Paused' : 'Recording',
-                    style: TextStyle(
-                      color: runtime.paused ? _warning : _danger,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    elapsedLabel,
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _AudioLevelBar(
-              label: 'MIC',
-              valueDb: runtime.microphoneLevelDb,
-              color: _accent,
-              compact: true,
-            ),
-            _AudioLevelBar(
-              label: 'SYSTEM',
-              valueDb: runtime.systemAudioLevelDb,
-              color: _accentAlt,
-              compact: true,
-            ),
-            if (compactWindow && onOpenMainWindow != null)
-              IconButton(
-                tooltip: 'Open NeoAgent',
-                onPressed: onOpenMainWindow,
-                style: IconButton.styleFrom(
-                  backgroundColor: _bgSecondary,
-                  foregroundColor: _textPrimary,
-                ),
-                icon: const Icon(Icons.open_in_full_rounded),
-              ),
-            IconButton(
-              tooltip: runtime.paused ? 'Resume recording' : 'Pause recording',
-              onPressed: runtime.paused
-                  ? controller.resumeDesktopRecording
-                  : controller.pauseDesktopRecording,
-              style: IconButton.styleFrom(
-                backgroundColor: _bgSecondary,
-                foregroundColor: _textPrimary,
-              ),
-              icon: Icon(
-                runtime.paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Stop recording',
-              onPressed: controller.isStoppingRecording
-                  ? null
-                  : controller.stopRecording,
-              style: IconButton.styleFrom(
-                backgroundColor: _danger.withValues(alpha: 0.12),
-                foregroundColor: _danger,
-              ),
-              icon: const Icon(Icons.stop_rounded),
-            ),
-            IconButton(
-              tooltip: 'Hide floating bar',
-              onPressed: controller.hideDesktopFloatingToolbar,
-              style: IconButton.styleFrom(
-                backgroundColor: _bgSecondary,
-                foregroundColor: _textSecondary,
-              ),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
       ),
     );
   }

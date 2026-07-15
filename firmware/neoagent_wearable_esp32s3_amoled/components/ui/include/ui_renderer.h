@@ -23,13 +23,4 @@ esp_err_t ui_renderer_show_assistant_home(
     board_assistant_state_t state
 );
 esp_err_t ui_renderer_show_widget(ui_renderer_t *renderer, const neoagent_widget_snapshot_t *snapshot, size_t index, size_t total);
-esp_err_t ui_renderer_show_recording(
-    ui_renderer_t *renderer,
-    const char *status,
-    const char *headline,
-    const char *detail,
-    bool active,
-    bool busy,
-    const char *timer_text
-);
 esp_err_t ui_renderer_show_settings(ui_renderer_t *renderer, const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset);

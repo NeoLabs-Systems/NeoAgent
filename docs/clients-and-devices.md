@@ -21,10 +21,9 @@ updates into `MainController`, which notifies the relevant UI.
 
 ## Android bridges
 
-Native Kotlin code handles Health Connect, background recording,
-notifications, launcher functions, telecom integration, and Android home
-widgets. Flutter bridges normalize permission and lifecycle behavior before
-updating application state.
+Native Kotlin code handles Health Connect, notifications, launcher functions,
+telecom integration, and Android home widgets. Flutter bridges normalize
+permission and lifecycle behavior before updating application state.
 
 ## Desktop and Chrome pairing
 

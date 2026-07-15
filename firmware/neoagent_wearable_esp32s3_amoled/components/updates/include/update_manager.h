@@ -18,8 +18,17 @@ typedef struct {
     bool configured;
 } update_manager_t;
 
+typedef void (*update_manager_install_callback_t)(void *context);
+
 esp_err_t update_manager_init(update_manager_t *manager, const char *current_version);
 const char *update_manager_current_version(const update_manager_t *manager);
 const char *update_manager_channel(const update_manager_t *manager);
 esp_err_t update_manager_set_channel(update_manager_t *manager, const char *channel);
-esp_err_t update_manager_auto_update(update_manager_t *manager, const char *server_url, const neoagent_session_state_t *session);
+esp_err_t update_manager_auto_update(
+    update_manager_t *manager,
+    const char *server_url,
+    const neoagent_session_state_t *session,
+    bool allow_development_build_update,
+    update_manager_install_callback_t install_callback,
+    void *callback_context
+);

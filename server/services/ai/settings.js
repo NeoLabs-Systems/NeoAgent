@@ -152,11 +152,6 @@ function createDefaultAiSettings() {
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: false,
-    auto_recording_insights: true,
-    default_recording_transcription_provider: 'deepgram',
-    default_recording_transcription_model: 'nova-3',
-    default_recording_summary_provider: 'auto',
-    default_recording_summary_model: 'auto',
     fallback_model_id: 'gpt-5-nano',
     smarter_model_selector: true,
     enabled_models: [],
@@ -343,7 +338,6 @@ function getAiSettings(userId, agentId = null) {
     ? settings.assistant_behavior_notes
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
-  settings.auto_recording_insights = settings.auto_recording_insights !== false && settings.auto_recording_insights !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
   settings.fallback_model_id = typeof settings.fallback_model_id === 'string' ? settings.fallback_model_id : DEFAULT_AI_SETTINGS.fallback_model_id;
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;

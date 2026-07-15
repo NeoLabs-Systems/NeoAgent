@@ -44,9 +44,7 @@ const INTENTIONALLY_UNTESTED = new Map([
   ['GET /api/integrations/:provider/connect/:sessionId', 'OAuth popup HTML flow.'],
   ['GET /api/integrations/:provider/connect/:sessionId/status', 'OAuth popup polling flow.'],
   ['GET /api/mcp/oauth/callback', 'OAuth callback depends on provider state.'],
-  ['GET /api/recordings/:sessionId/audio/:sourceKey', 'Binary audio response route.'],
   ['POST /api/android/install-apk', 'Multipart upload route.'],
-  ['POST /api/recordings/:sessionId/chunks', 'Raw body chunk upload route.'],
   ['POST /api/voice-assistant/transcribe', 'Multipart audio upload route.'],
 ]);
 

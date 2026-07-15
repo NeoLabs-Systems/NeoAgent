@@ -5,8 +5,49 @@ const path = require('path');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { getOpenAiClient } = require('./openaiClient');
 const { synthesizeSpeechBuffer } = require('./openaiSpeech');
-const { transcribeChunkWithDeepgram } = require('../recordings/deepgram');
 const { decryptLocalValue } = require('../../utils/local_secrets');
+
+const DEEPGRAM_STT_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
+const DEEPGRAM_STT_LANGUAGE = process.env.DEEPGRAM_LANGUAGE || 'multi';
+const DEEPGRAM_BASE_URL = process.env.DEEPGRAM_BASE_URL || 'https://api.deepgram.com';
+
+async function transcribeChunkWithDeepgram({
+  audioBytes,
+  mimeType,
+  detectLanguage = DEEPGRAM_STT_LANGUAGE,
+  model = DEEPGRAM_STT_MODEL,
+} = {}) {
+  if (!(audioBytes instanceof Uint8Array) || audioBytes.byteLength === 0) {
+    throw new Error('Audio payload is empty.');
+  }
+
+  const query = new URLSearchParams({
+    model: `${model || DEEPGRAM_STT_MODEL}`.trim() || DEEPGRAM_STT_MODEL,
+    language: detectLanguage || DEEPGRAM_STT_LANGUAGE,
+    punctuate: 'true',
+    smart_format: 'true',
+    paragraphs: 'true',
+    utterances: 'true',
+    diarize: 'false',
+  });
+  const response = await fetch(
+    `${DEEPGRAM_BASE_URL.replace(/\/$/, '')}/v1/listen?${query.toString()}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${requireApiKey('Deepgram STT', ['DEEPGRAM_API_KEY'])}`,
+        'Content-Type': mimeType || 'application/octet-stream',
+      },
+      body: audioBytes,
+    },
+  );
+
+  if (!response.ok) {
+    await throwResponseError(response, 'Deepgram request failed');
+  }
+
+  return response.json();
+}
 
 const DEFAULT_STT_PROVIDER = 'openai';
 const DEFAULT_TTS_PROVIDER = 'openai';

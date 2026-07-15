@@ -32,7 +32,6 @@ test('deriveEvidenceSource maps each tool family to its bucket', () => {
     update_ai_widget: 'tasks',
     send_message: 'messaging',
     make_call: 'messaging',
-    recordings_get: 'data',
     read_health_data: 'data',
     analyze_image: 'vision',
     spawn_subagent: 'subagent',

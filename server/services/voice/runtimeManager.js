@@ -190,24 +190,28 @@ class VoiceRuntimeManager {
   async commitInput(sessionId, options = {}, userId = null) {
     const session = this.#requireSession(sessionId, userId);
     if (session.inputBytes === 0) {
-      return { transcript: '' };
+      session.resetTurnState();
+      await session.setState('idle');
+      return { transcript: '', discarded: true };
     }
     await session.setState('transcribing');
     const transcript = await session.adapter.commitInput(session, {
       turnId: options.turnId,
       finalSequence: options.finalSequence,
     });
-    if (!transcript) {
+    const transcriptText = String(transcript || '').trim();
+    if (!transcriptText) {
+      session.resetTurnState();
       await session.setState('idle');
-      return { transcript: '' };
+      return { transcript: '', discarded: true };
     }
 
-    const result = await this.agentBridge.runTranscriptTurn(session, transcript, {
+    const result = await this.agentBridge.runTranscriptTurn(session, transcriptText, {
       promptHint: options.promptHint,
       metadata: options.metadata,
     });
     return {
-      transcript,
+      transcript: transcriptText,
       runId: result.runId || null,
       replyText: result.replyText || '',
     };

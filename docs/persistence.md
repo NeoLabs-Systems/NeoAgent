@@ -13,7 +13,7 @@ The database owns:
 - Tasks, triggers, webhook deliveries, and widgets
 - Integration connections and encrypted credentials
 - Memory, facts, entities, source documents, and retrieval telemetry
-- Recordings, transcripts, health records, and device registrations
+- Health records and device registrations
 - Tool policies and approval history
 
 Larger artifacts and editable agent data use runtime directories under

@@ -45,27 +45,14 @@ describe('timeline prompt context', () => {
       triggerType: 'schedule',
       triggerSource: 'schedule',
     });
-    timeline.storeScreenEntries({
-      userId: user.userId,
-      deviceId: 'desktop-a',
-      deviceLabel: 'Neo MacBook',
-      entries: [{
-        capturedAt: '2026-06-23T09:15:00.000Z',
-        frontmostApp: 'Cursor',
-        windowTitle: 'NeoAgent',
-        text: 'Working on timeline prompt context implementation',
-      }],
-    });
-
     const context = timeline.buildPromptContext(user.userId, {
       query: 'timeline implementation',
       limit: 2,
-      sources: ['screen', 'runs', 'tasks'],
+      sources: ['runs', 'tasks'],
     });
 
     assert.match(context, /Recent timeline context/);
     assert.match(context, /\[run 2026-06-23 09:00]/);
-    assert.match(context, /\[screen 2026-06-23 09:15]/);
     assert.doesNotMatch(context, /Daily summary/);
   });
 

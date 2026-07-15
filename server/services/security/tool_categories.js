@@ -68,8 +68,6 @@ const SAFE_TOOLS = new Set([
   'list_tasks',
   'spawn_subagent',
   'delegate_to_agent',
-  'recordings_list',
-  'recordings_get',
 ]);
 
 const BUILT_IN_TOOLS = new Set([
@@ -155,9 +153,6 @@ const BUILT_IN_TOOLS = new Set([
   'analyze_image',
   'ocr_extract',
   'read_health_data',
-  'recordings_list',
-  'recordings_get',
-  'recordings_search',
   'social_video_extract',
   'task_complete',
   'send_interim_update',

@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-enum _LauncherPage { assistant, widgets, recordings, settings }
+enum _LauncherPage { assistant, widgets, settings }
 
 class LauncherHomeView extends StatefulWidget {
   const LauncherHomeView({super.key, required this.controller});
@@ -13,7 +13,6 @@ class LauncherHomeView extends StatefulWidget {
 
 class _LauncherHomeViewState extends State<LauncherHomeView> {
   static const int _assistantButtonKeyCode = 131;
-  static const int _recordingButtonKeyCode = 132;
 
   final AndroidLauncherBridge _launcherBridge = AndroidLauncherBridge.instance;
   StreamSubscription<LauncherHardwareButtonEvent>? _buttonSubscription;
@@ -22,7 +21,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
   LauncherVolumeState? _volumeState;
   LauncherDeviceStatus? _deviceStatus;
   bool _assistantHardwareCaptureActive = false;
-  bool _recordingConfirmOpen = false;
   DateTime _now = DateTime.now();
   Timer? _statusTimer;
 
@@ -223,59 +221,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     });
   }
 
-  Future<void> _toggleRecordingFromHardware() async {
-    final controller = widget.controller;
-    if (controller.recordingRuntime.active) {
-      await controller.stopRecording(stopReason: 'hardware_button');
-      return;
-    }
-    if (!await _confirmRecordingStart(sourceLabel: 'hardware button')) {
-      return;
-    }
-    await controller.startBackgroundRecording();
-  }
-
-  Future<void> _startRecordingFromUi() async {
-    final controller = widget.controller;
-    if (controller.recordingRuntime.active || controller.isStartingRecording) {
-      return;
-    }
-    if (!await _confirmRecordingStart(sourceLabel: 'Start button')) {
-      return;
-    }
-    await controller.startBackgroundRecording();
-  }
-
-  Future<bool> _confirmRecordingStart({required String sourceLabel}) async {
-    if (!mounted || _recordingConfirmOpen) {
-      return false;
-    }
-    _recordingConfirmOpen = true;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Start recording?'),
-          content: Text(
-            'Recording was requested from $sourceLabel. Start a new background recording session now?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Start'),
-            ),
-          ],
-        );
-      },
-    );
-    _recordingConfirmOpen = false;
-    return confirmed == true;
-  }
-
   Future<void> _startAssistantFromHardware() async {
     if (_assistantHardwareCaptureActive) {
       return;
@@ -308,157 +253,11 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
       } else if (event.isUp) {
         unawaited(_stopAssistantFromHardware());
       }
-      return;
-    }
-
-    if (event.keyCode == _recordingButtonKeyCode && event.isUp) {
-      unawaited(_toggleRecordingFromHardware());
     }
   }
 
   Widget _buildAssistantPage() {
     return VoiceAssistantPanel(controller: widget.controller);
-  }
-
-  Widget _buildRecordingsPage() {
-    final controller = widget.controller;
-    final runtime = controller.recordingRuntime;
-    final recentSessions = controller.recordingSessions.take(4).toList();
-    return ListView(
-      padding: _pagePadding(context),
-      children: <Widget>[
-        _PageTitle(
-          title: 'Recorder',
-          subtitle:
-              'Record audio and keep it running while you use the device.',
-          trailing: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: controller.isStartingRecording || runtime.active
-                    ? null
-                    : _startRecordingFromUi,
-                icon: const Icon(Icons.mic_none_outlined),
-                label: const Text('Start'),
-              ),
-              OutlinedButton.icon(
-                onPressed: runtime.active
-                    ? (runtime.paused
-                          ? controller.resumeBackgroundRecording
-                          : controller.pauseBackgroundRecording)
-                    : null,
-                icon: Icon(
-                  runtime.paused
-                      ? Icons.play_circle_outline
-                      : Icons.pause_circle_outline,
-                ),
-                label: Text(runtime.paused ? 'Resume' : 'Pause'),
-              ),
-              OutlinedButton.icon(
-                onPressed: runtime.active && !controller.isStoppingRecording
-                    ? controller.stopRecording
-                    : null,
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text('Stop'),
-              ),
-            ],
-          ),
-        ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    _DotStatus(
-                      label: runtime.active
-                          ? (runtime.paused ? 'Paused' : 'Recording')
-                          : 'Idle',
-                      color: runtime.active
-                          ? (runtime.paused ? _warning : _danger)
-                          : _success,
-                    ),
-                    _MetaPill(
-                      icon: Icons.mic_outlined,
-                      label: runtime.supportsBackgroundMic
-                          ? 'Background recording ready'
-                          : 'Recording unavailable',
-                    ),
-                  ],
-                ),
-                if (runtime.errorMessage != null &&
-                    runtime.errorMessage!.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 14),
-                  _InlineError(message: runtime.errorMessage!),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _SectionTitle('Recent Sessions'),
-                const SizedBox(height: 10),
-                if (recentSessions.isEmpty)
-                  Text(
-                    'No recordings yet.',
-                    style: TextStyle(color: _textSecondary),
-                  )
-                else
-                  ...recentSessions.map(
-                    (session) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Icon(Icons.audio_file_outlined, color: _accent),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  session.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${session.statusLabel} • ${session.startedAtLabel}',
-                                  style: TextStyle(color: _textSecondary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: controller.refreshRecordings,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildWidgetsPage() {
@@ -637,7 +436,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                 const _SectionTitle('Extra Buttons'),
                 const SizedBox(height: 10),
                 Text(
-                  'Hold button 131 for the assistant. Press button 132 to start or stop recording.',
+                  'Hold button 131 for the assistant.',
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 16),
@@ -648,10 +447,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                     const _MetaPill(
                       icon: Icons.keyboard_voice_outlined,
                       label: 'Assistant key 131',
-                    ),
-                    const _MetaPill(
-                      icon: Icons.fiber_smart_record_outlined,
-                      label: 'Recording key 132',
                     ),
                   ],
                 ),
@@ -911,7 +706,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                     final pages = <Widget>[
                       _buildAssistantPage(),
                       _buildWidgetsPage(),
-                      _buildRecordingsPage(),
                       _buildSettingsPage(),
                     ];
                     return IndexedStack(
@@ -937,10 +731,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             NavigationDestination(
               icon: Icon(Icons.dashboard_customize_outlined),
               label: 'Widgets',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.fiber_smart_record_outlined),
-              label: 'Record',
             ),
             NavigationDestination(
               icon: Icon(Icons.tune_outlined),

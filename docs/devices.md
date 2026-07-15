@@ -7,7 +7,7 @@ explicitly paired as a runtime backend.
 ## Web interface
 
 The web interface provides chat, runs, tasks, agents, integrations, memory,
-devices, recordings, health, settings, permissions, and logs. It is served by
+devices, health, settings, permissions, and logs. It is served by
 the NeoAgent backend.
 
 ## Android app
@@ -15,7 +15,6 @@ the NeoAgent backend.
 The Android app connects to the same backend and adds:
 
 - Health Connect synchronization
-- Background microphone recording
 - Android notification forwarding
 - Native notifications and device pairing
 

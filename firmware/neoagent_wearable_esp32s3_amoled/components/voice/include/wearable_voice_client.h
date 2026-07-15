@@ -35,6 +35,7 @@ typedef struct {
     bool recording;
     bool assistant_speaking;
     bool playback_active;
+    bool authentication_rejected;
     uint32_t next_sequence;
     char websocket_url[NEOAGENT_WS_URL_MAX];
     char session_cookie[NEOAGENT_VOICE_COOKIE_MAX];

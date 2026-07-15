@@ -2,18 +2,6 @@ part of 'main.dart';
 
 // ignore_for_file: unused_element
 
-class _OptimizedScreenshotPayload {
-  const _OptimizedScreenshotPayload({
-    required this.bytes,
-    required this.mimeType,
-    required this.resizedOrReencoded,
-  });
-
-  final Uint8List bytes;
-  final String mimeType;
-  final bool resizedOrReencoded;
-}
-
 class DevicesPanel extends StatefulWidget {
   const DevicesPanel({super.key, required this.controller});
 
@@ -697,69 +685,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
                                           ? _success
                                           : _textMuted),
                               ),
-                            if (selectedDesktopDevice != null)
-                              _DotStatus(
-                                label:
-                                    selectedDesktopDevice['passiveHistoryEnabled'] ==
-                                        true
-                                    ? 'History on'
-                                    : 'History off',
-                                color:
-                                    selectedDesktopDevice['passiveHistoryEnabled'] ==
-                                        true
-                                    ? _accent
-                                    : _textMuted,
-                              ),
                           ],
                         ),
-                        if (selectedDesktopDevice != null &&
-                            (selectedDesktopDevice['passiveHistoryLastUploadedAt']
-                                        ?.toString()
-                                        .trim()
-                                        .isNotEmpty ==
-                                    true ||
-                                selectedDesktopDevice['passiveHistoryLastError']
-                                        ?.toString()
-                                        .trim()
-                                        .isNotEmpty ==
-                                    true)) ...<Widget>[
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: _bgSecondary.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: _borderLight),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                if (selectedDesktopDevice['passiveHistoryLastUploadedAt']
-                                        ?.toString()
-                                        .trim()
-                                        .isNotEmpty ==
-                                    true)
-                                  Text(
-                                    'Last history upload: ${selectedDesktopDevice['passiveHistoryLastUploadedAt']}',
-                                    style: TextStyle(color: _textSecondary),
-                                  ),
-                                if (selectedDesktopDevice['passiveHistoryLastError']
-                                        ?.toString()
-                                        .trim()
-                                        .isNotEmpty ==
-                                    true)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      'Last history error: ${selectedDesktopDevice['passiveHistoryLastError']}',
-                                      style: TextStyle(color: _danger),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ],
                       const SizedBox(height: 16),
                       _DeviceLaunchBar(
