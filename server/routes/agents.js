@@ -362,8 +362,16 @@ router.get('/:id/steps', (req, res) => {
     || run.final_response
     || null;
   const usage = buildRunUsageSummary(run.id);
+  const lifecycle = db.prepare(
+    `SELECT c.action, c.reason, c.requested_at, c.consumed_at,
+            p.phase AS checkpoint_phase, p.updated_at AS checkpoint_updated_at
+     FROM agent_runs r
+     LEFT JOIN agent_run_controls c ON c.run_id = r.id
+     LEFT JOIN agent_run_checkpoints p ON p.run_id = r.id
+     WHERE r.id = ?`,
+  ).get(run.id) || null;
 
-  res.json({ run, steps, events: listRunEvents(run.id), response, usage });
+  res.json({ run, steps, events: listRunEvents(run.id), response, usage, lifecycle });
 });
 
 // Abort a run
@@ -374,6 +382,31 @@ router.post('/:id/abort', (req, res) => {
     const engine = req.app.locals.agentEngine;
     engine.abort(req.params.id, { userId: req.session.userId });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/:id/pause', (req, res) => {
+  try {
+    const engine = req.app.locals.agentEngine;
+    const accepted = engine.pauseRun(req.params.id, {
+      userId: req.session.userId,
+      reason: req.body?.reason || '',
+    });
+    if (!accepted) return res.status(409).json({ error: 'Run is not active or cannot be paused.' });
+    res.json({ success: true, status: 'pausing' });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/:id/resume', (req, res) => {
+  try {
+    const engine = req.app.locals.agentEngine;
+    const accepted = engine.resumeRun(req.params.id, { userId: req.session.userId });
+    if (!accepted) return res.status(409).json({ error: 'Run is not paused or cannot be resumed.' });
+    res.json({ success: true, status: 'running' });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

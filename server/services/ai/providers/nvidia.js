@@ -76,7 +76,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     const params = this._buildParams(model, messages, tools, options);
     let response;
     try {
-      response = await this.client.chat.completions.create(params);
+      response = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
       throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
     }
@@ -93,7 +93,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
 
     let stream;
     try {
-      stream = await this.client.chat.completions.create(params);
+      stream = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
       throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
     }

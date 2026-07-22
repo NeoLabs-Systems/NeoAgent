@@ -145,6 +145,14 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
   }, { agentId });
   const results = await Promise.all(prepared.map(async (item) => {
     if (item.blocked) return item;
+    const runMeta = engine.getRunMeta(runId);
+    if (!runMeta || runMeta.status !== 'running') {
+      const result = { status: 'paused', reason: 'Run paused before this read-only call started.' };
+      db.prepare(
+        `UPDATE agent_steps SET status = 'paused', result = ?, completed_at = datetime('now') WHERE id = ? AND status = 'running'`,
+      ).run(JSON.stringify(result), item.stepId);
+      return { ...item, result };
+    }
     const startedAt = Date.now();
     try {
       const result = await executeTool(engine, item.toolName, item.toolArgs, {
@@ -162,6 +170,7 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
         deliveryState: options.deliveryState || null,
         allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
         allowExternalSideEffects: false,
+        signal: runMeta.abortController?.signal,
       });
       const error = inferToolFailureMessage(item.toolName, result);
       const status = error ? 'failed' : 'completed';

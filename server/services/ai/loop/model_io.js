@@ -34,6 +34,7 @@ async function withModelCallTimeout(promise, options = {}, label = 'Model call')
   let timer = null;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => {
+      options?.modelAbortController?.abort(`${label} timed out.`);
       const error = new Error(`${label} timed out after ${formatElapsedDuration(timeoutMs)}.`);
       error.code = 'MODEL_CALL_TIMEOUT';
       reject(error);
@@ -61,6 +62,7 @@ async function requestStructuredJson(engine, {
 }) {
   const startedAt = Date.now();
   const structuredStep = `model:${phase}`;
+  const signal = telemetry?.signal;
   if (telemetry?.runId) {
     engine.updateRunProgress(telemetry.runId, {
       currentPhase: 'model',
@@ -84,6 +86,7 @@ async function requestStructuredJson(engine, {
             model,
             maxTokens,
             reasoningEffort: reasoningEffort || engine.getReasoningEffort(providerName, {}),
+            signal,
           }
         ),
         telemetry || {},
@@ -140,9 +143,15 @@ async function requestModelResponse(engine, {
 }) {
   const startedAt = Date.now();
   const requestMessages = sanitizeConversationMessages(messages);
+  const modelAbortController = new AbortController();
+  const parentSignal = options.signal;
+  const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   const callOptions = {
     model,
     reasoningEffort: engine.getReasoningEffort(providerName, options),
+    signal: modelAbortController.signal,
   };
 
   const attemptModelCall = async () => {
@@ -157,7 +166,7 @@ async function requestModelResponse(engine, {
         while (true) {
           const next = await withModelCallTimeout(
             iterator.next(),
-            options,
+            { ...options, modelAbortController },
             `Model stream iteration ${iteration}`,
           );
           if (next.done) break;
@@ -194,7 +203,7 @@ async function requestModelResponse(engine, {
     } else {
       response = await withModelCallTimeout(
         provider.chat(requestMessages, tools, callOptions),
-        options,
+        { ...options, modelAbortController },
         `Model iteration ${iteration}`,
       );
     }
@@ -202,18 +211,26 @@ async function requestModelResponse(engine, {
     return { response, streamContent };
   };
 
-  const { response, streamContent } = await withProviderRetry(attemptModelCall, {
-    ...(options.retry || {}),
-    label: `Engine ${model}`,
-    isRetryable: (err) => !err?.__providerRetryUnsafe && isTransientError(err),
-    onRetry: ({ attempt, delayMs }) => {
-      engine.emit(options.userId, 'run:interim', {
-        runId,
-        message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
-        phase: 'recovering',
-      });
-    },
-  });
+  let response;
+  let streamContent;
+  try {
+    ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
+      ...(options.retry || {}),
+      label: `Engine ${model}`,
+      isRetryable: (err) => !modelAbortController.signal.aborted
+        && !err?.__providerRetryUnsafe
+        && isTransientError(err),
+      onRetry: ({ attempt, delayMs }) => {
+        engine.emit(options.userId, 'run:interim', {
+          runId,
+          message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
+          phase: 'recovering',
+        });
+      },
+    }));
+  } finally {
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
 
   const resolvedResponse = response || {
     content: streamContent,

@@ -436,9 +436,10 @@ class OpenAICodexProvider extends BaseProvider {
     try {
       response = await this.client.responses.create(
         { model, ...request },
-        { headers: this._requestHeaders() },
+        { headers: this._requestHeaders(), signal: options.signal },
       );
     } catch (err) {
+      if (options.signal?.aborted) throw err;
       throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
     }
 
@@ -464,9 +465,10 @@ class OpenAICodexProvider extends BaseProvider {
     try {
       stream = await this.client.responses.create(
         { model, ...request, stream: true },
-        { headers: this._requestHeaders() },
+        { headers: this._requestHeaders(), signal: options.signal },
       );
     } catch (err) {
+      if (options.signal?.aborted) throw err;
       throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
     }
 

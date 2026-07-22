@@ -108,7 +108,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     const model = options.model || this.config.model || this.getDefaultModel();
     const params = this._buildParams(model, messages, tools, options);
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await this.client.chat.completions.create(params, { signal: options.signal });
     const choice = response.choices[0];
 
     return {
@@ -125,7 +125,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     const params = this._buildParams(model, messages, tools, options);
     params.stream = true;
     params.stream_options = { include_usage: true };
-    const stream = await this.client.chat.completions.create(params);
+    const stream = await this.client.chat.completions.create(params, { signal: options.signal });
 
     let currentToolCalls = [];
     let content = '';

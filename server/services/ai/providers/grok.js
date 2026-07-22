@@ -61,7 +61,7 @@ class GrokProvider extends OpenAICompatibleProvider {
     const model = options.model || 'grok-4-1-fast-reasoning';
     const params = this._buildParams(model, messages, tools, options);
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await this.client.chat.completions.create(params, { signal: options.signal });
     return this.normalizeResponse(response);
   }
 
@@ -73,7 +73,7 @@ class GrokProvider extends OpenAICompatibleProvider {
       stream_options: { include_usage: true }
     };
 
-    const stream = await this.client.chat.completions.create(params);
+    const stream = await this.client.chat.completions.create(params, { signal: options.signal });
 
     let toolCalls = [];
     let content = '';

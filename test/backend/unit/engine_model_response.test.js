@@ -169,11 +169,13 @@ test('requestModelResponse does not retry once stream content has been emitted',
 
 test('requestModelResponse times out a model call that never settles', async () => {
   const engine = new AgentEngine(null);
+  let providerSignal;
 
   await assert.rejects(
     engine.requestModelResponse({
       provider: {
-        async chat() {
+        async chat(_messages, _tools, options) {
+          providerSignal = options.signal;
           return new Promise(() => {});
         },
       },
@@ -192,6 +194,7 @@ test('requestModelResponse times out a model call that never settles', async () 
     }),
     (error) => error.code === 'MODEL_CALL_TIMEOUT',
   );
+  assert.equal(providerSignal.aborted, true);
 });
 
 test('requestModelResponse times out a stalled stream without replaying partial output', async () => {

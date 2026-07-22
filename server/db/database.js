@@ -1021,7 +1021,7 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
   const staleRunIds = db.prepare(
     `SELECT id
      FROM agent_runs
-     WHERE status = 'running'`
+     WHERE status IN ('running', 'pausing', 'paused', 'resuming')`
   ).all().map((row) => row.id);
   const runsResult = db.prepare(
     `UPDATE agent_runs
@@ -1029,7 +1029,7 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
          error = COALESCE(NULLIF(error, ''), ?),
          updated_at = datetime('now'),
          completed_at = COALESCE(completed_at, datetime('now'))
-     WHERE status = 'running'`
+     WHERE status IN ('running', 'pausing', 'paused', 'resuming')`
   ).run(normalizedReason);
 
   db.prepare(

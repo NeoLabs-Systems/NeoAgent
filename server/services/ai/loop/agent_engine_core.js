@@ -21,6 +21,13 @@ const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { runConversation } = require('./conversation_loop');
 const {
+  checkpointRun,
+  closeRun,
+  getRunControl,
+  requestRunControl,
+  transitionRun,
+} = require('./lifecycle');
+const {
   buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
   normalizeChurnAssessment,
@@ -1073,6 +1080,59 @@ class AgentEngine {
     return isRunStoppedImpl(this, runId);
   }
 
+  async checkpointLifecycle(runId, phase, state = {}) {
+    const runMeta = this.activeRuns.get(runId);
+    if (!runMeta) return { action: 'stop' };
+    const control = getRunControl(runId);
+    if (!control) return null;
+    if (control.action !== 'pause') return control;
+
+    checkpointRun(runId, phase, {
+      iteration: Number(state.iteration) || 0,
+      stepIndex: Number(state.stepIndex) || 0,
+      currentPhase: runMeta.progressLedger?.currentPhase || phase,
+      activeTools: (runMeta.activeTools || []).map((tool) => tool.name),
+      goalContract: runMeta.goalContract || null,
+      progressLedger: this.buildProgressLedgerSnapshot(runMeta),
+    });
+    transitionRun(runId, 'paused', {}, ['running', 'pausing']);
+    db.transaction(() => {
+      db.prepare(
+        `UPDATE agent_steps
+         SET status = 'paused', error = COALESCE(NULLIF(error, ''), 'Paused by request.'), completed_at = COALESCE(completed_at, datetime('now'))
+         WHERE run_id = ? AND status = 'running'`,
+      ).run(runId);
+      db.prepare(
+        `UPDATE pending_approvals
+         SET status = 'expired', decided_at = COALESCE(decided_at, datetime('now')), updated_at = datetime('now')
+         WHERE run_id = ? AND status = 'pending'`,
+      ).run(runId);
+    })();
+    runMeta.status = 'paused';
+    runMeta.abortController = null;
+    this.stopMessagingProgressSupervisor(runId);
+    this.emit(runMeta.userId, 'run:paused', { runId, reason: control.reason || null });
+    this.recordRunEvent(runMeta.userId, runId, 'run_paused', {
+      phase,
+      reason: control.reason || null,
+    }, { agentId: runMeta.agentId });
+
+    await new Promise((resolve) => { runMeta.resumeRun = resolve; });
+    runMeta.resumeRun = null;
+    runMeta.abortController = new AbortController();
+    runMeta.status = 'running';
+    this.startMessagingProgressSupervisor(runId);
+    return null;
+  }
+
+  completeRun(runId, fields = {}) {
+    return closeRun(runId, 'completed', fields, ['running']);
+  }
+
+  failRun(runId, fields = {}) {
+    return closeRun(runId, 'failed', fields, ['running']);
+  }
+
   attachProcessToRun(runId, pid) {
     return attachProcessToRunImpl(this, runId, pid);
   }
@@ -1593,6 +1653,10 @@ class AgentEngine {
 
   interruptRun(runId, reason = 'Server shutting down while run was in progress.') {
     const runMeta = this.activeRuns.get(runId);
+    const persistedRun = runMeta || db.prepare('SELECT user_id AS userId FROM agent_runs WHERE id = ?').get(runId);
+    if (persistedRun?.userId != null) {
+      requestRunControl(runId, persistedRun.userId, 'interrupt', reason);
+    }
     const delegatedChildren = db.prepare(
       "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
     ).all(runId);
@@ -1600,6 +1664,7 @@ class AgentEngine {
       runMeta.status = 'interrupted';
       runMeta.stopReason = reason;
       runMeta.aborted = true;
+      runMeta.abortController?.abort(reason);
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
@@ -1621,14 +1686,7 @@ class AgentEngine {
            completed_at = datetime('now')
        WHERE parent_run_id = ? AND status = 'running'`
     ).run(reason, runId);
-    db.prepare(
-      `UPDATE agent_runs
-       SET status = 'interrupted',
-           error = COALESCE(NULLIF(error, ''), ?),
-           updated_at = datetime('now'),
-           completed_at = datetime('now')
-       WHERE id = ?`
-    ).run(reason, runId);
+    closeRun(runId, 'interrupted', { error: reason }, ['running', 'pausing', 'paused', 'resuming']);
   }
 
   interruptAllActiveRuns(reason = 'Server shutting down while run was in progress.') {
@@ -1639,12 +1697,17 @@ class AgentEngine {
 
   stopRun(runId) {
     const runMeta = this.activeRuns.get(runId);
+    const persistedRun = runMeta || db.prepare('SELECT user_id AS userId FROM agent_runs WHERE id = ?').get(runId);
+    if (persistedRun?.userId != null) {
+      requestRunControl(runId, persistedRun.userId, 'stop', 'Stopped by request.');
+    }
     const delegatedChildren = db.prepare(
       "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
     ).all(runId);
     if (runMeta) {
       runMeta.status = 'stopped';
       runMeta.aborted = true;
+      runMeta.abortController?.abort('Run stopped.');
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
@@ -1661,7 +1724,46 @@ class AgentEngine {
     db.prepare(
       "UPDATE agent_delegations SET status = 'stopped', updated_at = datetime('now'), completed_at = datetime('now') WHERE parent_run_id = ? AND status = 'running'"
     ).run(runId);
-    db.prepare("UPDATE agent_runs SET status = 'stopped', updated_at = datetime('now') WHERE id = ?").run(runId);
+    closeRun(runId, 'stopped', {}, ['running', 'pausing', 'paused', 'resuming']);
+  }
+
+  pauseRun(runId, { userId, reason = '' } = {}) {
+    if (!runId || userId == null) return false;
+    const runMeta = this.activeRuns.get(runId);
+    if (
+      !runMeta
+      || Number(runMeta.userId) !== Number(userId)
+      || runMeta.status !== 'running'
+      || runMeta.pauseAvailable !== true
+    ) return false;
+    const result = requestRunControl(runId, userId, 'pause', reason);
+    if (!result.accepted) return false;
+    transitionRun(runId, 'pausing', {}, ['running']);
+    runMeta.status = 'pausing';
+    runMeta.abortController?.abort('Run paused.');
+    for (const pid of runMeta.toolPids) {
+      if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
+        void this.runtimeManager.killCommand(runMeta.userId, pid, 'paused');
+      }
+    }
+    this.emit(runMeta.userId, 'run:pausing', { runId, reason: reason || null });
+    return true;
+  }
+
+  resumeRun(runId, { userId } = {}) {
+    if (!runId || userId == null) return false;
+    const runMeta = this.activeRuns.get(runId);
+    if (!runMeta || Number(runMeta.userId) !== Number(userId) || runMeta.status !== 'paused') return false;
+    if (!transitionRun(runId, 'resuming', {}, ['paused'])) return false;
+    db.prepare(
+      `UPDATE agent_run_controls SET consumed_at = datetime('now')
+       WHERE run_id = ? AND action = 'pause' AND consumed_at IS NULL`,
+    ).run(runId);
+    transitionRun(runId, 'running', {}, ['resuming']);
+    this.emit(runMeta.userId, 'run:resumed', { runId });
+    this.recordRunEvent(runMeta.userId, runId, 'run_resumed', {}, { agentId: runMeta.agentId });
+    runMeta.resumeRun?.();
+    return true;
   }
 
   abort(runId, { userId } = {}) {

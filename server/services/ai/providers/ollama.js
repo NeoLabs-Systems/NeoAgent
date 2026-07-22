@@ -122,11 +122,12 @@ class OllamaProvider extends BaseProvider {
   // status for others; surface both as real errors instead of letting callers
   // see a silently empty response. Tags models that reject tools so the caller
   // can transparently retry without them.
-  async postChat(body) {
+  async postChat(body, signal = null) {
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal,
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -147,11 +148,11 @@ class OllamaProvider extends BaseProvider {
 
     let res;
     try {
-      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, false));
+      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, false), options.signal);
     } catch (err) {
       if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
         console.warn(`[Ollama] Model '${model}' does not support tools; retrying without them.`);
-        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, false));
+        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, false), options.signal);
       } else {
         throw err;
       }
@@ -186,11 +187,11 @@ class OllamaProvider extends BaseProvider {
 
     let res;
     try {
-      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, true));
+      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, true), options.signal);
     } catch (err) {
       if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
         console.warn(`[Ollama] Model '${model}' does not support tools; retrying stream without them.`);
-        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, true));
+        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, true), options.signal);
       } else {
         throw err;
       }

@@ -151,7 +151,7 @@ class GoogleProvider extends BaseProvider {
 
     const lastMessage = history.pop();
     const chat = genModel.startChat({ history });
-    const result = await chat.sendMessage(lastMessage.parts);
+    const result = await chat.sendMessage(lastMessage.parts, { signal: options.signal });
     const response = result.response;
 
     let content = '';
@@ -205,7 +205,7 @@ class GoogleProvider extends BaseProvider {
 
     const lastMessage = history.pop();
     const chat = genModel.startChat({ history });
-    const result = await chat.sendMessageStream(lastMessage.parts);
+    const result = await chat.sendMessageStream(lastMessage.parts, { signal: options.signal });
 
     let content = '';
     const toolCalls = [];

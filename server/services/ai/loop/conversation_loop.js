@@ -709,6 +709,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     voiceSessionId: options.voiceSessionId || null,
     steeringQueue: [],
     systemSteeringQueue: [],
+    abortController: new AbortController(),
+    pauseAvailable: false,
     toolPids: new Set(),
     subagentDepth: Math.max(0, Number(options.subagentDepth) || 0),
     repetitionGuard: new ToolRepetitionGuard(),
@@ -1207,8 +1209,15 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     // regardless of which iteration they fall in.
     let consecutiveToolFailures = 0;
     const iterationBudget = new IterationBudget(maxIterations);
+    const activeRunMeta = engine.getRunMeta(runId);
+    if (activeRunMeta) activeRunMeta.pauseAvailable = !directAnswerEligible;
 
     while (!directAnswerEligible && iterationBudget.consume()) {
+      const lifecycleAtStart = await engine.checkpointLifecycle(runId, 'iteration_boundary', {
+        iteration: iterationBudget.used,
+        stepIndex,
+      });
+      if (lifecycleAtStart?.action === 'stop' || lifecycleAtStart?.action === 'interrupt') break;
       if (engine.isRunStopped(runId)) break;
       iteration = iterationBudget.used;
 
@@ -1452,7 +1461,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             model,
             messages,
             tools,
-            options: { ...options, userId, agentId, runId, phase: 'model_turn' },
+            options: {
+              ...options,
+              userId,
+              agentId,
+              runId,
+              phase: 'model_turn',
+              signal: engine.getRunMeta(runId)?.abortController?.signal,
+            },
             runId,
             iteration,
           });
@@ -1512,6 +1528,21 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       try {
         await tryModelCall();
       } catch (err) {
+        const lifecycleAbort = err?.name === 'AbortError'
+          || err?.code === 'ABORT_ERR'
+          || /abort/i.test(String(err?.name || ''))
+          || engine.getRunMeta(runId)?.abortController?.signal?.aborted === true;
+        const lifecycleControl = await engine.checkpointLifecycle(runId, 'model_boundary', {
+          iteration,
+          stepIndex,
+        });
+        if (engine.isRunStopped(runId)) break;
+        if (lifecycleAbort && !lifecycleControl && engine.getRunMeta(runId)?.status === 'running') {
+          iterationBudget.refund();
+          iteration = iterationBudget.used;
+          continue;
+        }
+        if (lifecycleControl?.action === 'stop' || lifecycleControl?.action === 'interrupt') break;
         const modelError = String(err?.message || 'Model call failed');
 
         if (modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
@@ -1542,6 +1573,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       if (!response) {
         response = { content: streamContent, toolCalls: [], finishReason: 'stop', usage: null };
       }
+
+      const lifecycleAfterModel = await engine.checkpointLifecycle(runId, 'model_boundary', {
+        iteration,
+        stepIndex,
+      });
+      if (lifecycleAfterModel?.action === 'stop' || lifecycleAfterModel?.action === 'interrupt') break;
 
       if (response.usage) {
         totalTokens += response.usage.totalTokens || 0;
@@ -1718,6 +1755,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           iteration,
           options,
         });
+        const lifecycleAfterBatch = await engine.checkpointLifecycle(runId, 'tool_boundary', {
+          iteration,
+          stepIndex: batch.endingStepIndex,
+        });
+        if (lifecycleAfterBatch?.action === 'stop' || lifecycleAfterBatch?.action === 'interrupt') break;
         stepIndex = batch.endingStepIndex;
         let batchGatheredNewEvidence = false;
         for (const item of batch.results) {
@@ -1922,6 +1964,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
         let toolResult;
         let toolErrorMessage = '';
+        let toolInterruptedForPause = false;
         try {
           toolResult = await engine.executeTool(toolName, toolArgs, {
             userId,
@@ -1938,6 +1981,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             deliveryState: options.deliveryState || null,
             allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
             allowExternalSideEffects: options.allowExternalSideEffects === true,
+            signal: engine.getRunMeta(runId)?.abortController?.signal,
           });
           engine.detachProcessFromRun(runId, toolResult?.pid);
           toolErrorMessage = inferToolFailureMessage(toolName, toolResult);
@@ -1973,23 +2017,42 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             );
           }
         } catch (err) {
-          toolResult = { error: err.message };
-          toolErrorMessage = String(err.message || 'Tool execution failed');
-          failedStepCount++;
+          const currentRunMeta = engine.getRunMeta(runId);
+          toolInterruptedForPause = currentRunMeta?.status === 'pausing'
+            && currentRunMeta.abortController?.signal?.aborted === true;
+          toolErrorMessage = toolInterruptedForPause
+            ? 'The tool was interrupted for pause after dispatch; its external outcome is unknown.'
+            : String(err.message || 'Tool execution failed');
+          toolResult = toolInterruptedForPause
+            ? { status: 'outcome_unknown', error: toolErrorMessage }
+            : { error: err.message };
+          if (!toolInterruptedForPause) failedStepCount++;
           engine.detachProcessFromRun(runId, toolResult?.pid);
           db.prepare('UPDATE agent_steps SET status = ?, error = ?, completed_at = datetime(\'now\') WHERE id = ?')
-            .run('failed', err.message, stepId);
-          engine.emit(userId, 'run:tool_end', { runId, stepId, toolName, error: err.message, status: 'failed' });
-          engine.recordRunEvent(userId, runId, 'tool_failed', {
+            .run(toolInterruptedForPause ? 'paused' : 'failed', toolErrorMessage, stepId);
+          engine.emit(userId, 'run:tool_end', {
+            runId,
+            stepId,
             toolName,
-            status: 'failed',
-            error: err.message,
+            error: toolErrorMessage,
+            status: toolInterruptedForPause ? 'paused' : 'failed',
+          });
+          engine.recordRunEvent(userId, runId, toolInterruptedForPause ? 'tool_paused' : 'tool_failed', {
+            toolName,
+            status: toolInterruptedForPause ? 'paused' : 'failed',
+            error: toolErrorMessage,
             durationMs: Date.now() - stepStartedAt,
           }, { agentId, stepId });
           console.warn(
             `[Run ${shortenRunId(runId)}] step=${stepIndex} failed tool=${toolName} durationMs=${Date.now() - stepStartedAt} error=${summarizeForLog(err.message, 160)}`
           );
         }
+
+        const lifecycleAfterTool = await engine.checkpointLifecycle(runId, 'tool_boundary', {
+          iteration,
+          stepIndex,
+        });
+        if (lifecycleAfterTool?.action === 'stop' || lifecycleAfterTool?.action === 'interrupt') break;
 
         const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
         execution.input = toolArgs;
@@ -2054,7 +2117,13 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           tools = engine.getActiveTools(runId);
         }
 
-        if (toolErrorMessage) {
+        if (toolInterruptedForPause) {
+          consecutiveToolFailures = 0;
+          messages.push({
+            role: 'system',
+            content: `The outcome of "${toolName}" is unknown because pause interrupted it after dispatch. Do not repeat the call. First inspect or query the affected state with a safe read-only tool, then continue based on verified evidence.`,
+          });
+        } else if (toolErrorMessage) {
           consecutiveToolFailures += 1;
           const currentRunMeta = engine.getRunMeta(runId);
           trackErrorPattern(toolErrorMessage, currentRunMeta);
@@ -2181,6 +2250,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       if (engine.getRunMeta(runId)?.widgetSnapshotSaved) break;
       if (!engine.activeRuns.has(runId)) break;
     }
+
+    const finalizingRunMeta = engine.getRunMeta(runId);
+    if (finalizingRunMeta) finalizingRunMeta.pauseAvailable = false;
 
     if (engine.isRunStopped(runId)) {
       const stoppedRunMeta = engine.getRunMeta(runId);
@@ -2334,6 +2406,22 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             .run(conversationId, 'assistant', lastContent, recoveredVisible ? recoveredTokens : 0);
         }
       }
+    }
+
+    const lifecycleBeforeFinalize = await engine.checkpointLifecycle(runId, 'finalization_boundary', {
+      iteration,
+      stepIndex,
+    });
+    if (
+      engine.isRunStopped(runId)
+      || lifecycleBeforeFinalize?.action === 'stop'
+      || lifecycleBeforeFinalize?.action === 'interrupt'
+    ) {
+      const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
+      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      engine.stopMessagingProgressSupervisor(runId);
+      engine.activeRuns.delete(runId);
+      return { runId, content: '', totalTokens, iterations: iteration, status: terminal };
     }
 
     if (
@@ -2528,8 +2616,17 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       }
     }
 
-    db.prepare('UPDATE agent_runs SET status = ?, total_tokens = ?, final_response = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
-      .run('completed', totalTokens, finalResponseText || null, runId);
+    const completionWon = engine.completeRun(runId, {
+      totalTokens,
+      finalResponse: finalResponseText || null,
+    });
+    if (!completionWon) {
+      const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
+      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      engine.stopMessagingProgressSupervisor(runId);
+      engine.activeRuns.delete(runId);
+      return { runId, content: '', totalTokens, iterations: iteration, status: terminal };
+    }
 
     if (conversationId && options.skipConversationMaintenance !== true) {
       await engine.refreshConversationState({
@@ -2705,15 +2802,20 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       }
     }
 
-    db.prepare('UPDATE agent_runs SET status = ?, error = ?, final_response = ?, updated_at = datetime(\'now\') WHERE id = ?')
-      .run(
-        'failed',
-        err.message,
-        sendSucceeded
-          ? (messagingFailureContent || null)
-          : (deliverableFailureResponse || null),
-        runId,
-      );
+    const failureWon = engine.failRun(runId, {
+      error: err.message,
+      finalResponse: sendSucceeded
+        ? (messagingFailureContent || null)
+        : (deliverableFailureResponse || null),
+      totalTokens,
+    });
+    if (!failureWon) {
+      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      engine.stopMessagingProgressSupervisor(runId);
+      engine.activeRuns.delete(runId);
+      const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
+      return { runId, content: '', totalTokens, iterations: iteration, status: terminal };
+    }
     console.error(
       `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
     );
