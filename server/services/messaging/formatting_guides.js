@@ -86,6 +86,7 @@ function normalizeVisualMarkdown(text, { inlineCode = true } = {}) {
 
 function adaptWhatsAppFormatting(text) {
   return normalizeVisualMarkdown(text, { inlineCode: true })
+    .replace(/[ \t]*(?:\\n|\/n(?![a-zA-Z0-9_]))[ \t]*/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
