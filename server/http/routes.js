@@ -185,24 +185,22 @@ function registerApiRoutes(app) {
   app.get('/api/system/test/cli', requireAuth, async (req, res) => {
     const userId = req.session?.userId;
     const runtimeManager = req.app?.locals?.runtimeManager;
-    if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {
+    if (!runtimeManager || typeof runtimeManager.executeCliCommand !== 'function') {
       return res.json({ passed: false, backendUsed: 'vm', detail: 'Runtime not configured on this server.' });
     }
-    // Note: executeCommand always routes through the VM backend regardless of
-    // the cli_backend setting — desktop CLI routing is not yet implemented.
     try {
-      const result = await runtimeManager.executeCommand(userId, 'echo "cli_test_ok"', { timeout: 15000 });
+      const result = await runtimeManager.executeCliCommand(userId, 'echo "cli_test_ok"', { timeout: 15000 });
       const exitOk = result?.exitCode === 0;
       const outputOk = String(result?.stdout || '').includes('cli_test_ok');
       return res.json({
         passed: exitOk && outputOk,
-        backendUsed: 'vm',
+        backendUsed: result?.backend || 'unknown',
         detail: exitOk && outputOk
           ? 'Command executed successfully'
           : `Exit ${result?.exitCode ?? '?'}: ${String(result?.stderr || result?.stdout || '').slice(0, 120)}`,
       });
     } catch (err) {
-      return res.json({ passed: false, backendUsed: 'vm', detail: String(err?.message || err).slice(0, 120) });
+      return res.json({ passed: false, backendUsed: 'unknown', detail: String(err?.message || err).slice(0, 120) });
     }
   });
 

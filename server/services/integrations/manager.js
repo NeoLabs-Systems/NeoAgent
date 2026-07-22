@@ -10,6 +10,11 @@ const {
   normalizeAccessMode,
   withConnectionAccessMode,
 } = require('./access');
+const {
+  abortError,
+  waitForAbortableResult,
+} = require('./http');
+const { throwIfAborted } = require('../../utils/abort');
 
 const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
 
@@ -56,6 +61,7 @@ class IntegrationManager {
     this.registry = createIntegrationRegistry({
       io: this.app?.locals?.io || null,
     });
+    this.connectionExecutionQueues = new Map();
   }
 
   parseCredentials(credentialsJson) {
@@ -152,6 +158,23 @@ class IntegrationManager {
     ).run();
   }
 
+  claimOAuthState(state) {
+    return db.transaction(() => {
+      const stateRow = db
+        .prepare(
+          `SELECT * FROM integration_oauth_states
+           WHERE state = ? AND datetime(expires_at) > datetime('now')`,
+        )
+        .get(state);
+      if (!stateRow) return null;
+      const deleted = db.prepare(
+        `DELETE FROM integration_oauth_states
+         WHERE state = ? AND datetime(expires_at) > datetime('now')`,
+      ).run(state);
+      return deleted.changes === 1 ? stateRow : null;
+    })();
+  }
+
   listConnections(userId, providerKey = null, agentId = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
     const query = providerKey
@@ -225,6 +248,7 @@ class IntegrationManager {
         userId,
         agentId,
         appKey,
+        signal: options.signal || null,
       });
       const url = String(result?.url || '').trim();
       const absoluteUrl = url.startsWith('http')
@@ -247,6 +271,7 @@ class IntegrationManager {
       userId,
       agentId,
       appKey,
+      signal: options.signal || null,
     });
 
     db.prepare(
@@ -290,7 +315,8 @@ class IntegrationManager {
     );
   }
 
-  async finishOAuth(state, code) {
+  async finishOAuth(state, code, options = {}) {
+    throwIfAborted(options.signal, 'OAuth callback request aborted.');
     this.cleanupExpiredOauthStates();
     const normalizedState = String(state || '').trim();
     if (!OAUTH_STATE_PATTERN.test(normalizedState)) {
@@ -300,12 +326,7 @@ class IntegrationManager {
     if (!normalizedCode) {
       throw new Error('OAuth authorization code is required.');
     }
-    const stateRow = db
-      .prepare(
-        `SELECT * FROM integration_oauth_states
-         WHERE state = ? AND datetime(expires_at) > datetime('now')`,
-      )
-      .get(normalizedState);
+    const stateRow = this.claimOAuthState(normalizedState);
     if (!stateRow) {
       throw new Error('OAuth state is missing or expired.');
     }
@@ -322,6 +343,7 @@ class IntegrationManager {
       code: normalizedCode,
       codeVerifier: decryptValue(stateRow.code_verifier),
       appKey: stateRow.app_key,
+      signal: options.signal || null,
     });
 
     const mergedCredentials = this.mergeWithReusableCredentials(
@@ -386,10 +408,6 @@ class IntegrationManager {
         result.accountEmail,
       );
 
-    db.prepare('DELETE FROM integration_oauth_states WHERE state = ?').run(
-      stateRow.state,
-    );
-
     return {
       provider: provider.key,
       appId: stateRow.app_key,
@@ -420,7 +438,11 @@ class IntegrationManager {
       };
     }
 
-    await provider.disconnect(connection).catch(() => {});
+    if (typeof provider.disconnect === 'function') {
+      await provider.disconnect(connection, {
+        signal: options.signal || null,
+      }).catch(() => {});
+    }
     db.prepare('DELETE FROM integration_connections WHERE user_id = ? AND agent_id = ? AND id = ?').run(
       userId,
       agentId,
@@ -636,7 +658,46 @@ class IntegrationManager {
     };
   }
 
-  async executeTool(userId, toolName, args, agentId = null) {
+  connectionExecutionKey(connection) {
+    return [
+      connection.user_id,
+      connection.agent_id,
+      connection.provider_key,
+      String(connection.account_email || '').trim().toLowerCase(),
+    ].join(':');
+  }
+
+  async acquireConnectionExecution(connection, signal) {
+    const key = this.connectionExecutionKey(connection);
+    const previous = this.connectionExecutionQueues.get(key) || Promise.resolve();
+    let releaseGate;
+    const gate = new Promise((resolve) => {
+      releaseGate = resolve;
+    });
+    const tail = previous.catch(() => {}).then(() => gate);
+    this.connectionExecutionQueues.set(key, tail);
+    void tail.finally(() => {
+      if (this.connectionExecutionQueues.get(key) === tail) {
+        this.connectionExecutionQueues.delete(key);
+      }
+    });
+
+    try {
+      await waitForAbortableResult(previous.catch(() => {}), signal);
+    } catch (error) {
+      releaseGate();
+      throw error;
+    }
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      releaseGate();
+    };
+  }
+
+  async executeTool(userId, toolName, args, agentId = null, options = {}) {
     let foundSupportingProvider = false;
     for (const provider of this.registry.list()) {
       if (!provider.supportsTool(toolName)) continue;
@@ -661,59 +722,103 @@ class IntegrationManager {
         };
       }
 
-      let execution;
+      const storedCredentials = this.parseCredentials(
+        selection.connection.credentials_json,
+      );
+      const needsCredentialLock =
+        provider.requiresRefreshToken === true ||
+        Boolean(storedCredentials.refresh_token);
+      const releaseExecution = needsCredentialLock
+        ? await this.acquireConnectionExecution(selection.connection, options.signal)
+        : () => {};
       try {
-        execution = await provider.executeTool(
-          toolName,
-          args,
-          selection.connection,
+        const connection = this.getConnectionById(
+          userId,
+          selection.connection.id,
+          agentId,
         );
-      } catch (err) {
-        if (isLikelyExpiredConnectionError(err)) {
-          db.prepare(
-            `UPDATE integration_connections
-             SET status = 'expired', updated_at = datetime('now')
-             WHERE id = ? AND user_id = ? AND agent_id = ?`,
-          ).run(
-            selection.connection.id,
-            userId,
-            resolveAgentId(userId, agentId),
-          );
+        if (!connection || connection.status !== 'connected') {
           return {
-            error: `Your ${provider.label} account connection has expired and needs to be reconnected. Open Official Integrations to reconnect your account.`,
-            expired: true,
-            connectionId: selection.connection.id,
+            error: `The selected ${provider.label} connection is no longer available.`,
           };
         }
-        return { error: err?.message || 'execution_error' };
-      }
-      if (!execution) {
-        return { error: 'execution_failed' };
-      }
 
-      if (execution.credentials) {
-        const existingCredentials = this.parseCredentials(
-          selection.connection.credentials_json,
-        );
-        const mergedCredentials = this.mergeUpdatedCredentials(
-          existingCredentials,
-          execution.credentials,
-        );
-        this.persistSharedCredentials(
-          userId,
-          resolveAgentId(userId, agentId),
-          provider.key,
-          selection.connection.account_email,
-          mergedCredentials,
-        );
-      }
+        let execution;
+        try {
+          execution = await provider.executeTool(
+            toolName,
+            args,
+            connection,
+            { signal: options.signal || null },
+          );
+        } catch (err) {
+          if (
+            options.signal?.aborted ||
+            err?.name === 'AbortError' ||
+            err?.code === 'ABORT_ERR'
+          ) {
+            throw options.signal?.aborted ? abortError(options.signal) : err;
+          }
+          if (isLikelyExpiredConnectionError(err)) {
+            db.prepare(
+              `UPDATE integration_connections
+               SET status = 'expired', updated_at = datetime('now')
+               WHERE id = ? AND user_id = ? AND agent_id = ?`,
+            ).run(
+              connection.id,
+              userId,
+              resolveAgentId(userId, agentId),
+            );
+            return {
+              error: `Your ${provider.label} account connection has expired and needs to be reconnected. Open Official Integrations to reconnect your account.`,
+              expired: true,
+              connectionId: connection.id,
+            };
+          }
+          return { error: err?.message || 'execution_error' };
+        }
+        if (!execution) {
+          return { error: 'execution_failed' };
+        }
 
-      return execution.result;
+        if (execution.credentials) {
+          const existingCredentials = this.parseCredentials(
+            connection.credentials_json,
+          );
+          const mergedCredentials = this.mergeUpdatedCredentials(
+            existingCredentials,
+            execution.credentials,
+          );
+          this.persistSharedCredentials(
+            userId,
+            resolveAgentId(userId, agentId),
+            provider.key,
+            connection.account_email,
+            mergedCredentials,
+          );
+        }
+
+        return execution.result;
+      } finally {
+        releaseExecution();
+      }
     }
 
     return foundSupportingProvider
       ? { error: 'execution_failed' }
       : { error: 'no_provider_support' };
+  }
+
+  async shutdown() {
+    const providers = this.registry.list();
+    await Promise.allSettled(
+      providers.map((provider) => {
+        if (typeof provider.shutdown !== 'function') return null;
+        return provider.shutdown();
+      }),
+    );
+    this.connectionExecutionQueues.clear();
+    return { state: 'stopped', providerCount: providers.length };
   }
 
   summarizeConnectedProviders(userId, agentId = null) {

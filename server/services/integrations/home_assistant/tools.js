@@ -3,8 +3,12 @@
 const { decryptValue } = require('../secrets');
 const { homeAssistantRequest, normalizeHomeAssistantBaseUrl, requireText, trimText } = require('./network');
 
-async function fetchHomeAssistantConfig(credentials) {
-  return homeAssistantRequest(credentials, { method: 'GET', path: '/api/config' });
+async function fetchHomeAssistantConfig(credentials, options = {}) {
+  return homeAssistantRequest(credentials, {
+    method: 'GET',
+    path: '/api/config',
+    signal: options.signal,
+  });
 }
 
 function parseCredentials(connection) {
@@ -46,16 +50,21 @@ function validateServiceSegment(value, label) {
   return text;
 }
 
-async function executeHomeAssistantTool(toolName, args, connection) {
+async function executeHomeAssistantTool(toolName, args, connection, options = {}) {
   const credentials = connectionCredentials(connection);
+  const signal = options.signal || null;
 
   switch (toolName) {
     case 'home_assistant_get_config':
-      return { result: await fetchHomeAssistantConfig(credentials) };
+      return { result: await fetchHomeAssistantConfig(credentials, { signal }) };
     case 'home_assistant_list_states':
       return {
         result: filterStates(
-          await homeAssistantRequest(credentials, { method: 'GET', path: '/api/states' }),
+          await homeAssistantRequest(credentials, {
+            method: 'GET',
+            path: '/api/states',
+            signal,
+          }),
           args,
         ),
       };
@@ -64,6 +73,7 @@ async function executeHomeAssistantTool(toolName, args, connection) {
         result: await homeAssistantRequest(credentials, {
           method: 'GET',
           path: `/api/states/${encodeURIComponent(requireText(args.entity_id, 'entity_id'))}`,
+          signal,
         }),
       };
     case 'home_assistant_call_service': {
@@ -77,6 +87,7 @@ async function executeHomeAssistantTool(toolName, args, connection) {
           method: 'POST',
           path: `/api/services/${domain}/${service}`,
           body: serviceData,
+          signal,
         }),
       };
     }
@@ -87,6 +98,7 @@ async function executeHomeAssistantTool(toolName, args, connection) {
           path: requireText(args.path, 'path'),
           query: args.query && typeof args.query === 'object' ? args.query : {},
           body: args.body && typeof args.body === 'object' ? args.body : undefined,
+          signal,
         }),
       };
     default:

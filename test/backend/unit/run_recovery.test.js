@@ -84,3 +84,27 @@ test('stopServices interrupts active runs before shutdown continues', async () =
 
   assert.equal(interrupted, 1);
 });
+
+test('stopServices uses the engine shutdown barrier when available', async () => {
+  ctx = createTestRuntime();
+  const { stopServices } = require('../../../server/services/manager');
+  let shutdowns = 0;
+  let interrupts = 0;
+
+  await stopServices({
+    locals: {
+      agentEngine: {
+        async shutdown() {
+          shutdowns += 1;
+          return { state: 'stopped', timedOut: false, pendingCount: 0 };
+        },
+        interruptAllActiveRuns() {
+          interrupts += 1;
+        },
+      },
+    },
+  });
+
+  assert.equal(shutdowns, 1);
+  assert.equal(interrupts, 0);
+});

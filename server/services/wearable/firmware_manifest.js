@@ -1,8 +1,14 @@
 'use strict';
 
+const { createAbortError } = require('../../utils/abort');
+const { fetchResponseText } = require('../network/http');
+
 const DEFAULT_GITHUB_REPOSITORY = 'NeoLabs-Systems/NeoAgent';
 const DEFAULT_ASSET_NAME = 'neoagent-wearable-firmware.bin';
 const MANIFEST_CACHE_TTL_MS = 5 * 60 * 1000;
+const FIRMWARE_HTTP_TIMEOUT_MS = 15000;
+const RELEASES_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const CHECKSUM_MAX_RESPONSE_BYTES = 64 * 1024;
 const manifestCache = new Map();
 
 function trimString(value, maxLength = 512) {
@@ -118,36 +124,53 @@ function selectChecksumAsset(release, assetName) {
   }) || null;
 }
 
-async function fetchGithubJson(fetchImpl, url, token) {
-  const response = await fetchImpl(url, {
+async function fetchGithubJson(fetchImpl, url, token, signal) {
+  const { response, text } = await fetchResponseText(url, {
+    fetchImpl,
     headers: {
       Accept: 'application/vnd.github+json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    signal,
+    timeoutMs: FIRMWARE_HTTP_TIMEOUT_MS,
+    maxResponseBytes: RELEASES_MAX_RESPONSE_BYTES,
+    serviceName: 'GitHub firmware release lookup',
+    timeoutCode: 'FIRMWARE_HTTP_TIMEOUT',
+    tooLargeCode: 'FIRMWARE_RESPONSE_TOO_LARGE',
   });
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
     const error = new Error(`GitHub API request failed with ${response.status}`);
     error.status = response.status;
-    error.body = body;
+    error.body = text.slice(0, 2000);
     throw error;
   }
-  return response.json();
+  try {
+    return JSON.parse(text);
+  } catch (cause) {
+    throw new Error('GitHub firmware release lookup returned malformed JSON.', { cause });
+  }
 }
 
-async function fetchText(fetchImpl, url, token) {
-  const response = await fetchImpl(url, {
+async function fetchText(fetchImpl, url, token, signal) {
+  const { response, text } = await fetchResponseText(url, {
+    fetchImpl,
     headers: {
       Accept: 'text/plain, application/octet-stream;q=0.9, */*;q=0.1',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    signal,
+    timeoutMs: FIRMWARE_HTTP_TIMEOUT_MS,
+    maxResponseBytes: CHECKSUM_MAX_RESPONSE_BYTES,
+    serviceName: 'Firmware checksum download',
+    timeoutCode: 'FIRMWARE_HTTP_TIMEOUT',
+    tooLargeCode: 'FIRMWARE_RESPONSE_TOO_LARGE',
   });
   if (!response.ok) {
     const error = new Error(`Asset request failed with ${response.status}`);
     error.status = response.status;
     throw error;
   }
-  return response.text();
+  return text;
 }
 
 function parseChecksumBody(body, assetName) {
@@ -168,9 +191,14 @@ function parseChecksumBody(body, assetName) {
   return null;
 }
 
-async function fetchGithubRelease(fetchImpl, repository, channel, token, assetName = null) {
+async function fetchGithubRelease(fetchImpl, repository, channel, token, assetName = null, signal = null) {
   const normalizedChannel = normalizeChannel(channel);
-  const releases = await fetchGithubJson(fetchImpl, `https://api.github.com/repos/${repository}/releases?per_page=100`, token);
+  const releases = await fetchGithubJson(
+    fetchImpl,
+    `https://api.github.com/repos/${repository}/releases?per_page=100`,
+    token,
+    signal,
+  );
   const release = selectGithubRelease(releases, normalizedChannel, assetName);
   if (!release) {
     const error = new Error(`No ${normalizedChannel} firmware release found for ${repository}`);
@@ -212,6 +240,7 @@ async function resolveFirmwareManifest({
   repositoryOverride,
   assetNameOverride,
   fetchImpl = fetch,
+  signal = null,
 } = {}) {
   const normalizedChannel = normalizeChannel(channel);
   const repository = parseRepositorySlug(repositoryOverride) || getGithubRepository();
@@ -264,7 +293,14 @@ async function resolveFirmwareManifest({
 
   try {
     const token = getGithubToken();
-    const release = await fetchGithubRelease(fetchImpl, repository, normalizedChannel, token, assetName);
+    const release = await fetchGithubRelease(
+      fetchImpl,
+      repository,
+      normalizedChannel,
+      token,
+      assetName,
+      signal,
+    );
     const asset = selectReleaseAsset(release, assetName);
     if (!asset || !asset.browser_download_url) {
       return {
@@ -293,10 +329,11 @@ async function resolveFirmwareManifest({
     if (checksumAsset?.browser_download_url) {
       try {
         checksum = parseChecksumBody(
-          await fetchText(fetchImpl, checksumAsset.browser_download_url, token),
+          await fetchText(fetchImpl, checksumAsset.browser_download_url, token, signal),
           asset.name,
         );
-      } catch {
+      } catch (error) {
+        if (signal?.aborted) throw createAbortError(signal);
         checksum = null;
       }
     }
@@ -322,6 +359,7 @@ async function resolveFirmwareManifest({
     setCachedManifest(cacheId, manifest);
     return manifest;
   } catch (error) {
+    if (signal?.aborted) throw createAbortError(signal);
     return {
       configured: false,
       source: 'github',

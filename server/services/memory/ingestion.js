@@ -4,6 +4,11 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { getErrorMessage } = require('../bootstrap_helpers');
+const {
+  createLinkedAbortController,
+  isAbortError,
+  throwIfAborted,
+} = require('../../utils/abort');
 const { ingestDocuments } = require('./ingestion_documents');
 const {
   decorateProviderSnapshot,
@@ -39,6 +44,7 @@ class MemoryIngestionService {
     this.setInterval = setIntervalFn;
     this.clearInterval = clearIntervalFn;
     this.timer = null;
+    this.abortController = new AbortController();
     this.activeBatches = new Map();
     this.activeConnections = new Map();
     this.stopping = false;
@@ -67,6 +73,9 @@ class MemoryIngestionService {
       throw new Error('Memory ingestion cannot start while shutdown is in progress.');
     }
 
+    if (this.abortController.signal.aborted) {
+      this.abortController = new AbortController();
+    }
     this.stopping = false;
     this.state = 'running';
     this.lastError = null;
@@ -82,6 +91,7 @@ class MemoryIngestionService {
     try {
       await this.refreshDueConnections();
     } catch (err) {
+      if (isAbortError(err, this.abortController.signal) && this.stopping) return;
       this.lastError = getErrorMessage(err);
       console.warn('[MemoryIngestion] Background refresh failed:', this.lastError);
     }
@@ -91,6 +101,7 @@ class MemoryIngestionService {
     if (this.stopPromise) return this.stopPromise;
     this.stopping = true;
     this.state = 'stopping';
+    this.abortController.abort('Memory ingestion service is stopping.');
     if (this.timer) this.clearInterval(this.timer);
     this.timer = null;
 
@@ -111,13 +122,27 @@ class MemoryIngestionService {
   }
 
   async ingestDocuments(userId, documents = [], options = {}) {
-    return ingestDocuments(this, userId, documents, options);
+    const linked = createLinkedAbortController([
+      this.abortController.signal,
+      options.signal,
+    ]);
+    try {
+      return await ingestDocuments(this, userId, documents, {
+        ...options,
+        signal: linked.signal,
+      });
+    } finally {
+      linked.cleanup();
+    }
   }
 
   refreshDueConnections(userId = null) {
     const scopeKey = userId == null ? 'all' : `user:${userId}`;
-    if (this.stopping) {
-      return Promise.resolve({ skipped: true, reason: 'service_stopping' });
+    if (this.stopping || this.abortController.signal.aborted) {
+      return Promise.resolve({
+        skipped: true,
+        reason: this.stopping ? 'service_stopping' : 'service_stopped',
+      });
     }
     const active = this.activeBatches.get(scopeKey);
     if (active) return active;
@@ -132,6 +157,7 @@ class MemoryIngestionService {
   }
 
   async _refreshDueConnections(userId = null) {
+    const signal = this.abortController.signal;
     this.lastRunAt = new Date().toISOString();
     try {
       const params = [];
@@ -145,8 +171,8 @@ class MemoryIngestionService {
       const connections = this.db.prepare(sql).all(...params);
       const results = [];
       for (const connection of connections) {
-        if (this.stopping) break;
-        results.push(await this._refreshConnectionSafely(connection));
+        if (this.stopping || signal.aborted) break;
+        results.push(await this._refreshConnectionSafely(connection, { signal }));
       }
       if (!results.some((result) => result?.status === 'failed')) {
         this.lastError = null;
@@ -154,19 +180,28 @@ class MemoryIngestionService {
       this.lastCompletedAt = new Date().toISOString();
       return { refreshed: results.length, results };
     } catch (err) {
+      if (isAbortError(err, signal) && this.stopping) {
+        return { refreshed: 0, results: [], cancelled: true };
+      }
       this.lastError = getErrorMessage(err);
       throw err;
     }
   }
 
-  _refreshConnectionSafely(connection) {
+  _refreshConnectionSafely(connection, options = {}) {
     const connectionKey = `${connection.user_id}:${connection.id}`;
     const active = this.activeConnections.get(connectionKey);
     if (active) return active;
 
     const promise = Promise.resolve()
-      .then(() => this.refreshConnection(connection))
+      .then(() => this.refreshConnection(connection, options))
       .catch((err) => {
+        if (isAbortError(err, options.signal) && this.stopping) {
+          return {
+            connectionId: connection.id,
+            status: 'cancelled',
+          };
+        }
         const error = getErrorMessage(err);
         this.lastError = error;
         console.warn(
@@ -214,7 +249,9 @@ class MemoryIngestionService {
     }
   }
 
-  async refreshConnection(connection) {
+  async refreshConnection(connection, options = {}) {
+    const signal = options.signal || this.abortController.signal;
+    throwIfAborted(signal, 'Memory ingestion refresh aborted.');
     const sourceTypes = sourceTypesForConnection(connection.provider_key, connection.app_key);
     if (sourceTypes.length === 0) {
       return { connectionId: connection.id, status: 'not_supported' };
@@ -242,9 +279,12 @@ class MemoryIngestionService {
           connection,
           sourceTypes,
           cursor: latestJob?.cursor || {},
+          signal,
         });
       } catch (err) {
-        this._recordCollectorFailure(connection, primarySource, policy, agentId, err);
+        if (!isAbortError(err, signal)) {
+          this._recordCollectorFailure(connection, primarySource, policy, agentId, err);
+        }
         throw err;
       }
       return this.ingestDocuments(connection.user_id, collected.documents || [], {
@@ -258,6 +298,7 @@ class MemoryIngestionService {
           sourceTypes,
           cursor: collected.cursor || null,
         },
+        signal,
       });
     }
 

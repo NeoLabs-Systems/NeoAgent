@@ -2,6 +2,8 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
+const { ENV_FILE, upsertEnvValue } = require('../../../../runtime/paths');
+const { fetchResponseText } = require('../../network/http');
 const { AnthropicProvider } = require('./anthropic');
 
 const CLAUDE_CLI_CREDS_PATH = path.join(os.homedir(), '.claude', '.credentials.json');
@@ -12,6 +14,8 @@ const CLAUDE_CODE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI
 const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const CLAUDE_CODE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 const CLAUDE_CODE_SCOPES = 'user:inference user:profile org:create_api_key user:sessions:claude_code user:mcp_servers';
+const OAUTH_REFRESH_TIMEOUT_MS = 30000;
+const OAUTH_MAX_RESPONSE_BYTES = 256 * 1024;
 
 function readTokenRecord(data) {
   const tokens = data?.claudeAiOauthTokens || data?.claudeAiOauth || {};
@@ -71,40 +75,17 @@ function normalizeExpiresAt(data) {
   return null;
 }
 
-function sanitizeEnvKey(key) {
-  return String(key).replace(/[\r\n]/g, '');
-}
-
-function sanitizeEnvValue(value) {
-  return String(value).replace(/[\r\n]/g, '');
-}
-
 function persistEnvValue(key, value) {
   if (!value) return;
   try {
-    const { ENV_FILE } = require('../../../../runtime/paths');
-    const safeKey = sanitizeEnvKey(key);
-    const safeValue = sanitizeEnvValue(value);
-    const raw = fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, 'utf8') : '';
-    const lines = raw ? raw.split('\n') : [];
-    let replaced = false;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith(`${safeKey}=`)) {
-        lines[i] = `${safeKey}=${safeValue}`;
-        replaced = true;
-        break;
-      }
-    }
-    if (!replaced) lines.push(`${safeKey}=${safeValue}`);
-    const output = lines.filter((_, idx, arr) => idx !== arr.length - 1 || arr[idx] !== '').join('\n') + '\n';
-    fs.mkdirSync(path.dirname(ENV_FILE), { recursive: true });
-    fs.writeFileSync(ENV_FILE, output, { mode: 0o600 });
+    upsertEnvValue(ENV_FILE, key, value);
   } catch { }
 }
 
 async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch, signal = null) {
   if (!refreshToken) return null;
-  const response = await fetchImpl(CLAUDE_CODE_TOKEN_URL, {
+  const { response, text } = await fetchResponseText(CLAUDE_CODE_TOKEN_URL, {
+    fetchImpl,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -117,9 +98,13 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch, sig
       client_id: CLAUDE_CODE_CLIENT_ID,
     }),
     signal,
+    timeoutMs: OAUTH_REFRESH_TIMEOUT_MS,
+    maxResponseBytes: OAUTH_MAX_RESPONSE_BYTES,
+    serviceName: 'Claude Code OAuth refresh',
+    timeoutCode: 'PROVIDER_OAUTH_TIMEOUT',
+    tooLargeCode: 'PROVIDER_OAUTH_RESPONSE_TOO_LARGE',
   });
 
-  const text = await response.text();
   let data = {};
   try {
     data = text ? JSON.parse(text) : {};
@@ -128,7 +113,9 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch, sig
   }
 
   if (!response.ok) {
-    const detail = data?.error?.message || data?.error_description || data?.error || text || 'Unknown error';
+    const detail = String(
+      data?.error?.message || data?.error_description || data?.error || text || 'Unknown error',
+    ).slice(0, 2000);
     throw new Error(`Claude Code OAuth refresh failed: HTTP ${response.status} ${detail}`);
   }
   if (!data.access_token) {

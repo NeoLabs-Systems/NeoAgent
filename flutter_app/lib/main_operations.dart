@@ -505,8 +505,10 @@ class _SkillsPanelState extends State<SkillsPanel>
 
   // Installed tab search & filter state
   String _installedQuery = '';
-  String _installedStatusFilter = 'all'; // 'all' | 'active' | 'draft' | 'disabled'
-  String _installedSourceFilter = 'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
+  String _installedStatusFilter =
+      'all'; // 'all' | 'active' | 'draft' | 'disabled'
+  String _installedSourceFilter =
+      'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
   late final TextEditingController _installedSearchController;
 
   @override
@@ -645,18 +647,36 @@ class _SkillsPanelState extends State<SkillsPanel>
       final q = _installedQuery;
       if (q.isNotEmpty &&
           !skill.name.toLowerCase().contains(q) &&
-          !skill.description.toLowerCase().contains(q)) return false;
-      if (_installedStatusFilter != 'all') {
-        if (_installedStatusFilter == 'active' && (!skill.enabled || skill.draft)) return false;
-        if (_installedStatusFilter == 'draft' && !skill.draft) return false;
-        if (_installedStatusFilter == 'disabled' && skill.enabled) return false;
+          !skill.description.toLowerCase().contains(q)) {
+        return false;
       }
-      if (_installedSourceFilter != 'all' && skill.source != _installedSourceFilter) return false;
+      if (_installedStatusFilter != 'all') {
+        if (_installedStatusFilter == 'active' &&
+            (!skill.enabled || skill.draft)) {
+          return false;
+        }
+        if (_installedStatusFilter == 'draft' && !skill.draft) {
+          return false;
+        }
+        if (_installedStatusFilter == 'disabled' && skill.enabled) {
+          return false;
+        }
+      }
+      if (_installedSourceFilter != 'all' &&
+          skill.source != _installedSourceFilter) {
+        return false;
+      }
       return true;
     }).toList();
 
     final statusFilters = <String>['all', 'active', 'draft', 'disabled'];
-    final sourceFilters = <String>['all', 'built-in', 'learned', 'user', 'store'];
+    final sourceFilters = <String>[
+      'all',
+      'built-in',
+      'learned',
+      'user',
+      'store',
+    ];
 
     return Card(
       child: Column(
@@ -757,157 +777,174 @@ class _SkillsPanelState extends State<SkillsPanel>
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final skill = filteredSkills[index];
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 760;
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: compact
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  skill.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                              Switch(
-                                value: skill.enabled,
-                                onChanged: (value) => controller
-                                    .setSkillEnabled(skill.name, value),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            skill.description.ifEmpty('No description'),
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: <Widget>[
-                              _MetaPill(
-                                label: skill.category,
-                                icon: Icons.folder_outlined,
-                              ),
-                              _MetaPill(
-                                label: skill.source,
-                                icon: Icons.source_outlined,
-                              ),
-                              if (skill.draft)
-                                const _MetaPill(
-                                  label: 'Draft',
-                                  icon: Icons.edit_note_outlined,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: <Widget>[
-                              const Spacer(),
-                              OutlinedButton(
-                                onPressed: () =>
-                                    _openSkillEditor(context, skill.name),
-                                child: Text('Open'),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _confirmDeleteSkill(context, skill.name),
-                                icon: Icon(Icons.delete_outline),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _danger,
-                                ),
-                                label: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  skill.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  skill.description.ifEmpty('No description'),
-                                  style: TextStyle(color: _textSecondary),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: <Widget>[
-                                    _MetaPill(
-                                      label: skill.category,
-                                      icon: Icons.folder_outlined,
-                                    ),
-                                    _MetaPill(
-                                      label: skill.source,
-                                      icon: Icons.source_outlined,
-                                    ),
-                                    if (skill.draft)
-                                      const _MetaPill(
-                                        label: 'Draft',
-                                        icon: Icons.edit_note_outlined,
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 760;
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _border),
+                        ),
+                        child: compact
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Row(
+                                    children: <Widget>[
+                                      Expanded(
+                                        child: Text(
+                                          skill.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
                                       ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            children: <Widget>[
-                              Switch(
-                                value: skill.enabled,
-                                onChanged: (value) => controller
-                                    .setSkillEnabled(skill.name, value),
+                                      Switch(
+                                        value: skill.enabled,
+                                        onChanged: (value) => controller
+                                            .setSkillEnabled(skill.name, value),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    skill.description.ifEmpty('No description'),
+                                    style: TextStyle(color: _textSecondary),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      _MetaPill(
+                                        label: skill.category,
+                                        icon: Icons.folder_outlined,
+                                      ),
+                                      _MetaPill(
+                                        label: skill.source,
+                                        icon: Icons.source_outlined,
+                                      ),
+                                      if (skill.draft)
+                                        const _MetaPill(
+                                          label: 'Draft',
+                                          icon: Icons.edit_note_outlined,
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: <Widget>[
+                                      const Spacer(),
+                                      OutlinedButton(
+                                        onPressed: () => _openSkillEditor(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        child: Text('Open'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        onPressed: () => _confirmDeleteSkill(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        icon: Icon(Icons.delete_outline),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _danger,
+                                        ),
+                                        label: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          skill.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          skill.description.ifEmpty(
+                                            'No description',
+                                          ),
+                                          style: TextStyle(
+                                            color: _textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: <Widget>[
+                                            _MetaPill(
+                                              label: skill.category,
+                                              icon: Icons.folder_outlined,
+                                            ),
+                                            _MetaPill(
+                                              label: skill.source,
+                                              icon: Icons.source_outlined,
+                                            ),
+                                            if (skill.draft)
+                                              const _MetaPill(
+                                                label: 'Draft',
+                                                icon: Icons.edit_note_outlined,
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    children: <Widget>[
+                                      Switch(
+                                        value: skill.enabled,
+                                        onChanged: (value) => controller
+                                            .setSkillEnabled(skill.name, value),
+                                      ),
+                                      OutlinedButton(
+                                        onPressed: () => _openSkillEditor(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        child: Text('Open'),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextButton.icon(
+                                        onPressed: () => _confirmDeleteSkill(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        icon: Icon(Icons.delete_outline),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _danger,
+                                        ),
+                                        label: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              OutlinedButton(
-                                onPressed: () =>
-                                    _openSkillEditor(context, skill.name),
-                                child: Text('Open'),
-                              ),
-                              const SizedBox(height: 6),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _confirmDeleteSkill(context, skill.name),
-                                icon: Icon(Icons.delete_outline),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _danger,
-                                ),
-                                label: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-              );
-            },
-          );
+                      );
+                    },
+                  );
                 },
               ),
             ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   Widget _buildStoreTab(
@@ -1465,8 +1502,9 @@ class _MemoryPanelState extends State<MemoryPanel>
       );
       if (!mounted) return;
       _llmImportController.clear();
-      final warningText =
-          result.warnings.isEmpty ? '' : ' ${result.warnings.join(' ')}';
+      final warningText = result.warnings.isEmpty
+          ? ''
+          : ' ${result.warnings.join(' ')}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1494,9 +1532,7 @@ class _MemoryPanelState extends State<MemoryPanel>
         : controller.memories;
     if (_entityFilter == null) return base;
     return base
-        .where(
-          (m) => m.entities.any((e) => e.name == _entityFilter),
-        )
+        .where((m) => m.entities.any((e) => e.name == _entityFilter))
         .toList();
   }
 
@@ -1588,7 +1624,10 @@ class _MemoryPanelState extends State<MemoryPanel>
     });
   }
 
-  void _openRetrievalInspector(BuildContext context, NeoAgentController controller) {
+  void _openRetrievalInspector(
+    BuildContext context,
+    NeoAgentController controller,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RetrievalInspectorView(controller: controller),
@@ -1603,7 +1642,8 @@ class _MemoryPanelState extends State<MemoryPanel>
     final memoriesToShow = _visibleMemories;
     final selectedIds = _selectedVisibleMemoryIds.toSet();
     final selectedCount = selectedIds.length;
-    final allVisibleSelected = memoriesToShow.isNotEmpty &&
+    final allVisibleSelected =
+        memoriesToShow.isNotEmpty &&
         memoriesToShow.every((m) => selectedIds.contains(m.id));
     final showingSearchResults = controller.memoryRecallResults.isNotEmpty;
     final compact = MediaQuery.sizeOf(context).width < 760;
@@ -1644,9 +1684,7 @@ class _MemoryPanelState extends State<MemoryPanel>
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: <Widget>[
-                  _MemoryConfidenceGauge(
-                    confidence: stats.averageConfidence,
-                  ),
+                  _MemoryConfidenceGauge(confidence: stats.averageConfidence),
                   const SizedBox(width: 18),
                   Expanded(
                     child: Wrap(
@@ -1705,9 +1743,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Expanded(
-                          child: const _SectionTitle('Knowledge Graph'),
-                        ),
+                        Expanded(child: const _SectionTitle('Knowledge Graph')),
                         if (_entityFilter != null)
                           TextButton.icon(
                             onPressed: () =>
@@ -1720,10 +1756,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                     const SizedBox(height: 4),
                     Text(
                       'Tap an entity to filter memories by it.',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
@@ -1857,15 +1890,16 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
-                                  crossAxisAlignment:
-                                      WrapCrossAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: <Widget>[
                                     OutlinedButton.icon(
-                                      onPressed: allVisibleSelected ||
+                                      onPressed:
+                                          allVisibleSelected ||
                                               _bulkActionInFlight
                                           ? null
                                           : () => _selectAllVisibleMemories(
-                                              memoriesToShow),
+                                              memoriesToShow,
+                                            ),
                                       icon: Icon(
                                         Icons.done_all_outlined,
                                         size: 16,
@@ -1903,9 +1937,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.archive_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(
-                                          'Archive ($selectedCount)',
-                                        ),
+                                        label: Text('Archive ($selectedCount)'),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: _bulkActionInFlight
@@ -1923,9 +1955,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.delete_sweep_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(
-                                          'Delete ($selectedCount)',
-                                        ),
+                                        label: Text('Delete ($selectedCount)'),
                                       ),
                                     ],
                                   ],
@@ -1941,8 +1971,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 )
                               else
                                 ...memoriesToShow.map((memory) {
-                                  final isSelected =
-                                      selectedIds.contains(memory.id);
+                                  final isSelected = selectedIds.contains(
+                                    memory.id,
+                                  );
                                   return _MemoryRow(
                                     memory: memory,
                                     isSelected: isSelected,
@@ -1950,8 +1981,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       memory.id,
                                       !isSelected,
                                     ),
-                                    onCheck: (value) =>
-                                        _toggleMemorySelection(
+                                    onCheck: (value) => _toggleMemorySelection(
                                       memory.id,
                                       value ?? false,
                                     ),
@@ -1964,9 +1994,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                                 'This memory will be removed permanently.',
                                             onConfirm: () =>
                                                 _deleteSingleMemory(
-                                              controller,
-                                              memory.id,
-                                            ),
+                                                  controller,
+                                                  memory.id,
+                                                ),
                                           ),
                                   );
                                 }),
@@ -1985,9 +2015,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   Expanded(
                                     child: Text(
                                       'Key-value pairs that persist across conversations.',
-                                      style: TextStyle(
-                                        color: _textSecondary,
-                                      ),
+                                      style: TextStyle(color: _textSecondary),
                                     ),
                                   ),
                                   TextButton.icon(
@@ -2001,75 +2029,75 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              if (controller
-                                  .memoryOverview.coreEntries.isEmpty)
+                              if (controller.memoryOverview.coreEntries.isEmpty)
                                 Text(
                                   'No core memory entries yet.',
                                   style: TextStyle(color: _textSecondary),
                                 )
                               else
-                                ...controller.memoryOverview.coreEntries
-                                    .entries
+                                ...controller.memoryOverview.coreEntries.entries
                                     .map((entry) {
-                                  return Container(
-                                    width: double.infinity,
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: _bgSecondary,
-                                      borderRadius:
-                                          BorderRadius.circular(12),
-                                      border: Border.all(color: _border),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Text(
-                                                entry.key,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                entry.value.toString(),
-                                              ),
-                                            ],
-                                          ),
+                                      return Container(
+                                        width: double.infinity,
+                                        margin: const EdgeInsets.only(
+                                          bottom: 10,
                                         ),
-                                        IconButton(
-                                          onPressed: () =>
-                                              _openCoreMemoryEditor(
-                                            context,
-                                            controller,
-                                            keyValue: entry,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: _bgSecondary,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          icon: Icon(Icons.edit_outlined),
+                                          border: Border.all(color: _border),
                                         ),
-                                        IconButton(
-                                          onPressed: () => _confirmDelete(
-                                            context,
-                                            title:
-                                                'Delete core memory entry?',
-                                            message:
-                                                'Remove "${entry.key}" from core memory.',
-                                            onConfirm: () => controller
-                                                .deleteCoreMemory(
-                                              entry.key,
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: <Widget>[
+                                                  Text(
+                                                    entry.key,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(entry.value.toString()),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          icon: Icon(Icons.delete_outline),
+                                            IconButton(
+                                              onPressed: () =>
+                                                  _openCoreMemoryEditor(
+                                                    context,
+                                                    controller,
+                                                    keyValue: entry,
+                                                  ),
+                                              icon: Icon(Icons.edit_outlined),
+                                            ),
+                                            IconButton(
+                                              onPressed: () => _confirmDelete(
+                                                context,
+                                                title:
+                                                    'Delete core memory entry?',
+                                                message:
+                                                    'Remove "${entry.key}" from core memory.',
+                                                onConfirm: () =>
+                                                    controller.deleteCoreMemory(
+                                                      entry.key,
+                                                    ),
+                                              ),
+                                              icon: Icon(Icons.delete_outline),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }),
+                                      );
+                                    }),
                             ],
                           ),
                         ),
@@ -2092,11 +2120,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   FilledButton.icon(
                                     onPressed: _llmPromptLoading
                                         ? null
-                                        : () =>
-                                            _loadLlmPrompt(controller),
-                                    icon: Icon(
-                                      Icons.auto_awesome_outlined,
-                                    ),
+                                        : () => _loadLlmPrompt(controller),
+                                    icon: Icon(Icons.auto_awesome_outlined),
                                     label: Text(
                                       _llmPromptLoading
                                           ? 'Generating...'
@@ -2105,11 +2130,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   ),
                                   OutlinedButton.icon(
                                     onPressed:
-                                        _llmPromptController.text
-                                                .trim()
-                                                .isEmpty
-                                            ? null
-                                            : _copyLlmPrompt,
+                                        _llmPromptController.text.trim().isEmpty
+                                        ? null
+                                        : _copyLlmPrompt,
                                     icon: Icon(Icons.copy_all_outlined),
                                     label: Text('Copy Prompt'),
                                   ),
@@ -2122,8 +2145,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 maxLines: 8,
                                 readOnly: true,
                                 decoration: const InputDecoration(
-                                  labelText:
-                                      'Prompt to paste into another AI',
+                                  labelText: 'Prompt to paste into another AI',
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -2133,8 +2155,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 onChanged: _llmImporting
                                     ? null
                                     : (value) => setState(
-                                        () =>
-                                            _llmApplyBehaviorNotes = value,
+                                        () => _llmApplyBehaviorNotes = value,
                                       ),
                                 title: Text('Apply behavior notes'),
                                 subtitle: Text(
@@ -2147,8 +2168,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 onChanged: _llmImporting
                                     ? null
                                     : (value) => setState(
-                                        () =>
-                                            _llmApplyCoreMemory = value,
+                                        () => _llmApplyCoreMemory = value,
                                       ),
                                 title: Text('Apply core memory'),
                                 subtitle: Text(
@@ -2168,13 +2188,10 @@ class _MemoryPanelState extends State<MemoryPanel>
                               FilledButton.icon(
                                 onPressed: _llmImporting
                                     ? null
-                                    : () =>
-                                        _importLlmMemories(controller),
+                                    : () => _importLlmMemories(controller),
                                 icon: Icon(Icons.file_download_outlined),
                                 label: Text(
-                                  _llmImporting
-                                      ? 'Importing...'
-                                      : 'Import',
+                                  _llmImporting ? 'Importing...' : 'Import',
                                 ),
                               ),
                             ],
@@ -2453,9 +2470,10 @@ class _MemoryConfidenceGaugeState extends State<_MemoryConfidenceGauge>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _progress = Tween<double>(begin: 0, end: widget.confidence).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _progress = Tween<double>(
+      begin: 0,
+      end: widget.confidence,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _controller.forward();
   }
 
@@ -2463,12 +2481,10 @@ class _MemoryConfidenceGaugeState extends State<_MemoryConfidenceGauge>
   void didUpdateWidget(_MemoryConfidenceGauge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.confidence != widget.confidence) {
-      _progress = Tween<double>(
-        begin: _progress.value,
-        end: widget.confidence,
-      ).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-      );
+      _progress = Tween<double>(begin: _progress.value, end: widget.confidence)
+          .animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          );
       _controller
         ..reset()
         ..forward();
@@ -2658,10 +2674,7 @@ class _MemoryRow extends StatelessWidget {
                           if (onDelete != null)
                             IconButton(
                               onPressed: onDelete,
-                              icon: Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                              ),
+                              icon: Icon(Icons.delete_outline, size: 18),
                             ),
                         ],
                       ),
@@ -2686,10 +2699,7 @@ class _MemoryRow extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         memory.createdAtLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _textMuted,
-                        ),
+                        style: TextStyle(fontSize: 11, color: _textMuted),
                       ),
                     ],
                   ),
@@ -2778,27 +2788,31 @@ class _EntityGraphViewState extends State<_EntityGraphView>
     for (int i = 0; i < entities.length; i++) {
       final entity = entities[i];
       final sizeFactor = 0.4 + 0.6 * (entity.mentionCount / maxMention);
-      _nodes.add(_GraphNode(
-        id: entity.name,
-        label: entity.name,
-        radius: 18 + 20 * sizeFactor,
-        color: _kindColors[entity.kind] ?? _kindColors['concept']!,
-        kind: entity.kind,
-        isReflection: false,
-        offsetPhase: i * 0.7,
-      ));
+      _nodes.add(
+        _GraphNode(
+          id: entity.name,
+          label: entity.name,
+          radius: 18 + 20 * sizeFactor,
+          color: _kindColors[entity.kind] ?? _kindColors['concept']!,
+          kind: entity.kind,
+          isReflection: false,
+          offsetPhase: i * 0.7,
+        ),
+      );
     }
 
     for (int i = 0; i < views.length && i < 6; i++) {
-      _nodes.add(_GraphNode(
-        id: 'kv_${views[i].title}',
-        label: views[i].title,
-        radius: 14,
-        color: const Color(0xFF8B7EC8),
-        kind: views[i].viewType,
-        isReflection: true,
-        offsetPhase: (entities.length + i) * 0.9,
-      ));
+      _nodes.add(
+        _GraphNode(
+          id: 'kv_${views[i].title}',
+          label: views[i].title,
+          radius: 14,
+          color: const Color(0xFF8B7EC8),
+          kind: views[i].viewType,
+          isReflection: true,
+          offsetPhase: (entities.length + i) * 0.9,
+        ),
+      );
     }
 
     _layoutDone = false;
@@ -2939,10 +2953,12 @@ class _EntityGraphPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (nodes.isEmpty) return;
 
-    final entityNodes =
-        nodes.where((n) => !n.isReflection).toList(growable: false);
-    final reflectionNodes =
-        nodes.where((n) => n.isReflection).toList(growable: false);
+    final entityNodes = nodes
+        .where((n) => !n.isReflection)
+        .toList(growable: false);
+    final reflectionNodes = nodes
+        .where((n) => n.isReflection)
+        .toList(growable: false);
 
     // Draw connections between entity nodes (subtle web)
     final linePaint = Paint()
@@ -2974,8 +2990,8 @@ class _EntityGraphPainter extends CustomPainter {
         var closest = entityNodes.first;
         var minDist = double.infinity;
         for (final en in entityNodes) {
-          final d = (en.x - rn.x) * (en.x - rn.x) +
-              (en.y - rn.y) * (en.y - rn.y);
+          final d =
+              (en.x - rn.x) * (en.x - rn.x) + (en.y - rn.y) * (en.y - rn.y);
           if (d < minDist) {
             minDist = d;
             closest = en;
@@ -3002,8 +3018,9 @@ class _EntityGraphPainter extends CustomPainter {
       // Glow
       if (isSelected || isHovered) {
         final glowPaint = Paint()
-          ..color = (isSelected ? accentColor : node.color)
-              .withValues(alpha: 0.22)
+          ..color = (isSelected ? accentColor : node.color).withValues(
+            alpha: 0.22,
+          )
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(Offset(cx, cy), r + 6, glowPaint);
       }
@@ -3023,8 +3040,8 @@ class _EntityGraphPainter extends CustomPainter {
         ..color = isSelected
             ? accentColor
             : (isHovered
-                ? node.color.withValues(alpha: 0.8)
-                : node.color.withValues(alpha: 0.35))
+                  ? node.color.withValues(alpha: 0.8)
+                  : node.color.withValues(alpha: 0.35))
         ..style = PaintingStyle.stroke
         ..strokeWidth = isSelected ? 2.5 : 1.5;
       canvas.drawCircle(Offset(cx, cy), r, borderPaint);
@@ -3041,10 +3058,7 @@ class _EntityGraphPainter extends CustomPainter {
         maxLines: 1,
         ellipsis: '…',
       )..layout(maxWidth: r * 3);
-      tp.paint(
-        canvas,
-        Offset(cx - tp.width / 2, cy + r + 5),
-      );
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy + r + 5));
     }
   }
 
@@ -5365,6 +5379,7 @@ String _formatTaskWeekdays(Set<int> weekdays) {
   if (sorted.isEmpty) return 'Monday';
   return sorted.map((day) => _taskWeekdayLabels[day - 1]).join(', ');
 }
+
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
   String selectedType,
@@ -6545,9 +6560,7 @@ class _TasksPanelState extends State<TasksPanel> {
     final selectedConnectionId = ValueNotifier<int?>(
       task?.triggerConfig['connectionId'] is int
           ? task!.triggerConfig['connectionId'] as int
-          : int.tryParse(
-              task?.triggerConfig['connectionId']?.toString() ?? '',
-            ),
+          : int.tryParse(task?.triggerConfig['connectionId']?.toString() ?? ''),
     );
     final selectedDeliveryTarget = ValueNotifier<TaskDeliveryTarget?>(
       _taskDeliveryTargetFromTask(task),

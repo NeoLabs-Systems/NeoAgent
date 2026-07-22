@@ -142,9 +142,11 @@ test('Ollama model discovery and pulls stop when the run is aborted', async () =
   try {
     const pending = provider.ensureModel('missing-model', controller.signal);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(pullSignal, controller.signal);
+    assert.ok(pullSignal);
+    assert.equal(pullSignal.aborted, false);
     controller.abort(new Error('ollama aborted'));
     await assert.rejects(pending, /ollama aborted/);
+    assert.equal(pullSignal.aborted, true);
   } finally {
     global.fetch = originalFetch;
   }
@@ -160,29 +162,56 @@ test('OAuth provider token refreshes forward the run AbortSignal', async () => {
     };
     const pending = refresh('refresh-token', fetchImpl, controller.signal);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(capturedSignal, controller.signal);
+    assert.ok(capturedSignal);
+    assert.notEqual(capturedSignal, controller.signal);
     controller.abort(new Error('oauth refresh aborted'));
     await assert.rejects(pending, /oauth refresh aborted/);
+    assert.equal(capturedSignal.aborted, true);
   }
 });
 
-test('GitHub Copilot token refresh forwards the run AbortSignal', async () => {
+test('OAuth provider token refresh responses are size bounded', async () => {
+  const oversizedBody = 'x'.repeat(300 * 1024);
+  const fetchImpl = async () => new Response(oversizedBody, { status: 200 });
+
+  for (const refresh of [refreshClaudeCodeAccessToken, refreshGrokOAuthAccessToken]) {
+    await assert.rejects(
+      refresh('refresh-token', fetchImpl),
+      (error) => error.code === 'PROVIDER_OAUTH_RESPONSE_TOO_LARGE',
+    );
+  }
+});
+
+test('GitHub Copilot caller can stop waiting without cancelling shared refresh', async () => {
   const originalFetch = global.fetch;
   const provider = new GithubCopilotProvider({ apiKey: 'test-key' });
   const controller = new AbortController();
   let capturedSignal;
+  let resolveFetch;
 
   global.fetch = (_url, options) => {
     capturedSignal = options.signal;
-    return waitForAbort(capturedSignal);
+    return new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
   };
 
   try {
     const pending = provider._refreshCopilotToken(controller.signal);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(capturedSignal, controller.signal);
+    assert.ok(capturedSignal);
+    assert.notEqual(capturedSignal, controller.signal);
     controller.abort(new Error('copilot refresh aborted'));
     await assert.rejects(pending, /copilot refresh aborted/);
+    assert.equal(capturedSignal.aborted, false);
+    resolveFetch(new Response(JSON.stringify({
+      token: 'shared-token',
+      expires_at: Math.floor(Date.now() / 1000) + 1800,
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }));
+    await provider._refreshPromise;
   } finally {
     global.fetch = originalFetch;
   }

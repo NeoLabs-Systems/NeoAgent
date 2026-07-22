@@ -1,5 +1,7 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
+const { fetchResponseText } = require('../../network/http');
+const { wrapProviderError } = require('./provider_error');
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -25,12 +27,26 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels() {
-    const res = await fetch(`${this.baseURL}/models`, {
+  async listModels(signal = null) {
+    const { response, text } = await fetchResponseText(`${this.baseURL}/models`, {
       headers: { 'Authorization': `Bearer ${this.client.apiKey}` },
+      maxResponseBytes: 5 * 1024 * 1024,
+      serviceName: 'OpenRouter model catalog',
+      signal,
     });
-    if (!res.ok) throw new Error(`OpenRouter /models returned HTTP ${res.status}`);
-    const { data } = await res.json();
+    if (!response.ok) {
+      const error = new Error(`OpenRouter /models returned HTTP ${response.status}`);
+      error.status = response.status;
+      error.headers = response.headers;
+      throw error;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(text || '{}');
+    } catch {
+      throw new Error('OpenRouter /models returned invalid JSON.');
+    }
+    const { data } = payload;
     const models = data || [];
     for (const m of models) {
       if (m.context_length) contextWindowCache.set(m.id, m.context_length);
@@ -74,7 +90,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     try {
       response = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
-      throw new Error(`OpenRouter request failed: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'OpenRouter request failed', {
+        signal: options.signal,
+      });
     }
     // OpenRouter returns HTTP 200 even for errors (rate limits, model unavailable, etc.)
     const orErr = this._extractOpenRouterError(response);
@@ -97,7 +115,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     try {
       stream = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
-      throw new Error(`OpenRouter request failed: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'OpenRouter request failed', {
+        signal: options.signal,
+      });
     }
 
     let toolCalls = [];
@@ -148,7 +168,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     }
     } catch (err) {
       // Re-throw SDK APIErrors (from OpenRouter SSE error events) with OpenRouter context.
-      throw new Error(`OpenRouter: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'OpenRouter stream failed', {
+        signal: options.signal,
+      });
     }
 
     if (toolCalls.length > 0) {

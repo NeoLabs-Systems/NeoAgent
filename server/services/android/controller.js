@@ -1,29 +1,34 @@
 'use strict';
 
-const { spawn, spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
-const https = require('https');
 const net = require('net');
 const os = require('os');
 const path = require('path');
-const { DATA_DIR } = require('../../../runtime/paths');
+const { DATA_DIR, RUNTIME_HOME } = require('../../../runtime/paths');
+const { validateAndroidIntentUrl } = require('../../utils/cloud-security');
+const { validateImageBuffer } = require('../../utils/image_payload');
+const { downloadFile, resolveCommandLineToolsRelease } = require('./sdk_download');
+const { findBestNode, parseUiDump, summarizeNode } = require('./uia');
+const { clampNumber, runProcess } = require('./process');
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DEFAULT_SDK_DIR = path.join(os.homedir(), '.neoagent', 'android-sdk');
+const DEFAULT_SDK_DIR = path.join(RUNTIME_HOME, 'android-sdk');
+const DEFAULT_AVD_DIR = path.join(RUNTIME_HOME, 'android', 'avd');
 const STATE_DIR = path.join(DATA_DIR, 'android', 'state');
 const LOGO_PATH = path.join(__dirname, '..', '..', '..', 'flutter_app', 'assets', 'branding', 'app_icon_512.png');
 
-// Even ports in 5554–5682 (documented ADB range). 65 slots for 65 concurrent users.
+// Even console ports in the documented emulator range. Each emulator also owns
+// the adjacent ADB port, so 64 pairs fit without crossing the supported range.
 const ADB_PORT_BASE = 5554;
-const ADB_PORT_SLOTS = 65;
+const ADB_PORT_SLOTS = 64;
+const RESERVED_ADB_PORTS = new Set();
+const SDK_PROVISIONING = new Map();
 
-const CMDLINE_TOOLS_VERSION = '14742923';
-const CMDLINE_TOOLS_URLS = {
-  darwin: `https://dl.google.com/android/repository/commandlinetools-mac-${CMDLINE_TOOLS_VERSION}_latest.zip`,
-  linux:  `https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip`,
-  win32:  `https://dl.google.com/android/repository/commandlinetools-win-${CMDLINE_TOOLS_VERSION}_latest.zip`,
-};
+const MAX_ANDROID_TEXT_CHARS = 8000;
+const MAX_ANDROID_INTENT_EXTRAS = 100;
+const MAX_ANDROID_PACKAGE_BYTES = 1024 * 1024 * 1024;
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
@@ -38,7 +43,14 @@ function readState(userId) {
 
 function writeState(userId, patch) {
   const current = readState(userId);
-  fs.writeFileSync(stateFile(userId), JSON.stringify({ ...current, ...patch }, null, 2));
+  const destination = stateFile(userId);
+  const temporary = `${destination}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify({ ...current, ...patch }, null, 2), { mode: 0o600 });
+    fs.renameSync(temporary, destination);
+  } finally {
+    try { fs.unlinkSync(temporary); } catch {}
+  }
 }
 
 // ─── SDK resolution ──────────────────────────────────────────────────────────
@@ -111,86 +123,197 @@ function pickSystemImage(sdkDir) {
 
 function defaultSystemImage() {
   const abi = (os.arch() === 'arm64' || os.arch() === 'arm') ? 'arm64-v8a' : 'x86_64';
-  return `system-images;android-33;google_apis;${abi}`;
+  return `system-images;android-36;google_apis;${abi}`;
 }
 
 // ─── SDK setup ───────────────────────────────────────────────────────────────
 
-function downloadFile(url, dest) {
+function abortError(signal, message = 'Android operation was aborted.') {
+  if (signal?.reason instanceof Error) return signal.reason;
+  const error = new Error(String(signal?.reason || message));
+  error.name = 'AbortError';
+  error.code = 'ABORT_ERR';
+  return error;
+}
+
+function delay(ms, signal = null) {
+  if (signal?.aborted) return Promise.reject(abortError(signal));
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    const follow = u => https.get(u, res => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        file.close(); return follow(res.headers.location);
-      }
-      if (res.statusCode !== 200) { file.close(); return reject(new Error(`HTTP ${res.statusCode}`)); }
-      res.pipe(file);
-      file.on('finish', () => file.close(resolve));
-    }).on('error', err => { file.close(); fs.unlink(dest, () => {}); reject(err); });
-    follow(url);
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError(signal));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
   });
 }
 
-async function ensureSdk(sdkDir, onProgress) {
+function waitForAbortable(promise, signal = null) {
+  if (signal?.aborted) return Promise.reject(abortError(signal));
+  if (!signal) return promise;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', onAbort);
+      callback(value);
+    };
+    const onAbort = () => finish(reject, abortError(signal));
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    Promise.resolve(promise).then(
+      (value) => finish(resolve, value),
+      (error) => finish(reject, error),
+    );
+  });
+}
+
+async function ensureSdk(sdkDir, onProgress, options = {}) {
   if (fs.existsSync(sdkManagerBin(sdkDir))) return;
-  const url = CMDLINE_TOOLS_URLS[process.platform];
-  if (!url) throw new Error(`No cmdline-tools download for platform: ${process.platform}`);
+  const release = resolveCommandLineToolsRelease();
 
   fs.mkdirSync(sdkDir, { recursive: true });
-  onProgress('Downloading Android SDK command-line tools (~150 MB)…');
-  const zip = path.join(os.tmpdir(), 'cmdline-tools.zip');
-  await downloadFile(url, zip);
+  onProgress('Downloading Android SDK command-line tools (~182 MB)…');
+  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-android-sdk-'));
+  const zip = path.join(downloadDir, 'cmdline-tools.zip');
+  try {
+    await downloadFile(release.url, zip, {
+      expectedSha256: release.sha256,
+      signal: options.signal,
+    });
+    await runProcess('unzip', ['-tq', zip], {
+      timeoutMs: 120_000,
+      maxOutputBytes: 1024 * 1024,
+      signal: options.signal,
+    });
 
-  onProgress('Extracting…');
+    onProgress('Extracting…');
+    const toolsDir = path.join(sdkDir, 'cmdline-tools');
+    fs.mkdirSync(toolsDir, { recursive: true });
+    await runProcess('unzip', ['-qo', zip, '-d', toolsDir], {
+      timeoutMs: 120_000,
+      maxOutputBytes: 1024 * 1024,
+      signal: options.signal,
+    });
+  } finally {
+    fs.rmSync(downloadDir, { recursive: true, force: true });
+  }
+
   const toolsDir = path.join(sdkDir, 'cmdline-tools');
-  fs.mkdirSync(toolsDir, { recursive: true });
-  const unzip = spawnSync('unzip', ['-qo', zip, '-d', toolsDir]);
-  fs.unlinkSync(zip);
-  if (unzip.status !== 0) throw new Error('unzip failed');
-
   const extracted = path.join(toolsDir, 'cmdline-tools');
   const latest = path.join(toolsDir, 'latest');
   if (fs.existsSync(extracted) && !fs.existsSync(latest)) fs.renameSync(extracted, latest);
   if (!fs.existsSync(sdkManagerBin(sdkDir))) throw new Error('sdkmanager not found after extraction');
 }
 
-async function ensurePackages(sdkDir, onProgress) {
+async function ensurePackages(sdkDir, onProgress, options = {}) {
   const env = { ...process.env, ANDROID_SDK_ROOT: sdkDir, ANDROID_HOME: sdkDir };
   const sdkman = sdkManagerBin(sdkDir);
 
   onProgress('Accepting Android SDK licenses…');
-  spawnSync(sdkman, ['--licenses', `--sdk_root=${sdkDir}`], { input: 'y\n'.repeat(20), encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe'] });
-
-  const img = defaultSystemImage();
-  onProgress(`Installing platform-tools, emulator, ${img} (~1–2 GB, first run only)…`);
-  const r = spawnSync(sdkman, ['platform-tools', 'emulator', img, `--sdk_root=${sdkDir}`], {
-    encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe'], timeout: 20 * 60 * 1000,
+  await runProcess(sdkman, ['--licenses', `--sdk_root=${sdkDir}`], {
+    input: 'y\n'.repeat(20),
+    env,
+    timeoutMs: 5 * 60 * 1000,
+    maxOutputBytes: 8 * 1024 * 1024,
+    signal: options.signal,
   });
-  if (r.status !== 0) throw new Error(`sdkmanager failed: ${(r.stderr || r.stdout || '').slice(0, 500)}`);
+
+  const existingImage = pickSystemImage(sdkDir);
+  const packages = ['platform-tools', 'emulator'];
+  if (!existingImage) packages.push(defaultSystemImage());
+  onProgress(`Installing ${packages.join(', ')} (first run only)…`);
+  await runProcess(sdkman, [...packages, `--sdk_root=${sdkDir}`], {
+    env,
+    timeoutMs: 20 * 60 * 1000,
+    maxOutputBytes: 32 * 1024 * 1024,
+    signal: options.signal,
+  });
 }
 
-function ensureEmulatorRegistered(sdkDir) {
+async function ensureSdkProvisioned(sdkDir, onProgress, options = {}) {
+  const key = path.resolve(sdkDir);
+  let entry = SDK_PROVISIONING.get(key);
+  if (entry?.controller.signal.aborted && !entry.settled) {
+    await entry.promise.catch(() => {});
+    entry = null;
+  }
+  if (!entry) {
+    const controller = new AbortController();
+    entry = {
+      controller,
+      promise: null,
+      settled: false,
+      waiters: 0,
+    };
+    entry.promise = (async () => {
+      await ensureSdk(sdkDir, onProgress, { signal: controller.signal });
+      const hasAdb = fs.existsSync(adbBin(sdkDir));
+      const hasEmulator = fs.existsSync(emulatorBin(sdkDir));
+      const hasImage = Boolean(pickSystemImage(sdkDir));
+      if (!hasAdb || !hasEmulator || !hasImage) {
+        await ensurePackages(sdkDir, onProgress, { signal: controller.signal });
+      }
+    })();
+    SDK_PROVISIONING.set(key, entry);
+    const settle = () => {
+      entry.settled = true;
+      if (SDK_PROVISIONING.get(key) === entry) SDK_PROVISIONING.delete(key);
+    };
+    entry.promise.then(settle, settle);
+  }
+
+  entry.waiters += 1;
+  try {
+    await waitForAbortable(entry.promise, options.signal);
+  } finally {
+    entry.waiters -= 1;
+    if (entry.waiters === 0 && !entry.settled && !entry.controller.signal.aborted) {
+      entry.controller.abort(new Error('Android SDK provisioning no longer has an active startup request.'));
+    }
+  }
+}
+
+async function ensureEmulatorRegistered(sdkDir, options = {}) {
   const packageXml = path.join(sdkDir, 'emulator', 'package.xml');
   if (fs.existsSync(packageXml) || !fs.existsSync(emulatorBin(sdkDir))) return;
   const env = { ...process.env, ANDROID_SDK_ROOT: sdkDir, ANDROID_HOME: sdkDir };
-  spawnSync(sdkManagerBin(sdkDir), ['emulator', `--sdk_root=${sdkDir}`], {
-    encoding: 'utf8', env, input: 'y\n'.repeat(5), stdio: ['pipe', 'pipe', 'pipe'], timeout: 5 * 60 * 1000,
+  await runProcess(sdkManagerBin(sdkDir), ['emulator', `--sdk_root=${sdkDir}`], {
+    env,
+    input: 'y\n'.repeat(5),
+    timeoutMs: 5 * 60 * 1000,
+    maxOutputBytes: 16 * 1024 * 1024,
+    signal: options.signal,
   });
 }
 
-function ensureAvd(sdkDir, avdName, onProgress) {
-  const avdDir = path.join(os.homedir(), '.android', 'avd', `${avdName}.avd`);
+async function ensureAvd(sdkDir, avdName, avdHome, onProgress, options = {}) {
+  const avdDir = path.join(avdHome, `${avdName}.avd`);
   if (fs.existsSync(avdDir)) return;
 
-  ensureEmulatorRegistered(sdkDir);
+  await ensureEmulatorRegistered(sdkDir, options);
   const img = pickSystemImage(sdkDir) || defaultSystemImage();
   onProgress(`Creating AVD "${avdName}" using ${img}…`);
 
-  const env = { ...process.env, ANDROID_SDK_ROOT: sdkDir, ANDROID_HOME: sdkDir };
-  const r = spawnSync(avdManagerBin(sdkDir), ['create', 'avd', '-n', avdName, '-k', img, '--device', 'pixel', '--force'], {
-    encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe'], input: '\n',
+  fs.mkdirSync(avdHome, { recursive: true });
+  const env = {
+    ...process.env,
+    ANDROID_AVD_HOME: avdHome,
+    ANDROID_SDK_ROOT: sdkDir,
+    ANDROID_HOME: sdkDir,
+  };
+  await runProcess(avdManagerBin(sdkDir), ['create', 'avd', '-n', avdName, '-k', img, '--device', 'pixel', '--force'], {
+    env,
+    input: '\n',
+    timeoutMs: 120_000,
+    maxOutputBytes: 4 * 1024 * 1024,
+    signal: options.signal,
   });
-  if (r.status !== 0) throw new Error(`avdmanager failed: ${(r.stderr || r.stdout || '').slice(0, 500)}`);
 
   // Patch config: sparse QCOW2 (no pre-allocation), smaller cache partition.
   const cfgPath = path.join(avdDir, 'config.ini');
@@ -222,25 +345,62 @@ function isSafeIdentifier(str) {
   return /^[\w.]+$/.test(String(str || ''));
 }
 
+function isSafeActivity(str) {
+  return /^[\w.$]+$/.test(String(str || ''));
+}
+
+function isSafeComponent(str) {
+  return /^[\w.$]+\/[\w.$]+$/.test(String(str || ''));
+}
+
+function isSafeMimeType(str) {
+  return /^[\w.+-]+\/[\w.+*-]+$/.test(String(str || ''));
+}
+
+function normalizeUserId(value) {
+  const userId = String(value || 'default').trim();
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(userId)) {
+    throw new Error('Android user ID contains unsupported characters.');
+  }
+  return userId;
+}
+
+function hasUiSelector(value = {}) {
+  return ['text', 'resourceId', 'description', 'className', 'packageName']
+    .some((key) => String(value[key] || '').trim())
+    || value.clickable === true;
+}
+
+function requireCoordinate(value, label) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`${label} must be a non-negative number.`);
+  }
+  return Math.round(number);
+}
+
 // ─── AndroidController ───────────────────────────────────────────────────────
 
 class AndroidController {
   constructor(options = {}) {
-    this.userId   = String(options.userId || 'default').trim();
+    this.userId   = normalizeUserId(options.userId);
     this.avdName  = `neoagent_${this.userId}`;
     // Deterministic ADB console port per user, within documented range 5554–5682 (even only).
     this.adbPort  = ADB_PORT_BASE + ((hashCode(this.userId) >>> 0) % ADB_PORT_SLOTS) * 2;
     this.adbSerial = `emulator-${this.adbPort}`;
     this.sdkDir   = options.sdkDir || findExistingSdk() || DEFAULT_SDK_DIR;
+    this.avdHome  = options.avdHome || DEFAULT_AVD_DIR;
     this.artifactStore = options.artifactStore || null;
     this.startPromise  = null;
+    this.startAbortController = null;
+    this.emulatorProcess = null;
   }
 
   // ── Status ────────────────────────────────────────────────────────────────
 
   getStatusSync() { return readState(this.userId); }
 
-  async getStatus() {
+  async getStatus(options = {}) {
     const state = readState(this.userId);
     const base = {
       bootstrapped:  state.bootstrapped  || false,
@@ -255,204 +415,476 @@ class AndroidController {
     if (!this.#isPidAlive(state.pid)) return { ...base, bootstrapped: false };
 
     try {
-      const r = spawnSync(adbBin(this.sdkDir), ['-s', state.adbSerial, 'shell', 'getprop', 'sys.boot_completed'],
-        { encoding: 'utf8', timeout: 5000 });
-      const booted = r.stdout?.trim() === '1';
+      const result = await runProcess(
+        adbBin(this.sdkDir),
+        ['-s', state.adbSerial, 'shell', 'getprop', 'sys.boot_completed'],
+        { timeoutMs: 5000, maxOutputBytes: 64 * 1024, signal: options.signal },
+      );
+      const booted = result.stdout.trim() === '1';
       return {
         ...base,
         bootstrapped: booted,
         devices: booted ? [{ serial: state.adbSerial, status: 'device', emulator: true }] : [],
       };
-    } catch {
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
       return base;
     }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-  async requestStartEmulator() {
+  async requestStartEmulator(options = {}) {
     console.log(`[Android] requestStartEmulator for user ${this.userId}`);
     const state = readState(this.userId);
     if (state.adbSerial && this.#isPidAlive(state.pid)) {
       console.log(`[Android] Emulator already running (pid=${state.pid})`);
-      return { success: true, pending: false, adbSerial: state.adbSerial };
+      const status = await this.getStatus(options);
+      return {
+        success: true,
+        pending: !status.bootstrapped,
+        bootstrapped: status.bootstrapped,
+        adbSerial: state.adbSerial,
+      };
     }
     if (!this.startPromise) {
       writeState(this.userId, { starting: true, startupPhase: 'Initializing', lastStartError: null });
-      this.startPromise = this.#setup().finally(() => { this.startPromise = null; });
-      this.startPromise.catch(() => {});
+      const startAbortController = new AbortController();
+      this.startAbortController = startAbortController;
+      const externalSignal = options.signal || null;
+      const forwardAbort = () => startAbortController.abort(externalSignal.reason);
+      if (externalSignal?.aborted) forwardAbort();
+      else externalSignal?.addEventListener('abort', forwardAbort, { once: true });
+      let trackedStart;
+      trackedStart = this.#setup({
+        ...options,
+        signal: startAbortController.signal,
+      }).finally(() => {
+        externalSignal?.removeEventListener('abort', forwardAbort);
+        if (this.startAbortController === startAbortController) {
+          this.startAbortController = null;
+        }
+        if (this.startPromise === trackedStart) this.startPromise = null;
+      });
+      this.startPromise = trackedStart;
+      trackedStart.catch(() => {});
     }
     const s = readState(this.userId);
     return { success: true, pending: true, bootstrapped: false, starting: true, startupPhase: s.startupPhase };
   }
 
-  async stopEmulator() {
+  async startEmulator(options = {}) {
+    const start = await this.requestStartEmulator(options);
+    if (start.bootstrapped) return start;
+    const timeoutMs = clampNumber(options.timeoutMs, 240_000, 1000, 10 * 60 * 1000);
+    const adbSerial = await this.waitForDevice({ timeoutMs, signal: options.signal });
+    return { success: true, pending: false, bootstrapped: true, adbSerial };
+  }
+
+  async stopEmulator(options = {}) {
+    this.startAbortController?.abort(new Error('Android emulator startup was stopped.'));
+    const starting = this.startPromise;
+    if (starting) await starting.catch(() => {});
     const state = readState(this.userId);
-    if (state.pid) { try { process.kill(Number(state.pid), 'SIGTERM'); } catch {} }
-    writeState(this.userId, { bootstrapped: false, starting: false, pid: null, adbSerial: null, startupPhase: null });
+    let adbStopError = null;
+    if (state.adbSerial) {
+      try {
+        await runProcess(
+          adbBin(this.sdkDir),
+          ['-s', state.adbSerial, 'emu', 'kill'],
+          { timeoutMs: 5000, maxOutputBytes: 64 * 1024, signal: options.signal },
+        );
+      } catch (error) {
+        adbStopError = error;
+      }
+    }
+    await this.#terminateOwnedEmulatorProcess();
+    if (state.pid) await this.#waitForPidExit(state.pid, 5000);
+    if (state.pid && this.#isPidAlive(state.pid)) {
+      if (options.signal?.aborted) throw abortError(options.signal);
+      if (adbStopError) throw adbStopError;
+      throw new Error('Android emulator did not exit after the stop request.');
+    }
+    RESERVED_ADB_PORTS.delete(Number(String(state.adbSerial || '').replace(/^emulator-/, '')));
+    RESERVED_ADB_PORTS.delete(this.adbPort);
+    writeState(this.userId, {
+      bootstrapped: false,
+      starting: false,
+      pid: null,
+      adbSerial: null,
+      startupPhase: null,
+      lastStartError: null,
+    });
+    if (options.signal?.aborted) throw abortError(options.signal);
     console.log('[Android] Emulator stopped');
+    return { success: true };
   }
 
   async close() { await this.stopEmulator().catch(() => {}); }
 
   async waitForDevice(options = {}) {
-    const deadline = Date.now() + (options.timeoutMs || 600000);
+    const timeoutMs = clampNumber(options.timeoutMs, 600_000, 1000, 10 * 60 * 1000);
+    const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const s = await this.getStatus();
+      if (options.signal?.aborted) {
+        const error = new Error('Waiting for the Android emulator was aborted.');
+        error.name = 'AbortError';
+        error.code = 'ABORT_ERR';
+        throw error;
+      }
+      const s = await this.getStatus(options);
       if (s.bootstrapped) return this.adbSerial;
-      await new Promise(r => setTimeout(r, 2000));
+      if (!s.starting && s.lastStartError) throw new Error(s.lastStartError);
+      await delay(2000, options.signal);
     }
     throw new Error('Android emulator did not become ready in time');
   }
 
-  async listDevices() {
-    const s = await this.getStatus();
+  async listDevices(options = {}) {
+    const s = await this.getStatus(options);
     return s.bootstrapped ? [{ serial: this.adbSerial, status: 'device', emulator: true }] : [];
   }
 
-  async ensureBootstrapped() {
-    const s = readState(this.userId);
-    if (!s.bootstrapped) await this.requestStartEmulator();
+  async ensureBootstrapped(options = {}) {
+    const status = await this.getStatus(options);
+    if (!status.bootstrapped) await this.startEmulator(options);
+    return this.adbSerial;
   }
 
   // ── Shell / ADB ───────────────────────────────────────────────────────────
 
   async shell(commandOrObj) {
     const command = typeof commandOrObj === 'string' ? commandOrObj : String(commandOrObj?.command || '');
+    if (!command.trim()) throw new Error('Android shell command is required.');
     const serial = this.#requireSerial();
     const adb = adbBin(this.sdkDir);
-    return new Promise((resolve, reject) => {
-      const proc = spawn(adb, ['-s', serial, 'shell', command], { encoding: 'utf8' });
-      let out = '', err = '';
-      proc.stdout?.on('data', d => { out += d; });
-      proc.stderr?.on('data', d => { err += d; });
-      proc.on('close', code => code === 0 ? resolve(out) : reject(new Error(err || out || `exit ${code}`)));
-      proc.on('error', reject);
+    const options = typeof commandOrObj === 'object' && commandOrObj ? commandOrObj : {};
+    const result = await runProcess(adb, ['-s', serial, 'shell', command], {
+      timeoutMs: options.timeoutMs,
+      maxOutputBytes: 4 * 1024 * 1024,
+      signal: options.signal,
     });
+    if (options.screenshot === true) {
+      return { output: result.stdout, ...await this.screenshot({ signal: options.signal }) };
+    }
+    return result.stdout;
   }
 
   async adb(...args) {
     const state = readState(this.userId);
     const adb = adbBin(this.sdkDir);
-    return new Promise((resolve, reject) => {
-      const proc = spawn(adb, ['-s', state.adbSerial || this.adbSerial, ...args], { encoding: 'utf8' });
-      let out = '', err = '';
-      proc.stdout?.on('data', d => { out += d; });
-      proc.stderr?.on('data', d => { err += d; });
-      proc.on('close', code => code === 0 ? resolve(out) : reject(new Error(err || `adb ${args[0]} exit ${code}`)));
-      proc.on('error', reject);
-    });
+    const result = await runProcess(
+      adb,
+      ['-s', state.adbSerial || this.adbSerial, ...args],
+      { timeoutMs: 60_000, maxOutputBytes: 16 * 1024 * 1024 },
+    );
+    return result.stdout;
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-  async screenshot(_opts = {}) {
-    const r = await this.capturePng();
+  async screenshot(options = {}) {
+    const r = await this.capturePng(options);
     if (!r?.length) throw new Error('screencap returned no data');
-    return { screenshotPath: this.#saveArtifact(r) };
+    return { screenshotPath: await this.#saveArtifact(r, options) };
   }
 
-  async capturePng(_opts = {}) {
+  async capturePng(options = {}) {
     const serial = this.#requireSerial();
-    return this.#adbCaptureAsync(serial, ['exec-out', 'screencap', '-p']);
+    return this.#adbCaptureAsync(serial, ['exec-out', 'screencap', '-p'], options);
   }
 
-  async observe(_opts = {}) { return this.screenshot(); }
-
-  async tap({ x, y } = {}) {
-    await this.shell(`input tap ${Math.round(x)} ${Math.round(y)}`);
-    return { success: true, screenshotPath: this.#saveArtifact(this.#adbCapture(this.#requireSerial(), ['exec-out', 'screencap', '-p'])) };
+  async observe({ includeNodes = true, signal } = {}) {
+    const screenshot = await this.screenshot({ signal });
+    const dump = await this.dumpUi({ includeNodes, signal });
+    return {
+      ...screenshot,
+      uiDumpPath: dump.devicePath,
+      nodeCount: dump.nodeCount,
+      ...(includeNodes === false ? {} : { nodes: dump.nodes }),
+    };
   }
 
-  async longPress({ x, y, durationMs = 1000 } = {}) {
-    await this.shell(`input swipe ${Math.round(x)} ${Math.round(y)} ${Math.round(x)} ${Math.round(y)} ${durationMs}`);
-    return { success: true };
+  async findUiNode(selector = {}) {
+    if (!hasUiSelector(selector)) {
+      throw new Error('Provide x and y coordinates or a UI selector.');
+    }
+    const dump = await this.dumpUi({ includeNodes: true, signal: selector.signal });
+    const node = findBestNode(dump.nodes, selector);
+    if (!node) {
+      throw new Error(`No Android UI element matched ${JSON.stringify(selector)}.`);
+    }
+    return node;
   }
 
-  async swipe({ x1, y1, x2, y2, durationMs = 300 } = {}) {
-    await this.shell(`input swipe ${Math.round(x1)} ${Math.round(y1)} ${Math.round(x2)} ${Math.round(y2)} ${durationMs}`);
-    return { success: true, screenshotPath: this.#saveArtifact(this.#adbCapture(this.#requireSerial(), ['exec-out', 'screencap', '-p'])) };
+  async resolvePoint(options = {}) {
+    const hasX = Number.isFinite(Number(options.x));
+    const hasY = Number.isFinite(Number(options.y));
+    if (hasX || hasY) {
+      if (!hasX || !hasY) throw new Error('Both x and y coordinates are required.');
+      return {
+        x: requireCoordinate(options.x, 'x'),
+        y: requireCoordinate(options.y, 'y'),
+        node: null,
+      };
+    }
+    const node = await this.findUiNode(options);
+    if (node.bounds.width <= 0 || node.bounds.height <= 0) {
+      throw new Error('The matched Android UI element has no tappable bounds.');
+    }
+    return { x: node.bounds.centerX, y: node.bounds.centerY, node };
   }
 
-  async type({ text, pressEnter } = {}) {
-    if (!text) return { success: true };
+  async tap(options = {}) {
+    const target = await this.resolvePoint(options);
+    await this.shell({ command: `input tap ${target.x} ${target.y}`, signal: options.signal });
+    return {
+      success: true,
+      target: target.node ? summarizeNode(target.node) : { x: target.x, y: target.y },
+      ...await this.screenshot({ signal: options.signal }),
+    };
+  }
+
+  async longPress(options = {}) {
+    const target = await this.resolvePoint(options);
+    const durationMs = clampNumber(options.durationMs, 650, 100, 30_000);
+    await this.shell({
+      command: `input swipe ${target.x} ${target.y} ${target.x} ${target.y} ${durationMs}`,
+      signal: options.signal,
+    });
+    return {
+      success: true,
+      target: target.node ? summarizeNode(target.node) : { x: target.x, y: target.y },
+    };
+  }
+
+  async swipe({ x1, y1, x2, y2, durationMs = 300, signal } = {}) {
+    const points = {
+      x1: requireCoordinate(x1, 'x1'),
+      y1: requireCoordinate(y1, 'y1'),
+      x2: requireCoordinate(x2, 'x2'),
+      y2: requireCoordinate(y2, 'y2'),
+    };
+    const duration = clampNumber(durationMs, 300, 50, 30_000);
+    await this.shell({
+      command: `input swipe ${points.x1} ${points.y1} ${points.x2} ${points.y2} ${duration}`,
+      signal,
+    });
+    return { success: true, ...await this.screenshot({ signal }) };
+  }
+
+  async type({ text, textSelector, resourceId, description, className, clear = false, pressEnter, signal } = {}) {
+    if (text == null) throw new Error('Text is required.');
+    if (String(text).length > MAX_ANDROID_TEXT_CHARS) {
+      throw new Error(`Text exceeds the ${MAX_ANDROID_TEXT_CHARS}-character limit.`);
+    }
+    const selector = {
+      text: textSelector,
+      resourceId,
+      description,
+      className,
+      signal,
+    };
+    let target = null;
+    if (hasUiSelector(selector)) {
+      target = await this.resolvePoint(selector);
+      await this.shell({ command: `input tap ${target.x} ${target.y}`, signal });
+    }
+    if (clear === true) {
+      await this.shell({
+        command: 'input keyevent KEYCODE_MOVE_END; for i in $(seq 1 200); do input keyevent KEYCODE_DEL; done',
+        signal,
+      });
+    }
     // ADB input text encoding: %% = literal %, %s = space.
     const encoded = String(text).replace(/%/g, '%%').replace(/ /g, '%s');
-    await this.shell(`input text '${shellEscape(encoded)}'`);
-    if (pressEnter) await this.shell('input keyevent KEYCODE_ENTER');
-    return { success: true };
+    if (encoded) await this.shell({ command: `input text '${shellEscape(encoded)}'`, signal });
+    if (pressEnter) await this.shell({ command: 'input keyevent KEYCODE_ENTER', signal });
+    return {
+      success: true,
+      ...(target?.node ? { target: summarizeNode(target.node) } : {}),
+    };
   }
 
   async pressKey(keyOrObj) {
     const raw = typeof keyOrObj === 'string' ? keyOrObj : (keyOrObj?.key || '');
+    const signal = typeof keyOrObj === 'object' ? keyOrObj?.signal : null;
     const KEY_MAP = {
       back: 'KEYCODE_BACK', home: 'KEYCODE_HOME', app_switch: 'KEYCODE_APP_SWITCH',
       enter: 'KEYCODE_ENTER', del: 'KEYCODE_DEL', escape: 'KEYCODE_ESCAPE',
       menu: 'KEYCODE_MENU', power: 'KEYCODE_POWER',
       volume_up: 'KEYCODE_VOLUME_UP', volume_down: 'KEYCODE_VOLUME_DOWN',
     };
-    const keycode = KEY_MAP[raw.toLowerCase()] || raw.toUpperCase();
-    await this.shell(`input keyevent ${keycode}`);
+    const normalized = String(raw || '').trim();
+    const keycode = KEY_MAP[normalized.toLowerCase()]
+      || (/^\d+$/.test(normalized) ? normalized : normalized.toUpperCase());
+    if (!/^\d+$/.test(keycode) && !/^KEYCODE_[A-Z0-9_]+$/.test(keycode)) {
+      throw new Error(`Unsupported Android key: ${normalized || '(empty)'}`);
+    }
+    await this.shell({ command: `input keyevent ${keycode}`, signal });
     return { success: true };
   }
 
-  async dumpUi(_opts = {}) {
-    const serial = this.#requireSerial();
-    await this.shell('uiautomator dump /sdcard/window_dump.xml');
-    const r = spawnSync(adbBin(this.sdkDir), ['-s', serial, 'shell', 'cat', '/sdcard/window_dump.xml'], { encoding: 'utf8', timeout: 10000 });
-    return { xml: r.stdout || '' };
+  async dumpUi({ includeNodes = true, signal } = {}) {
+    this.#requireSerial();
+    const devicePath = '/sdcard/window_dump.xml';
+    await this.shell({ command: 'uiautomator dump /sdcard/window_dump.xml', signal });
+    const xml = await this.shell({ command: `cat '${devicePath}'`, timeoutMs: 10_000, signal });
+    const nodes = parseUiDump(xml);
+    return {
+      xml,
+      devicePath,
+      nodeCount: nodes.length,
+      ...(includeNodes === false ? {} : { nodes: nodes.slice(0, 200).map(summarizeNode) }),
+    };
   }
 
-  async listApps({ includeSystem = false } = {}) {
-    const out = await this.shell(includeSystem ? 'pm list packages' : 'pm list packages -3');
+  async listApps({ includeSystem = false, signal } = {}) {
+    const out = await this.shell({
+      command: includeSystem ? 'pm list packages' : 'pm list packages -3',
+      signal,
+    });
     const packages = out.trim().split('\n').filter(Boolean).map(l => l.replace('package:', '').trim());
     return { packages };
   }
 
-  async openApp({ packageName } = {}) {
+  async openApp({ packageName, activity, signal } = {}) {
     if (!isSafeIdentifier(packageName)) throw new Error('Invalid package name');
-    await this.shell(`monkey -p '${shellEscape(packageName)}' -c android.intent.category.LAUNCHER 1`);
-    await new Promise(r => setTimeout(r, 1500));
-    return this.screenshot();
+    if (activity) {
+      if (!isSafeActivity(activity)) throw new Error('Invalid Android activity name');
+      await this.shell({ command: `am start -n '${shellEscape(`${packageName}/${activity}`)}'`, signal });
+    } else {
+      await this.shell({
+        command: `monkey -p '${shellEscape(packageName)}' -c android.intent.category.LAUNCHER 1`,
+        signal,
+      });
+    }
+    await delay(1500, signal);
+    return this.screenshot({ signal });
   }
 
-  async openIntent({ action, dataUri, extras = {} } = {}) {
+  async openIntent({ action, dataUri, data, url, uri, packageName, component, mimeType, extras = {}, signal } = {}) {
     const safeAction = isSafeIdentifier(action) ? action : 'android.intent.action.VIEW';
     let cmd = `am start -a '${shellEscape(safeAction)}'`;
-    if (dataUri) cmd += ` -d '${shellEscape(dataUri)}'`;
-    for (const [k, v] of Object.entries(extras || {})) {
-      if (isSafeIdentifier(k)) cmd += ` --es '${shellEscape(k)}' '${shellEscape(v)}'`;
+    const resolvedDataUri = dataUri || data || url || uri;
+    if (resolvedDataUri) {
+      if (String(resolvedDataUri).length > MAX_ANDROID_TEXT_CHARS) {
+        throw new Error('Android intent URI is too long.');
+      }
+      const validation = await validateAndroidIntentUrl(String(resolvedDataUri), { signal });
+      if (!validation.allowed) throw new Error('This Android intent URI is not permitted.');
+      cmd += ` -d '${shellEscape(resolvedDataUri)}'`;
     }
-    await this.shell(cmd);
-    await new Promise(r => setTimeout(r, 2000));
-    return this.screenshot();
+    if (packageName) {
+      if (!isSafeIdentifier(packageName)) throw new Error('Invalid Android package name');
+      cmd += ` -p '${shellEscape(packageName)}'`;
+    }
+    if (component) {
+      if (!isSafeComponent(component)) throw new Error('Invalid Android component name');
+      cmd += ` -n '${shellEscape(component)}'`;
+    }
+    if (mimeType) {
+      if (!isSafeMimeType(mimeType)) throw new Error('Invalid Android MIME type');
+      cmd += ` -t '${shellEscape(mimeType)}'`;
+    }
+    const extraEntries = Object.entries(extras || {});
+    if (extraEntries.length > MAX_ANDROID_INTENT_EXTRAS) {
+      throw new Error(`Android intent extras exceed the ${MAX_ANDROID_INTENT_EXTRAS}-item limit.`);
+    }
+    for (const [k, v] of extraEntries) {
+      if (!isSafeIdentifier(k)) throw new Error(`Invalid Android intent extra name: ${k}`);
+      if (String(v).length > MAX_ANDROID_TEXT_CHARS) {
+        throw new Error(`Android intent extra is too long: ${k}`);
+      }
+      cmd += ` --es '${shellEscape(k)}' '${shellEscape(v)}'`;
+    }
+    await this.shell({ command: cmd, signal });
+    await delay(2000, signal);
+    return this.screenshot({ signal });
   }
 
-  async waitFor({ timeout = 10000 } = {}) {
-    const deadline = Date.now() + timeout;
+  async waitFor(options = {}) {
+    if (!hasUiSelector(options)) {
+      throw new Error('android_wait_for requires at least one UI selector.');
+    }
+    const timeoutMs = clampNumber(options.timeoutMs ?? options.timeout, 20_000, 100, 120_000);
+    const intervalMs = clampNumber(options.intervalMs, 1500, 100, 5000);
+    const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const s = await this.getStatus();
-      if (s.bootstrapped) return { ready: true };
-      await new Promise(r => setTimeout(r, 1000));
+      if (options.signal?.aborted) {
+        throw abortError(options.signal, 'Waiting for the Android UI was aborted.');
+      }
+      const dump = await this.dumpUi({ includeNodes: true, signal: options.signal });
+      const node = findBestNode(dump.nodes, options);
+      if (node) {
+        return {
+          found: true,
+          ready: true,
+          node: summarizeNode(node),
+          ...(options.screenshot === false ? {} : await this.screenshot({ signal: options.signal })),
+        };
+      }
+      await delay(intervalMs, options.signal);
     }
-    return { ready: false };
+    return { found: false, ready: false, timeoutMs };
   }
 
-  async installApk({ apkPath } = {}) {
+  async installApk({ apkPath, signal } = {}) {
     if (!apkPath) throw new Error('apkPath required');
+    const resolvedPath = fs.realpathSync(apkPath);
+    const packageStat = fs.statSync(resolvedPath);
+    if (!packageStat.isFile()) throw new Error('Android package path must be a file.');
+    if (packageStat.size > MAX_ANDROID_PACKAGE_BYTES) {
+      throw new Error('Android package exceeds the 1GB installation limit.');
+    }
+    const extension = path.extname(resolvedPath).toLowerCase();
+    if (extension !== '.apk' && extension !== '.apks') {
+      throw new Error('Android package must be an .apk or universal .apks bundle.');
+    }
     const serial = this.#requireSerial();
     const adb = adbBin(this.sdkDir);
-    return new Promise((resolve, reject) => {
-      const proc = spawn(adb, ['-s', serial, 'install', '-r', apkPath]);
-      let out = '', err = '';
-      proc.stdout?.on('data', d => { out += d; });
-      proc.stderr?.on('data', d => { err += d; });
-      proc.on('close', code => {
-        if (code === 0 && out.includes('Success')) resolve({ success: true, output: out });
-        else reject(new Error(err || out || `adb install exit ${code}`));
+    let installPath = resolvedPath;
+    let extractionDir = null;
+    try {
+      if (extension === '.apks') {
+        extractionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-apks-'));
+        const listing = await runProcess('unzip', ['-l', resolvedPath, 'universal.apk'], {
+          timeoutMs: 30_000,
+          maxOutputBytes: 1024 * 1024,
+          signal,
+        });
+        const universalSize = String(listing.stdout)
+          .split(/\r?\n/)
+          .map((line) => line.trim().match(/^(\d+)\s+.*\suniversal\.apk$/i))
+          .find(Boolean);
+        if (!universalSize) {
+          throw new Error('The .apks bundle does not contain universal.apk. Export it with bundletool --mode=universal.');
+        }
+        if (Number(universalSize[1]) > MAX_ANDROID_PACKAGE_BYTES) {
+          throw new Error('The universal APK exceeds the 1GB installation limit.');
+        }
+        await runProcess('unzip', ['-jo', resolvedPath, 'universal.apk', '-d', extractionDir], {
+          timeoutMs: 120_000,
+          maxOutputBytes: 1024 * 1024,
+          signal,
+        });
+        installPath = path.join(extractionDir, 'universal.apk');
+        if (!fs.existsSync(installPath)) {
+          throw new Error('The .apks bundle does not contain universal.apk. Export it with bundletool --mode=universal.');
+        }
+      }
+      const result = await runProcess(adb, ['-s', serial, 'install', '-r', installPath], {
+        timeoutMs: 5 * 60 * 1000,
+        maxOutputBytes: 4 * 1024 * 1024,
+        signal,
       });
-      proc.on('error', reject);
-    });
+      if (!String(result.stdout).includes('Success')) {
+        throw new Error(String(result.stderr || result.stdout || 'adb install did not report success'));
+      }
+      return { success: true, output: result.stdout };
+    } finally {
+      if (extractionDir) fs.rmSync(extractionDir, { recursive: true, force: true });
+    }
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
@@ -468,52 +900,30 @@ class AndroidController {
     try { process.kill(Number(pid), 0); return true; } catch { return false; }
   }
 
-  #adbCapture(serial, args) {
-    const r = spawnSync(adbBin(this.sdkDir), ['-s', serial, ...args], { maxBuffer: 20 * 1024 * 1024, timeout: 15000 });
-    return (r.status === 0 && r.stdout?.length) ? r.stdout : null;
-  }
-
-  #adbCaptureAsync(serial, args) {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(adbBin(this.sdkDir), ['-s', serial, ...args]);
-      const chunks = [];
-      const errors = [];
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        try { proc.kill('SIGKILL'); } catch {}
-        reject(new Error('adb capture timed out'));
-      }, 15000);
-      timer.unref?.();
-      proc.stdout?.on('data', (chunk) => chunks.push(chunk));
-      proc.stderr?.on('data', (chunk) => errors.push(chunk));
-      proc.on('error', (error) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      });
-      proc.on('close', (code) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (code === 0 && chunks.length) {
-          resolve(Buffer.concat(chunks));
-          return;
-        }
-        const message = Buffer.concat(errors).toString('utf8').trim();
-        reject(new Error(message || `adb capture exit ${code}`));
-      });
+  async #adbCaptureAsync(serial, args, options = {}) {
+    const result = await runProcess(adbBin(this.sdkDir), ['-s', serial, ...args], {
+      timeoutMs: 15_000,
+      maxOutputBytes: 20 * 1024 * 1024,
+      encoding: null,
+      signal: options.signal,
     });
+    if (!result.stdout.length) throw new Error('ADB capture returned no data.');
+    return result.stdout;
   }
 
-  #saveArtifact(data) {
+  async #saveArtifact(data, options = {}) {
     if (!data || !this.artifactStore) return null;
-    const alloc = this.artifactStore.allocateFile(this.userId, { kind: 'screenshot', extension: 'png', contentType: 'image/png' });
-    fs.writeFileSync(alloc.storagePath, data);
-    const fin = this.artifactStore.finalizeFile(alloc.artifactId, alloc.storagePath);
-    return fin.url;
+    const image = validateImageBuffer(data, { allowedTypes: ['image/png'] });
+    const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+      kind: 'android-screenshot',
+      backend: 'android-emulator',
+      extension: image.extension,
+      contentType: image.contentType,
+      filenameBase: 'android-emulator-screenshot',
+      content: image.buffer,
+      signal: options.signal,
+    });
+    return artifact.url;
   }
 
   // ── Setup pipeline ────────────────────────────────────────────────────────
@@ -523,21 +933,59 @@ class AndroidController {
     for (let i = 0; i < ADB_PORT_SLOTS; i++) {
       const slot = (base + i) % ADB_PORT_SLOTS;
       const port = ADB_PORT_BASE + slot * 2;
-      const free = await new Promise(resolve => {
-        const srv = net.createServer();
-        srv.listen(port, '127.0.0.1', () => srv.close(() => resolve(true)));
-        srv.on('error', () => resolve(false));
-      });
+      if (RESERVED_ADB_PORTS.has(port)) continue;
+      const free = await this.#isPortPairFree(port);
       if (free) {
+        RESERVED_ADB_PORTS.add(port);
         this.adbPort   = port;
         this.adbSerial = `emulator-${port}`;
         return;
       }
     }
-    throw new Error(`No free ADB port in range ${ADB_PORT_BASE}–${ADB_PORT_BASE + ADB_PORT_SLOTS * 2}`);
+    throw new Error(`No free ADB port pair in range ${ADB_PORT_BASE}–${ADB_PORT_BASE + (ADB_PORT_SLOTS * 2) - 1}`);
   }
 
-  async #setup() {
+  async #isPortPairFree(consolePort) {
+    const servers = [];
+    const listen = (port) => new Promise((resolve) => {
+      const server = net.createServer();
+      server.unref();
+      server.once('error', () => resolve(false));
+      server.listen(port, '127.0.0.1', () => {
+        servers.push(server);
+        resolve(true);
+      });
+    });
+    try {
+      return await listen(consolePort) && await listen(consolePort + 1);
+    } finally {
+      await Promise.allSettled(servers.map((server) => new Promise((resolve) => server.close(resolve))));
+    }
+  }
+
+  async #waitForPidExit(pid, timeoutMs) {
+    const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+    while (this.#isPidAlive(pid) && Date.now() < deadline) {
+      await delay(100);
+    }
+    return !this.#isPidAlive(pid);
+  }
+
+  async #terminateOwnedEmulatorProcess() {
+    const proc = this.emulatorProcess;
+    if (!proc) return;
+    if (proc.exitCode == null && proc.signalCode == null) {
+      try { proc.kill('SIGTERM'); } catch {}
+      await this.#waitForPidExit(proc.pid, 3000);
+    }
+    if (proc.pid && this.#isPidAlive(proc.pid)) {
+      try { proc.kill('SIGKILL'); } catch {}
+      await this.#waitForPidExit(proc.pid, 2000);
+    }
+    if (this.emulatorProcess === proc) this.emulatorProcess = null;
+  }
+
+  async #setup(options = {}) {
     const progress = msg => {
       console.log(`[Android] ${msg}`);
       writeState(this.userId, { startupPhase: msg });
@@ -549,52 +997,113 @@ class AndroidController {
         this.sdkDir = existing;
         progress(`Found existing Android SDK at ${existing}`);
       } else {
-        progress('Downloading Android SDK…');
-        await ensureSdk(this.sdkDir, progress);
-        await ensurePackages(this.sdkDir, progress);
+        progress('Preparing Android SDK…');
       }
-      ensureAvd(this.sdkDir, this.avdName, progress);
-      await this.#startEmulatorProcess(progress);
+      await ensureSdkProvisioned(this.sdkDir, progress, options);
+      await ensureAvd(this.sdkDir, this.avdName, this.avdHome, progress, options);
+      await this.#startEmulatorProcess(progress, options);
     } catch (err) {
       console.error(`[Android] Setup failed: ${err.message}`);
-      writeState(this.userId, { starting: false, startupPhase: 'Failed', lastStartError: err.message });
+      await this.#terminateOwnedEmulatorProcess();
+      RESERVED_ADB_PORTS.delete(this.adbPort);
+      writeState(this.userId, {
+        bootstrapped: false,
+        starting: false,
+        startupPhase: 'Failed',
+        lastStartError: err.message,
+        pid: null,
+        adbSerial: null,
+      });
+      throw err;
     }
   }
 
-  async #startEmulatorProcess(progress) {
+  async #startEmulatorProcess(progress, options = {}) {
     progress('Starting Android emulator…');
-    const env = { ...process.env, ANDROID_SDK_ROOT: this.sdkDir, ANDROID_HOME: this.sdkDir };
-    const proc = spawn(emulatorBin(this.sdkDir), [
+    const env = {
+      ...process.env,
+      ANDROID_AVD_HOME: this.avdHome,
+      ANDROID_SDK_ROOT: this.sdkDir,
+      ANDROID_HOME: this.sdkDir,
+    };
+    const emulatorArgs = [
       '-avd', this.avdName,
-      '-no-window', '-no-audio', '-no-boot-anim',
+      '-no-audio', '-no-boot-anim',
       '-port', String(this.adbPort),
-      '-gpu', 'swiftshader_indirect',
       '-partition-size', '800',
-    ], { env, detached: false, stdio: ['ignore', 'pipe', 'pipe'] });
+    ];
+    if (options.headless !== false) emulatorArgs.splice(2, 0, '-no-window');
+    const proc = spawn(emulatorBin(this.sdkDir), emulatorArgs, {
+      env,
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    this.emulatorProcess = proc;
 
-    proc.stdout.on('data', d => console.log(`[Android/emu] ${d.toString().trimEnd()}`));
-    proc.stderr.on('data', d => console.log(`[Android/emu] ${d.toString().trimEnd()}`));
-    writeState(this.userId, { pid: proc.pid, adbSerial: this.adbSerial });
+    let launchOutput = '';
+    const collectLaunchOutput = (chunk) => {
+      if (launchOutput.length >= 64 * 1024) return;
+      launchOutput += chunk.toString().slice(0, (64 * 1024) - launchOutput.length);
+    };
+    proc.stdout.on('data', collectLaunchOutput);
+    proc.stderr.on('data', collectLaunchOutput);
+    writeState(this.userId, { pid: proc.pid || null, adbSerial: proc.pid ? this.adbSerial : null });
 
-    proc.on('exit', code => {
+    let bootReady = false;
+    let rejectProcessFailure;
+    const processFailure = new Promise((_, reject) => { rejectProcessFailure = reject; });
+    proc.once('error', (error) => rejectProcessFailure(error));
+    proc.on('exit', (code, exitSignal) => {
       console.log(`[Android] Emulator exited with code ${code}`);
-      writeState(this.userId, { bootstrapped: false, starting: false, pid: null });
+      this.emulatorProcess = null;
+      RESERVED_ADB_PORTS.delete(this.adbPort);
+      const current = readState(this.userId);
+      if (Number(current.pid) === Number(proc.pid)) {
+        writeState(this.userId, { bootstrapped: false, starting: false, pid: null, adbSerial: null });
+      }
+      if (!bootReady) {
+        const details = launchOutput.trim().slice(-4000);
+        rejectProcessFailure(new Error(
+          `Android emulator exited before boot completed (${exitSignal || (code ?? 'unknown')}).${details ? ` ${details}` : ''}`,
+        ));
+      }
     });
 
     progress('Waiting for Android to boot (can take 2–5 min on first run)…');
     // Abort early if the emulator process dies, instead of polling until timeout.
-    await this.#waitForBoot({ isAlive: () => this.#isPidAlive(proc.pid) });
+    const cancelEmulator = () => {
+      try { proc.kill('SIGTERM'); } catch {}
+    };
+    options.signal?.addEventListener('abort', cancelEmulator, { once: true });
+    try {
+      await Promise.race([
+        this.#waitForBoot({
+          isAlive: () => this.#isPidAlive(proc.pid),
+          signal: options.signal,
+        }),
+        processFailure,
+      ]);
+      bootReady = true;
+    } finally {
+      options.signal?.removeEventListener('abort', cancelEmulator);
+    }
 
     writeState(this.userId, { bootstrapped: true, starting: false, startupPhase: null, lastStartError: null });
     console.log(`[Android] Emulator ready on ${this.adbSerial}`);
 
     // Set wallpaper — best-effort, never fails the boot sequence.
-    this.#setWallpaper(this.adbSerial).catch(err => {
-      console.warn(`[Android] Wallpaper not set: ${err.message}`);
-    });
+    try {
+      await this.#setWallpaper(this.adbSerial, { signal: options.signal });
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      console.warn(`[Android] Wallpaper not set: ${error.message}`);
+    }
+    if (!this.#isPidAlive(proc.pid)) {
+      throw new Error('Android emulator exited immediately after boot completed.');
+    }
   }
 
-  async #waitForBoot({ timeoutMs = 10 * 60 * 1000, isAlive = () => true } = {}) {
+  async #waitForBoot({ timeoutMs = 10 * 60 * 1000, isAlive = () => true, signal } = {}) {
     const adb = adbBin(this.sdkDir);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -602,41 +1111,65 @@ class AndroidController {
         throw new Error('Emulator process exited before Android finished booting (check virtualization/KVM support and the system image).');
       }
       try {
-        const r = spawnSync(adb, ['-s', this.adbSerial, 'shell', 'getprop', 'sys.boot_completed'], { encoding: 'utf8', timeout: 5000 });
-        if (r.stdout?.trim() === '1') return;
-      } catch {}
-      await new Promise(r => setTimeout(r, 3000));
+        const result = await runProcess(
+          adb,
+          ['-s', this.adbSerial, 'shell', 'getprop', 'sys.boot_completed'],
+          { timeoutMs: 5000, maxOutputBytes: 64 * 1024, signal },
+        );
+        if (result.stdout.trim() === '1') return;
+      } catch (error) {
+        if (signal?.aborted) throw error;
+      }
+      await delay(3000, signal);
     }
     throw new Error('Emulator did not boot within timeout');
   }
 
-  async #setWallpaper(serial) {
+  async #setWallpaper(serial, options = {}) {
     if (!fs.existsSync(LOGO_PATH)) return;
     const adb = adbBin(this.sdkDir);
 
     // Try to gain root access (works on AOSP default images).
-    spawnSync(adb, ['-s', serial, 'root'], { timeout: 5000 });
-    await new Promise(r => setTimeout(r, 1500));
+    await runProcess(adb, ['-s', serial, 'root'], {
+      timeoutMs: 5000,
+      maxOutputBytes: 64 * 1024,
+      signal: options.signal,
+    }).catch(() => {});
+    await delay(1500, options.signal);
 
     // Push PNG to device sdcard.
-    const push = spawnSync(adb, ['-s', serial, 'push', LOGO_PATH, '/sdcard/neoagent-wallpaper.png'], { timeout: 15000 });
-    if (push.status !== 0) throw new Error('adb push logo failed');
+    await runProcess(adb, ['-s', serial, 'push', LOGO_PATH, '/sdcard/neoagent-wallpaper.png'], {
+      timeoutMs: 15_000,
+      maxOutputBytes: 1024 * 1024,
+      signal: options.signal,
+    });
 
     // cmd wallpaper set-stream reads PNG from stdin (Android 7.1+).
     const logoData = fs.readFileSync(LOGO_PATH);
-    const r = spawnSync(adb, ['-s', serial, 'shell', 'cmd', 'wallpaper', 'set-stream'], {
-      input: logoData, timeout: 15000,
-    });
-    if (r.status === 0) {
+    try {
+      await runProcess(adb, ['-s', serial, 'shell', 'cmd', 'wallpaper', 'set-stream'], {
+        input: logoData,
+        timeoutMs: 15_000,
+        maxOutputBytes: 1024 * 1024,
+        signal: options.signal,
+      });
       console.log('[Android] Wallpaper set');
       return;
-    }
+    } catch {}
 
     // Fallback: direct file copy for rooted images (Android 11 AOSP).
-    spawnSync(adb, ['-s', serial, 'shell', 'cp /sdcard/neoagent-wallpaper.png /data/system/users/0/wallpaper'], { timeout: 5000 });
-    spawnSync(adb, ['-s', serial, 'shell', 'chmod 600 /data/system/users/0/wallpaper'], { timeout: 5000 });
-    spawnSync(adb, ['-s', serial, 'shell', 'chown system:system /data/system/users/0/wallpaper'], { timeout: 5000 });
-    spawnSync(adb, ['-s', serial, 'shell', 'am broadcast -a android.intent.action.WALLPAPER_CHANGED'], { timeout: 5000 });
+    for (const command of [
+      'cp /sdcard/neoagent-wallpaper.png /data/system/users/0/wallpaper',
+      'chmod 600 /data/system/users/0/wallpaper',
+      'chown system:system /data/system/users/0/wallpaper',
+      'am broadcast -a android.intent.action.WALLPAPER_CHANGED',
+    ]) {
+      await runProcess(adb, ['-s', serial, 'shell', command], {
+        timeoutMs: 5000,
+        maxOutputBytes: 1024 * 1024,
+        signal: options.signal,
+      });
+    }
     console.log('[Android] Wallpaper set via direct copy');
   }
 }

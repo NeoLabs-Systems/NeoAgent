@@ -16,7 +16,14 @@ function sortByTimestamp(left, right) {
   return String(left.timestamp).localeCompare(String(right.timestamp));
 }
 
-async function fetchTriggerRows({ integrationManager, userId, agentId, triggerType, config }) {
+async function fetchTriggerRows({
+  integrationManager,
+  userId,
+  agentId,
+  triggerType,
+  config,
+  signal = null,
+}) {
   if (!integrationManager) return [];
   const scopedAgentId = resolveAgentId(userId, agentId);
   const connectionArg = {
@@ -36,7 +43,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
         maxResults: 20,
         q: queryParts.join(' ').trim() || undefined,
       },
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const messages = Array.isArray(result?.messages) ? result.messages : [];
     return messages
       .map((item) => ({
@@ -62,7 +69,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
         ...(filters.length ? { '$filter': filters.join(' and ') } : {}),
         ...(escapedQuery ? { '$search': `"${escapedQuery}"` } : {}),
       },
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const messages = Array.isArray(result?.value) ? result.value : [];
     return messages
       .map((item) => ({
@@ -85,7 +92,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
       ...connectionArg,
       channel: config.channel,
       limit: 20,
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const messages = Array.isArray(result?.result?.messages)
       ? result.result.messages
       : Array.isArray(result?.messages)
@@ -115,7 +122,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
       method: 'GET',
       path: `/v1.0/me/chats/${encodeURIComponent(config.chatId)}/messages`,
       query: { '$top': 20 },
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const messages = Array.isArray(result?.value) ? result.value : [];
     return messages
       .filter((item) => {
@@ -143,7 +150,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
       ...connectionArg,
       chat_id: config.chatId,
       limit: 25,
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const messages = Array.isArray(result?.messages) ? result.messages : [];
     return messages
       .filter((item) => item && item.fromMe !== true)
@@ -172,7 +179,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
       ...connectionArg,
       ...(config.location ? { location: config.location } : {}),
       forecast_hours: Math.max(1, Math.min(Number(config.horizonHours) || 12, 48)),
-    }, scopedAgentId);
+    }, scopedAgentId, { signal });
     const hourly = Array.isArray(forecast?.hourly) ? forecast.hourly : [];
     const eventTypes = Array.isArray(config.eventTypes) ? config.eventTypes : [];
     const rows = [];
@@ -254,7 +261,7 @@ async function fetchTriggerRows({ integrationManager, userId, agentId, triggerTy
   return [];
 }
 
-async function pollIntegrationTask(runtime, task) {
+async function pollIntegrationTask(runtime, task, options = {}) {
   const config = normalizeJsonObject(task.trigger_config);
   const rows = await fetchTriggerRows({
     integrationManager: runtime.integrationManager,
@@ -262,6 +269,7 @@ async function pollIntegrationTask(runtime, task) {
     agentId: task.agent_id,
     triggerType: task.trigger_type,
     config,
+    signal: options.signal,
   });
   if (!rows.length) return;
 
@@ -314,8 +322,10 @@ function attachIntegrationEventSources(runtime) {
   const provider = runtime.integrationManager?.getProvider?.('whatsapp_personal');
   if (provider && typeof provider.on === 'function') {
     const listener = async (event) => {
+      if (runtime.stopping) return;
       const tasks = runtime.taskRepository.listEnabledWhatsappEventTasks(event.userId, event.agentId);
       for (const task of tasks) {
+        if (runtime.stopping) break;
         if (!matchesWhatsappTaskEvent(task, event)) continue;
         await runtime.fireTaskFromTrigger(task.id, task.user_id, createWhatsappTriggerPayload(event)).catch((error) => {
           const logger = runtime.logger?.error || console.error;

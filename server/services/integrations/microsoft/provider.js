@@ -202,19 +202,83 @@ function graphUrl(path, query) {
   return url.toString();
 }
 
-async function graphRequest(credentials, { method = 'GET', path, query, body }) {
-  return fetchJson(
+function expiresAtFromSeconds(expiresIn) {
+  return new Date(
+    Date.now() + Math.max(1, Number(expiresIn) || 3600) * 1000,
+  ).toISOString();
+}
+
+function tokenExpiresSoon(credentials) {
+  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
+}
+
+async function refreshMicrosoftCredentials(credentials, signal) {
+  const refreshToken = String(credentials?.refresh_token || '').trim();
+  if (!refreshToken) {
+    throw new Error(
+      'Microsoft 365 refresh token is missing. Reconnect this integration account.',
+    );
+  }
+  const { config, tokenUrl } = getMicrosoftEndpoints();
+  const token = await fetchJson(
+    tokenUrl,
+    {
+      method: 'POST',
+      form: {
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        scope: credentials.scope || undefined,
+      },
+      signal,
+    },
+    { serviceName: 'Microsoft 365 token refresh' },
+  );
+  if (!String(token?.access_token || '').trim()) {
+    throw new Error('Microsoft 365 token refresh did not return an access token.');
+  }
+  return {
+    ...credentials,
+    access_token: token.access_token,
+    refresh_token: token.refresh_token || refreshToken,
+    expires_in: token.expires_in,
+    expires_at: expiresAtFromSeconds(token.expires_in),
+    scope: token.scope || credentials.scope,
+    token_type: token.token_type || credentials.token_type,
+  };
+}
+
+async function graphRequest(context, { method = 'GET', path, query, body }) {
+  const { signal } = context;
+  let credentials = context.credentials;
+  if (tokenExpiresSoon(credentials)) {
+    credentials = await refreshMicrosoftCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+  }
+  const performRequest = (activeCredentials) => fetchJson(
     graphUrl(path, query),
     {
       method: String(method || 'GET').toUpperCase(),
-      headers: { Authorization: `Bearer ${credentials.access_token}` },
+      headers: { Authorization: `Bearer ${activeCredentials.access_token}` },
       ...(body === undefined ? {} : { json: body }),
+      signal,
     },
     { serviceName: 'Microsoft Graph' },
   );
+
+  try {
+    return await performRequest(credentials);
+  } catch (error) {
+    if (error?.status !== 401 || !credentials.refresh_token) throw error;
+    credentials = await refreshMicrosoftCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+    return performRequest(credentials);
+  }
 }
 
-async function executeMicrosoftTool(toolName, args, { credentials }) {
+async function executeMicrosoftTool(toolName, args, context) {
   switch (toolName) {
     case 'microsoft_365_outlook_list_messages': {
       const folder = String(args.folder_id || 'inbox').trim();
@@ -222,7 +286,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
         ? '/v1.0/me/mailFolders/inbox/messages'
         : `/v1.0/me/mailFolders/${encodeURIComponent(folder)}/messages`;
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           path,
           query: {
             '$top': Math.max(1, Math.min(Number(args.top) || 10, 50)),
@@ -233,7 +297,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
       };
     }
     case 'microsoft_365_outlook_send_mail':
-      await graphRequest(credentials, {
+      await graphRequest(context, {
         method: 'POST',
         path: '/v1.0/me/sendMail',
         body: {
@@ -255,7 +319,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
     case 'microsoft_365_calendar_list_events': {
       const hasWindow = args.start && args.end;
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           path: hasWindow ? '/v1.0/me/calendarView' : '/v1.0/me/events',
           query: {
             '$top': Math.max(1, Math.min(Number(args.top) || 10, 50)),
@@ -268,7 +332,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
     }
     case 'microsoft_365_calendar_create_event':
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           method: 'POST',
           path: '/v1.0/me/events',
           body: {
@@ -294,7 +358,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
       };
     case 'microsoft_365_onedrive_list_children':
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           path: args.item_id
             ? `/v1.0/me/drive/items/${encodeURIComponent(String(args.item_id))}/children`
             : '/v1.0/me/drive/root/children',
@@ -303,14 +367,14 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
       };
     case 'microsoft_365_teams_list_chats':
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           path: '/v1.0/me/chats',
           query: { '$top': Math.max(1, Math.min(Number(args.top) || 20, 50)) },
         }),
       };
     case 'microsoft_365_teams_send_chat_message':
       return {
-        result: await graphRequest(credentials, {
+        result: await graphRequest(context, {
           method: 'POST',
           path: `/v1.0/chats/${encodeURIComponent(requireText(args.chat_id, 'chat_id'))}/messages`,
           body: {
@@ -327,7 +391,7 @@ async function executeMicrosoftTool(toolName, args, { credentials }) {
           throw new Error('microsoft_365_*_graph_request tools are disabled by default. Set NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST=true to enable them.');
         }
         return {
-          result: await graphRequest(credentials, {
+          result: await graphRequest(context, {
             method: args.method,
             path: requireText(args.path, 'path'),
             query: args.query,
@@ -371,7 +435,7 @@ function createMicrosoftProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app }) {
+    async finishOAuth({ code, app, signal }) {
       const { config, tokenUrl } = getMicrosoftEndpoints();
       const token = await fetchJson(
         tokenUrl,
@@ -385,6 +449,7 @@ function createMicrosoftProvider() {
             redirect_uri: config.redirectUri,
             scope: escapeScope(app.scopes),
           },
+          signal,
         },
         { serviceName: 'Microsoft 365' },
       );
@@ -395,6 +460,7 @@ function createMicrosoftProvider() {
           headers: {
             Authorization: `Bearer ${token.access_token}`,
           },
+          signal,
         },
         { serviceName: 'Microsoft 365' },
       );
@@ -413,6 +479,7 @@ function createMicrosoftProvider() {
           access_token: token.access_token,
           refresh_token: token.refresh_token,
           expires_in: token.expires_in,
+          expires_at: expiresAtFromSeconds(token.expires_in),
           scope: token.scope,
           token_type: token.token_type,
         },

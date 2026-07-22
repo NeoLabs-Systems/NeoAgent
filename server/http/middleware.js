@@ -145,6 +145,28 @@ function createSessionMiddleware({ secureCookies, trustProxy }) {
   });
 }
 
+function attachRequestSignal(req, res, next) {
+  const controller = new AbortController();
+  const abort = () => {
+    if (!res.writableEnded && !controller.signal.aborted) {
+      const error = new Error('HTTP client disconnected.');
+      error.name = 'AbortError';
+      error.code = 'ABORT_ERR';
+      controller.abort(error);
+    }
+  };
+  const cleanup = () => {
+    req.removeListener('aborted', abort);
+    res.removeListener('close', abort);
+    res.removeListener('finish', cleanup);
+  };
+  req.signal = controller.signal;
+  req.once('aborted', abort);
+  res.once('close', abort);
+  res.once('finish', cleanup);
+  next();
+}
+
 function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware, validateOrigin }) {
   const jsonBody = require('express').json({
     limit: '10mb',
@@ -179,6 +201,7 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
   }
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));
+  app.use(attachRequestSignal);
   app.use(
     cors((req, callback) => {
       const requestPath = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
@@ -255,6 +278,7 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
 }
 
 module.exports = {
+  attachRequestSignal,
   applyHttpMiddleware,
   createSessionMiddleware
 };

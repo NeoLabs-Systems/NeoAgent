@@ -140,6 +140,42 @@ test('social reach reads reddit public JSON posts and comments', async () => {
   }
 });
 
+test('RSS reader rejects hosts resolving to private networks before connecting', async () => {
+  const { fetchText } = require('../../../server/services/social_reach/utils');
+  await assert.rejects(
+    fetchText('https://feed.example/rss.xml', {
+      publicOnly: true,
+      lookup: async () => [{ address: '127.0.0.1', family: 4 }],
+    }),
+    /resolves to a private, loopback, or reserved address/,
+  );
+});
+
+test('social reach forwards caller cancellation to channel requests', async () => {
+  const ctx = createTestRuntime();
+  const { SocialReachService } = loadSocialReach();
+  const service = new SocialReachService();
+  let receivedSignal = null;
+  service.channelById.set('github', {
+    async read(args) {
+      receivedSignal = args.signal;
+      return new Promise((resolve, reject) => {
+        receivedSignal.addEventListener('abort', () => reject(receivedSignal.reason), { once: true });
+      });
+    },
+  });
+  const controller = new AbortController();
+  const reason = new Error('request disconnected');
+  const pending = service.read(1, { platform: 'github' }, { signal: controller.signal });
+  controller.abort(reason);
+  try {
+    await assert.rejects(pending, (error) => error === reason);
+    assert.equal(receivedSignal, controller.signal);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
 test('social reach cookie bundles are encrypted at rest', async () => {
   const ctx = createTestRuntime();
   const { readCookieBundle, writeCookieBundle } = require('../../../server/services/social_reach/store');

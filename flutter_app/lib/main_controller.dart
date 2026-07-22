@@ -5950,11 +5950,13 @@ class NeoAgentController extends ChangeNotifier {
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];
     if (raw is List) {
-      final knownIds = supportedModels.map((model) => model.id).toSet();
-      final filtered = raw
-          .map((item) => item.toString())
-          .where((id) => knownIds.contains(id))
-          .toList();
+      final filtered = <String>[];
+      for (final item in raw) {
+        final model = _modelForValue(item.toString(), supportedModels);
+        if (model != null && !filtered.contains(model.id)) {
+          filtered.add(model.id);
+        }
+      }
       if (filtered.isNotEmpty) {
         return filtered;
       }
@@ -5965,18 +5967,30 @@ class NeoAgentController extends ChangeNotifier {
         .toList();
   }
 
-  String get defaultChatModel =>
-      settings['default_chat_model']?.toString() ?? 'auto';
+  String get defaultChatModel => _ensureModelValue(
+    settings['default_chat_model']?.toString() ?? 'auto',
+    supportedModels,
+    allowAuto: true,
+  );
 
-  String get defaultSubagentModel =>
-      settings['default_subagent_model']?.toString() ?? 'auto';
+  String get defaultSubagentModel => _ensureModelValue(
+    settings['default_subagent_model']?.toString() ?? 'auto',
+    supportedModels,
+    allowAuto: true,
+  );
 
-  String get defaultSpeechModel =>
-      settings['default_speech_model']?.toString() ?? 'auto';
+  String get defaultSpeechModel => _ensureModelValue(
+    settings['default_speech_model']?.toString() ?? 'auto',
+    supportedModels,
+    allowAuto: true,
+  );
 
-  String get fallbackModel =>
-      settings['fallback_model_id']?.toString() ??
-      _firstAvailableModelId(supportedModels);
+  String get fallbackModel => _ensureModelValue(
+    settings['fallback_model_id']?.toString() ??
+        _firstAvailableModelId(supportedModels),
+    supportedModels,
+    allowAuto: false,
+  );
 
   String get voiceSttProvider =>
       _settingString('voice_stt_provider', 'openai', lowercase: true);
@@ -6117,12 +6131,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   ModelMeta? _modelById(String id) {
-    for (final model in supportedModels) {
-      if (model.id == id) {
-        return model;
-      }
-    }
-    return null;
+    return _modelForValue(id, supportedModels);
   }
 
   void _ensureUpdatePolling() {

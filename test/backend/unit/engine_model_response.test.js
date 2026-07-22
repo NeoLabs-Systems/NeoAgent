@@ -256,3 +256,34 @@ test('requestModelResponse times out a stalled stream without replaying partial 
 
   assert.equal(calls, 1);
 });
+
+test('requestModelResponse returns promptly when the parent aborts even if the provider ignores signals', async () => {
+  const engine = new AgentEngine(null);
+  const controller = new AbortController();
+  const request = engine.requestModelResponse({
+    provider: {
+      async chat() {
+        return new Promise(() => {});
+      },
+    },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Run the task.' }],
+    tools: [],
+    options: {
+      stream: false,
+      userId: 1,
+      signal: controller.signal,
+      modelCallTimeoutMs: 10_000,
+      retry: { maxAttempts: 1 },
+    },
+    runId: 'abort-ignoring-provider-run',
+    iteration: 1,
+  });
+
+  controller.abort('run stopped');
+  await assert.rejects(
+    request,
+    (error) => error.name === 'AbortError' && error.code === 'ABORT_ERR',
+  );
+});

@@ -1852,6 +1852,7 @@ class AgentProfile {
 class ModelMeta {
   const ModelMeta({
     required this.id,
+    required this.modelId,
     required this.label,
     required this.provider,
     required this.purpose,
@@ -1864,6 +1865,7 @@ class ModelMeta {
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
     return ModelMeta(
       id: json['id']?.toString() ?? '',
+      modelId: json['modelId']?.toString() ?? json['id']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
       provider: json['provider']?.toString() ?? '',
       purpose: json['purpose']?.toString() ?? '',
@@ -1875,6 +1877,7 @@ class ModelMeta {
   }
 
   final String id;
+  final String modelId;
   final String label;
   final String provider;
   final String purpose;

@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { BaseProvider } = require('./base');
+const { fetchResponseText } = require('../../network/http');
 
 class GoogleProvider extends BaseProvider {
   constructor(config = {}) {
@@ -31,13 +32,30 @@ class GoogleProvider extends BaseProvider {
     this.genAI = new GoogleGenerativeAI(this.apiKey);
   }
 
-  async listModels() {
+  async listModels(signal = null) {
     const DROP = /tts|lyria|robotics|deep-research|antigravity|computer-use|-image(?!.*it)/i;
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}&pageSize=200`
+    const { response, text } = await fetchResponseText(
+      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',
+      {
+        headers: { 'x-goog-api-key': this.apiKey },
+        maxResponseBytes: 5 * 1024 * 1024,
+        serviceName: 'Google model catalog',
+        signal,
+      },
     );
-    if (!res.ok) throw new Error(`Google models API returned ${res.status}`);
-    const { models = [] } = await res.json();
+    if (!response.ok) {
+      const error = new Error(`Google models API returned ${response.status}`);
+      error.status = response.status;
+      error.headers = response.headers;
+      throw error;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(text || '{}');
+    } catch {
+      throw new Error('Google models API returned invalid JSON.');
+    }
+    const { models = [] } = payload;
     return models
       .filter((m) => {
         const id = m.name.replace('models/', '');

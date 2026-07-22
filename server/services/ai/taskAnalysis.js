@@ -17,6 +17,7 @@ const TASK_ANALYSIS_CONFIDENCE_DEFAULT = 0.55;
 const VERIFICATION_CONFIDENCE_VERIFIED = 0.85;
 const VERIFICATION_CONFIDENCE_DEFAULT = 0.5;
 const JSON_ONLY_RESPONSE_RULE = 'Return JSON only. No markdown, no prose, no code fences.';
+const { isDeferredWorkReply } = require('./terminal_reply');
 const ANALYSIS_SCHEMA_EXAMPLE = {
   mode: 'execute',
   needs_verification: true,
@@ -256,7 +257,10 @@ function isDirectAnswerEligibleAnalysis(analysis) {
     planningDepth: analysis.planning_depth,
   });
 
-  return promotedMode === 'direct_answer' && !analysis.needs_subagents && Boolean(draftReply);
+  return promotedMode === 'direct_answer'
+    && !analysis.needs_subagents
+    && Boolean(draftReply)
+    && !isDeferredWorkReply(draftReply);
 }
 
 function extractJsonCandidate(text) {

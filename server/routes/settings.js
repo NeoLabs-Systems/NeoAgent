@@ -40,6 +40,14 @@ const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
   'chat_history_window',
   'tool_replay_budget_chars',
+  'tool_replay_budget_file_chars',
+  'tool_replay_budget_browser_chars',
+  'tool_replay_budget_command_chars',
+  'max_iterations',
+  'max_consecutive_read_only_iterations',
+  'max_consecutive_tool_failures',
+  'max_model_failure_recoveries',
+  'compaction_threshold',
   'subagent_max_iterations',
   'subagent_max_children_per_run',
   'assistant_behavior_notes',
@@ -194,16 +202,19 @@ async function resetEnvBackedSettingValue(req, key) {
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-  const models = await getSupportedModels(req.session.userId, agentId);
+  const models = await getSupportedModels(req.session.userId, agentId, { signal: req.signal });
   res.json({ models });
 });
 
 router.get('/meta/ai-providers', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-  const [providers, models] = await Promise.all([
-    getProviderHealthCatalog(req.session.userId, agentId),
-    getSupportedModels(req.session.userId, agentId),
-  ]);
+  const providers = await getProviderHealthCatalog(req.session.userId, agentId, {
+    signal: req.signal,
+  });
+  const models = await getSupportedModels(req.session.userId, agentId, {
+    providerCatalog: providers,
+    signal: req.signal,
+  });
 
   const modelCounts = models.reduce((acc, model) => {
     acc[model.provider] = (acc[model.provider] || 0) + 1;

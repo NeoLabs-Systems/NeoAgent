@@ -1,8 +1,10 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
-const { validateCloudUrl } = require('../utils/cloud-security');
+const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 router.use(requireAuth);
@@ -11,7 +13,9 @@ async function getBrowserController(req) {
   const runtimeManager = req.app?.locals?.runtimeManager;
   if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
     const start = Date.now();
-    const runtimeController = await runtimeManager.getBrowserProviderForUser(req.session?.userId);
+    const runtimeController = await runtimeManager.getBrowserProviderForUser(req.session?.userId, {
+      signal: req.signal,
+    });
     const duration = Date.now() - start;
     if (duration > 1000) {
       console.log(`[HTTP] Browser controller acquired for user ${req.session?.userId} in ${duration}ms`);
@@ -73,7 +77,7 @@ router.get('/cookies', async (req, res) => {
     if (typeof bc.getCookies !== 'function') {
       return res.status(501).json({ error: 'Cookie export is unavailable for this browser provider.' });
     }
-    const result = await bc.getCookies();
+    const result = await bc.getCookies({ signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -84,7 +88,7 @@ router.get('/cookies', async (req, res) => {
 router.post('/launch', async (req, res) => {
   try {
     const bc = await getBrowserController(req);
-    await bc.launch(req.body || {});
+    await bc.launch({ ...(req.body || {}), signal: req.signal });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -97,12 +101,12 @@ router.post('/navigate', async (req, res) => {
     const { url, waitFor } = req.body;
     if (!url) return res.status(400).json({ error: 'url required' });
 
-    const bc = await getBrowserController(req);
-
-    if (bc.providerType === 'vm' && !validateCloudUrl(url).allowed) {
+    const urlValidation = await validateCloudUrlWithDns(url, { signal: req.signal });
+    if (!urlValidation.allowed) {
       return res.status(403).json({ error: 'This URL is not permitted.' });
     }
 
+    const bc = await getBrowserController(req);
     const result = await bc.navigate(url, {
       waitUntil: waitFor || req.body?.waitUntil || 'domcontentloaded',
       waitFor,
@@ -110,6 +114,7 @@ router.post('/navigate', async (req, res) => {
       fullPage: req.body?.fullPage === true,
       referrerMode: req.body?.referrerMode,
       challengeRetry: req.body?.challengeRetry,
+      signal: req.signal,
     });
     res.json(result);
   } catch (err) {
@@ -121,7 +126,7 @@ router.post('/navigate', async (req, res) => {
 router.post('/screenshot', async (req, res) => {
   try {
     const bc = await getBrowserController(req);
-    const result = await bc.screenshot(req.body || {});
+    const result = await bc.screenshot({ ...(req.body || {}), signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -133,7 +138,7 @@ router.post('/click', async (req, res) => {
   try {
     const { selector, text } = req.body;
     const bc = await getBrowserController(req);
-    const result = await bc.click(selector, text, req.body?.screenshot !== false);
+    const result = await bc.click(selector, text, req.body?.screenshot !== false, { signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -147,7 +152,7 @@ router.post('/click-point', async (req, res) => {
       return res.status(400).json({ error: 'x and y required' });
     }
     const bc = await getBrowserController(req);
-    const result = await bc.clickPoint(x, y, req.body?.screenshot !== false);
+    const result = await bc.clickPoint(x, y, req.body?.screenshot !== false, { signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -161,7 +166,7 @@ router.post('/mouse-move', async (req, res) => {
       return res.status(400).json({ error: 'x and y required' });
     }
     const bc = await getBrowserController(req);
-    const result = await bc.hoverPoint(x, y, req.body || {});
+    const result = await bc.hoverPoint(x, y, { ...(req.body || {}), signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -179,6 +184,7 @@ router.post('/fill', async (req, res) => {
       clear: req.body?.clear !== false,
       pressEnter: req.body?.pressEnter === true,
       screenshot: req.body?.screenshot !== false,
+      signal: req.signal,
     });
     res.json(result);
   } catch (err) {
@@ -193,6 +199,7 @@ router.post('/type-text', async (req, res) => {
     const result = await bc.typeText(String(text || ''), {
       pressEnter: req.body?.pressEnter === true,
       screenshot: req.body?.screenshot !== false,
+      signal: req.signal,
     });
     res.json(result);
   } catch (err) {
@@ -205,7 +212,7 @@ router.post('/press-key', async (req, res) => {
     const { key } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });
     const bc = await getBrowserController(req);
-    const result = await bc.pressKey(key, req.body?.screenshot !== false);
+    const result = await bc.pressKey(key, req.body?.screenshot !== false, { signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -219,6 +226,7 @@ router.post('/scroll', async (req, res) => {
       req.body?.deltaX ?? 0,
       req.body?.deltaY ?? 0,
       req.body?.screenshot !== false,
+      { signal: req.signal },
     );
     res.json(result);
   } catch (err) {
@@ -230,7 +238,7 @@ router.post('/scroll', async (req, res) => {
 router.post('/extract', async (req, res) => {
   try {
     const bc = await getBrowserController(req);
-    const result = await bc.extractContent(req.body || {});
+    const result = await bc.extractContent({ ...(req.body || {}), signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -252,7 +260,7 @@ router.post('/execute', async (req, res) => {
     }
 
     const bc = await getBrowserController(req);
-    const result = await bc.executeJS(code);
+    const result = await bc.executeJS(code, { signal: req.signal });
     res.json({ result });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -263,7 +271,7 @@ router.post('/execute', async (req, res) => {
 router.post('/close', async (req, res) => {
   try {
     const bc = await getBrowserController(req);
-    await bc.closeBrowser();
+    await bc.closeBrowser({ signal: req.signal });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });

@@ -1,4 +1,9 @@
 const { OpenAIProvider } = require('./openai');
+const {
+  fetchResponseText,
+  waitForAbortableResult,
+} = require('../../network/http');
+const { sanitizeProviderErrorDetail } = require('./provider_error');
 
 class GithubCopilotProvider extends OpenAIProvider {
   constructor(config = {}) {
@@ -27,35 +32,46 @@ class GithubCopilotProvider extends OpenAIProvider {
   }
 
   async _refreshCopilotToken(signal = null) {
-    if (this._refreshPromise) return this._refreshPromise;
-
     const now = Math.floor(Date.now() / 1000);
     // Refresh token if missing or expiring in less than 5 minutes
     if (this.copilotToken && this.tokenExpiresAt >= now + 300) {
       return;
     }
 
-    this._refreshPromise = (async () => {
-      try {
+    if (!this._refreshPromise) {
+      this._refreshPromise = (async () => {
         if (!this.githubToken) {
           throw new Error('GitHub Copilot access token is missing. Please run `neoagent login github-copilot`.');
         }
 
-        const res = await fetch('https://api.github.com/copilot_internal/v2/token', {
+        const { response, text } = await fetchResponseText(
+          'https://api.github.com/copilot_internal/v2/token',
+          {
           headers: {
             'Authorization': `token ${this.githubToken}`,
             'Accept': 'application/json',
             'User-Agent': 'NeoAgent/1.0.0'
           },
-          signal,
-        });
+            maxResponseBytes: 1024 * 1024,
+            serviceName: 'GitHub Copilot token refresh',
+          },
+        );
 
-        if (!res.ok) {
-          const errorText = await res.text().catch(() => 'Unknown error');
-          throw new Error(`Failed to refresh GitHub Copilot token: HTTP ${res.status} - ${errorText}`);
+        if (!response.ok) {
+          const error = new Error(
+            `Failed to refresh GitHub Copilot token: HTTP ${response.status} - ${sanitizeProviderErrorDetail(text.slice(0, 500))}`,
+          );
+          error.status = response.status;
+          error.headers = response.headers;
+          throw error;
         }
 
-        const data = await res.json();
+        let data;
+        try {
+          data = JSON.parse(text || '{}');
+        } catch {
+          throw new Error('Invalid token response from GitHub Copilot.');
+        }
         if (!data || typeof data.token !== 'string' || !data.token) {
           throw new Error('Invalid token response from GitHub Copilot.');
         }
@@ -71,12 +87,16 @@ class GithubCopilotProvider extends OpenAIProvider {
 
         // Update the client's API key
         this.client.apiKey = this.copilotToken;
-      } finally {
+      })().finally(() => {
         this._refreshPromise = null;
-      }
-    })();
+      });
+    }
 
-    return this._refreshPromise;
+    return waitForAbortableResult(
+      this._refreshPromise,
+      signal,
+      'GitHub Copilot token refresh aborted.',
+    );
   }
 
   async chat(messages, tools = [], options = {}) {

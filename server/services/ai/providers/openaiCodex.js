@@ -1,6 +1,9 @@
+'use strict';
+
 const crypto = require('crypto');
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
+const { wrapProviderError } = require('./provider_error');
 
 const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
 const OPENAI_CODEX_EMPTY_INPUT_TEXT = ' ';
@@ -439,8 +442,10 @@ class OpenAICodexProvider extends BaseProvider {
         { headers: this._requestHeaders(), signal: options.signal },
       );
     } catch (err) {
-      if (options.signal?.aborted) throw err;
-      throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
+      throw wrapProviderError(err, 'OpenAI Codex request failed', {
+        detail: formatOpenAIError(err),
+        signal: options.signal,
+      });
     }
 
     const toolCalls = extractToolCalls(response);
@@ -468,8 +473,10 @@ class OpenAICodexProvider extends BaseProvider {
         { headers: this._requestHeaders(), signal: options.signal },
       );
     } catch (err) {
-      if (options.signal?.aborted) throw err;
-      throw new Error(`OpenAI Codex request failed: ${formatOpenAIError(err)}`);
+      throw wrapProviderError(err, 'OpenAI Codex request failed', {
+        detail: formatOpenAIError(err),
+        signal: options.signal,
+      });
     }
 
     let content = '';

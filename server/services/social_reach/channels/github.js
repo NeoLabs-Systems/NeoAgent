@@ -28,9 +28,12 @@ class GithubChannel extends SocialReachChannel {
     };
   }
 
-  async read({ url }) {
+  async read({ url, signal }) {
     const { owner, repo } = parseRepoUrl(url);
-    const data = await fetchJson(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
+    const data = await fetchJson(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+      { signal },
+    );
     return {
       platform: this.id,
       owner,
@@ -47,14 +50,17 @@ class GithubChannel extends SocialReachChannel {
     };
   }
 
-  async search({ query, limit }) {
+  async search({ query, limit, signal }) {
     const q = String(query || '').trim();
     if (!q) {
       const error = new Error('query is required.');
       error.status = 400;
       throw error;
     }
-    const data = await fetchJson(`https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&per_page=${normalizeLimit(limit, 10, 30)}`);
+    const data = await fetchJson(
+      `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&per_page=${normalizeLimit(limit, 10, 30)}`,
+      { signal },
+    );
     return {
       platform: this.id,
       query: q,

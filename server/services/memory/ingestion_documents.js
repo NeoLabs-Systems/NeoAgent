@@ -12,8 +12,11 @@ const {
   safeTrim,
 } = require('./ingestion_support');
 const { chunkDocument, overlapWindowChunks } = require('./ingestion_chunking');
+const { isAbortError, throwIfAborted } = require('../../utils/abort');
 
 async function ingestDocuments(service, userId, documents = [], options = {}) {
+  const signal = options.signal || null;
+  throwIfAborted(signal, 'Memory ingestion aborted.');
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
   const normalizedDocs = (Array.isArray(documents) ? documents : [])
     .map((document) => normalizeDocument(document, {
@@ -45,6 +48,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
   const memoryIds = [];
   try {
     for (const document of normalizedDocs) {
+      throwIfAborted(signal, 'Memory ingestion aborted.');
       const documentId = service.memoryManager.upsertIngestionDocument(
         userId,
         document,
@@ -55,6 +59,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       const chunks = chunkDocument(document);
       const savedChunkMemoryIds = [];
       for (const chunk of chunks) {
+        throwIfAborted(signal, 'Memory ingestion aborted.');
         const memoryId = await service.memoryManager.saveMemory(
           userId,
           `${document.title}\n${chunk.content}`,
@@ -87,6 +92,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
                 charEnd: chunk.charEnd,
               },
             },
+            signal,
           },
         );
         if (!memoryId) continue;
@@ -110,6 +116,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
 
       const overlapChunks = overlapWindowChunks(chunks);
       for (const window of overlapChunks) {
+        throwIfAborted(signal, 'Memory ingestion aborted.');
         const windowMemoryId = await service.memoryManager.saveMemory(
           userId,
           `${document.title}\n${window.content}`,
@@ -143,6 +150,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
               },
               isOverlapWindow: true,
             },
+            signal,
           },
         );
         if (windowMemoryId) savedChunkMemoryIds.push(windowMemoryId);
@@ -151,6 +159,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       service.memoryManager.pruneSourceChunks(documentId, retainedChunkIds);
     }
 
+    throwIfAborted(signal, 'Memory ingestion aborted.');
     service.memoryManager.recordIngestionJob(userId, {
       id: jobId,
       sourceType,
@@ -174,17 +183,18 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       knowledgeViews,
     };
   } catch (err) {
+    const cancelled = isAbortError(err, signal);
     service.memoryManager.recordIngestionJob(userId, {
       id: jobId,
       sourceType,
       providerKey: safeTrim(options.providerKey, 80),
       connectionId,
-      status: 'failed',
+      status: cancelled ? 'cancelled' : 'failed',
       freshnessPolicy: policy,
       documentCount: documentIds.length,
-      error: err.message,
+      error: cancelled ? null : err.message,
       completedAt: new Date().toISOString(),
-      nextSyncAt: nextSyncFromPolicy(policy),
+      nextSyncAt: cancelled ? null : nextSyncFromPolicy(policy),
     }, { agentId });
     throw err;
   }

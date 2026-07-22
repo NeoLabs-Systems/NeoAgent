@@ -1,5 +1,16 @@
 'use strict';
 
+const { createAbortError } = require('../../utils/abort');
+const {
+  RETRYABLE_HTTP_STATUS: RETRYABLE_STATUS,
+  RETRYABLE_NETWORK_CODES: RETRYABLE_CODES,
+  abortableDelay,
+  computeBackoffMs,
+  getErrorCode,
+  getHttpStatus,
+  retryAfterMilliseconds,
+} = require('../../utils/retry');
+
 // Centralized transient-error retry for AI provider calls.
 //
 // A transient blip (rate limit, provider overload, brief network failure) should
@@ -13,17 +24,6 @@ const DEFAULTS = {
   baseDelayMs: 500,
   maxDelayMs: 8000,
 };
-
-// HTTP statuses worth retrying: request timeout, conflict, rate limit, and the
-// 5xx family including Anthropic's 529 "overloaded" and common CDN edge codes.
-const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524, 529]);
-
-// Low-level socket / DNS errors surfaced by Node and undici.
-const RETRYABLE_CODES = new Set([
-  'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE', 'EAI_AGAIN', 'ENOTFOUND',
-  'ENETUNREACH', 'EHOSTUNREACH', 'EAGAIN',
-  'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT',
-]);
 
 function readNumberEnv(name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const raw = process.env[name];
@@ -47,25 +47,10 @@ function resolveConfig(overrides = {}) {
 // SDKs disagree on where they put the HTTP status: OpenAI/Anthropic expose
 // `.status`, raw http clients use `.statusCode`, and some nest it under
 // `.response.status`. Check all of them.
-function getStatus(err) {
-  if (!err || typeof err !== 'object') return null;
-  const candidates = [err.status, err.statusCode, err.response?.status, err.cause?.status];
-  for (const value of candidates) {
-    const num = Number(value);
-    if (Number.isFinite(num) && num >= 100 && num < 600) return num;
-  }
-  return null;
-}
-
-function getErrorCode(err) {
-  if (!err || typeof err !== 'object') return null;
-  return err.code || err.errno || err.cause?.code || null;
-}
-
 function isTransientError(err) {
   if (!err) return false;
 
-  const status = getStatus(err);
+  const status = getHttpStatus(err);
   if (status !== null) return RETRYABLE_STATUS.has(status);
 
   const code = getErrorCode(err);
@@ -84,39 +69,11 @@ function isTransientError(err) {
 // own backoff. Supports both delta-seconds and `retry-after-ms` style headers.
 function retryAfterMs(err) {
   if (!err || typeof err !== 'object') return null;
-  const headers = err.headers || err.response?.headers;
-  const read = (name) => {
-    if (!headers) return undefined;
-    if (typeof headers.get === 'function') return headers.get(name);
-    return headers[name] ?? headers[name.toLowerCase()];
-  };
-
-  const ms = read('retry-after-ms');
-  if (ms !== undefined && ms !== null && String(ms).trim() !== '') {
-    const parsed = Number(ms);
-    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-  }
-
-  const after = read('retry-after');
-  if (after !== undefined && after !== null && String(after).trim() !== '') {
-    const seconds = Number(after);
-    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-    const date = Date.parse(String(after));
-    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
-  }
-
-  return null;
+  return retryAfterMilliseconds(err.headers || err.response?.headers);
 }
 
-// Exponential backoff with equal-jitter: half the window is fixed, half random,
-// which spreads retries out without ever collapsing the delay to zero.
-function computeBackoffMs(attempt, baseDelayMs, maxDelayMs) {
-  const exp = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1));
-  return Math.round(exp / 2 + Math.random() * (exp / 2));
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function abortError(signal) {
+  return createAbortError(signal, 'Provider retry aborted.');
 }
 
 /**
@@ -137,6 +94,7 @@ async function withProviderRetry(fn, options = {}) {
 
   let attempt = 0;
   while (true) {
+    if (options.signal?.aborted) throw abortError(options.signal);
     attempt += 1;
     try {
       return await fn(attempt);
@@ -153,7 +111,7 @@ async function withProviderRetry(fn, options = {}) {
           options.onRetry({ attempt, delayMs: waitMs, error: err });
         } catch { /* a misbehaving progress callback must not abort the retry */ }
       }
-      await delay(waitMs);
+      await abortableDelay(waitMs, options.signal);
     }
   }
 }

@@ -55,6 +55,11 @@ const { normalizeCompletionConfidence, shouldAcceptTaskComplete } = require('../
 const { enforceRateLimits } = require('../rate_limits');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
+const {
+  normalizeModelSelections,
+  resolveModelSelection,
+} = require('../model_identity');
+const { getProviderForUser } = require('../provider_selector');
 const { IterationBudget } = require('./iteration_budget');
 const {
   buildBlankAfterToolFailureGuidance,
@@ -116,7 +121,7 @@ const {
 const {
   requestModelResponse: requestModelResponseImpl,
   requestStructuredJson: requestStructuredJsonImpl,
-  withModelCallTimeout,
+  runAbortableModelCall,
 } = require('./model_io');
 const {
   publishInterimUpdate: publishInterimUpdateImpl,
@@ -143,6 +148,7 @@ const {
   buildDeterministicMessagingErrorReply,
   buildModelFailureLoopPrompt,
 } = require('../messagingFallback');
+const { isDeferredWorkReply } = require('../terminal_reply');
 const {
   classifyToolExecution,
   gatheredNewEvidence,
@@ -164,6 +170,7 @@ const {
   normalizeRetrievalPlan,
   shouldEnhanceRetrieval,
 } = require('../../memory/retrieval_reasoning');
+const { isAbortError, throwIfAborted } = require('../../../utils/abort');
 
 function generateTitle(task) {
   if (!task || typeof task !== 'string') return 'Untitled';
@@ -403,145 +410,55 @@ function buildAutonomyPolicyFromAnalysis(analysis = {}) {
   };
 }
 
-async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null, providerConfig = {}) {
-  const { getSupportedModels, createProviderInstance } = require('../models');
-  const agentId = providerConfig.agentId || null;
-  const aiSettings = getAiSettings(userId, agentId);
-  const models = await getSupportedModels(userId, agentId);
-
-  let enabledIds = Array.isArray(aiSettings.enabled_models) ? aiSettings.enabled_models : [];
-  const defaultChatModel = aiSettings.default_chat_model || 'auto';
-  const defaultSubagentModel = aiSettings.default_subagent_model || 'auto';
-  const smarterSelection = aiSettings.smarter_model_selector !== false && aiSettings.smarter_model_selector !== 'false';
-
-  const knownModelIds = new Set(models.map((m) => m.id));
-  const selectableModels = models.filter((m) => m.available !== false);
-
-  enabledIds = Array.isArray(enabledIds)
-    ? enabledIds
-      .map((id) => String(id))
-      .filter((id) => knownModelIds.has(id))
-    : [];
-
-  let availableModels = selectableModels.filter((m) => enabledIds.includes(m.id));
-  if (availableModels.length === 0) {
-    enabledIds = selectableModels.map((m) => m.id);
-    availableModels = [...selectableModels];
-  }
-
-  const fallbackModel = availableModels.length > 0 ? availableModels[0] : selectableModels[0];
-
-  if (!fallbackModel) {
-    throw new Error('No AI providers are currently available. Open Settings and configure at least one provider.');
-  }
-
-  let selectedModelDef = fallbackModel;
-  const userSelectedDefault = isSubagent ? defaultSubagentModel : defaultChatModel;
-
-  if (modelOverride && typeof modelOverride === 'string') {
-    const requested = models.find((m) => m.id === modelOverride.trim());
-    // An explicit override (e.g. a failure fallback picked by getFailureFallbackModelId)
-    // may intentionally sit outside the user's enabled_models pool — that's the whole
-    // point when no in-pool cross-provider option exists. Only require availability.
-    if (requested && requested.available !== false) {
-      selectedModelDef = requested;
-      return {
-        provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
-        model: selectedModelDef.id,
-        providerName: selectedModelDef.provider
-      };
-    }
-  }
-
-  if (userSelectedDefault && userSelectedDefault !== 'auto') {
-    selectedModelDef = models.find((m) => m.id === userSelectedDefault) || fallbackModel;
-  } else {
-    const selectionHint = providerConfig.selectionHint && typeof providerConfig.selectionHint === 'object'
-      ? providerConfig.selectionHint
-      : {};
-    const preferredPurpose = String(selectionHint.purpose || '').trim().toLowerCase();
-    const highAutonomy = selectionHint.autonomyLevel === 'high' || selectionHint.complexity === 'complex';
-    const requiredConfidence = String(selectionHint.requiredConfidence || '').trim().toLowerCase();
-    const costMode = String(selectionHint.costMode || aiSettings.cost_mode || 'balanced_auto').trim().toLowerCase();
-    const requestedPurpose = ['planning', 'coding', 'general', 'fast'].includes(preferredPurpose)
-      ? preferredPurpose
-      : '';
-    const priceRank = { free: 0, cheap: 1, medium: 2, expensive: 3 };
-    const chooseForPurpose = (purpose) => {
-      const candidates = availableModels.filter((model) => model.purpose === purpose);
-      if (candidates.length === 0) return null;
-      if (['economy', 'cost_saver', 'lowest_cost'].includes(costMode)) {
-        return [...candidates].sort((left, right) => (
-          (priceRank[left.priceTier] ?? 99) - (priceRank[right.priceTier] ?? 99)
-        ))[0];
-      }
-      if (['quality', 'highest_quality'].includes(costMode) || requiredConfidence === 'high') {
-        return candidates.find((model) => model.priceTier !== 'free' && model.priceTier !== 'cheap') || candidates[0];
-      }
-      return candidates[0];
-    };
-
-    if (smarterSelection && requestedPurpose) {
-      selectedModelDef = chooseForPurpose(requestedPurpose) || fallbackModel;
-    } else if (smarterSelection && highAutonomy) {
-      selectedModelDef = chooseForPurpose('planning') || chooseForPurpose('general') || fallbackModel;
-    } else if (isSubagent) {
-      selectedModelDef = chooseForPurpose('fast') || fallbackModel;
-    } else {
-      selectedModelDef = chooseForPurpose('general') || fallbackModel;
-    }
-  }
-
-  return {
-    provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
-    model: selectedModelDef.id,
-    providerName: selectedModelDef.provider
-  };
-}
-
-async function getFailureFallbackModelId(userId, agentId, currentModelId, preferredFallbackId = null, failureError = null) {
+async function getFailureFallbackModelId(
+  userId,
+  agentId,
+  currentModelId,
+  preferredFallbackId = null,
+  failureError = null,
+  signal = null,
+) {
   const { getSupportedModels } = require('../models');
   const aiSettings = getAiSettings(userId, agentId);
-  const models = await getSupportedModels(userId, agentId);
+  const models = await getSupportedModels(userId, agentId, { signal });
   const availableModels = models.filter((model) => model.available !== false);
-  const knownIds = new Set(availableModels.map((model) => model.id));
-  const enabledIds = Array.isArray(aiSettings.enabled_models)
-    ? aiSettings.enabled_models.map((id) => String(id)).filter((id) => knownIds.has(id))
+  const configuredEnabledIds = Array.isArray(aiSettings.enabled_models)
+    ? aiSettings.enabled_models.map((id) => String(id).trim()).filter(Boolean)
     : [];
-  const pool = enabledIds.length > 0
+  const enabledIds = normalizeModelSelections(availableModels, configuredEnabledIds);
+  const pool = configuredEnabledIds.length > 0
     ? availableModels.filter((model) => enabledIds.includes(model.id))
     : availableModels;
-  const fallbackSearchPool = pool.length > 0 ? pool : availableModels;
-  const currentModel = pool.find((model) => model.id === currentModelId)
-    || availableModels.find((model) => model.id === currentModelId)
-    || null;
+  const fallbackSearchPool = pool;
+  const currentModel = resolveModelSelection(pool, currentModelId)
+    || resolveModelSelection(availableModels, currentModelId);
 
   // When the failure is a provider-level rate limit, the preferred fallback is
   // likely on the same provider and will hit the same limit. Skip it and prefer
   // a fallback from a different provider instead.
   const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
 
-  if (preferredFallbackId && preferredFallbackId !== currentModelId && !isProviderRateLimit) {
-    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
-      || availableModels.find((model) => model.id === preferredFallbackId);
-    if (preferred) return preferred.id;
+  if (preferredFallbackId && !isProviderRateLimit) {
+    const preferred = resolveModelSelection(fallbackSearchPool, preferredFallbackId)
+      || resolveModelSelection(availableModels, preferredFallbackId);
+    if (preferred && preferred.id !== currentModel?.id) return preferred.id;
   }
 
   if (currentModel?.provider) {
     const differentProvider = fallbackSearchPool.find((model) =>
-      model.id !== currentModelId && model.provider !== currentModel.provider);
+      model.id !== currentModel.id && model.provider !== currentModel.provider);
     if (differentProvider) return differentProvider.id;
   }
 
   // If no different-provider model exists, still try the preferred fallback
   // even on rate limits (it's better than nothing).
-  if (preferredFallbackId && preferredFallbackId !== currentModelId) {
-    const preferred = fallbackSearchPool.find((model) => model.id === preferredFallbackId)
-      || availableModels.find((model) => model.id === preferredFallbackId);
-    if (preferred) return preferred.id;
+  if (preferredFallbackId) {
+    const preferred = resolveModelSelection(fallbackSearchPool, preferredFallbackId)
+      || resolveModelSelection(availableModels, preferredFallbackId);
+    if (preferred && preferred.id !== currentModel?.id) return preferred.id;
   }
 
-  const differentModel = fallbackSearchPool.find((model) => model.id !== currentModelId);
+  const differentModel = fallbackSearchPool.find((model) => model.id !== currentModel?.id);
   return differentModel?.id || null;
 }
 
@@ -552,6 +469,7 @@ function estimateTokenValue(value) {
 }
 
 async function runConversation(engine, userId, userMessage, options = {}, _modelOverride = null) {
+  throwIfAborted(options.signal, 'Agent run aborted before startup.');
   const triggerType = options.triggerType || 'user';
   const { resolveAgentId } = require('../../agents/manager');
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
@@ -563,6 +481,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   const triggerSource = options.triggerSource || 'web';
   let provider = null;
   let model = null;
+  let modelSelectionId = null;
   let providerName = null;
   let messages = [];
   let iteration = 0;
@@ -572,7 +491,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let failedStepCount = 0;
   let toolExecutions = [];
   let deliverableWorkflow = null;
-  let runTitle;
+  let detachExternalAbort = null;
+  const runTitle = generateTitle(userMessage);
+  let runRecordCreated = false;
   const timelineService = app?.locals?.timelineService || null;
 
   const { releaseReservation } = enforceRateLimits(userId, {
@@ -589,6 +510,59 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   // analysis when the mode is known. See the post-analysis policy rebuild below.
   let loopPolicy = buildLoopPolicy(aiSettings, triggerType, 'execute', options);
   let maxIterations = loopPolicy.maxIterations;
+  const initialRunMetadata = buildInitialRunMetadata(options);
+  const requestedModel = String(
+    _modelOverride
+    || (triggerType === 'subagent' ? aiSettings.default_subagent_model : aiSettings.default_chat_model)
+    || 'auto',
+  ).trim();
+  try {
+    db.prepare(`INSERT INTO agent_runs(
+      id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
+    ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)`).run(
+      runId,
+      userId,
+      agentId,
+      runTitle,
+      triggerType,
+      triggerSource,
+      requestedModel,
+      Object.keys(initialRunMetadata).length ? JSON.stringify(initialRunMetadata) : null,
+    );
+    runRecordCreated = true;
+  } catch (error) {
+    if (/unique|primary key|constraint/i.test(String(error?.message || ''))) {
+      const conflict = new Error(`A run with id "${runId}" already exists.`);
+      conflict.code = 'RUN_ID_CONFLICT';
+      throw conflict;
+    }
+    throw error;
+  }
+  const startupAbortController = new AbortController();
+  engine.activeRuns.set(runId, {
+    userId,
+    agentId,
+    title: runTitle,
+    status: 'running',
+    aborted: false,
+    abortController: startupAbortController,
+    pauseAvailable: false,
+    toolPids: new Set(),
+    subagentDepth: Math.max(0, Number(options.subagentDepth) || 0),
+  });
+  if (options.signal) {
+    const abortFromExternal = () => {
+      engine.interruptRun(
+        runId,
+        String(options.signal.reason || 'Agent run interrupted by its caller.'),
+      );
+    };
+    if (options.signal.aborted) abortFromExternal();
+    else options.signal.addEventListener('abort', abortFromExternal, { once: true });
+    detachExternalAbort = () => {
+      options.signal.removeEventListener('abort', abortFromExternal);
+    };
+  }
   const providerStatusConfig = {
     agentId,
     onStatus: (status) => {
@@ -605,18 +579,39 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     userMessage,
     triggerType === 'subagent',
     _modelOverride,
-    providerStatusConfig
+    { ...providerStatusConfig, signal: startupAbortController.signal }
   );
   provider = selectedProvider.provider;
   model = selectedProvider.model;
+  modelSelectionId = selectedProvider.modelSelectionId;
   providerName = selectedProvider.providerName;
-  const switchToFallbackModel = async (failedModel, error, phase) => {
-    const fallbackModelId = await getFailureFallbackModelId(userId, agentId, failedModel, aiSettings.fallback_model_id, error);
-    if (!fallbackModelId || fallbackModelId === failedModel) return false;
-    console.log(`[Engine] ${phase} failed on ${failedModel}; attempting fallback to: ${fallbackModelId}`);
+  if (
+    startupAbortController.signal.aborted
+    || engine.getRunMeta(runId)?.status !== 'running'
+  ) {
+    const startupError = new Error(
+      String(startupAbortController.signal.reason || 'Run stopped during model selection.'),
+    );
+    startupError.name = 'AbortError';
+    startupError.code = 'ABORT_ERR';
+    throw startupError;
+  }
+  db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    .run(modelSelectionId, runId);
+  const switchToFallbackModel = async (failedSelectionId, error, phase) => {
+    const fallbackModelId = await getFailureFallbackModelId(
+      userId,
+      agentId,
+      failedSelectionId,
+      aiSettings.fallback_model_id,
+      error,
+      engine.getRunMeta(runId)?.abortController?.signal,
+    );
+    if (!fallbackModelId || fallbackModelId === failedSelectionId) return false;
+    console.log(`[Engine] ${phase} failed on ${failedSelectionId}; attempting fallback to: ${fallbackModelId}`);
     engine.emit(userId, 'run:interim', {
       runId,
-      message: `Model service failed on ${failedModel}; retrying with ${fallbackModelId}.`,
+      message: `Model service failed on ${failedSelectionId}; retrying with ${fallbackModelId}.`,
       phase: 'model_fallback'
     });
     const fallback = await getProviderForUser(
@@ -624,45 +619,34 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       userMessage,
       triggerType === 'subagent',
       fallbackModelId,
-      providerStatusConfig
+      {
+        ...providerStatusConfig,
+        signal: engine.getRunMeta(runId)?.abortController?.signal,
+      }
     );
     provider = fallback.provider;
     model = fallback.model;
+    modelSelectionId = fallback.modelSelectionId;
     providerName = fallback.providerName;
+    db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(modelSelectionId, runId);
+    Object.assign(engine.getRunMeta(runId) || {}, {
+      model,
+      modelSelectionId,
+      providerName,
+    });
     return true;
   };
   const runWithModelFallback = async (phase, fn) => {
     try {
       return await fn();
     } catch (err) {
-      const failedModel = model;
-      const switched = await switchToFallbackModel(failedModel, err, phase);
+      const failedSelectionId = modelSelectionId;
+      const switched = await switchToFallbackModel(failedSelectionId, err, phase);
       if (!switched) throw err;
       return await fn();
     }
   };
-
-  runTitle = generateTitle(userMessage);
-  const initialRunMetadata = buildInitialRunMetadata(options);
-  db.prepare(`INSERT INTO agent_runs(
-    id, user_id, agent_id, title, status, trigger_type, trigger_source, model, metadata_json
-  ) VALUES(?, ?, ?, ?, 'running', ?, ?, ?, ?)
-  ON CONFLICT(id) DO UPDATE SET
-    status = 'running',
-    model = excluded.model,
-    updated_at = datetime('now'),
-    completed_at = NULL,
-    error = NULL,
-    metadata_json = COALESCE(agent_runs.metadata_json, excluded.metadata_json)`).run(
-    runId,
-    userId,
-    agentId,
-    runTitle,
-    triggerType,
-    triggerSource,
-    model,
-    Object.keys(initialRunMetadata).length ? JSON.stringify(initialRunMetadata) : null,
-  );
 
   const retryMessagingState = options.messagingRetryState || {};
   const carriedFinalMessage = String(retryMessagingState.lastFinalMessage || '').trim();
@@ -685,6 +669,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     userId,
     agentId,
     title: runTitle,
+    model,
+    modelSelectionId,
+    providerName,
     status: 'running',
     aborted: false,
     messagingSent: false,
@@ -709,7 +696,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     voiceSessionId: options.voiceSessionId || null,
     steeringQueue: [],
     systemSteeringQueue: [],
-    abortController: new AbortController(),
+    abortController: startupAbortController,
     pauseAvailable: false,
     toolPids: new Set(),
     subagentDepth: Math.max(0, Number(options.subagentDepth) || 0),
@@ -735,10 +722,21 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     goalContract: carriedGoalContract,
   });
   engine.startMessagingProgressSupervisor(runId);
-  engine.emit(userId, 'run:start', { runId, agentId, title: runTitle, model, triggerType, triggerSource });
+  engine.emit(userId, 'run:start', {
+    runId,
+    agentId,
+    title: runTitle,
+    model,
+    modelSelectionId,
+    provider: providerName,
+    triggerType,
+    triggerSource,
+  });
   engine.recordRunEvent(userId, runId, 'run_started', {
     title: runTitle,
     model,
+    modelSelectionId,
+    provider: providerName,
     triggerType,
     triggerSource,
   }, { agentId });
@@ -752,7 +750,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     triggerSource,
   });
   console.info(
-    `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${model} title=${summarizeForLog(runTitle, 120)}`
+    `[Run ${shortenRunId(runId)}] started trigger=${triggerSource} type=${triggerType} model=${modelSelectionId} title=${summarizeForLog(runTitle, 120)}`
   );
 
   const systemPrompt = await engine.buildSystemPrompt(userId, {
@@ -883,7 +881,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   if (triggerSource === 'messaging') {
     const runMetaForCompose = engine.getRunMeta(runId);
     if (runMetaForCompose) {
-      runMetaForCompose.composeProgressUpdate = async ({ stalled = false } = {}) => {
+      runMetaForCompose.composeProgressUpdate = async ({ stalled = false, signal = null } = {}) => {
         try {
           const rm = engine.getRunMeta(runId);
           const ledger = rm?.progressLedger || {};
@@ -900,7 +898,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           const priorUpdate = String(rm?.lastInterimMessage || '').trim();
           const contextBlock = [
             buildProgressUpdatePrompt(),
-            stalled ? 'This step has been running a while with no new progress; reassure the user you are still on it.' : '',
+            stalled ? 'No verified progress has occurred for the stall threshold. State that fact plainly if it matters; do not reassure, promise continued work, or imply activity beyond the evidence.' : '',
             '',
             `Original request: ${summarizeForLog(userMessage, 320)}`,
             currentTool ? `Doing now: using ${currentTool}` : '',
@@ -911,16 +909,23 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           // formatting guidelines as every other message (single source of truth).
           const sysContent = [systemPrompt?.stable, systemPrompt?.dynamic].filter(Boolean).join('\n\n')
             || 'You are a helpful assistant.';
-          const resp = await withModelCallTimeout(
-            provider.chat(
+          const resp = await runAbortableModelCall(
+            (signal) => provider.chat(
               [
                 { role: 'system', content: sysContent },
                 { role: 'user', content: contextBlock },
               ],
               [],
-              { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+              {
+                model,
+                reasoningEffort: engine.getReasoningEffort(providerName, options),
+                signal,
+              },
             ),
-            options,
+            {
+              ...options,
+              signals: [rm?.abortController?.signal, signal],
+            },
             'Progress update compose',
           );
           return sanitizeModelOutput(resp.content || '', { model });
@@ -1031,6 +1036,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           null,
           {
             ...providerStatusConfig,
+            signal: engine.getRunMeta(runId)?.abortController?.signal,
             selectionHint: {
               purpose: requestedPurpose,
               complexity: analysis?.complexity,
@@ -1040,15 +1046,21 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             },
           }
         );
-        if (selectedAfterAnalysis.model !== model) {
+        if (selectedAfterAnalysis.modelSelectionId !== modelSelectionId) {
           provider = selectedAfterAnalysis.provider;
           model = selectedAfterAnalysis.model;
+          modelSelectionId = selectedAfterAnalysis.modelSelectionId;
           providerName = selectedAfterAnalysis.providerName;
           db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
-            .run(model, runId);
+            .run(modelSelectionId, runId);
+          Object.assign(engine.getRunMeta(runId) || {}, {
+            model,
+            modelSelectionId,
+            providerName,
+          });
           engine.emit(userId, 'run:interim', {
             runId,
-            message: `Switched to ${model} for this run after task analysis.`,
+            message: `Switched to ${modelSelectionId} for this run after task analysis.`,
             phase: 'model_selection'
           });
         }
@@ -1239,7 +1251,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             reason,
             stoppedBy: hookResult.stopped_by || hookResult.stoppedBy || null,
           }, { agentId });
-          lastContent = reason;
+          engine.stopRun(runId, reason);
           break;
         }
         const systemSteering = String(hookResult?.systemSteering || hookResult?.system_steering || '').trim();
@@ -1362,8 +1374,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             });
             let wrapTokens = 0;
             try {
-              const wrapResponse = await withModelCallTimeout(
-                provider.chat(
+              const wrapResponse = await runAbortableModelCall(
+                (signal) => provider.chat(
                   sanitizeConversationMessages([
                     ...messages,
                     {
@@ -1376,9 +1388,13 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
                     },
                   ]),
                   [],
-                  { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+                  {
+                    model,
+                    reasoningEffort: engine.getReasoningEffort(providerName, options),
+                    signal,
+                  },
                 ),
-                options,
+                { ...options, signal: engine.getRunMeta(runId)?.abortController?.signal },
                 'No-progress wrap-up',
               );
               wrapTokens = wrapResponse.usage?.totalTokens || 0;
@@ -1387,7 +1403,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
             }
             totalTokens += wrapTokens;
-            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
+            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null)
+              && !isDeferredWorkReply(lastContent);
             if (!usableWrap) {
               lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
             }
@@ -1431,9 +1448,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       let metrics = engine.estimatePromptMetrics(messages, tools);
       const contextWindow = provider.getContextWindow(model);
       if (metrics.totalEstimatedTokens > contextWindow * loopPolicy.compactionThreshold) {
-        messages = await withModelCallTimeout(
-          compact(messages, provider, model, contextWindow),
-          options,
+        messages = await runAbortableModelCall(
+          (signal) => compact(messages, provider, model, contextWindow, { signal }),
+          { ...options, signal: engine.getRunMeta(runId)?.abortController?.signal },
           `Context compaction before iteration ${iteration}`,
         );
         messages = sanitizeConversationMessages(messages);
@@ -1478,7 +1495,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         } catch (err) {
           console.error(`[Engine] Model call failed (${model}):`, err.message);
           const fallbackModelId = retryForFallback
-            ? await getFailureFallbackModelId(userId, agentId, model, aiSettings.fallback_model_id, err)
+            ? await getFailureFallbackModelId(
+              userId,
+              agentId,
+              modelSelectionId,
+              aiSettings.fallback_model_id,
+              err,
+              engine.getRunMeta(runId)?.abortController?.signal,
+            )
             : null;
           if (fallbackModelId) {
             const failedModel = model;
@@ -1488,11 +1512,22 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               userMessage,
               triggerType === 'subagent',
               fallbackModelId,
-              providerStatusConfig
+              {
+                ...providerStatusConfig,
+                signal: engine.getRunMeta(runId)?.abortController?.signal,
+              }
             );
             provider = fallback.provider;
             model = fallback.model;
+            modelSelectionId = fallback.modelSelectionId;
             providerName = fallback.providerName;
+            db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+              .run(modelSelectionId, runId);
+            Object.assign(engine.getRunMeta(runId) || {}, {
+              model,
+              modelSelectionId,
+              providerName,
+            });
 
             const retryMessages = sanitizeConversationMessages([
               ...messages,
@@ -1512,7 +1547,14 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               model,
               messages: retryMessages,
               tools,
-              options: { ...options, userId },
+              options: {
+                ...options,
+                userId,
+                agentId,
+                runId,
+                phase: 'model_turn_fallback',
+                signal: engine.getRunMeta(runId)?.abortController?.signal,
+              },
               runId,
               iteration,
             });
@@ -1547,7 +1589,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
         if (modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
           const failedModel = model;
-          const switched = await switchToFallbackModel(failedModel, err, 'model turn');
+          const switched = await switchToFallbackModel(modelSelectionId, err, 'model turn');
           if (!switched) throw err;
           modelFailureRecoveries += 1;
           failedStepCount += 1;
@@ -1601,10 +1643,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         toolCallCount: response.toolCalls?.length || 0,
         contentPreview: String(lastContent || streamContent || '').slice(0, 240),
       }, { agentId });
-      engine.updateRunProgress(runId, {}, {
-        verified: true,
-      });
-
       const assistantMessage = { role: 'assistant', content: lastContent };
       if (response.toolCalls?.length) assistantMessage.tool_calls = response.toolCalls;
       if (response.providerContentBlocks?.length) assistantMessage.providerContentBlocks = response.providerContentBlocks;
@@ -1731,7 +1769,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
       const canRunParallelBatch = (
         response.toolCalls.length > 1
-        && response.toolCalls.every((toolCall) => engine.isReadOnlyToolCall(toolCall))
+        && response.toolCalls.every((toolCall) => engine.isReadOnlyToolCall(
+          toolCall,
+          tools.find((tool) => tool?.name === toolCall?.function?.name) || null,
+        ))
       );
       if (canRunParallelBatch) {
         const parallelToolNames = response.toolCalls
@@ -1768,6 +1809,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             item.toolArgs,
             item.result,
             item.error || '',
+            tools.find((tool) => tool?.name === item.toolName) || null,
           );
           execution.input = item.toolArgs;
           execution.artifacts = await extractArtifactsFromResult(item.toolName, item.result);
@@ -1807,7 +1849,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           currentTool: null,
           currentStepStartedAt: null,
         }, {
-          verified: true,
+          verified: batchGatheredNewEvidence,
         });
         if (analysis.mode === 'execute' || analysis.mode === 'plan_execute') {
           const iterMeta = engine.getRunMeta(runId);
@@ -2054,11 +2096,20 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         });
         if (lifecycleAfterTool?.action === 'stop' || lifecycleAfterTool?.action === 'interrupt') break;
 
-        const execution = classifyToolExecution(toolName, toolArgs, toolResult, toolErrorMessage);
+        const execution = classifyToolExecution(
+          toolName,
+          toolArgs,
+          toolResult,
+          toolErrorMessage,
+          tools.find((tool) => tool?.name === toolName) || null,
+        );
         execution.input = toolArgs;
         const repetitionObservation = repetitionGuard?.observe(toolName, toolArgs, toolResult);
-        if ((execution.stateChanged && isProgressToolCall(toolName, toolArgs))
-          || gatheredNewEvidence(execution, repetitionObservation)) {
+        const toolMadeConcreteProgress = (
+          (execution.stateChanged && isProgressToolCall(toolName, toolArgs))
+          || gatheredNewEvidence(execution, repetitionObservation)
+        );
+        if (toolMadeConcreteProgress) {
           iterationConcreteProgress = true;
         }
         execution.artifacts = await extractArtifactsFromResult(toolName, toolResult);
@@ -2206,7 +2257,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           currentTool: null,
           currentStepStartedAt: null,
         }, {
-          verified: true,
+          verified: toolMadeConcreteProgress,
           stepId,
         });
 
@@ -2256,20 +2307,18 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
     if (engine.isRunStopped(runId)) {
       const stoppedRunMeta = engine.getRunMeta(runId);
-      const terminalStatus = stoppedRunMeta?.status === 'interrupted' ? 'interrupted' : 'stopped';
+      const persistedTerminal = db.prepare(
+        'SELECT status, error FROM agent_runs WHERE id = ?',
+      ).get(runId);
+      const terminalStatus = persistedTerminal?.status === 'interrupted'
+        || stoppedRunMeta?.status === 'interrupted'
+        ? 'interrupted'
+        : 'stopped';
       const stopReason = stoppedRunMeta?.stopReason || null;
-      db.prepare(
-        `UPDATE agent_runs
-         SET status = ?,
-             error = COALESCE(?, error),
-             updated_at = datetime('now'),
-             completed_at = datetime('now')
-         WHERE id = ?`
-      ).run(terminalStatus, stopReason, runId);
       console.warn(
         `[Run ${shortenRunId(runId)}] ${terminalStatus} trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
       );
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
       engine.emit(userId, terminalStatus === 'interrupted' ? 'run:interrupted' : 'run:stopped', {
@@ -2320,16 +2369,20 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     if (budgetExhaustedWithoutCompletion) {
       console.warn(`[Run ${shortenRunId(runId)}] max_iteration_wrapup model=${model} iteration=${iteration}/${maxIterations}`);
       try {
-        const wrapResponse = await withModelCallTimeout(
-          provider.chat(
+        const wrapResponse = await runAbortableModelCall(
+          (signal) => provider.chat(
             sanitizeConversationMessages([
               ...messages,
               { role: 'system', content: buildMaxIterationWrapupPrompt(options?.source || null) },
             ]),
             [],
-            { model, reasoningEffort: engine.getReasoningEffort(providerName, options) },
+            {
+              model,
+              reasoningEffort: engine.getReasoningEffort(providerName, options),
+              signal,
+            },
           ),
-          options,
+          { ...options, signal: engine.getRunMeta(runId)?.abortController?.signal },
           'Max-iteration wrap-up',
         );
         totalTokens += wrapResponse.usage?.totalTokens || 0;
@@ -2337,7 +2390,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         // On budget exhaustion the model's last text is an untrustworthy mid-thought
         // fragment. Replace it with the wrap-up answer, or a clean deterministic
         // fallback if the wrap-up came back empty — never deliver the fragment.
-        const usableWrap = normalizeOutgoingMessage(wrapText, options?.source || null);
+        const usableWrap = normalizeOutgoingMessage(wrapText, options?.source || null)
+          && !isDeferredWorkReply(wrapText);
         lastContent = usableWrap
           ? wrapText
           : buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
@@ -2362,8 +2416,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       console.warn(`[Run ${shortenRunId(runId)}] blank_reply_recovery model=${model}`);
       let recoveredTokens = 0;
       try {
-        const recoveryResponse = await withModelCallTimeout(
-          provider.chat(
+        const recoveryResponse = await runAbortableModelCall(
+          (signal) => provider.chat(
             sanitizeConversationMessages([
               ...messages,
               {
@@ -2374,10 +2428,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             [],
             {
               model,
-              reasoningEffort: engine.getReasoningEffort(providerName, options)
+              reasoningEffort: engine.getReasoningEffort(providerName, options),
+              signal,
             }
           ),
-          options,
+          { ...options, signal: engine.getRunMeta(runId)?.abortController?.signal },
           'Blank messaging reply recovery',
         );
         recoveredTokens = recoveryResponse.usage?.totalTokens || 0;
@@ -2390,7 +2445,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       // own wrap-up (it summarizes what it tried / where it got blocked from the run
       // evidence) instead of second-guessing it into a generic blob. Only fall back to
       // a deterministic message when the model returned nothing usable.
-      const recoveredVisible = Boolean(normalizeOutgoingMessage(lastContent, options?.source || null));
+      const recoveredVisible = Boolean(
+        normalizeOutgoingMessage(lastContent, options?.source || null)
+        && !isDeferredWorkReply(lastContent),
+      );
       if (!recoveredVisible) {
         lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
       }
@@ -2418,7 +2476,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       || lifecycleBeforeFinalize?.action === 'interrupt'
     ) {
       const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
       return { runId, content: '', totalTokens, iterations: iteration, status: terminal };
@@ -2536,6 +2594,19 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       });
     }
 
+    if (!messagingSent && isDeferredWorkReply(finalResponseText)) {
+      engine.recordRunEvent(userId, runId, 'non_terminal_final_reply_rejected', {
+        iteration,
+        contentPreview: String(finalResponseText || '').slice(0, 240),
+      }, { agentId });
+      finalResponseText = buildDeterministicMessagingFallback({
+        failedStepCount,
+        stepIndex,
+        toolExecutions,
+      });
+      lastContent = finalResponseText;
+    }
+
     if (deliverableWorkflow && deliverablePlan) {
       engine.recordRunEvent(userId, runId, 'deliverable_validation_started', {
         type: deliverableWorkflow.selection.type,
@@ -2580,8 +2651,23 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       db.prepare('UPDATE conversations SET total_tokens = total_tokens + ?, updated_at = datetime(\'now\') WHERE id = ?')
         .run(totalTokens, conversationId);
       if (options.skipConversationMaintenance !== true) {
-        refreshConversationSummary(conversationId, provider, model, historyWindow).catch((err) => {
-          console.error('[AI] Conversation summary refresh failed:', err.message);
+        engine.trackBackgroundTask(
+          (signal) => refreshConversationSummary(
+            conversationId,
+            provider,
+            model,
+            historyWindow,
+            false,
+            { signal },
+          ),
+          {
+            key: `conversation-summary:${conversationId}`,
+            signal: runMeta?.abortController?.signal || null,
+          },
+        ).catch((err) => {
+          if (!isAbortError(err, runMeta?.abortController?.signal) && !engine.shuttingDown) {
+            console.error('[AI] Conversation summary refresh failed:', err.message);
+          }
         });
       }
     }
@@ -2603,6 +2689,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     // Fallback: if this was a messaging-triggered run and no final delivery
     // was already sent in this run, auto-send the final assistant text.
     // Interim progress updates do not suppress this final delivery.
+    await engine.stopMessagingProgressSupervisor(runId);
     if (triggerSource === 'messaging' && options.source && options.chatId) {
       if (engine.shouldSendMessagingFinalFallback(runMeta, lastContent || '', options.source) && !lastFinalDeliveryMessage) {
         await engine.deliverMessagingFinalFallback({
@@ -2622,7 +2709,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     });
     if (!completionWon) {
       const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
       return { runId, content: '', totalTokens, iterations: iteration, status: terminal };
@@ -2639,7 +2726,12 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         analysis,
         verification,
         historyWindow,
-        options: { ...options, userId, agentId },
+        options: {
+          ...options,
+          userId,
+          agentId,
+          signal: engine.getRunMeta(runId)?.abortController?.signal || null,
+        },
       }).catch((err) => {
         console.error('[AI] Conversation working state refresh failed:', err.message);
       });
@@ -2648,7 +2740,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     console.info(
       `[Run ${shortenRunId(runId)}] completed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} durationMs=${runMeta?.startedAt ? Date.now() - runMeta.startedAt : 0} finalResponse=${finalResponseText ? 'yes' : 'no'} sentMessages=${runMeta?.sentMessages?.length || 0}`
     );
-    engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+    await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
     engine.stopMessagingProgressSupervisor(runId);
     engine.activeRuns.delete(runId);
     engine.emit(userId, 'run:complete', {
@@ -2681,12 +2773,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     // Fire-and-forget: plugins can use this for self-improvement, memory
     // consolidation, analytics, or other post-run housekeeping.
     if (globalHooks.has('on_loop_end')) {
-      globalHooks.run('on_loop_end', {
-        userId, runId, agentId, status: 'completed',
-        iterations: iteration, totalTokens,
-        taskAnalysis: analysis,
-        finalContent: finalResponseText,
-      }).catch(() => {});
+      engine.trackBackgroundTask(
+        (signal) => globalHooks.run('on_loop_end', {
+          userId, runId, agentId, status: 'completed',
+          iterations: iteration, totalTokens,
+          taskAnalysis: analysis,
+          finalContent: finalResponseText,
+          signal,
+        }),
+        { signal: runMeta?.abortController?.signal || null },
+      ).catch(() => {});
     }
     if (engine.learningManager) {
       try {
@@ -2712,25 +2808,37 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
     return { runId, content: lastContent, totalTokens, iterations: iteration, status: 'completed' };
   } catch (err) {
+    if (!runRecordCreated) throw err;
     if (engine.isRunStopped(runId)) {
-      db.prepare('UPDATE agent_runs SET status = ?, updated_at = datetime(\'now\'), completed_at = datetime(\'now\') WHERE id = ?')
-        .run('stopped', runId);
+      const stoppedRunMeta = engine.getRunMeta(runId);
+      const persistedTerminal = db.prepare(
+        'SELECT status, error FROM agent_runs WHERE id = ?',
+      ).get(runId);
+      const terminalStatus = persistedTerminal?.status === 'interrupted'
+        || stoppedRunMeta?.status === 'interrupted'
+        ? 'interrupted'
+        : 'stopped';
       console.warn(
-        `[Run ${shortenRunId(runId)}] stopped trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
+        `[Run ${shortenRunId(runId)}] ${terminalStatus} trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens}`
       );
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
-      engine.emit(userId, 'run:stopped', { runId, triggerSource });
-      engine.recordRunEvent(userId, runId, 'run_stopped', {
+      engine.emit(userId, terminalStatus === 'interrupted' ? 'run:interrupted' : 'run:stopped', {
+        runId,
+        triggerSource,
+        reason: stoppedRunMeta?.stopReason || persistedTerminal?.error || null,
+      });
+      engine.recordRunEvent(userId, terminalStatus === 'interrupted' ? 'run_interrupted' : 'run_stopped', {
         triggerSource,
         totalTokens,
         iterations: iteration,
       }, { agentId });
-      return { runId, content: '', totalTokens, iterations: iteration, status: 'stopped' };
+      return { runId, content: '', totalTokens, iterations: iteration, status: terminalStatus };
     }
 
     const runMeta = engine.activeRuns.get(runId);
+    await engine.stopMessagingProgressSupervisor(runId);
 
     const deliverableFailureResponse = err?.deliverableResult?.summary
       || err?.deliverableValidation?.summary
@@ -2754,16 +2862,20 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               content: `The run encountered a runtime error and cannot continue reliably. Use the actual run scenario below to explain the blocker naturally.\n\nScenario:\n${failureScenario || 'No additional scenario details were captured.'}\n\nDo not call tools. Write exactly one short user message. Do not ask the user to resend or restate the same task. Only ask the user for something if a specific external input, permission, or configuration change is actually required. Do not promise future work unless it will happen automatically before this reply is sent.\n\n${buildPlatformFormattingGuide(options?.source || null)}`
             }
           ]);
-          const modelReply = await withModelCallTimeout(
-            provider.chat(failedMessage, [], {
+          const modelReply = await runAbortableModelCall(
+            (signal) => provider.chat(failedMessage, [], {
               model,
-              reasoningEffort: engine.getReasoningEffort(providerName, options)
+              reasoningEffort: engine.getReasoningEffort(providerName, options),
+              signal,
             }),
-            options,
+            { ...options, signal: runMeta?.abortController?.signal },
             'Messaging failure reply',
           );
           const drafted = sanitizeModelOutput(modelReply.content || '', { model });
-          if (normalizeOutgoingMessage(drafted, options?.source || null)) {
+          if (
+            normalizeOutgoingMessage(drafted, options?.source || null)
+            && !isDeferredWorkReply(drafted)
+          ) {
             messagingFailureContent = drafted.trim();
           }
         } catch {
@@ -2785,7 +2897,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             options.source,
             options.chatId,
             messagingFailureContent,
-            { runId, agentId },
+            {
+              runId,
+              agentId,
+              signal: runMeta?.abortController?.signal || null,
+            },
           );
           requireSuccessfulMessagingDelivery(deliveryResult, 'Messaging failure delivery');
           sendSucceeded = true;
@@ -2810,7 +2926,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       totalTokens,
     });
     if (!failureWon) {
-      engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+      await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
       engine.stopMessagingProgressSupervisor(runId);
       engine.activeRuns.delete(runId);
       const terminal = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status || 'stopped';
@@ -2820,7 +2936,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       `[Run ${shortenRunId(runId)}] failed trigger=${triggerSource} steps=${stepIndex} tokens=${totalTokens} error=${summarizeForLog(err.message, 180)}`
     );
 
-    engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
+    await engine.cleanupSubagentsForRun(runId, { cancelRunning: true });
     engine.stopMessagingProgressSupervisor(runId);
     engine.activeRuns.delete(runId);
     engine.emit(userId, 'run:error', { runId, error: err.message });
@@ -2830,17 +2946,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       iterations: iteration,
       deliverableType: deliverableWorkflow?.selection?.type || null,
     }, { agentId });
-    timelineService?.recordRunLifecycle?.({
-      userId,
-      agentId,
-      runId,
-      title: runTitle,
-      eventKind: 'run_failed',
-      status: 'failed',
-      triggerSource,
-      error: err.message,
-    });
-
     if (messagingFailureContent) {
       return {
         runId,
@@ -2853,6 +2958,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
 
     throw err;
   } finally {
+    detachExternalAbort?.();
     releaseReservation();
   }
 }

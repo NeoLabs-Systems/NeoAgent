@@ -109,26 +109,69 @@ function readEnvFileRaw(envFile = ENV_FILE) {
   }
 }
 
+function writeEnvFileAtomic(envFile, content) {
+  const resolved = path.resolve(envFile);
+  const directory = path.dirname(resolved);
+  const temporary = path.join(
+    directory,
+    `.${path.basename(resolved)}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`,
+  );
+  fs.mkdirSync(directory, { recursive: true });
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(temporary, 'wx', 0o600);
+    fs.writeFileSync(descriptor, content, 'utf8');
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    fs.renameSync(temporary, resolved);
+  } finally {
+    if (descriptor !== null) {
+      try { fs.closeSync(descriptor); } catch {}
+    }
+    try { fs.rmSync(temporary, { force: true }); } catch {}
+  }
+}
+
+function normalizeEnvKey(key) {
+  const normalized = String(key).replace(/[\r\n]/g, '');
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(normalized)) {
+    throw new Error(`Invalid environment variable name: ${normalized || '(empty)'}`);
+  }
+  return normalized;
+}
+
 function upsertEnvValue(envFile, key, value) {
+  const safeKey = normalizeEnvKey(key);
+  const safeValue = String(value).replace(/[\r\n]/g, '');
   const raw = readEnvFileRaw(envFile);
   const lines = raw ? raw.split('\n') : [];
   let replaced = false;
 
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith(`${key}=`)) {
-      lines[i] = `${key}=${value}`;
+    if (lines[i].startsWith(`${safeKey}=`)) {
+      lines[i] = `${safeKey}=${safeValue}`;
       replaced = true;
       break;
     }
   }
 
   if (!replaced) {
-    lines.push(`${key}=${value}`);
+    lines.push(`${safeKey}=${safeValue}`);
   }
 
   const output = lines.filter((line, idx, arr) => idx !== arr.length - 1 || line !== '').join('\n') + '\n';
-  fs.mkdirSync(path.dirname(envFile), { recursive: true });
-  fs.writeFileSync(envFile, output, { mode: 0o600 });
+  writeEnvFileAtomic(envFile, output);
+}
+
+function removeEnvValue(envFile, key) {
+  const safeKey = normalizeEnvKey(key);
+  const raw = readEnvFileRaw(envFile);
+  if (!raw) return false;
+  const lines = raw.split('\n').filter((line) => !line.startsWith(`${safeKey}=`));
+  const output = lines.filter((line, idx, arr) => idx !== arr.length - 1 || line !== '').join('\n') + '\n';
+  writeEnvFileAtomic(envFile, output);
+  return true;
 }
 
 function generateSecret(bytes = 32) {
@@ -247,6 +290,7 @@ module.exports = {
   ensureSecureRuntimeEnv,
   getDefaultVmBaseImageUrl,
   migrateLegacyRuntime,
+  removeEnvValue,
   upsertEnvValue,
   readEnvFileRaw,
 };

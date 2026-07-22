@@ -8,19 +8,28 @@ const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { CLIExecutor } = require('../cli/executor');
+const { executeSafeHttpRequest } = require('../network/safe_request');
 const { getAdapterForPlatform } = require('./adapters');
-const { decideTranscriptPath, parseCaptionText, pickCaptionTrack } = require('./captions');
+const {
+  MAX_VTT_BYTES,
+  decideTranscriptPath,
+  parseCaptionText,
+  pickCaptionTrack,
+} = require('./captions');
 const { inferImageContentType, pickDeterministicFrameSecond } = require('./frame');
 const { extractPublicMetadataFromHtml } = require('./metadata');
 const { shapeSocialVideoResult } = require('./result');
 const { normalizeAndDetectPlatform } = require('./url');
 const { isMainAgent } = require('../agents/manager');
 const { resolveSttModel, transcribeVoiceInput } = require('../voice/providers');
+const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
 const SOCIAL_VIDEO_TMP_DIR = path.join(DATA_DIR, 'social-video-temp');
 fs.mkdirSync(SOCIAL_VIDEO_TMP_DIR, { recursive: true });
 
 const HEALTH_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_PAGE_HTML_BYTES = 2 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 10 * 1024 * 1024;
 
 // A realistic desktop browser UA. Social platforms frequently return 403/bot
 // challenge pages to the default Node/yt-dlp user agents, so we present a
@@ -44,17 +53,38 @@ const YT_DLP_NETWORK_FLAGS = [
 // bot detection. For these we always try to attach the user's browser cookies.
 const COOKIE_ASSISTED_PLATFORMS = new Set(['instagram', 'youtube', 'tiktok', 'x']);
 
-async function fetchWithBrowserHeaders(url, options = {}) {
-  return fetch(url, {
-    redirect: 'follow',
-    ...options,
+async function fetchPublicResource(url, options = {}) {
+  const result = await executeSafeHttpRequest({
+    url,
+    method: 'GET',
+    timeout_ms: options.timeoutMs || 30000,
     headers: {
       'user-agent': BROWSER_USER_AGENT,
       'accept-language': 'en-US,en;q=0.9',
-      accept: '*/*',
+      accept: options.accept || '*/*',
       ...(options.headers || {}),
     },
+  }, {
+    signal: options.signal,
+    maxResponseBytes: options.maxResponseBytes,
+    responseType: options.responseType,
   });
+  if (result.truncated) {
+    const error = new Error('Social video response exceeded its safety limit.');
+    error.code = 'SOCIAL_VIDEO_RESPONSE_TOO_LARGE';
+    throw error;
+  }
+  if (result.status < 200 || result.status >= 300) {
+    const error = new Error(`Social video request failed (${result.status}).`);
+    error.status = result.status;
+    throw error;
+  }
+  return result;
+}
+
+function rethrowCancellation(error, signal) {
+  if (signal?.aborted) throw createAbortError(signal);
+  if (isAbortError(error)) throw error;
 }
 
 function shellEscape(value) {
@@ -256,6 +286,7 @@ class SocialVideoService {
   }
 
   async getHealthStatus(options = {}) {
+    throwIfAborted(options.signal, 'Social video health check aborted.');
     const forceRefresh = options.forceRefresh === true;
     const now = Date.now();
     if (!forceRefresh && this._healthCache.value && (now - this._healthCache.ts) < HEALTH_CACHE_TTL_MS) {
@@ -263,8 +294,8 @@ class SocialVideoService {
     }
 
     const [ytDlp, ffmpeg] = await Promise.all([
-      this.#probeBinary(this.ytDlpBin, '--version'),
-      this.#probeBinary(this.ffmpegBin, '-version'),
+      this.#probeBinary(this.ytDlpBin, '--version', options.signal),
+      this.#probeBinary(this.ffmpegBin, '-version', options.signal),
     ]);
 
     const health = {
@@ -291,7 +322,8 @@ class SocialVideoService {
     let jobDir = null;
 
     try {
-      const health = await this.getHealthStatus();
+      throwIfAborted(options.signal, 'Social video extraction aborted.');
+      const health = await this.getHealthStatus({ signal: options.signal });
       if (!health.ready) {
         const missing = health.dependencies.filter((item) => !item.available).map((item) => item.name);
         throw new Error(`Missing required dependency: ${missing.join(', ')}`);
@@ -303,16 +335,28 @@ class SocialVideoService {
         throw new Error(`No adapter registered for platform: ${platform}`);
       }
 
-      const pageMetadata = await this.#resolvePageMetadata(userId, normalizedUrl, warnings);
+      const pageMetadata = await this.#resolvePageMetadata(
+        userId,
+        normalizedUrl,
+        warnings,
+        options.signal,
+      );
+      throwIfAborted(options.signal, 'Social video extraction aborted.');
       jobDir = await fsp.mkdtemp(path.join(SOCIAL_VIDEO_TMP_DIR, `${platform}-${Date.now()}-`));
       const cookieFilePath = await this.#resolveCookieFile({
         userId,
         platform,
         jobDir,
         warnings,
+        signal: options.signal,
       });
 
-      const mediaInfo = await this.#readMediaInfo(normalizedUrl, jobDir, cookieFilePath);
+      const mediaInfo = await this.#readMediaInfo(
+        normalizedUrl,
+        jobDir,
+        cookieFilePath,
+        options.signal,
+      );
       const baseTitle = String(pageMetadata.title || mediaInfo.title || '').trim();
       const baseDescription = String(pageMetadata.description || mediaInfo.description || '').trim();
       const resolvedUrl = String(pageMetadata.resolvedUrl || mediaInfo.webpage_url || normalizedUrl).trim();
@@ -339,6 +383,7 @@ class SocialVideoService {
         userId,
         agentId,
         warnings,
+        signal: options.signal,
       });
 
       const frameImage = options.includeFrame === false
@@ -350,6 +395,7 @@ class SocialVideoService {
           jobDir,
           cookieFilePath,
           warnings,
+          signal: options.signal,
         });
 
       return shapeSocialVideoResult({
@@ -372,7 +418,8 @@ class SocialVideoService {
         errors,
       });
     } catch (error) {
-      const health = await this.getHealthStatus().catch(() => null);
+      rethrowCancellation(error, options.signal);
+      const health = await this.getHealthStatus({ signal: options.signal }).catch(() => null);
       errors.push(classifyExtractionError(error));
       return shapeSocialVideoResult({
         sourceUrl: source,
@@ -403,14 +450,16 @@ class SocialVideoService {
       cwd: options.cwd || process.cwd(),
       timeout: options.timeout || 10 * 60 * 1000,
       env: options.env,
+      signal: options.signal,
     });
+    throwIfAborted(options.signal, 'Social video command aborted.');
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || result.stdout || `Command failed: ${command}`);
     }
     return result;
   }
 
-  async #probeBinary(binary, versionFlag) {
+  async #probeBinary(binary, versionFlag, signal = null) {
     const name = String(binary || '').trim();
     const fallback = {
       name,
@@ -430,7 +479,9 @@ class SocialVideoService {
       const command = `${shellEscape(name)} ${versionFlag}`;
       const result = await this.cliExecutor.execute(command, {
         timeout: 8 * 1000,
+        signal,
       });
+      throwIfAborted(signal, 'Social video dependency probe aborted.');
       if (result.exitCode !== 0) {
         return {
           ...fallback,
@@ -447,6 +498,7 @@ class SocialVideoService {
         error: null,
       };
     } catch (error) {
+      rethrowCancellation(error, signal);
       return {
         ...fallback,
         error: error.message || String(error),
@@ -454,8 +506,13 @@ class SocialVideoService {
     }
   }
 
-  async #resolvePageMetadata(userId, normalizedUrl, warnings) {
-    const browserMetadata = await this.#resolvePageMetadataViaBrowser(userId, normalizedUrl).catch((error) => {
+  async #resolvePageMetadata(userId, normalizedUrl, warnings, signal = null) {
+    const browserMetadata = await this.#resolvePageMetadataViaBrowser(
+      userId,
+      normalizedUrl,
+      signal,
+    ).catch((error) => {
+      rethrowCancellation(error, signal);
       warnings.push(`Browser metadata resolve failed: ${error.message}`);
       return null;
     });
@@ -463,21 +520,24 @@ class SocialVideoService {
       return browserMetadata;
     }
 
-    const response = await fetchWithBrowserHeaders(normalizedUrl);
-    const html = await response.text();
-    const metadata = extractPublicMetadataFromHtml(html, response.url || normalizedUrl);
+    const response = await fetchPublicResource(normalizedUrl, {
+      signal,
+      maxResponseBytes: MAX_PAGE_HTML_BYTES,
+      accept: 'text/html,*/*',
+    });
+    const metadata = extractPublicMetadataFromHtml(response.body, response.finalUrl || normalizedUrl);
     return {
       ...metadata,
-      resolvedUrl: String(response.url || normalizedUrl),
+      resolvedUrl: String(response.finalUrl || normalizedUrl),
     };
   }
 
-  async #resolvePageMetadataViaBrowser(userId, normalizedUrl) {
+  async #resolvePageMetadataViaBrowser(userId, normalizedUrl, signal = null) {
     if (!this.runtimeManager || typeof this.runtimeManager.getBrowserProviderForUser !== 'function') {
       throw new Error('Runtime browser provider is unavailable.');
     }
 
-    const browser = await this.runtimeManager.getBrowserProviderForUser(userId);
+    const browser = await this.runtimeManager.getBrowserProviderForUser(userId, { signal });
     if (!browser || typeof browser.navigate !== 'function' || typeof browser.extract !== 'function') {
       throw new Error('Runtime browser provider does not support metadata extraction.');
     }
@@ -485,16 +545,29 @@ class SocialVideoService {
     const nav = await browser.navigate(normalizedUrl, {
       screenshot: false,
       waitUntil: 'domcontentloaded',
+      signal,
     });
     if (nav?.error) {
       throw new Error(nav.error);
     }
 
     const [canonicalRaw, descriptionRaw, ogDescriptionRaw, titleTagRaw] = await Promise.all([
-      browser.extract('link[rel="canonical"]', 'href', false).catch(() => ''),
-      browser.extract('meta[name="description"]', 'content', false).catch(() => ''),
-      browser.extract('meta[property="og:description"]', 'content', false).catch(() => ''),
-      browser.extract('meta[property="og:title"]', 'content', false).catch(() => ''),
+      browser.extract('link[rel="canonical"]', 'href', false, { signal }).catch((error) => {
+        rethrowCancellation(error, signal);
+        return '';
+      }),
+      browser.extract('meta[name="description"]', 'content', false, { signal }).catch((error) => {
+        rethrowCancellation(error, signal);
+        return '';
+      }),
+      browser.extract('meta[property="og:description"]', 'content', false, { signal }).catch((error) => {
+        rethrowCancellation(error, signal);
+        return '';
+      }),
+      browser.extract('meta[property="og:title"]', 'content', false, { signal }).catch((error) => {
+        rethrowCancellation(error, signal);
+        return '';
+      }),
     ]);
     const canonical = unwrapBrowserExtractValue(canonicalRaw);
     const description = unwrapBrowserExtractValue(descriptionRaw);
@@ -509,16 +582,17 @@ class SocialVideoService {
     };
   }
 
-  async #readMediaInfo(normalizedUrl, jobDir, cookieFilePath = null) {
+  async #readMediaInfo(normalizedUrl, jobDir, cookieFilePath = null, signal = null) {
     const infoTemplate = path.join(jobDir, 'media.%(ext)s');
     const infoPath = path.join(jobDir, 'media.info.json');
     const cookieArg = cookieFilePath ? ` --cookies ${shellEscape(cookieFilePath)}` : '';
     const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()} --skip-download --write-info-json --no-clean-infojson${cookieArg} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
-    await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000 });
+    await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000, signal });
     if (!fileExists(infoPath)) {
       throw new Error('yt-dlp did not produce an info JSON artifact.');
     }
     const raw = String(await fsp.readFile(infoPath, 'utf8')).trim();
+    throwIfAborted(signal, 'Social video extraction aborted.');
     let parsed;
     try {
       parsed = JSON.parse(raw);
@@ -530,7 +604,11 @@ class SocialVideoService {
 
   async #resolveTranscript(context) {
     if (context.transcriptDecision.mode === 'captions' && context.captionTrack) {
-      const captionText = await this.#readTranscriptFromCaption(context.captionTrack).catch((error) => {
+      const captionText = await this.#readTranscriptFromCaption(
+        context.captionTrack,
+        context.signal,
+      ).catch((error) => {
+        rethrowCancellation(error, context.signal);
         context.warnings.push(`Caption transcript failed: ${error.message}`);
         return '';
       });
@@ -544,6 +622,7 @@ class SocialVideoService {
     }
 
     const transcript = await this.#transcribeViaStt(context).catch((error) => {
+      rethrowCancellation(error, context.signal);
       context.warnings.push(`Speech-to-text fallback failed: ${error.message}`);
       return '';
     });
@@ -553,20 +632,24 @@ class SocialVideoService {
     };
   }
 
-  async #readTranscriptFromCaption(captionTrack) {
-    const response = await fetchWithBrowserHeaders(captionTrack.url);
-    if (!response.ok) {
-      throw new Error(`Caption request failed (${response.status}).`);
-    }
-    const raw = await response.text();
-    return parseCaptionText(raw, captionTrack.ext);
+  async #readTranscriptFromCaption(captionTrack, signal = null) {
+    const response = await fetchPublicResource(captionTrack.url, {
+      signal,
+      maxResponseBytes: MAX_VTT_BYTES,
+      accept: 'text/vtt,text/plain,application/json,application/xml,*/*',
+    });
+    return parseCaptionText(response.body, captionTrack.ext);
   }
 
   async #transcribeViaStt(context) {
     const template = path.join(context.jobDir, 'audio.%(ext)s');
     const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
     const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f bestaudio/best -- ${shellEscape(context.sourceUrl)}`;
-    await this.#runCommand(command, { cwd: context.jobDir, timeout: 10 * 60 * 1000 });
+    await this.#runCommand(command, {
+      cwd: context.jobDir,
+      timeout: 10 * 60 * 1000,
+      signal: context.signal,
+    });
 
     const audioPath = firstFileMatching(context.jobDir, 'audio.');
     if (!audioPath || !fileExists(audioPath)) {
@@ -576,10 +659,12 @@ class SocialVideoService {
     const sttConfig = await Promise.resolve(
       this.voiceSettingsResolver(context.userId, context.agentId),
     );
+    throwIfAborted(context.signal, 'Social video transcription aborted.');
     return this.voiceTranscriber(audioPath, {
       provider: sttConfig?.provider || 'openai',
       model: sttConfig?.model || '',
       mimeType: detectMimeFromFile(audioPath),
+      signal: context.signal,
     });
   }
 
@@ -599,13 +684,19 @@ class SocialVideoService {
     }
 
     const browser = await Promise.resolve(
-      this.runtimeManager.getBrowserProviderForUser(context.userId),
-    ).catch(() => null);
+      this.runtimeManager.getBrowserProviderForUser(context.userId, {
+        signal: context.signal,
+      }),
+    ).catch((error) => {
+      rethrowCancellation(error, context.signal);
+      return null;
+    });
     if (!browser || typeof browser.getCookies !== 'function') {
       return null;
     }
 
-    const payload = await browser.getCookies().catch((error) => {
+    const payload = await browser.getCookies({ signal: context.signal }).catch((error) => {
+      rethrowCancellation(error, context.signal);
       context.warnings.push(`Browser cookie export failed: ${error.message}`);
       return null;
     });
@@ -619,11 +710,13 @@ class SocialVideoService {
 
     const cookieFilePath = path.join(context.jobDir, 'browser.cookies.txt');
     await fsp.writeFile(cookieFilePath, serializeCookiesForNetscapeJar(cookies), 'utf8');
+    throwIfAborted(context.signal, 'Social video cookie export aborted.');
     return cookieFilePath;
   }
 
   async #resolveFrameImage(context) {
     const downloadedFrame = await this.#extractFrameFromVideo(context).catch((error) => {
+      rethrowCancellation(error, context.signal);
       context.warnings.push(`Frame extraction failed: ${error.message}`);
       return null;
     });
@@ -636,14 +729,22 @@ class SocialVideoService {
       context.warnings.push('No thumbnail fallback was available after frame extraction failed.');
       return null;
     }
-    return this.#downloadThumbnailArtifact(context.userId, thumbnail.url);
+    return this.#downloadThumbnailArtifact(
+      context.userId,
+      thumbnail.url,
+      context.signal,
+    );
   }
 
   async #extractFrameFromVideo(context) {
     const template = path.join(context.jobDir, 'video.%(ext)s');
     const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
     const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
-    await this.#runCommand(downloadCommand, { cwd: context.jobDir, timeout: 14 * 60 * 1000 });
+    await this.#runCommand(downloadCommand, {
+      cwd: context.jobDir,
+      timeout: 14 * 60 * 1000,
+      signal: context.signal,
+    });
 
     const videoPath = firstFileMatching(context.jobDir, 'video.');
     if (!videoPath || !fileExists(videoPath)) {
@@ -653,7 +754,11 @@ class SocialVideoService {
     const framePath = path.join(context.jobDir, 'frame.jpg');
     const frameSecond = pickDeterministicFrameSecond(context.mediaInfo.duration);
     const frameCommand = `${shellEscape(this.ffmpegBin)} -hwaccel none -y -hide_banner -loglevel error -ss ${frameSecond} -i ${shellEscape(videoPath)} -frames:v 1 -q:v 2 ${shellEscape(framePath)}`;
-    await this.#runCommand(frameCommand, { cwd: context.jobDir, timeout: 2 * 60 * 1000 });
+    await this.#runCommand(frameCommand, {
+      cwd: context.jobDir,
+      timeout: 2 * 60 * 1000,
+      signal: context.signal,
+    });
 
     if (!fileExists(framePath)) {
       throw new Error('ffmpeg did not produce a frame image.');
@@ -661,14 +766,19 @@ class SocialVideoService {
     return this.#saveImageArtifact(context.userId, framePath, 'frame');
   }
 
-  async #downloadThumbnailArtifact(userId, thumbnailUrl) {
-    const response = await fetchWithBrowserHeaders(thumbnailUrl);
-    if (!response.ok) {
-      throw new Error(`Thumbnail request failed (${response.status}).`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const guessedExtension = path.extname(new URL(response.url || thumbnailUrl).pathname).replace('.', '') || 'jpg';
-    const mimeType = String(response.headers.get('content-type') || '').trim() || `image/${guessedExtension}`;
+  async #downloadThumbnailArtifact(userId, thumbnailUrl, signal = null) {
+    const response = await fetchPublicResource(thumbnailUrl, {
+      signal,
+      maxResponseBytes: MAX_THUMBNAIL_BYTES,
+      responseType: 'buffer',
+      accept: 'image/*,*/*',
+    });
+    const buffer = response.body;
+    const guessedExtension = path.extname(
+      new URL(response.finalUrl || thumbnailUrl).pathname,
+    ).replace('.', '') || 'jpg';
+    const mimeType = String(response.headers['content-type'] || '').trim()
+      || `image/${guessedExtension}`;
     if (!this.artifactStore || userId == null) {
       return {
         url: null,

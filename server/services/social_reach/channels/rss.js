@@ -31,9 +31,9 @@ class RssChannel extends SocialReachChannel {
     };
   }
 
-  async read({ url, limit }) {
+  async read({ url, limit, signal }) {
     const parsed = assertHttpUrl(url);
-    const xml = await fetchText(parsed.toString());
+    const xml = await fetchText(parsed.toString(), { publicOnly: true, signal });
     const $ = cheerio.load(xml, { xmlMode: true });
     const entries = $('item, entry').toArray().slice(0, normalizeLimit(limit, 20, 100));
     const title = $('channel > title, feed > title').first().text().trim() || null;

@@ -12,12 +12,13 @@ const DEFAULT_BOUNDS = Object.freeze({
 function decodeXml(value) {
   return String(value || '')
     .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
+    .replace(/&apos;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&#10;/g, '\n')
     .replace(/&#13;/g, '\r')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
 }
 
 function parseBounds(raw) {
@@ -54,7 +55,7 @@ function parseNodeAttributes(raw) {
 
 function parseUiDump(xml) {
   const nodes = [];
-  const nodeRe = /<node\b([^>]*)\/>/g;
+  const nodeRe = /<node\b([^>]*)>/g;
   let match = nodeRe.exec(String(xml || ''));
 
   while (match) {
@@ -123,8 +124,8 @@ function scoreNode(node, selector = {}) {
     else return -1;
   }
 
-  if (selector.clickable === true && node.clickable) score += 40;
-  if (selector.clickable === true && !node.clickable) score -= 60;
+  if (selector.clickable === true && !node.clickable) return -1;
+  if (selector.clickable === true) score += 40;
   if (node.enabled) score += 10;
   if (node.bounds.width > 0 && node.bounds.height > 0) score += 10;
 

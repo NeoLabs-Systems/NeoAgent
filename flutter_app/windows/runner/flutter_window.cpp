@@ -6,6 +6,7 @@
 #include <shellapi.h>
 #include <windows.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <cwchar>
@@ -162,6 +163,22 @@ DisplayInfo ResolveDisplay(const std::string& requested_id) {
              : displays.front();
 }
 
+POINT CapturedPixelToDesktopPoint(const DisplayInfo& display, int x, int y) {
+  const int width = std::max(1, display.rect.right - display.rect.left);
+  const int height = std::max(1, display.rect.bottom - display.rect.top);
+  return POINT{
+      display.rect.left + std::clamp(x, 0, width - 1),
+      display.rect.top + std::clamp(y, 0, height - 1),
+  };
+}
+
+POINT DisplayCenterPoint(const DisplayInfo& display) {
+  return POINT{
+      display.rect.left + ((display.rect.right - display.rect.left) / 2),
+      display.rect.top + ((display.rect.bottom - display.rect.top) / 2),
+  };
+}
+
 CLSID PngEncoderClsid() {
   UINT count = 0;
   UINT size = 0;
@@ -219,6 +236,10 @@ EncodableList DisplaysToEncodable() {
     EncodableMap item;
     item[EncodableValue("id")] = EncodableValue(WideToUtf8(display.id));
     item[EncodableValue("label")] = EncodableValue(WideToUtf8(display.label));
+    item[EncodableValue("x")] =
+        EncodableValue(static_cast<int>(display.rect.left));
+    item[EncodableValue("y")] =
+        EncodableValue(static_cast<int>(display.rect.top));
     item[EncodableValue("width")] = EncodableValue(width);
     item[EncodableValue("height")] = EncodableValue(height);
     item[EncodableValue("scaleFactor")] = EncodableValue(1.0);
@@ -305,18 +326,19 @@ bool IsWorkstationLocked() {
   return _wcsicmp(name, L"Default") != 0;
 }
 
-void SendMouseButton(DWORD flag) {
+bool SendMouseButton(DWORD flag) {
   INPUT input{};
   input.type = INPUT_MOUSE;
   input.mi.dwFlags = flag;
-  SendInput(1, &input, sizeof(INPUT));
+  return SendInput(1, &input, sizeof(INPUT)) == 1;
 }
 
 WORD VirtualKeyForString(const std::string& key) {
   const std::string lowered = [&]() {
     std::string value = key;
     for (auto& ch : value) {
-      ch = static_cast<char>(tolower(ch));
+      ch = static_cast<char>(
+          std::tolower(static_cast<unsigned char>(ch)));
     }
     return value;
   }();
@@ -332,17 +354,21 @@ WORD VirtualKeyForString(const std::string& key) {
   return 0;
 }
 
-void SendVirtualKey(WORD key_code) {
+bool SendVirtualKey(WORD key_code) {
   INPUT inputs[2]{};
   inputs[0].type = INPUT_KEYBOARD;
   inputs[0].ki.wVk = key_code;
   inputs[1].type = INPUT_KEYBOARD;
   inputs[1].ki.wVk = key_code;
   inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-  SendInput(2, inputs, sizeof(INPUT));
+  const UINT sent = SendInput(2, inputs, sizeof(INPUT));
+  if (sent == 1) {
+    SendInput(1, &inputs[1], sizeof(INPUT));
+  }
+  return sent == 2;
 }
 
-void SendUnicodeText(const std::wstring& text) {
+bool SendUnicodeText(const std::wstring& text) {
   for (const wchar_t ch : text) {
     INPUT inputs[2]{};
     inputs[0].type = INPUT_KEYBOARD;
@@ -351,8 +377,13 @@ void SendUnicodeText(const std::wstring& text) {
     inputs[1].type = INPUT_KEYBOARD;
     inputs[1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
     inputs[1].ki.wScan = ch;
-    SendInput(2, inputs, sizeof(INPUT));
+    const UINT sent = SendInput(2, inputs, sizeof(INPUT));
+    if (sent == 1) {
+      SendInput(1, &inputs[1], sizeof(INPUT));
+    }
+    if (sent != 2) return false;
   }
+  return true;
 }
 
 }  // namespace
@@ -462,19 +493,59 @@ bool FlutterWindow::OnCreate() {
           }
           int x = 0;
           int y = 0;
-          GetInt(*arguments, "x", &x);
-          GetInt(*arguments, "y", &y);
+          if (!GetInt(*arguments, "x", &x) ||
+              !GetInt(*arguments, "y", &y)) {
+            result->Error("invalid_arguments", "Missing click coordinates.");
+            return;
+          }
           const std::string button = GetString(*arguments, "button", "left");
-          SetCursorPos(x, y);
+          const DisplayInfo display =
+              ResolveDisplay(GetString(*arguments, "displayId"));
+          const POINT point = CapturedPixelToDesktopPoint(display, x, y);
+          if (!SetCursorPos(point.x, point.y)) {
+            result->Error("input_failed", "Unable to move the desktop cursor.");
+            return;
+          }
+          bool sent = false;
           if (button == "right") {
-            SendMouseButton(MOUSEEVENTF_RIGHTDOWN);
-            SendMouseButton(MOUSEEVENTF_RIGHTUP);
+            const bool down = SendMouseButton(MOUSEEVENTF_RIGHTDOWN);
+            const bool up = SendMouseButton(MOUSEEVENTF_RIGHTUP);
+            sent = down && up;
           } else if (button == "middle") {
-            SendMouseButton(MOUSEEVENTF_MIDDLEDOWN);
-            SendMouseButton(MOUSEEVENTF_MIDDLEUP);
+            const bool down = SendMouseButton(MOUSEEVENTF_MIDDLEDOWN);
+            const bool up = SendMouseButton(MOUSEEVENTF_MIDDLEUP);
+            sent = down && up;
           } else {
-            SendMouseButton(MOUSEEVENTF_LEFTDOWN);
-            SendMouseButton(MOUSEEVENTF_LEFTUP);
+            const bool down = SendMouseButton(MOUSEEVENTF_LEFTDOWN);
+            const bool up = SendMouseButton(MOUSEEVENTF_LEFTUP);
+            sent = down && up;
+          }
+          if (!sent) {
+            result->Error("input_failed", "Unable to send the desktop click.");
+            return;
+          }
+          result->Success(EncodableValue());
+          return;
+        }
+
+        if (call.method_name() == "mouseMove") {
+          if (arguments == nullptr) {
+            result->Error("invalid_arguments", "Missing mouseMove payload.");
+            return;
+          }
+          int x = 0;
+          int y = 0;
+          if (!GetInt(*arguments, "x", &x) ||
+              !GetInt(*arguments, "y", &y)) {
+            result->Error("invalid_arguments", "Missing mouseMove coordinates.");
+            return;
+          }
+          const DisplayInfo display =
+              ResolveDisplay(GetString(*arguments, "displayId"));
+          const POINT point = CapturedPixelToDesktopPoint(display, x, y);
+          if (!SetCursorPos(point.x, point.y)) {
+            result->Error("input_failed", "Unable to move the desktop cursor.");
+            return;
           }
           result->Success(EncodableValue());
           return;
@@ -486,22 +557,40 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           int x1 = 0, y1 = 0, x2 = 0, y2 = 0, duration_ms = 280;
-          GetInt(*arguments, "x1", &x1);
-          GetInt(*arguments, "y1", &y1);
-          GetInt(*arguments, "x2", &x2);
-          GetInt(*arguments, "y2", &y2);
+          if (!GetInt(*arguments, "x1", &x1) ||
+              !GetInt(*arguments, "y1", &y1) ||
+              !GetInt(*arguments, "x2", &x2) ||
+              !GetInt(*arguments, "y2", &y2)) {
+            result->Error("invalid_arguments", "Missing drag coordinates.");
+            return;
+          }
           GetInt(*arguments, "durationMs", &duration_ms);
+          duration_ms = std::clamp(duration_ms, 40, 2000);
+          const DisplayInfo display =
+              ResolveDisplay(GetString(*arguments, "displayId"));
+          const POINT start = CapturedPixelToDesktopPoint(display, x1, y1);
+          const POINT end = CapturedPixelToDesktopPoint(display, x2, y2);
           const int steps = std::max(4, std::min(90, duration_ms / 16));
-          SetCursorPos(x1, y1);
-          SendMouseButton(MOUSEEVENTF_LEFTDOWN);
+          if (!SetCursorPos(start.x, start.y) ||
+              !SendMouseButton(MOUSEEVENTF_LEFTDOWN)) {
+            result->Error("input_failed", "Unable to begin the desktop drag.");
+            return;
+          }
+          bool moved = true;
           for (int step = 1; step <= steps; ++step) {
             const double t = static_cast<double>(step) / steps;
-            const int nx = static_cast<int>(std::lround(x1 + ((x2 - x1) * t)));
-            const int ny = static_cast<int>(std::lround(y1 + ((y2 - y1) * t)));
-            SetCursorPos(nx, ny);
+            const int nx = static_cast<int>(
+                std::lround(start.x + ((end.x - start.x) * t)));
+            const int ny = static_cast<int>(
+                std::lround(start.y + ((end.y - start.y) * t)));
+            moved = SetCursorPos(nx, ny) && moved;
             Sleep(std::max(1, duration_ms / std::max(1, steps)));
           }
-          SendMouseButton(MOUSEEVENTF_LEFTUP);
+          const bool released = SendMouseButton(MOUSEEVENTF_LEFTUP);
+          if (!moved || !released) {
+            result->Error("input_failed", "Unable to complete the desktop drag.");
+            return;
+          }
           result->Success(EncodableValue());
           return;
         }
@@ -515,19 +604,31 @@ bool FlutterWindow::OnCreate() {
           int delta_y = 0;
           GetInt(*arguments, "deltaX", &delta_x);
           GetInt(*arguments, "deltaY", &delta_y);
+          const DisplayInfo display =
+              ResolveDisplay(GetString(*arguments, "displayId"));
+          const POINT anchor = DisplayCenterPoint(display);
+          if (!SetCursorPos(anchor.x, anchor.y)) {
+            result->Error("input_failed", "Unable to position the desktop scroll.");
+            return;
+          }
+          bool sent = true;
           if (delta_y != 0) {
             INPUT input{};
             input.type = INPUT_MOUSE;
             input.mi.dwFlags = MOUSEEVENTF_WHEEL;
             input.mi.mouseData = static_cast<DWORD>(delta_y);
-            SendInput(1, &input, sizeof(INPUT));
+            sent = SendInput(1, &input, sizeof(INPUT)) == 1 && sent;
           }
           if (delta_x != 0) {
             INPUT input{};
             input.type = INPUT_MOUSE;
             input.mi.dwFlags = MOUSEEVENTF_HWHEEL;
             input.mi.mouseData = static_cast<DWORD>(delta_x);
-            SendInput(1, &input, sizeof(INPUT));
+            sent = SendInput(1, &input, sizeof(INPUT)) == 1 && sent;
+          }
+          if (!sent) {
+            result->Error("input_failed", "Unable to send the desktop scroll.");
+            return;
           }
           result->Success(EncodableValue());
           return;
@@ -540,11 +641,16 @@ bool FlutterWindow::OnCreate() {
           }
           const std::wstring text = Utf8ToWide(GetString(*arguments, "text", ""));
           const bool press_enter = GetBool(*arguments, "pressEnter", false);
+          bool sent = true;
           if (!text.empty()) {
-            SendUnicodeText(text);
+            sent = SendUnicodeText(text);
           }
-          if (press_enter) {
-            SendVirtualKey(VK_RETURN);
+          if (press_enter && sent) {
+            sent = SendVirtualKey(VK_RETURN);
+          }
+          if (!sent) {
+            result->Error("input_failed", "Unable to send desktop text input.");
+            return;
           }
           result->Success(EncodableValue());
           return;
@@ -561,7 +667,10 @@ bool FlutterWindow::OnCreate() {
             result->Error("unsupported_key", "Key is not supported.");
             return;
           }
-          SendVirtualKey(virtual_key);
+          if (!SendVirtualKey(virtual_key)) {
+            result->Error("input_failed", "Unable to send the desktop key.");
+            return;
+          }
           result->Success(EncodableValue());
           return;
         }

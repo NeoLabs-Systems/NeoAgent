@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const net = require('net');
 const tls = require('tls');
 const { BasePlatform } = require('./base');
+const { fetchResponseText } = require('../network/http');
 
 function requireText(value, label) {
   const text = String(value || '').trim();
@@ -51,14 +52,18 @@ function parseHeaders(value) {
 }
 
 async function fetchJson(url, options = {}, serviceName = 'Messaging platform') {
-  const response = await fetch(url, {
+  const { response, text } = await fetchResponseText(url, {
     ...options,
     headers: {
       ...(options.body == null ? {} : { 'content-type': 'application/json' }),
       ...(options.headers || {}),
     },
+    maxResponseBytes: Number(options.maxResponseBytes) > 0
+      ? Number(options.maxResponseBytes)
+      : 2 * 1024 * 1024,
+    serviceName,
+    timeoutMs: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 15000,
   });
-  const text = await response.text();
   let body = null;
   if (text) {
     try { body = JSON.parse(text); } catch { body = text; }
@@ -71,7 +76,13 @@ async function fetchJson(url, options = {}, serviceName = 'Messaging platform') 
       .replace(/https?:\/\/[^\s"'<>]+/gi, '[redacted-url]')
       .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*"[^"]*"/gi, '$1=[redacted]')
       .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*[^,\s;"'}\]]+/gi, '$1=[redacted]');
-    throw new Error(`${serviceName} request failed (${response.status}): ${detail || response.statusText}`);
+    const error = new Error(
+      `${serviceName} request failed (${response.status}): ${detail || response.statusText}`,
+    );
+    error.status = response.status;
+    error.headers = response.headers;
+    error.safeToRetry = response.status === 429;
+    throw error;
   }
   return body;
 }
@@ -173,7 +184,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
     };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     const urlTemplate = this.config.outboundUrl || this.config.webhookUrl || this.defaults.outboundUrl || this.defaults.webhookUrl;
     if (!urlTemplate) throw new Error(`${this.defaults.label || this.name} outbound URL is not configured`);
 
@@ -209,6 +220,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
       method: this.config.method || this.defaults.method || 'POST',
       headers,
       body: JSON.stringify(body),
+      signal: options.signal,
     }, this.defaults.label || this.name);
     return { success: true };
   }
@@ -284,12 +296,13 @@ class SlackPlatform extends BasePlatform {
     return this._botUserId ? { username: this._botUserId } : null;
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (!this.botToken) throw new Error('Slack bot token is required for outbound messages');
     const result = await fetchJson('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.botToken}` },
       body: JSON.stringify({ channel: to, text: content }),
+      signal: options.signal,
     }, 'Slack');
     if (result && result.ok === false) throw new Error(`Slack post failed: ${result.error || 'unknown error'}`);
     return { success: true, ts: result?.ts };
@@ -593,12 +606,13 @@ class MatrixPlatform extends BasePlatform {
     }
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.status !== 'connected') throw new Error('Matrix not connected');
     const txnId = encodeURIComponent(crypto.randomUUID());
     await this.#matrix(`/rooms/${encodeURIComponent(to)}/send/m.room.message/${txnId}`, {
       method: 'PUT',
       body: JSON.stringify({ msgtype: 'm.text', body: content }),
+      signal: options.signal,
     });
     return { success: true };
   }
@@ -618,9 +632,9 @@ class BlueBubblesPlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.config.outboundUrl || this.config.webhookUrl) {
-      return super.sendMessage(to, content);
+      return super.sendMessage(to, content, options);
     }
     const url = new URL(`${this.serverUrl}${this.config.sendPath || '/api/v1/message/text'}`);
     url.searchParams.set('guid', to);
@@ -629,6 +643,7 @@ class BlueBubblesPlatform extends ConfigurableHttpPlatform {
     await fetchJson(url.toString(), {
       method: 'POST',
       body: JSON.stringify({ message: content }),
+      signal: options.signal,
     }, this.defaults.label);
     return { success: true };
   }
@@ -713,9 +728,9 @@ class SignalPlatform extends ConfigurableHttpPlatform {
     }
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.config.outboundUrl || this.config.webhookUrl) {
-      return super.sendMessage(to, content);
+      return super.sendMessage(to, content, options);
     }
     await fetchJson(`${this.restUrl}/v2/send`, {
       method: 'POST',
@@ -724,6 +739,7 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         number: this.account,
         recipients: [to],
       }),
+      signal: options.signal,
     }, 'Signal');
     return { success: true };
   }
@@ -743,7 +759,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     const token = requireText(this.config.channelAccessToken || this.config.token, 'LINE channel access token');
     await fetchJson('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
@@ -752,6 +768,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
         to,
         messages: [{ type: 'text', text: content }],
       }),
+      signal: options.signal,
     }, 'LINE');
     return { success: true };
   }
@@ -815,14 +832,17 @@ class MattermostPlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
-    if (this.config.webhookUrl || this.config.outboundUrl) return super.sendMessage(to, content);
+  async sendMessage(to, content, options = {}) {
+    if (this.config.webhookUrl || this.config.outboundUrl) {
+      return super.sendMessage(to, content, options);
+    }
     const baseUrl = trimTrailingSlash(this.config.baseUrl);
     const token = requireText(this.config.token, 'Mattermost token');
     await fetchJson(`${baseUrl}/api/v4/posts`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({ channel_id: to, message: content }),
+      signal: options.signal,
     }, 'Mattermost');
     return { success: true };
   }

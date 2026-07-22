@@ -566,7 +566,27 @@ async function stopServices(app) {
       console.error('[ApprovalGate] Shutdown error:', getErrorMessage(err));
     }
   }
-  if (app.locals.agentEngine && typeof app.locals.agentEngine.interruptAllActiveRuns === 'function') {
+  if (app.locals.agentEngine && typeof app.locals.agentEngine.shutdown === 'function') {
+    try {
+      tasks.push(
+        app.locals.agentEngine.shutdown().then((status) => {
+          if (status.timedOut) {
+            console.warn(
+              `[AgentEngine] Shutdown timed out with ${status.pendingCount} operation(s) still settling`,
+            );
+          } else {
+            logServiceReady('Agent engine shutdown complete');
+          }
+        }),
+      );
+      logServiceReady('Active runs and background work marked interrupted');
+    } catch (err) {
+      console.error('[AgentEngine] Shutdown error:', getErrorMessage(err));
+    }
+  } else if (
+    app.locals.agentEngine
+    && typeof app.locals.agentEngine.interruptAllActiveRuns === 'function'
+  ) {
     try {
       app.locals.agentEngine.interruptAllActiveRuns();
       logServiceReady('Active runs marked interrupted');
@@ -595,6 +615,23 @@ async function stopServices(app) {
     );
   }
 
+  if (app.locals.messagingAutomationRuntime) {
+    tasks.push(
+      Promise.resolve()
+        .then(() => app.locals.messagingAutomationRuntime.shutdown())
+        .then((status) => {
+          if (status.timedOut) {
+            console.warn('[MessagingAutomation] Shutdown timed out while work was settling');
+          } else {
+            logServiceReady('Messaging automation shutdown complete');
+          }
+        })
+        .catch((err) => {
+          console.error('[MessagingAutomation] Shutdown error:', getErrorMessage(err));
+        }),
+    );
+  }
+
   if (app.locals.streamHub) {
     try {
       await app.locals.streamHub.shutdown();
@@ -613,6 +650,22 @@ async function stopServices(app) {
         })
         .catch((err) => {
           console.error('[MemoryIngestion] Stop error:', getErrorMessage(err));
+        }),
+    );
+  }
+
+  if (
+    app.locals.integrationManager &&
+    typeof app.locals.integrationManager.shutdown === 'function'
+  ) {
+    tasks.push(
+      Promise.resolve()
+        .then(() => app.locals.integrationManager.shutdown())
+        .then((status) => {
+          logServiceReady(`Official integrations shutdown complete (${status.state})`);
+        })
+        .catch((err) => {
+          console.error('[Integrations] Shutdown error:', getErrorMessage(err));
         }),
     );
   }
@@ -641,6 +694,22 @@ async function stopServices(app) {
     );
   }
 
+  if (app.locals.browserExtensionGateway?.close) {
+    tasks.push(
+      app.locals.browserExtensionGateway.close().catch((err) => {
+        console.error('[BrowserExtensionGateway] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.desktopCompanionGateway?.close) {
+    tasks.push(
+      app.locals.desktopCompanionGateway.close().catch((err) => {
+        console.error('[DesktopCompanionGateway] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
   if (app.locals.browserControllers instanceof Map) {
     for (const controller of app.locals.browserControllers.values()) {
       tasks.push(
@@ -655,6 +724,23 @@ async function stopServices(app) {
     tasks.push(
       app.locals.messagingManager.shutdown().catch((err) => {
         console.error('[Messaging] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (
+    app.locals.voiceRuntimeManager
+    && typeof app.locals.voiceRuntimeManager.shutdown === 'function'
+  ) {
+    tasks.push(
+      app.locals.voiceRuntimeManager.shutdown().then((status) => {
+        if (status.timedOut) {
+          console.warn('[VoiceRuntime] Shutdown timed out while sessions were closing');
+        } else {
+          logServiceReady('Voice runtime shutdown complete');
+        }
+      }).catch((err) => {
+        console.error('[VoiceRuntime] Shutdown error:', getErrorMessage(err));
       }),
     );
   }

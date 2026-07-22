@@ -6,6 +6,12 @@ const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { getOpenAiClient } = require('./openaiClient');
 const { synthesizeSpeechBuffer } = require('./openaiSpeech');
 const { decryptLocalValue } = require('../../utils/local_secrets');
+const { fetchResponseBuffer, fetchResponseText } = require('../network/http');
+const {
+  createAbortError,
+  runWithAbortTimeout,
+  throwIfAborted,
+} = require('../../utils/abort');
 
 const DEEPGRAM_STT_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
 const DEEPGRAM_STT_LANGUAGE = process.env.DEEPGRAM_LANGUAGE || 'multi';
@@ -16,6 +22,7 @@ async function transcribeChunkWithDeepgram({
   mimeType,
   detectLanguage = DEEPGRAM_STT_LANGUAGE,
   model = DEEPGRAM_STT_MODEL,
+  signal = null,
 } = {}) {
   if (!(audioBytes instanceof Uint8Array) || audioBytes.byteLength === 0) {
     throw new Error('Audio payload is empty.');
@@ -30,7 +37,7 @@ async function transcribeChunkWithDeepgram({
     utterances: 'true',
     diarize: 'false',
   });
-  const response = await fetch(
+  return fetchJsonOrThrow(
     `${DEEPGRAM_BASE_URL.replace(/\/$/, '')}/v1/listen?${query.toString()}`,
     {
       method: 'POST',
@@ -39,14 +46,11 @@ async function transcribeChunkWithDeepgram({
         'Content-Type': mimeType || 'application/octet-stream',
       },
       body: audioBytes,
+      signal,
     },
+    'Deepgram request failed',
+    { maxResponseBytes: 10 * 1024 * 1024, timeoutMs: 60000 },
   );
-
-  if (!response.ok) {
-    await throwResponseError(response, 'Deepgram request failed');
-  }
-
-  return response.json();
 }
 
 const DEFAULT_STT_PROVIDER = 'openai';
@@ -92,25 +96,10 @@ const WEARABLE_SAFE_AUDIO_FORMAT = Object.freeze({
 });
 const MIN_STREAM_PCM_CHUNK_BYTES = 24000;
 const MAX_STREAM_PCM_CHUNK_BYTES = 48000;
-
-function withTimeout(promise, timeoutMs, label) {
-  const normalizedTimeout = Number(timeoutMs);
-  if (!Number.isFinite(normalizedTimeout) || normalizedTimeout <= 0) {
-    return promise;
-  }
-  let timer = null;
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${normalizedTimeout}ms.`));
-    }, normalizedTimeout);
-    timer.unref?.();
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  });
-}
+const DEFAULT_STT_TIMEOUT_MS = 60000;
+const DEFAULT_TTS_TIMEOUT_MS = 30000;
+const MAX_JSON_RESPONSE_BYTES = 40 * 1024 * 1024;
+const MAX_AUDIO_RESPONSE_BYTES = 32 * 1024 * 1024;
 
 function sanitizeSpeechText(value) {
   const text = String(value || '');
@@ -212,46 +201,71 @@ function requireApiKey(settingLabel, candidates = []) {
   return apiKey;
 }
 
-async function throwResponseError(response, prefix) {
-  const body = await response.text();
-  throw new Error(`${prefix} (${response.status}): ${body || 'empty response'}`);
+function responseError(prefix, status, body) {
+  const error = new Error(
+    `${prefix} (${status}): ${String(body || 'empty response').slice(0, 2000)}`,
+  );
+  error.status = status;
+  return error;
 }
 
-async function fetchJsonOrThrow(url, init, errorPrefix) {
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    await throwResponseError(response, errorPrefix);
+async function fetchJsonOrThrow(url, init, errorPrefix, options = {}) {
+  const { response, text } = await fetchResponseText(url, {
+    ...init,
+    timeoutMs: options.timeoutMs || DEFAULT_STT_TIMEOUT_MS,
+    maxResponseBytes: options.maxResponseBytes || MAX_JSON_RESPONSE_BYTES,
+    serviceName: errorPrefix,
+    timeoutCode: 'VOICE_PROVIDER_TIMEOUT',
+    tooLargeCode: 'VOICE_PROVIDER_RESPONSE_TOO_LARGE',
+  });
+  if (!response.ok) throw responseError(errorPrefix, response.status, text);
+  try {
+    return JSON.parse(text);
+  } catch (cause) {
+    throw new Error(`${errorPrefix}: provider returned malformed JSON.`, { cause });
   }
-  return response.json();
 }
 
-async function fetchAudioOrThrow(url, init, errorPrefix, defaultMimeType = 'audio/mpeg') {
-  const response = await fetch(url, init);
+async function fetchAudioOrThrow(
+  url,
+  init,
+  errorPrefix,
+  defaultMimeType = 'audio/mpeg',
+  options = {},
+) {
+  const { response, body } = await fetchResponseBuffer(url, {
+    ...init,
+    timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS,
+    maxResponseBytes: options.maxResponseBytes || MAX_AUDIO_RESPONSE_BYTES,
+    serviceName: errorPrefix,
+    timeoutCode: 'VOICE_PROVIDER_TIMEOUT',
+    tooLargeCode: 'VOICE_PROVIDER_RESPONSE_TOO_LARGE',
+  });
   if (!response.ok) {
-    await throwResponseError(response, errorPrefix);
+    throw responseError(errorPrefix, response.status, body.toString('utf8'));
   }
   return {
-    audioBytes: Buffer.from(await response.arrayBuffer()),
+    audioBytes: body,
     mimeType: response.headers.get('content-type') || defaultMimeType,
   };
 }
 
-async function fetchAudioStreamOrThrow(url, init, errorPrefix, defaultMimeType = 'audio/mpeg', onChunk) {
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    await throwResponseError(response, errorPrefix);
-  }
-  const mimeType = response.headers.get('content-type') || defaultMimeType;
-  const reader = response.body.getReader();
-  const chunks = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value?.length) {
-      chunks.push(Buffer.from(value));
-    }
-  }
-  await onChunk({ audioBytes: Buffer.concat(chunks), mimeType });
+async function fetchAudioStreamOrThrow(
+  url,
+  init,
+  errorPrefix,
+  defaultMimeType,
+  onChunk,
+  options = {},
+) {
+  const audio = await fetchAudioOrThrow(
+    url,
+    init,
+    errorPrefix,
+    defaultMimeType,
+    options,
+  );
+  await onChunk(audio);
 }
 
 function guessExtFromMimeType(mimeType) {
@@ -312,11 +326,26 @@ function wrapPcmAsWav(audioBytes, format) {
   return Buffer.concat([header, data]);
 }
 
-async function streamPcmAsWavChunks(readable, format, onChunk) {
+async function emitPcmBufferAsWavChunks(audioBytes, format, onChunk, signal = null) {
+  const source = Buffer.isBuffer(audioBytes) ? audioBytes : Buffer.from(audioBytes || []);
+  for (let offset = 0; offset < source.length; offset += MAX_STREAM_PCM_CHUNK_BYTES) {
+    throwIfAborted(signal, 'Voice synthesis aborted.');
+    const end = Math.min(source.length, offset + MAX_STREAM_PCM_CHUNK_BYTES);
+    const evenEnd = end - ((end - offset) % 2);
+    if (evenEnd <= offset) continue;
+    await onChunk({
+      audioBytes: wrapPcmAsWav(source.subarray(offset, evenEnd), format),
+      mimeType: WEARABLE_SAFE_AUDIO_FORMAT.streamMimeType,
+    });
+  }
+}
+
+async function streamPcmAsWavChunks(readable, format, onChunk, options = {}) {
   const source = readable && typeof readable.getReader === 'function'
     ? readable
     : null;
   let pending = Buffer.alloc(0);
+  let totalBytes = 0;
 
   async function flushPending(force = false) {
     while (pending.length >= MIN_STREAM_PCM_CHUNK_BYTES || (force && pending.length > 0)) {
@@ -327,6 +356,7 @@ async function streamPcmAsWavChunks(readable, format, onChunk) {
       if (evenLength <= 0) return;
       const pcmChunk = pending.subarray(0, evenLength);
       pending = pending.subarray(evenLength);
+      throwIfAborted(options.signal, 'Voice synthesis aborted.');
       await onChunk({
         audioBytes: wrapPcmAsWav(pcmChunk, format),
         mimeType: WEARABLE_SAFE_AUDIO_FORMAT.streamMimeType,
@@ -340,6 +370,13 @@ async function streamPcmAsWavChunks(readable, format, onChunk) {
       const { done, value } = await reader.read();
       if (done) break;
       if (value?.length) {
+        totalBytes += value.length;
+        if (totalBytes > MAX_AUDIO_RESPONSE_BYTES) {
+          await reader.cancel().catch(() => {});
+          const error = new Error('Voice audio response exceeded its safety limit.');
+          error.code = 'VOICE_PROVIDER_RESPONSE_TOO_LARGE';
+          throw error;
+        }
         pending = Buffer.concat([pending, Buffer.from(value)]);
         await flushPending(false);
       }
@@ -347,7 +384,14 @@ async function streamPcmAsWavChunks(readable, format, onChunk) {
   } else {
     for await (const chunk of readable) {
       if (chunk?.length) {
-        pending = Buffer.concat([pending, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        totalBytes += buffer.length;
+        if (totalBytes > MAX_AUDIO_RESPONSE_BYTES) {
+          const error = new Error('Voice audio response exceeded its safety limit.');
+          error.code = 'VOICE_PROVIDER_RESPONSE_TOO_LARGE';
+          throw error;
+        }
+        pending = Buffer.concat([pending, buffer]);
         await flushPending(false);
       }
     }
@@ -363,19 +407,28 @@ async function transcribeWithOpenAi(filePath, model, options = {}) {
   if (!client) {
     throw new Error('OpenAI STT is selected but OPENAI_API_KEY is not configured.');
   }
-  const transcription = await client.audio.transcriptions.create({
-    file: fs.createReadStream(filePath),
-    model,
-  });
-  return String(transcription?.text || '').trim();
+  const file = fs.createReadStream(filePath);
+  const abortFile = () => file.destroy(createAbortError(options.signal));
+  options.signal?.addEventListener('abort', abortFile, { once: true });
+  try {
+    const transcription = await client.audio.transcriptions.create({
+      file,
+      model,
+    }, { signal: options.signal });
+    return String(transcription?.text || '').trim();
+  } finally {
+    options.signal?.removeEventListener('abort', abortFile);
+    file.destroy();
+  }
 }
 
-async function transcribeWithDeepgram(filePath, mimeType) {
-  const audioBytes = await fs.promises.readFile(filePath);
+async function transcribeWithDeepgram(filePath, mimeType, options = {}) {
+  const audioBytes = await fs.promises.readFile(filePath, { signal: options.signal });
   const payload = await transcribeChunkWithDeepgram({
     audioBytes,
     mimeType: mimeType || 'audio/mpeg',
     detectLanguage: 'multi',
+    signal: options.signal,
   });
 
   const transcript = payload?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
@@ -387,13 +440,14 @@ async function transcribeWithGemini(filePath, model, mimeType, options = {}) {
     (typeof options.apiKey === 'string' ? options.apiKey.trim() : '') ||
     requireApiKey('Gemini STT', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
-  const audioBytes = await fs.promises.readFile(filePath);
+  const audioBytes = await fs.promises.readFile(filePath, { signal: options.signal });
   const payload = await fetchJsonOrThrow(
-    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: [
@@ -415,8 +469,10 @@ async function transcribeWithGemini(filePath, model, mimeType, options = {}) {
           temperature: 0,
         },
       }),
+      signal: options.signal,
     },
     'Gemini STT request failed',
+    { maxResponseBytes: MAX_JSON_RESPONSE_BYTES, timeoutMs: DEFAULT_STT_TIMEOUT_MS },
   );
   const parts = payload?.candidates?.[0]?.content?.parts;
   const transcript = Array.isArray(parts)
@@ -428,16 +484,21 @@ async function transcribeWithGemini(filePath, model, mimeType, options = {}) {
 async function transcribeVoiceInput(filePath, options = {}) {
   const provider = normalizeSttProvider(options.provider);
   const model = resolveSttModel(provider, options.model);
-  let request = null;
-
-  if (provider === 'openai') {
-    request = transcribeWithOpenAi(filePath, model, options);
-  } else if (provider === 'deepgram') {
-    request = transcribeWithDeepgram(filePath, options.mimeType);
-  } else {
-    request = transcribeWithGemini(filePath, model, options.mimeType, options);
-  }
-  return withTimeout(request, options.timeoutMs, `${provider} STT`);
+  return runWithAbortTimeout(async (signal) => {
+    const requestOptions = { ...options, signal };
+    if (provider === 'openai') {
+      return transcribeWithOpenAi(filePath, model, requestOptions);
+    }
+    if (provider === 'deepgram') {
+      return transcribeWithDeepgram(filePath, options.mimeType, requestOptions);
+    }
+    return transcribeWithGemini(filePath, model, options.mimeType, requestOptions);
+  }, {
+    signal: options.signal,
+    timeoutMs: options.timeoutMs || DEFAULT_STT_TIMEOUT_MS,
+    timeoutCode: 'VOICE_STT_TIMEOUT',
+    label: `${provider} STT`,
+  });
 }
 
 async function synthesizeWithOpenAi(text, model, voice, options = {}) {
@@ -453,6 +514,9 @@ async function synthesizeWithOpenAi(text, model, voice, options = {}) {
     model,
     voice,
     responseFormat: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.responseFormat : 'mp3',
+    signal: options.signal,
+    timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS,
+    maxResponseBytes: options.maxResponseBytes || MAX_AUDIO_RESPONSE_BYTES,
   });
   return {
     audioBytes,
@@ -474,7 +538,7 @@ async function streamWithOpenAi(text, model, voice, options = {}, onChunk) {
     voice: String(voice || 'alloy').trim() || 'alloy',
     input: text,
     response_format: useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.streamResponseFormat : 'mp3',
-  });
+  }, { signal: options.signal });
   if (useWearableSafeAudio) {
     await streamPcmAsWavChunks(
       response.body,
@@ -484,12 +548,22 @@ async function streamWithOpenAi(text, model, voice, options = {}, onChunk) {
         channels: WEARABLE_SAFE_AUDIO_FORMAT.pcmChannels,
       },
       onChunk,
+      { signal: options.signal },
     );
     return;
   }
   const chunks = [];
+  let totalBytes = 0;
   for await (const chunk of response.body) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    throwIfAborted(options.signal, 'OpenAI TTS stream aborted.');
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_AUDIO_RESPONSE_BYTES) {
+      const error = new Error('OpenAI speech response exceeded its safety limit.');
+      error.code = 'VOICE_PROVIDER_RESPONSE_TOO_LARGE';
+      throw error;
+    }
+    chunks.push(buffer);
   }
   const audioBytes = Buffer.concat(chunks);
   await onChunk({
@@ -518,9 +592,11 @@ async function synthesizeWithDeepgram(text, model, options = {}) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ text }),
+      signal: options.signal,
     },
     'Deepgram TTS request failed',
     useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
+    { timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS },
   );
 }
 
@@ -534,7 +610,7 @@ async function streamWithDeepgram(text, model, options = {}, onChunk) {
     searchParams.set('encoding', WEARABLE_SAFE_AUDIO_FORMAT.deepgramEncoding);
     searchParams.set('container', WEARABLE_SAFE_AUDIO_FORMAT.deepgramStreamContainer);
     searchParams.set('sample_rate', String(WEARABLE_SAFE_AUDIO_FORMAT.pcmSampleRate));
-    const response = await fetch(
+    const audio = await fetchAudioOrThrow(
       `https://api.deepgram.com/v1/speak?${searchParams.toString()}`,
       {
         method: 'POST',
@@ -543,19 +619,21 @@ async function streamWithDeepgram(text, model, options = {}, onChunk) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text }),
+        signal: options.signal,
       },
+      'Deepgram TTS stream failed',
+      'audio/pcm',
+      { timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS },
     );
-    if (!response.ok) {
-      await throwResponseError(response, 'Deepgram TTS stream failed');
-    }
-    await streamPcmAsWavChunks(
-      response.body,
+    await emitPcmBufferAsWavChunks(
+      audio.audioBytes,
       {
         bitsPerSample: WEARABLE_SAFE_AUDIO_FORMAT.pcmBitsPerSample,
         sampleRate: WEARABLE_SAFE_AUDIO_FORMAT.pcmSampleRate,
         channels: WEARABLE_SAFE_AUDIO_FORMAT.pcmChannels,
       },
       onChunk,
+      options.signal,
     );
     return;
   }
@@ -568,10 +646,12 @@ async function streamWithDeepgram(text, model, options = {}, onChunk) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ text }),
+      signal: options.signal,
     },
     'Deepgram TTS stream failed',
     useWearableSafeAudio ? WEARABLE_SAFE_AUDIO_FORMAT.mimeType : 'audio/mpeg',
     onChunk,
+    { timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS },
   );
 }
 
@@ -581,11 +661,12 @@ async function synthesizeWithGemini(text, model, voice, options = {}) {
     requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
   const payload = await fetchJsonOrThrow(
-    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: [
@@ -605,8 +686,10 @@ async function synthesizeWithGemini(text, model, voice, options = {}) {
           temperature: 0.6,
         },
       }),
+      signal: options.signal,
     },
     'Gemini TTS request failed',
+    { maxResponseBytes: MAX_JSON_RESPONSE_BYTES, timeoutMs: DEFAULT_TTS_TIMEOUT_MS },
   );
   const parts = payload?.candidates?.[0]?.content?.parts;
   const audioPart = Array.isArray(parts)
@@ -674,11 +757,14 @@ async function streamWithGemini(text, model, voice, options = {}, onChunk) {
     (typeof options.apiKey === 'string' ? options.apiKey.trim() : '') ||
     requireApiKey('Gemini TTS', ['GOOGLE_AI_KEY', 'GEMINI_API_KEY']);
 
-  const response = await fetch(
-    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+  const { response, text: eventStream } = await fetchResponseText(
+    `${GEMINI_API_BASE_URL}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text }] }],
         generationConfig: {
@@ -693,54 +779,40 @@ async function streamWithGemini(text, model, voice, options = {}, onChunk) {
           temperature: 0.6,
         },
       }),
+      signal: options.signal,
+      timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS,
+      maxResponseBytes: MAX_JSON_RESPONSE_BYTES,
+      serviceName: 'Gemini TTS stream',
+      timeoutCode: 'VOICE_PROVIDER_TIMEOUT',
+      tooLargeCode: 'VOICE_PROVIDER_RESPONSE_TOO_LARGE',
     },
   );
-
   if (!response.ok) {
-    await throwResponseError(response, 'Gemini TTS stream request failed');
+    throw responseError('Gemini TTS stream request failed', response.status, eventStream);
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    // SSE lines: each event is "data: {...}\n\n"
-    const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete line
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data:')) continue;
-      const jsonStr = trimmed.slice(5).trim();
-      if (!jsonStr || jsonStr === '[DONE]') continue;
-      let parsed;
-      try {
-        parsed = JSON.parse(jsonStr);
-      } catch {
-        continue;
-      }
-      const chunk = extractGeminiAudioChunk(parsed);
-      if (chunk) await onChunk(chunk);
+  let totalAudioBytes = 0;
+  for (const line of eventStream.split('\n')) {
+    throwIfAborted(options.signal, 'Gemini TTS stream aborted.');
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) continue;
+    const jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === '[DONE]') continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      continue;
     }
-  }
-
-  // Flush any remaining buffered data.
-  if (buffer.trim().startsWith('data:')) {
-    const jsonStr = buffer.trim().slice(5).trim();
-    if (jsonStr && jsonStr !== '[DONE]') {
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const chunk = extractGeminiAudioChunk(parsed);
-        if (chunk) await onChunk(chunk);
-      } catch {
-        // Ignore incomplete trailing chunk.
-      }
+    const chunk = extractGeminiAudioChunk(parsed);
+    if (!chunk) continue;
+    totalAudioBytes += chunk.audioBytes.length;
+    if (totalAudioBytes > MAX_AUDIO_RESPONSE_BYTES) {
+      const error = new Error('Gemini speech response exceeded its safety limit.');
+      error.code = 'VOICE_PROVIDER_RESPONSE_TOO_LARGE';
+      throw error;
     }
+    await onChunk(chunk);
   }
 }
 
@@ -751,16 +823,21 @@ async function synthesizeVoiceReply(text, options = {}) {
   }
 
   const { provider, model, voice } = normalizeVoiceSynthesisOptions(options);
-  let request = null;
-
-  if (provider === 'openai') {
-    request = synthesizeWithOpenAi(content, model, voice, options);
-  } else if (provider === 'deepgram') {
-    request = synthesizeWithDeepgram(content, model, options);
-  } else {
-    request = synthesizeWithGemini(content, model, voice, options);
-  }
-  return withTimeout(request, options.timeoutMs, `${provider} TTS`);
+  return runWithAbortTimeout(async (signal) => {
+    const requestOptions = { ...options, signal };
+    if (provider === 'openai') {
+      return synthesizeWithOpenAi(content, model, voice, requestOptions);
+    }
+    if (provider === 'deepgram') {
+      return synthesizeWithDeepgram(content, model, requestOptions);
+    }
+    return synthesizeWithGemini(content, model, voice, requestOptions);
+  }, {
+    signal: options.signal,
+    timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS,
+    timeoutCode: 'VOICE_TTS_TIMEOUT',
+    label: `${provider} TTS`,
+  });
 }
 
 // Minimum characters before flushing a sentence chunk to TTS to avoid tiny requests.
@@ -834,16 +911,21 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
   const chunks = splitIntoSentenceChunks(content);
 
   for (const chunk of chunks) {
-    const run = (async () => {
+    await runWithAbortTimeout(async (signal) => {
+      const requestOptions = { ...options, signal };
       if (provider === 'openai') {
-        await streamWithOpenAi(chunk, model, voice, options, onChunk);
+        await streamWithOpenAi(chunk, model, voice, requestOptions, onChunk);
       } else if (provider === 'deepgram') {
-        await streamWithDeepgram(chunk, model, options, onChunk);
+        await streamWithDeepgram(chunk, model, requestOptions, onChunk);
       } else {
-        await streamWithGemini(chunk, model, voice, options, onChunk);
+        await streamWithGemini(chunk, model, voice, requestOptions, onChunk);
       }
-    })();
-    await withTimeout(run, options.timeoutMs, `${provider} TTS stream`);
+    }, {
+      signal: options.signal,
+      timeoutMs: options.timeoutMs || DEFAULT_TTS_TIMEOUT_MS,
+      timeoutCode: 'VOICE_TTS_TIMEOUT',
+      label: `${provider} TTS stream`,
+    });
   }
 }
 

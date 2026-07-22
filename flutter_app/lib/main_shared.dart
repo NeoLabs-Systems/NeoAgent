@@ -345,7 +345,6 @@ class _EntranceMotionState extends State<_EntranceMotion> {
 
 class _GlassSurface extends StatelessWidget {
   const _GlassSurface({
-    super.key,
     required this.child,
     this.width,
     this.padding,
@@ -2850,15 +2849,22 @@ String _ensureModelValue(
   if (allowAuto && value == 'auto') {
     return 'auto';
   }
-  for (final model in models) {
-    if (model.id == value) {
-      return value;
-    }
-  }
+  final model = _modelForValue(value, models);
+  if (model != null) return model.id;
   if (allowAuto) {
     return 'auto';
   }
   return models.isNotEmpty ? models.first.id : value;
+}
+
+ModelMeta? _modelForValue(String value, List<ModelMeta> models) {
+  for (final model in models) {
+    if (model.id == value) return model;
+  }
+  for (final model in models) {
+    if (model.modelId == value) return model;
+  }
+  return null;
 }
 
 String _firstAvailableModelId(List<ModelMeta> models) {
@@ -2874,11 +2880,8 @@ String _modelLabelForValue(String value, List<ModelMeta> models) {
   if (value == 'auto' || value.trim().isEmpty) {
     return 'Auto';
   }
-  for (final model in models) {
-    if (model.id == value) {
-      return model.label;
-    }
-  }
+  final model = _modelForValue(value, models);
+  if (model != null) return model.label;
   return value;
 }
 

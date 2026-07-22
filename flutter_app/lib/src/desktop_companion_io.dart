@@ -26,6 +26,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   WebSocket? _socket;
   Timer? _reconnectTimer;
   Timer? _connectionWatchdogTimer;
+  Timer? _helloTimer;
   Timer? _streamTimer;
   bool _streamCaptureInFlight = false;
   // Set true while a click / drag / scroll / typeText / pressKey command is
@@ -38,6 +39,13 @@ class DesktopCompanionManager extends ChangeNotifier {
   // Tracks the current stream quality so the forced post-input capture can use
   // the same setting without re-parsing the original startStream payload.
   int _currentStreamQuality = 80;
+  Future<void> _inputCommandQueue = Future<void>.value();
+  final Set<String> _pendingCommandIds = <String>{};
+  final Set<String> _pendingShellCommandIds = <String>{};
+  final Set<String> _cancelledCommandIds = <String>{};
+  int _connectionGeneration = 0;
+  int _reconnectAttempt = 0;
+  bool _disposed = false;
 
   String _backendUrl = '';
   String _sessionCookie = '';
@@ -62,6 +70,10 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get deviceId => _deviceId;
   String get activationId => _activationId;
   Map<String, Object?> get status => _status;
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
 
   Future<void> bootstrap(SharedPreferences prefs) async {
     _enabled = prefs.getBool(desktopCompanionEnabledPrefsKey) ?? false;
@@ -88,12 +100,19 @@ class DesktopCompanionManager extends ChangeNotifier {
     required String sessionCookie,
     required bool authenticated,
   }) async {
-    _backendUrl = backendUrl.trim();
-    _sessionCookie = sessionCookie.trim();
+    final nextBackendUrl = backendUrl.trim();
+    final nextSessionCookie = sessionCookie.trim();
+    final sessionChanged =
+        _backendUrl != nextBackendUrl || _sessionCookie != nextSessionCookie;
+    _backendUrl = nextBackendUrl;
+    _sessionCookie = nextSessionCookie;
     _authenticated = authenticated;
     if (!_authenticated || !_enabled || _sessionCookie.isEmpty) {
       await disconnect();
       return;
+    }
+    if (sessionChanged && (_connected || _connecting || _socket != null)) {
+      await disconnect();
     }
     _ensureConnectionWatchdog();
     await _ensureConnected();
@@ -110,7 +129,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       );
     }
     await prefs.setBool(desktopCompanionEnabledPrefsKey, value);
-    notifyListeners();
+    _notify();
     if (!value) {
       await disconnect();
       return;
@@ -122,7 +141,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     final normalized = value.trim().isEmpty ? _defaultLabel() : value.trim();
     _label = normalized;
     await prefs.setString(desktopCompanionLabelPrefsKey, normalized);
-    notifyListeners();
+    _notify();
     if (_connected) {
       _status = {..._status, 'label': normalized};
       await _sendEvent('statusChanged', <String, Object?>{'label': normalized});
@@ -131,28 +150,30 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
     _paused = value;
-    notifyListeners();
+    _notify();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{'paused': value});
     }
   }
 
   Future<void> disconnect() async {
+    _connectionGeneration++;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _connectionWatchdogTimer?.cancel();
     _connectionWatchdogTimer = null;
+    _helloTimer?.cancel();
+    _helloTimer = null;
     _stopStreaming();
     _connecting = false;
     _connected = false;
+    _cancelPendingCommands();
     final socket = _socket;
     _socket = null;
     if (socket != null) {
-      try {
-        await socket.close();
-      } catch (_) {}
+      await _closeSocket(socket);
     }
-    notifyListeners();
+    _notify();
   }
 
   Future<void> rotateIdentity(SharedPreferences prefs) async {
@@ -181,7 +202,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       'companionEnabled': _enabled,
       'paused': _paused,
     };
-    notifyListeners();
+    _notify();
     if (_connected) {
       await _sendEvent('statusChanged', <String, Object?>{
         'permissions': _status['permissions'],
@@ -217,65 +238,122 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   Future<void> _ensureConnected() async {
-    if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
+      return;
+    }
     if (_connecting || _connected) return;
+    final generation = ++_connectionGeneration;
     _connecting = true;
     _errorMessage = null;
-    notifyListeners();
+    _notify();
+    WebSocket? connectedSocket;
     try {
       final uri = _desktopWsUri(_backendUrl);
-      final socket = await WebSocket.connect(
-        uri.toString(),
-        headers: <String, Object>{'Cookie': _sessionCookie},
-      );
+      final socket = await _openWebSocket(uri);
+      connectedSocket = socket;
+      if (_disposed || generation != _connectionGeneration) {
+        await _closeSocket(socket);
+        return;
+      }
       socket.pingInterval = const Duration(seconds: 25);
       _socket = socket;
       socket.listen(
-        _handleMessage,
-        onDone: _handleSocketClosed,
+        (dynamic raw) => _handleMessage(socket, generation, raw),
+        onDone: () => _handleSocketClosed(socket, generation),
         onError: (Object error, StackTrace stackTrace) {
-          _errorMessage = '$error';
-          _handleSocketClosed();
+          if (_socket == socket && generation == _connectionGeneration) {
+            _errorMessage = '$error';
+          }
+          _handleSocketClosed(socket, generation);
         },
         cancelOnError: true,
       );
-      final hello = await _actions.buildHello(
-        deviceId: _deviceId,
-        activationId: _activationId,
-        label: _label,
-        companionEnabled: _enabled,
-        paused: _paused,
-        activeDisplayId: _activeDisplayId,
-      );
+      final hello = await _actions
+          .buildHello(
+            deviceId: _deviceId,
+            activationId: _activationId,
+            label: _label,
+            companionEnabled: _enabled,
+            paused: _paused,
+            activeDisplayId: _activeDisplayId,
+          )
+          .timeout(const Duration(seconds: 10));
+      if (_socket != socket || generation != _connectionGeneration) return;
       socket.add(
         jsonEncode(<String, Object?>{'type': 'hello', 'device': hello}),
       );
+      _helloTimer?.cancel();
+      _helloTimer = Timer(const Duration(seconds: 10), () {
+        if (_socket != socket ||
+            generation != _connectionGeneration ||
+            _connected) {
+          return;
+        }
+        _errorMessage = 'Desktop companion handshake timed out.';
+        _handleSocketClosed(socket, generation);
+      });
     } catch (error) {
+      if (connectedSocket != null && connectedSocket == _socket) {
+        _socket = null;
+        unawaited(_closeSocket(connectedSocket));
+      }
+      if (_disposed || generation != _connectionGeneration) return;
       _connecting = false;
       _connected = false;
       _errorMessage = '$error';
-      notifyListeners();
+      _notify();
       _scheduleReconnect();
     }
   }
 
-  void _handleMessage(dynamic raw) {
+  Future<WebSocket> _openWebSocket(Uri uri) async {
+    final pending = WebSocket.connect(
+      uri.toString(),
+      headers: <String, Object>{'Cookie': _sessionCookie},
+    );
+    try {
+      return await pending.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      unawaited(() async {
+        try {
+          final lateSocket = await pending;
+          await _closeSocket(lateSocket);
+        } catch (_) {}
+      }());
+      throw TimeoutException(
+        'Desktop companion connection timed out.',
+        const Duration(seconds: 15),
+      );
+    }
+  }
+
+  Future<void> _closeSocket(WebSocket socket) async {
+    try {
+      await socket.close().timeout(const Duration(seconds: 2));
+    } catch (_) {}
+  }
+
+  void _handleMessage(WebSocket source, int generation, dynamic raw) {
+    if (_socket != source || generation != _connectionGeneration) return;
     try {
       final message = jsonDecode(raw as String);
       if (message is! Map) return;
       final type = message['type']?.toString() ?? '';
       if (type == 'hello') {
+        _helloTimer?.cancel();
+        _helloTimer = null;
         _connecting = false;
         final ok = message['ok'] == true;
         if (!ok) {
           _connected = false;
           _errorMessage =
               message['error']?.toString() ?? 'Desktop companion rejected.';
-          notifyListeners();
-          _handleSocketClosed();
+          _notify();
+          _handleSocketClosed(source, generation);
           return;
         }
         _connected = true;
+        _reconnectAttempt = 0;
         _errorMessage = null;
         final device = message['device'];
         _status = device is Map
@@ -283,18 +361,37 @@ class DesktopCompanionManager extends ChangeNotifier {
             : const <String, Object?>{};
         _activeDisplayId =
             _status['activeDisplayId']?.toString() ?? _activeDisplayId;
-        notifyListeners();
+        _notify();
         return;
       }
       if (type != 'command') return;
-      unawaited(_handleCommand(message.cast<String, Object?>()));
+      final commandMessage = message.cast<String, Object?>();
+      final command = commandMessage['command']?.toString() ?? '';
+      final commandId = commandMessage['id']?.toString() ?? '';
+      if (command != 'cancelCommand' && commandId.isNotEmpty) {
+        _pendingCommandIds.add(commandId);
+        if (command == 'executeCommand') {
+          _pendingShellCommandIds.add(commandId);
+        }
+      }
+      if (_inputCommands.contains(command)) {
+        final previous = _inputCommandQueue;
+        _inputCommandQueue = () async {
+          try {
+            await previous;
+          } catch (_) {}
+          await _handleCommand(commandMessage, source, generation);
+        }();
+      } else {
+        unawaited(_handleCommand(commandMessage, source, generation));
+      }
     } on FormatException catch (error) {
       _errorMessage = 'Ignored malformed desktop companion message: $error';
-      notifyListeners();
+      _notify();
       return;
     } catch (error) {
       _errorMessage = 'Desktop companion message handling failed: $error';
-      notifyListeners();
+      _notify();
       return;
     }
   }
@@ -312,7 +409,11 @@ class DesktopCompanionManager extends ChangeNotifier {
     'pressKey',
   };
 
-  Future<void> _handleCommand(Map<String, Object?> message) async {
+  Future<void> _handleCommand(
+    Map<String, Object?> message,
+    WebSocket source,
+    int generation,
+  ) async {
     final id = message['id']?.toString() ?? '';
     final command = message['command']?.toString() ?? '';
     final payload = message['payload'] is Map
@@ -321,23 +422,52 @@ class DesktopCompanionManager extends ChangeNotifier {
           )
         : const <String, Object?>{};
 
+    if (_socket != source || generation != _connectionGeneration) {
+      _pendingCommandIds.remove(id);
+      _pendingShellCommandIds.remove(id);
+      _cancelledCommandIds.remove(id);
+      return;
+    }
+
     final isInput = _inputCommands.contains(command);
     if (isInput) _inputCommandInFlight = true;
 
     try {
-      final response = await _dispatchCommand(command, payload);
-      _socket?.add(
-        jsonEncode(<String, Object?>{
+      if (command != 'cancelCommand' && _cancelledCommandIds.contains(id)) {
+        _sendCommandResult(source, generation, <String, Object?>{
           'type': 'result',
           'id': id,
-          'ok': true,
-          'payload': response,
-        }),
-      );
+          'ok': false,
+          'code': 'COMMAND_CANCELLED',
+          'error': 'Desktop companion command was cancelled.',
+        });
+        return;
+      }
+      final response = await _dispatchCommand(command, payload, commandId: id);
+      if (command != 'cancelCommand' && _cancelledCommandIds.contains(id)) {
+        _sendCommandResult(source, generation, <String, Object?>{
+          'type': 'result',
+          'id': id,
+          'ok': false,
+          'code': 'COMMAND_CANCELLED',
+          'error': 'Desktop companion command was cancelled.',
+        });
+        return;
+      }
+      _sendCommandResult(source, generation, <String, Object?>{
+        'type': 'result',
+        'id': id,
+        'ok': true,
+        'payload': response,
+      });
       // Immediately capture a fresh frame after an input action so the user
       // sees the result of their interaction without waiting for the next
       // timer tick.
-      if (isInput && _streamTimer != null && _connected) {
+      if (isInput &&
+          _streamTimer != null &&
+          _connected &&
+          _socket == source &&
+          generation == _connectionGeneration) {
         unawaited(
           _captureAndSendBinaryFrame(
             _currentStreamQuality,
@@ -347,24 +477,43 @@ class DesktopCompanionManager extends ChangeNotifier {
         );
       }
     } catch (error) {
-      _socket?.add(
-        jsonEncode(<String, Object?>{
-          'type': 'result',
-          'id': id,
-          'ok': false,
-          'error': '$error',
-        }),
-      );
+      _sendCommandResult(source, generation, <String, Object?>{
+        'type': 'result',
+        'id': id,
+        'ok': false,
+        'error': '$error',
+      });
     } finally {
       if (isInput) _inputCommandInFlight = false;
+      _pendingCommandIds.remove(id);
+      _pendingShellCommandIds.remove(id);
+      _cancelledCommandIds.remove(id);
+    }
+  }
+
+  void _sendCommandResult(
+    WebSocket source,
+    int generation,
+    Map<String, Object?> message,
+  ) {
+    if (_socket != source || generation != _connectionGeneration) return;
+    try {
+      source.add(jsonEncode(message));
+    } catch (error) {
+      _errorMessage = 'Desktop companion response failed: $error';
+      _handleSocketClosed(source, generation);
     }
   }
 
   Future<Map<String, Object?>> _dispatchCommand(
     String command,
-    Map<String, Object?> payload,
-  ) async {
-    if (_paused && command != 'getStatus' && command != 'pauseControl') {
+    Map<String, Object?> payload, {
+    required String commandId,
+  }) async {
+    if (_paused &&
+        command != 'getStatus' &&
+        command != 'pauseControl' &&
+        command != 'cancelCommand') {
       throw Exception('Desktop companion is paused locally.');
     }
     switch (command) {
@@ -387,23 +536,23 @@ class DesktopCompanionManager extends ChangeNotifier {
         );
       case 'click':
         return _actions.click(
-          x: (payload['x'] as num?)?.round() ?? 0,
-          y: (payload['y'] as num?)?.round() ?? 0,
+          x: _requiredCoordinate(payload, 'x'),
+          y: _requiredCoordinate(payload, 'y'),
           button: payload['button']?.toString() ?? 'left',
           displayId: _activeDisplayId,
         );
       case 'mouseMove':
         return _actions.mouseMove(
-          x: (payload['x'] as num?)?.round() ?? 0,
-          y: (payload['y'] as num?)?.round() ?? 0,
+          x: _requiredCoordinate(payload, 'x'),
+          y: _requiredCoordinate(payload, 'y'),
           displayId: _activeDisplayId,
         );
       case 'drag':
         return _actions.drag(
-          x1: (payload['x1'] as num?)?.round() ?? 0,
-          y1: (payload['y1'] as num?)?.round() ?? 0,
-          x2: (payload['x2'] as num?)?.round() ?? 0,
-          y2: (payload['y2'] as num?)?.round() ?? 0,
+          x1: _requiredCoordinate(payload, 'x1'),
+          y1: _requiredCoordinate(payload, 'y1'),
+          x2: _requiredCoordinate(payload, 'x2'),
+          y2: _requiredCoordinate(payload, 'y2'),
           durationMs: (payload['durationMs'] as num?)?.round() ?? 280,
           displayId: _activeDisplayId,
         );
@@ -433,28 +582,54 @@ class DesktopCompanionManager extends ChangeNotifier {
           'activeDisplayId': status['activeDisplayId'] ?? 'primary',
         };
       case 'selectDisplay':
-        final displayId = payload['displayId']?.toString() ?? 'primary';
-        _activeDisplayId = displayId;
+        final displayId = await _resolveDisplaySelection(
+          payload['displayId']?.toString() ?? '',
+        );
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(desktopCompanionActiveDisplayPrefsKey, displayId);
+        final persisted = await prefs.setString(
+          desktopCompanionActiveDisplayPrefsKey,
+          displayId,
+        );
+        if (!persisted) {
+          throw StateError('Unable to persist the selected desktop display.');
+        }
+        _activeDisplayId = displayId;
         _status = <String, Object?>{..._status, 'activeDisplayId': displayId};
-        // TODO: Apply platform-specific active display switching when available.
-        notifyListeners();
+        _notify();
         return <String, Object?>{'success': true, 'activeDisplayId': displayId};
       case 'getTree':
         return _actions.getTree();
       case 'pauseControl':
         final paused = payload['paused'] != false;
         _paused = paused;
-        notifyListeners();
+        _notify();
         return <String, Object?>{'success': true, 'paused': _paused};
       case 'executeCommand':
         return _actions.executeShellCommand(
+          commandId: commandId,
           command: payload['command']?.toString() ?? '',
           cwd: payload['cwd']?.toString(),
           timeoutMs: (payload['timeout'] as num?)?.toInt(),
           stdinInput: payload['stdin_input']?.toString(),
+          requestedPty: payload['pty'] == true,
+          inputs: payload['inputs'] is List
+              ? (payload['inputs'] as List)
+                    .map((value) => value.toString())
+                    .toList(growable: false)
+              : const <String>[],
         );
+      case 'cancelCommand':
+        final targetId = payload['commandId']?.toString() ?? '';
+        if (targetId.isNotEmpty && _pendingCommandIds.contains(targetId)) {
+          _cancelledCommandIds.add(targetId);
+        }
+        if (_pendingShellCommandIds.contains(targetId)) {
+          return _actions.cancelShellCommand(targetId);
+        }
+        return <String, Object?>{
+          'success': targetId.isNotEmpty,
+          'cancelled': _cancelledCommandIds.contains(targetId),
+        };
       case 'ping':
         return <String, Object?>{'pong': true};
       default:
@@ -462,49 +637,86 @@ class DesktopCompanionManager extends ChangeNotifier {
     }
   }
 
-  void _handleSocketClosed() {
+  int _requiredCoordinate(Map<String, Object?> payload, String key) {
+    final value = payload[key];
+    if (value is! num || !value.isFinite) {
+      throw FormatException('$key must be a finite number.');
+    }
+    return value.round();
+  }
+
+  void _handleSocketClosed(WebSocket source, int generation) {
+    if (_socket != source || generation != _connectionGeneration) return;
+    _connectionGeneration++;
+    _helloTimer?.cancel();
+    _helloTimer = null;
     _stopStreaming();
     _socket = null;
     _connecting = false;
     _connected = false;
-    notifyListeners();
+    _cancelPendingCommands();
+    unawaited(_closeSocket(source));
+    if (_disposed) return;
+    _notify();
     _scheduleReconnect();
+  }
+
+  void _cancelPendingCommands() {
+    for (final commandId in _pendingCommandIds.toList(growable: false)) {
+      _cancelledCommandIds.add(commandId);
+      if (_pendingShellCommandIds.contains(commandId)) {
+        unawaited(_actions.cancelShellCommand(commandId));
+      }
+    }
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    _connectionGeneration++;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _connectionWatchdogTimer?.cancel();
     _connectionWatchdogTimer = null;
+    _helloTimer?.cancel();
+    _helloTimer = null;
     _stopStreaming();
     _connecting = false;
     _connected = false;
     _enabled = false;
+    _cancelPendingCommands();
     final socket = _socket;
     _socket = null;
     if (socket != null) {
-      try {
-        socket.close();
-      } catch (_) {}
+      unawaited(_closeSocket(socket));
     }
     super.dispose();
   }
 
   void _scheduleReconnect() {
-    if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
+      return;
+    }
     _ensureConnectionWatchdog();
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
-      unawaited(_ensureConnected());
-    });
+    final exponentialMs = min(60000, 1000 * (1 << min(_reconnectAttempt, 6)));
+    _reconnectAttempt++;
+    final jitterMs = Random().nextInt(max(1, exponentialMs ~/ 4));
+    _reconnectTimer = Timer(
+      Duration(milliseconds: exponentialMs + jitterMs),
+      () {
+        unawaited(_ensureConnected());
+      },
+    );
   }
 
   void _ensureConnectionWatchdog() {
-    if (!_enabled || !_authenticated || _sessionCookie.isEmpty) return;
+    if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
+      return;
+    }
     if (_connectionWatchdogTimer != null) return;
     _connectionWatchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!_enabled || !_authenticated || _sessionCookie.isEmpty) {
+      if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
         _connectionWatchdogTimer?.cancel();
         _connectionWatchdogTimer = null;
         return;
@@ -530,14 +742,16 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<Map<String, Object?>> _startStreaming(
     Map<String, Object?> payload,
   ) async {
-    _streamTimer?.cancel();
-    final generation = ++_streamGeneration;
     final fps = ((payload['fps'] as num?)?.round() ?? 15).clamp(1, 20);
     final quality = ((payload['quality'] as num?)?.round() ?? 80).clamp(30, 95);
     final displayId = payload['displayId']?.toString().trim();
+    var selectedDisplayId = _activeDisplayId;
     if (displayId != null && displayId.isNotEmpty) {
-      _activeDisplayId = displayId;
+      selectedDisplayId = await _resolveDisplaySelection(displayId);
     }
+    _streamTimer?.cancel();
+    final generation = ++_streamGeneration;
+    _activeDisplayId = selectedDisplayId;
     final interval = Duration(milliseconds: max(1, (1000 / fps).floor()));
     _frameSeq = 0;
     _currentStreamQuality = quality;
@@ -551,6 +765,19 @@ class DesktopCompanionManager extends ChangeNotifier {
       'quality': quality,
       'displayId': _activeDisplayId,
     };
+  }
+
+  Future<String> _resolveDisplaySelection(String requested) async {
+    final status = await _actions.getStatus(
+      label: _label,
+      paused: _paused,
+      activeDisplayId: _activeDisplayId,
+    );
+    return resolveDesktopDisplaySelection(
+      status['displays'],
+      requested,
+      activeDisplayId: status['activeDisplayId']?.toString(),
+    );
   }
 
   Map<String, Object?> _stopStreaming() {
@@ -601,7 +828,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       socket.add(frame);
     } catch (error) {
       _errorMessage = 'Desktop stream capture failed: $error';
-      notifyListeners();
+      _notify();
     } finally {
       _streamCaptureInFlight = false;
     }
@@ -671,7 +898,13 @@ class DesktopCompanionManager extends ChangeNotifier {
 Uri _desktopWsUri(String backendUrl) {
   final base = Uri.parse(backendUrl);
   final scheme = base.scheme == 'https' ? 'wss' : 'ws';
-  return base.replace(scheme: scheme, path: '/api/desktop/ws', query: '');
+  final basePath = base.path.replaceFirst(RegExp(r'/+$'), '');
+  return base.replace(
+    scheme: scheme,
+    path: '$basePath/api/desktop/ws',
+    query: '',
+    fragment: '',
+  );
 }
 
 String _defaultLabel() {

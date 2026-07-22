@@ -1,3 +1,5 @@
+'use strict';
+
 const DESKTOP_COMPANION_WS_PATH = '/api/desktop/ws';
 
 const DESKTOP_COMMANDS = Object.freeze({
@@ -17,6 +19,7 @@ const DESKTOP_COMMANDS = Object.freeze({
   GET_TREE: 'getTree',
   PAUSE_CONTROL: 'pauseControl',
   EXECUTE_COMMAND: 'executeCommand',
+  CANCEL_COMMAND: 'cancelCommand',
   PING: 'ping',
   MOUSE_MOVE: 'mouseMove',
 });
