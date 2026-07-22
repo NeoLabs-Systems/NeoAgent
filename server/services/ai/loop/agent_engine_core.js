@@ -1119,6 +1119,15 @@ class AgentEngine {
 
     await new Promise((resolve) => { runMeta.resumeRun = resolve; });
     runMeta.resumeRun = null;
+    if (runMeta.status === 'stopped' || runMeta.status === 'interrupted') {
+      return { action: runMeta.status === 'interrupted' ? 'interrupt' : 'stop' };
+    }
+    const persistedStatus = db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId)?.status;
+    if (persistedStatus !== 'running') {
+      const action = persistedStatus === 'interrupted' ? 'interrupt' : 'stop';
+      runMeta.status = persistedStatus || 'stopped';
+      return { action };
+    }
     runMeta.abortController = new AbortController();
     runMeta.status = 'running';
     this.startMessagingProgressSupervisor(runId);
@@ -1665,6 +1674,7 @@ class AgentEngine {
       runMeta.stopReason = reason;
       runMeta.aborted = true;
       runMeta.abortController?.abort(reason);
+      runMeta.resumeRun?.();
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
@@ -1708,6 +1718,7 @@ class AgentEngine {
       runMeta.status = 'stopped';
       runMeta.aborted = true;
       runMeta.abortController?.abort('Run stopped.');
+      runMeta.resumeRun?.();
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {

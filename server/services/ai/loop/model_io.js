@@ -62,7 +62,11 @@ async function requestStructuredJson(engine, {
 }) {
   const startedAt = Date.now();
   const structuredStep = `model:${phase}`;
-  const signal = telemetry?.signal;
+  const modelAbortController = new AbortController();
+  const parentSignal = telemetry?.signal;
+  const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   if (telemetry?.runId) {
     engine.updateRunProgress(telemetry.runId, {
       currentPhase: 'model',
@@ -86,13 +90,16 @@ async function requestStructuredJson(engine, {
             model,
             maxTokens,
             reasoningEffort: reasoningEffort || engine.getReasoningEffort(providerName, {}),
-            signal,
+            signal: modelAbortController.signal,
           }
         ),
-        telemetry || {},
+        { ...(telemetry || {}), modelAbortController },
         `${phase} model call`,
       ),
-      { label: `Engine ${model} (structured)` }
+      {
+        label: `Engine ${model} (structured)`,
+        isRetryable: (err) => !modelAbortController.signal.aborted && isTransientError(err),
+      }
     );
     completed = true;
     if (telemetry?.runId && telemetry?.userId) {
@@ -117,6 +124,7 @@ async function requestStructuredJson(engine, {
       usage: normalizedUsage?.totalTokens || 0,
     };
   } finally {
+    parentSignal?.removeEventListener('abort', abortFromParent);
     const runMeta = telemetry?.runId ? engine.getRunMeta(telemetry.runId) : null;
     if (runMeta?.progressLedger?.currentStep === structuredStep) {
       engine.updateRunProgress(telemetry.runId, {

@@ -65,6 +65,68 @@ describe('agent profile, agent run, and MCP routes', () => {
     assert.equal(created.body.status, 'completed');
   });
 
+  test('agent pause and resume routes preserve the active execution and enforce ownership', async () => {
+    const owner = await createTestUser(ctx.db, { username: 'run_pause_owner' });
+    const outsider = await createTestUser(ctx.db, { username: 'run_pause_outsider' });
+    const ownerClient = agent(app);
+    const outsiderClient = agent(app);
+    await loginAs(ownerClient, owner);
+    await loginAs(outsiderClient, outsider);
+
+    const { AgentEngine } = require('../../server/services/ai/engine');
+    const engine = new AgentEngine(null);
+    engine.emit = () => {};
+    engine.recordRunEvent = () => {};
+    engine.startMessagingProgressSupervisor = () => {};
+    engine.stopMessagingProgressSupervisor = () => {};
+    const originalEngine = app.locals.agentEngine;
+    app.locals.agentEngine = engine;
+    const runId = 'pause-route-run';
+
+    try {
+      ctx.db.prepare(
+        'INSERT INTO agent_runs (id, user_id, title, status) VALUES (?, ?, ?, ?)'
+      ).run(runId, owner.userId, 'Pause route run', 'running');
+      engine.activeRuns.set(runId, {
+        userId: owner.userId,
+        agentId: null,
+        status: 'running',
+        pauseAvailable: true,
+        abortController: new AbortController(),
+        toolPids: new Set(),
+        activeTools: [],
+        progressLedger: { currentPhase: 'model' },
+      });
+
+      await request(app).post(`/api/agents/${runId}/pause`).send({}).expect(401);
+      await outsiderClient.post(`/api/agents/${runId}/pause`).send({}).expect(409);
+      await ownerClient.post(`/api/agents/${runId}/pause`)
+        .send({ reason: 'operator pause' })
+        .expect(200, { success: true, status: 'pausing' });
+
+      const boundary = engine.checkpointLifecycle(runId, 'model_boundary', { iteration: 4 });
+      await new Promise((resolve) => setImmediate(resolve));
+      const detail = await ownerClient.get(`/api/agents/${runId}/steps`).expect(200);
+      assert.equal(detail.body.run.status, 'paused');
+      assert.equal(detail.body.lifecycle.action, 'pause');
+      assert.equal(detail.body.lifecycle.reason, 'operator pause');
+      assert.equal(detail.body.lifecycle.checkpoint_phase, 'model_boundary');
+
+      await ownerClient.post(`/api/agents/${runId}/resume`)
+        .expect(200, { success: true, status: 'running' });
+      await boundary;
+      assert.equal(ctx.db.prepare('SELECT status FROM agent_runs WHERE id = ?').get(runId).status, 'running');
+      assert.equal(engine.getRunMeta(runId).abortController.signal.aborted, false);
+      await ownerClient.post(`/api/agents/${runId}/resume`).expect(409);
+    } finally {
+      if (engine.activeRuns.has(runId)) {
+        engine.stopRun(runId);
+        engine.activeRuns.delete(runId);
+      }
+      app.locals.agentEngine = originalEngine;
+    }
+  });
+
   test('MCP CRUD works with real DB and fake runtime client', async () => {
     const user = await createTestUser(ctx.db, { username: 'mcp_user' });
     const client = agent(app);

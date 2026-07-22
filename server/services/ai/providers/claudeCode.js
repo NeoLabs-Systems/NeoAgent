@@ -102,7 +102,7 @@ function persistEnvValue(key, value) {
   } catch { }
 }
 
-async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
+async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch, signal = null) {
   if (!refreshToken) return null;
   const response = await fetchImpl(CLAUDE_CODE_TOKEN_URL, {
     method: 'POST',
@@ -116,6 +116,7 @@ async function refreshClaudeCodeAccessToken(refreshToken, fetchImpl = fetch) {
       refresh_token: refreshToken,
       client_id: CLAUDE_CODE_CLIENT_ID,
     }),
+    signal,
   });
 
   const text = await response.text();
@@ -209,8 +210,8 @@ class ClaudeCodeProvider extends AnthropicProvider {
     });
   }
 
-  async refreshClient() {
-    const refreshed = await refreshClaudeCodeAccessToken(this.refreshToken, this.fetchImpl);
+  async refreshClient(signal = null) {
+    const refreshed = await refreshClaudeCodeAccessToken(this.refreshToken, this.fetchImpl, signal);
     if (!refreshed?.access) return false;
     this.authToken = refreshed.access;
     this.refreshToken = refreshed.refresh || this.refreshToken;
@@ -244,7 +245,7 @@ class ClaudeCodeProvider extends AnthropicProvider {
       if ((!isAuthenticationError(err) && !isInferenceScopeError(err)) || !this.refreshToken) {
         throw formatClaudeCodeCredentialError(err);
       }
-      await this.refreshClient();
+      await this.refreshClient(options.signal);
       try {
         return await super.chat(messages, tools, options);
       } catch (retryErr) {
@@ -260,7 +261,7 @@ class ClaudeCodeProvider extends AnthropicProvider {
       if ((!isAuthenticationError(err) && !isInferenceScopeError(err)) || !this.refreshToken) {
         throw formatClaudeCodeCredentialError(err);
       }
-      await this.refreshClient();
+      await this.refreshClient(options.signal);
       try {
         yield* super.stream(messages, tools, options);
       } catch (retryErr) {

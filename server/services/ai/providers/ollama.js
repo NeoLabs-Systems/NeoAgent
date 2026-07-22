@@ -8,22 +8,28 @@ class OllamaProvider extends BaseProvider {
     this.models = [];
   }
 
-  async listModels() {
+  async listModels(signal = null) {
+    const controller = new AbortController();
+    const abortFromParent = () => controller.abort(signal?.reason);
+    if (signal?.aborted) abortFromParent();
+    else signal?.addEventListener('abort', abortFromParent, { once: true });
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(`${this.baseUrl}/api/tags`, { signal: controller.signal });
-      clearTimeout(timer);
       const data = await res.json();
       this.models = (data.models || []).map(m => m.name);
       return this.models;
-    } catch {
+    } catch (err) {
+      if (signal?.aborted) throw err;
       return [];
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abortFromParent);
     }
   }
 
-  async ensureModel(model) {
-    const models = await this.listModels();
+  async ensureModel(model, signal = null) {
+    const models = await this.listModels(signal);
     // Normalization: Ollama often adds :latest if no tag is specified
     const normalizedModel = model.includes(':') ? model : `${model}:latest`;
     const found = models.some(m => m === model || m === normalizedModel);
@@ -42,7 +48,8 @@ class OllamaProvider extends BaseProvider {
       const res = await fetch(`${this.baseUrl}/api/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: model, stream: false })
+        body: JSON.stringify({ name: model, stream: false }),
+        signal,
       });
       if (!res.ok) throw new Error(`Pull failed: ${res.statusText}`);
       console.log(`[Ollama] Model '${model}' pulled successfully.`);
@@ -54,7 +61,7 @@ class OllamaProvider extends BaseProvider {
         message: `Local Ollama model '${model}' is ready.`
       });
       // Refresh local model list
-      await this.listModels();
+      await this.listModels(signal);
       return true;
     } catch (e) {
       this.onStatus?.({
@@ -144,7 +151,7 @@ class OllamaProvider extends BaseProvider {
 
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
-    await this.ensureModel(model);
+    await this.ensureModel(model, options.signal);
 
     let res;
     try {
@@ -183,7 +190,7 @@ class OllamaProvider extends BaseProvider {
 
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
-    await this.ensureModel(model);
+    await this.ensureModel(model, options.signal);
 
     let res;
     try {

@@ -101,3 +101,33 @@ test('an active run pauses at a boundary and resumes the same execution', async 
   assert.equal(engine.getRunMeta('pause-run').abortController.signal.aborted, false);
   engine.activeRuns.delete('pause-run');
 });
+
+test('stopping a paused run releases its suspended execution', async () => {
+  insertRun('pause-stop-run');
+  const engine = new AgentEngine(null);
+  engine.emit = () => {};
+  engine.recordRunEvent = () => {};
+  engine.startMessagingProgressSupervisor = () => {};
+  engine.stopMessagingProgressSupervisor = () => {};
+  engine.activeRuns.set('pause-stop-run', {
+    userId,
+    agentId: null,
+    status: 'running',
+    pauseAvailable: true,
+    abortController: new AbortController(),
+    toolPids: new Set(),
+    activeTools: [],
+    progressLedger: { currentPhase: 'model' },
+  });
+
+  assert.equal(engine.pauseRun('pause-stop-run', { userId }), true);
+  const boundary = engine.checkpointLifecycle('pause-stop-run', 'model_boundary', { iteration: 1 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(engine.getRunMeta('pause-stop-run').status, 'paused');
+
+  engine.stopRun('pause-stop-run');
+  assert.deepEqual(await boundary, { action: 'stop' });
+  assert.equal(engine.getRunMeta('pause-stop-run').status, 'stopped');
+  assert.equal(ctx.db.prepare('SELECT status FROM agent_runs WHERE id = ?').get('pause-stop-run').status, 'stopped');
+  engine.activeRuns.delete('pause-stop-run');
+});

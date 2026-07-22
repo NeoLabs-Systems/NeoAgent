@@ -41,7 +41,7 @@ function persistEnvValue(key, value) {
   } catch { }
 }
 
-async function refreshGrokOAuthAccessToken(refreshToken, fetchImpl = fetch) {
+async function refreshGrokOAuthAccessToken(refreshToken, fetchImpl = fetch, signal = null) {
   if (!refreshToken) return null;
   const response = await fetchImpl(GROK_OAUTH_TOKEN_URL, {
     method: 'POST',
@@ -54,6 +54,7 @@ async function refreshGrokOAuthAccessToken(refreshToken, fetchImpl = fetch) {
       refresh_token: refreshToken,
       client_id: GROK_OAUTH_CLIENT_ID,
     }),
+    signal,
   });
 
   const text = await response.text();
@@ -102,8 +103,8 @@ class GrokOAuthProvider extends GrokProvider {
     this.fetchImpl = config.fetch || fetch;
   }
 
-  async refreshClient() {
-    const refreshed = await refreshGrokOAuthAccessToken(this.refreshToken, this.fetchImpl);
+  async refreshClient(signal = null) {
+    const refreshed = await refreshGrokOAuthAccessToken(this.refreshToken, this.fetchImpl, signal);
     if (!refreshed?.access) return false;
     this.authToken = refreshed.access;
     this.refreshToken = refreshed.refresh || this.refreshToken;
@@ -122,7 +123,7 @@ class GrokOAuthProvider extends GrokProvider {
       return await super.chat(messages, tools, options);
     } catch (err) {
       if (err?.status !== 401 || !this.refreshToken) throw err;
-      await this.refreshClient();
+      await this.refreshClient(options.signal);
       return await super.chat(messages, tools, options);
     }
   }
@@ -132,7 +133,7 @@ class GrokOAuthProvider extends GrokProvider {
       yield* super.stream(messages, tools, options);
     } catch (err) {
       if (err?.status !== 401 || !this.refreshToken) throw err;
-      await this.refreshClient();
+      await this.refreshClient(options.signal);
       yield* super.stream(messages, tools, options);
     }
   }

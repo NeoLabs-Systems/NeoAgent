@@ -26,7 +26,7 @@ class GithubCopilotProvider extends OpenAIProvider {
     this._refreshPromise = null;
   }
 
-  async _refreshCopilotToken() {
+  async _refreshCopilotToken(signal = null) {
     if (this._refreshPromise) return this._refreshPromise;
 
     const now = Math.floor(Date.now() / 1000);
@@ -46,7 +46,8 @@ class GithubCopilotProvider extends OpenAIProvider {
             'Authorization': `token ${this.githubToken}`,
             'Accept': 'application/json',
             'User-Agent': 'NeoAgent/1.0.0'
-          }
+          },
+          signal,
         });
 
         if (!res.ok) {
@@ -79,17 +80,17 @@ class GithubCopilotProvider extends OpenAIProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    await this._refreshCopilotToken();
+    await this._refreshCopilotToken(options.signal);
     return super.chat(messages, tools, options);
   }
 
   async *stream(messages, tools = [], options = {}) {
-    await this._refreshCopilotToken();
+    await this._refreshCopilotToken(options.signal);
     yield* super.stream(messages, tools, options);
   }
 
   async analyzeImage(options = {}) {
-    await this._refreshCopilotToken();
+    await this._refreshCopilotToken(options.signal);
     return super.analyzeImage(options);
   }
 }

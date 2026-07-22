@@ -197,6 +197,34 @@ test('requestModelResponse times out a model call that never settles', async () 
   assert.equal(providerSignal.aborted, true);
 });
 
+test('requestStructuredJson aborts a timed-out provider call without retrying it', async () => {
+  const engine = new AgentEngine(null);
+  let calls = 0;
+  let providerSignal;
+
+  await assert.rejects(
+    engine.requestStructuredJson({
+      provider: {
+        async chat(_messages, _tools, options) {
+          calls += 1;
+          providerSignal = options.signal;
+          return new Promise(() => {});
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Inspect the task.' }],
+      prompt: 'Return JSON.',
+      normalize: (value) => value,
+      telemetry: { modelCallTimeoutMs: 20 },
+      phase: 'analysis',
+    }),
+    (error) => error.code === 'MODEL_CALL_TIMEOUT',
+  );
+  assert.equal(calls, 1);
+  assert.equal(providerSignal.aborted, true);
+});
+
 test('requestModelResponse times out a stalled stream without replaying partial output', async () => {
   const engine = new AgentEngine(null);
   let calls = 0;
