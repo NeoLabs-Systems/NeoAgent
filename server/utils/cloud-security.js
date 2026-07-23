@@ -159,7 +159,6 @@ async function validateCloudUrlWithDns(urlString, options = {}) {
       lookup(hostname, { all: true, verbatim: true }),
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('DNS lookup timed out.')), timeoutMs);
-        timer.unref?.();
       }),
     ];
     if (options.signal) {

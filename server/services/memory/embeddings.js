@@ -70,7 +70,6 @@ function requestEmbeddingJson({ hostname, path, headers, body, signal }) {
       response?.destroy();
       finish(null, null);
     }, EMBEDDING_TIMEOUT_MS);
-    timer.unref?.();
 
     request = https.request({
       hostname,

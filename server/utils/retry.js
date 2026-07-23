@@ -90,7 +90,6 @@ function abortableDelay(milliseconds, signal = null) {
       signal?.removeEventListener('abort', onAbort);
       resolve();
     }, Math.max(0, Number(milliseconds) || 0));
-    timer.unref?.();
     signal?.addEventListener('abort', onAbort, { once: true });
   });
 }

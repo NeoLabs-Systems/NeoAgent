@@ -110,7 +110,6 @@ export async function fetchJsonWithTimeout(url, options = {}, config = {}) {
     error.code = 'EXTENSION_HTTP_TIMEOUT';
     controller.abort(error);
   }, timeoutMs);
-  timer.unref?.();
 
   const { signal: _signal, ...fetchOptions } = options;
   try {

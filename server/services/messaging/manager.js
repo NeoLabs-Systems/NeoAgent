@@ -151,7 +151,6 @@ class MessagingManager extends EventEmitter {
       error.code = 'MESSAGING_TIMEOUT';
       timeoutController.abort(error);
     }, timeoutMs);
-    timer.unref?.();
 
     const operationPromise = waitForAbortableResult(
       Promise.resolve().then(() => operation(linked.signal)),

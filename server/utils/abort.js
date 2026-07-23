@@ -69,7 +69,6 @@ async function runWithAbortTimeout(factory, options = {}) {
       error.code = options.timeoutCode || 'OPERATION_TIMEOUT';
       timeoutController.abort(error);
     }, timeoutMs);
-    timer.unref?.();
   }
   const aborted = new Promise((_, reject) => {
     abortListener = () => reject(createAbortError(linked.signal));

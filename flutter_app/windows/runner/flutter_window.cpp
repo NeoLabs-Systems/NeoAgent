@@ -164,8 +164,10 @@ DisplayInfo ResolveDisplay(const std::string& requested_id) {
 }
 
 POINT CapturedPixelToDesktopPoint(const DisplayInfo& display, int x, int y) {
-  const int width = std::max(1, display.rect.right - display.rect.left);
-  const int height = std::max(1, display.rect.bottom - display.rect.top);
+  const int width = std::max(
+      1, static_cast<int>(display.rect.right - display.rect.left));
+  const int height = std::max(
+      1, static_cast<int>(display.rect.bottom - display.rect.top));
   return POINT{
       display.rect.left + std::clamp(x, 0, width - 1),
       display.rect.top + std::clamp(y, 0, height - 1),

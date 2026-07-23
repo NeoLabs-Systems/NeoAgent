@@ -45,7 +45,6 @@ async function waitForBoundedResult(promise, options = {}) {
       timeoutMs,
       options.timeoutCode,
     )), timeoutMs);
-    timer.unref?.();
   });
   try {
     return await waitForAbortableResult(
@@ -151,7 +150,6 @@ async function fetchResponse(url, options = {}, reader = readResponseBuffer) {
     controller.abort(timeoutFailure);
     rejectDeadline(timeoutFailure);
   }, timeoutMs);
-  timer.unref?.();
 
   const {
     fetchImpl: _fetchImpl,

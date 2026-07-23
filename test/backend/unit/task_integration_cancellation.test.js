@@ -23,8 +23,8 @@ test('integration trigger polling forwards caller cancellation to the provider',
 
   const pending = fetchTriggerRows({
     integrationManager,
-    userId: 1,
-    agentId: 'agent-1',
+    userId: null,
+    agentId: null,
     triggerType: 'slack_message_received',
     config: { connectionId: 7, channel: 'C123' },
     signal: controller.signal,

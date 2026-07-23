@@ -226,7 +226,6 @@ async function executeSafeHttpRequest(args = {}, context = {}) {
   const timeoutController = new AbortController();
   const linked = createLinkedAbortController([context.signal, timeoutController.signal]);
   const timer = setTimeout(() => timeoutController.abort(timeoutError(timeoutMs)), timeoutMs);
-  timer.unref?.();
   let currentUrl = parseHttpUrl(args.url);
   let requestState = {
     method,
