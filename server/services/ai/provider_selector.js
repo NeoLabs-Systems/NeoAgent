@@ -7,6 +7,7 @@ const {
   normalizeModelSelections,
   resolveModelSelection,
 } = require('./model_identity');
+const { isModelCoolingDown } = require('./model_failure_cache');
 
 function buildSelection(model, userId, providerConfig) {
   return {
@@ -30,11 +31,28 @@ async function getProviderForUser(
     signal: providerConfig.signal,
   });
   const selectableModels = models.filter((model) => model.available !== false);
+  const readyModels = selectableModels.filter(
+    (model) => !isModelCoolingDown(userId, agentId, model.id),
+  );
 
   if (modelOverride && typeof modelOverride === 'string') {
     const requested = resolveModelSelection(selectableModels, modelOverride);
     if (!requested) {
       throw new Error(`Requested model '${modelOverride.trim()}' is not available.`);
+    }
+    if (isModelCoolingDown(userId, agentId, requested.id) && readyModels.length > 0) {
+      const configuredFallback = resolveModelSelection(
+        readyModels,
+        aiSettings.fallback_model_id,
+      );
+      const fallback = configuredFallback
+        || readyModels.find((model) => model.provider !== requested.provider)
+        || readyModels[0];
+      providerConfig.onStatus?.({
+        phase: 'model_fallback',
+        message: `Skipping recently unavailable model ${requested.id}; using ${fallback.id}.`,
+      });
+      return buildSelection(fallback, userId, providerConfig);
     }
     return buildSelection(requested, userId, providerConfig);
   }
@@ -43,9 +61,35 @@ async function getProviderForUser(
     ? aiSettings.enabled_models.map((id) => String(id).trim()).filter(Boolean)
     : [];
   const enabledIds = normalizeModelSelections(selectableModels, configuredEnabledIds);
-  const availableModels = configuredEnabledIds.length > 0
-    ? selectableModels.filter((model) => enabledIds.includes(model.id))
-    : selectableModels;
+  let availableModels = configuredEnabledIds.length > 0
+    ? readyModels.filter((model) => enabledIds.includes(model.id))
+    : readyModels;
+
+  if (
+    availableModels.length === 0
+    && configuredEnabledIds.length > 0
+    && enabledIds.length > 0
+  ) {
+    const configuredFallback = resolveModelSelection(
+      readyModels,
+      aiSettings.fallback_model_id,
+    );
+    if (configuredFallback) {
+      providerConfig.onStatus?.({
+        phase: 'model_fallback',
+        message: `Enabled models are temporarily unavailable; using ${configuredFallback.id}.`,
+      });
+      availableModels = [configuredFallback];
+    }
+  }
+
+  // If every configured model is cooling down and there is no alternative,
+  // allow one retry instead of making the installation permanently unavailable.
+  if (availableModels.length === 0 && readyModels.length === 0) {
+    availableModels = configuredEnabledIds.length > 0
+      ? selectableModels.filter((model) => enabledIds.includes(model.id))
+      : selectableModels;
+  }
 
   if (availableModels.length === 0) {
     const message = configuredEnabledIds.length > 0
@@ -64,6 +108,17 @@ async function getProviderForUser(
   let selectedModel = fallbackModel;
   if (userSelectedDefault !== 'auto') {
     selectedModel = resolveModelSelection(availableModels, userSelectedDefault) || fallbackModel;
+    const configuredDefault = resolveModelSelection(selectableModels, userSelectedDefault);
+    if (
+      configuredDefault
+      && configuredDefault.id !== selectedModel.id
+      && isModelCoolingDown(userId, agentId, configuredDefault.id)
+    ) {
+      providerConfig.onStatus?.({
+        phase: 'model_fallback',
+        message: `Skipping recently unavailable model ${configuredDefault.id}; using ${selectedModel.id}.`,
+      });
+    }
   } else {
     const selectionHint = providerConfig.selectionHint && typeof providerConfig.selectionHint === 'object'
       ? providerConfig.selectionHint

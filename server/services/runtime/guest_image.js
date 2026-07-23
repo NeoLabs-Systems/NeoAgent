@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { stageGuestPayload, normalizeRuntimeProfile } = require('./guest_bootstrap');
 
@@ -105,6 +105,34 @@ function dockerAvailable() {
   return !result.error && result.status === 0;
 }
 
+function runDockerCommand(args, options = {}) {
+  const timeoutMs = Number(options.timeout || BUILD_TIMEOUT_MS);
+  const spawnImpl = options.spawnImpl || spawn;
+  return new Promise((resolve, reject) => {
+    const child = spawnImpl('docker', args, {
+      stdio: options.stdio || ['ignore', 'inherit', 'inherit'],
+      windowsHide: true,
+    });
+    let settled = false;
+    const finish = (error, status = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (error) reject(error);
+      else resolve(status);
+    };
+    const timeout = setTimeout(() => {
+      const error = new Error(`docker ${args[0]} timed out after ${timeoutMs}ms`);
+      error.code = 'DOCKER_COMMAND_TIMEOUT';
+      try { child.kill('SIGKILL'); } catch {}
+      finish(error);
+    }, timeoutMs);
+    timeout.unref?.();
+    child.once('error', (error) => finish(error));
+    child.once('close', (status) => finish(null, status));
+  });
+}
+
 // Builds and caches the per-profile guest-agent Docker image. The image bakes in
 // the guest agent, its dependencies, and (for browser_cli) the Chromium browser,
 // so containers start the agent directly with no runtime installation step.
@@ -166,15 +194,16 @@ class GuestImageBuilder {
   async #build(tag) {
     console.log(`[GuestImage:${this.profile}] Building guest image ${tag} (one-time; downloads browser + deps)…`);
     const started = Date.now();
-    const result = docker(['build', '-t', tag, this.contextDir], {
-      timeout: BUILD_TIMEOUT_MS,
-      stdio: ['ignore', 'inherit', 'inherit'],
-    });
-    if (result.error) {
-      throw new Error(`Guest image build failed to start: ${result.error.message}`);
+    let status;
+    try {
+      status = await runDockerCommand(['build', '-t', tag, this.contextDir], {
+        timeout: BUILD_TIMEOUT_MS,
+      });
+    } catch (error) {
+      throw new Error(`Guest image build failed: ${error.message}`, { cause: error });
     }
-    if (result.status !== 0) {
-      throw new Error(`Guest image build for ${tag} exited with status ${result.status}`);
+    if (status !== 0) {
+      throw new Error(`Guest image build for ${tag} exited with status ${status}`);
     }
     this.#cachedBuiltAt = Date.now();
     console.log(`[GuestImage:${this.profile}] Built ${tag} in ${Math.round((Date.now() - started) / 1000)}s`);
@@ -185,5 +214,6 @@ class GuestImageBuilder {
 module.exports = {
   GuestImageBuilder,
   dockerAvailable,
+  runDockerCommand,
   BASE_IMAGE,
 };

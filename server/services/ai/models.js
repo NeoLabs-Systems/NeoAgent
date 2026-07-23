@@ -264,7 +264,7 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
         let statusLabel = provider.statusLabel;
         let availabilityReason = provider.availabilityReason;
 
-        if (provider.id === 'ollama' && provider.enabled) {
+        if (provider.id === 'ollama' && provider.enabled && options.probeLocal !== false) {
             const probe = await probeOllama(
                 provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
                 1500,

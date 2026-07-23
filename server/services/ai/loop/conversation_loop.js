@@ -59,6 +59,11 @@ const {
   normalizeModelSelections,
   resolveModelSelection,
 } = require('../model_identity');
+const {
+  isModelCoolingDown,
+  recordModelFailure,
+  recordModelSuccess,
+} = require('../model_failure_cache');
 const { getProviderForUser } = require('../provider_selector');
 const { IterationBudget } = require('./iteration_budget');
 const {
@@ -421,7 +426,10 @@ async function getFailureFallbackModelId(
   const { getSupportedModels } = require('../models');
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId, { signal });
-  const availableModels = models.filter((model) => model.available !== false);
+  const availableModels = models.filter(
+    (model) => model.available !== false
+      && !isModelCoolingDown(userId, agentId, model.id),
+  );
   const configuredEnabledIds = Array.isArray(aiSettings.enabled_models)
     ? aiSettings.enabled_models.map((id) => String(id).trim()).filter(Boolean)
     : [];
@@ -599,6 +607,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
     .run(modelSelectionId, runId);
   const switchToFallbackModel = async (failedSelectionId, error, phase) => {
+    recordModelFailure(userId, agentId, failedSelectionId, error);
     const fallbackModelId = await getFailureFallbackModelId(
       userId,
       agentId,
@@ -639,12 +648,16 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   };
   const runWithModelFallback = async (phase, fn) => {
     try {
-      return await fn();
+      const result = await fn();
+      recordModelSuccess(userId, agentId, modelSelectionId);
+      return result;
     } catch (err) {
       const failedSelectionId = modelSelectionId;
       const switched = await switchToFallbackModel(failedSelectionId, err, phase);
       if (!switched) throw err;
-      return await fn();
+      const result = await fn();
+      recordModelSuccess(userId, agentId, modelSelectionId);
+      return result;
     }
   };
 
@@ -1492,8 +1505,10 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           response = modelCall.response;
           responseModel = modelCall.responseModel;
           streamContent = modelCall.streamContent;
+          recordModelSuccess(userId, agentId, modelSelectionId);
         } catch (err) {
           console.error(`[Engine] Model call failed (${model}):`, err.message);
+          recordModelFailure(userId, agentId, modelSelectionId, err);
           const fallbackModelId = retryForFallback
             ? await getFailureFallbackModelId(
               userId,
@@ -1561,6 +1576,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
             response = fallbackCall.response;
             responseModel = fallbackCall.responseModel;
             streamContent = fallbackCall.streamContent;
+            recordModelSuccess(userId, agentId, modelSelectionId);
           } else {
             throw err;
           }

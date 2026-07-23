@@ -87,6 +87,41 @@ class RuntimeManager {
     );
   }
 
+  getCapabilitySnapshot(userId) {
+    const settings = this.getSettings(userId) || {};
+    const key = String(userId || '').trim();
+    const extensionConnected = this.hasActiveExtensionBrowser(userId);
+    const androidController = key && this.androidControllers instanceof Map
+      ? this.androidControllers.get(key)
+      : null;
+    let androidStatus = null;
+    if (androidController && typeof androidController.getStatusSync === 'function') {
+      try {
+        androidStatus = androidController.getStatusSync();
+      } catch {
+        androidStatus = null;
+      }
+    }
+
+    return {
+      browser: {
+        preferredBackend: settings.browser_backend,
+        activeBackend: extensionConnected ? 'extension' : 'vm',
+        extensionConnected,
+        vmInitialized: Boolean(
+          this.browserBackend?.vmManager?.hasTrackedVm?.(userId),
+        ),
+      },
+      android: {
+        initialized: Boolean(androidController),
+        status: androidStatus,
+      },
+      desktop: {
+        connected: this.hasActiveDesktopCompanion(userId),
+      },
+    };
+  }
+
   resolveBackend(userId, requested) {
     void userId;
     return requested === 'browser' ? this.browserBackend : this.cliBackend;

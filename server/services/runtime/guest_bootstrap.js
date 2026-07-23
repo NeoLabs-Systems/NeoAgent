@@ -13,6 +13,8 @@ const GUEST_PAYLOAD_PROFILES = Object.freeze({
     { source: 'runtime/paths.js', target: 'runtime/paths.js' },
     { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
     { source: 'server/services/browser', target: 'server/services/browser' },
+    { source: 'server/services/android/process.js', target: 'server/services/android/process.js' },
+    { source: 'server/utils/cloud-security.js', target: 'server/utils/cloud-security.js' },
   ],
   cli: [
     { source: 'server/guest-agent.cli.package.json', target: 'package.json' },
@@ -28,6 +30,8 @@ const GUEST_PAYLOAD_PROFILES = Object.freeze({
     { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
     { source: 'server/services/cli', target: 'server/services/cli' },
     { source: 'server/services/browser', target: 'server/services/browser' },
+    { source: 'server/services/android/process.js', target: 'server/services/android/process.js' },
+    { source: 'server/utils/cloud-security.js', target: 'server/utils/cloud-security.js' },
   ],
   android: [
     { source: 'server/guest-agent.android.package.json', target: 'package.json' },
@@ -36,6 +40,9 @@ const GUEST_PAYLOAD_PROFILES = Object.freeze({
     { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
     { source: 'server/services/cli', target: 'server/services/cli' },
     { source: 'server/services/android', target: 'server/services/android' },
+    { source: 'server/utils/abort.js', target: 'server/utils/abort.js' },
+    { source: 'server/utils/cloud-security.js', target: 'server/utils/cloud-security.js' },
+    { source: 'server/utils/image_payload.js', target: 'server/utils/image_payload.js' },
   ],
 });
 

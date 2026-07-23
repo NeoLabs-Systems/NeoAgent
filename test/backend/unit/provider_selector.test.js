@@ -13,6 +13,7 @@ describe('provider selector', () => {
   let originalCreateProviderInstance;
   let originalGetSupportedModels;
   let getProviderForUser;
+  let modelFailureCache;
 
   const catalog = [
     {
@@ -54,12 +55,14 @@ describe('provider selector', () => {
     originalGetSupportedModels = modelsModule.getSupportedModels;
     modelsModule.getSupportedModels = async () => catalog;
     modelsModule.createProviderInstance = (provider) => ({ provider });
+    modelFailureCache = require('../../../server/services/ai/model_failure_cache');
 
     delete require.cache[require.resolve('../../../server/services/ai/provider_selector')];
     ({ getProviderForUser } = require('../../../server/services/ai/provider_selector'));
   });
 
   afterEach(() => {
+    modelFailureCache.clearModelFailureCache();
     modelsModule.createProviderInstance = originalCreateProviderInstance;
     modelsModule.getSupportedModels = originalGetSupportedModels;
     delete require.cache[require.resolve('../../../server/services/ai/provider_selector')];
@@ -105,5 +108,26 @@ describe('provider selector', () => {
       getProviderForUser(user.userId, '', false, null, { agentId }),
       /None of the enabled AI models are currently available/,
     );
+  });
+
+  test('skips a model that recently returned a permanent not-found error', async () => {
+    setSetting('enabled_models', catalog.map((model) => model.id));
+    setSetting('default_chat_model', 'github-copilot::gpt-5.3');
+    setSetting('fallback_model_id', 'openai::gpt-5.3');
+    modelFailureCache.recordModelFailure(
+      user.userId,
+      agentId,
+      'github-copilot::gpt-5.3',
+      Object.assign(new Error('model request returned 404'), { status: 404 }),
+    );
+
+    const statuses = [];
+    const selected = await getProviderForUser(user.userId, '', false, null, {
+      agentId,
+      onStatus: (status) => statuses.push(status),
+    });
+
+    assert.equal(selected.modelSelectionId, 'openai::gpt-5.3');
+    assert.equal(statuses[0]?.phase, 'model_fallback');
   });
 });

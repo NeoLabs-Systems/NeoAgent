@@ -94,7 +94,9 @@ class GoogleProvider extends BaseProvider {
       }
       if (msg.role === 'tool') {
         history.push({
-          role: 'function',
+          // Gemini chat history only accepts user/model roles. Tool results are
+          // represented as functionResponse parts on a user turn.
+          role: 'user',
           parts: [{
             functionResponse: {
               name: msg.name || 'tool',
@@ -145,6 +147,18 @@ class GoogleProvider extends BaseProvider {
     }
     if (currentRole) {
       normalizedHistory.push({ role: currentRole, parts: currentParts });
+    }
+
+    // Structured helpers can consist entirely of system instructions. Gemini's
+    // chat API still requires a user turn to trigger generation.
+    if (
+      normalizedHistory.length === 0
+      || normalizedHistory[normalizedHistory.length - 1].role === 'model'
+    ) {
+      normalizedHistory.push({
+        role: 'user',
+        parts: [{ text: 'Provide the requested response using the system instructions.' }]
+      });
     }
 
     if (normalizedHistory.length > 0 && normalizedHistory[0].role !== 'user') {
