@@ -136,6 +136,7 @@ class WearableService {
       channel,
       repositoryOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_GITHUB_REPOSITORY, 256),
       assetNameOverride: toTrimmedString(process.env.NEOAGENT_WEARABLE_FIRMWARE_ASSET_NAME, 128),
+      signal: req?.signal,
     });
     return {
       ...manifest,

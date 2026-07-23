@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { analyzeImageForUser } = require('./imageAnalysis');
-const { isPrivateHost, validateCloudUrl } = require('../../utils/cloud-security');
+const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
+const { isAbortError } = require('../../utils/abort');
+const { fetchResponseText } = require('../network/http');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
@@ -10,11 +12,13 @@ const {
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
+const { isDeferredWorkReply } = require('./terminal_reply');
 const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const {
     executeIntegratedTool,
     getIntegratedToolDefinitions,
 } = require('./integrated_tools');
+const { executeHttpRequest } = require('./integrated_tools/http_request');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -33,6 +37,14 @@ function compactToolDefinition(tool, options = {}) {
             properties: {}
         }
     };
+
+    // Keep execution-only access metadata on the internal tool definition. The
+    // provider adapters serialize only name/description/parameters, so this is
+    // never sent as part of an LLM tool schema. The loop uses it to distinguish
+    // official-integration reads from writes without hard-coding provider names.
+    if (typeof tool.access === 'string' && tool.access.trim()) {
+        compact.access = tool.access.trim().toLowerCase();
+    }
 
     if (options.includeDescriptions) {
         compact.description = compactText(tool.description, 320);
@@ -878,7 +890,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: `Send a message on a connected messaging platform. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -1632,7 +1644,8 @@ async function executeTool(toolName, args, context, engine) {
         taskId,
         widgetId,
         deliveryState = null,
-        allowMultipleProactiveMessages = false
+        allowMultipleProactiveMessages = false,
+        signal = null,
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
@@ -1641,7 +1654,10 @@ async function executeTool(toolName, args, context, engine) {
             const backend = typeof manager.getActiveBrowserBackend === 'function'
                 ? await Promise.resolve(manager.getActiveBrowserBackend(userId))
                 : 'vm';
-            return { provider: await manager.getBrowserProviderForUser(userId), backend };
+            return {
+                provider: await manager.getBrowserProviderForUser(userId, { signal }),
+                backend,
+            };
         }
         throw new Error('Browser provider is unavailable. VM runtime is required.');
     };
@@ -1672,7 +1688,13 @@ async function executeTool(toolName, args, context, engine) {
 
     const integrationManager = integrations();
     if (integrationManager) {
-        const integrationResult = await integrationManager.executeTool(userId, toolName, args, agentId);
+        const integrationResult = await integrationManager.executeTool(
+            userId,
+            toolName,
+            args,
+            agentId,
+            { signal },
+        );
         if (
             integrationResult &&
             typeof integrationResult === 'object' &&
@@ -1724,6 +1746,7 @@ async function executeTool(toolName, args, context, engine) {
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
                 inputs: Array.isArray(args.inputs) ? args.inputs : [],
+                signal,
             };
             if (typeof runtimeManager.executeCliCommand === 'function') {
                 return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
@@ -1736,7 +1759,7 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'browser_navigate': {
-            const urlCheck = validateCloudUrl(args.url);
+            const urlCheck = await validateCloudUrlWithDns(args.url, { signal });
             if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
@@ -1745,14 +1768,15 @@ async function executeTool(toolName, args, context, engine) {
                 waitFor: args.waitFor,
                 fullPage: args.fullPage,
                 referrerMode: args.referrerMode,
-                challengeRetry: args.challengeRetry
+                challengeRetry: args.challengeRetry,
+                signal,
             }), backend };
         }
 
         case 'browser_click': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            return { ...await provider.click(args.selector, args.text, args.screenshot !== false), backend };
+            return { ...await provider.click(args.selector, args.text, args.screenshot !== false, { signal }), backend };
         }
 
         case 'browser_type': {
@@ -1760,20 +1784,21 @@ async function executeTool(toolName, args, context, engine) {
             if (!provider) return { error: 'Browser controller not available' };
             return { ...await provider.type(args.selector, args.text, {
                 clear: args.clear !== false,
-                pressEnter: args.pressEnter
+                pressEnter: args.pressEnter,
+                signal,
             }), backend };
         }
 
         case 'browser_extract': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            return { ...await provider.extract(args.selector, args.attribute, args.all), backend };
+            return { ...await provider.extract(args.selector, args.attribute, args.all, { signal }), backend };
         }
 
         case 'browser_screenshot': {
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
-            return { ...await provider.screenshot({ fullPage: args.fullPage, selector: args.selector }), backend };
+            return { ...await provider.screenshot({ fullPage: args.fullPage, selector: args.selector, signal }), backend };
         }
 
         case 'browser_evaluate': {
@@ -1781,13 +1806,13 @@ async function executeTool(toolName, args, context, engine) {
             if (!provider) return { error: 'Browser controller not available' };
             const script = args.script ?? args.javascript;
             if (!script) return { error: 'browser_evaluate requires a "script" argument' };
-            return { ...await provider.evaluate(script), backend };
+            return { ...await provider.evaluate(script, { signal }), backend };
         }
 
         case 'android_start_emulator': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.startEmulator(args || {});
+            return await controller.startEmulator({ ...(args || {}), signal });
         }
 
         case 'desktop_list_devices': {
@@ -1814,6 +1839,7 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.observe({
                 deviceId: args.device_id,
                 includeTree: args.includeTree === true,
+                signal,
             });
         }
 
@@ -1823,6 +1849,7 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.clickPoint(args.x, args.y, {
                 deviceId: args.device_id,
                 button: args.button,
+                signal,
             });
         }
 
@@ -1836,6 +1863,7 @@ async function executeTool(toolName, args, context, engine) {
                 x2: args.x2,
                 y2: args.y2,
                 durationMs: args.durationMs,
+                signal,
             });
         }
 
@@ -1846,6 +1874,7 @@ async function executeTool(toolName, args, context, engine) {
                 deviceId: args.device_id,
                 deltaX: args.deltaX,
                 deltaY: args.deltaY,
+                signal,
             });
         }
 
@@ -1855,6 +1884,7 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.typeText(args.text, {
                 deviceId: args.device_id,
                 pressEnter: args.pressEnter === true,
+                signal,
             });
         }
 
@@ -1863,6 +1893,7 @@ async function executeTool(toolName, args, context, engine) {
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.pressKey(args.key, {
                 deviceId: args.device_id,
+                signal,
             });
         }
 
@@ -1872,6 +1903,7 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.launchApp({
                 deviceId: args.device_id,
                 app: args.app,
+                signal,
             });
         }
 
@@ -1880,112 +1912,111 @@ async function executeTool(toolName, args, context, engine) {
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.getAccessibilityTree({
                 deviceId: args.device_id,
+                signal,
             });
         }
 
         case 'android_stop_emulator': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.stopEmulator();
+            return await controller.stopEmulator({ signal });
         }
 
         case 'android_list_devices': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return { devices: await controller.listDevices() };
+            return { devices: await controller.listDevices({ signal }) };
         }
 
         case 'android_open_app': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.openApp(args || {});
+            return await controller.openApp({ ...(args || {}), signal });
         }
 
         case 'android_open_intent': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.openIntent(args || {});
+            return await controller.openIntent({ ...(args || {}), signal });
         }
 
         case 'android_tap': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.tap(args || {});
+            return await controller.tap({ ...(args || {}), signal });
         }
 
         case 'android_long_press': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.longPress(args || {});
+            return await controller.longPress({ ...(args || {}), signal });
         }
 
         case 'android_type': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.type(args || {});
+            return await controller.type({ ...(args || {}), signal });
         }
 
         case 'android_swipe': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.swipe(args || {});
+            return await controller.swipe({ ...(args || {}), signal });
         }
 
         case 'android_press_key': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.pressKey(args || {});
+            return await controller.pressKey({ ...(args || {}), signal });
         }
 
         case 'android_wait_for': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.waitFor(args || {});
+            return await controller.waitFor({ ...(args || {}), signal });
         }
 
         case 'android_observe': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.observe(args || {});
+            return await controller.observe({ ...(args || {}), signal });
         }
 
         case 'android_dump_ui': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.dumpUi(args || {});
+            return await controller.dumpUi({ ...(args || {}), signal });
         }
 
         case 'android_screenshot': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.screenshot(args || {});
+            return await controller.screenshot({ ...(args || {}), signal });
         }
 
         case 'android_list_apps': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.listApps(args || {});
+            return await controller.listApps({ ...(args || {}), signal });
         }
 
         case 'android_install_apk': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.installApk(args || {});
+            return await controller.installApk({ ...(args || {}), signal });
         }
 
         case 'android_shell': {
             const controller = await ac();
             if (!controller) return { error: 'Android controller not available' };
-            return await controller.shell(args || {});
+            return await controller.shell({ ...(args || {}), signal });
         }
 
         case 'web_search': {
             const apiKey = process.env.BRAVE_SEARCH_API_KEY;
             if (!apiKey) return { error: 'BRAVE_SEARCH_API_KEY is not configured' };
 
-            const controller = new AbortController();
             const timeoutMs = 20000;
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
 
             try {
                 const limit = Math.max(1, Math.min(Number(args.count) || 5, 10));
@@ -2000,15 +2031,20 @@ async function executeTool(toolName, args, context, engine) {
                 if (args.search_lang) params.set('search_lang', String(args.search_lang).toLowerCase());
                 if (args.freshness) params.set('freshness', args.freshness);
 
-                const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params.toString()}`, {
+                const { response, text } = await fetchResponseText(
+                  `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
+                  {
                     headers: {
                         Accept: 'application/json',
                         'X-Subscription-Token': apiKey
                     },
-                    signal: controller.signal
-                });
+                    maxResponseBytes: 2 * 1024 * 1024,
+                    serviceName: 'Brave Search',
+                    signal,
+                    timeoutMs,
+                  },
+                );
 
-                const text = await res.text();
                 let data = null;
                 try {
                     data = JSON.parse(text);
@@ -2016,9 +2052,9 @@ async function executeTool(toolName, args, context, engine) {
                     data = null;
                 }
 
-                if (!res.ok) {
+                if (!response.ok) {
                     return {
-                        error: `Brave Search API request failed with status ${res.status}`,
+                        error: `Brave Search API request failed with status ${response.status}`,
                         details: data || text.slice(0, 1000)
                     };
                 }
@@ -2040,10 +2076,11 @@ async function executeTool(toolName, args, context, engine) {
                     results
                 };
             } catch (err) {
-                if (err.name === 'AbortError') return { error: `Brave Search API request timed out after ${timeoutMs} ms` };
+                if (isAbortError(err, signal)) throw err;
+                if (err.code === 'HTTP_TIMEOUT') {
+                    return { error: `Brave Search API request timed out after ${timeoutMs}ms` };
+                }
                 return { error: err.message };
-            } finally {
-                clearTimeout(timer);
             }
         }
 
@@ -2051,7 +2088,13 @@ async function executeTool(toolName, args, context, engine) {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
             const content = typeof args.content === 'string' ? args.content : args.value;
-            const id = await mm.saveMemory(userId, content, args.category || 'episodic', args.importance || 5, { agentId });
+            const id = await mm.saveMemory(
+                userId,
+                content,
+                args.category || 'episodic',
+                args.importance || 5,
+                { agentId, signal },
+            );
             if (!id) {
                 return {
                     success: true,
@@ -2065,7 +2108,12 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_recall': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
-            const results = await mm.recallMemory(userId, args.query, args.limit || 6, { agentId });
+            const results = await mm.recallMemory(
+                userId,
+                args.query,
+                args.limit || 6,
+                { agentId, signal },
+            );
             if (!results.length) return { results: [], message: 'Nothing found' };
             return { results };
         }
@@ -2198,6 +2246,7 @@ async function executeTool(toolName, args, context, engine) {
                 includeFrame: args.include_frame !== false,
                 forceStt: args.force_stt === true,
                 agentId,
+                signal,
             });
         }
 
@@ -2206,7 +2255,7 @@ async function executeTool(toolName, args, context, engine) {
             if (!service || typeof service.getStatus !== 'function') {
                 return { error: 'Social reach service is unavailable.' };
             }
-            return await service.getStatus(userId);
+            return await service.getStatus(userId, { signal });
         }
 
         case 'social_reach_read': {
@@ -2214,7 +2263,7 @@ async function executeTool(toolName, args, context, engine) {
             if (!service || typeof service.read !== 'function') {
                 return { error: 'Social reach service is unavailable.' };
             }
-            return await service.read(userId, args || {});
+            return await service.read(userId, args || {}, { signal });
         }
 
         case 'social_reach_search': {
@@ -2222,7 +2271,7 @@ async function executeTool(toolName, args, context, engine) {
             if (!service || typeof service.search !== 'function') {
                 return { error: 'Social reach service is unavailable.' };
             }
-            return await service.search(userId, args || {});
+            return await service.search(userId, args || {}, { signal });
         }
 
         case 'memory_write': {
@@ -2305,6 +2354,23 @@ async function executeTool(toolName, args, context, engine) {
                 stripNoResponseMarker: false
             });
             const suppressReply = normalizedMessage === '[NO RESPONSE]';
+            const originDelivery = isOriginMessagingDelivery({
+                triggerSource,
+                source: context.source,
+                chatId: context.chatId,
+                platform: args.platform,
+                to: args.to,
+            });
+            if (
+                !suppressReply
+                && triggerSource === 'messaging'
+                && originDelivery
+                && isDeferredWorkReply(normalizedMessage)
+            ) {
+                return {
+                    error: 'send_message cannot end the run with a promise or progress-only reply. Continue the work, or use send_interim_update for a factual interim update.',
+                };
+            }
             if (isProactiveTrigger(triggerSource)) {
                 const proactiveValidation = validateProactiveSendMessageArgs({
                     purpose: args.purpose,
@@ -2360,24 +2426,22 @@ async function executeTool(toolName, args, context, engine) {
                 };
             }
 
+            if (triggerSource === 'messaging' && originDelivery) {
+                await engine?.stopMessagingProgressSupervisor?.(runId);
+            }
             const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
                 agentId,
                 mediaPath: args.media_path,
                 runId,
-                persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks'
+                persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks',
+                signal,
             });
             // Track that the agent explicitly sent a message during this run
             if (
                 !suppressReply
                 && sendResult?.success === true
                 && sendResult?.suppressed !== true
-                && isOriginMessagingDelivery({
-                    triggerSource,
-                    source: context.source,
-                    chatId: context.chatId,
-                    platform: args.platform,
-                    to: args.to,
-                })
+                && originDelivery
             ) {
                 markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 if (runState && triggerSource === 'messaging') {
@@ -2557,66 +2621,14 @@ async function executeTool(toolName, args, context, engine) {
         }
 
         case 'http_request': {
-            let parsedUrl;
-            try { parsedUrl = new URL(args.url); } catch {
-                return { error: 'Invalid URL' };
-            }
-            const scheme = parsedUrl.protocol.replace(/:$/, '').toLowerCase();
-            if (!['http', 'https'].includes(scheme)) {
-                return { error: 'URL scheme not allowed. Only http and https are permitted.' };
-            }
-            const h = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-            if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.endsWith('.localhost')) {
-                return { error: 'Loopback addresses are not permitted.' };
-            }
-            const allowPrivate = process.env.NEOAGENT_HTTP_ALLOW_PRIVATE !== 'false';
-            if (!allowPrivate && isPrivateHost(parsedUrl.hostname)) {
-                return { error: 'Private/internal network addresses are not permitted.' };
-            }
-            const controller = new AbortController();
-            const timeoutMs = args.timeout_ms || 30000;
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const options = {
-                    method: args.method || 'GET',
-                    headers: args.headers || {},
-                    signal: controller.signal
-                };
-                if (args.body && ['POST', 'PUT', 'PATCH'].includes(options.method)) {
-                    options.body = args.body;
-                    if (!options.headers['Content-Type']) {
-                        options.headers['Content-Type'] = 'application/json';
-                    }
-                }
-                const res = await fetch(args.url, options);
-                const MAX_BODY = 512 * 1024;
-                const reader = res.body.getReader();
-                const chunks = [];
-                let total = 0;
-                let truncated = false;
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    total += value.length;
-                    if (total > MAX_BODY) {
-                        const take = MAX_BODY - (total - value.length);
-                        if (take > 0) chunks.push(value.slice(0, take));
-                        truncated = true;
-                        break;
-                    }
-                    chunks.push(value);
-                }
-                const text = Buffer.concat(chunks.map(c => Buffer.from(c))).toString('utf-8');
-                return {
-                    status: res.status,
-                    headers: Object.fromEntries(res.headers.entries()),
-                    body: truncated ? text + '\n...[truncated]' : text,
-                };
+                return await executeHttpRequest(args, {
+                    allowPrivate: process.env.NEOAGENT_HTTP_ALLOW_PRIVATE === 'true',
+                    signal,
+                });
             } catch (err) {
-                if (err.name === 'AbortError') return { error: `Request timed out after ${timeoutMs} ms` };
+                if (isAbortError(err, signal)) throw err;
                 return { error: err.message };
-            } finally {
-                clearTimeout(timer);
             }
         }
 
@@ -2762,7 +2774,8 @@ async function executeTool(toolName, args, context, engine) {
                         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
                             agentId,
                             runId,
-                            persistConversation: true
+                            persistConversation: true,
+                            signal,
                         });
                         if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
                             taskConfig.notifyPlatform = target.platform;

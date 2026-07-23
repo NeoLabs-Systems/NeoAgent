@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { fetchResponseText } = require('../http');
 
 function base64UrlSha256(value) {
   return crypto
@@ -46,15 +47,19 @@ async function githubApiRequest(auth, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url.toString(), {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const { response, text: rawBody } = await fetchResponseText(
+    url.toString(),
+    {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: options.signal || auth?.signal,
+    },
+    { serviceName: 'GitHub API' },
+  );
 
   let data = null;
   if (response.status !== 204 && response.status !== 205) {
-    const rawBody = await response.text();
     if (rawBody.trim()) {
       try {
         data = JSON.parse(rawBody);

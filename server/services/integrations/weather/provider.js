@@ -152,14 +152,14 @@ function cleanLocationResult(item = {}) {
   };
 }
 
-async function geocodeLocation(locationQuery, limit = 1) {
+async function geocodeLocation(locationQuery, limit = 1, signal = null) {
   const query = String(locationQuery || '').trim();
   if (!query) {
     throw new Error('location is required when latitude/longitude are not provided.');
   }
   const result = await fetchJson(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=${Math.max(1, Math.min(Number(limit) || 1, 10))}&language=en&format=json`,
-    { method: 'GET' },
+    { method: 'GET', signal },
     { serviceName: 'Open-Meteo geocoding' },
   );
   const matches = Array.isArray(result?.results) ? result.results : [];
@@ -169,7 +169,7 @@ async function geocodeLocation(locationQuery, limit = 1) {
   return matches.map(cleanLocationResult);
 }
 
-async function resolveLocation(args = {}, connection = null) {
+async function resolveLocation(args = {}, connection = null, signal = null) {
   const latitude = toNumber(args.latitude, null);
   const longitude = toNumber(args.longitude, null);
   if (latitude !== null && longitude !== null) {
@@ -183,7 +183,7 @@ async function resolveLocation(args = {}, connection = null) {
 
   const location = String(args.location || '').trim();
   if (location) {
-    const [best] = await geocodeLocation(location, 1);
+    const [best] = await geocodeLocation(location, 1, signal);
     return {
       latitude: best.latitude,
       longitude: best.longitude,
@@ -221,7 +221,7 @@ function enrichCurrent(current = {}) {
   };
 }
 
-async function fetchForecastForLocation(location, forecastHours = 24) {
+async function fetchForecastForLocation(location, forecastHours = 24, signal = null) {
   const horizon = Math.max(1, Math.min(Number(forecastHours) || 24, 72));
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', String(location.latitude));
@@ -259,7 +259,11 @@ async function fetchForecastForLocation(location, forecastHours = 24) {
   url.searchParams.set('forecast_hours', String(horizon));
   url.searchParams.set('timezone', location.timezone || 'auto');
 
-  const result = await fetchJson(url.toString(), { method: 'GET' }, { serviceName: 'Open-Meteo forecast' });
+  const result = await fetchJson(
+    url.toString(),
+    { method: 'GET', signal },
+    { serviceName: 'Open-Meteo forecast' },
+  );
   const hourly = result?.hourly || {};
   const times = Array.isArray(hourly.time) ? hourly.time : [];
   const rows = times.map((time, index) => {
@@ -304,6 +308,7 @@ class WeatherProvider {
     this.sessions = new Map();
     this.sessionTTL = 30 * 60 * 1000;
     this.#pruneTimer = setInterval(() => this.pruneExpiredSessions(), this.sessionTTL);
+    this.#pruneTimer.unref?.();
   }
 
   #pruneTimer = null;
@@ -504,7 +509,8 @@ class WeatherProvider {
     }
   }
 
-  async executeTool(toolName, args, connection) {
+  async executeTool(toolName, args, connection, executionOptions = {}) {
+    const signal = executionOptions.signal || null;
     switch (toolName) {
       case 'weather_search_locations': {
         const query = String(args.query || '').trim();
@@ -512,7 +518,7 @@ class WeatherProvider {
           throw new Error('query is required.');
         }
         const limit = Math.max(1, Math.min(Number(args.limit) || 5, 10));
-        const results = await geocodeLocation(query, limit);
+        const results = await geocodeLocation(query, limit, signal);
         return {
           result: {
             query,
@@ -522,8 +528,8 @@ class WeatherProvider {
         };
       }
       case 'weather_get_current': {
-        const location = await resolveLocation(args, connection);
-        const forecast = await fetchForecastForLocation(location, 1);
+        const location = await resolveLocation(args, connection, signal);
+        const forecast = await fetchForecastForLocation(location, 1, signal);
         return {
           result: {
             location: forecast.location,
@@ -532,9 +538,9 @@ class WeatherProvider {
         };
       }
       case 'weather_get_forecast': {
-        const location = await resolveLocation(args, connection);
+        const location = await resolveLocation(args, connection, signal);
         const forecastHours = Math.max(1, Math.min(Number(args.forecast_hours) || 24, 72));
-        const forecast = await fetchForecastForLocation(location, forecastHours);
+        const forecast = await fetchForecastForLocation(location, forecastHours, signal);
         return {
           result: {
             location: forecast.location,

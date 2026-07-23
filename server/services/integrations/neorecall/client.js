@@ -29,17 +29,22 @@ function normalizeBaseUrl(value) {
   return url.toString().replace(/\/+$/, '');
 }
 
-async function bootstrap(baseUrl, callbackUrl) {
+async function bootstrap(baseUrl, callbackUrl, options = {}) {
   return fetchJson(`${baseUrl}/api/oauth/companion/neoagent/bootstrap`, {
     method: 'POST', json: { redirectUri: callbackUrl, appName: 'NeoAgent' },
+    signal: options.signal,
   }, { serviceName: 'NeoRecall companion bootstrap' });
 }
 
-async function token(baseUrl, form) {
-  return fetchJson(`${baseUrl}/oauth/token`, { method: 'POST', form }, { serviceName: 'NeoRecall OAuth token' });
+async function token(baseUrl, form, options = {}) {
+  return fetchJson(
+    `${baseUrl}/oauth/token`,
+    { method: 'POST', form, signal: options.signal },
+    { serviceName: 'NeoRecall OAuth token' },
+  );
 }
 
-async function revoke(credentials) {
+async function revoke(credentials, options = {}) {
   const saved = credentials && typeof credentials === 'object' ? credentials : {};
   const baseUrl = normalizeBaseUrl(saved.baseUrl);
   const clientId = text(saved.client_id);
@@ -47,12 +52,13 @@ async function revoke(credentials) {
   const tokens = [saved.refresh_token, saved.access_token].map(text).filter(Boolean);
   const outcomes = await Promise.allSettled(tokens.map((value) => fetchJson(`${baseUrl}/oauth/revoke`, {
     method: 'POST', form: { client_id: clientId, token: value },
+    signal: options.signal,
   }, { serviceName: 'NeoRecall OAuth revocation' })));
   const failed = outcomes.find((outcome) => outcome.status === 'rejected');
   if (failed) throw failed.reason;
 }
 
-async function authenticated(credentials) {
+async function authenticated(credentials, options = {}) {
   const saved = credentials && typeof credentials === 'object' ? credentials : {};
   const baseUrl = normalizeBaseUrl(saved.baseUrl);
   if (text(saved.access_token) && Number(saved.expires_at_ms) > Date.now() + 60_000) {
@@ -63,7 +69,7 @@ async function authenticated(credentials) {
   }
   const refreshed = await token(baseUrl, {
     grant_type: 'refresh_token', client_id: saved.client_id, refresh_token: saved.refresh_token,
-  });
+  }, options);
   const next = {
     ...saved,
     access_token: text(refreshed.access_token),
@@ -97,15 +103,16 @@ function appendApiQuery(path, query) {
   return encoded ? `${path}?${encoded}` : path;
 }
 
-async function request(credentials, apiPath) {
-  const authorization = await authenticated(credentials);
+async function request(credentials, apiPath, options = {}) {
+  const authorization = await authenticated(credentials, options);
   const response = await fetchJson(`${authorization.baseUrl}${apiPath}`, {
     headers: { Authorization: `Bearer ${authorization.accessToken}` },
+    signal: options.signal,
   }, { serviceName: 'NeoRecall API' });
   return { result: response, credentials: authorization.credentials };
 }
 
-async function executeTool(toolName, args, credentials) {
+async function executeTool(toolName, args, credentials, options = {}) {
   let apiPath;
   switch (toolName) {
     case 'neorecall_search': {
@@ -134,7 +141,7 @@ async function executeTool(toolName, args, credentials) {
     default:
       throw new Error(`Unsupported NeoRecall tool: ${toolName}`);
   }
-  return request(credentials, apiPath);
+  return request(credentials, apiPath, options);
 }
 
 module.exports = { bootstrap, executeTool, normalizeBaseUrl, revoke, text, token };

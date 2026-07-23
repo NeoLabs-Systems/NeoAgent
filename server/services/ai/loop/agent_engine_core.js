@@ -19,8 +19,10 @@ const {
 const { summarizeCapabilityHealth } = require('../capabilityHealth');
 const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
+const { getProviderForUser } = require('../provider_selector');
 const { runConversation } = require('./conversation_loop');
 const {
+  TERMINAL_STATUSES,
   checkpointRun,
   closeRun,
   getRunControl,
@@ -30,6 +32,7 @@ const {
 const {
   buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
+  enforceTerminalReplyDecision,
   normalizeChurnAssessment,
   normalizeCompletionDecision,
   resolveRunGoalContext,
@@ -67,7 +70,7 @@ const {
 const {
   requestModelResponse: requestModelResponseImpl,
   requestStructuredJson: requestStructuredJsonImpl,
-  withModelCallTimeout,
+  runAbortableModelCall,
 } = require('./model_io');
 const {
   publishInterimUpdate: publishInterimUpdateImpl,
@@ -82,6 +85,7 @@ const {
   normalizeOutgoingMessage,
   clampRunContext,
 } = require('../messagingFallback');
+const { isDeferredWorkReply } = require('../terminal_reply');
 const {
   summarizeToolExecutions,
 } = require('../toolEvidence');
@@ -97,6 +101,13 @@ const {
   normalizeRetrievalPlan,
   shouldEnhanceRetrieval,
 } = require('../../memory/retrieval_reasoning');
+const {
+  createAbortError,
+  createLinkedAbortController,
+  isAbortError,
+  runWithAbortTimeout,
+  throwIfAborted,
+} = require('../../../utils/abort');
 
 function buildInitialRunMetadata(options = {}) {
   const metadata = {};
@@ -105,6 +116,9 @@ function buildInitialRunMetadata(options = {}) {
   }
   if (options.widgetId != null && String(options.widgetId).trim()) {
     metadata.widgetId = options.widgetId;
+  }
+  if (options.messagingInboundJobId != null && String(options.messagingInboundJobId).trim()) {
+    metadata.messagingInboundJobId = String(options.messagingInboundJobId).trim();
   }
   return metadata;
 }
@@ -131,99 +145,6 @@ function buildAnalyzeTaskFallback(forceMode, userMessage = '') {
   };
 }
 
-async function getProviderForUser(userId, task = '', isSubagent = false, modelOverride = null, providerConfig = {}) {
-  const { getSupportedModels, createProviderInstance } = require('../models');
-  const agentId = providerConfig.agentId || null;
-  const aiSettings = getAiSettings(userId, agentId);
-  const models = await getSupportedModels(userId, agentId);
-
-  let enabledIds = Array.isArray(aiSettings.enabled_models) ? aiSettings.enabled_models : [];
-  const defaultChatModel = aiSettings.default_chat_model || 'auto';
-  const defaultSubagentModel = aiSettings.default_subagent_model || 'auto';
-  const smarterSelection = aiSettings.smarter_model_selector !== false && aiSettings.smarter_model_selector !== 'false';
-
-  const knownModelIds = new Set(models.map((m) => m.id));
-  const selectableModels = models.filter((m) => m.available !== false);
-
-  enabledIds = Array.isArray(enabledIds)
-    ? enabledIds
-      .map((id) => String(id))
-      .filter((id) => knownModelIds.has(id))
-    : [];
-
-  let availableModels = selectableModels.filter((m) => enabledIds.includes(m.id));
-  if (availableModels.length === 0) {
-    enabledIds = selectableModels.map((m) => m.id);
-    availableModels = [...selectableModels];
-  }
-
-  const fallbackModel = availableModels.length > 0 ? availableModels[0] : selectableModels[0];
-
-  if (!fallbackModel) {
-    throw new Error('No AI providers are currently available. Open Settings and configure at least one provider.');
-  }
-
-  let selectedModelDef = fallbackModel;
-  const userSelectedDefault = isSubagent ? defaultSubagentModel : defaultChatModel;
-
-  if (modelOverride && typeof modelOverride === 'string') {
-    const requested = models.find((m) => m.id === modelOverride.trim());
-    if (requested && requested.available !== false && enabledIds.includes(requested.id)) {
-      selectedModelDef = requested;
-      return {
-        provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
-        model: selectedModelDef.id,
-        providerName: selectedModelDef.provider
-      };
-    }
-  }
-
-  if (userSelectedDefault && userSelectedDefault !== 'auto') {
-    selectedModelDef = models.find((m) => m.id === userSelectedDefault) || fallbackModel;
-  } else {
-    const selectionHint = providerConfig.selectionHint && typeof providerConfig.selectionHint === 'object'
-      ? providerConfig.selectionHint
-      : {};
-    const preferredPurpose = String(selectionHint.purpose || '').trim().toLowerCase();
-    const highAutonomy = selectionHint.autonomyLevel === 'high' || selectionHint.complexity === 'complex';
-    const requiredConfidence = String(selectionHint.requiredConfidence || '').trim().toLowerCase();
-    const costMode = String(selectionHint.costMode || aiSettings.cost_mode || 'balanced_auto').trim().toLowerCase();
-    const requestedPurpose = ['planning', 'coding', 'general', 'fast'].includes(preferredPurpose)
-      ? preferredPurpose
-      : '';
-    const priceRank = { free: 0, cheap: 1, medium: 2, expensive: 3 };
-    const chooseForPurpose = (purpose) => {
-      const candidates = availableModels.filter((model) => model.purpose === purpose);
-      if (candidates.length === 0) return null;
-      if (['economy', 'cost_saver', 'lowest_cost'].includes(costMode)) {
-        return [...candidates].sort((left, right) => (
-          (priceRank[left.priceTier] ?? 99) - (priceRank[right.priceTier] ?? 99)
-        ))[0];
-      }
-      if (['quality', 'highest_quality'].includes(costMode) || requiredConfidence === 'high') {
-        return candidates.find((model) => model.priceTier !== 'free' && model.priceTier !== 'cheap') || candidates[0];
-      }
-      return candidates[0];
-    };
-
-    if (smarterSelection && requestedPurpose) {
-      selectedModelDef = chooseForPurpose(requestedPurpose) || fallbackModel;
-    } else if (smarterSelection && highAutonomy) {
-      selectedModelDef = chooseForPurpose('planning') || chooseForPurpose('general') || fallbackModel;
-    } else if (isSubagent) {
-      selectedModelDef = chooseForPurpose('fast') || fallbackModel;
-    } else {
-      selectedModelDef = chooseForPurpose('general') || fallbackModel;
-    }
-  }
-
-  return {
-    provider: createProviderInstance(selectedModelDef.provider, userId, providerConfig),
-    model: selectedModelDef.id,
-    providerName: selectedModelDef.provider
-  };
-}
-
 function estimateTokenValue(value) {
   if (!value) return 0;
   if (typeof value === 'string') return Math.ceil(value.length / 4);
@@ -234,6 +155,13 @@ class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
     this.activeRuns = new Map();
+    this.activeRunPromises = new Set();
+    this.backgroundTasks = new Set();
+    this.backgroundTaskQueues = new Map();
+    this.subagentStartupTasks = new Set();
+    this.lifecycleAbortController = new AbortController();
+    this.shuttingDown = false;
+    this.shutdownPromise = null;
     this.subagents = new Map();
     this.app = services.app || null;
     this.browserController = services.browserController || null;
@@ -247,6 +175,107 @@ class AgentEngine {
     this.memoryManager = services.memoryManager || null;
     this.voiceRuntimeManager = services.voiceRuntimeManager || null;
     this.messagingDeliveryRetry = services.messagingDeliveryRetry || {};
+  }
+
+  trackBackgroundTask(task, options = {}) {
+    if (typeof task !== 'function') {
+      throw new TypeError('Background task must be a function.');
+    }
+    if (this.shuttingDown || this.lifecycleAbortController.signal.aborted) {
+      return Promise.reject(createAbortError(
+        this.lifecycleAbortController.signal,
+        'Agent engine is shutting down.',
+      ));
+    }
+
+    const key = String(options.key || '').trim();
+    const previous = key ? this.backgroundTaskQueues.get(key) : null;
+    if (previous && options.coalesce === true) return previous;
+
+    const linked = createLinkedAbortController([
+      this.lifecycleAbortController.signal,
+      options.signal,
+    ]);
+    const tracked = Promise.resolve().then(async () => {
+      if (previous) {
+        try {
+          await previous;
+        } catch {
+          // A failed predecessor must not permanently poison this queue.
+        }
+      }
+      throwIfAborted(linked.signal, 'Background task aborted.');
+      return task(linked.signal);
+    }).finally(() => {
+      linked.cleanup();
+    });
+
+    this.backgroundTasks.add(tracked);
+    if (key) this.backgroundTaskQueues.set(key, tracked);
+    const cleanup = () => {
+      this.backgroundTasks.delete(tracked);
+      if (key && this.backgroundTaskQueues.get(key) === tracked) {
+        this.backgroundTaskQueues.delete(key);
+      }
+    };
+    tracked.then(cleanup, cleanup);
+    return tracked;
+  }
+
+  shutdown(options = {}) {
+    if (this.shutdownPromise) return this.shutdownPromise;
+
+    const reason = String(
+      options.reason || 'Server shutting down while agent work was in progress.',
+    );
+    const timeoutMs = Math.max(100, Number(options.timeoutMs) || 10000);
+    this.shuttingDown = true;
+    this.lifecycleAbortController.abort(reason);
+    this.interruptAllActiveRuns(reason);
+
+    const childShutdowns = [];
+    const childPromises = [];
+    for (const record of this.subagents.values()) {
+      if (typeof record.engine?.shutdown === 'function') {
+        childShutdowns.push(record.engine.shutdown({ reason, timeoutMs }));
+      }
+      if (record.promise) childPromises.push(record.promise);
+    }
+    const pending = [
+      ...this.activeRunPromises,
+      ...this.backgroundTasks,
+      ...this.subagentStartupTasks,
+      ...childShutdowns,
+      ...childPromises,
+    ];
+
+    this.shutdownPromise = (async () => {
+      if (pending.length === 0) {
+        return { state: 'stopped', timedOut: false, pendingCount: 0 };
+      }
+
+      let timeout = null;
+      const timeoutResult = Symbol('agent-engine-shutdown-timeout');
+      const result = await Promise.race([
+        Promise.allSettled(pending),
+        new Promise((resolve) => {
+          timeout = setTimeout(() => resolve(timeoutResult), timeoutMs);
+        }),
+      ]);
+      if (timeout) clearTimeout(timeout);
+      const timedOut = result === timeoutResult;
+      return {
+        state: timedOut ? 'timeout' : 'stopped',
+        timedOut,
+        pendingCount: timedOut
+          ? this.activeRunPromises.size
+            + this.backgroundTasks.size
+            + this.subagentStartupTasks.size
+            + Array.from(this.subagents.values()).filter((record) => !record.settled).length
+          : 0,
+      };
+    })();
+    return this.shutdownPromise;
   }
 
   async buildSystemPrompt(userId, context = {}) {
@@ -287,18 +316,34 @@ class AgentEngine {
     options = {},
     returnDetails = false,
   }) {
-    const initial = await memoryManager.recallMemory(userId, query, 12, { agentId });
+    const signal = options.signal || this.getRunMeta(runId)?.abortController?.signal || null;
+    const initial = await memoryManager.recallMemory(userId, query, 12, {
+      agentId,
+      signal,
+    });
 
     const pendingChunks = memoryManager.getPendingExtractionChunks?.(userId, agentId, 5) || [];
     if (pendingChunks.length) {
-      this.extractPendingChunks(pendingChunks, {
-        userId,
-        agentId,
-        provider,
-        providerName,
-        model,
-        memoryManager,
-      }).catch((err) => console.warn('[Memory] Background chunk extraction failed:', err.message));
+      this.trackBackgroundTask((backgroundSignal) => this.extractPendingChunks(
+        pendingChunks,
+        {
+          userId,
+          agentId,
+          provider,
+          providerName,
+          model,
+          memoryManager,
+          signal: backgroundSignal,
+        },
+      ), {
+        key: `memory-extraction:${userId}:${agentId || 'main'}`,
+        coalesce: true,
+        signal,
+      }).catch((err) => {
+        if (!isAbortError(err, signal) && !this.shuttingDown) {
+          console.warn('[Memory] Background chunk extraction failed:', err.message);
+        }
+      });
     }
 
     const decision = shouldEnhanceRetrieval(initial);
@@ -335,7 +380,7 @@ class AgentEngine {
         normalize: (raw) => normalizeRetrievalPlan(raw, query),
         fallback: normalizeRetrievalPlan({}, query),
         reasoningEffort: this.getReasoningEffort(providerName, options),
-        telemetry: { runId, stepId, userId, agentId },
+        telemetry: { runId, stepId, userId, agentId, signal },
         phase: 'memory_retrieval_plan',
       });
       plan = planned.value;
@@ -346,6 +391,7 @@ class AgentEngine {
           agentId,
           validAt: plan.validAt,
           includeHistory: plan.temporalMode === 'historical',
+          signal,
         }));
       }
       merged = mergeRetrievalResults(resultSets, 30);
@@ -360,7 +406,7 @@ class AgentEngine {
           normalize: (raw) => normalizeRerankResult(raw, merged),
           fallback: merged,
           reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId },
+          telemetry: { runId, stepId, userId, agentId, signal },
           phase: 'memory_retrieval_rerank',
         });
         reranked = rerankResponse.value;
@@ -368,6 +414,7 @@ class AgentEngine {
         reranked = merged;
       }
     } catch (error) {
+      if (isAbortError(error, signal)) throw error;
       console.warn('[Memory] Retrieval enhancement failed:', error.message);
       plan = null;
       merged = initial;
@@ -406,10 +453,8 @@ class AgentEngine {
     providerName,
     model,
     memoryManager,
+    signal = null,
   }) {
-    const ids = chunks.map((c) => c.id);
-    memoryManager.markChunksExtracted?.(ids, { success: true });
-
     const consolidationSchema = JSON.stringify({
       memory_candidates: [{
         memory: 'Concise standalone fact.',
@@ -430,6 +475,7 @@ class AgentEngine {
 
     for (const chunk of chunks) {
       try {
+        throwIfAborted(signal, 'Memory extraction aborted.');
         const result = await this.requestStructuredJson({
           provider,
           providerName,
@@ -446,6 +492,7 @@ class AgentEngine {
           maxTokens: 800,
           normalize: (raw) => normalizeMemoryCandidates(raw?.memory_candidates || []),
           fallback: [],
+          telemetry: { userId, agentId, signal },
           phase: 'document_extraction',
         });
 
@@ -457,10 +504,13 @@ class AgentEngine {
               trustLevel: 'external_source',
               sourceChunkMemoryId: chunk.id,
             },
+            signal,
           });
         }
+        memoryManager.markChunksExtracted?.([chunk.id], { success: true });
       } catch (err) {
         memoryManager.markChunksExtracted?.([chunk.id], { success: false });
+        if (isAbortError(err, signal)) throw err;
         console.warn('[Memory] Document chunk extraction failed:', err.message);
       }
     }
@@ -523,6 +573,7 @@ class AgentEngine {
               ? deliverableResult.artifacts.slice(0, 6)
               : [],
           },
+          signal: this.getRunMeta(runId)?.abortController?.signal || null,
         },
       );
     } catch (error) {
@@ -766,7 +817,7 @@ class AgentEngine {
       phase: 'completion_decision',
     });
     return {
-      decision: response.value,
+      decision: enforceTerminalReplyDecision(response.value, lastReply),
       usage: response.usage,
       raw: response.raw,
     };
@@ -931,11 +982,12 @@ class AgentEngine {
       }
     ];
 
-    const response = await withModelCallTimeout(
-      provider.chat(promptMessages, [], {
+    const response = await runAbortableModelCall(
+      (signal) => provider.chat(promptMessages, [], {
         model,
         maxTokens: 800,
         reasoningEffort: this.getReasoningEffort(providerName, options),
+        signal,
       }),
       options,
       'Conversation state refresh',
@@ -966,6 +1018,7 @@ class AgentEngine {
           agentId: options.agentId || null,
           conversationId,
           runId,
+          signal: options.signal,
         },
       );
       const { invalidateSystemPromptCache } = require('../systemPrompt');
@@ -982,8 +1035,8 @@ class AgentEngine {
     return executeToolImpl(this, toolName, args, context);
   }
 
-  isReadOnlyToolCall(toolCall) {
-    return isReadOnlyToolCallImpl(this, toolCall);
+  isReadOnlyToolCall(toolCall, toolDefinition = null) {
+    return isReadOnlyToolCallImpl(toolCall, toolDefinition);
   }
 
   async executeReadOnlyBatch(toolCalls, context = {}) {
@@ -1172,7 +1225,8 @@ class AgentEngine {
       && toolExecutions.length === 0
       && failedStepCount === 0
       && !messagingSent
-      && Boolean(String(lastReply || '').trim());
+      && Boolean(String(lastReply || '').trim())
+      && !isDeferredWorkReply(lastReply);
   }
 
   getMessagingRetryLimit(maxIterations) {
@@ -1291,15 +1345,37 @@ class AgentEngine {
   }
 
   async runWithModel(userId, userMessage, options = {}, _modelOverride = null) {
-    return runConversation(this, userId, userMessage, options, _modelOverride);
-  }
-
-  async _runWithModelInternal(userId, userMessage, options = {}, _modelOverride = null) {
-    return runConversation(this, userId, userMessage, options, _modelOverride);
+    if (this.shuttingDown || this.lifecycleAbortController.signal.aborted) {
+      const error = createAbortError(
+        this.lifecycleAbortController.signal,
+        'Agent engine is shutting down.',
+      );
+      error.code = error.code || 'AGENT_ENGINE_SHUTTING_DOWN';
+      throw error;
+    }
+    const runPromise = runConversation(this, userId, userMessage, options, _modelOverride);
+    this.activeRunPromises.add(runPromise);
+    try {
+      return await runPromise;
+    } finally {
+      this.activeRunPromises.delete(runPromise);
+    }
   }
 
   async spawnSubagent(userId, parentRunId, task, options = {}) {
-    const parentRunMeta = this.getRunMeta(parentRunId);
+    if (this.shuttingDown || this.lifecycleAbortController.signal.aborted) {
+      throw createAbortError(this.lifecycleAbortController.signal, 'Agent engine is shutting down.');
+    }
+
+    let parentRunMeta = this.getRunMeta(parentRunId);
+    if (
+      !parentRunMeta
+      || parentRunMeta.userId !== userId
+      || parentRunMeta.status !== 'running'
+      || parentRunMeta.aborted === true
+    ) {
+      return { error: 'The parent run is no longer active, so a sub-agent cannot be started.' };
+    }
     const parentDepth = Math.max(0, Number(parentRunMeta?.subagentDepth) || 0);
     if (parentDepth >= 1) {
       return {
@@ -1309,24 +1385,77 @@ class AgentEngine {
 
     const aiSettings = getAiSettings(userId, options.agentId || null);
     const maxSubagentsPerRun = Math.max(1, Number(aiSettings.subagent_max_children_per_run) || 10);
-    const existingSubagents = Array.from(this.subagents.values())
-      .filter((record) => record.parentRunId === parentRunId);
-    if (existingSubagents.length >= maxSubagentsPerRun) {
+    const countExistingSubagents = () => Array.from(this.subagents.values())
+      .filter((record) => record.parentRunId === parentRunId).length;
+    if (countExistingSubagents() >= maxSubagentsPerRun) {
       return {
-        error: `This run has already spawned ${existingSubagents.length} sub-agents. The limit for one run is ${maxSubagentsPerRun}.`,
+        error: `This run has already spawned ${countExistingSubagents()} sub-agents. The limit for one run is ${maxSubagentsPerRun}.`,
       };
     }
 
     const handle = uuidv4();
     const childRunId = uuidv4();
     let relevantMemories = [];
+    const startupLink = createLinkedAbortController([
+      this.lifecycleAbortController.signal,
+      parentRunMeta.abortController?.signal,
+      options.signal,
+    ]);
+    let memoryRecall = null;
     try {
-      relevantMemories = this.memoryManager
-        ? await this.memoryManager.recallMemory(userId, task, 4, {
-          agentId: options.agentId || null,
-        })
-        : [];
-    } catch {}
+      throwIfAborted(startupLink.signal, 'Sub-agent startup was aborted.');
+      memoryRecall = this.memoryManager
+        ? runWithAbortTimeout(
+          (signal) => this.memoryManager.recallMemory(userId, task, 4, {
+            agentId: options.agentId || null,
+            signal,
+          }),
+          {
+            label: 'Sub-agent memory recall',
+            signal: startupLink.signal,
+          },
+        )
+        : Promise.resolve([]);
+      this.subagentStartupTasks.add(memoryRecall);
+      relevantMemories = await memoryRecall;
+      throwIfAborted(startupLink.signal, 'Sub-agent startup was aborted.');
+    } catch (error) {
+      if (isAbortError(error, startupLink.signal)) throw error;
+      console.warn('[AgentEngine] Sub-agent memory recall failed:', error?.message || error);
+    } finally {
+      if (memoryRecall) this.subagentStartupTasks.delete(memoryRecall);
+      startupLink.cleanup();
+    }
+
+    parentRunMeta = this.getRunMeta(parentRunId);
+    if (
+      this.shuttingDown
+      || this.lifecycleAbortController.signal.aborted
+      || !parentRunMeta
+      || parentRunMeta.userId !== userId
+      || parentRunMeta.status !== 'running'
+      || parentRunMeta.aborted === true
+    ) {
+      throw createAbortError(
+        this.lifecycleAbortController.signal.aborted
+          ? this.lifecycleAbortController.signal
+          : parentRunMeta?.abortController?.signal,
+        'The parent run stopped before the sub-agent could start.',
+      );
+    }
+    const currentSubagentCount = countExistingSubagents();
+    if (currentSubagentCount >= maxSubagentsPerRun) {
+      return {
+        error: `This run has already spawned ${currentSubagentCount} sub-agents. The limit for one run is ${maxSubagentsPerRun}.`,
+      };
+    }
+
+    const childLink = createLinkedAbortController([
+      this.lifecycleAbortController.signal,
+      parentRunMeta.abortController?.signal,
+      options.signal,
+    ]);
+    throwIfAborted(childLink.signal, 'Sub-agent startup was aborted.');
     const subEngine = new AgentEngine(this.io, {
       app: options.app || this.app,
       browserController: this.browserController,
@@ -1372,6 +1501,8 @@ class AgentEngine {
       error: null,
       engine: subEngine,
       promise: null,
+      settled: false,
+      deleteWhenSettled: false,
     };
     this.subagents.set(handle, record);
     this.emit(userId, 'run:subagent', {
@@ -1395,9 +1526,11 @@ class AgentEngine {
             agentId: options.agentId || null,
             subagentDepth: parentDepth + 1,
             disallowedToolNames: ['spawn_subagent'],
+            signal: childLink.signal,
           },
           options.model || null
         );
+        if (record.status === 'cancelled' || childLink.signal.aborted) return record;
         record.status = result.status || 'completed';
         let structured = null;
         try {
@@ -1425,16 +1558,23 @@ class AgentEngine {
         });
         return record;
       } catch (err) {
-        record.status = 'failed';
-        record.error = err.message;
+        const cancelled = record.status === 'cancelled' || isAbortError(err, childLink.signal);
+        record.status = cancelled ? 'cancelled' : 'failed';
+        record.error = cancelled ? null : (err?.message || String(err));
         this.emit(userId, 'run:subagent', {
           runId: parentRunId,
           handle,
           childRunId,
-          status: 'failed',
-          error: err.message,
+          status: record.status,
+          error: record.error,
         });
-        throw err;
+        return record;
+      } finally {
+        record.settled = true;
+        childLink.cleanup();
+        if (record.deleteWhenSettled && this.subagents.get(handle) === record) {
+          this.subagents.delete(handle);
+        }
       }
     })();
 
@@ -1571,21 +1711,43 @@ class AgentEngine {
       }));
   }
 
-  cleanupSubagentsForRun(parentRunId, options = {}) {
-    if (!parentRunId) return;
+  async cleanupSubagentsForRun(parentRunId, options = {}) {
+    if (!parentRunId) return { cancelled: 0, timedOut: 0 };
     const cancelRunning = options.cancelRunning !== false;
-    for (const [handle, record] of this.subagents.entries()) {
+    const shutdowns = [];
+    const records = [];
+    for (const [handle, record] of Array.from(this.subagents.entries())) {
       if (record.parentRunId !== parentRunId) continue;
+      records.push([handle, record]);
+      record.deleteWhenSettled = true;
       if (cancelRunning && record.status === 'running') {
-        try {
-          record.engine?.abort(record.childRunId);
-          record.status = 'cancelled';
-        } catch (err) {
-          console.warn(`[AgentEngine] Failed to abort subagent ${handle}:`, err?.message);
-        }
+        record.status = 'cancelled';
+        this.emit(record.userId, 'run:subagent', {
+          runId: record.parentRunId,
+          handle,
+          childRunId: record.childRunId,
+          status: 'cancelled',
+        });
+        shutdowns.push(Promise.resolve(record.engine?.shutdown?.({
+          reason: 'Parent run finished before the sub-agent completed.',
+          timeoutMs: Math.max(100, Number(options.timeoutMs) || 10000),
+        })));
+      } else if (record.status === 'running') {
+        record.deleteWhenSettled = false;
       }
-      this.subagents.delete(handle);
     }
+    const results = await Promise.allSettled(shutdowns);
+    for (const [handle, record] of records) {
+      if ((record.settled || !record.promise) && this.subagents.get(handle) === record) {
+        this.subagents.delete(handle);
+      }
+    }
+    return {
+      cancelled: shutdowns.length,
+      timedOut: results.filter((result) => (
+        result.status === 'fulfilled' && result.value?.timedOut === true
+      )).length,
+    };
   }
 
   async waitForSubagent(handle, options = {}) {
@@ -1648,7 +1810,6 @@ class AgentEngine {
       };
     }
 
-    record.engine?.abort(record.childRunId);
     record.status = 'cancelled';
     this.emit(record.userId, 'run:subagent', {
       runId: record.parentRunId,
@@ -1657,7 +1818,15 @@ class AgentEngine {
       status: 'cancelled',
     });
 
-    return { handle, status: 'cancelled' };
+    const shutdown = await record.engine?.shutdown?.({
+      reason: 'Sub-agent cancelled by its parent run.',
+      timeoutMs: Math.max(100, Number(options.timeoutMs) || 10000),
+    });
+    return {
+      handle,
+      status: 'cancelled',
+      timedOut: shutdown?.timedOut === true,
+    };
   }
 
   interruptRun(runId, reason = 'Server shutting down while run was in progress.') {
@@ -1705,21 +1874,26 @@ class AgentEngine {
     }
   }
 
-  stopRun(runId) {
+  stopRun(runId, reason = 'Stopped by request.') {
+    const stopReason = String(reason || 'Stopped by request.').slice(0, 1000);
     const runMeta = this.activeRuns.get(runId);
-    const persistedRun = runMeta || db.prepare('SELECT user_id AS userId FROM agent_runs WHERE id = ?').get(runId);
+    const persistedRun = runMeta || db.prepare(
+      'SELECT user_id AS userId, status FROM agent_runs WHERE id = ?',
+    ).get(runId);
+    if (!persistedRun || TERMINAL_STATUSES.has(persistedRun.status)) return false;
     if (persistedRun?.userId != null) {
-      requestRunControl(runId, persistedRun.userId, 'stop', 'Stopped by request.');
+      requestRunControl(runId, persistedRun.userId, 'stop', stopReason);
     }
     const delegatedChildren = db.prepare(
       "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
     ).all(runId);
     if (runMeta) {
       runMeta.status = 'stopped';
+      runMeta.stopReason = stopReason;
       runMeta.aborted = true;
-      runMeta.abortController?.abort('Run stopped.');
+      runMeta.abortController?.abort(stopReason);
       runMeta.resumeRun?.();
-      this.emit(runMeta.userId, 'run:stopping', { runId });
+      this.emit(runMeta.userId, 'run:stopping', { runId, reason: stopReason });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
           void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
@@ -1729,13 +1903,22 @@ class AgentEngine {
     }
     for (const child of delegatedChildren) {
       if (child.child_run_id && child.child_run_id !== runId) {
-        this.stopRun(child.child_run_id);
+        this.stopRun(child.child_run_id, stopReason);
       }
     }
     db.prepare(
-      "UPDATE agent_delegations SET status = 'stopped', updated_at = datetime('now'), completed_at = datetime('now') WHERE parent_run_id = ? AND status = 'running'"
-    ).run(runId);
-    closeRun(runId, 'stopped', {}, ['running', 'pausing', 'paused', 'resuming']);
+      `UPDATE agent_delegations
+       SET status = 'stopped', error = COALESCE(NULLIF(error, ''), ?),
+           updated_at = datetime('now'), completed_at = datetime('now')
+       WHERE parent_run_id = ? AND status = 'running'`
+    ).run(stopReason, runId);
+    closeRun(
+      runId,
+      'stopped',
+      { error: stopReason },
+      ['running', 'pausing', 'paused', 'resuming'],
+    );
+    return true;
   }
 
   pauseRun(runId, { userId, reason = '' } = {}) {
@@ -1777,15 +1960,17 @@ class AgentEngine {
     return true;
   }
 
-  abort(runId, { userId } = {}) {
+  abort(runId, { userId, reason = 'Stopped by request.' } = {}) {
     if (!runId) return false;
+    const runMeta = this.activeRuns.get(runId);
+    const persistedRun = runMeta
+      || db.prepare('SELECT user_id AS userId, status FROM agent_runs WHERE id = ?').get(runId);
+    if (!persistedRun || TERMINAL_STATUSES.has(persistedRun.status)) return false;
     if (userId != null) {
-      // Ownership gate: never let one user abort another user's active run.
-      const runMeta = this.activeRuns.get(runId);
-      if (runMeta && Number(runMeta.userId) !== Number(userId)) return false;
+      // Ownership gate applies to both active and persisted runs.
+      if (Number(persistedRun.userId) !== Number(userId)) return false;
     }
-    this.stopRun(runId);
-    return true;
+    return this.stopRun(runId, reason);
   }
 
   abortAll(userId) {

@@ -1,3 +1,5 @@
+'use strict';
+
 const EventEmitter = require('events');
 const db = require('../../db/database');
 const fs = require('fs');
@@ -36,8 +38,30 @@ const {
 } = require('./access_policy');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { readMeshtasticEnabled } = require('./meshtastic_env');
+const {
+  createLinkedAbortController,
+  isAbortError,
+  throwIfAborted,
+} = require('../../utils/abort');
+const { waitForAbortableResult, waitForBoundedResult } = require('../network/http');
+const {
+  claimInboundJob,
+  enqueueInboundMessage,
+  listPendingInboundJobs,
+  payloadForInboundJob,
+  reconcileInterruptedInboundJobs,
+  settleInboundJob,
+} = require('./inbound_store');
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
+const MESSAGING_OPERATION_TIMEOUT_MS = 60000;
+
+function messagingShutdownError() {
+  const error = new Error('Messaging is shutting down and cannot accept new work.');
+  error.name = 'AbortError';
+  error.code = 'MESSAGING_SHUTTING_DOWN';
+  return error;
+}
 
 class IrcMessagingPlatform extends IrcPlatform {
   constructor(config = {}) { super('irc', config); }
@@ -64,6 +88,12 @@ class MessagingManager extends EventEmitter {
     this.accessSuggestions = new Map();
     this.messageHandlers = [];
     this.isShuttingDown = false;
+    this.shutdownPromise = null;
+    this.lifecycleAbortController = new AbortController();
+    this.activeOperations = new Set();
+    this.activeInboundJobs = new Set();
+    this.activeInboundRecoveries = new Map();
+    this.inboundJobsReconciled = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
       telnyx:   TelnyxVoicePlatform,
@@ -94,8 +124,47 @@ class MessagingManager extends EventEmitter {
   }
 
   registerHandler(handler) {
+    if (this.isShuttingDown) return false;
     if (!this.messageHandlers.includes(handler)) {
       this.messageHandlers.push(handler);
+    }
+    return true;
+  }
+
+  _assertRunning() {
+    if (this.isShuttingDown || this.lifecycleAbortController.signal.aborted) {
+      throw messagingShutdownError();
+    }
+  }
+
+  async _runOperation(options, serviceName, operation, timeoutMs = MESSAGING_OPERATION_TIMEOUT_MS) {
+    this._assertRunning();
+    const timeoutController = new AbortController();
+    const linked = createLinkedAbortController([
+      options?.signal,
+      this.lifecycleAbortController.signal,
+      timeoutController.signal,
+    ]);
+    throwIfAborted(linked.signal, `${serviceName} aborted.`);
+    const timer = setTimeout(() => {
+      const error = new Error(`${serviceName} timed out after ${timeoutMs}ms.`);
+      error.code = 'MESSAGING_TIMEOUT';
+      timeoutController.abort(error);
+    }, timeoutMs);
+
+    const operationPromise = waitForAbortableResult(
+      Promise.resolve().then(() => operation(linked.signal)),
+      linked.signal,
+      `${serviceName} aborted.`,
+    );
+    this.activeOperations.add(operationPromise);
+    const cleanupOperation = () => this.activeOperations.delete(operationPromise);
+    operationPromise.then(cleanupOperation, cleanupOperation);
+    try {
+      return await operationPromise;
+    } finally {
+      clearTimeout(timer);
+      linked.cleanup();
     }
   }
 
@@ -119,53 +188,169 @@ class MessagingManager extends EventEmitter {
       senderTag: msg.senderTag,
       isGroup: msg.isGroup,
       mediaType: msg.mediaType,
+      localMediaPath: msg.localMediaPath || null,
       ...(msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : {}),
     };
-    // Deduplicate against platform_msg_id — webhook retries (at-least-once delivery)
-    // would otherwise trigger a second agent run for the same user message.
-    if (msg.messageId) {
-      const already = db.prepare(
-        "SELECT id FROM messages WHERE user_id = ? AND platform = ? AND platform_msg_id = ? AND role = 'user' LIMIT 1"
-      ).get(userId, platformName, msg.messageId);
-      if (already) {
-        console.warn(`[Messaging] Duplicate platform_msg_id ${msg.messageId} on ${platformName} for user ${userId} — skipping handlers`);
-        return { ...msg, agentId, platform: platformName };
-      }
-    }
-
-    db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_msg_id, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(
-        userId,
-        agentId,
-        'user',
-        normalizedIncomingContent,
-        platformName,
-        msg.messageId,
-        msg.chatId,
-        JSON.stringify(metadata),
-        msg.timestamp,
-      );
-
-    const enrichedMsg = { ...msg, content: normalizedIncomingContent, agentId, platform: platformName };
+    const enrichedMsg = {
+      agentId,
+      platform: platformName,
+      chatId: msg.chatId,
+      messageId: msg.messageId || null,
+      sender: msg.sender,
+      senderName: msg.senderName || null,
+      senderDisplayName: msg.senderDisplayName || null,
+      senderUsername: msg.senderUsername || null,
+      senderTag: msg.senderTag || null,
+      content: normalizedIncomingContent,
+      mediaType: msg.mediaType || null,
+      localMediaPath: msg.localMediaPath || null,
+      isGroup: msg.isGroup === true,
+      timestamp: msg.timestamp || new Date().toISOString(),
+      channelContext: Array.isArray(msg.channelContext) ? msg.channelContext.slice(-20) : null,
+      channelName: msg.channelName || null,
+      groupName: msg.groupName || null,
+      guildName: msg.guildName || null,
+      roomName: msg.roomName || null,
+      metadata: msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : null,
+    };
+    const queued = enqueueInboundMessage({
+      userId,
+      agentId,
+      platform: platformName,
+      platformMessageId: msg.messageId || null,
+      chatId: msg.chatId,
+      content: normalizedIncomingContent,
+      metadata,
+      createdAt: enrichedMsg.timestamp,
+      payload: enrichedMsg,
+    });
+    const durableMessage = queued.payload || payloadForInboundJob(queued.job) || enrichedMsg;
 
     if (this.isShuttingDown) {
-      return enrichedMsg;
+      return durableMessage;
     }
 
-    this.io.to(`user:${userId}`).emit('messaging:message', enrichedMsg);
+    if (queued.created) {
+      this.io.to(`user:${userId}`).emit('messaging:message', durableMessage);
+    } else if (!queued.job) {
+      console.warn(
+        `[Messaging] Duplicate ${platformName} message for user ${userId} predates durable processing state; skipping replay`,
+      );
+      return durableMessage;
+    } else if (queued.job.status !== 'pending') {
+      console.warn(
+        `[Messaging] Duplicate ${platformName} message for user ${userId} has durable status ${queued.job.status}; skipping replay`,
+      );
+      return durableMessage;
+    }
 
-    for (const handler of this.messageHandlers) {
-      if (this.isShuttingDown) {
-        break;
+    await this._processInboundJob(queued.job, durableMessage);
+    return durableMessage;
+  }
+
+  async _processInboundJob(job, payload) {
+    if (this.isShuttingDown || !job || this.messageHandlers.length === 0) return false;
+    if (!claimInboundJob(job.id)) return false;
+    let finishTracking;
+    const tracked = new Promise((resolve) => {
+      finishTracking = resolve;
+    });
+    this.activeInboundJobs.add(tracked);
+
+    let status = 'completed';
+    let failure = null;
+    let runId = null;
+    try {
+      for (const handler of this.messageHandlers) {
+        if (this.isShuttingDown) {
+          status = 'pending';
+          break;
+        }
+        let handlerResult = await handler(job.user_id, payload);
+        if (handlerResult?.completion) handlerResult = await handlerResult.completion;
+        const outcome = handlerResult?.outcome || handlerResult || {};
+        runId = outcome.runId || runId;
+        if (outcome.cancelled === true) {
+          status = runId ? 'failed' : 'pending';
+          failure = runId
+            ? 'The server stopped after this inbound agent run began; it will not be replayed automatically.'
+            : null;
+          break;
+        }
+        if (outcome.error) {
+          status = 'failed';
+          failure = outcome.error;
+          break;
+        }
       }
-      try {
-        await handler(userId, enrichedMsg);
-      } catch (err) {
-        console.error('Message handler error:', err.message);
+    } catch (error) {
+      const cancelled = this.isShuttingDown
+        || isAbortError(error, this.lifecycleAbortController.signal);
+      status = cancelled && !runId ? 'pending' : 'failed';
+      failure = status === 'failed' ? error : null;
+      if (!cancelled) {
+        console.error('[Messaging] Inbound message handler failed:', error?.message || error);
       }
     }
 
-    return enrichedMsg;
+    try {
+      settleInboundJob(job.id, status, failure?.message || failure || null);
+      return status === 'completed';
+    } finally {
+      finishTracking();
+      this.activeInboundJobs.delete(tracked);
+    }
+  }
+
+  _platformReadyForInboundJob(job) {
+    const platform = this.platforms.get(this._key(job.user_id, job.agent_id, job.platform));
+    if (!platform) return false;
+    try {
+      return String(platform.getStatus?.() || platform.status || '').toLowerCase() === 'connected';
+    } catch {
+      return false;
+    }
+  }
+
+  recoverPendingInbound(filters = {}) {
+    if (this.isShuttingDown || this.messageHandlers.length === 0) {
+      return Promise.resolve({ recovered: 0, skipped: 0 });
+    }
+    const key = JSON.stringify({
+      userId: filters.userId,
+      agentId: filters.agentId,
+      platform: filters.platform,
+    });
+    if (this.activeInboundRecoveries.has(key)) return this.activeInboundRecoveries.get(key);
+
+    const recovery = Promise.resolve().then(async () => {
+      if (!this.inboundJobsReconciled) {
+        reconcileInterruptedInboundJobs();
+        this.inboundJobsReconciled = true;
+      }
+      let recovered = 0;
+      let skipped = 0;
+      for (const job of listPendingInboundJobs(filters)) {
+        if (this.isShuttingDown) break;
+        if (!this._platformReadyForInboundJob(job)) {
+          skipped += 1;
+          continue;
+        }
+        const payload = payloadForInboundJob(job);
+        if (!payload) {
+          settleInboundJob(job.id, 'failed', 'Stored inbound message payload is invalid.');
+          continue;
+        }
+        if (await this._processInboundJob(job, payload)) recovered += 1;
+      }
+      return { recovered, skipped };
+    }).finally(() => {
+      if (this.activeInboundRecoveries.get(key) === recovery) {
+        this.activeInboundRecoveries.delete(key);
+      }
+    });
+    this.activeInboundRecoveries.set(key, recovery);
+    return recovery;
   }
 
   _agentId(userId, options = {}) {
@@ -315,6 +500,8 @@ class MessagingManager extends EventEmitter {
   }
 
   async connectPlatform(userId, platformName, config = {}, options = {}) {
+    this._assertRunning();
+    throwIfAborted(options.signal, 'Messaging platform connection aborted.');
     const agentId = this._agentId(userId, options);
     config = { ...(config || {}) };
     config.userId = userId;
@@ -410,6 +597,16 @@ class MessagingManager extends EventEmitter {
       this.io.to(`user:${userId}`).emit('messaging:connected', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('connected', userId, agentId, platformName);
+      this.emit('platform_connected', { userId, agentId, platform: platformName });
+      void this.recoverPendingInbound({
+        userId,
+        agentId,
+        platform: platformName,
+      }).catch((error) => {
+        if (!this.isShuttingDown) {
+          console.error('[Messaging] Inbound recovery failed:', error?.message || error);
+        }
+      });
     });
 
     platform.on('disconnected', (info) => {
@@ -455,9 +652,13 @@ class MessagingManager extends EventEmitter {
       });
     });
 
-    platform.on('message', async (msg) => {
+    platform.on('message', (msg) => {
       if (this.isShuttingDown) return;
-      await this.ingestMessage(userId, platformName, msg, { agentId });
+      void this.ingestMessage(userId, platformName, msg, { agentId }).catch((error) => {
+        if (!this.isShuttingDown) {
+          console.error('[Messaging] Failed to persist or dispatch inbound message:', error?.message || error);
+        }
+      });
     });
 
     if (!existingConnection) {
@@ -468,7 +669,19 @@ class MessagingManager extends EventEmitter {
         .run(storedConfig, 'connecting', userId, agentId, platformName);
     }
 
-    await platform.connect();
+    try {
+      await this._runOperation(
+        options,
+        `${platformName} connection`,
+        () => platform.connect(),
+      );
+    } catch (error) {
+      if (currentPlatform()) {
+        this.platforms.delete(key);
+      }
+      await Promise.resolve(platform.disconnect?.()).catch(() => {});
+      throw error;
+    }
     return { status: platform.getStatus() };
   }
 
@@ -489,6 +702,7 @@ class MessagingManager extends EventEmitter {
   }
 
   async sendMessage(userId, platformName, to, content, mediaPathOrOptions) {
+    this._assertRunning();
     const agentId = this._agentId(userId, mediaPathOrOptions || {});
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
@@ -505,6 +719,7 @@ class MessagingManager extends EventEmitter {
       ? sendOptions.metadata
       : null;
     const deliveryKind = sendOptions.deliveryKind || 'final';
+    throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
     const normalizedContent = normalizeOutgoingMessageForPlatform(platformName, content, {
       stripNoResponseMarker: false
     });
@@ -514,7 +729,13 @@ class MessagingManager extends EventEmitter {
       return { success: true, suppressed: true };
     }
 
-    const result = await platform.sendMessage(to, normalizedContent, sendOptions);
+    const result = await this._runOperation(
+      sendOptions,
+      `${platformName} message delivery`,
+      (signal) => platform.sendMessage(to, normalizedContent, { ...sendOptions, signal }),
+    );
+    this._assertRunning();
+    throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
     if (result?.success === false) {
       const reason = result.error || result.reason || 'platform rejected the message';
       const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
@@ -676,7 +897,7 @@ class MessagingManager extends EventEmitter {
   }
 
   async restoreConnections() {
-    this.isShuttingDown = false;
+    this._assertRunning();
     const rows = db.prepare(
       "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'awaiting_qr')"
     ).all();
@@ -715,17 +936,55 @@ class MessagingManager extends EventEmitter {
   }
 
   async shutdown() {
+    if (this.shutdownPromise) return this.shutdownPromise;
     this.isShuttingDown = true;
+    this.lifecycleAbortController.abort(messagingShutdownError());
 
-    const tasks = [];
-    for (const platform of this.platforms.values()) {
-      if (typeof platform.disconnect === 'function') {
-        tasks.push(platform.disconnect().catch(() => {}));
+    this.shutdownPromise = (async () => {
+      const activeOperationTasks = Array.from(this.activeOperations, (operation) =>
+        waitForBoundedResult(operation, {
+          serviceName: 'Messaging operation shutdown',
+          timeoutMs: 10000,
+        }));
+      activeOperationTasks.push(...Array.from(this.activeInboundJobs, (job) =>
+        waitForBoundedResult(job, {
+          serviceName: 'Messaging inbound job shutdown',
+          timeoutMs: 10000,
+        })));
+      activeOperationTasks.push(...Array.from(this.activeInboundRecoveries.values(), (recovery) =>
+        waitForBoundedResult(recovery, {
+          serviceName: 'Messaging inbound recovery shutdown',
+          timeoutMs: 10000,
+        })));
+      const disconnectTasks = [];
+      for (const platform of this.platforms.values()) {
+        if (typeof platform.disconnect === 'function') {
+          disconnectTasks.push(waitForBoundedResult(
+            Promise.resolve().then(() => platform.disconnect()),
+            {
+              serviceName: `${platform.name || 'Messaging platform'} disconnect`,
+              timeoutMs: 10000,
+            },
+          ));
+        }
       }
-    }
 
-    await Promise.allSettled(tasks);
-    this.platforms.clear();
+      const [operationResults, disconnectResults] = await Promise.all([
+        Promise.allSettled(activeOperationTasks),
+        Promise.allSettled(disconnectTasks),
+      ]);
+      this.platforms.clear();
+      return {
+        state: 'stopped',
+        cancelledOperationCount: operationResults.filter(
+          (result) => result.status === 'rejected',
+        ).length,
+        failedDisconnectCount: disconnectResults.filter(
+          (result) => result.status === 'rejected',
+        ).length,
+      };
+    })();
+    return this.shutdownPromise;
   }
 
   async makeCall(userId, to, greeting, options = {}) {
@@ -733,23 +992,39 @@ class MessagingManager extends EventEmitter {
     const platform = this.platforms.get(key);
     if (!platform) throw new Error('Telnyx Voice is not connected');
     if (!platform.initiateCall) throw new Error('Telnyx platform does not support outbound calls');
-    const result = await platform.initiateCall(to, greeting);
+    const result = await this._runOperation(
+      options,
+      'Telnyx outbound call',
+      (signal) => platform.initiateCall(to, greeting, { ...options, signal }),
+    );
     this.io.to(`user:${userId}`).emit('messaging:call_initiated', { platform: 'telnyx', to, callControlId: result.callControlId });
     return { success: true, ...result };
   }
 
   async markRead(userId, platformName, chatId, messageId, options = {}) {
+    this._assertRunning();
     const key = this._key(userId, this._agentId(userId, options), platformName);
     const platform = this.platforms.get(key);
     if (!platform?.markRead) return;
-    return platform.markRead(chatId, messageId);
+    return this._runOperation(
+      options,
+      `${platformName} read receipt`,
+      (signal) => platform.markRead(chatId, messageId, { ...options, signal }),
+      15000,
+    );
   }
 
   async sendTyping(userId, platformName, chatId, isTyping, options = {}) {
+    this._assertRunning();
     const key = this._key(userId, this._agentId(userId, options), platformName);
     const platform = this.platforms.get(key);
     if (!platform?.sendTyping) return;
-    return platform.sendTyping(chatId, isTyping);
+    return this._runOperation(
+      options,
+      `${platformName} typing indicator`,
+      (signal) => platform.sendTyping(chatId, isTyping, { ...options, signal }),
+      15000,
+    );
   }
 
   /**

@@ -436,7 +436,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       double? prevExtent;
       void settleInitial(int framesLeft) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || generation != _scrollGeneration || !_scrollController.hasClients) {
+          if (!mounted ||
+              generation != _scrollGeneration ||
+              !_scrollController.hasClients) {
             return;
           }
           final pos = _scrollController.position;
@@ -463,6 +465,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
           settleInitial(framesLeft - 1);
         });
       }
+
       settleInitial(120);
       return;
     }
@@ -511,7 +514,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (messages.isEmpty) {
       // Agent switch resets the settle tracker so the next batch triggers hiding.
       _visibleMessageCountAtLastSettle = 0;
-    } else if (_visibleMessageCountAtLastSettle == 0 && !_awaitingInitialScrollSettle) {
+    } else if (_visibleMessageCountAtLastSettle == 0 &&
+        !_awaitingInitialScrollSettle) {
       // Messages just went from 0 → N: hide until the scroll position settles.
       _awaitingInitialScrollSettle = true;
     }
@@ -2039,7 +2043,11 @@ class _IgnoredChatsPanel extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
-                      style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -2049,50 +2057,58 @@ class _IgnoredChatsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           for (final key in ignored)
-            Builder(builder: (context) {
-              final sep = key.indexOf(':');
-              final platform = sep > 0 ? key.substring(0, sep) : key;
-              final chatId = sep > 0 ? key.substring(sep + 1) : '';
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _borderLight),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.block_rounded, size: 16, color: _textMuted),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            platform.toUpperCase(),
-                            style: TextStyle(
-                              color: _textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
+            Builder(
+              builder: (context) {
+                final sep = key.indexOf(':');
+                final platform = sep > 0 ? key.substring(0, sep) : key;
+                final chatId = sep > 0 ? key.substring(sep + 1) : '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.block_rounded, size: 16, color: _textMuted),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              platform.toUpperCase(),
+                              style: TextStyle(
+                                color: _textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
                             ),
-                          ),
-                          Text(
-                            chatId.isNotEmpty ? chatId : platform,
-                            style: TextStyle(color: _textPrimary, fontSize: 13),
-                          ),
-                        ],
+                            Text(
+                              chatId.isNotEmpty ? chatId : platform,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () => controller.removeIgnoredChat(key),
-                      child: Text('Remove'),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      TextButton(
+                        onPressed: () => controller.removeIgnoredChat(key),
+                        child: Text('Remove'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -2236,7 +2252,9 @@ class _ConnectionReconnectingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final msg = hasNetwork ? 'Reconnecting to server…' : 'No network connection';
+    final msg = hasNetwork
+        ? 'Reconnecting to server…'
+        : 'No network connection';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -2308,7 +2326,6 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
 
   int _remaining() {
     final expiry = widget.approval.expiresAt;
-    if (expiry == null) return 30;
     return expiry.difference(DateTime.now()).inSeconds.clamp(0, 300);
   }
 
@@ -2340,11 +2357,7 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
                 color: _accent.withValues(alpha: 0.16),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.security_outlined,
-                size: 13,
-                color: _accent,
-              ),
+              child: Icon(Icons.security_outlined, size: 13, color: _accent),
             ),
           ),
           const SizedBox(width: 10),
@@ -3685,61 +3698,6 @@ class _MessagingMiniPill extends StatelessWidget {
   }
 }
 
-class _RunsMetricsStrip extends StatelessWidget {
-  const _RunsMetricsStrip({required this.runs, required this.totalLoaded});
-
-  final List<RunSummary> runs;
-  final int totalLoaded;
-
-  @override
-  Widget build(BuildContext context) {
-    final running = runs.where((run) => run.status == 'running').length;
-    final failed = runs.where((run) => run.isFailure).length;
-    final completed = runs.where((run) => run.status == 'completed').length;
-    final tokens = runs.fold<int>(0, (sum, run) => sum + run.totalTokens);
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: <Widget>[
-        _RunMetricCard(
-          title: 'Showing',
-          value: '${runs.length}',
-          helper: totalLoaded == runs.length
-              ? 'Recent runs loaded'
-              : 'Filtered from $totalLoaded loaded runs',
-          color: _info,
-        ),
-        _RunMetricCard(
-          title: 'Completed',
-          value: '$completed',
-          helper: 'Finished successfully',
-          color: _success,
-        ),
-        _RunMetricCard(
-          title: 'Failed',
-          value: '$failed',
-          helper: 'Need attention',
-          color: _danger,
-        ),
-        _RunMetricCard(
-          title: 'Tokens',
-          value: _formatNumber(tokens),
-          helper: 'Across visible runs',
-          color: _accentHover,
-        ),
-        if (running > 0)
-          _RunMetricCard(
-            title: 'Running',
-            value: '$running',
-            helper: 'Still in progress',
-            color: _warning,
-          ),
-      ],
-    );
-  }
-}
-
 class _RunMetricCard extends StatelessWidget {
   const _RunMetricCard({
     required this.title,
@@ -3783,323 +3741,6 @@ class _RunMetricCard extends StatelessWidget {
           Text(helper, style: TextStyle(color: _textSecondary)),
         ],
       ),
-    );
-  }
-}
-
-class _RunsFilterBar extends StatelessWidget {
-  const _RunsFilterBar({
-    required this.searchController,
-    required this.statusFilter,
-    required this.onStatusChanged,
-  });
-
-  final TextEditingController searchController;
-  final String statusFilter;
-  final ValueChanged<String> onStatusChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const filters = <String>['all', 'running', 'completed', 'failed'];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const _SectionTitle('Filter Runs'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search title, model, trigger, error, or run id',
-                suffixIcon: searchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: searchController.clear,
-                        icon: Icon(Icons.close),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: filters.map((filter) {
-                return FilterChip(
-                  label: Text(_titleCase(filter)),
-                  selected: statusFilter == filter,
-                  selectedColor: _accentMuted,
-                  checkmarkColor: _accent,
-                  backgroundColor: _bgSecondary,
-                  side: BorderSide(color: _border),
-                  onSelected: (_) => onStatusChanged(filter),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunsHistoryPane extends StatelessWidget {
-  const _RunsHistoryPane({
-    required this.runs,
-    required this.selectedRunId,
-    required this.onSelect,
-  });
-
-  final List<RunSummary> runs;
-  final String? selectedRunId;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Run History')),
-                Text(
-                  '${runs.length} items',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...runs.map((run) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _RunHistoryRow(
-                  run: run,
-                  selected: run.id == selectedRunId,
-                  onTap: () => onSelect(run.id),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunHistoryRow extends StatelessWidget {
-  const _RunHistoryRow({
-    required this.run,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final RunSummary run;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? _accentMuted : _bgSecondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? _accent : _border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(top: 5),
-              decoration: BoxDecoration(
-                color: run.statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    run.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w700, height: 1.2),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${run.triggerLabel} • ${run.createdAtLabel}${run.durationLabel == 'In progress' ? '' : ' • ${run.durationLabel}'}',
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${run.modelLabel} • ${run.totalTokensLabel} tokens',
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                  if (run.deliverableType.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Deliverable • ${run.deliverableType.replaceAll('_', ' ')}',
-                      style: TextStyle(color: _accent, fontSize: 12),
-                    ),
-                  ],
-                  if (run.error.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      run.error,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _danger,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                _StatusPill(label: run.statusLabel, color: run.statusColor),
-                const SizedBox(height: 12),
-                Icon(
-                  Icons.chevron_right,
-                  color: selected ? _textPrimary : _textSecondary,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunDetailWorkspace extends StatelessWidget {
-  const _RunDetailWorkspace({
-    required this.run,
-    required this.detail,
-    required this.errorMessage,
-    required this.loading,
-    required this.onDelete,
-    required this.onCopyResponse,
-  });
-
-  final RunSummary? run;
-  final RunDetailSnapshot? detail;
-  final String? errorMessage;
-  final bool loading;
-  final Future<void> Function() onDelete;
-  final Future<void> Function(String response) onCopyResponse;
-
-  @override
-  Widget build(BuildContext context) {
-    if (run == null) {
-      return const _EmptyCard(
-        title: 'Select a run',
-        subtitle: 'Pick a run from the history list to inspect its steps.',
-      );
-    }
-
-    final selectedRun = run!;
-    final snapshot = detail;
-    return Column(
-      children: <Widget>[
-        _RunHeroCard(run: selectedRun, onDelete: onDelete),
-        const SizedBox(height: 16),
-        if (loading && snapshot == null)
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Row(
-                children: <Widget>[
-                  SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Loading run detail...',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (errorMessage case final message?) ...<Widget>[
-          _InlineError(message: message),
-          const SizedBox(height: 16),
-        ] else if (snapshot != null) ...<Widget>[
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              _RunMetricCard(
-                title: 'Steps',
-                value: '${snapshot.steps.length}',
-                helper: 'Recorded events',
-                color: _info,
-              ),
-              _RunMetricCard(
-                title: 'Completed tools',
-                value: '${snapshot.completedTools}',
-                helper: 'Successful tool calls',
-                color: _success,
-              ),
-              _RunMetricCard(
-                title: 'Failures',
-                value: '${snapshot.failedTools}',
-                helper: 'Tool errors',
-                color: _danger,
-              ),
-              _RunMetricCard(
-                title: 'Helpers',
-                value: '${snapshot.helperCount}',
-                helper: 'Subagents or helpers',
-                color: _accentHover,
-              ),
-              _RunMetricCard(
-                title: 'Trace events',
-                value: '${snapshot.events.length}',
-                helper: 'Structured run timeline',
-                color: _warning,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _RunResponseCard(
-            response: snapshot.response,
-            onCopy: () => onCopyResponse(snapshot.response),
-          ),
-          if (snapshot.run.deliverableType.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 16),
-            _DeliverableSummaryCard(run: snapshot.run),
-          ],
-          const SizedBox(height: 16),
-          _RunTimelineCard(steps: snapshot.steps, loading: loading),
-          const SizedBox(height: 16),
-          _RunEventTimelineCard(events: snapshot.events, loading: loading),
-        ] else
-          const _EmptyCard(
-            title: 'No detail available',
-            subtitle: 'This run does not have step detail yet.',
-          ),
-      ],
     );
   }
 }
@@ -4165,22 +3806,13 @@ class _RunHeroCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: <Widget>[
-                _MetaPill(
-                  label: run.triggerLabel,
-                  icon: Icons.bolt_outlined,
-                ),
-                _MetaPill(
-                  label: run.modelLabel,
-                  icon: Icons.memory_outlined,
-                ),
+                _MetaPill(label: run.triggerLabel, icon: Icons.bolt_outlined),
+                _MetaPill(label: run.modelLabel, icon: Icons.memory_outlined),
                 _MetaPill(
                   label: run.createdAtLabel,
                   icon: Icons.schedule_outlined,
                 ),
-                _MetaPill(
-                  label: run.durationLabel,
-                  icon: Icons.timer_outlined,
-                ),
+                _MetaPill(label: run.durationLabel, icon: Icons.timer_outlined),
                 if (run.totalTokensLabel.isNotEmpty)
                   _MetaPill(
                     label: '${run.totalTokensLabel} tok',
@@ -4350,259 +3982,6 @@ class _DeliverableSummaryCard extends StatelessWidget {
                 );
               }),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunTimelineCard extends StatelessWidget {
-  const _RunTimelineCard({required this.steps, required this.loading});
-
-  final List<RunStepItem> steps;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Step Timeline')),
-                if (loading)
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (steps.isEmpty)
-              Text(
-                'No run steps recorded yet.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...steps.map((step) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _RunStepCard(step: step),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunEventTimelineCard extends StatelessWidget {
-  const _RunEventTimelineCard({required this.events, required this.loading});
-
-  final List<RunEventItem> events;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Execution Trace')),
-                if (loading)
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (events.isEmpty)
-              Text(
-                'No structured run events recorded yet.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...events.map((event) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _RunEventCard(event: event),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunEventCard extends StatelessWidget {
-  const _RunEventCard({required this.event});
-
-  final RunEventItem event;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = event.isFailure ? _danger : _info;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  event.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (event.createdAtLabel.isNotEmpty)
-                Text(
-                  event.createdAtLabel,
-                  style: TextStyle(color: _textSecondary, fontSize: 12),
-                ),
-            ],
-          ),
-          if (event.detail.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              event.detail,
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RunStepCard extends StatelessWidget {
-  const _RunStepCard({required this.step});
-
-  final RunStepItem step;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          initiallyExpanded:
-              step.status == 'failed' || step.status == 'running',
-          leading: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: step.statusColor.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '${step.displayIndex}',
-                style: TextStyle(
-                  color: step.statusColor,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(step.label, style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(
-                step.summary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 12,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _StatusPill(label: step.statusLabel, color: step.statusColor),
-                  _MetaPill(label: step.typeLabel, icon: Icons.layers_outlined),
-                  if (step.startedAt != null)
-                    _MetaPill(
-                      label: step.startedAtLabel!,
-                      icon: Icons.schedule_outlined,
-                    ),
-                  if (step.durationLabel != null)
-                    _MetaPill(
-                      label: step.durationLabel!,
-                      icon: Icons.timer_outlined,
-                    ),
-                  if (step.tokensUsed > 0)
-                    _MetaPill(
-                      label: '${_formatNumber(step.tokensUsed)} tokens',
-                      icon: Icons.toll_outlined,
-                    ),
-                ],
-              ),
-            ],
-          ),
-          children: <Widget>[
-            if (step.description.trim().isNotEmpty &&
-                step.description.trim() != step.summary.trim())
-              _RunDetailBlock(label: 'Description', value: step.description),
-            if (step.inputSummary.trim().isNotEmpty)
-              _RunDetailBlock(label: 'Input summary', value: step.inputSummary),
-            if (step.toolInput.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Tool input',
-                value: _truncateRunText(step.toolInput),
-                monospace: true,
-              ),
-            if (step.error.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Error',
-                value: step.error,
-                monospace: true,
-              )
-            else if (step.result.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Result',
-                value: _truncateRunText(step.result),
-                monospace: true,
-              ),
           ],
         ),
       ),
@@ -4855,10 +4234,7 @@ class _RunGraphEdgePainter extends CustomPainter {
         ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round;
 
-      final start = Offset(
-        from.x + _FlowNode.w,
-        from.y + _FlowNode.h / 2,
-      );
+      final start = Offset(from.x + _FlowNode.w, from.y + _FlowNode.h / 2);
       final end = Offset(to.x, to.y + _FlowNode.h / 2);
 
       if (from.y != to.y) {
@@ -4971,10 +4347,7 @@ class _FlowNodeWidget extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   isSpecial ? node.nodeType : node.status,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: _textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -5093,10 +4466,7 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                 Expanded(
                   child: Text(
                     '$stepCount step${stepCount == 1 ? '' : 's'} · tap a node to inspect',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12.5,
-                    ),
+                    style: TextStyle(color: _textSecondary, fontSize: 12.5),
                   ),
                 ),
                 if (widget.loading)
@@ -5116,8 +4486,14 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                       vertical: 6,
                     ),
                   ),
-                  icon: const Icon(Icons.center_focus_strong_outlined, size: 15),
-                  label: const Text('Reset view', style: TextStyle(fontSize: 12)),
+                  icon: const Icon(
+                    Icons.center_focus_strong_outlined,
+                    size: 15,
+                  ),
+                  label: const Text(
+                    'Reset view',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -5155,7 +4531,9 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                               node: node,
                               selected: node.id == widget.selectedNodeId,
                               onTap: () => widget.onNodeSelected(
-                                node.id == widget.selectedNodeId ? null : node.id,
+                                node.id == widget.selectedNodeId
+                                    ? null
+                                    : node.id,
                               ),
                             ),
                           ),
@@ -5312,32 +4690,31 @@ class _RunSelectorRail extends StatelessWidget {
                   style: TextStyle(color: _textSecondary, fontSize: 12),
                 ),
               )
-            else
-              ...<Widget>[
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: math.min(filteredRuns.length, 40),
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final run = filteredRuns[index];
-                    final isSelected = run.id == selectedRunId;
-                    return _RunSelectorRow(
-                      run: run,
-                      selected: isSelected,
-                      onTap: () => onSelect(run.id),
-                    );
-                  },
-                ),
-                if (filteredRuns.length > 40)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Showing 40 of ${filteredRuns.length} — use search to narrow results',
-                      style: TextStyle(color: _textSecondary, fontSize: 11),
-                    ),
+            else ...<Widget>[
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: math.min(filteredRuns.length, 40),
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final run = filteredRuns[index];
+                  final isSelected = run.id == selectedRunId;
+                  return _RunSelectorRow(
+                    run: run,
+                    selected: isSelected,
+                    onTap: () => onSelect(run.id),
+                  );
+                },
+              ),
+              if (filteredRuns.length > 40)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Showing 40 of ${filteredRuns.length} — use search to narrow results',
+                    style: TextStyle(color: _textSecondary, fontSize: 11),
                   ),
-              ],
+                ),
+            ],
           ],
         ),
       ),
@@ -5396,10 +4773,7 @@ class _RunSelectorRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${run.createdAtLabel} · ${run.durationLabel}',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: _textSecondary, fontSize: 11),
                   ),
                 ],
               ),
@@ -5522,7 +4896,11 @@ class _RunSelectedStepCard extends StatelessWidget {
                     color: color.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.build_circle_outlined, size: 18, color: color),
+                  child: Icon(
+                    Icons.build_circle_outlined,
+                    size: 18,
+                    color: color,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -5539,10 +4917,7 @@ class _RunSelectedStepCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         step.typeLabel,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -5583,7 +4958,11 @@ class _RunSelectedStepCard extends StatelessWidget {
             ],
             if (step.error.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
-              _RunDetailBlock(label: 'Error', value: step.error, monospace: true),
+              _RunDetailBlock(
+                label: 'Error',
+                value: step.error,
+                monospace: true,
+              ),
             ] else if (step.result.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
               _RunDetailBlock(

@@ -101,7 +101,7 @@ router.get('/oauth/callback', async (req, res) => {
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
-    const result = await manager.finishOAuth(state, code);
+    const result = await manager.finishOAuth(state, code, { signal: req.signal });
     const payload = JSON.stringify({
       type: 'integration_oauth_success',
       provider: result.provider,
@@ -320,6 +320,7 @@ router.post('/:provider/connect', async (req, res) => {
       {
         appKey: req.body?.appId,
         agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+        signal: req.signal,
       },
     );
     res.json(result);
@@ -340,6 +341,7 @@ router.post('/:provider/disconnect', async (req, res) => {
       {
         connectionId: req.body?.connectionId,
         agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+        signal: req.signal,
       },
     );
     res.json(result);
@@ -429,6 +431,7 @@ router.put('/:provider/config', async (req, res) => {
       userId: req.session.userId,
       agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
       config: req.body?.config || req.body || {},
+      signal: req.signal,
     });
     res.json({
       provider: provider.key,
@@ -458,6 +461,7 @@ router.delete('/:provider/config', async (req, res) => {
     await provider.clearUserConfig({
       userId: req.session.userId,
       agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+      signal: req.signal,
     });
     res.json({
       provider: provider.key,

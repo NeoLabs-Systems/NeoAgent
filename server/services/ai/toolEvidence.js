@@ -34,30 +34,50 @@ const EVIDENCE_SOURCE_RULES = [
   { source: 'subagent', match: (name) => name.includes('subagent') },
 ];
 
+const STATE_CHANGING_DEVICE_TOOLS = new Set([
+  'android_install_apk',
+  'android_long_press',
+  'android_open_app',
+  'android_open_intent',
+  'android_press_key',
+  'android_start_emulator',
+  'android_stop_emulator',
+  'android_swipe',
+  'android_tap',
+  'android_type',
+  'desktop_click',
+  'desktop_drag',
+  'desktop_launch_app',
+  'desktop_press_key',
+  'desktop_scroll',
+  'desktop_select_device',
+  'desktop_type',
+]);
+
 function deriveEvidenceSource(name) {
   const rule = EVIDENCE_SOURCE_RULES.find((entry) => entry.match(name));
   return rule ? rule.source : 'tool';
 }
 
-function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '') {
+function resolveDeclaredToolAccess(toolDefinition, toolArgs = {}) {
+  const access = String(toolDefinition?.access || '').trim().toLowerCase();
+  if (access === 'read' || access === 'write') return access;
+  if (access !== 'dynamic_http_method') return null;
+
+  const method = String(toolArgs?.method || toolArgs?.http_method || 'GET')
+    .trim()
+    .toUpperCase();
+  return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? 'read' : 'write';
+}
+
+function classifyToolExecution(
+  toolName,
+  toolArgs = {},
+  result,
+  errorMessage = '',
+  toolDefinition = null,
+) {
   const name = String(toolName || '');
-  const evidenceRelevantPrefixes = ['browser_', 'android_'];
-  const evidenceRelevantExact = new Set([
-    'web_search',
-    'http_request',
-    'read_file',
-    'read_files',
-    'search_files',
-    'list_directory',
-    'code_navigate',
-    'query_structured_data',
-    'session_search',
-    'memory_recall',
-    'analyze_image',
-    'read_health_data',
-    'list_tasks',
-    'wait_subagent',
-  ]);
   const stateChangingExact = new Set([
     'execute_command',
     'write_file',
@@ -79,22 +99,30 @@ function classifyToolExecution(toolName, toolArgs = {}, result, errorMessage = '
     'mcp_add_server',
     'mcp_remove_server',
     'spawn_subagent',
+    'delegate_to_agent',
     'cancel_subagent',
   ]);
 
-  const evidenceSource = deriveEvidenceSource(name);
+  const declaredAccess = resolveDeclaredToolAccess(toolDefinition, toolArgs);
+  const evidenceSource = declaredAccess ? 'integration' : deriveEvidenceSource(name);
 
-  const evidenceRelevant = evidenceRelevantExact.has(name)
-    || evidenceRelevantPrefixes.some((prefix) => name.startsWith(prefix));
-  const stateChanged = (
-    name === 'execute_command'
-      ? !isClearlyReadOnlyShellCommand(toolArgs?.command || '')
-      : stateChangingExact.has(name)
-  )
+  // Any successful, substantive tool result can advance the run. This default
+  // is deliberate: MCP, skills, and newly added integrations must not become
+  // invisible to the churn guard just because their names were not added to a
+  // central allow-list. Repetition detection still rejects unchanged retries.
+  const evidenceRelevant = isSubstantiveProgressToolName(name);
+  let directStateChange;
+  if (name === 'execute_command' || name === 'android_shell') {
+    directStateChange = !isClearlyReadOnlyShellCommand(toolArgs?.command || '');
+  } else {
+    directStateChange = declaredAccess === 'write'
+      || STATE_CHANGING_DEVICE_TOOLS.has(name)
+      || stateChangingExact.has(name);
+  }
+  const stateChanged = directStateChange
     || (name.startsWith('github_') && isProgressToolCall(name, toolArgs))
     || (name === 'http_request' && isProgressToolCall(name, toolArgs))
-    || name.startsWith('android_')
-    || ['browser_click', 'browser_type', 'browser_evaluate'].includes(name);
+    || ['browser_click', 'browser_evaluate', 'browser_navigate', 'browser_type'].includes(name);
 
   let normalizedError = String(errorMessage || result?.error || '').trim();
   if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
@@ -167,7 +195,7 @@ function gatheredNewEvidence(execution, repetitionObservation = null) {
 function isSubstantiveProgressToolName(toolName = '') {
   const name = String(toolName || '').trim();
   if (!name) return false;
-  if (name === 'send_message' || name === 'send_interim_update' || name === 'make_call') return false;
+  if (name === 'send_message' || name === 'send_interim_update' || name === 'make_call' || name === 'notify_user') return false;
   if (name === 'think' || name === 'activate_tools' || name === 'task_complete') return false;
   return true;
 }
@@ -254,4 +282,5 @@ module.exports = {
   summarizeAvailableTools,
   inferToolFailureMessage,
   buildAutonomousRecoveryContext,
+  resolveDeclaredToolAccess,
 };

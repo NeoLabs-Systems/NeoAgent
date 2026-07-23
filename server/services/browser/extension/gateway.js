@@ -3,6 +3,7 @@ const { BROWSER_EXTENSION_WS_PATH } = require('./protocol');
 
 const DEFAULT_UPGRADE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const DEFAULT_UPGRADE_RATE_LIMIT_MAX = 30;
+const MAX_EXTENSION_MESSAGE_BYTES = 32 * 1024 * 1024;
 
 function rejectUpgrade(socket, statusCode, message) {
   try {
@@ -22,8 +23,13 @@ function rejectUpgrade(socket, statusCode, message) {
 }
 
 function bindBrowserExtensionGateway(httpServer, app) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_EXTENSION_MESSAGE_BYTES,
+  });
   const attemptsByIp = new Map();
+  let closing = false;
+  let closePromise = null;
   const windowMs = Number(process.env.NEOAGENT_BROWSER_EXTENSION_UPGRADE_WINDOW_MS || DEFAULT_UPGRADE_RATE_LIMIT_WINDOW_MS);
 
   const cleanupTimer = setInterval(() => {
@@ -50,7 +56,7 @@ function bindBrowserExtensionGateway(httpServer, app) {
     return entry.count > maxAttempts;
   }
 
-  httpServer.on('upgrade', (req, socket, head) => {
+  const handleUpgrade = (req, socket, head) => {
     let url;
     try {
       url = new URL(req.url, 'http://localhost');
@@ -58,6 +64,10 @@ function bindBrowserExtensionGateway(httpServer, app) {
       return;
     }
     if (url.pathname !== BROWSER_EXTENSION_WS_PATH) {
+      return;
+    }
+    if (closing) {
+      rejectUpgrade(socket, 503, 'Service Unavailable');
       return;
     }
 
@@ -81,24 +91,38 @@ function bindBrowserExtensionGateway(httpServer, app) {
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
-      registry.registerConnection(tokenRow, ws, {
-        remoteAddress,
-        userAgent: req.headers['user-agent'] || null,
-      });
-      ws.send(JSON.stringify({
-        type: 'hello',
-        ok: true,
-        userId: tokenRow.user_id,
-        tokenId: tokenRow.id,
-      }));
+      try {
+        registry.registerConnection(tokenRow, ws, {
+          remoteAddress,
+          userAgent: req.headers['user-agent'] || null,
+        });
+        ws.send(JSON.stringify({
+          type: 'hello',
+          ok: true,
+          userId: tokenRow.user_id,
+          tokenId: tokenRow.id,
+        }));
+      } catch (error) {
+        try { ws.close(1012, String(error?.message || 'Service unavailable').slice(0, 120)); } catch {}
+      }
     });
-  });
+  };
+  httpServer.on('upgrade', handleUpgrade);
 
   app.locals.browserExtensionGateway = {
-    close: () => new Promise((resolve) => {
+    close: () => {
+      if (closePromise) return closePromise;
+      closing = true;
       clearInterval(cleanupTimer);
-      wss.close(() => resolve());
-    }),
+      httpServer.removeListener('upgrade', handleUpgrade);
+      for (const client of wss.clients) {
+        try { client.terminate(); } catch {}
+      }
+      closePromise = new Promise((resolve) => {
+        wss.close(() => resolve());
+      });
+      return closePromise;
+    },
   };
 
   return wss;

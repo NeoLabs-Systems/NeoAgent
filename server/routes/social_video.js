@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
@@ -18,6 +20,7 @@ router.get('/health', async (req, res) => {
     }
     const health = await service.getHealthStatus({
       forceRefresh: req.query?.refresh === '1' || req.query?.refresh === 'true',
+      signal: req.signal,
     });
     return res.json(health);
   } catch (error) {
@@ -46,6 +49,7 @@ router.post('/extract', async (req, res) => {
       includeFrame: req.body?.include_frame !== false,
       forceStt: req.body?.force_stt === true,
       agentId,
+      signal: req.signal,
     });
 
     if (result?.setup?.ready === false) {

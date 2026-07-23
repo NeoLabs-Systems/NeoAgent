@@ -67,8 +67,8 @@ class RedditChannel extends SocialReachChannel {
     };
   }
 
-  async read({ url, limit }) {
-    const data = await fetchJson(postUrlForJson(url));
+  async read({ url, limit, signal }) {
+    const data = await fetchJson(postUrlForJson(url), { signal });
     const post = shapePost(data?.[0]?.data?.children?.[0]);
     const comments = (data?.[1]?.data?.children || [])
       .filter((item) => item?.kind === 't1')
@@ -82,7 +82,7 @@ class RedditChannel extends SocialReachChannel {
     };
   }
 
-  async search({ query, limit }) {
+  async search({ query, limit, signal }) {
     const q = String(query || '').trim();
     if (!q) {
       const error = new Error('query is required.');
@@ -90,7 +90,7 @@ class RedditChannel extends SocialReachChannel {
       throw error;
     }
     const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&limit=${normalizeLimit(limit, 10, 50)}&raw_json=1`;
-    const data = await fetchJson(url);
+    const data = await fetchJson(url, { signal });
     return {
       platform: this.id,
       query: q,

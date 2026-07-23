@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
@@ -144,6 +146,7 @@ router.post('/screenshot', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.screenshot({
     ...(request.body || {}),
     deviceId: parseDeviceId(request.body?.deviceId),
+    signal: request.signal,
   })));
 
 router.post('/observe', (req, res) =>
@@ -151,6 +154,7 @@ router.post('/observe', (req, res) =>
     ...(request.body || {}),
     deviceId: parseDeviceId(request.body?.deviceId),
     includeTree: parseOptionalBoolean(request.body?.includeTree, false),
+    signal: request.signal,
   })));
 
 router.post('/click', (req, res) =>
@@ -160,6 +164,7 @@ router.post('/click', (req, res) =>
     {
       ...(request.body || {}),
       deviceId: parseDeviceId(request.body?.deviceId),
+      signal: request.signal,
     },
   )));
 
@@ -170,6 +175,7 @@ router.post('/mouse-move', (req, res) =>
     {
       ...(request.body || {}),
       deviceId: parseDeviceId(request.body?.deviceId),
+      signal: request.signal,
     },
   )));
 
@@ -182,6 +188,7 @@ router.post('/drag', (req, res) =>
     x2: parseFiniteNumber(request.body?.x2, 'x2', { min: -100000, max: 100000 }),
     y2: parseFiniteNumber(request.body?.y2, 'y2', { min: -100000, max: 100000 }),
     durationMs: Math.round(parseFiniteNumber(request.body?.durationMs ?? 280, 'durationMs', { min: 20, max: 5000 })),
+    signal: request.signal,
   })));
 
 router.post('/scroll', (req, res) =>
@@ -190,6 +197,7 @@ router.post('/scroll', (req, res) =>
     deviceId: parseDeviceId(request.body?.deviceId),
     deltaX: Math.round(parseFiniteNumber(request.body?.deltaX ?? 0, 'deltaX', { min: -5000, max: 5000 })),
     deltaY: Math.round(parseFiniteNumber(request.body?.deltaY ?? 0, 'deltaY', { min: -5000, max: 5000 })),
+    signal: request.signal,
   })));
 
 router.post('/type-text', (req, res) =>
@@ -199,6 +207,7 @@ router.post('/type-text', (req, res) =>
       ...(request.body || {}),
       deviceId: parseDeviceId(request.body?.deviceId),
       pressEnter: parseOptionalBoolean(request.body?.pressEnter, false),
+      signal: request.signal,
     },
   )));
 
@@ -208,6 +217,7 @@ router.post('/press-key', (req, res) =>
     {
       ...(request.body || {}),
       deviceId: parseDeviceId(request.body?.deviceId),
+      signal: request.signal,
     },
   )));
 
@@ -216,11 +226,15 @@ router.post('/launch-app', (req, res) =>
     ...(request.body || {}),
     deviceId: parseDeviceId(request.body?.deviceId),
     app: parseRequiredString(request.body?.app, 'app', MAX_APP_LENGTH),
+    signal: request.signal,
   })));
 
 router.get('/displays', (req, res) =>
   handleDesktopAction(req, res, (provider, request) =>
-    provider.listDisplays(parseTypedDisplayQuery(request.query))));
+    provider.listDisplays({
+      ...parseTypedDisplayQuery(request.query),
+      signal: request.signal,
+    })));
 
 router.post('/select-display', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.selectDisplay(
@@ -228,6 +242,7 @@ router.post('/select-display', (req, res) =>
     {
       ...(request.body || {}),
       deviceId: parseDeviceId(request.body?.deviceId),
+      signal: request.signal,
     },
   )));
 
@@ -239,12 +254,14 @@ router.post('/pause-device', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.pauseDevice(
     parseRequiredString(request.body?.deviceId, 'deviceId', 256),
     parseOptionalBoolean(request.body?.paused, true),
+    { signal: request.signal },
   )));
 
 router.post('/tree', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.getAccessibilityTree({
     ...(request.body || {}),
     deviceId: parseDeviceId(request.body?.deviceId),
+    signal: request.signal,
   })));
 
 module.exports = router;

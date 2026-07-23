@@ -5,6 +5,7 @@ const { createChannels } = require('./channels');
 const { deleteCookieBundle, getCookieSummary, writeCookieBundle } = require('./store');
 const { domainsForPlatform, getPlatformDefinition, normalizePlatformId } = require('./platforms');
 const { assertHttpUrl } = require('./utils');
+const { createAbortError } = require('../../utils/abort');
 
 const COOKIE_IMPORT_PLATFORMS = new Set(['xueqiu', 'x']);
 const MAX_IMPORTED_COOKIES = 80;
@@ -59,16 +60,17 @@ class SocialReachService {
     return this.channels.find((channel) => channel.canHandleUrl(parsed.toString())) || null;
   }
 
-  async getStatus(userId) {
+  async getStatus(userId, options = {}) {
     const statuses = [];
     for (const channel of this.channels) {
       try {
-        const status = await channel.check({ userId });
+        const status = await channel.check({ userId, signal: options.signal });
         if (!status.cookie && channel.setupKind === 'cookies') {
           status.cookie = getCookieSummary(userId, channel.id);
         }
         statuses.push(status);
       } catch (error) {
+        if (options.signal?.aborted) throw createAbortError(options.signal);
         statuses.push({
           platform: channel.id,
           label: channel.label,
@@ -87,7 +89,7 @@ class SocialReachService {
     };
   }
 
-  async read(userId, args = {}) {
+  async read(userId, args = {}, options = {}) {
     const platform = normalizePlatformId(args.platform || '');
     const channel = platform ? this.getChannel(platform) : this.detectChannelForUrl(args.url);
     if (!channel) {
@@ -97,10 +99,10 @@ class SocialReachService {
       error.status = 400;
       throw error;
     }
-    return channel.read({ ...args, userId });
+    return channel.read({ ...args, userId, signal: options.signal });
   }
 
-  async search(userId, args = {}) {
+  async search(userId, args = {}, options = {}) {
     const platform = normalizePlatformId(args.platform || '');
     const channel = this.getChannel(platform);
     if (!channel) {
@@ -108,7 +110,7 @@ class SocialReachService {
       error.status = 400;
       throw error;
     }
-    return channel.search({ ...args, userId });
+    return channel.search({ ...args, userId, signal: options.signal });
   }
 
   async importCookiesFromExtension(userId, platform, options = {}) {
@@ -132,6 +134,7 @@ class SocialReachService {
     }, {
       tokenId: options.tokenId || null,
       timeoutMs: 15000,
+      signal: options.signal,
     });
     const cookies = sanitizeCookies(response?.cookies || [], domains);
     if (cookies.length === 0) {

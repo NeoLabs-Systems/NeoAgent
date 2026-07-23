@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
+const { wrapProviderError } = require('./provider_error');
 
 class GrokProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
@@ -11,15 +12,15 @@ class GrokProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels() {
+  async listModels(signal = null) {
     try {
-      const res = await this.client.models.list();
+      const res = await this.client.models.list({ signal });
       const DROP = /imagine|diffus|embed|-tts/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
         .map((m) => ({ id: m.id, name: m.id }));
     } catch (err) {
-      throw new Error(`Failed to list Grok models: ${err.message || String(err)}`);
+      throw wrapProviderError(err, 'Failed to list Grok models', { signal });
     }
   }
 

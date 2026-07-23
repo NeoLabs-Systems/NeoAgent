@@ -2,6 +2,56 @@
 
 const { getErrorMessage } = require('../bootstrap_helpers');
 
+function completionResult(outcome, cancelled = false) {
+  return {
+    runId: outcome?.runId || null,
+    result: outcome?.result || null,
+    error: outcome?.error || null,
+    cancelled,
+  };
+}
+
+function settleWaiters(item, result) {
+  for (const resolve of item?.waiters || []) resolve(result);
+  if (item?.waiters) item.waiters = [];
+}
+
+function cancelPending(queue) {
+  const result = completionResult(null, true);
+  for (const item of queue.pending.splice(0)) settleWaiters(item, result);
+}
+
+function queuedResult(queue, msg) {
+  let resolveCompletion;
+  const completion = new Promise((resolve) => {
+    resolveCompletion = resolve;
+  });
+  const last = queue.pending[queue.pending.length - 1];
+  if (
+    last
+    && last.message.platform === msg.platform
+    && last.message.chatId === msg.chatId
+    && String(last.message.sender || '') === String(msg.sender || '')
+  ) {
+    last.message.content += `\n${msg.content}`;
+    last.message.messageId = msg.messageId;
+    last.message.inboundJobIds = Array.from(new Set([
+      ...(last.message.inboundJobIds || []),
+      ...(msg.inboundJobIds || []),
+      msg.inboundJobId,
+    ].filter(Boolean)));
+    last.waiters.push(resolveCompletion);
+  } else {
+    queue.pending.push({
+      message: { ...msg },
+      waiters: [resolveCompletion],
+    });
+  }
+  const result = { queued: true };
+  Object.defineProperty(result, 'completion', { value: completion });
+  return result;
+}
+
 async function processInboundQueue({
   userQueues,
   userId,
@@ -12,79 +62,83 @@ async function processInboundQueue({
   const agentId = msg.agentId || null;
   const queueKey = `${userId}:${agentId || 'main'}`;
   if (!userQueues[queueKey]) {
-    userQueues[queueKey] = { running: false, pending: [], cancelRequested: false };
+    userQueues[queueKey] = {
+      running: false,
+      pending: [],
+      cancelRequested: false,
+      cancelPending() {
+        cancelPending(this);
+      },
+    };
   }
   const queue = userQueues[queueKey];
 
   if (queue.cancelRequested && !queue.running) {
-    queue.pending = [];
+    cancelPending(queue);
     queue.cancelRequested = false;
   }
 
   if (queue.running) {
-    const last = queue.pending[queue.pending.length - 1];
-    if (
-      last
-      && last.platform === msg.platform
-      && last.chatId === msg.chatId
-      && String(last.sender || '') === String(msg.sender || '')
-    ) {
-      last.content += `\n${msg.content}`;
-      last.messageId = msg.messageId;
-    } else {
-      queue.pending.push({ ...msg });
-    }
-    return { queued: true };
+    return queuedResult(queue, msg);
   }
 
   queue.running = true;
-  let currentMessage = msg;
+  let currentItem = { message: msg, waiters: [] };
   let processedCount = 0;
   let failedCount = 0;
   let cancelled = false;
+  let initialOutcome = null;
 
   try {
-    while (currentMessage) {
+    while (currentItem) {
       let outcome;
       try {
-        outcome = await executeMessage(currentMessage);
+        outcome = await executeMessage(currentItem.message);
       } catch (error) {
         outcome = { runId: null, result: null, error };
       }
       processedCount += 1;
+      const itemCancelled = queue.cancelRequested;
+      const itemResult = completionResult(outcome, itemCancelled);
+      if (!initialOutcome) initialOutcome = itemResult;
+      settleWaiters(currentItem, itemResult);
 
-      if (outcome?.error) {
+      if (outcome?.error && !queue.cancelRequested) {
         failedCount += 1;
         await notifyProcessingError(onProcessingError, {
           error: outcome.error,
           runId: outcome.runId,
           userId,
-          failedMessage: currentMessage
+          failedMessage: currentItem.message
         });
       }
 
       if (queue.cancelRequested) {
-        queue.pending = [];
+        cancelPending(queue);
         cancelled = true;
         break;
       }
 
-      currentMessage = queue.pending.shift() || null;
+      currentItem = queue.pending.shift() || null;
     }
   } finally {
     queue.running = false;
-    queue.pending = [];
+    cancelPending(queue);
     queue.cancelRequested = false;
     if (userQueues[queueKey] === queue) {
       delete userQueues[queueKey];
     }
   }
 
-  return {
+  const result = {
     processedCount,
     failedCount,
     cancelled
   };
+  Object.defineProperty(result, 'outcome', {
+    value: initialOutcome || completionResult(null, cancelled),
+  });
+  return result;
 }
 
 async function notifyProcessingError(handler, details) {

@@ -172,8 +172,10 @@ function createHomeAssistantProvider() {
       }
       return 'Home Assistant: native Home Assistant access is connected in this run with tools for config, states, entity state, service calls, and /api requests.';
     },
-    async executeTool(toolName, args, connection) {
-      return executeHomeAssistantTool(toolName, args, connection);
+    async executeTool(toolName, args, connection, executionOptions = {}) {
+      return executeHomeAssistantTool(toolName, args, connection, {
+        signal: executionOptions.signal || null,
+      });
     },
     getUserConfig({ userId, agentId }) {
       const normalizedUserId = Number(userId);
@@ -186,7 +188,7 @@ function createHomeAssistantProvider() {
         hasConnectedAccount: connection?.status === 'connected',
       };
     },
-    async saveUserConfig({ userId, agentId, config }) {
+    async saveUserConfig({ userId, agentId, config, signal }) {
       const normalizedUserId = Number(userId);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
         throw new Error('A valid user is required to save Home Assistant configuration.');
@@ -203,10 +205,10 @@ function createHomeAssistantProvider() {
       if (!token) throw new Error('Home Assistant Long-Lived Access Token is required.');
 
       const credentials = { baseUrl, token };
-      await assertPublicHomeAssistantEndpoint(baseUrl);
+      await assertPublicHomeAssistantEndpoint(baseUrl, { signal });
       let haConfig;
       try {
-        haConfig = await fetchHomeAssistantConfig(credentials);
+        haConfig = await fetchHomeAssistantConfig(credentials, { signal });
       } catch (error) {
         const message = String(error?.message || '').toLowerCase();
         if (message.includes('401') || message.includes('unauthorized')) {

@@ -576,6 +576,51 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, ['Finished result.']);
   });
 
+  test('send_message cannot terminate the originating run with a progress-only promise', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sent = [];
+    const runState = {
+      messagingSent: false,
+      explicitMessageSent: false,
+      finalDeliverySent: false,
+      sentMessages: [],
+    };
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sent.push(args);
+          return { success: true };
+        },
+      },
+      async stopMessagingProgressSupervisor() {},
+    };
+    const context = {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'whatsapp',
+      chatId: '49123456789@s.whatsapp.net',
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: '49123456789',
+      content: "I'm working on that and will update you.",
+    }, context, engine);
+
+    assert.match(result.error, /cannot end the run with a promise/);
+    assert.equal(sent.length, 0);
+    assert.equal(runState.finalDeliverySent, false);
+
+    await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: '49987654321',
+      content: "I'm working on that and will update you.",
+    }, context, engine);
+    assert.equal(sent.length, 1, 'a requested message to a third party is not reclassified');
+  });
+
   test('task runtime start is idempotent and reports truthful state', async () => {
     const cronHarness = createCronHarness();
     runtime = new TaskRuntime(
@@ -651,7 +696,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(pollCount, 1);
   });
 
-  test('task runtime waits for active execution and rejects new work during shutdown', async () => {
+  test('task runtime cancels active execution results and rejects new work during shutdown', async () => {
     const cronHarness = createCronHarness();
     const runStarted = deferred();
     const releaseRun = deferred();
@@ -698,8 +743,33 @@ describe('scheduled task result delivery', () => {
     assert.equal(runtime.getStatus().state, 'stopping');
 
     releaseRun.resolve();
-    assert.equal((await execution).content, 'Completed before shutdown.');
+    assert.deepEqual(await execution, {
+      skipped: true,
+      reason: 'runtime_stopping',
+      runId: null,
+    });
     assert.equal((await stopping).state, 'stopped');
+
+    let pollCalled = false;
+    assert.deepEqual(
+      runtime.runTaskNow(task.id, user.userId),
+      { running: false, skipped: true, reason: 'runtime_stopping' },
+    );
+    assert.deepEqual(
+      await runtime._executeTask(task.id, user.userId, {
+        manual: true,
+        triggerType: 'schedule',
+        triggerSource: 'manual',
+      }),
+      { skipped: true, reason: 'runtime_stopping' },
+    );
+    assert.deepEqual(
+      await runtime._runPoll('after_stop', async () => {
+        pollCalled = true;
+      }, () => {}),
+      { skipped: true, reason: 'runtime_stopping' },
+    );
+    assert.equal(pollCalled, false);
   });
 
   test('deletes a completed one-time task after its due poll', async () => {

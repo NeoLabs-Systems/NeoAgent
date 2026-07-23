@@ -9,6 +9,10 @@ const { AGENT_DATA_DIR } = require('../../../../runtime/paths');
 const { encryptValue, decryptValue } = require('../secrets');
 const { withConnectionAccessMode } = require('../access');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../../utils/whatsapp');
+const {
+  waitForAbortableResult,
+  waitForBoundedResult,
+} = require('../http');
 
 const WHATSAPP_APP = {
   id: 'personal',
@@ -222,6 +226,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
     this.reconnectTimers = new Map();
     this.sessionReconnectTimers = new Map();
     this.io = options.io || null;
+    this.shuttingDown = false;
   }
 
   _clearReconnectTimer(connectionId) {
@@ -241,7 +246,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
   }
 
   _scheduleReconnect(client, attempt = 1) {
-    if (!client?.connectionId || client.manualDisconnect) {
+    if (this.shuttingDown || !client?.connectionId || client.manualDisconnect) {
       return;
     }
     this._clearReconnectTimer(client.connectionId);
@@ -267,11 +272,17 @@ class WhatsAppPersonalProvider extends EventEmitter {
         }
       }
     }, delayMs);
+    timer.unref?.();
     this.reconnectTimers.set(client.connectionId, timer);
   }
 
   _scheduleSessionReconnect(session, attempt = 1) {
-    if (!session?.id || session.status === 'connected' || session.status === 'logged_out') {
+    if (
+      this.shuttingDown ||
+      !session?.id ||
+      session.status === 'connected' ||
+      session.status === 'logged_out'
+    ) {
       return;
     }
     this._clearSessionReconnectTimer(session.id);
@@ -290,6 +301,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
         current.error = err?.message || 'connection_failed';
       });
     }, delayMs);
+    timer.unref?.();
     this.sessionReconnectTimers.set(session.id, timer);
   }
 
@@ -451,6 +463,9 @@ class WhatsAppPersonalProvider extends EventEmitter {
   }
 
   async beginConnection({ userId, agentId, appKey }) {
+    if (this.shuttingDown) {
+      throw new Error('WhatsApp integration is shutting down.');
+    }
     if (!this.getApp(appKey)) {
       throw new Error(`Unknown ${this.label} app: ${appKey || 'missing app key'}`);
     }
@@ -533,8 +548,9 @@ class WhatsAppPersonalProvider extends EventEmitter {
     }
   }
 
-  async executeTool(toolName, args, connection) {
-    const client = await this._ensureClient(connection);
+  async executeTool(toolName, args, connection, executionOptions = {}) {
+    const signal = executionOptions.signal || null;
+    const client = await this._ensureClient(connection, { signal });
 
     switch (toolName) {
       case 'whatsapp_personal_get_profile':
@@ -584,9 +600,16 @@ class WhatsAppPersonalProvider extends EventEmitter {
       }
       case 'whatsapp_personal_send_message': {
         const jid = this._normalizeChatId(requireText(args.to, 'to'));
-        await client.socket.sendMessage(jid, {
-          text: requireText(args.text, 'text'),
-        });
+        await waitForBoundedResult(
+          client.socket.sendMessage(jid, {
+            text: requireText(args.text, 'text'),
+          }),
+          {
+            signal,
+            timeoutMs: 60000,
+            serviceName: 'WhatsApp send',
+          },
+        );
         return {
           result: {
             sent: true,
@@ -900,13 +923,13 @@ class WhatsAppPersonalProvider extends EventEmitter {
     return row?.id;
   }
 
-  async _ensureClient(connection) {
+  async _ensureClient(connection, options = {}) {
     const existing = this.clients.get(connection.id);
     if (existing?.status === 'connected' && existing.socket) {
       return existing;
     }
     if (existing?.connectPromise) {
-      await existing.connectPromise;
+      await waitForAbortableResult(existing.connectPromise, options.signal);
       const ready = this.clients.get(connection.id);
       if (ready?.status === 'connected' && ready.socket) {
         return ready;
@@ -935,16 +958,16 @@ class WhatsAppPersonalProvider extends EventEmitter {
       logger: createSilentLogger(),
       connectPromise: null,
     };
-    client.connectPromise = this._connectClient(client);
+    const connectPromise = this._connectClient(client);
+    client.connectPromise = connectPromise;
     this.clients.set(connection.id, client);
-    try {
-      await client.connectPromise;
-    } finally {
+    void connectPromise.finally(() => {
       const current = this.clients.get(connection.id);
-      if (current) {
+      if (current?.connectPromise === connectPromise) {
         current.connectPromise = null;
       }
-    }
+    }).catch(() => {});
+    await waitForAbortableResult(connectPromise, options.signal);
     const ready = this.clients.get(connection.id);
     if (!ready?.socket || ready.status !== 'connected') {
       throw new Error('WhatsApp personal account is not connected.');
@@ -953,6 +976,9 @@ class WhatsAppPersonalProvider extends EventEmitter {
   }
 
   async _connectClient(client) {
+    if (this.shuttingDown) {
+      throw new Error('WhatsApp integration is shutting down.');
+    }
     ensureDir(client.authDir);
     client.manualDisconnect = false;
     const {
@@ -981,6 +1007,9 @@ class WhatsAppPersonalProvider extends EventEmitter {
     if (Array.isArray(version) && version.length > 0) {
       socketConfig.version = version;
     }
+    try {
+      client.socket?.end(new Error('client_reconnect'));
+    } catch {}
     const sock = makeWASocket(socketConfig);
 
     client.socket = sock;
@@ -989,6 +1018,10 @@ class WhatsAppPersonalProvider extends EventEmitter {
 
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        client.status = 'disconnected';
+        try {
+          sock.end(new Error('connection_timeout'));
+        } catch {}
         reject(new Error('WhatsApp connection timed out.'));
       }, 60000);
 
@@ -1017,7 +1050,10 @@ class WhatsAppPersonalProvider extends EventEmitter {
 
   async _resolveBaileysVersion(fetchLatestBaileysVersion) {
     try {
-      const result = await fetchLatestBaileysVersion();
+      const result = await waitForBoundedResult(fetchLatestBaileysVersion(), {
+        timeoutMs: 15000,
+        serviceName: 'WhatsApp version discovery',
+      });
       if (Array.isArray(result?.version) && result.version.length > 0) {
         return result.version;
       }
@@ -1025,6 +1061,30 @@ class WhatsAppPersonalProvider extends EventEmitter {
       console.warn(`[WhatsApp] Failed to fetch latest Baileys version, using library default: ${error?.message || error}`);
     }
     return null;
+  }
+
+  async shutdown() {
+    this.shuttingDown = true;
+    for (const timer of this.reconnectTimers.values()) clearTimeout(timer);
+    for (const timer of this.sessionReconnectTimers.values()) clearTimeout(timer);
+    this.reconnectTimers.clear();
+    this.sessionReconnectTimers.clear();
+
+    const sockets = new Set();
+    for (const client of this.clients.values()) {
+      client.manualDisconnect = true;
+      if (client.socket) sockets.add(client.socket);
+    }
+    for (const session of this.sessions.values()) {
+      if (session.socket) sockets.add(session.socket);
+    }
+    for (const socket of sockets) {
+      try {
+        socket.end(new Error('server_shutdown'));
+      } catch {}
+    }
+    this.clients.clear();
+    this.sessions.clear();
   }
 }
 

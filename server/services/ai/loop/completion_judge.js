@@ -2,6 +2,7 @@
 
 const { normalizeCompletionConfidence } = require('../completion');
 const { normalizeOutgoingMessage } = require('../messagingFallback');
+const { isDeferredWorkReply } = require('../terminal_reply');
 const {
   summarizeAvailableTools,
   summarizeToolExecutions,
@@ -241,6 +242,16 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
   };
 }
 
+function enforceTerminalReplyDecision(decision, lastReply) {
+  if (decision?.status === 'continue' || !isDeferredWorkReply(lastReply)) {
+    return decision;
+  }
+  return {
+    status: 'continue',
+    reason: 'The latest reply only announces or promises unfinished work; the run must continue or return a concrete blocker.',
+  };
+}
+
 // Intentionally lightweight (200-token cap, self-contained) so the model can
 // answer cold without re-reading full conversation history.
 function buildChurnAssessmentPrompt({
@@ -285,6 +296,7 @@ module.exports = {
   buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
   buildGoalContractPrompt,
+  enforceTerminalReplyDecision,
   goalContractFromAnalysis,
   goalContractFromPlan,
   mergeGoalContracts,

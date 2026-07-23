@@ -43,7 +43,7 @@ class XChannel extends SocialReachChannel {
     };
   }
 
-  async read({ userId, url }) {
+  async read({ userId, url, signal }) {
     const id = extractStatusId(url);
     if (!id) {
       const error = new Error('A public X post URL is required.');
@@ -54,7 +54,7 @@ class XChannel extends SocialReachChannel {
     const source = cookieHeaderForPlatform(userId, this.id) ? 'x_syndication_cookies' : 'x_syndication_public';
     const data = await fetchJson(
       `https://cdn.syndication.twimg.com/tweet-result?id=${encodeURIComponent(id)}&lang=en`,
-      { headers: this.#headers(userId) },
+      { headers: this.#headers(userId), signal },
     );
     return {
       platform: this.id,

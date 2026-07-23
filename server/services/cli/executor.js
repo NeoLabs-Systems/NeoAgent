@@ -7,6 +7,22 @@ const FORCE_KILL_GRACE_MS = 5000;
 const MAX_STDOUT_CHARS = 50000;
 const MAX_STDERR_CHARS = 10000;
 
+function abortedResult(command, cwd, startedAt = Date.now()) {
+  return {
+    exitCode: null,
+    stdout: '',
+    stderr: 'Command aborted before it started.',
+    killed: true,
+    timedOut: false,
+    aborted: true,
+    signal: null,
+    durationMs: Date.now() - startedAt,
+    pid: null,
+    command,
+    cwd,
+  };
+}
+
 function resolveDefaultShell() {
   const candidates = [
     process.env.SHELL,
@@ -63,6 +79,22 @@ function terminateProcess(proc, signal = 'SIGTERM') {
   proc.kill?.(signal) || proc.kill?.();
 }
 
+function terminateWithEscalation(proc, isActive) {
+  terminateProcess(proc, 'SIGTERM');
+  if (proc.__neoagentForceKillTimer) return;
+  proc.__neoagentForceKillTimer = setTimeout(() => {
+    if (isActive()) terminateProcess(proc, 'SIGKILL');
+  }, FORCE_KILL_GRACE_MS);
+  proc.__neoagentForceKillTimer.unref?.();
+}
+
+function clearForceKill(proc) {
+  if (proc?.__neoagentForceKillTimer) {
+    clearTimeout(proc.__neoagentForceKillTimer);
+    proc.__neoagentForceKillTimer = null;
+  }
+}
+
 function shellSupportsPipefail(shellPath) {
   const normalized = String(shellPath || '').trim().toLowerCase();
   return /(?:^|\/)(?:bash|zsh|ksh|mksh|yash)$/.test(normalized);
@@ -111,6 +143,7 @@ class CLIExecutor {
     const cwd = options.cwd || process.env.HOME;
     const timeout = clampTimeout(options.timeout, DEFAULT_TIMEOUT_MS);
     const stdinInput = options.stdinInput;
+    if (options.signal?.aborted) return abortedResult(command, cwd);
 
     return new Promise((resolve) => {
       let stdout = '';
@@ -131,6 +164,13 @@ class CLIExecutor {
       const pid = proc.pid;
       this.activeProcesses.set(pid, proc);
       options.onSpawn?.(pid);
+      const onAbort = () => {
+        killed = true;
+        proc.__neoagentKilled = true;
+        proc.__neoagentKillReason = 'aborted';
+        terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
+      };
+      options.signal?.addEventListener('abort', onAbort, { once: true });
 
       proc.stdout.on('data', (data) => {
         stdout += data.toString();
@@ -156,14 +196,14 @@ class CLIExecutor {
         timedOut = true;
         proc.__neoagentKilled = true;
         proc.__neoagentKillReason = 'timeout';
-        terminateProcess(proc, 'SIGTERM');
-        setTimeout(() => {
-          if (!proc.killed) terminateProcess(proc, 'SIGKILL');
-        }, FORCE_KILL_GRACE_MS);
+        terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
       }, timeout);
+      timer.unref?.();
 
       proc.on('close', (code, signal) => {
         clearTimeout(timer);
+        clearForceKill(proc);
+        options.signal?.removeEventListener('abort', onAbort);
         this.activeProcesses.delete(pid);
         const durationMs = Date.now() - startedAt;
 
@@ -173,6 +213,7 @@ class CLIExecutor {
           stderr: truncateOutput(stderr.trim(), MAX_STDERR_CHARS),
           killed: killed || proc.__neoagentKilled === true,
           timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
+          aborted: proc.__neoagentKillReason === 'aborted',
           signal: signal || null,
           durationMs,
           pid,
@@ -183,6 +224,8 @@ class CLIExecutor {
 
       proc.on('error', (err) => {
         clearTimeout(timer);
+        clearForceKill(proc);
+        options.signal?.removeEventListener('abort', onAbort);
         this.activeProcesses.delete(pid);
         resolve({
           exitCode: -1,
@@ -204,6 +247,7 @@ class CLIExecutor {
   async executeInteractive(command, inputs = [], options = {}) {
     const cwd = options.cwd || process.env.HOME;
     const timeout = clampTimeout(options.timeout, DEFAULT_INTERACTIVE_TIMEOUT_MS);
+    if (options.signal?.aborted) return abortedResult(command, cwd);
 
     return new Promise((resolve) => {
       let output = '';
@@ -231,6 +275,13 @@ class CLIExecutor {
       const pid = proc.pid;
       this.activeProcesses.set(pid, proc);
       options.onSpawn?.(pid);
+      const onAbort = () => {
+        killed = true;
+        proc.__neoagentKilled = true;
+        proc.__neoagentKillReason = 'aborted';
+        terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
+      };
+      options.signal?.addEventListener('abort', onAbort, { once: true });
 
       proc.onData((data) => {
         output += data;
@@ -256,11 +307,14 @@ class CLIExecutor {
         timedOut = true;
         proc.__neoagentKilled = true;
         proc.__neoagentKillReason = 'timeout';
-        proc.kill();
+        terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
       }, timeout);
+      timer.unref?.();
 
       proc.onExit(({ exitCode, signal }) => {
         clearTimeout(timer);
+        clearForceKill(proc);
+        options.signal?.removeEventListener('abort', onAbort);
         this.activeProcesses.delete(pid);
 
         const cleanOutput = output.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
@@ -270,6 +324,7 @@ class CLIExecutor {
           stderr: '',
           killed: killed || proc.__neoagentKilled === true,
           timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
+          aborted: proc.__neoagentKillReason === 'aborted',
           signal: typeof signal === 'number' ? String(signal) : signal || null,
           durationMs: Date.now() - startedAt,
           pid,
@@ -286,8 +341,7 @@ class CLIExecutor {
     if (proc) {
       proc.__neoagentKilled = true;
       proc.__neoagentKillReason = reason;
-      terminateProcess(proc, 'SIGTERM');
-      this.activeProcesses.delete(pid);
+      terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
       return true;
     }
     return false;
@@ -301,9 +355,8 @@ class CLIExecutor {
     for (const [pid, proc] of this.activeProcesses) {
       proc.__neoagentKilled = true;
       proc.__neoagentKillReason = reason;
-      terminateProcess(proc, 'SIGTERM');
+      terminateWithEscalation(proc, () => this.activeProcesses.get(pid) === proc);
     }
-    this.activeProcesses.clear();
   }
 }
 

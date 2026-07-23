@@ -276,7 +276,10 @@ function trelloUrl(path, query = {}, config = {}) {
 async function trelloRequest(config, options = {}) {
   return fetchJson(
     trelloUrl(options.path, options.query, config),
-    { method: String(options.method || 'GET').toUpperCase() },
+    {
+      method: String(options.method || 'GET').toUpperCase(),
+      signal: options.signal || config.signal,
+    },
     { serviceName: 'Trello' },
   );
 }
@@ -492,8 +495,15 @@ function resolveTrelloCredentials(connection, credentials = {}) {
   return { apiKey, token };
 }
 
-async function executeTrelloTool(toolName, args, { connection, credentials }) {
-  const config = resolveTrelloCredentials(connection, credentials);
+async function executeTrelloTool(
+  toolName,
+  args,
+  { connection, credentials, signal },
+) {
+  const config = {
+    ...resolveTrelloCredentials(connection, credentials),
+    signal,
+  };
 
   switch (toolName) {
     case 'trello_get_me': {
@@ -731,14 +741,18 @@ function createTrelloProvider() {
       }
       return 'Trello: native Trello access is connected in this run with one Trello account for board, list, card, comment, and search tools.';
     },
-    async executeTool(toolName, args, connection) {
+    async executeTool(toolName, args, connection, executionOptions = {}) {
       let credentials = {};
       try {
         credentials = JSON.parse(decryptValue(connection.credentials_json || '{}') || '{}');
       } catch {
         credentials = {};
       }
-      return executeTrelloTool(toolName, args, { connection, credentials });
+      return executeTrelloTool(toolName, args, {
+        connection,
+        credentials,
+        signal: executionOptions.signal || null,
+      });
     },
     getUserConfig({ userId, agentId }) {
       const normalizedUserId = Number(userId);
@@ -757,7 +771,7 @@ function createTrelloProvider() {
         hasConnectedAccount: accountCount > 0,
       };
     },
-    async saveUserConfig({ userId, agentId, config }) {
+    async saveUserConfig({ userId, agentId, config, signal }) {
       const normalizedUserId = Number(userId);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
         throw new Error('A valid user is required to save Trello configuration.');
@@ -796,7 +810,7 @@ function createTrelloProvider() {
 
       let profile;
       try {
-        profile = await fetchTrelloMemberProfile({ apiKey, token });
+        profile = await fetchTrelloMemberProfile({ apiKey, token, signal });
       } catch (error) {
         const message = String(error?.message || '').toLowerCase();
         if (

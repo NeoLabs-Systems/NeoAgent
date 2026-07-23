@@ -1,3 +1,5 @@
+'use strict';
+
 const { AnthropicProvider } = require('./providers/anthropic');
 const { GoogleProvider } = require('./providers/google');
 const { GrokProvider } = require('./providers/grok');
@@ -14,6 +16,19 @@ const {
     getProviderConfigs,
     getProviderSecrets,
 } = require('./settings');
+const {
+    createModelSelectionId,
+    modelMatchesConfiguredId,
+    toSelectableModel,
+} = require('./model_identity');
+const {
+    classifyPriceTier,
+    getInputCostPerM,
+    refreshOllamaModels,
+    refreshProviderModelList,
+} = require('./model_discovery');
+const { fetchResponseText } = require('../network/http');
+const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
 const STATIC_MODELS = [
     // — xAI OAuth — fallback entries shown when grok-oauth token is invalid/exhausted.
@@ -130,127 +145,27 @@ const PROVIDER_FACTORIES = Object.freeze({
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
 });
 
-const dynamicModelsByBaseUrl = new Map();
-const REFRESH_INTERVAL = 30000; // 30 seconds
-
-// Unified dynamic model cache for all API-backed providers.
-// Keyed by `${providerId}:${apiKey.slice(0,8)}` to handle per-user keys.
-const providerModelCache = new Map();
-const DYNAMIC_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
-// Populated from OpenRouter's /models response; used to price-classify models
-// from all providers.  Keyed by both the full OpenRouter ID ("openai/gpt-5-mini")
-// and the bare model ID ("gpt-5-mini") for cross-provider lookup.
-const openrouterPricingCache = new Map();
-
 // Providers whose full model list is fetched from their API at runtime.
 // grok-oauth inherits listModels() from GrokProvider and uses the same xAI endpoint.
 const DYNAMIC_PROVIDERS = ['openai', 'anthropic', 'google', 'nvidia', 'grok', 'grok-oauth', 'openrouter'];
 
-function inferModelPurpose(id) {
-    const s = id.toLowerCase();
-    if (/flash|nano|lite|tiny|haiku|scout|mini(?!max)|small/.test(s)) return 'fast';
-    if (/r1|qwq|o[0-9]|reasoning|thinking/.test(s)) return 'planning';
-    if (/code|coder|starcoder|devstral|codex|codegemma/.test(s)) return 'coding';
-    return 'general';
-}
-
-// Pricing tiers: free=$0  cheap<$0.50/1M  medium=$0.50–$5/1M  expensive>$5/1M
-// Uses live prices from openrouterPricingCache; returns null when unknown.
-function classifyPriceTier(modelId) {
-    const costPerM = openrouterPricingCache.get(modelId);
-    if (costPerM === undefined) return null;
-    if (costPerM === 0) return 'free';
-    if (costPerM < 0.5) return 'cheap';
-    if (costPerM < 5) return 'medium';
-    return 'expensive';
-}
-
-// Per-provider functions that turn a raw model object from listModels() into a display label.
-const PROVIDER_LABEL_FN = {
-    openai:    (m) => `${m.id} (OpenAI)`,
-    anthropic: (m) => `${m.name || m.id} (Anthropic)`,
-    google:    (m) => `${m.name || m.id} (Google)`,
-    nvidia:    (m) => `${m.id} (NVIDIA NIM)`,
-    grok:      (m) => `${m.id} (xAI)`,
-    openrouter:(m) => `${m.name || m.id} (OpenRouter)`,
-};
-
-async function refreshProviderModelList(providerId, apiKey, baseUrl) {
-    const cacheKey = `${providerId}:${(apiKey || '').slice(0, 8)}`;
-    const existing = providerModelCache.get(cacheKey);
-    const now = Date.now();
-
-    if (existing && now - existing.lastRefresh <= DYNAMIC_REFRESH_INTERVAL) {
-        return existing.models;
-    }
-
+async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
     try {
-        const factory = PROVIDER_FACTORIES[providerId];
-        const config = {};
-        if (factory.apiKey) config.apiKey = apiKey;
-        if (factory.baseUrl) config.baseUrl = baseUrl;
-        const provider = new factory.Provider(config);
-
-        const raw = await provider.listModels();
-
-        // OpenRouter returns live pricing — populate the shared cache so all
-        // other providers can resolve their price tier without a lookup table.
-        if (providerId === 'openrouter') {
-            for (const m of raw) {
-                if (m.pricing?.prompt == null) continue;
-                const inputPerM = parseFloat(m.pricing.prompt) * 1_000_000;
-                openrouterPricingCache.set(m.id, inputPerM);
-                // Also index by the bare model ID (everything after the first "/")
-                // so that e.g. "gpt-5-mini" resolves from "openai/gpt-5-mini".
-                if (m.id.includes('/')) {
-                    const bareId = m.id.slice(m.id.indexOf('/') + 1);
-                    if (!openrouterPricingCache.has(bareId)) {
-                        openrouterPricingCache.set(bareId, inputPerM);
-                    }
-                }
-            }
-        }
-
-        const labelFn = PROVIDER_LABEL_FN[providerId] || ((m) => m.id);
-        const models = raw.map((m) => ({
-            id: m.id,
-            label: labelFn(m),
-            provider: providerId,
-            purpose: inferModelPurpose(m.id),
-        }));
-
-        providerModelCache.set(cacheKey, { models, lastRefresh: now });
-        return models;
-    } catch (err) {
-        console.warn(`[Models] Failed to refresh ${providerId} models:`, err.message);
-        // Always record a lastRefresh so we don't hammer the API on every request.
-        // Permanent errors (auth/billing/credits) get a longer backoff.
-        const isPermanent = /401|403|unauthorized|forbidden|credits|spending/i.test(err.message);
-        const backoff = isPermanent ? 30 * 60 * 1000 : DYNAMIC_REFRESH_INTERVAL;
-        providerModelCache.set(cacheKey, {
-            models: existing?.models || [],
-            lastRefresh: now - DYNAMIC_REFRESH_INTERVAL + backoff,
-        });
-        return existing?.models || [];
-    }
-}
-
-async function probeOllama(baseUrl, timeoutMs = 1500) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(`${baseUrl}/api/tags`, {
+        const { response, text } = await fetchResponseText(`${baseUrl}/api/tags`, {
             method: 'GET',
-            signal: controller.signal
+            maxResponseBytes: 2 * 1024 * 1024,
+            serviceName: 'Ollama health check',
+            signal,
+            timeoutMs,
         });
-        if (!res.ok) {
+        if (!response.ok) {
             return {
                 healthy: false,
-                reason: `Ollama returned HTTP ${res.status}.`
+                reason: `Ollama returned HTTP ${response.status}.`
             };
         }
-        const data = await res.json().catch(() => ({}));
+        let data = {};
+        try { data = JSON.parse(text || '{}'); } catch {}
         const modelCount = Array.isArray(data?.models) ? data.models.length : 0;
         return {
             healthy: true,
@@ -259,12 +174,11 @@ async function probeOllama(baseUrl, timeoutMs = 1500) {
                 : 'Connected to Ollama, but no local models were reported.'
         };
     } catch (err) {
-        const reason = err?.name === 'AbortError'
+        if (isAbortError(err, signal)) throw createAbortError(signal);
+        const reason = err?.code === 'HTTP_TIMEOUT'
             ? `Ollama did not respond within ${timeoutMs}ms.`
             : `Could not reach Ollama at ${baseUrl}.`;
         return { healthy: false, reason };
-    } finally {
-        clearTimeout(timer);
     }
 }
 
@@ -337,11 +251,12 @@ function getProviderCatalog(userId, agentId = null) {
     });
 }
 
-async function getProviderHealthCatalog(userId, agentId = null) {
+async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
     const providers = getProviderCatalog(userId, agentId);
     const enriched = [];
 
     for (const provider of providers) {
+        throwIfAborted(options.signal);
         let connected = null;
         let healthy = provider.available;
         let degraded = false;
@@ -350,7 +265,11 @@ async function getProviderHealthCatalog(userId, agentId = null) {
         let availabilityReason = provider.availabilityReason;
 
         if (provider.id === 'ollama' && provider.enabled) {
-            const probe = await probeOllama(provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl);
+            const probe = await probeOllama(
+                provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
+                1500,
+                options.signal,
+            );
             connected = probe.healthy;
             healthy = provider.enabled && probe.healthy;
             degraded = provider.enabled && !probe.healthy;
@@ -393,21 +312,30 @@ async function getProviderHealthCatalog(userId, agentId = null) {
     return enriched;
 }
 
-async function getSupportedModels(userId, agentId = null) {
-    const providerCatalog = await getProviderHealthCatalog(userId, agentId);
+async function getSupportedModels(userId, agentId = null, options = {}) {
+    throwIfAborted(options.signal);
+    const providerCatalog = options.providerCatalog
+        || await getProviderHealthCatalog(userId, agentId, { signal: options.signal });
     const providerById = new Map(providerCatalog.map((provider) => [provider.id, provider]));
 
     const all = [...STATIC_MODELS];
-    const staticIds = new Set(STATIC_MODELS.map((model) => model.id));
+    const seenModelIds = new Set(
+        STATIC_MODELS.map((model) => createModelSelectionId(model.provider, model.id)),
+    );
 
     // Ollama: dynamic list from local server
     const ollama = providerById.get('ollama');
     if (ollama?.available) {
-        const dynamicModels = await refreshDynamicModels(ollama.baseUrl);
+        const dynamicModels = await refreshOllamaModels({
+            baseUrl: ollama.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
+            Provider: OllamaProvider,
+            signal: options.signal,
+        });
         for (const model of dynamicModels) {
-            if (!staticIds.has(model.id)) {
-                all.push(model);
-            }
+            const selectionId = createModelSelectionId(model.provider, model.id);
+            if (seenModelIds.has(selectionId)) continue;
+            seenModelIds.add(selectionId);
+            all.push(model);
         }
     }
 
@@ -416,16 +344,24 @@ async function getSupportedModels(userId, agentId = null) {
         .filter((id) => providerById.get(id)?.available)
         .map(async (id) => {
             const runtime = getProviderRuntimeConfig(userId, id, agentId);
-            return refreshProviderModelList(id, runtime.apiKey, runtime.baseUrl);
+            return refreshProviderModelList({
+                providerId: id,
+                factory: PROVIDER_FACTORIES[id],
+                apiKey: runtime.apiKey,
+                baseUrl: runtime.baseUrl,
+                signal: options.signal,
+            });
         });
 
     const dynamicResults = await Promise.allSettled(dynamicFetches);
+    throwIfAborted(options.signal);
     for (const result of dynamicResults) {
         if (result.status === 'fulfilled') {
             for (const model of result.value) {
-                if (!staticIds.has(model.id)) {
-                    all.push(model);
-                }
+                const selectionId = createModelSelectionId(model.provider, model.id);
+                if (seenModelIds.has(selectionId)) continue;
+                seenModelIds.add(selectionId);
+                all.push(model);
             }
         }
     }
@@ -449,6 +385,7 @@ async function getSupportedModels(userId, agentId = null) {
     }
 
     return all.map((model) => {
+        const selectableModel = toSelectableModel(model);
         const provider = providerById.get(model.provider);
         // Ollama models are always local/free; all others look up the OpenRouter
         // pricing cache (populated above by Promise.allSettled).
@@ -457,20 +394,20 @@ async function getSupportedModels(userId, agentId = null) {
             : (model.priceTier ?? classifyPriceTier(model.id));
 
         let available = provider?.available !== false;
-        if (available && globalDisabledSet?.has(model.id)) {
+        if (available && modelMatchesConfiguredId(selectableModel, globalDisabledSet)) {
             available = false;
         }
-        if (available && planAllowedModels !== null && !planAllowedModels.has(model.id)) {
+        if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
             available = false;
         }
 
         const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
         const inputCostPerM = model.provider === 'ollama'
             ? 0
-            : (openrouterPricingCache.get(model.id) ?? (bareId ? openrouterPricingCache.get(bareId) : undefined) ?? null);
+            : (getInputCostPerM(model.id) ?? (bareId ? getInputCostPerM(bareId) : undefined) ?? null);
 
         return {
-            ...model,
+            ...selectableModel,
             priceTier,
             inputCostPerM,
             available,
@@ -478,37 +415,6 @@ async function getSupportedModels(userId, agentId = null) {
             providerStatusLabel: provider?.statusLabel || 'Unknown'
         };
     });
-}
-
-async function refreshDynamicModels(baseUrl) {
-    const cacheKey = baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl;
-    const existing = dynamicModelsByBaseUrl.get(cacheKey);
-    const now = Date.now();
-
-    if (existing && now - existing.lastRefresh <= REFRESH_INTERVAL) {
-        return existing.models;
-    }
-
-    try {
-        const ollama = new OllamaProvider({ baseUrl: cacheKey });
-        const models = await ollama.listModels();
-        const normalized = models.map((name) => ({
-            id: name,
-            label: `${name} (Ollama / Local)`,
-            provider: 'ollama',
-            purpose: 'general',
-        }));
-
-        dynamicModelsByBaseUrl.set(cacheKey, {
-            models: normalized,
-            lastRefresh: now
-        });
-        return normalized;
-    } catch (err) {
-        console.warn('[Models] Failed to refresh Ollama models:', err.message);
-        const cached = dynamicModelsByBaseUrl.get(cacheKey);
-        return cached?.models || [];
-    }
 }
 
 function createProviderInstance(providerStr, userId = null, configOverrides = {}) {
@@ -537,7 +443,6 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
 module.exports = {
     AI_PROVIDER_DEFINITIONS,
     PROVIDER_FACTORIES,
-    SUPPORTED_MODELS: STATIC_MODELS, // Backward compatibility
     createProviderInstance,
     getProviderCatalog,
     getProviderHealthCatalog,

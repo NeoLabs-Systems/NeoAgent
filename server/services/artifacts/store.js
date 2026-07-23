@@ -3,6 +3,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { writeBufferAtomic } = require('../../utils/files');
 
 const ARTIFACTS_ROOT = path.join(DATA_DIR, 'artifacts');
 fs.mkdirSync(ARTIFACTS_ROOT, { recursive: true });
@@ -119,6 +120,29 @@ class ArtifactStore {
       ...allocation,
       ...this.finalizeFile(allocation.artifactId, allocation.storagePath),
     };
+  }
+
+  async createBufferArtifact(userId, options = {}) {
+    const buffer = Buffer.isBuffer(options.content)
+      ? options.content
+      : Buffer.from(options.content || []);
+    const allocation = this.allocateFile(userId, options);
+    try {
+      await writeBufferAtomic(allocation.storagePath, buffer, {
+        signal: options.signal,
+      });
+      db.prepare('UPDATE artifacts SET byte_size = ? WHERE id = ?')
+        .run(buffer.length, allocation.artifactId);
+      return {
+        ...allocation,
+        filePath: allocation.storagePath,
+        byteSize: buffer.length,
+      };
+    } catch (error) {
+      await fs.promises.rm(allocation.storagePath, { force: true }).catch(() => {});
+      db.prepare('DELETE FROM artifacts WHERE id = ?').run(allocation.artifactId);
+      throw error;
+    }
   }
 
   getArtifactForUser(userId, artifactId) {

@@ -1,0 +1,82 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:neoagent_flutter/src/desktop_companion_actions.dart';
+import 'package:neoagent_flutter/src/desktop_screen_capture.dart';
+
+class _UnsupportedScreenCapture implements DesktopScreenCapture {
+  @override
+  bool get isSupported => false;
+
+  @override
+  Future<DesktopScreenCaptureResult?> captureCurrentScreen() async => null;
+}
+
+void main() {
+  test('desktop display selection validates IDs and resolves primary', () {
+    final displays = <Map<String, Object?>>[
+      <String, Object?>{'id': 'left', 'primary': false},
+      <String, Object?>{'id': 'main', 'primary': true},
+    ];
+
+    expect(resolveDesktopDisplaySelection(displays, 'primary'), 'main');
+    expect(resolveDesktopDisplaySelection(displays, 'left'), 'left');
+    expect(
+      resolveDesktopDisplaySelection(
+        <Map<String, Object?>>[
+          <String, Object?>{'id': 'left'},
+          <String, Object?>{'id': 'right'},
+        ],
+        'primary',
+        activeDisplayId: 'right',
+      ),
+      'right',
+    );
+    expect(
+      () => resolveDesktopDisplaySelection(displays, 'missing'),
+      throwsArgumentError,
+    );
+    expect(
+      () => resolveDesktopDisplaySelection(const <Object?>[], 'main'),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'desktop shell command captures output and reports PTY truthfully',
+    () async {
+      final actions = DesktopCompanionActions(
+        screenCapture: _UnsupportedScreenCapture(),
+      );
+
+      final result = await actions.executeShellCommand(
+        commandId: 'quick-command',
+        command: Platform.isWindows ? 'echo ready' : 'printf ready',
+        requestedPty: true,
+      );
+
+      expect(result['exitCode'], 0);
+      expect(result['stdout'], 'ready');
+      expect(result['ptyRequested'], isTrue);
+      expect(result['ptyAllocated'], isFalse);
+    },
+  );
+
+  test('desktop shell cancellation terminates the tracked process', () async {
+    final actions = DesktopCompanionActions(
+      screenCapture: _UnsupportedScreenCapture(),
+    );
+    final running = actions.executeShellCommand(
+      commandId: 'cancel-command',
+      command: Platform.isWindows ? 'ping -n 20 127.0.0.1 >NUL' : 'sleep 20',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    final cancellation = await actions.cancelShellCommand('cancel-command');
+    final result = await running.timeout(const Duration(seconds: 5));
+
+    expect(cancellation['cancelled'], isTrue);
+    expect(result['cancelled'], isTrue);
+    expect(result['killed'], isTrue);
+  });
+}

@@ -1,4 +1,24 @@
+'use strict';
+
 const { BaseProvider } = require('./base');
+const { fetchResponseText, readResponseText } = require('../../network/http');
+const { createAbortError, isAbortError, throwIfAborted } = require('../../../utils/abort');
+const { readOllamaStream } = require('./ollama_stream');
+
+const MAX_CHAT_RESPONSE_BYTES = 16 * 1024 * 1024;
+
+function ollamaError(message, status = null) {
+  const error = new Error(
+    status == null
+      ? `Ollama request failed: ${message}`
+      : `Ollama request failed (HTTP ${status}): ${message}`,
+  );
+  if (status != null) error.status = status;
+  if (/does not support tools|tools.*not supported/i.test(String(message || ''))) {
+    error.code = 'OLLAMA_TOOLS_UNSUPPORTED';
+  }
+  return error;
+}
 
 class OllamaProvider extends BaseProvider {
   constructor(config = {}) {
@@ -9,22 +29,20 @@ class OllamaProvider extends BaseProvider {
   }
 
   async listModels(signal = null) {
-    const controller = new AbortController();
-    const abortFromParent = () => controller.abort(signal?.reason);
-    if (signal?.aborted) abortFromParent();
-    else signal?.addEventListener('abort', abortFromParent, { once: true });
-    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`, { signal: controller.signal });
-      const data = await res.json();
+      const { response, text } = await fetchResponseText(`${this.baseUrl}/api/tags`, {
+        maxResponseBytes: 2 * 1024 * 1024,
+        serviceName: 'Ollama model catalog',
+        signal,
+        timeoutMs: 5000,
+      });
+      if (!response.ok) throw new Error(`Ollama /api/tags returned HTTP ${response.status}`);
+      const data = JSON.parse(text || '{}');
       this.models = (data.models || []).map(m => m.name);
       return this.models;
     } catch (err) {
-      if (signal?.aborted) throw err;
+      if (isAbortError(err, signal)) throw createAbortError(signal);
       return [];
-    } finally {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', abortFromParent);
     }
   }
 
@@ -45,13 +63,22 @@ class OllamaProvider extends BaseProvider {
       message: `Downloading local Ollama model '${model}'. First-time pulls can take a while.`
     });
     try {
-      const res = await fetch(`${this.baseUrl}/api/pull`, {
+      const { response, text } = await fetchResponseText(`${this.baseUrl}/api/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: model, stream: false }),
+        maxResponseBytes: 2 * 1024 * 1024,
+        serviceName: 'Ollama model pull',
         signal,
+        timeoutMs: 5 * 60 * 1000,
       });
-      if (!res.ok) throw new Error(`Pull failed: ${res.statusText}`);
+      if (!response.ok) {
+        let detail = text;
+        try { detail = JSON.parse(text || '{}').error || text; } catch {}
+        throw new Error(
+          `Pull failed with HTTP ${response.status}: ${String(detail || response.statusText).slice(0, 500)}`,
+        );
+      }
       console.log(`[Ollama] Model '${model}' pulled successfully.`);
       this.onStatus?.({
         kind: 'model_download',
@@ -64,6 +91,7 @@ class OllamaProvider extends BaseProvider {
       await this.listModels(signal);
       return true;
     } catch (e) {
+      if (isAbortError(e, signal)) throw createAbortError(signal);
       this.onStatus?.({
         kind: 'model_download',
         status: 'failed',
@@ -137,35 +165,55 @@ class OllamaProvider extends BaseProvider {
       signal,
     });
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
+      const detail = await readResponseText(res, {
+        maxResponseBytes: 64 * 1024,
+        serviceName: 'Ollama chat error',
+      }).catch(() => '');
       let message = detail;
       try { message = JSON.parse(detail)?.error || detail; } catch {}
-      const err = new Error(`Ollama /api/chat failed (HTTP ${res.status}): ${message || res.statusText}`);
-      if (/does not support tools|tools.*not supported/i.test(message)) {
-        err.code = 'OLLAMA_TOOLS_UNSUPPORTED';
-      }
-      throw err;
+      throw ollamaError(message || res.statusText, res.status);
     }
     return res;
+  }
+
+  async readChatResponse(body, signal = null) {
+    const res = await this.postChat(body, signal);
+    const text = await readResponseText(res, {
+      maxResponseBytes: MAX_CHAT_RESPONSE_BYTES,
+      serviceName: 'Ollama chat',
+    });
+    throwIfAborted(signal, 'Ollama chat aborted.');
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (cause) {
+      throw new Error('Ollama /api/chat returned malformed JSON.', { cause });
+    }
+    if (data.error) throw ollamaError(data.error);
+    return data;
   }
 
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || 'llama3.1';
     await this.ensureModel(model, options.signal);
 
-    let res;
+    let data;
     try {
-      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, false), options.signal);
+      data = await this.readChatResponse(
+        this.buildChatBody(messages, tools, { ...options, model }, false),
+        options.signal,
+      );
     } catch (err) {
       if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
         console.warn(`[Ollama] Model '${model}' does not support tools; retrying without them.`);
-        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, false), options.signal);
+        data = await this.readChatResponse(
+          this.buildChatBody(messages, [], { ...options, model }, false),
+          options.signal,
+        );
       } else {
         throw err;
       }
     }
-
-    const data = await res.json();
     const msg = data.message || {};
 
     return {
@@ -192,65 +240,37 @@ class OllamaProvider extends BaseProvider {
     const model = options.model || this.config.model || 'llama3.1';
     await this.ensureModel(model, options.signal);
 
-    let res;
-    try {
-      res = await this.postChat(this.buildChatBody(messages, tools, { ...options, model }, true), options.signal);
-    } catch (err) {
-      if (err.code === 'OLLAMA_TOOLS_UNSUPPORTED' && tools.length > 0) {
-        console.warn(`[Ollama] Model '${model}' does not support tools; retrying stream without them.`);
-        res = await this.postChat(this.buildChatBody(messages, [], { ...options, model }, true), options.signal);
-      } else {
-        throw err;
-      }
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let content = '';
-    let buffer = '';
-    let accumulatedToolCalls = [];
-
+    let requestTools = tools;
+    let retriedWithoutTools = false;
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const data = JSON.parse(line);
-          if (data.message?.content) {
-            content += data.message.content;
-            yield { type: 'content', content: data.message.content };
-          }
-          if (data.message?.tool_calls && Array.isArray(data.message.tool_calls)) {
-            const mapped = data.message.tool_calls.map((tc, i) => ({
-              id: `call_ollama_${Date.now()}_${i}`,
-              type: 'function',
-              function: {
-                name: tc.function.name,
-                arguments: typeof tc.function.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function.arguments || {})
-              }
-            }));
-            accumulatedToolCalls = accumulatedToolCalls.concat(mapped);
-          }
-          if (data.done) {
-            yield {
-              type: 'done',
-              content,
-              toolCalls: accumulatedToolCalls,
-              finishReason: accumulatedToolCalls.length > 0 ? 'tool_calls' : 'stop',
-              usage: data.prompt_eval_count ? {
-                promptTokens: data.prompt_eval_count || 0,
-                completionTokens: data.eval_count || 0,
-                totalTokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
-              } : null
-            };
-          }
-        } catch {}
+      let emittedChunk = false;
+      try {
+        const res = await this.postChat(
+          this.buildChatBody(messages, requestTools, { ...options, model }, true),
+          options.signal,
+        );
+        for await (const chunk of readOllamaStream(res, {
+          errorFactory: ollamaError,
+          maxResponseBytes: MAX_CHAT_RESPONSE_BYTES,
+          signal: options.signal,
+        })) {
+          emittedChunk = true;
+          yield chunk;
+        }
+        return;
+      } catch (err) {
+        if (
+          err.code === 'OLLAMA_TOOLS_UNSUPPORTED'
+          && tools.length > 0
+          && !retriedWithoutTools
+          && !emittedChunk
+        ) {
+          console.warn(`[Ollama] Model '${model}' does not support tools; retrying stream without them.`);
+          retriedWithoutTools = true;
+          requestTools = [];
+          continue;
+        }
+        throw err;
       }
     }
   }

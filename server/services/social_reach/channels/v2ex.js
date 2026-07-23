@@ -3,6 +3,7 @@
 const { SocialReachChannel } = require('./base');
 const { getPlatformDefinition } = require('../platforms');
 const { assertHttpUrl, fetchJson, normalizeLimit } = require('../utils');
+const { createAbortError } = require('../../../utils/abort');
 
 function shapeTopic(item = {}) {
   const node = item.node || {};
@@ -33,17 +34,26 @@ class V2exChannel extends SocialReachChannel {
     };
   }
 
-  async read({ url, limit }) {
+  async read({ url, limit, signal }) {
     const parsed = assertHttpUrl(url);
     const match = parsed.pathname.match(/^\/t\/(\d+)/);
     if (!match) {
-      return this.search({ query: parsed.searchParams.get('q') || 'hot', limit });
+      return this.search({ query: parsed.searchParams.get('q') || 'hot', limit, signal });
     }
     const topicId = match[1];
-    const topicData = await fetchJson(`https://www.v2ex.com/api/topics/show.json?id=${encodeURIComponent(topicId)}`);
+    const topicData = await fetchJson(
+      `https://www.v2ex.com/api/topics/show.json?id=${encodeURIComponent(topicId)}`,
+      { signal },
+    );
     const topic = Array.isArray(topicData) ? topicData[0] || {} : topicData || {};
-    const replies = await fetchJson(`https://www.v2ex.com/api/replies/show.json?topic_id=${encodeURIComponent(topicId)}&page=1`)
-      .catch(() => []);
+    const replies = await fetchJson(
+      `https://www.v2ex.com/api/replies/show.json?topic_id=${encodeURIComponent(topicId)}&page=1`,
+      { signal },
+    )
+      .catch((error) => {
+        if (signal?.aborted) throw createAbortError(signal);
+        return [];
+      });
     return {
       platform: this.id,
       ...shapeTopic(topic),
@@ -58,11 +68,14 @@ class V2exChannel extends SocialReachChannel {
     };
   }
 
-  async search({ query, limit }) {
+  async search({ query, limit, signal }) {
     const normalized = String(query || '').trim().toLowerCase();
     const capped = normalizeLimit(limit, 20, 100);
     if (normalized && normalized !== 'hot') {
-      const data = await fetchJson(`https://www.v2ex.com/api/topics/show.json?node_name=${encodeURIComponent(normalized)}&page=1`);
+      const data = await fetchJson(
+        `https://www.v2ex.com/api/topics/show.json?node_name=${encodeURIComponent(normalized)}&page=1`,
+        { signal },
+      );
       return {
         platform: this.id,
         query: normalized,
@@ -70,7 +83,7 @@ class V2exChannel extends SocialReachChannel {
         source: 'v2ex_public_api',
       };
     }
-    const data = await fetchJson('https://www.v2ex.com/api/topics/hot.json');
+    const data = await fetchJson('https://www.v2ex.com/api/topics/hot.json', { signal });
     return {
       platform: this.id,
       query: 'hot',

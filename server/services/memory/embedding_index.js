@@ -95,6 +95,8 @@ function findEmbeddingCandidates(db, {
   userId,
   agentId,
   embedding,
+  embeddingProvider = null,
+  embeddingModel = null,
   limit = DEFAULT_CANDIDATE_LIMIT,
 }) {
   const vector = typeof embedding === 'string'
@@ -104,17 +106,25 @@ function findEmbeddingCandidates(db, {
   if (!probesByBand.length) return [];
 
   const matches = new Map();
+  const embeddingSpace = embeddingProvider && embeddingModel
+    ? `${embeddingProvider}:${embeddingModel}`
+    : '';
   for (const band of probesByBand) {
     const placeholders = band.values.map(() => '?').join(', ');
     const rows = db.prepare(
-      `SELECT memory_id
-       FROM memory_embedding_bands
-       WHERE user_id = ?
-         AND agent_id = ?
-         AND dimension = ?
-         AND index_version = ?
-         AND band_index = ?
-         AND band_value IN (${placeholders})`
+      `SELECT bands.memory_id
+       FROM memory_embedding_bands bands
+       JOIN memories memory ON memory.id = bands.memory_id
+       WHERE bands.user_id = ?
+         AND bands.agent_id = ?
+         AND bands.dimension = ?
+         AND bands.index_version = ?
+         AND bands.band_index = ?
+         AND bands.band_value IN (${placeholders})
+         AND (
+           ? = ''
+           OR (memory.embedding_provider || ':' || memory.embedding_model) = ?
+         )`
     ).all(
       userId,
       agentId || '',
@@ -122,6 +132,8 @@ function findEmbeddingCandidates(db, {
       INDEX_VERSION,
       band.bandIndex,
       ...band.values,
+      embeddingSpace,
+      embeddingSpace,
     );
     for (const row of rows) {
       matches.set(row.memory_id, (matches.get(row.memory_id) || 0) + 1);

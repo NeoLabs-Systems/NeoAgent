@@ -1,7 +1,8 @@
 'use strict';
 
 const { describeEnvStatus, resolveSpotifyOAuthConfig } = require('../env');
-const { appendQuery, createOAuthProvider } = require('../oauth_provider');
+const { appendQuery, createOAuthProvider, fetchJson } = require('../oauth_provider');
+const { fetchResponseText } = require('../http');
 
 const SPOTIFY_APPS = [
   {
@@ -121,33 +122,32 @@ function spotifyUrl(path, query) {
   return url.toString();
 }
 
-async function refreshSpotifyAccessToken(config, credentials) {
+async function refreshSpotifyAccessToken(config, credentials, signal = null) {
   const refreshToken = String(credentials?.refresh_token || '').trim();
   if (!refreshToken) {
     return credentials;
   }
   const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
+  const data = await fetchJson(
+    'https://accounts.spotify.com/api/token',
+    {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basic}` },
+      form: {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      },
+      signal,
     },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-    }).toString(),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error_description || data?.error || `${response.status} ${response.statusText}`;
-    throw new Error(`Spotify token refresh failed: ${message}`);
+    { serviceName: 'Spotify token refresh' },
+  );
+  if (!String(data?.access_token || '').trim()) {
+    throw new Error('Spotify token refresh did not return an access token.');
   }
   const expiresIn = Number(data?.expires_in) || 3600;
   return {
     ...credentials,
-    access_token: data?.access_token || credentials.access_token,
+    access_token: data.access_token,
     refresh_token: data?.refresh_token || refreshToken,
     token_type: data?.token_type || credentials.token_type || 'Bearer',
     scope: data?.scope || credentials.scope || '',
@@ -156,7 +156,7 @@ async function refreshSpotifyAccessToken(config, credentials) {
   };
 }
 
-async function ensureSpotifyAccessToken(config, credentials) {
+async function ensureSpotifyAccessToken(config, credentials, signal = null) {
   const accessToken = String(credentials?.access_token || '').trim();
   if (!accessToken) {
     throw new Error('Spotify access token is missing. Reconnect this integration account.');
@@ -165,32 +165,36 @@ async function ensureSpotifyAccessToken(config, credentials) {
   const expiresAt = Date.parse(String(credentials?.expires_at || ''));
   const isNearExpiry = Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
   if (isNearExpiry && credentials?.refresh_token) {
-    return refreshSpotifyAccessToken(config, credentials);
+    return refreshSpotifyAccessToken(config, credentials, signal);
   }
   return credentials;
 }
 
-async function spotifyRequest(config, credentials, { method = 'GET', path, query, body }) {
-  let nextCredentials = await ensureSpotifyAccessToken(config, credentials);
-  const tokenType = String(nextCredentials?.token_type || 'Bearer').trim() || 'Bearer';
+async function spotifyRequest(config, context, { method = 'GET', path, query, body }) {
+  const { credentials, signal } = context;
+  let nextCredentials = await ensureSpotifyAccessToken(config, credentials, signal);
 
   const performRequest = async (tokenCreds) => {
     const tokenType = String(tokenCreds?.token_type || 'Bearer').trim() || 'Bearer';
-    const response = await fetch(spotifyUrl(path, query), {
-      method: String(method || 'GET').toUpperCase(),
-      headers: {
-        Authorization: `${tokenType} ${tokenCreds.access_token}`,
-        Accept: 'application/json',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    const { response, text } = await fetchResponseText(
+      spotifyUrl(path, query),
+      {
+        method: String(method || 'GET').toUpperCase(),
+        headers: {
+          Authorization: `${tokenType} ${tokenCreds.access_token}`,
+          Accept: 'application/json',
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal,
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+      { serviceName: 'Spotify' },
+    );
 
     if (response.status === 204) {
       return { ok: true, data: null, response };
     }
 
-    const text = await response.text();
     let parsed = null;
     try {
       parsed = text ? JSON.parse(text) : null;
@@ -202,7 +206,7 @@ async function spotifyRequest(config, credentials, { method = 'GET', path, query
 
   let result = await performRequest(nextCredentials);
   if (!result.ok && result.response.status === 401 && nextCredentials.refresh_token) {
-    nextCredentials = await refreshSpotifyAccessToken(config, nextCredentials);
+    nextCredentials = await refreshSpotifyAccessToken(config, nextCredentials, signal);
     result = await performRequest(nextCredentials);
   }
 
@@ -219,18 +223,18 @@ async function spotifyRequest(config, credentials, { method = 'GET', path, query
   };
 }
 
-async function executeSpotifyTool(toolName, args, { credentials }) {
+async function executeSpotifyTool(toolName, args, context) {
   const config = resolveSpotifyOAuthConfig();
   switch (toolName) {
     case 'spotify_get_current_playback': {
-      const { data, credentials: updated } = await spotifyRequest(config, credentials, {
+      const { data, credentials: updated } = await spotifyRequest(config, context, {
         path: '/v1/me/player',
       });
       return { result: data || { is_playing: false }, credentials: updated };
     }
     case 'spotify_get_recently_played': {
       const limit = Math.max(1, Math.min(Number(args.limit) || 20, 50));
-      const { data, credentials: updated } = await spotifyRequest(config, credentials, {
+      const { data, credentials: updated } = await spotifyRequest(config, context, {
         path: '/v1/me/player/recently-played',
         query: { limit },
       });
@@ -246,7 +250,7 @@ async function executeSpotifyTool(toolName, args, { credentials }) {
       const type = types.length > 0 ? types.join(',') : 'track';
       const limit = Math.max(1, Math.min(Number(args.limit) || 10, 50));
       const market = String(args.market || '').trim().toUpperCase();
-      const { data, credentials: updated } = await spotifyRequest(config, credentials, {
+      const { data, credentials: updated } = await spotifyRequest(config, context, {
         path: '/v1/search',
         query: {
           q: queryText,
@@ -348,7 +352,7 @@ async function executeSpotifyTool(toolName, args, { credentials }) {
           throw new Error('Unsupported action. Use play, pause, next, previous, seek, set_volume, shuffle, or repeat.');
       }
 
-      const { data, credentials: updated } = await spotifyRequest(config, credentials, request);
+      const { data, credentials: updated } = await spotifyRequest(config, context, request);
       return {
         result: {
           action,
@@ -359,7 +363,7 @@ async function executeSpotifyTool(toolName, args, { credentials }) {
       };
     }
     case 'spotify_api_request': {
-      const { data, credentials: updated } = await spotifyRequest(config, credentials, {
+      const { data, credentials: updated } = await spotifyRequest(config, context, {
         method: args.method,
         path: requireText(args.path, 'path'),
         query: args.query,
@@ -372,20 +376,16 @@ async function executeSpotifyTool(toolName, args, { credentials }) {
   }
 }
 
-async function fetchSpotifyProfile(accessToken) {
-  const response = await fetch('https://api.spotify.com/v1/me', {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
+async function fetchSpotifyProfile(accessToken, signal = null) {
+  return fetchJson(
+    'https://api.spotify.com/v1/me',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal,
     },
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload?.error?.message || payload?.error || `${response.status} ${response.statusText}`;
-    throw new Error(`Spotify profile request failed: ${message}`);
-  }
-  return payload;
+    { serviceName: 'Spotify profile' },
+  );
 }
 
 function createSpotifyProvider() {
@@ -418,27 +418,23 @@ function createSpotifyProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app }) {
+    async finishOAuth({ code, app, signal }) {
       const config = resolveSpotifyOAuthConfig();
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
-      const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${basic}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
+      const token = await fetchJson(
+        'https://accounts.spotify.com/api/token',
+        {
+          method: 'POST',
+          headers: { Authorization: `Basic ${basic}` },
+          form: {
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: config.redirectUri,
+          },
+          signal,
         },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: config.redirectUri,
-        }).toString(),
-      });
-      const token = await tokenResponse.json().catch(() => ({}));
-      if (!tokenResponse.ok) {
-        const message = token?.error_description || token?.error || `${tokenResponse.status} ${tokenResponse.statusText}`;
-        throw new Error(`Spotify OAuth token exchange failed: ${message}`);
-      }
+        { serviceName: 'Spotify OAuth token exchange' },
+      );
 
       const accessToken = String(token?.access_token || '').trim();
       if (!accessToken) {
@@ -449,7 +445,7 @@ function createSpotifyProvider() {
         throw new Error('Spotify OAuth did not return a refresh token.');
       }
 
-      const profile = await fetchSpotifyProfile(accessToken);
+      const profile = await fetchSpotifyProfile(accessToken, signal);
       const accountEmail =
         String(profile?.email || '').trim() ||
         (String(profile?.id || '').trim() ? `spotify:${String(profile.id).trim()}` : 'spotify_user');

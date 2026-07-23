@@ -1025,7 +1025,7 @@ router.put('/api/config/rate-limits', requireAdminAuth, express.json(), (req, re
 router.get('/api/models', requireAdminAuth, async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
   try {
-    const models = await getSupportedModels(null, null);
+    const models = await getSupportedModels(null, null, { signal: req.signal });
     const disabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
     const disabledModels = disabledStr ? disabledStr.split(',').map(s => s.trim()).filter(Boolean) : [];
     res.json({ models, disabledModels });

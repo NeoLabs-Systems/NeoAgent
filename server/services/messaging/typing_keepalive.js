@@ -9,6 +9,7 @@ function startTypingKeepalive({
   runId,
   platform,
   chatId,
+  signal = null,
   intervalMs = 4000,
   onError = null
 }) {
@@ -65,7 +66,7 @@ function startTypingKeepalive({
         platform,
         chatId,
         isTyping,
-        { agentId }
+        { agentId, signal }
       );
     } catch (error) {
       reportFailure(operation, error);
@@ -97,7 +98,9 @@ function startTypingKeepalive({
         releaseWait = null;
       }
       await loop.catch((error) => reportFailure('typing keepalive loop', error));
-      await sendTyping(false, 'clear typing indicator');
+      if (!signal?.aborted) {
+        await sendTyping(false, 'clear typing indicator');
+      }
     })();
     return stopPromise;
   };

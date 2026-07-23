@@ -1,6 +1,10 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('../../../../runtime/paths');
+const { fetchResponseText, waitForAbortableResult } = require('../../network/http');
+const { createAbortError } = require('../../../utils/abort');
 
 const APK_UPLOAD_ROOT = path.resolve(
   process.env.NEOAGENT_ANDROID_APK_BASE_DIR
@@ -11,6 +15,25 @@ const IDLE_TIMEOUT_MS = Number(process.env.NEOAGENT_VM_IDLE_TIMEOUT_MS || 10 * 6
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function abortError(signal, fallback = 'Operation aborted.') {
+  return createAbortError(signal, fallback);
+}
+
+function delayWithSignal(ms, signal) {
+  if (signal?.aborted) return Promise.reject(abortError(signal));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError(signal));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function assertPathInside(baseDir, candidatePath, label) {
@@ -54,12 +77,16 @@ class RuntimeHttpClient {
     let lastError = null;
 
     while (Date.now() - startedAt < timeoutMs) {
+      if (options.signal?.aborted) throw abortError(options.signal);
       if (!checkLiveness()) {
         throw new Error('Guest runtime process exited unexpectedly during bootstrap.');
       }
       const elapsed = Math.round((Date.now() - startedAt) / 1000);
       try {
-        const health = await this.request('GET', '/health', undefined, { timeoutMs: 2000 });
+        const health = await this.request('GET', '/health', undefined, {
+          timeoutMs: 2000,
+          signal: options.signal,
+        });
         if (health?.status === 'ok') {
           console.log(`[Runtime] Guest agent ready after ${elapsed}s`);
           return health;
@@ -71,7 +98,7 @@ class RuntimeHttpClient {
           console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${error.message})`);
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      await delayWithSignal(intervalMs, options.signal);
     }
 
     if (lastError) {
@@ -81,49 +108,59 @@ class RuntimeHttpClient {
   }
 
   async request(method, pathname, body, options = {}) {
-    const retryCount = Math.max(0, Number(options.retryCount ?? 6));
+    const normalizedMethod = String(method || 'GET').toUpperCase();
+    const safeToRetry = ['GET', 'HEAD', 'OPTIONS'].includes(normalizedMethod);
+    const retryCount = Math.max(0, Number(options.retryCount ?? (safeToRetry ? 6 : 0)));
     const retryDelayMs = Math.max(100, Number(options.retryDelayMs ?? 1000));
     let lastError = null;
 
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
-      const controller = options.timeoutMs ? new AbortController() : null;
-      const timer = controller ? setTimeout(() => controller.abort(new Error(`Request timed out after ${options.timeoutMs} ms.`)), options.timeoutMs) : null;
+      if (options.signal?.aborted) throw abortError(options.signal);
       try {
-        const response = await fetch(`${this.baseUrl}${pathname}`, {
-          method,
+        const { response, text } = await fetchResponseText(`${this.baseUrl}${pathname}`, {
+          method: normalizedMethod,
           headers: {
             'content-type': 'application/json',
             ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
           },
           body: body === undefined ? undefined : JSON.stringify(body),
-          signal: controller?.signal,
+          signal: options.signal,
+          timeoutMs: Number(options.timeoutMs || 30000),
+          maxResponseBytes: Number(options.maxResponseBytes || 32 * 1024 * 1024),
+          serviceName: 'Guest runtime',
+          timeoutCode: 'RUNTIME_HTTP_TIMEOUT',
+          tooLargeCode: 'RUNTIME_HTTP_RESPONSE_TOO_LARGE',
         });
 
         const contentType = response.headers.get('content-type') || '';
-        const payload = contentType.includes('application/json')
-          ? await response.json().catch(() => ({}))
-          : { text: await response.text().catch(() => '') };
+        let payload = { text };
+        if (contentType.includes('application/json')) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            payload = {};
+          }
+        }
 
         if (!response.ok) {
           const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
-          throw new Error(errorMessage);
+          const error = new Error(errorMessage);
+          error.status = response.status;
+          throw error;
         }
         if (typeof this.onActivity === 'function') {
           this.onActivity();
         }
         return payload;
       } catch (error) {
+        if (options.signal?.aborted) throw abortError(options.signal);
         lastError = error;
         const message = String(error?.message || error);
         const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|timed out/i.test(message);
         if (!retryable || attempt === retryCount) {
           throw error;
         }
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-      } finally {
-        if (timer) {
-          clearTimeout(timer);
-        }
+        await delayWithSignal(retryDelayMs, options.signal);
       }
     }
 
@@ -131,13 +168,14 @@ class RuntimeHttpClient {
   }
 
   async requestStream(method, pathname, stream, options = {}) {
-    const retryCount = Math.max(0, Number(options.retryCount ?? 6));
+    const retryCount = 0;
     const retryDelayMs = Math.max(100, Number(options.retryDelayMs ?? 1000));
     let lastError = null;
 
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+      if (options.signal?.aborted) throw abortError(options.signal);
       try {
-        const response = await fetch(`${this.baseUrl}${pathname}`, {
+        const { response, text } = await fetchResponseText(`${this.baseUrl}${pathname}`, {
           method,
           headers: {
             ...(options.contentType ? { 'content-type': options.contentType } : {}),
@@ -147,6 +185,12 @@ class RuntimeHttpClient {
           },
           body: stream,
           duplex: 'half',
+          signal: options.signal,
+          timeoutMs: Number(options.timeoutMs || 60000),
+          maxResponseBytes: Number(options.maxResponseBytes || 2 * 1024 * 1024),
+          serviceName: 'Guest runtime upload',
+          timeoutCode: 'RUNTIME_HTTP_TIMEOUT',
+          tooLargeCode: 'RUNTIME_HTTP_RESPONSE_TOO_LARGE',
         });
 
         if (response.ok && typeof this.onActivity === 'function') {
@@ -154,23 +198,31 @@ class RuntimeHttpClient {
         }
 
         const contentType = response.headers.get('content-type') || '';
-        const payload = contentType.includes('application/json')
-          ? await response.json().catch(() => ({}))
-          : { text: await response.text().catch(() => '') };
+        let payload = { text };
+        if (contentType.includes('application/json')) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            payload = {};
+          }
+        }
 
         if (!response.ok) {
           const errorMessage = payload?.error || payload?.text || `Runtime request failed: ${response.status}`;
-          throw new Error(errorMessage);
+          const error = new Error(errorMessage);
+          error.status = response.status;
+          throw error;
         }
         return payload;
       } catch (error) {
+        if (options.signal?.aborted) throw abortError(options.signal);
         lastError = error;
         const message = String(error?.message || error);
         const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|timed out/i.test(message);
         if (!retryable || attempt === retryCount) {
           throw error;
         }
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        await delayWithSignal(retryDelayMs, options.signal);
       }
     }
 
@@ -186,7 +238,17 @@ class VmBrowserProvider {
     this.headless = true;
   }
 
-  async #materialize(result) {
+  async #request(method, pathname, body, options = {}) {
+    const payload = body && typeof body === 'object' ? { ...body } : body;
+    const signal = options.signal || payload?.signal || null;
+    if (payload && typeof payload === 'object') delete payload.signal;
+    return this.client.request(method, pathname, payload, {
+      timeoutMs: Number(options.timeoutMs || 120_000),
+      signal,
+    });
+  }
+
+  async #materialize(result, options = {}) {
     if (!result || !this.artifactStore || this.userId == null) {
       return result;
     }
@@ -205,16 +267,18 @@ class VmBrowserProvider {
     let file = null;
     const maxAttempts = 20;
     for (let attempt = 0; attempt < maxAttempts && !file?.content; attempt += 1) {
+      if (options.signal?.aborted) throw abortError(options.signal);
       for (const candidate of readablePathCandidates) {
         try {
-          file = await this.client.request('POST', '/files/read', {
+          file = await this.#request('POST', '/files/read', {
             path: candidate,
             encoding: 'base64',
-          });
+          }, { signal: options.signal, timeoutMs: 10_000 });
           if (file?.content) {
             break;
           }
         } catch (error) {
+          if (options.signal?.aborted) throw abortError(options.signal);
           if (attempt === maxAttempts - 1) {
             console.warn('[Runtime:browser_vm] screenshot materialization read failed', {
               userId: this.userId,
@@ -225,7 +289,7 @@ class VmBrowserProvider {
         }
       }
       if (!file?.content) {
-        await sleep(250);
+        await delayWithSignal(250, options.signal);
       }
     }
     if (!file?.content) {
@@ -243,6 +307,7 @@ class VmBrowserProvider {
       }
       return result;
     }
+    if (options.signal?.aborted) throw abortError(options.signal);
 
     const allocation = this.artifactStore.allocateFile(this.userId, {
       kind: 'browser-screenshot',
@@ -261,43 +326,87 @@ class VmBrowserProvider {
     };
   }
 
-  async navigate(url, options = {}) { return this.#materialize(await this.client.request('POST', '/browser/navigate', { url, ...options })); }
-  async click(selector, text, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/click', { selector, text, screenshot })); }
-  async clickPoint(x, y, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/click-point', { x, y, screenshot })); }
-  async type(selector, text, options = {}) { return this.#materialize(await this.client.request('POST', '/browser/fill', { selector, value: text, ...options })); }
-  async typeText(text, options = {}) { return this.#materialize(await this.client.request('POST', '/browser/type-text', { text, ...options })); }
-  async pressKey(key, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/press-key', { key, screenshot })); }
-  async scroll(deltaX, deltaY, screenshot = true) { return this.#materialize(await this.client.request('POST', '/browser/scroll', { deltaX, deltaY, screenshot })); }
-  async extract(selector, attribute, all = false) { return this.client.request('POST', '/browser/extract', { selector, attribute, all }); }
-  async evaluate(script) { return this.client.request('POST', '/browser/execute', { code: script }); }
-  async screenshot(options = {}) { return this.#materialize(await this.client.request('POST', '/browser/screenshot', options)); }
+  async navigate(url, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/navigate', { url, ...options }, options),
+      options,
+    );
+  }
+  async click(selector, text, screenshot = true, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/click', { selector, text, screenshot }, options),
+      options,
+    );
+  }
+  async clickPoint(x, y, screenshot = true, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/click-point', { x, y, screenshot }, options),
+      options,
+    );
+  }
+  async type(selector, text, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/fill', { selector, value: text, ...options }, options),
+      options,
+    );
+  }
+  async typeText(text, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/type-text', { text, ...options }, options),
+      options,
+    );
+  }
+  async pressKey(key, screenshot = true, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/press-key', { key, screenshot }, options),
+      options,
+    );
+  }
+  async scroll(deltaX, deltaY, screenshot = true, options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/scroll', { deltaX, deltaY, screenshot }, options),
+      options,
+    );
+  }
+  async extract(selector, attribute, all = false, options = {}) {
+    return this.#request('POST', '/browser/extract', { selector, attribute, all }, options);
+  }
+  async evaluate(script, options = {}) {
+    return this.#request('POST', '/browser/execute', { code: script }, options);
+  }
+  async screenshot(options = {}) {
+    return this.#materialize(
+      await this.#request('POST', '/browser/screenshot', options, options),
+      options,
+    );
+  }
   async screenshotJpeg(quality = 80, options = {}) {
-    const result = await this.client.request('POST', '/browser/screenshot-jpeg', { ...options, quality });
+    const result = await this.#request('POST', '/browser/screenshot-jpeg', { ...options, quality }, options);
     const content = String(result?.contentBase64 || '');
     if (!content) throw new Error('VM browser screenshot-jpeg returned no data.');
     return Buffer.from(content, 'base64');
   }
-  async launch(options = {}) { return this.client.request('POST', '/browser/launch', options); }
-  async closeBrowser() { return this.client.request('POST', '/browser/close'); }
-  async fill(selector, value) { return this.type(selector, value); }
-  async extractContent(options = {}) { return this.client.request('POST', '/browser/extract', options); }
-  async executeJS(code) { return this.evaluate(code); }
-  async getPageInfo() {
-    const status = await this.client.request('GET', '/browser/status');
+  async launch(options = {}) { return this.#request('POST', '/browser/launch', options, options); }
+  async closeBrowser(options = {}) { return this.#request('POST', '/browser/close', undefined, options); }
+  async fill(selector, value, options = {}) { return this.type(selector, value, options); }
+  async extractContent(options = {}) { return this.#request('POST', '/browser/extract', options, options); }
+  async executeJS(code, options = {}) { return this.evaluate(code, options); }
+  async getPageInfo(options = {}) {
+    const status = await this.client.request('GET', '/browser/status', undefined, options);
     this.headless = status?.headless !== false;
     return status?.pageInfo || null;
   }
-  async isLaunched() {
-    const status = await this.client.request('GET', '/browser/status');
+  async isLaunched(options = {}) {
+    const status = await this.client.request('GET', '/browser/status', undefined, options);
     this.headless = status?.headless !== false;
     return status?.launched === true;
   }
-  async getPageCount() {
-    const status = await this.client.request('GET', '/browser/status');
+  async getPageCount(options = {}) {
+    const status = await this.client.request('GET', '/browser/status', undefined, options);
     return Number(status?.pages || 0);
   }
-  async getCookies() {
-    return this.client.request('GET', '/browser/cookies');
+  async getCookies(options = {}) {
+    return this.client.request('GET', '/browser/cookies', undefined, options);
   }
   async setHeadless(value) {
     this.headless = true;
@@ -313,6 +422,9 @@ class LocalVmExecutionBackend {
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
     this.reaperInterval = null;
+    this.reaperInFlight = false;
+    this.shuttingDown = false;
+    this.shutdownPromise = null;
 
     if (IDLE_TIMEOUT_MS > 0) {
       this.#startIdleReaper();
@@ -329,26 +441,48 @@ class LocalVmExecutionBackend {
   #startIdleReaper() {
     if (this.reaperInterval) return;
     this.reaperInterval = setInterval(async () => {
+      if (this.reaperInFlight || this.shuttingDown) return;
+      this.reaperInFlight = true;
       const now = Date.now();
-      for (const [userId, lastUsed] of this.lastActivity.entries()) {
-        if (now - lastUsed > IDLE_TIMEOUT_MS) {
-          console.log(`[Runtime:${this.runtimeProfile}] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
-          this.lastActivity.delete(userId);
-          try {
-            await this.vmManager?.killVm?.(userId);
-          } catch (err) {
-            console.error(`[Runtime:${this.runtimeProfile}] Failed to shut down idle VM for user ${userId}:`, err.message);
+      try {
+        for (const [userId, lastUsed] of this.lastActivity.entries()) {
+          if (now - lastUsed > IDLE_TIMEOUT_MS) {
+            console.log(`[Runtime:${this.runtimeProfile}] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
+            this.lastActivity.delete(userId);
+            try {
+              await this.vmManager?.killVm?.(userId);
+            } catch (err) {
+              console.error(`[Runtime:${this.runtimeProfile}] Failed to shut down idle VM for user ${userId}:`, err.message);
+            }
           }
         }
+      } finally {
+        this.reaperInFlight = false;
       }
     }, Math.min(IDLE_TIMEOUT_MS, 60 * 1000));
+    this.reaperInterval.unref?.();
   }
 
-  async #clientForUser(userId) {
+  async #clientForUser(userId, options = {}) {
+    if (options.signal?.aborted) throw abortError(options.signal);
+    if (this.shuttingDown) {
+      const error = new Error('Local VM runtime is shutting down.');
+      error.code = 'RUNTIME_SHUTTING_DOWN';
+      throw error;
+    }
     if (!this.vmManager) {
       throw new Error('Local VM manager is not available.');
     }
-    const session = await this.vmManager.ensureVm(userId);
+    const session = await waitForAbortableResult(
+      Promise.resolve(this.vmManager.ensureVm(userId, { signal: options.signal })),
+      options.signal,
+      'VM startup aborted.',
+    );
+    if (this.shuttingDown) {
+      const error = new Error('Local VM runtime is shutting down.');
+      error.code = 'RUNTIME_SHUTTING_DOWN';
+      throw error;
+    }
     this.#touch(userId);
     const client = new RuntimeHttpClient(session.baseUrl, session.guestToken || this.token, {
       onActivity: () => this.#touch(userId),
@@ -356,6 +490,7 @@ class LocalVmExecutionBackend {
     try {
       await client.waitForHealth({
         timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
+        signal: options.signal,
         checkLiveness: () => {
           const key = String(userId || '').trim();
           const session = this.vmManager.instances.get(key);
@@ -363,6 +498,7 @@ class LocalVmExecutionBackend {
         },
       });
     } catch (error) {
+      if (options.signal?.aborted) throw abortError(options.signal);
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
       const detail = runtimeError ? ` ${runtimeError}` : '';
       throw new Error(`${error.message}${detail}`.trim());
@@ -371,7 +507,11 @@ class LocalVmExecutionBackend {
   }
 
   async executeCommand(userId, command, options = {}) {
-    const client = await this.#clientForUser(userId);
+    const client = await this.#clientForUser(userId, options);
+    const requestedCommandTimeout = Number(options.timeout || 0);
+    const transportTimeout = requestedCommandTimeout > 0
+      ? Math.min(30 * 60 * 1000, requestedCommandTimeout + 30_000)
+      : 16 * 60 * 1000;
     return client.request('POST', '/exec', {
       command,
       cwd: options.cwd,
@@ -379,6 +519,10 @@ class LocalVmExecutionBackend {
       stdin_input: options.stdinInput,
       pty: options.pty === true,
       inputs: options.inputs || [],
+    }, {
+      timeoutMs: transportTimeout,
+      retryCount: 0,
+      signal: options.signal,
     });
   }
 
@@ -390,8 +534,8 @@ class LocalVmExecutionBackend {
     });
   }
 
-  async getBrowserProviderForUser(userId) {
-    return new VmBrowserProvider(await this.#clientForUser(userId), {
+  async getBrowserProviderForUser(userId, options = {}) {
+    return new VmBrowserProvider(await this.#clientForUser(userId, options), {
       userId,
       artifactStore: this.artifactStore,
     });
@@ -431,11 +575,15 @@ class LocalVmExecutionBackend {
   }
 
   async shutdown() {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
     if (this.reaperInterval) {
       clearInterval(this.reaperInterval);
       this.reaperInterval = null;
     }
-    await this.vmManager?.shutdown?.();
+    this.shutdownPromise = Promise.resolve(this.vmManager?.shutdown?.());
+    await this.shutdownPromise;
+    return { state: 'stopped' };
   }
 }
 

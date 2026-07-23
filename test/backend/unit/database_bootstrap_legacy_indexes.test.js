@@ -175,3 +175,24 @@ test('capture cleanup preserves legacy transcription choices for voice features'
   );
   db.close();
 });
+
+test('memory embedding index migration is idempotent and keeps the current lookup shape', () => {
+  const db = new Sqlite(':memory:');
+  const { migrateMemoryEmbeddingIndex } = require('../../../lib/schema_migrations');
+
+  migrateMemoryEmbeddingIndex(db);
+  assert.doesNotThrow(() => migrateMemoryEmbeddingIndex(db));
+
+  const columns = db.prepare(
+    'PRAGMA index_info(idx_memory_embedding_bands_lookup)',
+  ).all().map((column) => column.name);
+  assert.deepEqual(columns, [
+    'user_id',
+    'agent_id',
+    'dimension',
+    'index_version',
+    'band_index',
+    'band_value',
+  ]);
+  db.close();
+});

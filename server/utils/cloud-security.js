@@ -1,5 +1,28 @@
 'use strict';
 
+const dns = require('node:dns');
+const net = require('node:net');
+
+const ALLOWED_SCHEMES = new Set(['http', 'https']);
+const BLOCKED_ANDROID_INTENT_SCHEMES = new Set([
+  'about',
+  'chrome',
+  'chrome-extension',
+  'content',
+  'data',
+  'file',
+  'javascript',
+  'vbscript',
+]);
+
+function urlAbortError(signal) {
+  if (signal?.reason instanceof Error) return signal.reason;
+  const error = new Error('URL validation was aborted.');
+  error.name = 'AbortError';
+  error.code = 'ABORT_ERR';
+  return error;
+}
+
 // URL schemes that must never be navigated to in the cloud browser or Android.
 const BLOCKED_SCHEMES = new Set([
   'javascript',
@@ -56,8 +79,26 @@ function isPrivateHost(hostname) {
 
   // IPv6 loopback, link-local and unique-local
   if (h === '::1' || h === '::') return true;
-  if (h.startsWith('fe80:')) return true;
+  if (/^fe[89ab][0-9a-f]:/.test(h)) return true; // fe80::/10 link-local
+  if (/^fe[c-f][0-9a-f]:/.test(h)) return true; // fec0::/10 deprecated site-local
   if (/^f[cd][0-9a-f]*:/.test(h)) return true; // fc00::/7 unique-local
+  if (h.startsWith('ff')) return true; // IPv6 multicast
+  if (h === '100::' || h.startsWith('100::')) return true; // discard-only prefix
+  if (h === '2001:db8::' || h.startsWith('2001:db8:')) return true; // documentation
+
+  if (net.isIPv4(h)) {
+    const [a, b, c] = h.split('.').map(Number);
+    if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 192 && b === 0 && c === 0) return true;
+    if (a === 192 && b === 0 && c === 2) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a === 198 && b === 51 && c === 100) return true;
+    if (a === 203 && b === 0 && c === 113) return true;
+  }
 
   for (const pattern of PRIVATE_IPV4) {
     if (pattern.test(h)) return true;
@@ -90,7 +131,7 @@ function validateCloudUrl(urlString) {
   }
 
   const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
-  if (BLOCKED_SCHEMES.has(scheme)) return { allowed: false };
+  if (BLOCKED_SCHEMES.has(scheme) || !ALLOWED_SCHEMES.has(scheme)) return { allowed: false };
 
   const hostname = parsed.hostname;
   if (isPrivateHost(hostname)) return { allowed: false };
@@ -99,4 +140,70 @@ function validateCloudUrl(urlString) {
   return { allowed: true };
 }
 
-module.exports = { validateCloudUrl, isPrivateHost };
+async function validateCloudUrlWithDns(urlString, options = {}) {
+  if (options.signal?.aborted) {
+    throw urlAbortError(options.signal);
+  }
+  const syntactic = validateCloudUrl(urlString);
+  if (!syntactic.allowed) return syntactic;
+
+  const hostname = new URL(urlString).hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(hostname)) return { allowed: !isPrivateHost(hostname) };
+
+  const lookup = options.lookup || dns.promises.lookup;
+  const timeoutMs = Math.max(100, Math.min(Number(options.timeoutMs) || 5000, 30_000));
+  let timer = null;
+  let onAbort = null;
+  try {
+    const pending = [
+      lookup(hostname, { all: true, verbatim: true }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('DNS lookup timed out.')), timeoutMs);
+      }),
+    ];
+    if (options.signal) {
+      pending.push(new Promise((_, reject) => {
+        onAbort = () => {
+          reject(urlAbortError(options.signal));
+        };
+        options.signal.addEventListener('abort', onAbort, { once: true });
+      }));
+    }
+    const addresses = await Promise.race(pending);
+    const resolved = Array.isArray(addresses) ? addresses : [addresses];
+    if (resolved.length === 0) return { allowed: false };
+    if (resolved.some((entry) => isPrivateHost(entry?.address || entry))) {
+      return { allowed: false };
+    }
+    return { allowed: true };
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    return { allowed: false };
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (onAbort) options.signal?.removeEventListener('abort', onAbort);
+  }
+}
+
+async function validateAndroidIntentUrl(urlString, options = {}) {
+  if (!urlString || typeof urlString !== 'string') return { allowed: false };
+  let parsed;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return { allowed: false };
+  }
+  const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
+  if (BLOCKED_ANDROID_INTENT_SCHEMES.has(scheme)) return { allowed: false };
+  if (ALLOWED_SCHEMES.has(scheme)) {
+    return validateCloudUrlWithDns(urlString, options);
+  }
+  return { allowed: /^[a-z][a-z0-9+.-]*$/.test(scheme) };
+}
+
+module.exports = {
+  validateAndroidIntentUrl,
+  validateCloudUrl,
+  validateCloudUrlWithDns,
+  isPrivateHost,
+};

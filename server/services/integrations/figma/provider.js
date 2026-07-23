@@ -158,25 +158,88 @@ function figmaUrl(path, query) {
   return url.toString();
 }
 
-async function figmaRequest(credentials, { method = 'GET', path, query, body }) {
-  return fetchJson(
+function expiresAtFromSeconds(expiresIn) {
+  return new Date(
+    Date.now() + Math.max(1, Number(expiresIn) || 3600) * 1000,
+  ).toISOString();
+}
+
+function tokenExpiresSoon(credentials) {
+  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
+}
+
+async function refreshFigmaCredentials(credentials, signal) {
+  const refreshToken = String(credentials?.refresh_token || '').trim();
+  if (!refreshToken) {
+    throw new Error('Figma refresh token is missing. Reconnect this integration account.');
+  }
+  const config = resolveFigmaOAuthConfig();
+  const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
+    'base64',
+  );
+  const token = await fetchJson(
+    'https://api.figma.com/v1/oauth/token',
+    {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basic}` },
+      form: {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      },
+      signal,
+    },
+    { serviceName: 'Figma token refresh' },
+  );
+  if (!String(token?.access_token || '').trim()) {
+    throw new Error('Figma token refresh did not return an access token.');
+  }
+  return {
+    ...credentials,
+    access_token: token.access_token,
+    refresh_token: token.refresh_token || refreshToken,
+    token_type: token.token_type || credentials.token_type || 'bearer',
+    expires_in: token.expires_in,
+    expires_at: expiresAtFromSeconds(token.expires_in),
+  };
+}
+
+async function figmaRequest(context, { method = 'GET', path, query, body }) {
+  const { signal } = context;
+  let credentials = context.credentials;
+  if (tokenExpiresSoon(credentials)) {
+    credentials = await refreshFigmaCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+  }
+
+  const performRequest = (activeCredentials) => fetchJson(
     figmaUrl(path, query),
     {
       method: String(method || 'GET').toUpperCase(),
-      headers: { Authorization: `Bearer ${credentials.access_token}` },
+      headers: { Authorization: `Bearer ${activeCredentials.access_token}` },
       ...(body === undefined ? {} : { json: body }),
+      signal,
     },
     { serviceName: 'Figma' },
   );
+
+  try {
+    return await performRequest(credentials);
+  } catch (error) {
+    if (error?.status !== 401 || !credentials.refresh_token) throw error;
+    credentials = await refreshFigmaCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+    return performRequest(credentials);
+  }
 }
 
-async function executeFigmaTool(toolName, args, { credentials }) {
+async function executeFigmaTool(toolName, args, context) {
   switch (toolName) {
     case 'figma_get_me':
-      return { result: await figmaRequest(credentials, { path: '/v1/me' }) };
+      return { result: await figmaRequest(context, { path: '/v1/me' }) };
     case 'figma_get_file':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           path: `/v1/files/${encodeURIComponent(requireText(args.file_key, 'file_key'))}`,
           query: {
             ids: args.ids || undefined,
@@ -186,14 +249,14 @@ async function executeFigmaTool(toolName, args, { credentials }) {
       };
     case 'figma_get_file_nodes':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           path: `/v1/files/${encodeURIComponent(requireText(args.file_key, 'file_key'))}/nodes`,
           query: { ids: requireText(args.ids, 'ids') },
         }),
       };
     case 'figma_get_file_images':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           path: `/v1/images/${encodeURIComponent(requireText(args.file_key, 'file_key'))}`,
           query: {
             ids: requireText(args.ids, 'ids'),
@@ -204,13 +267,13 @@ async function executeFigmaTool(toolName, args, { credentials }) {
       };
     case 'figma_get_comments':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           path: `/v1/files/${encodeURIComponent(requireText(args.file_key, 'file_key'))}/comments`,
         }),
       };
     case 'figma_post_comment':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           method: 'POST',
           path: `/v1/files/${encodeURIComponent(requireText(args.file_key, 'file_key'))}/comments`,
           body: {
@@ -221,7 +284,7 @@ async function executeFigmaTool(toolName, args, { credentials }) {
       };
     case 'figma_api_request':
       return {
-        result: await figmaRequest(credentials, {
+        result: await figmaRequest(context, {
           method: args.method,
           path: requireText(args.path, 'path'),
           query: args.query,
@@ -263,7 +326,7 @@ function createFigmaProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app }) {
+    async finishOAuth({ code, app, signal }) {
       const config = resolveFigmaOAuthConfig();
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
         'base64',
@@ -280,6 +343,7 @@ function createFigmaProvider() {
             code,
             grant_type: 'authorization_code',
           },
+          signal,
         },
         { serviceName: 'Figma' },
       );
@@ -290,6 +354,7 @@ function createFigmaProvider() {
           headers: {
             Authorization: `Bearer ${token.access_token}`,
           },
+          signal,
         },
         { serviceName: 'Figma' },
       );
@@ -307,6 +372,7 @@ function createFigmaProvider() {
           access_token: token.access_token,
           refresh_token: token.refresh_token,
           expires_in: token.expires_in,
+          expires_at: expiresAtFromSeconds(token.expires_in),
           token_type: token.token_type,
           scope: token.scope,
         },

@@ -2,9 +2,19 @@
 
 const { decryptValue } = require('./secrets');
 const { getConnectionAccessMode } = require('./access');
+const { fetchResponseText } = require('./http');
+const { isAbortError } = require('../../utils/abort');
+const {
+  abortableDelay,
+  computeBackoffMs,
+  getHttpStatus,
+  isTransientIoError,
+  retryAfterMilliseconds,
+} = require('../../utils/retry');
 
-const DEFAULT_OAUTH_HTTP_TIMEOUT_MS = 15000;
 const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
+const RETRYABLE_INTEGRATION_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const MAX_INTEGRATION_RETRY_DELAY_MS = 10000;
 
 function escapeScope(scopes) {
   return Array.from(new Set((scopes || []).filter(Boolean))).join(' ');
@@ -19,6 +29,17 @@ function appendQuery(url, params) {
     resolved.searchParams.set(key, text);
   }
   return resolved.toString();
+}
+
+function sanitizeRemoteError(value) {
+  return String(value || '')
+    .slice(0, 1000)
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [redacted]')
+    .replace(
+      /\b(access_token|refresh_token|client_secret|authorization|token)\b\s*[:=]\s*["']?[^\s,"'}\]]+/gi,
+      '$1=[redacted]',
+    )
+    .trim();
 }
 
 async function fetchJson(url, options = {}, context = {}) {
@@ -42,54 +63,68 @@ async function fetchJson(url, options = {}, context = {}) {
     ).toString();
   }
 
-  const controller = new AbortController();
-  const timeoutMs = Number(options.timeoutMs) > 0
-    ? Number(options.timeoutMs)
-    : DEFAULT_OAUTH_HTTP_TIMEOUT_MS;
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const method = String(options.method || 'GET').toUpperCase();
+  const maxAttempts =
+    options.retry === false || !RETRYABLE_INTEGRATION_METHODS.has(method)
+      ? 1
+      : 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const { response, text } = await fetchResponseText(
+        url,
+        {
+          method,
+          headers,
+          body,
+          signal: options.signal,
+          timeoutMs: options.timeoutMs,
+          maxResponseBytes: options.maxResponseBytes,
+        },
+        context,
+      );
 
-  let response;
-  try {
-    response = await fetch(url, {
-      method: options.method || 'GET',
-      headers,
-      body,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      const label = String(context.serviceName || 'OAuth provider').trim() || 'OAuth provider';
-      throw new Error(`${label} request timed out after ${timeoutMs}ms.`);
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      const notOkSlackStyle =
+        data &&
+        typeof data === 'object' &&
+        Object.prototype.hasOwnProperty.call(data, 'ok') &&
+        data.ok === false;
+
+      if (!response.ok || notOkSlackStyle) {
+        const label = String(context.serviceName || 'OAuth provider').trim() || 'OAuth provider';
+        const rawMessage =
+          (data && (data.error_description || data.error || data.message)) ||
+          text ||
+          `${response.status} ${response.statusText}`;
+        const error = new Error(
+          `${label} request failed: ${sanitizeRemoteError(rawMessage)}`,
+        );
+        error.status = response.status;
+        error.data = data;
+        error.headers = response.headers;
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      if (isAbortError(error, options.signal) || attempt >= maxAttempts) throw error;
+      const retryAfterMs = retryAfterMilliseconds(error.headers);
+      const rateLimited =
+        (getHttpStatus(error) === 403 && retryAfterMs !== null)
+        || String(error.data?.error || '').toLowerCase() === 'ratelimited';
+      if (!rateLimited && !isTransientIoError(error)) throw error;
+      const delayMs = retryAfterMs ?? computeBackoffMs(attempt, 250, 2000);
+      if (delayMs > MAX_INTEGRATION_RETRY_DELAY_MS) throw error;
+      await abortableDelay(delayMs, options.signal);
     }
-    throw error;
-  } finally {
-    clearTimeout(timer);
   }
-
-  const text = await response.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = null;
-  }
-
-  const notOkSlackStyle =
-    data &&
-    typeof data === 'object' &&
-    Object.prototype.hasOwnProperty.call(data, 'ok') &&
-    data.ok === false;
-
-  if (!response.ok || notOkSlackStyle) {
-    const label = String(context.serviceName || 'OAuth provider').trim() || 'OAuth provider';
-    const message =
-      (data && (data.error_description || data.error || data.message)) ||
-      text ||
-      `${response.status} ${response.statusText}`;
-    throw new Error(`${label} request failed: ${String(message).trim()}`);
-  }
-
-  return data;
+  throw new Error('Integration request exhausted its retry attempts.');
 }
 
 function sortConnections(rows) {
@@ -318,7 +353,7 @@ function createOAuthProvider(options = {}) {
         connectionMethod: this.connectionMethod,
       };
     },
-    async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
+    async beginOAuth({ state, codeVerifier, appKey, userId, agentId, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
@@ -335,9 +370,18 @@ function createOAuthProvider(options = {}) {
         agentId,
         app,
         env,
+        signal,
       });
     },
-    async finishOAuth({ code, codeVerifier, appKey, userId, agentId, state }) {
+    async finishOAuth({
+      code,
+      codeVerifier,
+      appKey,
+      userId,
+      agentId,
+      state,
+      signal,
+    }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown ${this.label} app: ${appKey}`);
@@ -351,15 +395,16 @@ function createOAuthProvider(options = {}) {
         state: normalizedState,
         app,
         env: this.getEnvStatus({ userId, agentId }),
+        signal,
       });
     },
-    async disconnect(connectionRow) {
+    async disconnect(connectionRow, executionOptions = {}) {
       if (typeof options.disconnect === 'function') {
-        return options.disconnect(connectionRow);
+        return options.disconnect(connectionRow, executionOptions);
       }
       return null;
     },
-    async executeTool(toolName, args, connectionRow) {
+    async executeTool(toolName, args, connectionRow, executionOptions = {}) {
       if (typeof options.executeTool !== 'function') {
         return null;
       }
@@ -371,7 +416,8 @@ function createOAuthProvider(options = {}) {
       } catch {
         credentials = {};
       }
-      return options.executeTool(toolName, args, {
+      let credentialsUpdated = false;
+      const integrationContext = {
         appId: toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key,
         connection: connectionRow,
         credentials,
@@ -379,7 +425,25 @@ function createOAuthProvider(options = {}) {
           userId: connectionRow?.user_id,
           agentId: connectionRow?.agent_id,
         }),
-      });
+        signal: executionOptions.signal || null,
+        updateCredentials(nextCredentials) {
+          if (!nextCredentials || typeof nextCredentials !== 'object') return;
+          integrationContext.credentials = nextCredentials;
+          credentialsUpdated = true;
+        },
+      };
+      const execution = await options.executeTool(
+        toolName,
+        args,
+        integrationContext,
+      );
+      if (!execution || execution.credentials || !credentialsUpdated) {
+        return execution;
+      }
+      return {
+        ...execution,
+        credentials: integrationContext.credentials,
+      };
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);

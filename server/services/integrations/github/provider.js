@@ -6,6 +6,8 @@ const { decryptValue } = require('../secrets');
 const { getConnectionAccessMode } = require('../access');
 const { githubToolDefinitions, executeGithubTool } = require('./repos');
 const { base64UrlSha256 } = require('./common');
+const { fetchJson } = require('../oauth_provider');
+const { fetchResponseText } = require('../http');
 
 const GITHUB_ACCOUNT_IDENTITY_SCOPES = [
   'read:user',
@@ -159,8 +161,9 @@ function summarizeAppConnection(app, connectionRows, envStatus) {
   };
 }
 
-async function executeGithubRepoTool(toolName, args, connection) {
+async function executeGithubRepoTool(toolName, args, connection, executionOptions = {}) {
   const auth = await buildAuthorizedClient(connection);
+  auth.signal = executionOptions.signal || null;
   if (!auth.token) {
     throw new Error('GitHub access token is missing or expired. Please reconnect your GitHub account.');
   }
@@ -326,40 +329,32 @@ function createGithubProvider() {
       const url = `https://github.com/login/oauth/authorize?${params.toString()}`;
       return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier, appKey }) {
+    async finishOAuth({ code, codeVerifier, appKey, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown GitHub app: ${appKey}`);
       }
       const { config } = createOAuthClient();
 
-      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
+      const tokenData = await fetchJson(
+        'https://github.com/login/oauth/access_token',
+        {
+          method: 'POST',
+          form: {
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            code,
+            code_verifier: codeVerifier,
+            redirect_uri: config.redirectUri,
+          },
+          signal,
         },
-        body: new URLSearchParams({
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          code,
-          code_verifier: codeVerifier,
-          redirect_uri: config.redirectUri,
-        }).toString(),
-      });
-
-      const tokenBody = await tokenResponse.text();
-      let tokenData = {};
-      try {
-        tokenData = tokenBody ? JSON.parse(tokenBody) : {};
-      } catch {
-        tokenData = {};
-      }
-      if (!tokenResponse.ok) {
-        throw new Error(`GitHub OAuth token exchange failed (${tokenResponse.status}): ${tokenBody || 'No response body'}`);
-      }
-      if (tokenData.error) {
-        throw new Error(`GitHub OAuth error: ${tokenData.error_description || tokenData.error}`);
+        { serviceName: 'GitHub OAuth token exchange' },
+      );
+      if (tokenData?.error) {
+        throw new Error(
+          `GitHub OAuth error: ${tokenData.error_description || tokenData.error}`,
+        );
       }
 
       const accessToken = tokenData.access_token;
@@ -367,17 +362,17 @@ function createGithubProvider() {
         throw new Error('GitHub OAuth did not return an access token.');
       }
 
-      const userResponse = await fetch('https://api.github.com/user', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/vnd.github.v3+json',
+      const userData = await fetchJson(
+        'https://api.github.com/user',
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+          signal,
         },
-      });
-      if (!userResponse.ok) {
-        const errorBody = await userResponse.text().catch(() => 'Unknown error');
-        throw new Error(`GitHub user profile request failed (${userResponse.status}): ${errorBody}`);
-      }
-      const userData = await userResponse.json();
+        { serviceName: 'GitHub user profile' },
+      );
       const accountEmail = String(userData.login || '').trim();
       if (!accountEmail) {
         throw new Error('GitHub API did not return a user login.');
@@ -398,7 +393,7 @@ function createGithubProvider() {
         },
       };
     },
-    async disconnect(connectionRow) {
+    async disconnect(connectionRow, executionOptions = {}) {
       if (!connectionRow?.credentials_json) return;
       try {
         const credentials = JSON.parse(decryptValue(connectionRow.credentials_json));
@@ -415,20 +410,24 @@ function createGithubProvider() {
 
         const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
         const revokeUrl = `https://api.github.com/applications/${encodeURIComponent(clientId)}/token`;
-        const revokeResponse = await fetch(revokeUrl, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Basic ${basic}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
+        const { response: revokeResponse, text: revokeBody } = await fetchResponseText(
+          revokeUrl,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Basic ${basic}`,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              access_token: accessToken,
+            }),
+            signal: executionOptions.signal || null,
           },
-          body: JSON.stringify({
-            access_token: accessToken,
-          }),
-        });
+          { serviceName: 'GitHub token revocation' },
+        );
 
         if (!revokeResponse.ok) {
-          const revokeBody = await revokeResponse.text().catch(() => 'Unknown error');
           console.warn(
             `[GitHub] Failed to revoke token for disconnect (connection ${connectionRow?.id || 'unknown'}): ${revokeResponse.status} ${revokeBody}`,
           );
@@ -439,8 +438,8 @@ function createGithubProvider() {
         );
       }
     },
-    async executeTool(toolName, args, connectionRow) {
-      return executeGithubRepoTool(toolName, args, connectionRow);
+    async executeTool(toolName, args, connectionRow, executionOptions = {}) {
+      return executeGithubRepoTool(toolName, args, connectionRow, executionOptions);
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);

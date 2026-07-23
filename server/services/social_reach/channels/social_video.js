@@ -3,6 +3,7 @@
 const { getPlatformDefinition } = require('../platforms');
 const { SocialReachChannel } = require('./base');
 const { normalizeAndDetectPlatform } = require('../../social_video/url');
+const { createAbortError } = require('../../../utils/abort');
 
 const PLATFORM_LABELS = Object.freeze({
   youtube: 'YouTube',
@@ -26,7 +27,7 @@ class SocialVideoReachChannel extends SocialReachChannel {
     }
   }
 
-  async check() {
+  async check({ signal } = {}) {
     if (!this.socialVideoService || typeof this.socialVideoService.getHealthStatus !== 'function') {
       return {
         ...(await super.check()),
@@ -37,11 +38,14 @@ class SocialVideoReachChannel extends SocialReachChannel {
       };
     }
 
-    const health = await this.socialVideoService.getHealthStatus().catch((error) => ({
-      ready: false,
-      dependencies: [],
-      error: error.message || String(error),
-    }));
+    const health = await this.socialVideoService.getHealthStatus({ signal }).catch((error) => {
+      if (signal?.aborted) throw createAbortError(signal);
+      return {
+        ready: false,
+        dependencies: [],
+        error: error.message || String(error),
+      };
+    });
     const missing = (health.dependencies || [])
       .filter((item) => !item.available)
       .map((item) => item.name)
@@ -59,7 +63,7 @@ class SocialVideoReachChannel extends SocialReachChannel {
     };
   }
 
-  async read({ userId, url, include_frame: includeFrame, force_stt: forceStt, agentId }) {
+  async read({ userId, url, include_frame: includeFrame, force_stt: forceStt, agentId, signal }) {
     if (!this.socialVideoService || typeof this.socialVideoService.extractFromUrl !== 'function') {
       const error = new Error('Social video extraction is not connected right now.');
       error.status = 503;
@@ -70,6 +74,7 @@ class SocialVideoReachChannel extends SocialReachChannel {
       includeFrame: includeFrame !== false,
       forceStt: forceStt === true,
       agentId: agentId || null,
+      signal,
     });
     return {
       ...result,

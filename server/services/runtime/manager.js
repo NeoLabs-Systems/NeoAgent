@@ -16,6 +16,7 @@ class RuntimeManager {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
     this.desktopCompanionRegistry = options.desktopCompanionRegistry || null;
     this.shellWorkerPool = options.shellWorkerPool || null;
+    this.androidControllers = new Map();
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
       runtimeProfile: 'browser_cli',
@@ -43,6 +44,12 @@ class RuntimeManager {
         registry: options.desktopCompanionRegistry,
         artifactStore: options.artifactStore,
         userId,
+      }));
+
+    this.createAndroidController = options.createAndroidController
+      || ((userId) => new AndroidController({
+        userId,
+        artifactStore: this.artifactStore,
       }));
   }
 
@@ -91,14 +98,15 @@ class RuntimeManager {
     return this.browserBackend.getCommandExecutorForUser(userId);
   }
 
-  async getBrowserProviderForUser(userId) {
+  async getBrowserProviderForUser(userId, options = {}) {
     const settings = this.getSettings(userId);
     if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
       return this.getExtensionBrowserProvider(userId, {
         tokenId: settings.browser_extension_token_id,
+        signal: options.signal,
       });
     }
-    return this.browserBackend.getBrowserProviderForUser(userId);
+    return this.browserBackend.getBrowserProviderForUser(userId, options);
   }
 
   async getCliProviderForUser(userId) {
@@ -122,12 +130,6 @@ class RuntimeManager {
 
   async executeCliCommand(userId, command, options = {}) {
     const provider = await this.getCliProviderForUser(userId);
-    // Route desktop-companion shell commands through the isolated worker pool
-    // when available. The VM (Docker) path is already isolated.
-    if (provider.backend === 'desktop-companion' && this.shellWorkerPool && options.pty !== true) {
-      const result = await this.shellWorkerPool.execute(command, options);
-      return { ...result, backend: 'desktop-companion-worker' };
-    }
     const result = await (options.pty === true && provider.executeInteractive
       ? provider.executeInteractive(command, options.inputs || [], options)
       : provider.execute(command, options));
@@ -146,10 +148,11 @@ class RuntimeManager {
     if (userId == null || String(userId).trim() === '') {
       throw new Error('Android provider requires a user ID.');
     }
-    return new AndroidController({
-      userId: String(userId).trim(),
-      artifactStore: this.artifactStore,
-    });
+    const key = String(userId).trim();
+    if (!this.androidControllers.has(key)) {
+      this.androidControllers.set(key, this.createAndroidController(key));
+    }
+    return this.androidControllers.get(key);
   }
 
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000, capability = 'browser') {
@@ -162,7 +165,9 @@ class RuntimeManager {
   async shutdown() {
     const tasks = [
       this.browserBackend?.shutdown?.(),
+      ...Array.from(this.androidControllers.values(), (controller) => controller?.close?.()),
     ];
+    this.androidControllers.clear();
     if (typeof this.shellWorkerPool?.shutdown === 'function') {
       tasks.push(Promise.resolve().then(() => this.shellWorkerPool.shutdown()));
     }

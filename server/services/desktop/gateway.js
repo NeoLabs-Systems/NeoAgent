@@ -1,3 +1,5 @@
+'use strict';
+
 const { WebSocketServer } = require('ws');
 const {
   DESKTOP_COMPANION_WS_PATH,
@@ -15,6 +17,9 @@ const {
 const UPGRADE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const UPGRADE_RATE_LIMIT_MAX_ATTEMPTS = 30;
 const UPGRADE_RATE_LIMIT_ENTRY_TTL_MS = 10 * 60 * 1000;
+const UPGRADE_AUTH_TIMEOUT_MS = 5000;
+const HELLO_TIMEOUT_MS = 5000;
+const MAX_HELLO_BYTES = 64 * 1024;
 
 function rejectUpgrade(socket, statusCode, message) {
   try {
@@ -88,6 +93,8 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
   });
   const upgradeAttempts = new Map();
   const upgradeThrottleObserver = createUpgradeThrottleObserver();
+  let closing = false;
+  let closePromise = null;
 
   if (app?.locals) {
     app.locals.getDesktopGatewayRateLimitSnapshot = () => upgradeThrottleObserver.snapshot();
@@ -115,7 +122,7 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
     return true;
   }
 
-  httpServer.on('upgrade', (req, socket, head) => {
+  const handleUpgrade = (req, socket, head) => {
     let url;
     try {
       url = new URL(req.url, 'http://localhost');
@@ -123,6 +130,10 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
       return;
     }
     if (url.pathname !== DESKTOP_COMPANION_WS_PATH) {
+      return;
+    }
+    if (closing) {
+      rejectUpgrade(socket, 503, 'Service Unavailable');
       return;
     }
 
@@ -133,7 +144,16 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
       return;
     }
 
+    const authTimer = setTimeout(() => {
+      rejectUpgrade(socket, 504, 'Gateway Timeout');
+    }, UPGRADE_AUTH_TIMEOUT_MS);
+    authTimer.unref?.();
     sessionMiddleware(req, {}, (err) => {
+      clearTimeout(authTimer);
+      if (closing || socket.destroyed) {
+        if (!socket.destroyed) rejectUpgrade(socket, 503, 'Service Unavailable');
+        return;
+      }
       if (err) {
         rejectUpgrade(socket, 500, 'Session Error');
         return;
@@ -155,11 +175,18 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
           if (!initialized) {
             try { ws.close(1008, 'Desktop companion hello timed out'); } catch {}
           }
-        }, 5000);
+        }, HELLO_TIMEOUT_MS);
+        helloTimer.unref?.();
+        const clearHelloTimer = () => clearTimeout(helloTimer);
+        ws.once('close', clearHelloTimer);
+        ws.once('error', clearHelloTimer);
 
         ws.once('message', (data) => {
           clearTimeout(helloTimer);
           try {
+            if (Buffer.byteLength(data) > MAX_HELLO_BYTES) {
+              throw Object.assign(new Error('Desktop companion hello is too large.'), { status: 413 });
+            }
             const message = parseDesktopMessage(data);
             if (!isDesktopCompanionHello(message)) {
               throw Object.assign(new Error('Desktop companion hello is required.'), { status: 400 });
@@ -227,11 +254,21 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
         });
       });
     });
-  });
+  };
+  httpServer.on('upgrade', handleUpgrade);
 
   if (app?.locals) {
     app.locals.desktopCompanionGateway = {
-      close: () => new Promise((resolve) => wss.close(() => resolve())),
+      close: () => {
+        if (closePromise) return closePromise;
+        closing = true;
+        httpServer.removeListener('upgrade', handleUpgrade);
+        for (const client of wss.clients) {
+          try { client.terminate(); } catch {}
+        }
+        closePromise = new Promise((resolve) => wss.close(() => resolve()));
+        return closePromise;
+      },
     };
   }
 

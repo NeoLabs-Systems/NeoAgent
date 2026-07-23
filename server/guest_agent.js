@@ -105,6 +105,26 @@ async function handle(res, work) {
   }
 }
 
+async function handleRequest(req, res, work) {
+  const controller = new AbortController();
+  const abort = () => {
+    if (!res.writableEnded) controller.abort('Guest runtime request disconnected.');
+  };
+  req.once('aborted', abort);
+  res.once('close', abort);
+  try {
+    const result = await work(controller.signal);
+    if (!res.headersSent && !res.writableEnded) res.json(result);
+  } catch (err) {
+    if (!res.headersSent && !res.writableEnded) {
+      res.status(controller.signal.aborted ? 499 : 500).json({ error: sanitizeError(err) });
+    }
+  } finally {
+    req.removeListener('aborted', abort);
+    res.removeListener('close', abort);
+  }
+}
+
 app.use(requireToken);
 
 app.get('/health', (_req, res) => {
@@ -118,7 +138,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.post('/exec', async (req, res) => {
-  await handle(res, async () => {
+  await handleRequest(req, res, async (signal) => {
     const command = String(req.body?.command || '').trim();
     if (!command) {
       return { error: 'command is required' };
@@ -127,12 +147,14 @@ app.post('/exec', async (req, res) => {
       return cliExecutor.executeInteractive(command, req.body?.inputs || [], {
         cwd: req.body?.cwd,
         timeout: req.body?.timeout,
+        signal,
       });
     }
     return cliExecutor.execute(command, {
       cwd: req.body?.cwd,
       timeout: req.body?.timeout,
       stdinInput: req.body?.stdin_input,
+      signal,
     });
   });
 });
@@ -192,43 +214,43 @@ function requireCapability(controller, name) {
   return controller;
 }
 
-app.post('/browser/launch', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').launch(req.body || {})));
-app.post('/browser/navigate', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').navigate(req.body?.url, req.body || {})));
-app.post('/browser/screenshot', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').screenshot(req.body || {})));
-app.post('/browser/screenshot-jpeg', async (req, res) => handle(res, async () => {
-  const jpeg = await requireCapability(browserController, 'browser').screenshotJpeg(req.body?.quality, req.body || {});
+app.post('/browser/launch', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').launch({ ...(req.body || {}), signal })));
+app.post('/browser/navigate', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').navigate(req.body?.url, { ...(req.body || {}), signal })));
+app.post('/browser/screenshot', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').screenshot({ ...(req.body || {}), signal })));
+app.post('/browser/screenshot-jpeg', async (req, res) => handleRequest(req, res, async (signal) => {
+  const jpeg = await requireCapability(browserController, 'browser').screenshotJpeg(req.body?.quality, { ...(req.body || {}), signal });
   return {
     contentType: 'image/jpeg',
     contentBase64: Buffer.from(jpeg).toString('base64'),
   };
 }));
-app.post('/browser/click', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').click(req.body?.selector, req.body?.text, req.body?.screenshot !== false)));
-app.post('/browser/click-point', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').clickPoint(req.body?.x, req.body?.y, req.body?.screenshot !== false)));
-app.post('/browser/fill', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').type(req.body?.selector, String(req.body?.value ?? req.body?.text ?? ''), req.body || {})));
-app.post('/browser/type-text', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').typeText(String(req.body?.text || ''), req.body || {})));
-app.post('/browser/press-key', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').pressKey(req.body?.key, req.body?.screenshot !== false)));
-app.post('/browser/scroll', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').scroll(req.body?.deltaX ?? 0, req.body?.deltaY ?? 0, req.body?.screenshot !== false)));
-app.post('/browser/extract', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').extractContent(req.body || {})));
-app.post('/browser/execute', async (req, res) => handle(res, () => requireCapability(browserController, 'browser').executeJS(req.body?.code)));
+app.post('/browser/click', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').click(req.body?.selector, req.body?.text, req.body?.screenshot !== false, { signal })));
+app.post('/browser/click-point', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').clickPoint(req.body?.x, req.body?.y, req.body?.screenshot !== false, { signal })));
+app.post('/browser/fill', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').type(req.body?.selector, String(req.body?.value ?? req.body?.text ?? ''), { ...(req.body || {}), signal })));
+app.post('/browser/type-text', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').typeText(String(req.body?.text || ''), { ...(req.body || {}), signal })));
+app.post('/browser/press-key', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').pressKey(req.body?.key, req.body?.screenshot !== false, { signal })));
+app.post('/browser/scroll', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').scroll(req.body?.deltaX ?? 0, req.body?.deltaY ?? 0, req.body?.screenshot !== false, { signal })));
+app.post('/browser/extract', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').extractContent({ ...(req.body || {}), signal })));
+app.post('/browser/execute', async (req, res) => handleRequest(req, res, (signal) => requireCapability(browserController, 'browser').executeJS(req.body?.code, { signal })));
 app.post('/browser/close', async (_req, res) => handle(res, () => requireCapability(browserController, 'browser').closeBrowser().then(() => ({ success: true }))));
 
 app.get('/android/status', async (_req, res) => handle(res, () => requireCapability(androidController, 'android').getStatus()));
-app.post('/android/start', async (req, res) => handle(res, () => requireCapability(androidController, 'android').requestStartEmulator(req.body || {})));
-app.post('/android/stop', async (_req, res) => handle(res, () => requireCapability(androidController, 'android').stopEmulator()));
-app.get('/android/devices', async (_req, res) => handle(res, async () => ({ devices: await requireCapability(androidController, 'android').listDevices() })));
-app.post('/android/screenshot', async (req, res) => handle(res, () => requireCapability(androidController, 'android').screenshot(req.body || {})));
-app.post('/android/observe', async (req, res) => handle(res, () => requireCapability(androidController, 'android').observe(req.body || {})));
-app.post('/android/ui-dump', async (req, res) => handle(res, () => requireCapability(androidController, 'android').dumpUi(req.body || {})));
-app.get('/android/apps', async (req, res) => handle(res, () => requireCapability(androidController, 'android').listApps({ includeSystem: req.query.includeSystem === 'true' })));
-app.post('/android/open-app', async (req, res) => handle(res, () => requireCapability(androidController, 'android').openApp(req.body || {})));
-app.post('/android/open-intent', async (req, res) => handle(res, () => requireCapability(androidController, 'android').openIntent(req.body || {})));
-app.post('/android/tap', async (req, res) => handle(res, () => requireCapability(androidController, 'android').tap(req.body || {})));
-app.post('/android/long-press', async (req, res) => handle(res, () => requireCapability(androidController, 'android').longPress(req.body || {})));
-app.post('/android/type', async (req, res) => handle(res, () => requireCapability(androidController, 'android').type(req.body || {})));
-app.post('/android/swipe', async (req, res) => handle(res, () => requireCapability(androidController, 'android').swipe(req.body || {})));
-app.post('/android/press-key', async (req, res) => handle(res, () => requireCapability(androidController, 'android').pressKey(req.body || {})));
-app.post('/android/wait-for', async (req, res) => handle(res, () => requireCapability(androidController, 'android').waitFor(req.body || {})));
-app.post('/android/shell', async (req, res) => handle(res, () => requireCapability(androidController, 'android').shell(req.body || {})));
+app.post('/android/start', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').requestStartEmulator({ ...(req.body || {}), signal })));
+app.post('/android/stop', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').stopEmulator({ signal })));
+app.get('/android/devices', async (req, res) => handleRequest(req, res, async (signal) => ({ devices: await requireCapability(androidController, 'android').listDevices({ signal }) })));
+app.post('/android/screenshot', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').screenshot({ ...(req.body || {}), signal })));
+app.post('/android/observe', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').observe({ ...(req.body || {}), signal })));
+app.post('/android/ui-dump', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').dumpUi({ ...(req.body || {}), signal })));
+app.get('/android/apps', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').listApps({ includeSystem: req.query.includeSystem === 'true', signal })));
+app.post('/android/open-app', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').openApp({ ...(req.body || {}), signal })));
+app.post('/android/open-intent', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').openIntent({ ...(req.body || {}), signal })));
+app.post('/android/tap', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').tap({ ...(req.body || {}), signal })));
+app.post('/android/long-press', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').longPress({ ...(req.body || {}), signal })));
+app.post('/android/type', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').type({ ...(req.body || {}), signal })));
+app.post('/android/swipe', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').swipe({ ...(req.body || {}), signal })));
+app.post('/android/press-key', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').pressKey({ ...(req.body || {}), signal })));
+app.post('/android/wait-for', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').waitFor({ ...(req.body || {}), signal })));
+app.post('/android/shell', async (req, res) => handleRequest(req, res, (signal) => requireCapability(androidController, 'android').shell({ ...(req.body || {}), signal })));
 app.post('/android/install-apk', async (req, res) => {
   await handle(res, async () => {
     requireCapability(androidController, 'android');

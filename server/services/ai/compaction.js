@@ -1,4 +1,4 @@
-async function compact(messages, provider, model, contextWindow = null) {
+async function compact(messages, provider, model, contextWindow = null, options = {}) {
   const systemMsg = messages.find(m => m.role === 'system');
   const nonSystem = messages.filter(m => m.role !== 'system');
   const beforeTokens = estimateTokenCount(messages);
@@ -26,7 +26,11 @@ async function compact(messages, provider, model, contextWindow = null) {
   ];
 
   try {
-    const response = await provider.chat(summaryPrompt, [], { model, maxTokens: 1600 });
+    const response = await provider.chat(summaryPrompt, [], {
+      model,
+      maxTokens: 1600,
+      signal: options.signal,
+    });
     const summary = response.content || 'Previous conversation context (summary unavailable).';
 
     const compactedMessages = [];
@@ -44,6 +48,7 @@ async function compact(messages, provider, model, contextWindow = null) {
     }
     return compactedMessages;
   } catch (err) {
+    if (options.signal?.aborted) throw err;
     console.error('Compaction failed:', err.message);
     const trimmed = [];
     if (systemMsg) trimmed.push(systemMsg);

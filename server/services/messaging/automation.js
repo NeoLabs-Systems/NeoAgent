@@ -20,17 +20,53 @@ const {
 } = require('../voice/runtime');
 const { getErrorMessage } = require('../bootstrap_helpers');
 const { processInboundQueue } = require('./inbound_queue');
+const { attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
+const { waitForBoundedResult } = require('../network/http');
+const { createAbortError, throwIfAborted } = require('../../utils/abort');
 
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
   const userQueues = Object.create(null);
+  const activeHandlers = new Set();
+  const abortController = new AbortController();
+  const runtime = {
+    shuttingDown: false,
+    shutdownPromise: null,
+    shutdown() {
+      if (this.shutdownPromise) return this.shutdownPromise;
+      this.shuttingDown = true;
+      const error = new Error('Messaging automation is shutting down.');
+      error.name = 'AbortError';
+      error.code = 'MESSAGING_AUTOMATION_SHUTDOWN';
+      abortController.abort(error);
+      for (const queue of Object.values(userQueues)) {
+        queue.cancelRequested = true;
+        queue.cancelPending?.();
+      }
+      this.shutdownPromise = waitForBoundedResult(
+        Promise.allSettled(Array.from(activeHandlers)),
+        {
+          serviceName: 'Messaging automation',
+          timeoutMs: 10000,
+        },
+      ).then(() => ({ state: 'stopped', timedOut: false })).catch((error) => ({
+        state: 'timeout',
+        timedOut: error?.code === 'HTTP_TIMEOUT',
+        error: error?.message || String(error),
+      }));
+      return this.shutdownPromise;
+    },
+  };
   app.locals.userQueues = userQueues;
+  app.locals.messagingAutomationRuntime = runtime;
 
-  messagingManager.registerHandler(async (userId, msg) => {
+  const handleMessage = async (userId, msg, signal) => {
+    throwIfAborted(signal, 'Messaging automation stopped before handling the message.');
     const agentId = msg.agentId || null;
     if (!(await isAllowedMessagingSender({ io, userId, msg }))) {
       return;
     }
+    throwIfAborted(signal, 'Messaging automation stopped before handling the message.');
 
     const commandRouter = app?.locals?.commandRouter;
     if (commandRouter) {
@@ -42,9 +78,11 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
           source: 'messaging',
           platform: msg.platform,
           chatId: msg.chatId,
-          sender: msg.sender
+          sender: msg.sender,
+          signal,
         });
       } catch (err) {
+        if (signal?.aborted) throw createAbortError(signal);
         console.error(`[Messaging] Command dispatch failed on ${msg.platform}:`, err.message);
         io.to(`user:${userId}`).emit('messaging:error', {
           error: `Command dispatch failed on ${msg.platform}: ${err.message}`
@@ -55,9 +93,10 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             msg.platform,
             msg.chatId,
             `Command handling failed: ${err.message}`,
-            { runId: null, agentId }
+            { runId: null, agentId, signal }
           );
         } catch (sendErr) {
+          if (signal?.aborted) throw createAbortError(signal);
           console.error(`[Messaging] Failed to report command dispatch error on ${msg.platform}:`, sendErr.message);
           io.to(`user:${userId}`).emit('messaging:error', {
             error: `Command handling failed and the error report could not be sent on ${msg.platform}: ${sendErr.message}`
@@ -78,9 +117,10 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             msg.platform,
             msg.chatId,
             commandResult.content || 'Done.',
-            { runId: null, agentId }
+            { runId: null, agentId, signal }
           );
         } catch (err) {
+          if (signal?.aborted) throw createAbortError(signal);
           console.error(`[Messaging] Failed to send command response on ${msg.platform}:`, err.message);
           io.to(`user:${userId}`).emit('messaging:error', {
             error: `Command executed but response could not be sent on ${msg.platform}: ${err.message}`
@@ -98,12 +138,13 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
     upsertSetting.run(userId, agentId, 'last_platform', msg.platform);
     upsertSetting.run(userId, agentId, 'last_chat_id', msg.chatId);
 
-    await processQueuedMessage({
+    return processQueuedMessage({
       userQueues,
       messagingManager,
       agentEngine,
       userId,
       msg,
+      signal,
       onProcessingError: ({ error, runId, failedMessage }) => {
         const errorMessage = getErrorMessage(error);
         console.error(
@@ -118,7 +159,23 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
         });
       }
     });
+  };
+  messagingManager.registerHandler((userId, msg) => {
+    if (runtime.shuttingDown) return null;
+    const promise = handleMessage(userId, msg, abortController.signal);
+    activeHandlers.add(promise);
+    const cleanup = () => activeHandlers.delete(promise);
+    promise.then(cleanup, cleanup);
+    return promise;
   });
+  if (typeof messagingManager.recoverPendingInbound === 'function') {
+    void messagingManager.recoverPendingInbound().catch((error) => {
+      if (!runtime.shuttingDown) {
+        console.error('[MessagingAutomation] Inbound recovery failed:', getErrorMessage(error));
+      }
+    });
+  }
+  return runtime;
 }
 
 async function processQueuedMessage({
@@ -127,6 +184,7 @@ async function processQueuedMessage({
   agentEngine,
   userId,
   msg,
+  signal = null,
   onProcessingError = null
 }) {
   return processInboundQueue({
@@ -138,7 +196,8 @@ async function processQueuedMessage({
         messagingManager,
         agentEngine,
         userId,
-        msg: queuedMessage
+        msg: queuedMessage,
+        signal,
       }),
     onProcessingError
   });
@@ -148,10 +207,17 @@ async function executeQueuedMessage({
   messagingManager,
   agentEngine,
   userId,
-  msg
+  msg,
+  signal = null,
 }) {
+  throwIfAborted(signal, 'Messaging request aborted before execution.');
   const agentId = msg.agentId || null;
   const runId = randomUUID();
+  const inboundJobIds = Array.from(new Set([
+    ...(Array.isArray(msg.inboundJobIds) ? msg.inboundJobIds : []),
+    msg.inboundJobId,
+  ].map((value) => String(value || '').trim()).filter(Boolean)));
+  if (inboundJobIds.length) attachRunToInboundJobs(inboundJobIds, runId);
   const reportSideEffectError = (operation, error) => {
     console.warn(
       `[MessagingAutomation] ${operation} failed platform=${msg.platform} user=${userId}:`,
@@ -165,7 +231,7 @@ async function executeQueuedMessage({
       msg.platform,
       msg.chatId,
       msg.messageId,
-      { agentId }
+      { agentId, signal }
     );
   } catch (error) {
     reportSideEffectError('mark read', error);
@@ -178,6 +244,7 @@ async function executeQueuedMessage({
     runId,
     platform: msg.platform,
     chatId: msg.chatId,
+    signal,
     onError: reportSideEffectError
   });
 
@@ -199,6 +266,7 @@ async function executeQueuedMessage({
           conversationId,
           source: msg.platform,
           chatId: msg.chatId,
+          messagingInboundJobId: inboundJobIds[0] || null,
           context: { rawUserMessage: msg.content }
         };
 
@@ -208,10 +276,17 @@ async function executeQueuedMessage({
       ];
     }
 
+    runOptions.messagingInboundJobId = inboundJobIds[0] || null;
+    runOptions.signal = signal;
+
     const result = await agentEngine.run(userId, prompt, runOptions);
     return { runId, result, error: null };
   } catch (error) {
-    return { runId, result: null, error };
+    return {
+      runId,
+      result: null,
+      error: signal?.aborted ? createAbortError(signal) : error,
+    };
   } finally {
     await stopTypingKeepalive();
   }

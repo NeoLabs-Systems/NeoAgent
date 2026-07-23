@@ -198,6 +198,7 @@ router.post('/ingestion/documents', async (req, res) => {
       connectionId: req.body.connectionId,
       sourceAccount: req.body.sourceAccount,
       metadata: normalizeMetadata(req.body.metadata),
+      signal: req.signal,
     });
     res.json(result);
   } catch (err) {

@@ -343,10 +343,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final action = await _showLeaveDialog(context);
-        if (action == _LeaveAction.save && mounted) {
+        if (!context.mounted) return;
+        if (action == _LeaveAction.save) {
           await _doSave();
-          if (mounted) Navigator.of(context).pop();
-        } else if (action == _LeaveAction.discard && mounted) {
+          if (context.mounted) Navigator.of(context).pop();
+        } else if (action == _LeaveAction.discard) {
           _hydrate();
           setState(() => _hasUnsavedChanges = false);
           Navigator.of(context).pop();

@@ -10,6 +10,7 @@ const { calendarToolDefinitions, executeCalendarTool } = require('./calendar');
 const { driveToolDefinitions, executeDriveTool } = require('./drive');
 const { docsToolDefinitions, executeDocsTool } = require('./docs');
 const { sheetsToolDefinitions, executeSheetsTool } = require('./sheets');
+const { waitForAbortableResult } = require('../http');
 
 const GOOGLE_ACCOUNT_IDENTITY_SCOPES = [
   'openid',
@@ -118,7 +119,17 @@ function createOAuthClient() {
   };
 }
 
-async function buildAuthorizedClient(connection) {
+function attachAbortSignal(client, signal) {
+  if (!signal) return client;
+  const request = client.transporter.request.bind(client.transporter);
+  client.transporter.request = (requestOptions = {}) => request({
+    ...requestOptions,
+    signal: requestOptions.signal || signal,
+  });
+  return client;
+}
+
+async function buildAuthorizedClient(connection, options = {}) {
   const { client } = createOAuthClient();
   let credentials = {};
   try {
@@ -142,7 +153,7 @@ async function buildAuthorizedClient(connection) {
       });
     }
   });
-  return client;
+  return attachAbortSignal(client, options.signal);
 }
 
 function getApp(appId) {
@@ -247,21 +258,29 @@ function summarizeAppConnection(app, connectionRows, envStatus) {
   };
 }
 
-async function executeGoogleWorkspaceTool(toolName, args, connection) {
-  const auth = await buildAuthorizedClient(connection);
+async function executeGoogleWorkspaceTool(
+  toolName,
+  args,
+  connection,
+  executionOptions = {},
+) {
+  const auth = await buildAuthorizedClient(connection, executionOptions);
   const appId = toolAppMap.get(toolName);
   const app = getApp(appId);
   if (!app) {
     throw new Error(`Unknown tool: ${toolName}`);
   }
-  const result = await app.executor(toolName, args, auth);
+  const result = await waitForAbortableResult(
+    app.executor(toolName, args, auth),
+    executionOptions.signal,
+  );
   if (result === null) {
     throw new Error(`Unknown tool: ${toolName}`);
   }
   return { result, credentials: auth.credentials };
 }
 
-async function collectGoogleMemoryDocuments({ connection, sourceTypes = [] }) {
+async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], signal = null }) {
   const appKey = String(connection?.app_key || '').trim();
   const documents = [];
   const collectedAt = new Date().toISOString();
@@ -271,6 +290,7 @@ async function collectGoogleMemoryDocuments({ connection, sourceTypes = [] }) {
       'google_workspace_gmail_search_threads',
       { query: 'newer_than:7d', max_results: 8 },
       connection,
+      { signal },
     );
     for (const thread of Array.isArray(result?.threads) ? result.threads : []) {
       const subject = String(thread.subject || 'Gmail thread').trim();
@@ -300,6 +320,7 @@ async function collectGoogleMemoryDocuments({ connection, sourceTypes = [] }) {
       'google_workspace_calendar_list_events',
       { time_min: timeMin, time_max: timeMax, max_results: 12 },
       connection,
+      { signal },
     );
     for (const event of Array.isArray(result?.events) ? result.events : []) {
       const title = String(event.summary || 'Calendar event').trim();
@@ -489,19 +510,23 @@ function createGoogleWorkspaceProvider() {
       });
       return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier, appKey }) {
+    async finishOAuth({ code, codeVerifier, appKey, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown Google Workspace app: ${appKey}`);
       }
-      const { client } = createOAuthClient();
-      const { tokens } = await client.getToken({
-        code,
-        codeVerifier,
-      });
+      const oauthClient = createOAuthClient();
+      const client = attachAbortSignal(oauthClient.client, signal);
+      const { tokens } = await waitForAbortableResult(
+        client.getToken({
+          code,
+          codeVerifier,
+        }),
+        signal,
+      );
       client.setCredentials(tokens);
       const oauth2 = google.oauth2({ version: 'v2', auth: client });
-      const profile = await oauth2.userinfo.get();
+      const profile = await waitForAbortableResult(oauth2.userinfo.get(), signal);
       const accountEmail = String(profile.data.email || '').trim();
       if (!accountEmail) {
         throw new Error('Google OAuth did not return an account email address.');
@@ -523,26 +548,37 @@ function createGoogleWorkspaceProvider() {
         },
       };
     },
-    async disconnect(connectionRow) {
-      const auth = await buildAuthorizedClient(connectionRow);
+    async disconnect(connectionRow, executionOptions = {}) {
+      const auth = await buildAuthorizedClient(connectionRow, executionOptions);
       const refreshToken = auth.credentials.refresh_token;
       const accessToken = auth.credentials.access_token;
       if (refreshToken) {
-        await auth.revokeToken(refreshToken).catch((error) => {
+        await waitForAbortableResult(
+          auth.revokeToken(refreshToken),
+          executionOptions.signal,
+        ).catch((error) => {
           console.warn(
             `[Google Workspace] Failed to revoke refresh token for disconnect (connection ${connectionRow?.id || 'unknown'}): ${error?.message || error}`,
           );
         });
       } else if (accessToken) {
-        await auth.revokeToken(accessToken).catch((error) => {
+        await waitForAbortableResult(
+          auth.revokeToken(accessToken),
+          executionOptions.signal,
+        ).catch((error) => {
           console.warn(
             `[Google Workspace] Failed to revoke access token for disconnect (connection ${connectionRow?.id || 'unknown'}): ${error?.message || error}`,
           );
         });
       }
     },
-    async executeTool(toolName, args, connectionRow) {
-      return executeGoogleWorkspaceTool(toolName, args, connectionRow);
+    async executeTool(toolName, args, connectionRow, executionOptions = {}) {
+      return executeGoogleWorkspaceTool(
+        toolName,
+        args,
+        connectionRow,
+        executionOptions,
+      );
     },
     async collectMemoryDocuments(options) {
       return collectGoogleMemoryDocuments(options);

@@ -1,5 +1,12 @@
 'use strict';
 
+function voiceAbortError(message, code) {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  error.code = code;
+  return error;
+}
+
 class VoiceLiveSession {
   constructor({
     id,
@@ -32,6 +39,11 @@ class VoiceLiveSession {
     this.lastAssistantText = '';
     this.assistantMessageCount = 0;
     this.closed = false;
+    this.turnAbortController = new AbortController();
+  }
+
+  get signal() {
+    return this.turnAbortController.signal;
   }
 
   resetInput(mimeType = 'audio/pcm;rate=16000;channels=1') {
@@ -46,6 +58,13 @@ class VoiceLiveSession {
   }
 
   resetTurnState() {
+    if (!this.turnAbortController.signal.aborted) {
+      this.turnAbortController.abort(voiceAbortError(
+        'Voice turn was reset.',
+        'VOICE_TURN_RESET',
+      ));
+    }
+    this.turnAbortController = new AbortController();
     this.lastPartialTranscript = '';
     this.lastFinalTranscript = '';
     this.lastAssistantText = '';
@@ -204,6 +223,12 @@ class VoiceLiveSession {
 
   async interruptOutput() {
     this.interrupted = true;
+    if (!this.turnAbortController.signal.aborted) {
+      this.turnAbortController.abort(voiceAbortError(
+        'Voice output was interrupted.',
+        'VOICE_INTERRUPTED',
+      ));
+    }
     if (typeof this.sink?.interruptOutput === 'function') {
       await this.sink.interruptOutput(this);
     }
@@ -217,6 +242,12 @@ class VoiceLiveSession {
 
   async close(reason = 'closed') {
     this.closed = true;
+    if (!this.turnAbortController.signal.aborted) {
+      this.turnAbortController.abort(voiceAbortError(
+        `Voice session closed: ${reason}.`,
+        'VOICE_SESSION_CLOSED',
+      ));
+    }
     if (typeof this.sink?.close === 'function') {
       await this.sink.close(this, reason);
     }
