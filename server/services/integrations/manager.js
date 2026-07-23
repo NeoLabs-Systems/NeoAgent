@@ -59,6 +59,7 @@ class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
     this.registry = createIntegrationRegistry({
+      app: this.app,
       io: this.app?.locals?.io || null,
     });
     this.connectionExecutionQueues = new Map();

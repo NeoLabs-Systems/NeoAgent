@@ -4890,6 +4890,88 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> unlockBitwarden(
+    String masterPassword, {
+    required int idleTimeoutMinutes,
+  }) async {
+    try {
+      errorMessage = null;
+      return await _backendClient.unlockBitwarden(
+        backendUrl,
+        masterPassword: masterPassword,
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        agentId: _scopedAgentId,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> lockBitwarden() async {
+    try {
+      errorMessage = null;
+      await _backendClient.lockBitwarden(backendUrl, agentId: _scopedAgentId);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBitwardenItems() async {
+    final response = await _backendClient.fetchBitwardenItems(
+      backendUrl,
+      agentId: _scopedAgentId,
+    );
+    return _jsonMapList(
+      response['items'],
+    ).map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCredentialBindings() async {
+    final response = await _backendClient.fetchCredentialBindings(
+      backendUrl,
+      agentId: _scopedAgentId,
+    );
+    return _jsonMapList(
+      response['bindings'],
+    ).map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> createCredentialBinding(Map<String, dynamic> binding) async {
+    try {
+      errorMessage = null;
+      await _backendClient.createCredentialBinding(
+        backendUrl,
+        binding: binding,
+        agentId: _scopedAgentId,
+      );
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    }
+  }
+
+  Future<void> deleteCredentialBinding(String bindingId) async {
+    try {
+      errorMessage = null;
+      await _backendClient.deleteCredentialBinding(
+        backendUrl,
+        bindingId,
+        agentId: _scopedAgentId,
+      );
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
+    }
+  }
+
   Future<void> disconnectOfficialIntegration(
     String providerId, {
     required int connectionId,

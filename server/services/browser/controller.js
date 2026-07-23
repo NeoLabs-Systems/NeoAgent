@@ -2,6 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
@@ -288,6 +289,7 @@ class BrowserController {
     this._boundPages = new WeakSet();
     this._closing = false;
     this._closePromise = null;
+    this._protectedCredentialFill = null;
     this.headless = false;
     this.profileDir = path.join(BROWSER_PROFILE_ROOT, this.userId || 'default');
     if (!fs.existsSync(this.profileDir)) fs.mkdirSync(this.profileDir, { recursive: true });
@@ -1295,7 +1297,111 @@ class BrowserController {
     return {
       url: this.page.url(),
       title: await raceWithSignal(this.page.title(), options.signal),
+      protectedCredentialFill: Boolean(this._protectedCredentialFill),
     };
+  }
+
+  hasProtectedCredentialFill() {
+    const fill = this._protectedCredentialFill;
+    if (fill && fill.expiresAt <= Date.now() && !fill.clearing) {
+      fill.clearing = true;
+      Promise.allSettled([
+        fill.usernameSelector ? fill.page?.locator(fill.usernameSelector).fill('') : null,
+        fill.passwordSelector ? fill.page?.locator(fill.passwordSelector).fill('') : null,
+      ]).finally(() => {
+        if (this._protectedCredentialFill === fill) {
+          this._protectedCredentialFill = null;
+        }
+      });
+    }
+    return Boolean(this._protectedCredentialFill);
+  }
+
+  async fillCredential(input = {}, options = {}) {
+    if (this.hasProtectedCredentialFill()) {
+      throw new Error('A protected credential fill is already active.');
+    }
+    const page = await this.ensurePage(options);
+    const allowedOrigin = new URL(String(input.allowedOrigin || '')).origin;
+    if (new URL(page.url()).origin !== allowedOrigin) {
+      throw new Error('The browser origin changed before credential fill.');
+    }
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
+    if (new URL(page.url()).origin !== allowedOrigin) {
+      throw new Error('The browser origin changed while preparing credential fill.');
+    }
+    const usernameSelector = String(input.usernameSelector || '').trim();
+    const passwordSelector = String(input.passwordSelector || '').trim();
+    if (!usernameSelector && !passwordSelector) throw new Error('At least one credential field selector is required.');
+    const username = String(input.username || '');
+    if (usernameSelector) {
+      await page.waitForSelector(usernameSelector, { state: 'visible', timeout: 10_000 });
+      await page.locator(usernameSelector).fill(username);
+    }
+    if (passwordSelector) {
+      await page.waitForSelector(passwordSelector, { state: 'visible', timeout: 10_000 });
+      await page.locator(passwordSelector).fill(String(input.password || ''));
+    }
+    const protectedFillId = crypto.randomUUID();
+    this._protectedCredentialFill = {
+      id: protectedFillId,
+      page,
+      allowedOrigin,
+      usernameSelector,
+      passwordSelector,
+      submitSelector: passwordSelector || usernameSelector,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    };
+    return { success: true, protectedFillId, origin: allowedOrigin };
+  }
+
+  async submitProtectedCredential(protectedFillId, options = {}) {
+    const fill = this._protectedCredentialFill;
+    if (!this.hasProtectedCredentialFill() || fill?.id !== String(protectedFillId || '')) {
+      throw new Error('Protected credential fill is missing or expired.');
+    }
+    const page = fill.page;
+    if (!page || page.isClosed() || new URL(page.url()).origin !== fill.allowedOrigin) {
+      this._protectedCredentialFill = null;
+      throw new Error('The protected credential page changed before submission.');
+    }
+    try {
+      await page.locator(fill.submitSelector).evaluate((input) => {
+        const form = input.form;
+        if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+        else input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      await page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+      return {
+        success: true,
+        url: page.url(),
+        title: await page.title().catch(() => ''),
+        protected: false,
+      };
+    } finally {
+      if (fill.usernameSelector) {
+        await page.locator(fill.usernameSelector).fill('').catch(() => {});
+      }
+      if (fill.passwordSelector) {
+        await page.locator(fill.passwordSelector).fill('').catch(() => {});
+      }
+      this._protectedCredentialFill = null;
+    }
+  }
+
+  async cancelProtectedCredential(protectedFillId) {
+    const fill = this._protectedCredentialFill;
+    if (!fill || fill.id !== String(protectedFillId || '')) {
+      throw new Error('Protected credential fill is missing or expired.');
+    }
+    if (fill.usernameSelector) {
+      await fill.page?.locator(fill.usernameSelector).fill('').catch(() => {});
+    }
+    if (fill.passwordSelector) {
+      await fill.page?.locator(fill.passwordSelector).fill('').catch(() => {});
+    }
+    this._protectedCredentialFill = null;
+    return { success: true, protected: false };
   }
 
   async getCookies(options = {}) {
@@ -1323,6 +1429,7 @@ class BrowserController {
       this.page = null;
       this.context = null;
       this.browser = null;
+      this._protectedCredentialFill = null;
 
       if (context) {
         await context.close({ reason: 'Browser controller closed' }).catch(() => {});

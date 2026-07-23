@@ -69,3 +69,13 @@ test('Android providers are stable per user so concurrent starts share one contr
   assert.notEqual(first, other);
   assert.equal(created.length, 2);
 });
+
+test('browser and CLI requests resolve to separate VM backends', () => {
+  const manager = Object.create(RuntimeManager.prototype);
+  manager.browserBackend = { runtimeProfile: 'browser' };
+  manager.cliBackend = { runtimeProfile: 'cli' };
+
+  assert.equal(manager.resolveBackend(7, 'browser'), manager.browserBackend);
+  assert.equal(manager.resolveBackend(7, 'cli'), manager.cliBackend);
+  assert.notEqual(manager.browserBackend, manager.cliBackend);
+});

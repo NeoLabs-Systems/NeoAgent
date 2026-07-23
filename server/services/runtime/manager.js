@@ -10,6 +10,8 @@ const { DesktopProvider } = require('../desktop/provider');
 // Resource defaults for Docker VMs (overridable via env).
 const DEFAULT_VM_MEMORY_MB = Number(process.env.NEOAGENT_VM_MEMORY_MB ?? 2048);
 const DEFAULT_VM_CPUS = Number(process.env.NEOAGENT_VM_CPUS ?? 2);
+const DEFAULT_CLI_VM_MEMORY_MB = Number(process.env.NEOAGENT_CLI_VM_MEMORY_MB ?? 1024);
+const DEFAULT_CLI_VM_CPUS = Number(process.env.NEOAGENT_CLI_VM_CPUS ?? 1);
 
 class RuntimeManager {
   constructor(options = {}) {
@@ -19,13 +21,23 @@ class RuntimeManager {
     this.androidControllers = new Map();
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
-      runtimeProfile: 'browser_cli',
+      runtimeProfile: 'browser',
       memoryMb: DEFAULT_VM_MEMORY_MB,
       cpus: DEFAULT_VM_CPUS,
     });
     this.browserBackend = new LocalVmExecutionBackend({
-      runtimeProfile: 'browser_cli',
+      runtimeProfile: 'browser',
       vmManager: browserVmManager,
+      artifactStore: options.artifactStore,
+    });
+    const cliVmManager = options.cliVmManager || new DockerVMManager({
+      runtimeProfile: 'cli',
+      memoryMb: DEFAULT_CLI_VM_MEMORY_MB,
+      cpus: DEFAULT_CLI_VM_CPUS,
+    });
+    this.cliBackend = new LocalVmExecutionBackend({
+      runtimeProfile: 'cli',
+      vmManager: cliVmManager,
       artifactStore: options.artifactStore,
     });
 
@@ -77,25 +89,25 @@ class RuntimeManager {
 
   resolveBackend(userId, requested) {
     void userId;
-    void requested;
-    return this.browserBackend;
+    return requested === 'browser' ? this.browserBackend : this.cliBackend;
   }
 
   async executeCommand(userId, command, options = {}) {
-    const backend = this.resolveBackend(userId, 'browser_cli');
+    const backend = this.resolveBackend(userId, 'cli');
     return backend.executeCommand(userId, command, options);
   }
 
   hasVmForUser(userId, capability = 'browser') {
-    return Boolean(this.browserBackend?.vmManager?.hasVm?.(userId));
+    const backend = capability === 'browser' ? this.browserBackend : this.cliBackend;
+    return Boolean(backend?.vmManager?.hasVm?.(userId));
   }
 
   async killCommand(userId, pid, reason = 'aborted') {
-    return this.browserBackend.killCommand(userId, pid, reason);
+    return this.cliBackend.killCommand(userId, pid, reason);
   }
 
   async getCommandExecutorForUser(userId) {
-    return this.browserBackend.getCommandExecutorForUser(userId);
+    return this.cliBackend.getCommandExecutorForUser(userId);
   }
 
   async getBrowserProviderForUser(userId, options = {}) {
@@ -124,7 +136,7 @@ class RuntimeManager {
         kill: () => Promise.resolve(false),
       };
     }
-    const executor = await this.browserBackend.getCommandExecutorForUser(userId);
+    const executor = await this.cliBackend.getCommandExecutorForUser(userId);
     return { ...executor, backend: 'vm' };
   }
 
@@ -156,15 +168,17 @@ class RuntimeManager {
   }
 
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000, capability = 'browser') {
-    if (typeof this.browserBackend?.isGuestAgentReadyForUser !== 'function') {
+    const backend = capability === 'browser' ? this.browserBackend : this.cliBackend;
+    if (typeof backend?.isGuestAgentReadyForUser !== 'function') {
       return false;
     }
-    return this.browserBackend.isGuestAgentReadyForUser(userId, timeoutMs);
+    return backend.isGuestAgentReadyForUser(userId, timeoutMs);
   }
 
   async shutdown() {
     const tasks = [
       this.browserBackend?.shutdown?.(),
+      this.cliBackend?.shutdown?.(),
       ...Array.from(this.androidControllers.values(), (controller) => controller?.close?.()),
     ];
     this.androidControllers.clear();

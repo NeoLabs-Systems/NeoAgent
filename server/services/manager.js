@@ -34,6 +34,8 @@ const { DesktopCompanionRegistry } = require('./desktop/registry');
 const { DesktopProvider } = require('./desktop/provider');
 const { TimelineService } = require('./timeline/service');
 const { WearableService } = require('./wearable/service');
+const { BitwardenCli } = require('./credentials/bitwarden_cli');
+const { CredentialBroker } = require('./credentials/broker');
 const { getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -140,6 +142,17 @@ function createIntegrationManager(app) {
   );
   logServiceReady('Integration manager ready');
   return integrationManager;
+}
+
+function createCredentialBroker(app) {
+  const bitwardenCli = registerLocal(app, 'bitwardenCli', new BitwardenCli());
+  const credentialBroker = registerLocal(
+    app,
+    'credentialBroker',
+    new CredentialBroker({ bitwarden: bitwardenCli }),
+  );
+  logServiceReady('Credential broker ready');
+  return credentialBroker;
 }
 
 function createMemoryIngestionService(app, { memoryManager, integrationManager }) {
@@ -469,10 +482,12 @@ async function startServices(app, io) {
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);
+    const credentialBroker = createCredentialBroker(app);
     const integrationManager = createIntegrationManager(app);
     createMemoryIngestionService(app, { memoryManager, integrationManager });
     const browserController = createBrowserController(app, artifactStore);
     const runtimeManager = createRuntimeManager(app);
+    credentialBroker.setRuntimeManager(runtimeManager);
     const runtimeValidation = getRuntimeValidation(runtimeManager);
     registerLocal(app, 'runtimeValidation', runtimeValidation);
     if (!runtimeValidation.ready) {
@@ -749,6 +764,14 @@ async function stopServices(app) {
     tasks.push(
       app.locals.runtimeManager.shutdown().catch((err) => {
         console.error('[Runtime] Shutdown error:', getErrorMessage(err));
+      }),
+    );
+  }
+
+  if (app.locals.bitwardenCli) {
+    tasks.push(
+      app.locals.bitwardenCli.shutdown().catch((err) => {
+        console.error('[Bitwarden] Shutdown error:', getErrorMessage(err));
       }),
     );
   }

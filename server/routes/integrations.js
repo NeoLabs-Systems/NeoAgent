@@ -17,6 +17,14 @@ function getAuthProviderManager(req) {
   return req.app?.locals?.authProviderManager;
 }
 
+function getCredentialScope(req) {
+  const userId = Number(req.session.userId);
+  return {
+    userId,
+    agentId: resolveAgentId(userId, getAgentIdFromRequest(req)),
+  };
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -143,6 +151,100 @@ router.get('/oauth/callback', async (req, res) => {
 });
 
 router.use(requireAuth);
+
+router.post('/bitwarden/unlock', async (req, res) => {
+  try {
+    const cli = req.app?.locals?.bitwardenCli;
+    if (!cli) throw new Error('Bitwarden credential service is unavailable.');
+    const scope = getCredentialScope(req);
+    const status = await cli.unlock(
+      scope.userId,
+      scope.agentId,
+      req.body?.masterPassword,
+      req.body?.idleTimeoutMinutes,
+      { signal: req.signal },
+    );
+    res.json(status);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.post('/bitwarden/lock', async (req, res) => {
+  try {
+    const cli = req.app?.locals?.bitwardenCli;
+    if (!cli) throw new Error('Bitwarden credential service is unavailable.');
+    const scope = getCredentialScope(req);
+    res.json(await cli.lock(scope.userId, scope.agentId));
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.get('/bitwarden/items', async (req, res) => {
+  try {
+    const broker = req.app?.locals?.credentialBroker;
+    if (!broker) throw new Error('Credential broker is unavailable.');
+    const scope = getCredentialScope(req);
+    res.json({ items: await broker.listVaultItems(scope.userId, scope.agentId, { signal: req.signal }) });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.get('/bitwarden/bindings', (req, res) => {
+  try {
+    const broker = req.app?.locals?.credentialBroker;
+    if (!broker) throw new Error('Credential broker is unavailable.');
+    const scope = getCredentialScope(req);
+    res.json({ bindings: broker.listBindings(scope.userId, scope.agentId) });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.post('/bitwarden/bindings', async (req, res) => {
+  try {
+    const broker = req.app?.locals?.credentialBroker;
+    if (!broker) throw new Error('Credential broker is unavailable.');
+    const scope = getCredentialScope(req);
+    const binding = await broker.createBinding(scope.userId, scope.agentId, req.body, {
+      signal: req.signal,
+    });
+    res.status(201).json({ binding });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.put('/bitwarden/bindings/:bindingId', async (req, res) => {
+  try {
+    const broker = req.app?.locals?.credentialBroker;
+    if (!broker) throw new Error('Credential broker is unavailable.');
+    const scope = getCredentialScope(req);
+    const binding = await broker.updateBinding(
+      scope.userId,
+      scope.agentId,
+      req.params.bindingId,
+      req.body,
+      { signal: req.signal },
+    );
+    res.json({ binding });
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
+
+router.delete('/bitwarden/bindings/:bindingId', (req, res) => {
+  try {
+    const broker = req.app?.locals?.credentialBroker;
+    if (!broker) throw new Error('Credential broker is unavailable.');
+    const scope = getCredentialScope(req);
+    res.json(broker.deleteBinding(scope.userId, scope.agentId, req.params.bindingId));
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
+  }
+});
 
 router.get('/qr-image', async (req, res) => {
   try {

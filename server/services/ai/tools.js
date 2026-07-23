@@ -477,6 +477,58 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'credential_fill_browser',
+            description: 'Fill a configured credential binding into the current HTTPS login page without revealing the username or password. This enters protected mode; call credential_submit_browser or credential_cancel_browser next.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    binding_id: { type: 'string', description: 'Opaque browser credential binding ID from the Bitwarden integration summary.' },
+                    stage: { type: 'string', enum: ['both', 'username', 'password'], description: 'Use username then password in separate protected fills for multi-step sign-in pages; default both.' },
+                    username_selector: { type: 'string', description: 'CSS selector for the username or email input. Required for both or username stage.' },
+                    password_selector: { type: 'string', description: 'CSS selector for the password input. Required for both or password stage.' }
+                },
+                required: ['binding_id']
+            }
+        },
+        {
+            name: 'credential_submit_browser',
+            description: 'Submit an active protected credential fill. Normal browser capabilities resume after this call.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    protected_fill_id: { type: 'string', description: 'Opaque protected fill ID returned by credential_fill_browser.' }
+                },
+                required: ['protected_fill_id']
+            }
+        },
+        {
+            name: 'credential_cancel_browser',
+            description: 'Clear and cancel an active protected credential fill. Normal browser capabilities resume after this call.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    protected_fill_id: { type: 'string', description: 'Opaque protected fill ID returned by credential_fill_browser.' }
+                },
+                required: ['protected_fill_id']
+            }
+        },
+        {
+            name: 'credential_http_request',
+            description: 'Make an HTTPS request through a configured credential binding. Authentication is injected by the host and never exposed; only the bounded origin, path prefix, and methods are allowed.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    binding_id: { type: 'string', description: 'Opaque HTTP credential binding ID from the Bitwarden integration summary.' },
+                    method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
+                    url: { type: 'string', description: 'Full HTTPS URL allowed by the binding.' },
+                    headers: { type: 'object', description: 'Optional non-authentication request headers.' },
+                    body: { type: 'string', description: 'Optional request body.' },
+                    timeout_ms: { type: 'number', description: 'Optional timeout from 1000 to 120000 milliseconds.' }
+                },
+                required: ['binding_id', 'method', 'url']
+            }
+        },
+        {
             name: 'desktop_list_devices',
             description: 'List logged-in desktop companion devices available for local PC control.',
             parameters: { type: 'object', properties: {} }
@@ -1684,6 +1736,7 @@ async function executeTool(toolName, args, context, engine) {
     const socialVideo = () => app?.locals?.socialVideoService || null;
     const socialReach = () => app?.locals?.socialReachService || null;
     const widgets = () => app?.locals?.widgetService || null;
+    const credentials = () => app?.locals?.credentialBroker || null;
     const artifactStore = app?.locals?.artifactStore || null;
 
     const integrationManager = integrations();
@@ -1807,6 +1860,30 @@ async function executeTool(toolName, args, context, engine) {
             const script = args.script ?? args.javascript;
             if (!script) return { error: 'browser_evaluate requires a "script" argument' };
             return { ...await provider.evaluate(script, { signal }), backend };
+        }
+
+        case 'credential_fill_browser': {
+            const broker = credentials();
+            if (!broker) return { error: 'Credential broker is unavailable.' };
+            return broker.fillBrowser(userId, agentId, args, { runId, signal });
+        }
+
+        case 'credential_submit_browser': {
+            const broker = credentials();
+            if (!broker) return { error: 'Credential broker is unavailable.' };
+            return broker.submitProtected(userId, agentId, args.protected_fill_id, { runId, signal });
+        }
+
+        case 'credential_cancel_browser': {
+            const broker = credentials();
+            if (!broker) return { error: 'Credential broker is unavailable.' };
+            return broker.cancelProtected(userId, agentId, args.protected_fill_id, { runId, signal });
+        }
+
+        case 'credential_http_request': {
+            const broker = credentials();
+            if (!broker) return { error: 'Credential broker is unavailable.' };
+            return broker.httpRequest(userId, agentId, args, { runId, signal });
         }
 
         case 'android_start_emulator': {

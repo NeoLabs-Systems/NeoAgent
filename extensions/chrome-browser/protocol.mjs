@@ -22,6 +22,9 @@ export const COMMANDS = Object.freeze({
   CLOSE: 'close',
   GET_PAGE_INFO: 'getPageInfo',
   GET_COOKIES: 'getCookies',
+  FILL_CREDENTIAL: 'fillCredential',
+  SUBMIT_CREDENTIAL: 'submitCredential',
+  CANCEL_CREDENTIAL: 'cancelCredential',
   CANCEL_COMMAND: 'cancelCommand',
 });
 
@@ -217,11 +220,15 @@ const PAGE_ACCESS_COMMANDS = new Set([
   COMMANDS.EVALUATE,
   COMMANDS.SCREENSHOT,
   COMMANDS.GET_PAGE_INFO,
+  COMMANDS.FILL_CREDENTIAL,
+  COMMANDS.SUBMIT_CREDENTIAL,
+  COMMANDS.CANCEL_CREDENTIAL,
 ]);
 
 export function createBrowserProtocol(chromeApi, options = {}) {
   let attachedTabId = null;
   let activeTabId = null;
+  let protectedCredentialFill = null;
   const pausedRequests = new Map();
   const maxPausedRequests = Math.max(1, Math.min(Number(options.maxPausedRequests) || 256, 1024));
   const validateUrl = typeof options.validateUrl === 'function'
@@ -586,6 +593,27 @@ export function createBrowserProtocol(chromeApi, options = {}) {
   async function run(command, payload = {}, options = {}) {
     const signal = options.signal || null;
     throwIfAborted(signal);
+    if (protectedCredentialFill?.expiresAt <= Date.now()) {
+      const expired = protectedCredentialFill;
+      await evalJs(`(() => {
+        for (const selector of [${jsString(expired.usernameSelector)}, ${jsString(expired.passwordSelector)}].filter(Boolean)) {
+          const el = document.querySelector(selector);
+          if (el && 'value' in el) el.value = '';
+        }
+      })()`, {}, signal).catch(() => {});
+      protectedCredentialFill = null;
+    }
+    if (
+      protectedCredentialFill
+      && ![
+        COMMANDS.GET_PAGE_INFO,
+        COMMANDS.SUBMIT_CREDENTIAL,
+        COMMANDS.CANCEL_CREDENTIAL,
+        COMMANDS.CLOSE,
+      ].includes(command)
+    ) {
+      throw new Error('Browser control is paused while a protected credential fill is active. Submit or cancel it first.');
+    }
     if (PAGE_ACCESS_COMMANDS.has(command)) {
       await assertCurrentPageAllowed(signal);
     }
@@ -694,6 +722,107 @@ export function createBrowserProtocol(chromeApi, options = {}) {
         throwIfAborted(signal);
         if (payload.pressEnter) await typeKey('Enter', signal);
         return pageSnapshot({ screenshot: payload.screenshot !== false }, signal);
+      case COMMANDS.FILL_CREDENTIAL: {
+        if (protectedCredentialFill) throw new Error('A protected credential fill is already active.');
+        const allowedOrigin = new URL(String(payload.allowedOrigin || '')).origin;
+        const tab = await currentTab(signal);
+        if (new URL(String(tab.url || '')).origin !== allowedOrigin) {
+          throw new Error('The browser origin changed before credential fill.');
+        }
+        const usernameSelector = String(payload.usernameSelector || '').trim();
+        const passwordSelector = String(payload.passwordSelector || '').trim();
+        if (!usernameSelector && !passwordSelector) throw new Error('At least one credential field selector is required.');
+        await attach(signal);
+        const marker = await markCurrentDocument(signal);
+        await send('Page.reload', {}, signal);
+        await waitForDocumentReplacement(marker, 30000, signal);
+        await waitForLoad(30000, signal);
+        const reloaded = await currentTab(signal);
+        if (new URL(String(reloaded.url || '')).origin !== allowedOrigin) {
+          throw new Error('The browser origin changed while preparing credential fill.');
+        }
+        if (usernameSelector) {
+          await waitForSelector(usernameSelector, 10000, signal);
+          await evalJs(`(() => {
+            const el = document.querySelector(${jsString(usernameSelector)});
+            if (!el) throw new Error('Username field not found.');
+            el.value = ${jsString(String(payload.username || ''))};
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          })()`, {}, signal);
+        }
+        if (passwordSelector) {
+          await waitForSelector(passwordSelector, 10000, signal);
+          await evalJs(`(() => {
+            const el = document.querySelector(${jsString(passwordSelector)});
+            if (!el) throw new Error('Password field not found.');
+            el.value = ${jsString(String(payload.password || ''))};
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          })()`, {}, signal);
+        }
+        const protectedFillId = globalThis.crypto.randomUUID();
+        protectedCredentialFill = {
+          id: protectedFillId,
+          allowedOrigin,
+          usernameSelector,
+          passwordSelector,
+          submitSelector: passwordSelector || usernameSelector,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        };
+        return { success: true, protectedFillId, origin: allowedOrigin };
+      }
+      case COMMANDS.SUBMIT_CREDENTIAL: {
+        const fill = protectedCredentialFill;
+        if (!fill || fill.id !== String(payload.protectedFillId || '')) {
+          throw new Error('Protected credential fill is missing or expired.');
+        }
+        const tab = await currentTab(signal);
+        if (new URL(String(tab.url || '')).origin !== fill.allowedOrigin) {
+          protectedCredentialFill = null;
+          throw new Error('The protected credential page changed before submission.');
+        }
+        try {
+          await evalJs(`(() => {
+            const el = document.querySelector(${jsString(fill.submitSelector)});
+            if (!el) throw new Error('Credential field not found.');
+            const form = el.form;
+            if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+            else el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          })()`, {}, signal);
+          await delay(500, signal);
+          await waitForLoad(10000, signal).catch(() => {});
+          const resultTab = await currentTab(signal);
+          return {
+            success: true,
+            url: resultTab.url || null,
+            title: resultTab.title || null,
+            protected: false,
+          };
+        } finally {
+          await evalJs(`(() => {
+            for (const selector of [${jsString(fill.usernameSelector)}, ${jsString(fill.passwordSelector)}].filter(Boolean)) {
+              const el = document.querySelector(selector);
+              if (el && 'value' in el) el.value = '';
+            }
+          })()`, {}, signal).catch(() => {});
+          protectedCredentialFill = null;
+        }
+      }
+      case COMMANDS.CANCEL_CREDENTIAL: {
+        const fill = protectedCredentialFill;
+        if (!fill || fill.id !== String(payload.protectedFillId || '')) {
+          throw new Error('Protected credential fill is missing or expired.');
+        }
+        await evalJs(`(() => {
+          for (const selector of [${jsString(fill.usernameSelector)}, ${jsString(fill.passwordSelector)}].filter(Boolean)) {
+            const el = document.querySelector(selector);
+            if (el && 'value' in el) el.value = '';
+          }
+        })()`, {}, signal).catch(() => {});
+        protectedCredentialFill = null;
+        return { success: true, protected: false };
+      }
       case COMMANDS.PRESS_KEY:
         await typeKey(payload.key, signal);
         throwIfAborted(signal);
@@ -742,9 +871,21 @@ export function createBrowserProtocol(chromeApi, options = {}) {
         return { screenshotDataUrl: await screenshotDataUrl(payload, signal), fullPage: payload.fullPage === true };
       case COMMANDS.GET_PAGE_INFO: {
         const tab = await currentTab(signal);
-        return { url: tab.url || null, title: tab.title || null };
+        return {
+          url: tab.url || null,
+          title: tab.title || null,
+          protectedCredentialFill: Boolean(protectedCredentialFill),
+        };
       }
       case COMMANDS.CLOSE:
+        if (protectedCredentialFill) {
+          await evalJs(`(() => {
+            for (const selector of [${jsString(protectedCredentialFill.usernameSelector)}, ${jsString(protectedCredentialFill.passwordSelector)}].filter(Boolean)) {
+              const el = document.querySelector(selector);
+              if (el && 'value' in el) el.value = '';
+            }
+          })()`, {}, signal).catch(() => {});
+        }
         if (attachedTabId != null) {
           abortPausedRequests(attachedTabId, new Error('Browser control closed.'));
           await optionalResult(
@@ -754,6 +895,7 @@ export function createBrowserProtocol(chromeApi, options = {}) {
           );
         }
         attachedTabId = null;
+        protectedCredentialFill = null;
         return { success: true };
       default:
         throw new Error(`Unsupported command: ${command}`);

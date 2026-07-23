@@ -173,6 +173,31 @@ test('extension provider keeps AbortSignal out of WebSocket payloads', async () 
   assert.equal(calls[0].options.signal, controller.signal);
 });
 
+test('extension credential operations return opaque protected state', async () => {
+  const calls = [];
+  const registry = {
+    isConnected: () => true,
+    async dispatch(_userId, command, payload) {
+      calls.push({ command, payload });
+      if (command === 'fillCredential') {
+        return { success: true, protectedFillId: 'protected-extension-1' };
+      }
+      return { success: true, protected: false };
+    },
+  };
+  const provider = new ExtensionBrowserProvider({ registry, userId: 'user-1' });
+  const result = await provider.fillCredential({
+    usernameSelector: '#email',
+    passwordSelector: '#password',
+    username: 'private@example.test',
+    password: 'never-return-this',
+    allowedOrigin: 'https://accounts.example.test',
+  });
+  assert.equal(JSON.stringify(result).includes('never-return-this'), false);
+  await provider.submitProtectedCredential(result.protectedFillId);
+  assert.deepEqual(calls.map((call) => call.command), ['fillCredential', 'submitCredential']);
+});
+
 test('extension provider validates screenshot bytes before creating an artifact', async () => {
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

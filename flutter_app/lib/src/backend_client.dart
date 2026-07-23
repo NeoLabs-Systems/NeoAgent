@@ -1359,6 +1359,84 @@ class BackendClient {
     return _asMap(_decodeJson(response.body));
   }
 
+  Future<Map<String, dynamic>> unlockBitwarden(
+    String baseUrl, {
+    required String masterPassword,
+    required int idleTimeoutMinutes,
+    String? agentId,
+  }) {
+    return postMap(
+      baseUrl,
+      '/api/integrations/bitwarden/unlock',
+      _withAgentId(<String, dynamic>{
+        'masterPassword': masterPassword,
+        'idleTimeoutMinutes': idleTimeoutMinutes,
+      }, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> lockBitwarden(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return postMap(
+      baseUrl,
+      '/api/integrations/bitwarden/lock',
+      _withAgentId(<String, dynamic>{}, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchBitwardenItems(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/integrations/bitwarden/items', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchCredentialBindings(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/integrations/bitwarden/bindings', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> createCredentialBinding(
+    String baseUrl, {
+    required Map<String, dynamic> binding,
+    String? agentId,
+  }) {
+    return postMap(
+      baseUrl,
+      '/api/integrations/bitwarden/bindings',
+      _withAgentId(binding, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteCredentialBinding(
+    String baseUrl,
+    String bindingId, {
+    String? agentId,
+  }) async {
+    final response = await _httpClient.delete(
+      _resolveUri(
+        baseUrl,
+        _withAgentQuery(
+          '/api/integrations/bitwarden/bindings/${Uri.encodeComponent(bindingId)}',
+          agentId,
+        ),
+      ),
+      headers: const <String, String>{'Accept': 'application/json'},
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   Future<Map<String, dynamic>> fetchMessagingStatus(
     String baseUrl, {
     String? agentId,

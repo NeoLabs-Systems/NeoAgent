@@ -23,7 +23,7 @@ class ToolApprovalRequest {
       category: json['category']?.toString() ?? 'unknown',
       expiresAt: json['expiresAt'] != null
           ? DateTime.tryParse(json['expiresAt'].toString()) ??
-              DateTime.now().add(const Duration(seconds: 30))
+                DateTime.now().add(const Duration(seconds: 30))
           : DateTime.now().add(const Duration(seconds: 30)),
     );
   }
@@ -89,6 +89,14 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     color: Color(0xFF8E24AA),
     riskLevel: 'high',
   ),
+  'credential_use': _CategoryInfo(
+    label: 'Credential Use',
+    subtitle:
+        'Fill approved logins or authenticate requests without showing secrets to the AI.',
+    icon: Icons.password_rounded,
+    color: Color(0xFF5E35B1),
+    riskLevel: 'high',
+  ),
   'network_write': _CategoryInfo(
     label: 'Network Write Requests',
     subtitle: 'Send POST / PUT / DELETE requests to external APIs.',
@@ -105,7 +113,8 @@ const _kCategoryInfo = <String, _CategoryInfo>{
   ),
   'external': _CategoryInfo(
     label: 'External & MCP Tools',
-    subtitle: 'Tools not built into NeoAgent, including connected MCP servers and custom tool providers.',
+    subtitle:
+        'Tools not built into NeoAgent, including connected MCP servers and custom tool providers.',
     icon: Icons.hub_rounded,
     color: Color(0xFF6D4C41),
     riskLevel: 'high',
@@ -146,7 +155,9 @@ class _SecurityNotificationService {
     if (_plugin != null) return _plugin;
     try {
       final plugin = FlutterLocalNotificationsPlugin();
-      final androidSettings = const AndroidInitializationSettings('@mipmap/ic_launcher');
+      final androidSettings = const AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
       final darwinSettings = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -156,10 +167,13 @@ class _SecurityNotificationService {
             'tool_approval',
             actions: <DarwinNotificationAction>[
               DarwinNotificationAction.plain(_approveActionId, 'Allow'),
-              DarwinNotificationAction.plain(_denyActionId, 'Deny',
-                  options: <DarwinNotificationActionOption>{
-                    DarwinNotificationActionOption.destructive,
-                  }),
+              DarwinNotificationAction.plain(
+                _denyActionId,
+                'Deny',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
             ],
           ),
         ],
@@ -171,7 +185,8 @@ class _SecurityNotificationService {
           macOS: darwinSettings,
         ),
         onDidReceiveNotificationResponse: _onNotificationResponse,
-        onDidReceiveBackgroundNotificationResponse: _onBackgroundNotificationResponse,
+        onDidReceiveBackgroundNotificationResponse:
+            _onBackgroundNotificationResponse,
       );
       _plugin = plugin;
       return plugin;
@@ -189,7 +204,11 @@ class _SecurityNotificationService {
     _handleNotificationAction(response.id, response.actionId, response.payload);
   }
 
-  static void _handleNotificationAction(int? id, String? actionId, String? payload) {
+  static void _handleNotificationAction(
+    int? id,
+    String? actionId,
+    String? payload,
+  ) {
     // No-op in background; the app will handle it on resume via foreground listener.
     // Foreground case is handled directly by the approval gate service.
   }
@@ -199,10 +218,14 @@ class _SecurityNotificationService {
     if (plugin == null) return;
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
       await plugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.requestNotificationsPermission();
       await plugin
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
           ?.requestPermissions(alert: true, badge: false, sound: false);
     }
   }
@@ -237,7 +260,11 @@ class _SecurityNotificationService {
       req.approvalId.hashCode.abs() % 100000,
       '${info.label} approval needed',
       body,
-      NotificationDetails(android: androidDetails, iOS: darwinDetails, macOS: darwinDetails),
+      NotificationDetails(
+        android: androidDetails,
+        iOS: darwinDetails,
+        macOS: darwinDetails,
+      ),
       payload: req.approvalId,
     );
   }
@@ -272,14 +299,14 @@ class _MainSecurityState extends State<MainSecurity> {
 
   Future<void> _load() async {
     try {
-      final result = await widget.controller.backendClient.fetchSecurityPolicies(
-        widget.controller.backendUrl,
-      );
+      final result = await widget.controller.backendClient
+          .fetchSecurityPolicies(widget.controller.backendUrl);
       final raw = result['policies'];
       Map<String, String> loaded = const <String, String>{};
       if (raw is Map) {
         loaded = Map<String, String>.from(
-            raw.map((k, v) => MapEntry(k.toString(), v.toString())));
+          raw.map((k, v) => MapEntry(k.toString(), v.toString())),
+        );
       }
       setState(() {
         _policies = loaded;
@@ -287,7 +314,10 @@ class _MainSecurityState extends State<MainSecurity> {
         _loading = false;
       });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -296,13 +326,17 @@ class _MainSecurityState extends State<MainSecurity> {
     setState(() => _mode = mode);
     try {
       await widget.controller.backendClient.saveSecurityMode(
-        widget.controller.backendUrl, mode,
+        widget.controller.backendUrl,
+        mode,
       );
     } catch (e) {
       setState(() => _mode = prev);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: _danger),
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            backgroundColor: _danger,
+          ),
         );
       }
     }
@@ -313,13 +347,20 @@ class _MainSecurityState extends State<MainSecurity> {
     setState(() => _policies = {..._policies, category: policy});
     try {
       await widget.controller.backendClient.saveSecurityPolicy(
-        widget.controller.backendUrl, category: category, policy: policy,
+        widget.controller.backendUrl,
+        category: category,
+        policy: policy,
       );
     } catch (e) {
-      setState(() => _policies = {..._policies, category: prev ?? 'require_approval'});
+      setState(
+        () => _policies = {..._policies, category: prev ?? 'require_approval'},
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: _danger),
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            backgroundColor: _danger,
+          ),
         );
       }
     }
@@ -342,46 +383,50 @@ class _MainSecurityState extends State<MainSecurity> {
       body: _loading
           ? const Center(child: CircularProgressIndicator.adaptive())
           : _error != null
-              ? _ErrorView(error: _error!, onRetry: _load)
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  children: <Widget>[
-                    _GlobalModeCard(mode: _mode, onChanged: _setMode),
-                    const SizedBox(height: 16),
-                    if (_mode == 'allow_all')
-                      _InfoBanner(
-                        icon: Icons.warning_amber_rounded,
-                        color: colorScheme.errorContainer,
-                        textColor: colorScheme.onErrorContainer,
-                        message: 'All tools are allowed — the agent can use any capability without asking. '
-                            'Switch to "Default" or "Always ask" to re-enable approval checks.',
-                      )
-                    else ...<Widget>[
-                      if (_mode == 'always_ask')
-                        _InfoBanner(
-                          icon: Icons.info_outline_rounded,
-                          color: colorScheme.secondaryContainer,
-                          textColor: colorScheme.onSecondaryContainer,
-                          message: 'The agent will ask before every sensitive tool, '
-                              'regardless of per-category settings below.',
-                        ),
-                      const SizedBox(height: 4),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4, bottom: 6),
-                        child: _SectionTitle('Per-category permissions'),
+          ? _ErrorView(error: _error!, onRetry: _load)
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: <Widget>[
+                _GlobalModeCard(mode: _mode, onChanged: _setMode),
+                const SizedBox(height: 16),
+                if (_mode == 'allow_all')
+                  _InfoBanner(
+                    icon: Icons.warning_amber_rounded,
+                    color: colorScheme.errorContainer,
+                    textColor: colorScheme.onErrorContainer,
+                    message:
+                        'All tools are allowed — the agent can use any capability without asking. '
+                        'Switch to "Default" or "Always ask" to re-enable approval checks.',
+                  )
+                else ...<Widget>[
+                  if (_mode == 'always_ask')
+                    _InfoBanner(
+                      icon: Icons.info_outline_rounded,
+                      color: colorScheme.secondaryContainer,
+                      textColor: colorScheme.onSecondaryContainer,
+                      message:
+                          'The agent will ask before every sensitive tool, '
+                          'regardless of per-category settings below.',
+                    ),
+                  const SizedBox(height: 4),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4, bottom: 6),
+                    child: _SectionTitle('Per-category permissions'),
+                  ),
+                  ..._policies.entries.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _PolicyCard(
+                        category: e.key,
+                        policy: e.value,
+                        dimmed: _mode == 'always_ask',
+                        onChanged: (p) => _setPolicy(e.key, p),
                       ),
-                      ..._policies.entries.map((e) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _PolicyCard(
-                              category: e.key,
-                              policy: e.value,
-                              dimmed: _mode == 'always_ask',
-                              onChanged: (p) => _setPolicy(e.key, p),
-                            ),
-                          )),
-                    ],
-                  ],
-                ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -399,11 +444,22 @@ class _ErrorView extends StatelessWidget {
         children: <Widget>[
           Icon(Icons.error_outline, size: 48, color: _danger),
           const SizedBox(height: 12),
-          Text('Failed to load policies', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Failed to load policies',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 6),
-          Text(error, style: TextStyle(fontSize: 12, color: _textSecondary), textAlign: TextAlign.center),
+          Text(
+            error,
+            style: TextStyle(fontSize: 12, color: _textSecondary),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
-          OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
         ],
       ),
     );
@@ -427,13 +483,21 @@ class _InfoBanner extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(icon, color: textColor, size: 18),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: TextStyle(color: textColor, fontSize: 13))),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: textColor, fontSize: 13),
+            ),
+          ),
         ],
       ),
     );
@@ -463,7 +527,10 @@ class _GlobalModeCard extends StatelessWidget {
               children: <Widget>[
                 Icon(Icons.tune_rounded, size: 18, color: _accent),
                 const SizedBox(width: 8),
-                const Text('Global security mode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const Text(
+                  'Global security mode',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -471,7 +538,8 @@ class _GlobalModeCard extends StatelessWidget {
               value: 'allow_all',
               current: mode,
               label: 'Allow all',
-              subtitle: 'No approval prompts — agent runs without interruption.',
+              subtitle:
+                  'No approval prompts — agent runs without interruption.',
               icon: Icons.lock_open_rounded,
               color: _warning,
               onTap: () => onChanged('allow_all'),
@@ -545,13 +613,18 @@ class _ModeOption extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(label,
-                      style: TextStyle(
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 13,
-                        color: selected ? color : null,
-                      )),
-                  Text(subtitle, style: TextStyle(fontSize: 11, color: _textSecondary)),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                      color: selected ? color : null,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: _textSecondary),
+                  ),
                 ],
               ),
             ),
@@ -609,20 +682,37 @@ class _PolicyCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(info.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text(info.subtitle, style: TextStyle(fontSize: 11, color: _textSecondary)),
+                        Text(
+                          info.label,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          info.subtitle,
+                          style: TextStyle(fontSize: 11, color: _textSecondary),
+                        ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: riskColor.withAlpha(20),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       info.riskLevel.toUpperCase(),
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: riskColor, letterSpacing: 0.5),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: riskColor,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ],
@@ -630,16 +720,34 @@ class _PolicyCard extends StatelessWidget {
               const SizedBox(height: 12),
               SegmentedButton<String>(
                 segments: const <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'deny', label: Text('Block'), icon: Icon(Icons.block_rounded, size: 13)),
-                  ButtonSegment<String>(value: 'require_approval', label: Text('Ask me'), icon: Icon(Icons.pan_tool_outlined, size: 13)),
-                  ButtonSegment<String>(value: 'allow', label: Text('Allow'), icon: Icon(Icons.check_rounded, size: 13)),
-                  ButtonSegment<String>(value: 'allow_always', label: Text('Always'), icon: Icon(Icons.verified_rounded, size: 13)),
+                  ButtonSegment<String>(
+                    value: 'deny',
+                    label: Text('Block'),
+                    icon: Icon(Icons.block_rounded, size: 13),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'require_approval',
+                    label: Text('Ask me'),
+                    icon: Icon(Icons.pan_tool_outlined, size: 13),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'allow',
+                    label: Text('Allow'),
+                    icon: Icon(Icons.check_rounded, size: 13),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'allow_always',
+                    label: Text('Always'),
+                    icon: Icon(Icons.verified_rounded, size: 13),
+                  ),
                 ],
                 selected: <String>{policy},
                 onSelectionChanged: dimmed ? null : (s) => onChanged(s.first),
                 style: ButtonStyle(
                   visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11)),
+                  textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 11),
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -659,9 +767,18 @@ class _PolicyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, color) = switch (policy) {
-      'deny' => ('Completely blocked — the agent cannot use this category.', _danger),
-      'require_approval' => ('Agent pauses and asks you before running.', _warning),
-      'allow' => ('Allowed for this run — will ask again next session.', _accentAlt),
+      'deny' => (
+        'Completely blocked — the agent cannot use this category.',
+        _danger,
+      ),
+      'require_approval' => (
+        'Agent pauses and asks you before running.',
+        _warning,
+      ),
+      'allow' => (
+        'Allowed for this run — will ask again next session.',
+        _accentAlt,
+      ),
       'allow_always' => ('Permanently allowed — never asks again.', _info),
       _ => ('', _textSecondary),
     };
@@ -713,7 +830,9 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     });
 
     // Cancel the notification now that the sheet is showing
-    _SecurityNotificationService.cancelApprovalNotification(widget.request.approvalId);
+    _SecurityNotificationService.cancelApprovalNotification(
+      widget.request.approvalId,
+    );
   }
 
   @override
@@ -744,10 +863,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
         widget.controller.clearPendingApproval();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.message),
-              backgroundColor: _warning,
-            ),
+            SnackBar(content: Text(error.message), backgroundColor: _warning),
           );
         }
       }
@@ -769,7 +885,15 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
   }
 
   String _redact(String key, dynamic value) {
-    const sensitive = <String>['token', 'secret', 'password', 'key', 'api_key', 'auth', 'credential'];
+    const sensitive = <String>[
+      'token',
+      'secret',
+      'password',
+      'key',
+      'api_key',
+      'auth',
+      'credential',
+    ];
     if (sensitive.any((s) => key.toLowerCase().contains(s))) return '••••••';
     return value?.toString() ?? 'null';
   }
@@ -793,7 +917,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 38, height: 4,
+                width: 38,
+                height: 4,
                 decoration: BoxDecoration(
                   color: colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
@@ -807,7 +932,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                 children: <Widget>[
                   // Countdown ring
                   SizedBox(
-                    width: 52, height: 52,
+                    width: 52,
+                    height: 52,
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
@@ -816,7 +942,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           builder: (_, __) => CircularProgressIndicator(
                             value: 1 - _ringController.value,
                             strokeWidth: 3.5,
-                            backgroundColor: colorScheme.surfaceContainerHighest,
+                            backgroundColor:
+                                colorScheme.surfaceContainerHighest,
                             color: ringColor,
                           ),
                         ),
@@ -837,8 +964,13 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const Text('Approval required',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                        const Text(
+                          'Approval required',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Row(
                           children: <Widget>[
@@ -848,15 +980,21 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                                 color: info.color.withAlpha(22),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Icon(info.icon, size: 13, color: info.color),
+                              child: Icon(
+                                info.icon,
+                                size: 13,
+                                color: info.color,
+                              ),
                             ),
                             const SizedBox(width: 6),
-                            Text(info.label,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: info.color,
-                                  fontWeight: FontWeight.w600,
-                                )),
+                            Text(
+                              info.label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: info.color,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -882,8 +1020,12 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                     Row(
                       children: <Widget>[
                         Container(
-                          width: 7, height: 7,
-                          decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: info.color,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -932,7 +1074,9 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                             label: const Text('Deny'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: colorScheme.error,
-                              side: BorderSide(color: colorScheme.error.withAlpha(100)),
+                              side: BorderSide(
+                                color: colorScheme.error.withAlpha(100),
+                              ),
                             ),
                             onPressed: () => _decide('denied', 'once'),
                           ),
@@ -940,7 +1084,10 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.check_circle_outline, size: 15),
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              size: 15,
+                            ),
                             label: const Text('Allow once'),
                             onPressed: () => _decide('approved', 'once'),
                           ),
@@ -954,7 +1101,9 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.history_rounded, size: 15),
                             label: const Text('Allow session'),
-                            style: OutlinedButton.styleFrom(foregroundColor: _info),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _info,
+                            ),
                             onPressed: () => _decide('approved', 'session'),
                           ),
                         ),
@@ -963,7 +1112,9 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           child: FilledButton.icon(
                             icon: const Icon(Icons.verified_rounded, size: 15),
                             label: const Text('Always allow'),
-                            style: FilledButton.styleFrom(backgroundColor: info.color),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: info.color,
+                            ),
                             onPressed: () => _decide('approved', 'always'),
                           ),
                         ),
@@ -973,7 +1124,10 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                     Text(
                       '"Always allow" saves the policy permanently — you can change it in Settings.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),

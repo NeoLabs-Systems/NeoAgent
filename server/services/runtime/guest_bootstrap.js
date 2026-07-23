@@ -7,6 +7,20 @@ const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const GUEST_BOOTSTRAP_ROOT = path.join(VM_ROOT, 'guest-bootstrap');
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const GUEST_PAYLOAD_PROFILES = Object.freeze({
+  browser: [
+    { source: 'server/guest-agent.browser.package.json', target: 'package.json' },
+    { source: 'runtime/env.js', target: 'runtime/env.js' },
+    { source: 'runtime/paths.js', target: 'runtime/paths.js' },
+    { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
+    { source: 'server/services/browser', target: 'server/services/browser' },
+  ],
+  cli: [
+    { source: 'server/guest-agent.cli.package.json', target: 'package.json' },
+    { source: 'runtime/env.js', target: 'runtime/env.js' },
+    { source: 'runtime/paths.js', target: 'runtime/paths.js' },
+    { source: 'server/guest_agent.js', target: 'server/guest_agent.js' },
+    { source: 'server/services/cli', target: 'server/services/cli' },
+  ],
   browser_cli: [
     { source: 'server/guest-agent.browser.package.json', target: 'package.json' },
     { source: 'runtime/env.js', target: 'runtime/env.js' },
@@ -32,7 +46,10 @@ function encodeGuestToken(value) {
 }
 
 function normalizeRuntimeProfile(runtimeProfile) {
-  return runtimeProfile === 'android' ? 'android' : 'browser_cli';
+  const normalized = String(runtimeProfile || '').trim();
+  return ['android', 'browser', 'cli', 'browser_cli'].includes(normalized)
+    ? normalized
+    : 'browser_cli';
 }
 
 // Copy the guest runtime source files for a profile into `stagingRoot`, producing
@@ -84,10 +101,12 @@ function createCloudInitScript({
   runtimeProfile = 'browser_cli',
 }) {
   const normalizedProfile = normalizeRuntimeProfile(runtimeProfile);
-  const includeBrowser = normalizedProfile === 'browser_cli';
+  const includeBrowser = ['browser', 'browser_cli'].includes(normalizedProfile);
   const guestUtilityPackages = includeBrowser
     ? 'curl ca-certificates gnupg git rsync unzip xvfb dbus-x11'
-    : 'curl ca-certificates gnupg git rsync unzip dbus-x11 adb';
+    : normalizedProfile === 'android'
+      ? 'curl ca-certificates gnupg git rsync unzip dbus-x11 adb'
+      : 'curl ca-certificates gnupg git rsync unzip';
   const guestTokenB64 = encodeGuestToken(guestToken);
   const envFile = '/etc/neoagent/neoagent.env';
   const appDir = '/opt/neoagent';
@@ -208,7 +227,7 @@ function createCloudInitUserData({
   runtimeProfile = 'browser_cli',
 }) {
   const normalizedProfile = normalizeRuntimeProfile(runtimeProfile);
-  const includeBrowser = normalizedProfile === 'browser_cli';
+  const includeBrowser = ['browser', 'browser_cli'].includes(normalizedProfile);
   const guestAgentInnerCommand = includeBrowser
     ? 'set -a; . /etc/neoagent/neoagent.env; set +a; cd /opt/neoagent && env DISPLAY=:99 PLAYWRIGHT_BROWSERS_PATH=/opt/neoagent/.playwright-browsers /usr/bin/env node server/guest_agent.js 2>&1 | tee -a /var/log/neoagent-guest-agent.log >/dev/console'
     : 'set -a; . /etc/neoagent/neoagent.env; set +a; cd /opt/neoagent && /usr/bin/env node server/guest_agent.js 2>&1 | tee -a /var/log/neoagent-guest-agent.log >/dev/console';

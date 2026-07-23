@@ -184,3 +184,44 @@ test('current-referrer navigation surfaces a failed navigation wait', async () =
     (error) => error === waitError,
   );
 });
+
+test('protected credential fill never returns secrets and clears fields after submit', async () => {
+  const controller = controllerWithValidator(async () => ({ allowed: true }));
+  const values = new Map();
+  const page = {
+    isClosed: () => false,
+    url: () => 'https://accounts.example.test/login',
+    async reload() {},
+    async waitForSelector() {},
+    locator(selector) {
+      return {
+        async fill(value) { values.set(selector, value); },
+        async evaluate(callback) {
+          callback({
+            form: { requestSubmit() {} },
+            dispatchEvent() {},
+          });
+        },
+      };
+    },
+    async waitForLoadState() {},
+    async title() { return 'Account'; },
+  };
+  controller.ensurePage = async () => page;
+
+  const result = await controller.fillCredential({
+    usernameSelector: '#email',
+    passwordSelector: '#password',
+    username: 'private@example.test',
+    password: 'never-return-this',
+    allowedOrigin: 'https://accounts.example.test',
+  });
+  assert.equal(JSON.stringify(result).includes('never-return-this'), false);
+  assert.equal(controller.hasProtectedCredentialFill(), true);
+  assert.equal(values.get('#password'), 'never-return-this');
+
+  const submitted = await controller.submitProtectedCredential(result.protectedFillId);
+  assert.equal(submitted.protected, false);
+  assert.equal(values.get('#password'), '');
+  assert.equal(controller.hasProtectedCredentialFill(), false);
+});

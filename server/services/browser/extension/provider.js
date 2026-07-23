@@ -150,6 +150,18 @@ class ExtensionBrowserProvider {
     return this.type(selector, String(value), options);
   }
 
+  fillCredential(input, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.FILL_CREDENTIAL, input, options);
+  }
+
+  submitProtectedCredential(protectedFillId, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.SUBMIT_CREDENTIAL, { protectedFillId }, options);
+  }
+
+  cancelProtectedCredential(protectedFillId, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.CANCEL_CREDENTIAL, { protectedFillId }, options);
+  }
+
   extractContent(options = {}) {
     return this.extract(options.selector, options.attribute, options.all, options);
   }

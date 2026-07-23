@@ -25,6 +25,9 @@ const EXTENSION_COMMANDS = Object.freeze({
   CLOSE: 'close',
   GET_PAGE_INFO: 'getPageInfo',
   GET_COOKIES: 'getCookies',
+  FILL_CREDENTIAL: 'fillCredential',
+  SUBMIT_CREDENTIAL: 'submitCredential',
+  CANCEL_CREDENTIAL: 'cancelCredential',
   CANCEL_COMMAND: 'cancelCommand',
 });
 

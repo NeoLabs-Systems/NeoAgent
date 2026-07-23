@@ -21,11 +21,12 @@ const BUILD_TIMEOUT_MS = Number(process.env.NEOAGENT_GUEST_IMAGE_BUILD_TIMEOUT_M
 // container start. Copy package.json first so the dependency layer stays cached
 // across source-only changes.
 function dockerfileFor(profile) {
-  if (normalizeRuntimeProfile(profile) === 'android') {
+  const normalizedProfile = normalizeRuntimeProfile(profile);
+  if (normalizedProfile === 'android' || normalizedProfile === 'cli') {
     return [
       `FROM ${BASE_IMAGE}`,
       'ENV NODE_ENV=production',
-      'ENV NEOAGENT_GUEST_PROFILE=android',
+      `ENV NEOAGENT_GUEST_PROFILE=${normalizedProfile}`,
       'WORKDIR /opt/neoagent',
       'COPY package.json ./',
       'RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force',
@@ -42,7 +43,7 @@ function dockerfileFor(profile) {
     `FROM ${BASE_IMAGE}`,
     'ENV NODE_ENV=production',
     'ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
-    'ENV NEOAGENT_GUEST_PROFILE=browser_cli',
+    `ENV NEOAGENT_GUEST_PROFILE=${normalizedProfile}`,
     'WORKDIR /opt/neoagent',
     'COPY package.json ./',
     // Install deps without running package postinstall scripts, then fetch the

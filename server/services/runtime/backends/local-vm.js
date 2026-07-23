@@ -389,6 +389,15 @@ class VmBrowserProvider {
   async launch(options = {}) { return this.#request('POST', '/browser/launch', options, options); }
   async closeBrowser(options = {}) { return this.#request('POST', '/browser/close', undefined, options); }
   async fill(selector, value, options = {}) { return this.type(selector, value, options); }
+  async fillCredential(input, options = {}) {
+    return this.#request('POST', '/browser/credential-fill', input, options);
+  }
+  async submitProtectedCredential(protectedFillId, options = {}) {
+    return this.#request('POST', '/browser/credential-submit', { protectedFillId }, options);
+  }
+  async cancelProtectedCredential(protectedFillId, options = {}) {
+    return this.#request('POST', '/browser/credential-cancel', { protectedFillId }, options);
+  }
   async extractContent(options = {}) { return this.#request('POST', '/browser/extract', options, options); }
   async executeJS(code, options = {}) { return this.evaluate(code, options); }
   async getPageInfo(options = {}) {
@@ -417,7 +426,10 @@ class VmBrowserProvider {
 class LocalVmExecutionBackend {
   constructor(options = {}) {
     this.vmManager = options.vmManager;
-    this.runtimeProfile = options.runtimeProfile === 'android' ? 'android' : 'browser_cli';
+    const runtimeProfile = String(options.runtimeProfile || '').trim();
+    this.runtimeProfile = ['android', 'browser', 'cli', 'browser_cli'].includes(runtimeProfile)
+      ? runtimeProfile
+      : 'browser_cli';
     this.token = options.token || process.env.NEOAGENT_VM_GUEST_TOKEN || '';
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
