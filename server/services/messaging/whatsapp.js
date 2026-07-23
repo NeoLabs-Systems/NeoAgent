@@ -54,6 +54,24 @@ class WhatsAppPlatform extends BasePlatform {
     return [...ownIds].some((id) => text.includes(`@${id}`));
   }
 
+  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    const senderId = normalizeWhatsAppId(sender);
+    return this._checkInboundAccess({
+      platform: 'whatsapp',
+      senderId,
+      chatId,
+      isDirect: !isGroup,
+      isShared: isGroup,
+      groupId: isGroup ? chatId : '',
+      phoneNumber: senderId,
+      wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
+    }, {
+      senderName: pushName || senderId,
+      meta: isGroup ? `Group: ${chatId}` : '',
+      groupLabel: chatId,
+    });
+  }
+
   async connect() {
     this._manualDisconnect = false;
     if (this._reconnectTimer) {
@@ -180,22 +198,12 @@ class WhatsAppPlatform extends BasePlatform {
         }
 
         if (!content && !mediaType) continue;
-        if (isGroup && !this._isGroupAddressedToBot(msg.message || {})) continue;
 
-        const senderId = normalizeWhatsAppId(sender);
-        const access = this._checkInboundAccess({
-          platform: 'whatsapp',
-          senderId,
+        const access = this._checkMessageAccess(msg, {
           chatId,
-          isDirect: !isGroup,
-          isShared: isGroup,
-          groupId: isGroup ? chatId : '',
-          phoneNumber: senderId,
-          wasMentioned: isGroup,
-        }, {
-          senderName: pushName || senderId,
-          meta: isGroup ? `Group: ${chatId}` : '',
-          groupLabel: chatId,
+          isGroup,
+          sender,
+          pushName,
         });
 
         if (!access.allowed) continue;
