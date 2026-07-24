@@ -7,7 +7,10 @@ const { isDirectAnswerEligibleAnalysis } = require('../../../server/services/ai/
 const {
   enforceTerminalReplyDecision,
 } = require('../../../server/services/ai/loop/completion_judge');
-const { isDeferredWorkReply } = require('../../../server/services/ai/terminal_reply');
+const {
+  isDeferredWorkReply,
+  isTerminalQuestionOrBlockerReply,
+} = require('../../../server/services/ai/terminal_reply');
 
 test('detects progress-only replies that must not terminate a run', () => {
   const deferred = [
@@ -18,6 +21,10 @@ test('detects progress-only replies that must not terminate a run', () => {
     'Give me a moment.',
     'Working on it…',
     "I’ll update you once I know more.",
+    'Ich prüfe gerade die Logs.',
+    'Lass mich das testen.',
+    'Gib mir einen Moment.',
+    'Ich melde mich, sobald ich mehr weiß.',
   ];
 
   for (const reply of deferred) {
@@ -38,6 +45,19 @@ test('does not confuse concrete answers or real blockers with progress-only repl
   }
 });
 
+test('detects questions and explicit blockers that must wait for the user', () => {
+  const terminal = [
+    'Which three devices do you mean?',
+    'Welche drei Geräte meinst du genau? Wir hatten gerade nur die AnoleX besprochen.',
+    'Bitte nenn mir die zwei anderen Modelle, dann kann ich sie vergleichen.',
+    "I can't continue because the API key is missing.",
+  ];
+
+  for (const reply of terminal) {
+    assert.equal(isTerminalQuestionOrBlockerReply(reply), true, reply);
+  }
+});
+
 test('completion decisions cannot mark a progress-only reply complete or blocked', () => {
   assert.deepEqual(
     enforceTerminalReplyDecision(
@@ -55,6 +75,19 @@ test('completion decisions cannot mark a progress-only reply complete or blocked
       'Give me a moment.',
     ).status,
     'continue',
+  );
+});
+
+test('completion decisions cannot loop after a user-facing clarification', () => {
+  assert.deepEqual(
+    enforceTerminalReplyDecision(
+      { status: 'continue', reason: '' },
+      'Welche drei Geräte meinst du genau? Wir hatten gerade nur die AnoleX besprochen.',
+    ),
+    {
+      status: 'blocked',
+      reason: 'The latest reply asks for user input or states a concrete blocker, so the run must wait instead of repeating it.',
+    },
   );
 });
 

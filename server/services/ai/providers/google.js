@@ -1,6 +1,62 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+'use strict';
+
+const { GoogleGenAI } = require('@google/genai');
 const { BaseProvider } = require('./base');
 const { fetchResponseText } = require('../../network/http');
+
+function parseToolArguments(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeUsage(usage) {
+  if (!usage) return null;
+  return {
+    inputTokens: usage.promptTokenCount || 0,
+    outputTokens: usage.candidatesTokenCount || 0,
+    reasoningTokens: usage.thoughtsTokenCount || 0,
+    cachedReadTokens: usage.cachedContentTokenCount || 0,
+    cacheWriteTokens: 0,
+    promptTokens: usage.promptTokenCount || 0,
+    completionTokens: usage.candidatesTokenCount || 0,
+    totalTokens: usage.totalTokenCount || 0
+  };
+}
+
+function collectResponseParts(response, toolCalls, seenToolCalls = null) {
+  let content = '';
+  for (const candidate of response?.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      if (part.text && part.thought !== true) content += part.text;
+      if (!part.functionCall?.name) continue;
+
+      const args = part.functionCall.args || {};
+      const providerCallId = String(part.functionCall.id || '').trim();
+      const signature = providerCallId
+        || `${part.functionCall.name}:${JSON.stringify(args)}`;
+      if (seenToolCalls?.has(signature)) continue;
+      seenToolCalls?.add(signature);
+
+      toolCalls.push({
+        id: providerCallId
+          || `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: 'function',
+        function: {
+          name: part.functionCall.name,
+          arguments: JSON.stringify(args),
+          thought_signature: part.thoughtSignature
+        }
+      });
+    }
+  }
+  return content;
+}
 
 class GoogleProvider extends BaseProvider {
   constructor(config = {}) {
@@ -29,7 +85,7 @@ class GoogleProvider extends BaseProvider {
       'gemini-1.5-flash': 1048576,
     };
     this.apiKey = config.apiKey || process.env.GOOGLE_AI_KEY;
-    this.genAI = new GoogleGenerativeAI(this.apiKey);
+    this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
   }
 
   async listModels(signal = null) {
@@ -78,9 +134,21 @@ class GoogleProvider extends BaseProvider {
       functionDeclarations: tools.map(tool => ({
         name: tool.name,
         description: tool.description,
-        parameters: tool.parameters || { type: 'object', properties: {} }
+        parametersJsonSchema: tool.parameters || { type: 'object', properties: {} }
       }))
     }];
+  }
+
+  buildGenerateConfig(systemInstruction, tools, options) {
+    const config = {};
+    if (systemInstruction) config.systemInstruction = systemInstruction;
+    if (tools.length > 0) config.tools = this.formatTools(tools);
+    if (options.signal) config.abortSignal = options.signal;
+    const maxOutputTokens = Number(options.maxTokens);
+    if (Number.isFinite(maxOutputTokens) && maxOutputTokens > 0) {
+      config.maxOutputTokens = Math.floor(maxOutputTokens);
+    }
+    return config;
   }
 
   convertMessages(messages) {
@@ -93,16 +161,16 @@ class GoogleProvider extends BaseProvider {
         continue;
       }
       if (msg.role === 'tool') {
+        const functionResponse = {
+          name: msg.name || 'tool',
+          response: { result: msg.content }
+        };
+        if (msg.tool_call_id) functionResponse.id = msg.tool_call_id;
         history.push({
-          // Gemini chat history only accepts user/model roles. Tool results are
-          // represented as functionResponse parts on a user turn.
+          // The current Gemini API represents tool results as functionResponse
+          // parts on a user turn.
           role: 'user',
-          parts: [{
-            functionResponse: {
-              name: msg.name || 'tool',
-              response: { result: msg.content }
-            }
-          }]
+          parts: [{ functionResponse }]
         });
         continue;
       }
@@ -113,9 +181,10 @@ class GoogleProvider extends BaseProvider {
           const functionCallPart = {
             functionCall: {
               name: tc.function.name,
-              args: JSON.parse(tc.function.arguments || '{}')
+              args: parseToolArguments(tc.function.arguments)
             }
           };
+          if (tc.id) functionCallPart.functionCall.id = tc.id;
           if (tc.function.thought_signature) {
             functionCallPart.thoughtSignature = tc.function.thought_signature;
           }
@@ -149,8 +218,8 @@ class GoogleProvider extends BaseProvider {
       normalizedHistory.push({ role: currentRole, parts: currentParts });
     }
 
-    // Structured helpers can consist entirely of system instructions. Gemini's
-    // chat API still requires a user turn to trigger generation.
+    // Structured helpers can consist entirely of system instructions. Gemini
+    // still requires a user turn to trigger generation.
     if (
       normalizedHistory.length === 0
       || normalizedHistory[normalizedHistory.length - 1].role === 'model'
@@ -174,53 +243,18 @@ class GoogleProvider extends BaseProvider {
   async chat(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || this.getDefaultModel();
     const { systemInstruction, history } = this.convertMessages(messages);
-
-    const genModel = this.genAI.getGenerativeModel({
+    const response = await this.genAI.models.generateContent({
       model,
-      systemInstruction: systemInstruction || undefined,
-      tools: tools.length > 0 ? this.formatTools(tools) : undefined
+      contents: history,
+      config: this.buildGenerateConfig(systemInstruction, tools, options)
     });
-
-    const lastMessage = history.pop();
-    const chat = genModel.startChat({ history });
-    const result = await chat.sendMessage(lastMessage.parts, { signal: options.signal });
-    const response = result.response;
-
-    let content = '';
     const toolCalls = [];
-
-    for (const candidate of response.candidates || []) {
-      for (const part of candidate.content?.parts || []) {
-        if (part.text) content += part.text;
-        if (part.functionCall) {
-          toolCalls.push({
-            id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            type: 'function',
-            function: {
-              name: part.functionCall.name,
-              arguments: JSON.stringify(part.functionCall.args || {}),
-              thought_signature: part.thoughtSignature
-            }
-          });
-        }
-      }
-    }
-
-    const usage = response.usageMetadata;
+    const content = collectResponseParts(response, toolCalls);
     return {
       content,
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
-      usage: usage ? {
-        inputTokens: usage.promptTokenCount || 0,
-        outputTokens: usage.candidatesTokenCount || 0,
-        reasoningTokens: usage.thoughtsTokenCount || 0,
-        cachedReadTokens: usage.cachedContentTokenCount || 0,
-        cacheWriteTokens: 0,
-        promptTokens: usage.promptTokenCount || 0,
-        completionTokens: usage.candidatesTokenCount || 0,
-        totalTokens: usage.totalTokenCount || 0
-      } : null,
+      usage: normalizeUsage(response.usageMetadata),
       model
     };
   }
@@ -228,60 +262,32 @@ class GoogleProvider extends BaseProvider {
   async *stream(messages, tools = [], options = {}) {
     const model = options.model || this.config.model || this.getDefaultModel();
     const { systemInstruction, history } = this.convertMessages(messages);
-
-    const genModel = this.genAI.getGenerativeModel({
+    const responseStream = await this.genAI.models.generateContentStream({
       model,
-      systemInstruction: systemInstruction || undefined,
-      tools: tools.length > 0 ? this.formatTools(tools) : undefined
+      contents: history,
+      config: this.buildGenerateConfig(systemInstruction, tools, options)
     });
-
-    const lastMessage = history.pop();
-    const chat = genModel.startChat({ history });
-    const result = await chat.sendMessageStream(lastMessage.parts, { signal: options.signal });
-
     let content = '';
     const toolCalls = [];
+    const seenToolCalls = new Set();
+    let usage = null;
 
-    for await (const chunk of result.stream) {
-      for (const candidate of chunk.candidates || []) {
-        for (const part of candidate.content?.parts || []) {
-          if (part.text) {
-            content += part.text;
-            yield { type: 'content', content: part.text };
-          }
-          if (part.functionCall) {
-            toolCalls.push({
-              id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-              type: 'function',
-              function: {
-                name: part.functionCall.name,
-                arguments: JSON.stringify(part.functionCall.args || {}),
-                thought_signature: part.thoughtSignature
-              }
-            });
-          }
-        }
+    for await (const chunk of responseStream) {
+      const chunkContent = collectResponseParts(chunk, toolCalls, seenToolCalls);
+      if (chunkContent) {
+        content += chunkContent;
+        yield { type: 'content', content: chunkContent };
       }
+      if (chunk.usageMetadata) usage = chunk.usageMetadata;
     }
-
-    const finalResponse = await result.response;
-    const usage = finalResponse.usageMetadata;
 
     yield {
       type: 'done',
       content,
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
-      usage: usage ? {
-        inputTokens: usage.promptTokenCount || 0,
-        outputTokens: usage.candidatesTokenCount || 0,
-        reasoningTokens: usage.thoughtsTokenCount || 0,
-        cachedReadTokens: usage.cachedContentTokenCount || 0,
-        cacheWriteTokens: 0,
-        promptTokens: usage.promptTokenCount || 0,
-        completionTokens: usage.candidatesTokenCount || 0,
-        totalTokens: usage.totalTokenCount || 0
-      } : null
+      usage: normalizeUsage(usage),
+      model
     };
   }
 }

@@ -56,6 +56,13 @@ function registerApiRoutes(app) {
   if (isBillingEnabled()) {
     app.use('/api/billing/webhook', require('../routes/billing_webhook'));
     app.use('/api/billing', require('../routes/billing'));
+  } else {
+    // The Flutter client probes this public endpoint to decide whether to show
+    // billing. Return an explicit disabled state instead of generating a noisy
+    // 404 on every client startup.
+    app.get('/api/billing/plans', (_req, res) => {
+      res.json({ enabled: false, plans: null });
+    });
   }
 
   setupTelnyxWebhook(app);

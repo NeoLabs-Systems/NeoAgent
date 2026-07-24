@@ -61,17 +61,14 @@ function anthropicProvider() {
 function googleProvider() {
   const provider = new GoogleProvider({ apiKey: 'test-key' });
   let capturedSignal;
-  const capture = (_parts, options) => {
-    capturedSignal = options.signal;
+  const capture = (request) => {
+    capturedSignal = request.config.abortSignal;
     return waitForAbort(capturedSignal);
   };
   provider.genAI = {
-    getGenerativeModel() {
-      return {
-        startChat() {
-          return { sendMessage: capture, sendMessageStream: capture };
-        },
-      };
+    models: {
+      generateContent: capture,
+      generateContentStream: capture,
     },
   };
   return { provider, getSignal: () => capturedSignal };

@@ -2,7 +2,10 @@
 
 const { normalizeCompletionConfidence } = require('../completion');
 const { normalizeOutgoingMessage } = require('../messagingFallback');
-const { isDeferredWorkReply } = require('../terminal_reply');
+const {
+  isDeferredWorkReply,
+  isTerminalQuestionOrBlockerReply,
+} = require('../terminal_reply');
 const {
   summarizeAvailableTools,
   summarizeToolExecutions,
@@ -243,13 +246,19 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
 }
 
 function enforceTerminalReplyDecision(decision, lastReply) {
-  if (decision?.status === 'continue' || !isDeferredWorkReply(lastReply)) {
-    return decision;
+  if (isDeferredWorkReply(lastReply)) {
+    return {
+      status: 'continue',
+      reason: 'The latest reply only announces or promises unfinished work; the run must continue or return a concrete blocker.',
+    };
   }
-  return {
-    status: 'continue',
-    reason: 'The latest reply only announces or promises unfinished work; the run must continue or return a concrete blocker.',
-  };
+  if (decision?.status === 'continue' && isTerminalQuestionOrBlockerReply(lastReply)) {
+    return {
+      status: 'blocked',
+      reason: 'The latest reply asks for user input or states a concrete blocker, so the run must wait instead of repeating it.',
+    };
+  }
+  return decision;
 }
 
 // Intentionally lightweight (200-token cap, self-contained) so the model can

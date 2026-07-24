@@ -422,13 +422,20 @@ async function getFailureFallbackModelId(
   preferredFallbackId = null,
   failureError = null,
   signal = null,
+  excludedModelIds = [],
 ) {
   const { getSupportedModels } = require('../models');
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId, { signal });
+  const excluded = new Set(
+    [...excludedModelIds]
+      .map((id) => String(id || '').trim())
+      .filter(Boolean),
+  );
   const availableModels = models.filter(
     (model) => model.available !== false
-      && !isModelCoolingDown(userId, agentId, model.id),
+      && !isModelCoolingDown(userId, agentId, model.id)
+      && !excluded.has(model.id),
   );
   const configuredEnabledIds = Array.isArray(aiSettings.enabled_models)
     ? aiSettings.enabled_models.map((id) => String(id).trim()).filter(Boolean)
@@ -438,15 +445,26 @@ async function getFailureFallbackModelId(
     ? availableModels.filter((model) => enabledIds.includes(model.id))
     : availableModels;
   const fallbackSearchPool = pool;
-  const currentModel = resolveModelSelection(pool, currentModelId)
-    || resolveModelSelection(availableModels, currentModelId);
+  const currentModel = resolveModelSelection(models, currentModelId);
 
-  // When the failure is a provider-level rate limit, the preferred fallback is
-  // likely on the same provider and will hit the same limit. Skip it and prefer
-  // a fallback from a different provider instead.
-  const isProviderRateLimit = /429|rate.?limit|free-models-per/i.test(String(failureError?.message || ''));
+  // Provider-wide failures (credentials, throttling, or service outages) are
+  // likely to affect another model on the same provider. Prefer a different
+  // provider before consulting the configured fallback.
+  const failureStatus = Number(
+    failureError?.status
+    ?? failureError?.statusCode
+    ?? failureError?.response?.status,
+  );
+  const isProviderScopedFailure = (
+    failureStatus === 401
+    || failureStatus === 403
+    || failureStatus === 429
+    || (failureStatus >= 500 && failureStatus < 600)
+    || /rate.?limit|free-models-per|service unavailable|provider unavailable|authentication|api key/i
+      .test(String(failureError?.message || ''))
+  );
 
-  if (preferredFallbackId && !isProviderRateLimit) {
+  if (preferredFallbackId && !isProviderScopedFailure) {
     const preferred = resolveModelSelection(fallbackSearchPool, preferredFallbackId)
       || resolveModelSelection(availableModels, preferredFallbackId);
     if (preferred && preferred.id !== currentModel?.id) return preferred.id;
@@ -458,8 +476,7 @@ async function getFailureFallbackModelId(
     if (differentProvider) return differentProvider.id;
   }
 
-  // If no different-provider model exists, still try the preferred fallback
-  // even on rate limits (it's better than nothing).
+  // If no different-provider model exists, still try the preferred fallback.
   if (preferredFallbackId) {
     const preferred = resolveModelSelection(fallbackSearchPool, preferredFallbackId)
       || resolveModelSelection(availableModels, preferredFallbackId);
@@ -491,6 +508,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   let model = null;
   let modelSelectionId = null;
   let providerName = null;
+  const modelTurnFailedModelSelectionIds = new Set();
   let messages = [];
   let iteration = 0;
   let totalTokens = 0;
@@ -606,8 +624,17 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
   }
   db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
     .run(modelSelectionId, runId);
-  const switchToFallbackModel = async (failedSelectionId, error, phase) => {
+  const recordFailedModel = (failedSelectionId, error, excludedModels) => {
+    excludedModels.add(failedSelectionId);
     recordModelFailure(userId, agentId, failedSelectionId, error);
+  };
+  const switchToFallbackModel = async (
+    failedSelectionId,
+    error,
+    phase,
+    excludedModels,
+  ) => {
+    recordFailedModel(failedSelectionId, error, excludedModels);
     const fallbackModelId = await getFailureFallbackModelId(
       userId,
       agentId,
@@ -615,9 +642,21 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       aiSettings.fallback_model_id,
       error,
       engine.getRunMeta(runId)?.abortController?.signal,
+      excludedModels,
     );
     if (!fallbackModelId || fallbackModelId === failedSelectionId) return false;
-    console.log(`[Engine] ${phase} failed on ${failedSelectionId}; attempting fallback to: ${fallbackModelId}`);
+    const failureSummary = summarizeForLog(error?.message || error, 180);
+    console.log(
+      `[Engine] ${phase} failed on ${failedSelectionId}: ${failureSummary}; attempting fallback to: ${fallbackModelId}`
+    );
+    engine.recordRunEvent(userId, runId, 'model_fallback', {
+      phase,
+      failedModel: failedSelectionId,
+      fallbackModel: fallbackModelId,
+      errorCode: error?.code || null,
+      errorStatus: error?.status || error?.statusCode || error?.response?.status || null,
+      error: failureSummary,
+    }, { agentId });
     engine.emit(userId, 'run:interim', {
       runId,
       message: `Model service failed on ${failedSelectionId}; retrying with ${fallbackModelId}.`,
@@ -647,17 +686,28 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     return true;
   };
   const runWithModelFallback = async (phase, fn) => {
-    try {
-      const result = await fn();
-      recordModelSuccess(userId, agentId, modelSelectionId);
-      return result;
-    } catch (err) {
-      const failedSelectionId = modelSelectionId;
-      const switched = await switchToFallbackModel(failedSelectionId, err, phase);
-      if (!switched) throw err;
-      const result = await fn();
-      recordModelSuccess(userId, agentId, modelSelectionId);
-      return result;
+    let recoveries = 0;
+    const failedModels = new Set();
+    while (true) {
+      try {
+        const result = await fn();
+        recordModelSuccess(userId, agentId, modelSelectionId);
+        return result;
+      } catch (err) {
+        if (recoveries >= loopPolicy.maxModelFailureRecoveries) {
+          recordFailedModel(modelSelectionId, err, failedModels);
+          throw err;
+        }
+        const failedSelectionId = modelSelectionId;
+        const switched = await switchToFallbackModel(
+          failedSelectionId,
+          err,
+          phase,
+          failedModels,
+        );
+        if (!switched) throw err;
+        recoveries += 1;
+      }
     }
   };
 
@@ -1483,68 +1533,59 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       let responseModel = model;
       let streamContent = '';
 
-      const tryModelCall = async (retryForFallback = true) => {
-        try {
-          const modelCall = await engine.requestModelResponse({
-            provider,
-            providerName,
-            model,
-            messages,
-            tools,
-            options: {
-              ...options,
-              userId,
-              agentId,
-              runId,
-              phase: 'model_turn',
-              signal: engine.getRunMeta(runId)?.abortController?.signal,
-            },
-            runId,
-            iteration,
-          });
-          response = modelCall.response;
-          responseModel = modelCall.responseModel;
-          streamContent = modelCall.streamContent;
-          recordModelSuccess(userId, agentId, modelSelectionId);
-        } catch (err) {
-          console.error(`[Engine] Model call failed (${model}):`, err.message);
-          recordModelFailure(userId, agentId, modelSelectionId, err);
-          const fallbackModelId = retryForFallback
-            ? await getFailureFallbackModelId(
-              userId,
-              agentId,
-              modelSelectionId,
-              aiSettings.fallback_model_id,
-              err,
-              engine.getRunMeta(runId)?.abortController?.signal,
-            )
-            : null;
-          if (fallbackModelId) {
-            const failedModel = model;
-            console.log(`[Engine] Attempting fallback to: ${fallbackModelId}`);
-            const fallback = await getProviderForUser(
-              userId,
-              userMessage,
-              triggerType === 'subagent',
-              fallbackModelId,
-              {
-                ...providerStatusConfig,
-                signal: engine.getRunMeta(runId)?.abortController?.signal,
-              }
-            );
-            provider = fallback.provider;
-            model = fallback.model;
-            modelSelectionId = fallback.modelSelectionId;
-            providerName = fallback.providerName;
-            db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
-              .run(modelSelectionId, runId);
-            Object.assign(engine.getRunMeta(runId) || {}, {
-              model,
-              modelSelectionId,
+      const tryModelCall = async () => {
+        let requestMessages = messages;
+        let requestPhase = 'model_turn';
+        while (true) {
+          try {
+            const modelCall = await engine.requestModelResponse({
+              provider,
               providerName,
+              model,
+              messages: requestMessages,
+              tools,
+              options: {
+                ...options,
+                userId,
+                agentId,
+                runId,
+                phase: requestPhase,
+                signal: engine.getRunMeta(runId)?.abortController?.signal,
+              },
+              runId,
+              iteration,
             });
+            response = modelCall.response;
+            responseModel = modelCall.responseModel;
+            streamContent = modelCall.streamContent;
+            recordModelSuccess(userId, agentId, modelSelectionId);
+            return;
+          } catch (err) {
+            console.error(`[Engine] Model call failed (${model}):`, err.message);
+            const runSignal = engine.getRunMeta(runId)?.abortController?.signal;
+            if (isAbortError(err) || runSignal?.aborted) throw err;
+            if (modelFailureRecoveries >= loopPolicy.maxModelFailureRecoveries) {
+              recordFailedModel(
+                modelSelectionId,
+                err,
+                modelTurnFailedModelSelectionIds,
+              );
+              throw err;
+            }
 
-            const retryMessages = sanitizeConversationMessages([
+            const failedModel = model;
+            const switched = await switchToFallbackModel(
+              modelSelectionId,
+              err,
+              'model turn',
+              modelTurnFailedModelSelectionIds,
+            );
+            if (!switched) throw err;
+
+            modelFailureRecoveries += 1;
+            failedStepCount += 1;
+            requestPhase = 'model_turn_fallback';
+            requestMessages = sanitizeConversationMessages([
               ...messages,
               {
                 role: 'system',
@@ -1555,30 +1596,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
                 })
               }
             ]);
-
-            const fallbackCall = await engine.requestModelResponse({
-              provider,
-              providerName,
-              model,
-              messages: retryMessages,
-              tools,
-              options: {
-                ...options,
-                userId,
-                agentId,
-                runId,
-                phase: 'model_turn_fallback',
-                signal: engine.getRunMeta(runId)?.abortController?.signal,
-              },
-              runId,
-              iteration,
-            });
-            response = fallbackCall.response;
-            responseModel = fallbackCall.responseModel;
-            streamContent = fallbackCall.streamContent;
-            recordModelSuccess(userId, agentId, modelSelectionId);
-          } else {
-            throw err;
           }
         }
       };
@@ -1601,30 +1618,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           continue;
         }
         if (lifecycleControl?.action === 'stop' || lifecycleControl?.action === 'interrupt') break;
-        const modelError = String(err?.message || 'Model call failed');
-
-        if (modelFailureRecoveries < loopPolicy.maxModelFailureRecoveries) {
-          const failedModel = model;
-          const switched = await switchToFallbackModel(modelSelectionId, err, 'model turn');
-          if (!switched) throw err;
-          modelFailureRecoveries += 1;
-          failedStepCount += 1;
-          messages.push({
-            role: 'system',
-            content: buildModelFailureLoopPrompt({
-              failedModel,
-              nextModel: model,
-              errorMessage: modelError
-            })
-          });
-          engine.emit(userId, 'run:interim', {
-            runId,
-            message: 'Model call failed; adapting and retrying autonomously.',
-            phase: 'recovering'
-          });
-          continue;
-        }
-
         throw err;
       }
 

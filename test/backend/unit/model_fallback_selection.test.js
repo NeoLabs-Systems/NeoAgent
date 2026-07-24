@@ -63,4 +63,62 @@ describe('model fallback selection', () => {
 
     assert.equal(fallback, null);
   });
+
+  test('does not cycle back to models that already failed in the same run', async () => {
+    const modelIds = [
+      'google::gemini-primary',
+      'openrouter::gemini-fallback',
+      'openai::gpt-backup',
+    ];
+    ctx.db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+    ).run(user.userId, agentId, 'enabled_models', JSON.stringify(modelIds));
+    modelsModule.getSupportedModels = async () => ([
+      { id: modelIds[0], provider: 'google', available: true },
+      { id: modelIds[1], provider: 'openrouter', available: true },
+      { id: modelIds[2], provider: 'openai', available: true },
+    ]);
+
+    const fallback = await getFailureFallbackModelId(
+      user.userId,
+      agentId,
+      modelIds[1],
+      modelIds[0],
+      new Error('Model returned an empty response.'),
+      null,
+      new Set([modelIds[0], modelIds[1]]),
+    );
+
+    assert.equal(fallback, modelIds[2]);
+  });
+
+  test('provider-wide failures prefer another provider over a configured sibling model', async () => {
+    const modelIds = [
+      'google::gemini-primary',
+      'google::gemini-fallback',
+      'openrouter::gemini-backup',
+    ];
+    ctx.db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+    ).run(user.userId, agentId, 'enabled_models', JSON.stringify(modelIds));
+    modelsModule.getSupportedModels = async () => ([
+      { id: modelIds[0], provider: 'google', available: true },
+      { id: modelIds[1], provider: 'google', available: true },
+      { id: modelIds[2], provider: 'openrouter', available: true },
+    ]);
+
+    const fallback = await getFailureFallbackModelId(
+      user.userId,
+      agentId,
+      modelIds[0],
+      modelIds[1],
+      Object.assign(new Error('Google service unavailable'), { status: 503 }),
+    );
+
+    assert.equal(fallback, modelIds[2]);
+  });
 });

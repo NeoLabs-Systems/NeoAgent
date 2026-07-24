@@ -68,7 +68,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@bitwarden/cli": "^2026.6.0",
-    "@google/generative-ai": "^0.24.0",
+    "@google/genai": "^2.13.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@remotion/cli": "^4.0.459",
     "@slidev/cli": "^52.18.0",
