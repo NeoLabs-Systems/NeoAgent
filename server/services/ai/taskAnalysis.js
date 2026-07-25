@@ -24,6 +24,7 @@ const ANALYSIS_SCHEMA_EXAMPLE = {
   draft_reply: '',
   goal: 'Answer the user accurately.',
   success_criteria: ['Final reply is correct and specific.'],
+  research_targets: [],
   suggested_tools: ['web_search', 'browser_navigate'],
   complexity: 'standard',
   autonomy_level: 'normal',
@@ -59,6 +60,8 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Do not suggest create_task, update_task, delete_task, or list_tasks for ordinary immediate work. Use task tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
   'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
   'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
+  'For research, product/device comparisons, reviews, fact-checks, or multi-entity look-into requests, use mode="execute" or mode="plan_execute", never direct_answer. Set needs_verification=true, freshness_risk="possible" or higher, and completion_confidence_required="high".',
+  'When the user asks to look into multiple devices, products, options, or entities, put each named target into research_targets and success_criteria and keep them exact. Prefer suggested_tools that can open primary sources (web_search plus browser_navigate/http_request) rather than answering from memory.',
 ];
 const PLAN_PROMPT_INSTRUCTIONS = [
   'Create a concise execution plan for the current task.',
@@ -83,9 +86,12 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'A successful create_task or update_task tool call is required before claiming a task schedule changed.',
   'If external evidence conflicts with memory, history, or another tool result, preserve the uncertainty instead of flattening it into a single confident claim.',
   'When the draft reply is already correct and fully supported by the evidence, return it unchanged. Do not rewrite for style.',
+  'For multi-entity research or comparison replies, every compared target needs supporting tool evidence. If a target was never searched or opened, mark insufficient_evidence and rewrite the reply so it does not invent that target\'s specs.',
+  'Search-result snippets alone are weak evidence for concrete product claims. Prefer opened pages, fetched docs, or other primary tool output. If only snippets exist, either keep the claim clearly provisional or mark missing_evidence.',
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
+  'For research and multi-entity comparisons, cover each requested target with its own search/open path. Do not stop after one partial lead or invent the remaining devices from memory. Open primary sources before stating concrete specs.',
   'For GitHub issue implementation or PR work, fetch the issue once, then establish or reuse a writable local checkout, create a task branch, inspect/edit/test locally, and push/open the PR. Use direct GitHub file mutation tools only as a fallback when a local checkout is unavailable.',
   'Prefer the highest-level available tool for the job. If a tool accepts normal text, JSON, file paths, or line ranges, pass those directly instead of reconstructing equivalent data through shell commands.',
   'Your shell (execute_command) starts in your workspace, and the file tools (read_file, read_files, write_file, edit_file, replace_file_range, list_directory, search_files) operate on that same workspace. Keep source checkouts and generated files in the shared workspace, then prefer file tools for inspection and edits instead of shell snippets. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
@@ -317,6 +323,13 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     'successCriteria',
     TASK_ANALYSIS_SUCCESS_CRITERIA_LIMIT,
   );
+  const researchTargets = resolveAliasedStringList(
+    raw,
+    fallback,
+    'research_targets',
+    'researchTargets',
+    TASK_ANALYSIS_SUCCESS_CRITERIA_LIMIT,
+  );
 
   const draftReply = resolveAliasedText(raw, fallback, 'draft_reply', 'draftReply', '');
   const initialMode = pickEnum(
@@ -398,6 +411,7 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     draft_reply: draftReply,
     goal: resolveAliasedText(raw, fallback, 'goal', 'goal', ''),
     success_criteria: successCriteria,
+    research_targets: researchTargets,
     complexity: mode === 'plan_execute' ? 'complex' : normalizedComplexity,
     autonomy_level: mode === 'plan_execute' ? 'high' : normalizedAutonomyLevel,
     progress_update_policy: pickEnum(
@@ -567,6 +581,7 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
     `Execution mode: ${analysis.mode}.`,
     analysis.goal ? `Goal: ${analysis.goal}` : '',
     formatBulletSection('Success criteria', analysis.success_criteria),
+    formatBulletSection('Research targets', analysis.research_targets),
     analysis.suggested_tools?.length
       ? `Advisory tool suggestions: ${analysis.suggested_tools.join(', ')}`
       : '',

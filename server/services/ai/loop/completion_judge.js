@@ -7,6 +7,8 @@ const {
   isTerminalQuestionOrBlockerReply,
 } = require('../terminal_reply');
 const {
+  assessResearchAdequacy,
+  formatResearchAdequacyGuidance,
   summarizeAvailableTools,
   summarizeToolExecutions,
 } = require('../toolEvidence');
@@ -198,8 +200,15 @@ function buildCompletionDecisionPrompt({
   lastReply,
   iteration,
   maxIterations,
+  analysis = null,
+  researchAdequacy = null,
 }) {
   const draftReply = normalizeOutgoingMessage(lastReply) || '';
+  const adequacy = researchAdequacy || assessResearchAdequacy({
+    analysis,
+    goalContext,
+    toolExecutions,
+  });
   const lines = [
     'Return JSON only.',
     'Decide whether this run should continue autonomously or stop now.',
@@ -214,12 +223,28 @@ function buildCompletionDecisionPrompt({
     '- A tool-specific API error, timeout, rate limit, or missing result inside this run is usually "continue", not "blocked", if any other available tool could still make progress.',
     '- Repeated read-only inspection that has already established the relevant object is absent or unchanged is not progress. Accept a concise complete/blocker reply instead of requiring more searching.',
     `- If completion_confidence_required is ${goalContext.effectiveCompletionConfidence} and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.`,
-    triggerSource === 'messaging' && messagingSent
-      ? '- A final reply was already delivered via send_message. Use "complete" unless concrete task work remains.'
-      : triggerSource === 'messaging'
-        ? '- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.'
-        : '- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.',
+    '- When research intensity is light or deep, use "continue" until the required primary/source coverage and target coverage are met, or the draft is an explicit blocker naming exactly what could not be verified.',
+    '- Search snippets, memory, and model priors are leads, not completion evidence. Prefer opened/fetched primary sources before "complete".',
   ];
+
+  if (adequacy.intensity !== 'none') {
+    lines.push(
+      `- Research intensity for this run is ${adequacy.intensity}. Current coverage: primary=${adequacy.primarySourceCount}/${adequacy.requiredPrimarySources}, secondary=${adequacy.secondarySourceCount}, targets_covered=${adequacy.coveredTargets.length}/${Math.max(adequacy.requiredTargetCoverage, adequacy.targets.length)}.`,
+    );
+  }
+  if (adequacy.adequate === false) {
+    lines.push(
+      `- Research is still incomplete (${adequacy.reason}). Use "continue" unless the latest draft is an explicit blocker naming the exact missing evidence.`,
+    );
+  }
+
+  if (triggerSource === 'messaging' && messagingSent) {
+    lines.push('- A final reply was already delivered via send_message. Use "complete" unless concrete task work remains.');
+  } else if (triggerSource === 'messaging') {
+    lines.push('- For messaging, do not stop on a partial status message. Continue unless the task is actually complete or externally blocked.');
+  } else {
+    lines.push('- Do not stop just because you wrote a status update. Continue unless the task is actually complete or externally blocked.');
+  }
 
   lines.push(
     goalContext.effectiveGoal ? `Goal: ${goalContext.effectiveGoal}` : '',
@@ -231,6 +256,16 @@ function buildCompletionDecisionPrompt({
     `Current iteration: ${iteration} of ${maxIterations}.`,
     `Available tools in this run: ${summarizeAvailableTools(tools) || 'none'}`,
     `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 8) || 'none'}`,
+    adequacy.intensity !== 'none'
+      ? `Research adequacy: intensity=${adequacy.intensity}; adequate=${adequacy.adequate}; reason=${adequacy.reason}`
+      : '',
+    adequacy.targets.length
+      ? `Research targets: ${adequacy.targets.join('; ')}`
+      : '',
+    adequacy.uncoveredTargets.length
+      ? `Uncovered research targets: ${adequacy.uncoveredTargets.join('; ')}`
+      : '',
+    formatResearchAdequacyGuidance(adequacy),
     `Latest draft reply:\n${draftReply || '(empty)'}`,
   );
   return lines.filter(Boolean).join('\n');
@@ -245,7 +280,7 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
   };
 }
 
-function enforceTerminalReplyDecision(decision, lastReply) {
+function enforceTerminalReplyDecision(decision, lastReply, options = {}) {
   if (isDeferredWorkReply(lastReply)) {
     return {
       status: 'continue',
@@ -256,6 +291,25 @@ function enforceTerminalReplyDecision(decision, lastReply) {
     return {
       status: 'blocked',
       reason: 'The latest reply asks for user input or states a concrete blocker, so the run must wait instead of repeating it.',
+    };
+  }
+
+  const researchAdequacy = options.researchAdequacy
+    || assessResearchAdequacy({
+      analysis: options.analysis || null,
+      goalContext: options.goalContext || null,
+      toolExecutions: options.toolExecutions || [],
+    });
+  if (
+    researchAdequacy
+    && researchAdequacy.adequate === false
+    && (decision?.status === 'complete' || decision?.status === 'blocked')
+    && !isTerminalQuestionOrBlockerReply(lastReply)
+  ) {
+    return {
+      status: 'continue',
+      reason: researchAdequacy.reason
+        || 'Research evidence is still incomplete for the requested targets; continue gathering sources before finishing.',
     };
   }
   return decision;
@@ -269,7 +323,14 @@ function buildChurnAssessmentPrompt({
   goalContext,
   toolExecutions,
   iteration,
+  analysis = null,
+  researchAdequacy = null,
 }) {
+  const adequacy = researchAdequacy || assessResearchAdequacy({
+    analysis,
+    goalContext,
+    toolExecutions,
+  });
   const lines = [
     'Return JSON only.',
     'Self-assess your current loop state — are you making genuine progress or spinning?',
@@ -283,11 +344,19 @@ function buildChurnAssessmentPrompt({
       : '',
     `Iteration: ${iteration}`,
     `Recent tool evidence:\n${summarizeToolExecutions(toolExecutions, 6) || 'none'}`,
+    adequacy.intensity !== 'none'
+      ? `Research adequacy: intensity=${adequacy.intensity}; adequate=${adequacy.adequate}; covered=${adequacy.coveredTargets.length}/${Math.max(adequacy.requiredTargetCoverage, adequacy.targets.length)}; primary=${adequacy.primarySourceCount}/${adequacy.requiredPrimarySources}.`
+      : '',
+    adequacy.uncoveredTargets.length
+      ? `Still uncovered research targets: ${adequacy.uncoveredTargets.join('; ')}.`
+      : '',
     '',
     'Assessment rules:',
     '- "progressing": You are systematically gathering necessary context and the next concrete action is already determined — you know exactly what to do next.',
     '- "churn": You are re-reading/re-searching information already in context, or exploring without a clear next concrete step. Accept the nudge and act.',
     '- "blocked": No concrete action is available in this run. You have all the evidence needed to deliver a truthful final answer or a specific external blocker.',
+    '- For multi-target research, keep "progressing" while uncovered targets remain and a fresh primary source can still be opened. Do not mark "blocked" just because you have partial notes.',
+    '- Re-querying the same snippet source for an already covered target is "churn". Opening a different primary source for an uncovered target is "progressing".',
   ];
   return lines.filter(Boolean).join('\n');
 }

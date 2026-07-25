@@ -87,6 +87,7 @@ const {
 } = require('../messagingFallback');
 const { isDeferredWorkReply } = require('../terminal_reply');
 const {
+  assessResearchAdequacy,
   summarizeToolExecutions,
 } = require('../toolEvidence');
 const {
@@ -793,6 +794,11 @@ class AgentEngine {
   }) {
     const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
     const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
+    const researchAdequacy = assessResearchAdequacy({
+      analysis,
+      goalContext,
+      toolExecutions,
+    });
     const response = await this.requestStructuredJson({
       provider,
       providerName,
@@ -808,6 +814,8 @@ class AgentEngine {
         lastReply,
         iteration,
         maxIterations,
+        analysis,
+        researchAdequacy,
       }),
       maxTokens: 500,
       normalize: (raw) => normalizeCompletionDecision(raw, 'continue'),
@@ -817,9 +825,15 @@ class AgentEngine {
       phase: 'completion_decision',
     });
     return {
-      decision: enforceTerminalReplyDecision(response.value, lastReply),
+      decision: enforceTerminalReplyDecision(response.value, lastReply, {
+        analysis,
+        goalContext,
+        toolExecutions,
+        researchAdequacy,
+      }),
       usage: response.usage,
       raw: response.raw,
+      researchAdequacy,
     };
   }
 
@@ -905,6 +919,12 @@ class AgentEngine {
         goalContext,
         toolExecutions,
         iteration,
+        analysis,
+        researchAdequacy: assessResearchAdequacy({
+          analysis,
+          goalContext,
+          toolExecutions,
+        }),
       }),
       maxTokens: 200,
       normalize: normalizeChurnAssessment,

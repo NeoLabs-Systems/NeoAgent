@@ -14,6 +14,9 @@ const {
   summarizeAvailableTools,
   inferToolFailureMessage,
   buildAutonomousRecoveryContext,
+  assessResearchAdequacy,
+  resolveResearchIntensity,
+  extractResearchTargets,
 } = require('../../../server/services/ai/toolEvidence');
 const {
   isReadOnlyToolCall,
@@ -297,3 +300,144 @@ test('buildAutonomousRecoveryContext references the last failure and alternative
   assert.match(context, /Other available tools in this run: http_request/);
   assert.match(context, /user-facing message was already sent/);
 });
+
+
+test('research intensity stays none for local implementation work without external evidence needs', () => {
+  const intensity = resolveResearchIntensity({
+    mode: 'plan_execute',
+    complexity: 'complex',
+    autonomy_level: 'high',
+    completion_confidence_required: 'high',
+    verification_need: 'light',
+    freshness_risk: 'none',
+    planning_depth: 'deep',
+    goal: 'Implement the pause/resume fix in the agent loop',
+    success_criteria: ['Write the code', 'Run the unit tests'],
+    suggested_tools: ['read_file', 'edit_file', 'execute_command'],
+  });
+  assert.equal(intensity, 'none');
+});
+
+test('multi-target research requires primary evidence for each named target before adequacy', () => {
+  const analysis = {
+    mode: 'execute',
+    complexity: 'standard',
+    autonomy_level: 'normal',
+    completion_confidence_required: 'high',
+    verification_need: 'required',
+    freshness_risk: 'possible',
+    planning_depth: 'light',
+    goal: 'Look into AnoleX 3030-Evo Max, Genmitsu 3018 Pro, and SainSmart 3018',
+    success_criteria: [
+      'Compare AnoleX 3030-Evo Max',
+      'Compare Genmitsu 3018 Pro',
+      'Compare SainSmart 3018',
+    ],
+    research_targets: [
+      'AnoleX 3030-Evo Max',
+      'Genmitsu 3018 Pro',
+      'SainSmart 3018',
+    ],
+    suggested_tools: ['web_search', 'browser_navigate', 'http_request'],
+  };
+
+  assert.equal(resolveResearchIntensity(analysis), 'deep');
+  assert.deepEqual(
+    extractResearchTargets('Compare "AnoleX 3030-Evo Max" and Genmitsu 3018 Pro'),
+    ['AnoleX 3030-Evo Max', 'Genmitsu 3018 Pro'],
+  );
+
+  const onlySearch = assessResearchAdequacy({
+    analysis,
+    toolExecutions: [
+      {
+        toolName: 'web_search',
+        ok: true,
+        evidenceSource: 'search',
+        evidenceRelevant: true,
+        summary: 'search hits for AnoleX 3030-Evo Max',
+        input: { query: 'AnoleX 3030-Evo Max specs' },
+      },
+    ],
+  });
+  assert.equal(onlySearch.intensity, 'deep');
+  assert.equal(onlySearch.adequate, false);
+  assert.ok(onlySearch.uncoveredTargets.includes('Genmitsu 3018 Pro'));
+  assert.ok(onlySearch.uncoveredTargets.includes('SainSmart 3018'));
+  assert.match(onlySearch.reason, /primary source|primary-source|Search snippets/i);
+
+  const fullCoverage = assessResearchAdequacy({
+    analysis,
+    toolExecutions: [
+      {
+        toolName: 'web_search',
+        ok: true,
+        evidenceSource: 'search',
+        evidenceRelevant: true,
+        summary: 'search hits',
+        input: { query: 'cnc routers comparison' },
+      },
+      {
+        toolName: 'browser_navigate',
+        ok: true,
+        evidenceSource: 'browser',
+        evidenceRelevant: true,
+        summary: 'opened AnoleX product page',
+        input: { url: 'https://example.test/anolex-3030-evo-max' },
+      },
+      {
+        toolName: 'http_request',
+        ok: true,
+        evidenceSource: 'http',
+        evidenceRelevant: true,
+        summary: 'fetched Genmitsu 3018 Pro docs',
+        input: { url: 'https://example.test/genmitsu-3018-pro' },
+      },
+      {
+        toolName: 'browser_navigate',
+        ok: true,
+        evidenceSource: 'browser',
+        evidenceRelevant: true,
+        summary: 'opened SainSmart 3018 page',
+        input: { url: 'https://example.test/sainsmart-3018' },
+      },
+    ],
+  });
+  assert.equal(fullCoverage.adequate, true);
+  assert.equal(fullCoverage.coveredTargets.length, 3);
+  assert.equal(fullCoverage.primaryCoveredTargets.length, 3);
+});
+
+test('completion judge keeps incomplete multi-target research in continue state', () => {
+  const { enforceTerminalReplyDecision } = require('../../../server/services/ai/loop/completion_judge');
+  const analysis = {
+    mode: 'execute',
+    completion_confidence_required: 'high',
+    verification_need: 'required',
+    freshness_risk: 'possible',
+    goal: 'Look into AnoleX 3030-Evo Max and Genmitsu 3018 Pro',
+    research_targets: ['AnoleX 3030-Evo Max', 'Genmitsu 3018 Pro'],
+    success_criteria: ['Compare AnoleX 3030-Evo Max', 'Compare Genmitsu 3018 Pro'],
+    suggested_tools: ['web_search', 'browser_navigate'],
+  };
+  const decision = enforceTerminalReplyDecision(
+    { status: 'complete', reason: 'Looks good enough.' },
+    'Die AnoleX ist solide und die Genmitsu ist der Standard.',
+    {
+      analysis,
+      toolExecutions: [
+        {
+          toolName: 'web_search',
+          ok: true,
+          evidenceSource: 'search',
+          evidenceRelevant: true,
+          summary: 'snippets about AnoleX 3030-Evo Max',
+          input: { query: 'AnoleX 3030-Evo Max' },
+        },
+      ],
+    },
+  );
+  assert.equal(decision.status, 'continue');
+  assert.match(decision.reason, /Need|primary|evidence|source/i);
+});
+

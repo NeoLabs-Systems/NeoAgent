@@ -200,6 +200,356 @@ function isSubstantiveProgressToolName(toolName = '') {
   return true;
 }
 
+const PRIMARY_RESEARCH_SOURCES = new Set([
+  'browser',
+  'http',
+  'integration',
+  'files',
+  'command',
+  'mcp',
+  'android',
+  'data',
+  'vision',
+  'skills',
+  'subagent',
+]);
+
+const SECONDARY_RESEARCH_SOURCES = new Set([
+  'search',
+  'memory',
+]);
+
+// External/source-backed tools only. Local file/edit/shell work must not
+// inherit a research burden just because inspection tools are available.
+const RESEARCH_TOOL_HINTS = new Set([
+  'web_search',
+  'http_request',
+  'browser_navigate',
+  'browser_open',
+  'browser_click',
+  'browser_type',
+  'browser_snapshot',
+  'browser_evaluate',
+  'analyze_image',
+  'spawn_subagent',
+  'delegate_to_agent',
+]);
+
+function clampResearchText(value, maxChars = 220) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+}
+
+function uniqueResearchTokens(values = [], { limit = 12 } = {}) {
+  const seen = new Set();
+  const tokens = [];
+  for (const value of values) {
+    const token = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!token) continue;
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tokens.push(token);
+    if (tokens.length >= limit) break;
+  }
+  return tokens;
+}
+
+// Structural target extraction only: quoted spans and product-like proper names.
+// No phrase-based intent filters.
+function isProductLikeToken(token = '') {
+  const value = String(token || '').trim();
+  if (!value) return false;
+  if (/[0-9]/.test(value)) return true;
+  if (/[-_/]/.test(value)) return true;
+  if (/[a-z][A-Z]/.test(value)) return true;
+  return false;
+}
+
+function extractResearchTargets(text = '') {
+  const raw = String(text || '');
+  if (!raw.trim()) return [];
+
+  const targets = [];
+  const quoted = raw.match(/["“”'‘’`]([^"“”'‘’`]{2,80})["“”'‘’`]/g) || [];
+  for (const match of quoted) {
+    const cleaned = match.replace(/^["“”'‘’`]|["“”'‘’`]$/g, '').trim();
+    if (cleaned) targets.push(cleaned);
+  }
+
+  // Require each subsequent token to start with a capital letter or digit so
+  // ordinary sentence fragments ("Implement the pause...") do not become targets.
+  const productish = raw.match(
+    /\b[A-Z][A-Za-z0-9+./-]*(?:[ -][A-Z0-9][A-Za-z0-9+./-]*){0,5}\b/g,
+  ) || [];
+  for (const match of productish) {
+    const cleaned = match.replace(/\s+/g, ' ').trim();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) continue;
+    if (parts.length === 1) {
+      if (!isProductLikeToken(parts[0]) || parts[0].length < 4) continue;
+    } else if (!parts.some(isProductLikeToken) && parts.length < 2) {
+      continue;
+    } else if (!parts.some(isProductLikeToken) && parts.every((part) => part.length <= 3)) {
+      continue;
+    }
+    // Drop pure sentence openers with no product-like signal.
+    if (parts.length >= 2 && !parts.some(isProductLikeToken)) {
+      // Keep multi-token proper names such as brand + model family only when
+      // at least one token is long enough to be a meaningful entity name.
+      if (!parts.some((part) => part.length >= 5)) continue;
+    }
+    targets.push(cleaned);
+  }
+
+  return uniqueResearchTokens(targets, { limit: 8 });
+}
+
+function collectResearchTargets(analysis = null, goalContext = null) {
+  const explicit = uniqueResearchTokens([
+    ...(Array.isArray(analysis?.research_targets) ? analysis.research_targets : []),
+    ...(Array.isArray(goalContext?.researchTargets) ? goalContext.researchTargets : []),
+  ], { limit: 8 });
+  if (explicit.length > 0) return explicit;
+
+  const goalText = [
+    goalContext?.effectiveGoal,
+    analysis?.goal,
+    ...(Array.isArray(goalContext?.successCriteria) ? goalContext.successCriteria : []),
+    ...(Array.isArray(analysis?.success_criteria) ? analysis.success_criteria : []),
+  ].filter(Boolean).join(' ');
+
+  return extractResearchTargets(goalText);
+}
+
+function hasResearchToolHint(analysis = null) {
+  const tools = Array.isArray(analysis?.suggested_tools) ? analysis.suggested_tools : [];
+  return tools.some((name) => {
+    const tool = String(name || '').trim().toLowerCase();
+    if (!tool) return false;
+    if (RESEARCH_TOOL_HINTS.has(tool)) return true;
+    return tool.startsWith('browser_')
+      || tool.startsWith('mcp_')
+      || tool === 'web_search'
+      || tool.includes('web_search')
+      || tool.includes('http_request');
+  });
+}
+
+function resolveResearchIntensity(analysis = null, goalContext = null) {
+  const mode = String(analysis?.mode || '').trim().toLowerCase();
+  const complexity = String(
+    goalContext?.effectiveComplexity
+    || analysis?.complexity
+    || '',
+  ).trim().toLowerCase();
+  const autonomyLevel = String(
+    goalContext?.effectiveAutonomyLevel
+    || analysis?.autonomy_level
+    || '',
+  ).trim().toLowerCase();
+  const completionConfidence = String(
+    goalContext?.effectiveCompletionConfidence
+    || analysis?.completion_confidence_required
+    || '',
+  ).trim().toLowerCase();
+  const verificationNeed = String(analysis?.verification_need || '').trim().toLowerCase();
+  const freshnessRisk = String(analysis?.freshness_risk || '').trim().toLowerCase();
+  const planningDepth = String(analysis?.planning_depth || '').trim().toLowerCase();
+  const targets = collectResearchTargets(analysis, goalContext);
+  const researchToolHint = hasResearchToolHint(analysis);
+
+  if (mode === 'direct_answer' && verificationNeed === 'none' && freshnessRisk === 'none') {
+    return 'none';
+  }
+
+  // External/source-backed work only. Pure local implementation tasks must not
+  // inherit a research burden just because they are complex or multi-step.
+  const needsExternalEvidence = (
+    targets.length > 0
+    || researchToolHint
+    || freshnessRisk === 'possible'
+    || freshnessRisk === 'high'
+    || verificationNeed === 'required'
+  );
+  if (!needsExternalEvidence) {
+    return 'none';
+  }
+
+  const deepSignals = [
+    mode === 'plan_execute',
+    complexity === 'complex',
+    autonomyLevel === 'high',
+    completionConfidence === 'high',
+    verificationNeed === 'required',
+    freshnessRisk === 'high',
+    planningDepth === 'deep',
+    targets.length >= 2,
+  ].filter(Boolean).length;
+
+  if (deepSignals >= 2 || targets.length >= 2 || verificationNeed === 'required' || freshnessRisk === 'high') {
+    return 'deep';
+  }
+
+  return 'light';
+}
+
+function isSuccessfulResearchExecution(item = {}) {
+  if (!item || item.ok !== true) return false;
+  if (!isSubstantiveProgressToolName(item.toolName)) return false;
+  if (item.evidenceSource === 'messaging') return false;
+  return Boolean(item.evidenceRelevant || item.dependsOnOutput || item.stateChanged);
+}
+
+function isPrimaryResearchSource(source = '') {
+  return PRIMARY_RESEARCH_SOURCES.has(String(source || '').trim().toLowerCase());
+}
+
+function isSecondaryResearchSource(source = '') {
+  return SECONDARY_RESEARCH_SOURCES.has(String(source || '').trim().toLowerCase());
+}
+
+function executionMentionsTarget(execution = {}, target = '') {
+  const needle = String(target || '').trim().toLowerCase();
+  if (!needle) return false;
+  const haystack = [
+    execution.summary,
+    execution.toolName,
+    execution.evidenceSource,
+    JSON.stringify(execution.input || {}),
+  ].join(' ').toLowerCase();
+  if (haystack.includes(needle)) return true;
+
+  const tokens = needle
+    .split(/[^a-z0-9+]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+  if (tokens.length === 0) return false;
+  const matched = tokens.filter((token) => haystack.includes(token)).length;
+  return matched >= Math.min(2, tokens.length);
+}
+
+function assessResearchAdequacy({
+  analysis = null,
+  goalContext = null,
+  toolExecutions = [],
+} = {}) {
+  const intensity = resolveResearchIntensity(analysis, goalContext);
+  const targets = collectResearchTargets(analysis, goalContext);
+
+  const successful = (Array.isArray(toolExecutions) ? toolExecutions : [])
+    .filter(isSuccessfulResearchExecution);
+  const primary = successful.filter((item) => isPrimaryResearchSource(item.evidenceSource));
+  const secondary = successful.filter((item) => isSecondaryResearchSource(item.evidenceSource));
+  const coveredTargets = targets.filter((target) => (
+    successful.some((item) => executionMentionsTarget(item, target))
+  ));
+  const primaryCoveredTargets = targets.filter((target) => (
+    primary.some((item) => executionMentionsTarget(item, target))
+  ));
+  const uncoveredTargets = targets.filter((target) => !coveredTargets.includes(target));
+  const primaryUncoveredTargets = targets.filter((target) => !primaryCoveredTargets.includes(target));
+
+  const requiredPrimarySources = intensity === 'deep'
+    ? (targets.length > 0 ? Math.min(4, targets.length) : 2)
+    : intensity === 'light'
+      ? 1
+      : 0;
+  const requiredSecondarySources = intensity === 'deep' ? 1 : 0;
+  const requiredTargetCoverage = intensity === 'deep'
+    ? targets.length
+    : intensity === 'light'
+      ? Math.min(targets.length, 1)
+      : 0;
+  const requiredPrimaryTargetCoverage = intensity === 'deep'
+    ? targets.length
+    : 0;
+
+  const missing = [];
+  if (primary.length < requiredPrimarySources) {
+    missing.push(
+      `Need ${requiredPrimarySources} primary source open/fetch/inspect step(s); have ${primary.length}.`,
+    );
+  }
+  if (secondary.length < requiredSecondarySources && primary.length < requiredPrimarySources) {
+    missing.push('Need at least one search lead before finishing deep research.');
+  }
+  if (targets.length > 0 && coveredTargets.length < requiredTargetCoverage) {
+    missing.push(
+      `Need evidence for: ${uncoveredTargets.slice(0, 4).join('; ') || targets.slice(0, 4).join('; ')}.`,
+    );
+  }
+  if (targets.length > 0 && primaryCoveredTargets.length < requiredPrimaryTargetCoverage) {
+    missing.push(
+      `Need primary-source evidence for: ${primaryUncoveredTargets.slice(0, 4).join('; ') || targets.slice(0, 4).join('; ')}.`,
+    );
+  }
+  if (intensity === 'deep' && primary.length === 0 && secondary.length > 0) {
+    missing.push('Search snippets alone are not enough; open primary sources for the key claims.');
+  }
+  if (intensity === 'light' && primary.length === 0 && secondary.length === 0) {
+    missing.push('Need at least one successful search or primary-source check before finishing.');
+  }
+
+  const adequate = intensity === 'none' ? true : missing.length === 0;
+  const nextActions = [];
+  if (!adequate) {
+    if (primaryUncoveredTargets.length > 0) {
+      nextActions.push(
+        `Open or fetch primary sources for each remaining target: ${primaryUncoveredTargets.slice(0, 4).join('; ')}.`,
+      );
+    } else if (uncoveredTargets.length > 0) {
+      nextActions.push(
+        `Research each remaining target separately: ${uncoveredTargets.slice(0, 4).join('; ')}.`,
+      );
+    }
+    if (primary.length < requiredPrimarySources) {
+      nextActions.push('Open or fetch primary pages/docs for the remaining claims instead of guessing from memory or snippets.');
+    }
+    if (secondary.length === 0 && intensity === 'deep') {
+      nextActions.push('Run targeted searches, then open the strongest sources.');
+    }
+  }
+
+  return {
+    intensity,
+    adequate,
+    requiredPrimarySources,
+    requiredSecondarySources,
+    requiredTargetCoverage,
+    requiredPrimaryTargetCoverage,
+    primarySourceCount: primary.length,
+    secondarySourceCount: secondary.length,
+    targets,
+    coveredTargets,
+    primaryCoveredTargets,
+    uncoveredTargets,
+    primaryUncoveredTargets,
+    missing,
+    nextActions,
+    reason: adequate
+      ? (intensity === 'none'
+        ? 'No research burden for this run.'
+        : 'Research evidence covers the requested targets.')
+      : clampResearchText(missing.join(' ') || 'Research evidence is still incomplete.', 320),
+  };
+}
+
+function formatResearchAdequacyGuidance(assessment = null) {
+  if (!assessment || assessment.adequate !== false) return '';
+  const lines = [
+    'Research self-check: evidence is still incomplete for this run.',
+    assessment.reason ? `Gap: ${assessment.reason}` : '',
+    assessment.nextActions?.length
+      ? `Next safe steps:\n- ${assessment.nextActions.join('\n- ')}`
+      : '',
+    'Do not complete with memory, guesses, or a partial comparison while these gaps remain. Gather the missing evidence first, or return a blocker that names exactly what could not be verified.',
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
 function isSubstantiveProgressEvidence(item = {}) {
   if (!isSubstantiveProgressToolName(item.toolName)) return false;
   if (item.evidenceSource === 'messaging') return false;
@@ -274,9 +624,13 @@ function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], 
 module.exports = {
   classifyToolExecution,
   deriveEvidenceSource,
+  assessResearchAdequacy,
+  extractResearchTargets,
+  formatResearchAdequacyGuidance,
   gatheredNewEvidence,
   isSubstantiveProgressEvidence,
   isSubstantiveProgressToolName,
+  resolveResearchIntensity,
   summarizeProgressToolExecutions,
   summarizeToolExecutions,
   summarizeAvailableTools,
