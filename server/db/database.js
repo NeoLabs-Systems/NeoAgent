@@ -1311,8 +1311,8 @@ function getMainAgentId(userId) {
        id, user_id, slug, display_name, description, responsibilities, instructions,
        is_default, can_delegate, can_be_delegated_to, delegate_targets_json
      )
-     VALUES (?, ?, 'main', 'Main', 'Default personal assistant and fallback agent.',
-       'Handle general requests and delegate to specialist agents only when there is a clear match.',
+     VALUES (?, ?, 'main', 'Main', 'Default personal AI contact and fallback agent.',
+       'Handle general requests like a proactive favorite contact and delegate to specialist agents only when there is a clear match.',
        '', 1, 1, 0, '[]'
      )`
   ).run(id, userId);

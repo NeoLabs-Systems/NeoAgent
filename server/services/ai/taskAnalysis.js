@@ -17,7 +17,6 @@ const TASK_ANALYSIS_CONFIDENCE_DEFAULT = 0.55;
 const VERIFICATION_CONFIDENCE_VERIFIED = 0.85;
 const VERIFICATION_CONFIDENCE_DEFAULT = 0.5;
 const JSON_ONLY_RESPONSE_RULE = 'Return JSON only. No markdown, no prose, no code fences.';
-const { isDeferredWorkReply } = require('./terminal_reply');
 const ANALYSIS_SCHEMA_EXAMPLE = {
   mode: 'execute',
   needs_verification: true,
@@ -45,11 +44,12 @@ const PLAN_SCHEMA_EXAMPLE = {
   verification_focus: ['Confirm the most time-sensitive claim before replying.'],
 };
 const ANALYSIS_PROMPT_INSTRUCTIONS = [
-  'Choose the lightest routing mode that still handles the task well.',
-  'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work.',
-  'For short immediate questions, greetings, small explanations, or quick conversational replies, prefer mode="direct_answer" with progress_update_policy="none"; speed matters more than creating plans or tasks.',
+  'Choose the lightest routing mode that still handles the task well. Prefer speed for simple work and depth only when the request needs tools or multi-step evidence.',
+  'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work. The draft_reply must be the actual answer, not a promise to check later.',
+  'For short immediate questions, greetings, small explanations, quick conversational replies, or pure opinion/advice that does not need live lookup, prefer mode="direct_answer" with progress_update_policy="none", complexity="simple", autonomy_level="minimal", and an empty research_targets list. Speed matters more than creating plans or tasks.',
   'Use mode="execute" for normal tool-driven work without a separate planning step.',
   'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
+  'Never invent entities, products, people, files, or outcomes to fill gaps. If the user refers to multiple targets but only one is known, ask once or research only the known ones and mark the rest unknown.',
   'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
   'Set goal to a concise restatement of what the user is asking for in this message. Never leave goal empty.',
   'Keep goal and success_criteria short and practical.',
@@ -87,6 +87,7 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'If external evidence conflicts with memory, history, or another tool result, preserve the uncertainty instead of flattening it into a single confident claim.',
   'When the draft reply is already correct and fully supported by the evidence, return it unchanged. Do not rewrite for style.',
   'For multi-entity research or comparison replies, every compared target needs supporting tool evidence. If a target was never searched or opened, mark insufficient_evidence and rewrite the reply so it does not invent that target\'s specs.',
+  'Do not invent missing targets, products, people, or outcomes. If the draft invents an entity that is not in the task and not in tool evidence, rewrite it out or mark insufficient_evidence.',
   'Search-result snippets alone are weak evidence for concrete product claims. Prefer opened pages, fetched docs, or other primary tool output. If only snippets exist, either keep the claim clearly provisional or mark missing_evidence.',
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
@@ -256,6 +257,9 @@ function promoteAnalysisMode(initialMode, { verificationNeed, freshnessRisk, dra
 function isDirectAnswerEligibleAnalysis(analysis) {
   if (!analysis || typeof analysis !== 'object') return false;
   const draftReply = String(analysis.draft_reply || '').trim();
+  const researchTargets = Array.isArray(analysis.research_targets)
+    ? analysis.research_targets.filter(Boolean)
+    : [];
   const promotedMode = promoteAnalysisMode(analysis.mode, {
     verificationNeed: analysis.verification_need,
     freshnessRisk: analysis.freshness_risk,
@@ -263,10 +267,14 @@ function isDirectAnswerEligibleAnalysis(analysis) {
     planningDepth: analysis.planning_depth,
   });
 
+  // Direct answers are for zero-tool replies only. Any research targets or
+  // freshness/verification burden must enter the tool loop.
   return promotedMode === 'direct_answer'
     && !analysis.needs_subagents
     && Boolean(draftReply)
-    && !isDeferredWorkReply(draftReply);
+    && researchTargets.length === 0
+    && String(analysis.verification_need || 'none') === 'none'
+    && String(analysis.freshness_risk || 'none') === 'none';
 }
 
 function extractJsonCandidate(text) {
@@ -378,12 +386,31 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     freshnessRiskFor({ verificationNeed })
   );
 
-  const mode = promoteAnalysisMode(initialMode, {
+  let mode = promoteAnalysisMode(initialMode, {
     verificationNeed,
     freshnessRisk,
     draftReply,
     planningDepth,
   });
+
+  // Structural promotion: explicit research targets require tool work.
+  if (researchTargets.length > 0 && mode === 'direct_answer') {
+    mode = planningDepth === 'deep' || researchTargets.length >= 2 ? 'plan_execute' : 'execute';
+  }
+
+  let effectiveVerificationNeed = verificationNeed;
+  let effectiveFreshnessRisk = freshnessRisk;
+  if (researchTargets.length > 0) {
+    if (effectiveVerificationNeed === 'none') {
+      effectiveVerificationNeed = researchTargets.length >= 2 ? 'required' : 'light';
+    }
+    if (effectiveFreshnessRisk === 'none') {
+      effectiveFreshnessRisk = researchTargets.length >= 2 ? 'possible' : 'possible';
+    }
+    if (mode === 'execute' && researchTargets.length >= 2) {
+      mode = 'plan_execute';
+    }
+  }
 
   const normalizedComplexity = pickEnum(
     resolveAliasedValue(raw, fallback, 'complexity', 'complexity', ''),
@@ -398,16 +425,16 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
 
   return {
     mode,
-    freshness_risk: freshnessRisk,
-    verification_need: verificationNeed,
-    planning_depth: planningDepth,
+    freshness_risk: effectiveFreshnessRisk,
+    verification_need: effectiveVerificationNeed,
+    planning_depth: mode === 'plan_execute' ? 'deep' : mode === 'direct_answer' ? 'none' : planningDepth,
     confidence: clampConfidence(
       raw.confidence ?? fallback.confidence,
       draftReply ? TASK_ANALYSIS_CONFIDENCE_WITH_DRAFT : TASK_ANALYSIS_CONFIDENCE_DEFAULT,
     ),
     suggested_tools: suggestedTools,
     needs_subagents: resolveAliasedBoolean(raw, fallback, 'needs_subagents', 'needsSubagents'),
-    needs_verification: verificationNeed !== 'none',
+    needs_verification: effectiveVerificationNeed !== 'none',
     draft_reply: draftReply,
     goal: resolveAliasedText(raw, fallback, 'goal', 'goal', ''),
     success_criteria: successCriteria,
@@ -423,7 +450,9 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     completion_confidence_required: pickEnum(
       resolveAliasedValue(raw, fallback, 'completion_confidence_required', 'completionConfidenceRequired', ''),
       COMPLETION_CONFIDENCE_LEVELS,
-      verificationNeed === 'required' || mode === 'plan_execute' ? 'high' : 'medium',
+      effectiveVerificationNeed === 'required' || mode === 'plan_execute' || researchTargets.length >= 2
+        ? 'high'
+        : 'medium',
     ),
   };
 }

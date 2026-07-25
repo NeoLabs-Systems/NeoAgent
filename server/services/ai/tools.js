@@ -12,7 +12,6 @@ const {
     normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
 const { INTERIM_KINDS, normalizeInterimKind } = require('./interim');
-const { isDeferredWorkReply } = require('./terminal_reply');
 const { normalizeWhatsAppId } = require('../../utils/whatsapp');
 const {
     executeIntegratedTool,
@@ -2438,16 +2437,6 @@ async function executeTool(toolName, args, context, engine) {
                 platform: args.platform,
                 to: args.to,
             });
-            if (
-                !suppressReply
-                && triggerSource === 'messaging'
-                && originDelivery
-                && isDeferredWorkReply(normalizedMessage)
-            ) {
-                return {
-                    error: 'send_message cannot end the run with a promise or progress-only reply. Continue the work, or use send_interim_update for a factual interim update.',
-                };
-            }
             if (isProactiveTrigger(triggerSource)) {
                 const proactiveValidation = validateProactiveSendMessageArgs({
                     purpose: args.purpose,

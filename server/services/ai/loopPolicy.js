@@ -8,6 +8,7 @@
 // task_complete. These ceilings are set high so they only ever catch a genuine
 // runaway and never guillotine a long, legitimately-progressing complex task.
 const DEFAULT_MAX_ITERATIONS = 250;
+const DEFAULT_SIMPLE_MAX_ITERATIONS = 16;
 const DEFAULT_WIDGET_MAX_ITERATIONS = 150;
 const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 250;
 // Less aggressive than 0.60 so the model retains file contents it already read for
@@ -16,6 +17,8 @@ const DEFAULT_COMPACTION_THRESHOLD = 0.80;
 // The real "stop when stuck" guard. Counts consecutive turns with no state
 // change and no new evidence; resets to 0 on any concrete progress.
 const DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 8;
+const DEFAULT_SIMPLE_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 3;
+const DEFAULT_COMPLEX_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 14;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
 
@@ -57,6 +60,10 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
   } else if (complexity === 'complex' || autonomyLevel === 'high') {
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
+  } else if (analysisMode === 'direct_answer' || complexity === 'simple') {
+    // Short Q&A / casual chat must stay cheap. This is a hard runaway cap, not
+    // a target: direct answers usually finish in 0-1 model turns.
+    rawIterations = DEFAULT_SIMPLE_MAX_ITERATIONS;
   } else if (parallelWork || complexity === 'standard') {
     rawIterations = Math.max(DEFAULT_MAX_ITERATIONS, 28);
   } else {
@@ -97,6 +104,19 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     DEFAULT_MAX_MODEL_FAILURE_RECOVERIES,
   );
 
+  let defaultReadOnlyIterations = DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  if (analysisMode === 'direct_answer' || complexity === 'simple') {
+    defaultReadOnlyIterations = DEFAULT_SIMPLE_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  } else if (
+    analysisMode === 'plan_execute'
+    || complexity === 'complex'
+    || autonomyLevel === 'high'
+  ) {
+    // Long-horizon research/implementation needs more productive read/search
+    // room before the hard no-progress wrap-up fires.
+    defaultReadOnlyIterations = DEFAULT_COMPLEX_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  }
+
   const rawReadOnlyIterations = options.maxConsecutiveReadOnlyIterations != null
     ? Number(options.maxConsecutiveReadOnlyIterations)
     : optionalNumber(aiSettings.max_consecutive_read_only_iterations);
@@ -104,7 +124,7 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     Math.floor(rawReadOnlyIterations),
     3,
     MAX_ALLOWED_READ_ONLY_ITERATIONS,
-    DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS,
+    defaultReadOnlyIterations,
   );
 
   // compactionThreshold must be in (0, 1]; clamp to [0.1, 1].
@@ -157,7 +177,9 @@ function resolveChurnNudgeThreshold(goalContract) {
   const complexity = String(goalContract?.complexity || 'standard').toLowerCase();
   const autonomyLevel = String(goalContract?.autonomyLevel || goalContract?.autonomy_level || 'normal').toLowerCase();
   if (complexity === 'simple') return 2;
-  if (complexity === 'complex' || autonomyLevel === 'high') return 5;
+  // Complex/high-autonomy work, including multi-target research, should get more
+  // productive inspection room before the soft churn nudge fires.
+  if (complexity === 'complex' || autonomyLevel === 'high') return 6;
   return 3;
 }
 

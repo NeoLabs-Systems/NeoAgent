@@ -153,8 +153,8 @@ const {
   buildDeterministicMessagingErrorReply,
   buildModelFailureLoopPrompt,
 } = require('../messagingFallback');
-const { isDeferredWorkReply } = require('../terminal_reply');
 const {
+  assessResearchAdequacy,
   classifyToolExecution,
   gatheredNewEvidence,
   isSubstantiveProgressToolName,
@@ -303,13 +303,34 @@ function summarizeReadTargets(toolExecutions = []) {
   return targets.join('; ');
 }
 
-function buildNoProgressWrapupPrompt({ readOnlyCount = 0, alreadyRead = '', platform = null } = {}) {
+function buildNoProgressWrapupPrompt({
+  readOnlyCount = 0,
+  alreadyRead = '',
+  platform = null,
+  researchAdequacy = null,
+} = {}) {
+  const adequacy = researchAdequacy && typeof researchAdequacy === 'object'
+    ? researchAdequacy
+    : null;
+  const researchIncomplete = adequacy
+    && adequacy.adequate === false
+    && adequacy.intensity
+    && adequacy.intensity !== 'none';
   return [
     `This is the final turn for this run (no further tool calls; ${Math.max(0, Number(readOnlyCount) || 0)} read-only turns without a state change).`,
     alreadyRead ? `Already gathered: ${alreadyRead}.` : '',
+    researchIncomplete
+      ? `Research coverage is incomplete: ${adequacy.reason || 'requested targets still lack primary evidence.'}`
+      : '',
+    researchIncomplete && adequacy.uncoveredTargets?.length
+      ? `Uncovered research targets: ${adequacy.uncoveredTargets.join('; ')}.`
+      : '',
     'Write the answer now from everything you have already gathered in this conversation. Deliver the useful result you DO have — calendar, weather, emails, search findings, whatever was collected — formatted as the actual answer to the original request.',
     'If one part could not be retrieved, still deliver everything else and note the missing part in at most one short clause. Never withhold a useful answer because a single detail is missing.',
-    'Only report a pure blocker if you genuinely gathered nothing usable at all. Do not describe the result as unfinished, unconfirmed, "blocked", or "still working" when you have something useful — this IS the final answer.',
+    'Do not invent entities, products, people, files, outcomes, or next-step work that is not already supported by tool evidence in this conversation.',
+    researchIncomplete
+      ? 'Because research is incomplete, clearly label assumptions and missing targets. Prefer a partial verified answer or a concrete blocker over a confident fabricated comparison.'
+      : 'Only report a pure blocker if you genuinely gathered nothing usable at all. Do not describe the result as unfinished, unconfirmed, "blocked", or "still working" when you have something useful — this IS the final answer.',
     buildMaxIterationWrapupPrompt(platform),
   ].filter(Boolean).join('\n\n');
 }
@@ -971,7 +992,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           // Reuse the run's real system prompt so the update follows the same voice and
           // formatting guidelines as every other message (single source of truth).
           const sysContent = [systemPrompt?.stable, systemPrompt?.dynamic].filter(Boolean).join('\n\n')
-            || 'You are a helpful assistant.';
+            || 'You are the user\'s favorite contact: warm, direct, and competent.';
           const resp = await runAbortableModelCall(
             (signal) => provider.chat(
               [
@@ -1373,6 +1394,47 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               continue;
             }
             alreadyRead = summarizeReadTargets(toolExecutions);
+            const researchAdequacyAtCap = assessResearchAdequacy({
+              analysis,
+              goalContext: runGoalCtx,
+              toolExecutions,
+            });
+            // Incomplete multi-target research is not "stuck" yet if primary sources
+            // remain uncovered. Give one guided research continuation instead of
+            // force-finishing with a guessed comparison.
+            if (
+              researchAdequacyAtCap.adequate === false
+              && researchAdequacyAtCap.intensity !== 'none'
+              && iterMeta
+              && iterMeta.researchAdequacyDeferralUsed !== true
+              && (
+                researchAdequacyAtCap.uncoveredTargets.length > 0
+                || researchAdequacyAtCap.primarySourceCount < researchAdequacyAtCap.requiredPrimarySources
+              )
+            ) {
+              iterMeta.researchAdequacyDeferralUsed = true;
+              iterMeta.consecutiveReadOnlyIterations = Math.max(0, churnNudgeThreshold - 1);
+              messages.push({
+                role: 'system',
+                content: [
+                  'Research self-check: evidence is still incomplete, so this run must not force-finish yet.',
+                  researchAdequacyAtCap.reason ? `Gap: ${researchAdequacyAtCap.reason}` : '',
+                  researchAdequacyAtCap.nextActions?.length
+                    ? `Next safe steps:\n- ${researchAdequacyAtCap.nextActions.join('\n- ')}`
+                    : '',
+                  'Open or fetch primary sources for uncovered targets now. Do not invent the missing comparison from memory or search snippets alone.',
+                ].filter(Boolean).join('\n'),
+              });
+              engine.recordRunEvent(userId, runId, 'read_only_wrapup_deferred_for_research', {
+                iteration,
+                readOnlyCount,
+                intensity: researchAdequacyAtCap.intensity,
+                uncoveredTargets: researchAdequacyAtCap.uncoveredTargets,
+                primarySourceCount: researchAdequacyAtCap.primarySourceCount,
+                requiredPrimarySources: researchAdequacyAtCap.requiredPrimarySources,
+              }, { agentId });
+              continue;
+            }
             triggerForceWrapup = true;
           } else if (readOnlyCount >= churnNudgeThreshold) {
             alreadyRead = summarizeReadTargets(toolExecutions);
@@ -1447,6 +1509,11 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
                         readOnlyCount,
                         alreadyRead,
                         platform: options?.source || null,
+                        researchAdequacy: assessResearchAdequacy({
+                          analysis,
+                          goalContext: runGoalCtx,
+                          toolExecutions,
+                        }),
                       }),
                     },
                   ]),
@@ -1466,8 +1533,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
               console.warn(`[Run ${shortenRunId(runId)}] no_progress_wrapup failed: ${summarizeForLog(wrapErr?.message || wrapErr, 180)}`);
             }
             totalTokens += wrapTokens;
-            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null)
-              && !isDeferredWorkReply(lastContent);
+            const usableWrap = normalizeOutgoingMessage(lastContent, options?.source || null);
             if (!usableWrap) {
               lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
             }
@@ -1761,13 +1827,23 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           iteration,
         }, { agentId });
         if (loopDecision.decision.status === 'continue') {
+          const researchGuidance = loopDecision.researchAdequacy?.adequate === false
+            ? [
+              `Research still incomplete: ${loopDecision.researchAdequacy.reason || 'gather primary evidence for remaining targets.'}`,
+              loopDecision.researchAdequacy.nextActions?.length
+                ? `Next safe steps: ${loopDecision.researchAdequacy.nextActions.join(' ')}`
+                : '',
+            ].filter(Boolean).join(' ')
+            : '';
           messages.push({
             role: 'system',
             content: [
               'The run self-check determined the latest assistant text is not terminal.',
               'Continue with the next safe tool/model step.',
               'If the text was only a progress note, do not repeat it; either make progress or provide a real final/blocker reply.',
-            ].join(' '),
+              'Do not invent missing targets, outcomes, or tool results. Gather evidence or return a truthful partial/blocker answer.',
+              researchGuidance,
+            ].filter(Boolean).join(' '),
           });
           lastContent = '';
           continue;
@@ -2399,8 +2475,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
         // On budget exhaustion the model's last text is an untrustworthy mid-thought
         // fragment. Replace it with the wrap-up answer, or a clean deterministic
         // fallback if the wrap-up came back empty — never deliver the fragment.
-        const usableWrap = normalizeOutgoingMessage(wrapText, options?.source || null)
-          && !isDeferredWorkReply(wrapText);
+        const usableWrap = normalizeOutgoingMessage(wrapText, options?.source || null);
         lastContent = usableWrap
           ? wrapText
           : buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
@@ -2455,8 +2530,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       // evidence) instead of second-guessing it into a generic blob. Only fall back to
       // a deterministic message when the model returned nothing usable.
       const recoveredVisible = Boolean(
-        normalizeOutgoingMessage(lastContent, options?.source || null)
-        && !isDeferredWorkReply(lastContent),
+        normalizeOutgoingMessage(lastContent, options?.source || null),
       );
       if (!recoveredVisible) {
         lastContent = buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
@@ -2603,18 +2677,8 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       });
     }
 
-    if (!messagingSent && isDeferredWorkReply(finalResponseText)) {
-      engine.recordRunEvent(userId, runId, 'non_terminal_final_reply_rejected', {
-        iteration,
-        contentPreview: String(finalResponseText || '').slice(0, 240),
-      }, { agentId });
-      finalResponseText = buildDeterministicMessagingFallback({
-        failedStepCount,
-        stepIndex,
-        toolExecutions,
-      });
-      lastContent = finalResponseText;
-    }
+    // Final reply terminality is decided by the AI completion judge / task_complete path.
+    // Do not phrase-match natural-language drafts here.
 
     if (deliverableWorkflow && deliverablePlan) {
       engine.recordRunEvent(userId, runId, 'deliverable_validation_started', {
@@ -2883,7 +2947,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           const drafted = sanitizeModelOutput(modelReply.content || '', { model });
           if (
             normalizeOutgoingMessage(drafted, options?.source || null)
-            && !isDeferredWorkReply(drafted)
           ) {
             messagingFailureContent = drafted.trim();
           }

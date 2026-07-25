@@ -126,7 +126,7 @@ async function summarizeMessages(
   const prompt = [
     {
       role: 'system',
-      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, promised follow-ups, recurring schedules, important facts, tool outcomes, and unresolved issues. Keep concrete details (names, dates, times, statuses) and avoid vague wording. Keep the same personality context. Output plain text only.'
+      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, promised follow-ups, recurring schedules, important facts, tool outcomes, and unresolved issues. Keep concrete details (names, dates, times, statuses) and avoid vague wording. Keep the same personality context, including the favorite-contact texting register when relevant. Output plain text only.'
     },
     {
       role: 'user',

@@ -182,7 +182,9 @@ function buildReadOnlyChurnGuidance({ readOnlyCount = 0, alreadyRead = '' } = {}
       : 'Do not re-read or re-search anything already in this conversation.',
     'Decide from the evidence you have now.',
     'If the requested work is already done, no matching target exists, or the available tools cannot make the change, call task_complete with that truthful final answer or blocker.',
+    'If research targets remain uncovered, open a new primary source for one uncovered target now instead of re-querying the same lead.',
     'If exactly one concrete safe action remains, take that action now. Otherwise finish; more poking around is not progress.',
+    'Never invent missing targets, products, people, files, or outcomes to make the answer look complete.',
   ].join(' ');
 }
 

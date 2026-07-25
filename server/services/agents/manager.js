@@ -77,7 +77,7 @@ function ensureMainAgent(userId) {
     userId,
     MAIN_AGENT_SLUG,
     'Main',
-    'Default personal assistant and fallback agent.',
+    'Default personal AI contact and fallback agent.',
     'Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.',
     '',
   );

@@ -43,7 +43,9 @@ test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
   const first = buildBlankMessagingReplyPrompt(1);
   const second = buildBlankMessagingReplyPrompt(2);
   assert.match(first, /one non-empty reply/);
+  assert.match(first, /text-native voice/i);
   assert.match(second, /previous reply was empty/);
+  assert.match(second, /text-native and direct/i);
 });
 
 test('progress update prompt forbids claiming changes from read-only evidence', () => {
@@ -67,11 +69,11 @@ test('summarizeRecentWork describes at most two distinct activities', () => {
   assert.equal(summarizeRecentWork([]), '');
   assert.equal(
     summarizeRecentWork([{ toolName: 'execute_command' }]),
-    'I ran shell commands',
+    'ran shell commands',
   );
   assert.equal(
     summarizeRecentWork([{ toolName: 'execute_command' }, { toolName: 'read_file' }]),
-    'I ran shell commands and checked files',
+    'ran shell commands and checked files',
   );
 });
 
@@ -107,11 +109,11 @@ test('buildDeterministicMessagingFallback narrates work and blockers honestly', 
   });
   assert.match(both, /ran shell commands/);
   assert.match(both, /disk full/);
-  assert.match(both, /do not have a confirmed finished result/);
+  assert.match(both, /no finished result yet/i);
 
   assert.equal(
     buildDeterministicMessagingFallback({ failedStepCount: 0, stepIndex: 0, toolExecutions: [] }),
-    'I could not produce a reliable final reply just now.',
+    'could not land a reliable final reply just now.',
   );
 
   const sanitized = buildDeterministicMessagingFallback({
@@ -145,11 +147,11 @@ test('buildDeterministicMessagingErrorReply special-cases provider and timeout e
   );
   assert.match(
     buildDeterministicMessagingErrorReply({ err: { message: 'request timed out' }, toolExecutions: [] }),
-    /hit a timeout/,
+    /timed out while working on that/,
   );
   assert.match(
     buildDeterministicMessagingErrorReply({ err: { message: '' }, toolExecutions: [{ error: 'blocked here' }] }),
-    /blocked while checking this: blocked here/,
+    /got blocked while checking this: blocked here/,
   );
   assert.match(
     buildDeterministicMessagingErrorReply({

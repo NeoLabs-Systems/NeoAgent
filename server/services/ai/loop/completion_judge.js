@@ -3,10 +3,6 @@
 const { normalizeCompletionConfidence } = require('../completion');
 const { normalizeOutgoingMessage } = require('../messagingFallback');
 const {
-  isDeferredWorkReply,
-  isTerminalQuestionOrBlockerReply,
-} = require('../terminal_reply');
-const {
   assessResearchAdequacy,
   formatResearchAdequacyGuidance,
   summarizeAvailableTools,
@@ -225,6 +221,10 @@ function buildCompletionDecisionPrompt({
     `- If completion_confidence_required is ${goalContext.effectiveCompletionConfidence} and the latest draft depends on unverified assumptions, use "continue" so the run can gather evidence, inspect state, or narrow the reply.`,
     '- When research intensity is light or deep, use "continue" until the required primary/source coverage and target coverage are met, or the draft is an explicit blocker naming exactly what could not be verified.',
     '- Search snippets, memory, and model priors are leads, not completion evidence. Prefer opened/fetched primary sources before "complete".',
+    '- If the latest draft invents entities, products, people, files, results, or actions that are not supported by tool evidence, use "continue" so the run can gather evidence or rewrite into a truthful partial/blocker answer.',
+    '- A polished-sounding answer is not complete if key requested targets still lack direct evidence.',
+    '- If the latest draft only announces unfinished work, promises a future update, or asks the user to wait without a concrete result or blocker, use "continue" so the run keeps acting.',
+    '- If the latest draft asks for missing required user input, confirmation, or a choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
   ];
 
   if (adequacy.intensity !== 'none') {
@@ -281,19 +281,8 @@ function normalizeCompletionDecision(raw, fallbackStatus = 'continue') {
 }
 
 function enforceTerminalReplyDecision(decision, lastReply, options = {}) {
-  if (isDeferredWorkReply(lastReply)) {
-    return {
-      status: 'continue',
-      reason: 'The latest reply only announces or promises unfinished work; the run must continue or return a concrete blocker.',
-    };
-  }
-  if (decision?.status === 'continue' && isTerminalQuestionOrBlockerReply(lastReply)) {
-    return {
-      status: 'blocked',
-      reason: 'The latest reply asks for user input or states a concrete blocker, so the run must wait instead of repeating it.',
-    };
-  }
-
+  // Natural-language terminality is judged by the model completion decision.
+  // Runtime only enforces structural evidence contracts (research adequacy).
   const researchAdequacy = options.researchAdequacy
     || assessResearchAdequacy({
       analysis: options.analysis || null,
@@ -304,8 +293,17 @@ function enforceTerminalReplyDecision(decision, lastReply, options = {}) {
     researchAdequacy
     && researchAdequacy.adequate === false
     && (decision?.status === 'complete' || decision?.status === 'blocked')
-    && !isTerminalQuestionOrBlockerReply(lastReply)
   ) {
+    // Allow true blocked outcomes only when the model already chose blocked AND
+    // research cannot progress further (no remaining targets/primary gap that
+    // tools could still cover). Otherwise force continue for evidence gathering.
+    if (
+      decision?.status === 'blocked'
+      && researchAdequacy.uncoveredTargets.length === 0
+      && researchAdequacy.primarySourceCount >= researchAdequacy.requiredPrimarySources
+    ) {
+      return decision;
+    }
     return {
       status: 'continue',
       reason: researchAdequacy.reason
@@ -357,8 +355,35 @@ function buildChurnAssessmentPrompt({
     '- "blocked": No concrete action is available in this run. You have all the evidence needed to deliver a truthful final answer or a specific external blocker.',
     '- For multi-target research, keep "progressing" while uncovered targets remain and a fresh primary source can still be opened. Do not mark "blocked" just because you have partial notes.',
     '- Re-querying the same snippet source for an already covered target is "churn". Opening a different primary source for an uncovered target is "progressing".',
+    adequacy.adequate === false
+      ? '- Research adequacy is currently incomplete. Prefer "progressing" if a new primary source for an uncovered target is still available; use "churn" only for repeated identical reads; do not use "blocked" unless tools cannot reach remaining targets.'
+      : '',
   ];
   return lines.filter(Boolean).join('\n');
+}
+
+function enforceChurnAssessment(assessment, options = {}) {
+  const normalized = normalizeChurnAssessment(assessment);
+  const researchAdequacy = options.researchAdequacy
+    || assessResearchAdequacy({
+      analysis: options.analysis || null,
+      goalContext: options.goalContext || null,
+      toolExecutions: options.toolExecutions || [],
+    });
+  if (
+    researchAdequacy
+    && researchAdequacy.adequate === false
+    && researchAdequacy.intensity !== 'none'
+    && normalized.assessment === 'blocked'
+    && (researchAdequacy.uncoveredTargets?.length > 0 || researchAdequacy.primarySourceCount < researchAdequacy.requiredPrimarySources)
+  ) {
+    return {
+      assessment: 'progressing',
+      reason: researchAdequacy.reason
+        || 'Research targets remain uncovered; keep gathering primary sources instead of force-finishing.',
+    };
+  }
+  return normalized;
 }
 
 function normalizeChurnAssessment(raw) {
@@ -378,6 +403,7 @@ module.exports = {
   goalContractFromAnalysis,
   goalContractFromPlan,
   mergeGoalContracts,
+  enforceChurnAssessment,
   normalizeChurnAssessment,
   normalizeCompletionDecision,
   normalizeGoalContract,

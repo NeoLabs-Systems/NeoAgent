@@ -257,71 +257,13 @@ function uniqueResearchTokens(values = [], { limit = 12 } = {}) {
   return tokens;
 }
 
-// Structural target extraction only: quoted spans and product-like proper names.
-// No phrase-based intent filters.
-function isProductLikeToken(token = '') {
-  const value = String(token || '').trim();
-  if (!value) return false;
-  if (/[0-9]/.test(value)) return true;
-  if (/[-_/]/.test(value)) return true;
-  if (/[a-z][A-Z]/.test(value)) return true;
-  return false;
-}
-
-function extractResearchTargets(text = '') {
-  const raw = String(text || '');
-  if (!raw.trim()) return [];
-
-  const targets = [];
-  const quoted = raw.match(/["“”'‘’`]([^"“”'‘’`]{2,80})["“”'‘’`]/g) || [];
-  for (const match of quoted) {
-    const cleaned = match.replace(/^["“”'‘’`]|["“”'‘’`]$/g, '').trim();
-    if (cleaned) targets.push(cleaned);
-  }
-
-  // Require each subsequent token to start with a capital letter or digit so
-  // ordinary sentence fragments ("Implement the pause...") do not become targets.
-  const productish = raw.match(
-    /\b[A-Z][A-Za-z0-9+./-]*(?:[ -][A-Z0-9][A-Za-z0-9+./-]*){0,5}\b/g,
-  ) || [];
-  for (const match of productish) {
-    const cleaned = match.replace(/\s+/g, ' ').trim();
-    const parts = cleaned.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) continue;
-    if (parts.length === 1) {
-      if (!isProductLikeToken(parts[0]) || parts[0].length < 4) continue;
-    } else if (!parts.some(isProductLikeToken) && parts.length < 2) {
-      continue;
-    } else if (!parts.some(isProductLikeToken) && parts.every((part) => part.length <= 3)) {
-      continue;
-    }
-    // Drop pure sentence openers with no product-like signal.
-    if (parts.length >= 2 && !parts.some(isProductLikeToken)) {
-      // Keep multi-token proper names such as brand + model family only when
-      // at least one token is long enough to be a meaningful entity name.
-      if (!parts.some((part) => part.length >= 5)) continue;
-    }
-    targets.push(cleaned);
-  }
-
-  return uniqueResearchTokens(targets, { limit: 8 });
-}
-
+// Research targets come from structured task analysis / goal contract only.
+// Do not NLP-extract entity names from free text.
 function collectResearchTargets(analysis = null, goalContext = null) {
-  const explicit = uniqueResearchTokens([
+  return uniqueResearchTokens([
     ...(Array.isArray(analysis?.research_targets) ? analysis.research_targets : []),
     ...(Array.isArray(goalContext?.researchTargets) ? goalContext.researchTargets : []),
   ], { limit: 8 });
-  if (explicit.length > 0) return explicit;
-
-  const goalText = [
-    goalContext?.effectiveGoal,
-    analysis?.goal,
-    ...(Array.isArray(goalContext?.successCriteria) ? goalContext.successCriteria : []),
-    ...(Array.isArray(analysis?.success_criteria) ? analysis.success_criteria : []),
-  ].filter(Boolean).join(' ');
-
-  return extractResearchTargets(goalText);
 }
 
 function hasResearchToolHint(analysis = null) {
@@ -330,11 +272,8 @@ function hasResearchToolHint(analysis = null) {
     const tool = String(name || '').trim().toLowerCase();
     if (!tool) return false;
     if (RESEARCH_TOOL_HINTS.has(tool)) return true;
-    return tool.startsWith('browser_')
-      || tool.startsWith('mcp_')
-      || tool === 'web_search'
-      || tool.includes('web_search')
-      || tool.includes('http_request');
+    // Tool-schema identity only: family prefixes, not free-text phrase matching.
+    return tool.startsWith('browser_') || tool.startsWith('mcp_');
   });
 }
 
@@ -625,7 +564,6 @@ module.exports = {
   classifyToolExecution,
   deriveEvidenceSource,
   assessResearchAdequacy,
-  extractResearchTargets,
   formatResearchAdequacyGuidance,
   gatheredNewEvidence,
   isSubstantiveProgressEvidence,

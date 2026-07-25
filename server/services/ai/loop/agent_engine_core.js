@@ -33,6 +33,7 @@ const {
   buildChurnAssessmentPrompt,
   buildCompletionDecisionPrompt,
   enforceTerminalReplyDecision,
+  enforceChurnAssessment,
   normalizeChurnAssessment,
   normalizeCompletionDecision,
   resolveRunGoalContext,
@@ -85,7 +86,6 @@ const {
   normalizeOutgoingMessage,
   clampRunContext,
 } = require('../messagingFallback');
-const { isDeferredWorkReply } = require('../terminal_reply');
 const {
   assessResearchAdequacy,
   summarizeToolExecutions,
@@ -933,9 +933,20 @@ class AgentEngine {
       telemetry: options,
       phase: 'churn_assessment',
     });
+    const researchAdequacy = assessResearchAdequacy({
+      analysis,
+      goalContext,
+      toolExecutions,
+    });
     return {
-      assessment: response.value,
+      assessment: enforceChurnAssessment(response.value, {
+        analysis,
+        goalContext,
+        toolExecutions,
+        researchAdequacy,
+      }),
       usage: response.usage,
+      researchAdequacy,
     };
   }
 
@@ -1241,12 +1252,13 @@ class AgentEngine {
     messagingSent = false,
     lastReply = '',
   }) {
+    // Voice fast-path is structural only: short reply, no tools/failures.
+    // Content terminality is left to the model completion judge.
     return options.latencyProfile === 'voice'
       && toolExecutions.length === 0
       && failedStepCount === 0
       && !messagingSent
-      && Boolean(String(lastReply || '').trim())
-      && !isDeferredWorkReply(lastReply);
+      && Boolean(String(lastReply || '').trim());
   }
 
   getMessagingRetryLimit(maxIterations) {

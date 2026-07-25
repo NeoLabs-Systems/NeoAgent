@@ -43,10 +43,10 @@ function normalizeInterimText(content, platform = null) {
 function buildBlankMessagingReplyPrompt(attempt, platform = null) {
   const formattingGuide = buildPlatformFormattingGuide(platform);
   if (attempt <= 1) {
-    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
+    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Keep the same text-native voice you use with this user: short, direct, human. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
   }
 
-  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, apologize briefly and explain the blocker in one sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
+  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, explain the blocker in one short human sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Stay text-native and direct. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
 }
 
 function buildProgressUpdatePrompt() {
@@ -68,7 +68,7 @@ function buildProgressUpdatePrompt() {
 
 function buildMaxIterationWrapupPrompt(platform = null) {
   const formattingGuide = buildPlatformFormattingGuide(platform);
-  return `You have reached the step limit for this run, so this is your final turn. Stop here and do NOT call any tools. Write the single best, most complete answer you can for the user from the work already done in this conversation: lead with the concrete results and what you accomplished, then clearly name anything you could not finish and the specific blocker. Do not output a half-finished thought, a plan for what to do next, or a "let me…" fragment, this message is the final reply. Do not promise future work unless it already happened in this run.\n\n${formattingGuide}`;
+  return `You have reached the step limit for this run, so this is your final turn. Stop here and do NOT call any tools. Write the single best, most complete answer you can for the user from the work already done in this conversation: lead with the concrete results and what you accomplished, then clearly name anything you could not finish and the specific blocker. Do not invent entities, products, people, files, outcomes, or tool results that are not already supported by evidence in this conversation. Do not output a half-finished thought, a plan for what to do next, or a "let me…" fragment, this message is the final reply. Do not promise future work unless it already happened in this run.\n\n${formattingGuide}`;
 }
 
 function parseToolExecutionSummary(item) {
@@ -102,8 +102,8 @@ function summarizeRecentWork(toolExecutions = []) {
   }
 
   if (descriptions.length === 0) return '';
-  if (descriptions.length === 1) return `I ${descriptions[0]}`;
-  return `I ${descriptions[0]} and ${descriptions[1]}`;
+  if (descriptions.length === 1) return descriptions[0];
+  return `${descriptions[0]} and ${descriptions[1]}`;
 }
 
 function hasFailureSignal(text) {
@@ -122,7 +122,7 @@ function summarizeUserVisibleBlocker(text) {
   const normalized = normalizeOutgoingMessage(text);
   if (!normalized) return '';
   if (isInternalToolingFailure(normalized)) {
-    return 'I hit an internal tool issue while checking that';
+    return 'hit an internal tool issue while checking that';
   }
   return normalized;
 }
@@ -171,21 +171,21 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolE
     .find(Boolean);
 
   if (workSummary && blocker) {
-    return `${workSummary}, but I got blocked: ${blocker}. I do not have a confirmed finished result yet.`;
+    return `${workSummary}, but hit a wall: ${blocker}. no finished result yet.`;
   }
   if (blocker) {
-    return `I got blocked while working on this: ${blocker}. I do not have a confirmed finished result yet.`;
+    return `got blocked on this: ${blocker}. no finished result yet.`;
   }
   if (workSummary && stepIndex > 0) {
-    return `${workSummary}, but I do not have a confirmed finished result yet.`;
+    return `${workSummary}, but no finished result yet.`;
   }
   if (failedStepCount > 0) {
-    return 'I ran into a tool problem while working on your request, so I do not have a confirmed finished result yet.';
+    return 'hit a tool problem while working on this, so no finished result yet.';
   }
   if (stepIndex > 0) {
-    return 'I completed part of the work, but I do not have a confirmed finished result yet.';
+    return 'got partway through, but no finished result yet.';
   }
-  return 'I could not produce a reliable final reply just now.';
+  return 'could not land a reliable final reply just now.';
 }
 
 function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
@@ -218,11 +218,11 @@ function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolEx
 function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
   const message = normalizeOutgoingMessage(err?.message || '');
   if (/no ai providers? are currently available/i.test(message)) {
-    return 'I cannot continue right now because no AI provider is available for this account. Please check the provider settings.';
+    return 'can\'t continue right now: no AI provider is available for this account. check provider settings and I can pick it back up.';
   }
 
   if (/(timeout|timed out)/i.test(message)) {
-    return 'I hit a timeout while processing your request and could not finish it reliably.';
+    return 'timed out while working on that, so I could not finish it cleanly.';
   }
 
   const blocker = [...toolExecutions].reverse()
@@ -230,15 +230,15 @@ function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex
     .map((value) => summarizeUserVisibleBlocker(value))
     .find(Boolean);
   if (blocker) {
-    return `I got blocked while checking this: ${blocker}.`;
+    return `got blocked while checking this: ${blocker}.`;
   }
 
   if (isInternalToolingFailure(message)) {
-    return 'I hit an internal tool issue while checking that, so I do not have a verified answer yet.';
+    return 'hit an internal tool issue while checking that, so no verified answer yet.';
   }
 
   if (message) {
-    return `I got blocked while working on this: ${message}.`;
+    return `got blocked while working on this: ${message}.`;
   }
 
   return buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
