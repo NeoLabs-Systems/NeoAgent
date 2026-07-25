@@ -2548,7 +2548,8 @@ class OfficialIntegrationAppItem {
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
 
-  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
+  String get statusLabel =>
+      effectiveStatus == 'expired' ? 'Expired' : connection.statusLabel;
 }
 
 class OfficialIntegrationEnvStatus {
@@ -2780,7 +2781,8 @@ class OfficialIntegrationItem {
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
 
-  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
+  String get statusLabel =>
+      effectiveStatus == 'expired' ? 'Expired' : connection.statusLabel;
 }
 
 class SkillDocument {

@@ -27,7 +27,7 @@ function pickCaptionTrack(captionGroups = {}, preferredLanguages = []) {
 
   const preferred = preferredLanguages.map(normalizeLanguageCode).filter(Boolean);
   const preferredOrder = preferred.length > 0 ? preferred : ['en', 'en-us', 'en-gb'];
-  const preferredExt = ['vtt', 'webvtt', 'srt', 'json3'];
+  const preferredExt = ['vtt', 'webvtt', 'srt', 'json3', 'ttml', 'xml', 'json'];
 
   const scoreTrack = (track) => {
     const langIdx = preferredOrder.findIndex((code) => track.language === code || track.language.startsWith(`${code}-`));
@@ -148,7 +148,7 @@ function parseCaptionText(raw, extension = '') {
   if (ext === 'vtt' || ext === 'webvtt') {
     return parseWebVttToText(raw);
   }
-  if (ext === 'ttml') {
+  if (ext === 'ttml' || ext === 'xml') {
     return parseTtmlToText(raw);
   }
   if (ext === 'srt') {

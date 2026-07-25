@@ -229,6 +229,36 @@ function firstFileMatching(dirPath, startsWith) {
   return path.join(dirPath, match);
 }
 
+function pickDownloadedCaptionFile(dirPath, preferredLanguages = []) {
+  const captionExts = new Set(['.vtt', '.webvtt', '.srt', '.ttml', '.xml', '.json3', '.json']);
+  const captionGroups = {};
+  for (const name of fs.readdirSync(dirPath)
+    .filter((name) => name.startsWith('captions.'))
+    .sort()) {
+    const fullPath = path.join(dirPath, name);
+    const extension = path.extname(name).toLowerCase();
+    if (!captionExts.has(extension) || !fileExists(fullPath)) continue;
+    const base = path.basename(name, extension);
+    const language = base.slice('captions.'.length).toLowerCase();
+    captionGroups[language] ||= [];
+    captionGroups[language].push({
+      url: fullPath,
+      ext: extension.replace(/^\./, ''),
+    });
+  }
+  const track = pickCaptionTrack(captionGroups, preferredLanguages);
+  if (!track) return null;
+  return {
+    path: track.url,
+    language: track.language,
+    ext: track.ext,
+  };
+}
+
+function cookieArg(cookieFilePath) {
+  return cookieFilePath ? ` --cookies ${shellEscape(cookieFilePath)}` : '';
+}
+
 function classifyExtractionError(error) {
   const message = String(error?.message || error || '').trim();
   const normalized = message.toLowerCase();
@@ -275,6 +305,7 @@ class SocialVideoService {
     this.artifactStore = options.artifactStore || null;
     this.runtimeManager = options.runtimeManager || null;
     this.cliExecutor = options.cliExecutor || new CLIExecutor();
+    this.publicResourceFetcher = options.publicResourceFetcher || fetchPublicResource;
     this.voiceTranscriber = options.voiceTranscriber || transcribeVoiceInput;
     this.voiceSettingsResolver = options.voiceSettingsResolver || ((userId, agentId) => this.#resolveVoiceSttConfig(userId, agentId));
     this.ytDlpBin = String(process.env.YT_DLP_BIN || 'yt-dlp').trim() || 'yt-dlp';
@@ -299,10 +330,13 @@ class SocialVideoService {
     ]);
 
     const health = {
-      ready: ytDlp.available && ffmpeg.available,
-      dependencies: [ytDlp, ffmpeg],
+      ready: ytDlp.available,
+      dependencies: [
+        { ...ytDlp, required: true },
+        { ...ffmpeg, required: false },
+      ],
       speechToText: {
-        note: 'Transcript fallback uses the configured voice STT provider from Flutter settings.',
+        note: 'Captions are downloaded directly with yt-dlp without social platform API keys. If captions are unavailable, the configured voice STT provider transcribes the media.',
       },
       checkedAt: new Date().toISOString(),
     };
@@ -325,7 +359,9 @@ class SocialVideoService {
       throwIfAborted(options.signal, 'Social video extraction aborted.');
       const health = await this.getHealthStatus({ signal: options.signal });
       if (!health.ready) {
-        const missing = health.dependencies.filter((item) => !item.available).map((item) => item.name);
+        const missing = health.dependencies
+          .filter((item) => item.required !== false && !item.available)
+          .map((item) => item.name);
         throw new Error(`Missing required dependency: ${missing.join(', ')}`);
       }
 
@@ -340,7 +376,11 @@ class SocialVideoService {
         normalizedUrl,
         warnings,
         options.signal,
-      );
+      ).catch((error) => {
+        rethrowCancellation(error, options.signal);
+        warnings.push(`Public page metadata was unavailable: ${error.message}`);
+        return {};
+      });
       throwIfAborted(options.signal, 'Social video extraction aborted.');
       jobDir = await fsp.mkdtemp(path.join(SOCIAL_VIDEO_TMP_DIR, `${platform}-${Date.now()}-`));
       const cookieFilePath = await this.#resolveCookieFile({
@@ -377,6 +417,7 @@ class SocialVideoService {
         sourceUrl: normalizedUrl,
         mediaInfo,
         captionTrack,
+        preferredLanguages,
         transcriptDecision,
         jobDir,
         cookieFilePath,
@@ -520,7 +561,7 @@ class SocialVideoService {
       return browserMetadata;
     }
 
-    const response = await fetchPublicResource(normalizedUrl, {
+    const response = await this.publicResourceFetcher(normalizedUrl, {
       signal,
       maxResponseBytes: MAX_PAGE_HTML_BYTES,
       accept: 'text/html,*/*',
@@ -585,8 +626,7 @@ class SocialVideoService {
   async #readMediaInfo(normalizedUrl, jobDir, cookieFilePath = null, signal = null) {
     const infoTemplate = path.join(jobDir, 'media.%(ext)s');
     const infoPath = path.join(jobDir, 'media.info.json');
-    const cookieArg = cookieFilePath ? ` --cookies ${shellEscape(cookieFilePath)}` : '';
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()} --skip-download --write-info-json --no-clean-infojson${cookieArg} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()} --skip-download --write-info-json --no-clean-infojson${cookieArg(cookieFilePath)} -o ${shellEscape(infoTemplate)} -- ${shellEscape(normalizedUrl)}`;
     await this.#runCommand(command, { cwd: jobDir, timeout: 4 * 60 * 1000, signal });
     if (!fileExists(infoPath)) {
       throw new Error('yt-dlp did not produce an info JSON artifact.');
@@ -603,11 +643,15 @@ class SocialVideoService {
   }
 
   async #resolveTranscript(context) {
-    if (context.transcriptDecision.mode === 'captions' && context.captionTrack) {
-      const captionText = await this.#readTranscriptFromCaption(
-        context.captionTrack,
-        context.signal,
-      ).catch((error) => {
+    // Prefer captions over STT and never depend on social platform API keys.
+    // Caption URLs from metadata are often signed/short-lived or cookie-gated, and
+    // auto-captions may exist even when info JSON omits them, so we always attempt
+    // caption acquisition before spending STT quota (unless forceStt is set).
+    const forceStt = context.transcriptDecision?.mode === 'stt'
+      && context.transcriptDecision?.reason === 'forced';
+
+    if (!forceStt) {
+      const captionText = await this.#resolveCaptionTranscript(context).catch((error) => {
         rethrowCancellation(error, context.signal);
         context.warnings.push(`Caption transcript failed: ${error.message}`);
         return '';
@@ -618,7 +662,9 @@ class SocialVideoService {
           source: 'captions',
         };
       }
-      context.warnings.push('Caption track was present but transcript text was empty. Falling back to speech-to-text.');
+      if (context.transcriptDecision?.mode === 'captions') {
+        context.warnings.push('Caption extraction did not yield usable text. Falling back to speech-to-text.');
+      }
     }
 
     const transcript = await this.#transcribeViaStt(context).catch((error) => {
@@ -632,40 +678,159 @@ class SocialVideoService {
     };
   }
 
-  async #readTranscriptFromCaption(captionTrack, signal = null) {
-    const response = await fetchPublicResource(captionTrack.url, {
+  async #resolveCaptionTranscript(context) {
+    if (context.captionTrack) {
+      const direct = await this.#readTranscriptFromCaption(
+        context.captionTrack,
+        context.sourceUrl,
+        context.signal,
+      ).catch((error) => {
+        rethrowCancellation(error, context.signal);
+        context.warnings.push(`Direct caption fetch failed: ${error.message}`);
+        return '';
+      });
+      if (direct) {
+        return direct;
+      }
+    }
+
+    return this.#downloadCaptionsViaYtDlp(context);
+  }
+
+  async #readTranscriptFromCaption(captionTrack, sourceUrl, signal = null) {
+    const response = await this.publicResourceFetcher(captionTrack.url, {
       signal,
       maxResponseBytes: MAX_VTT_BYTES,
       accept: 'text/vtt,text/plain,application/json,application/xml,*/*',
+      headers: {
+        referer: String(sourceUrl || ''),
+      },
     });
     return parseCaptionText(response.body, captionTrack.ext);
   }
 
-  async #transcribeViaStt(context) {
-    const template = path.join(context.jobDir, 'audio.%(ext)s');
-    const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
-    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f bestaudio/best -- ${shellEscape(context.sourceUrl)}`;
+  async #downloadCaptionsViaYtDlp(context) {
+    const preferredLanguages = Array.isArray(context.preferredLanguages)
+      ? context.preferredLanguages
+      : [];
+    const languageHints = preferredLanguages.length > 0
+      ? preferredLanguages.join(',')
+      : 'en.*,en';
+    // Download both manual and auto-generated captions without platform API keys.
+    // Prefer formats we can parse directly so caption extraction does not require
+    // ffmpeg just to perform a subtitle conversion.
+    const outputTemplate = path.join(context.jobDir, 'captions');
+    const command = [
+      shellEscape(this.ytDlpBin),
+      '--quiet',
+      '--no-warnings',
+      '--no-playlist',
+      this.#networkFlags(),
+      cookieArg(context.cookieFilePath),
+      '--skip-download',
+      '--write-subs',
+      '--write-auto-subs',
+      '--sub-langs', shellEscape(`${languageHints},all,-live_chat`),
+      '--sub-format', shellEscape('vtt/srt/ttml/json3/best'),
+      '-o', shellEscape(outputTemplate),
+      '--',
+      shellEscape(context.sourceUrl),
+    ].filter(Boolean).join(' ');
+
     await this.#runCommand(command, {
       cwd: context.jobDir,
-      timeout: 10 * 60 * 1000,
+      timeout: 4 * 60 * 1000,
       signal: context.signal,
     });
 
-    const audioPath = firstFileMatching(context.jobDir, 'audio.');
-    if (!audioPath || !fileExists(audioPath)) {
-      throw new Error('Audio download succeeded but no audio file was created.');
+    const captionFile = pickDownloadedCaptionFile(context.jobDir, preferredLanguages);
+    if (!captionFile) {
+      throw new Error('yt-dlp did not produce a usable caption file.');
     }
+
+    const raw = await fsp.readFile(captionFile.path, 'utf8');
+    throwIfAborted(context.signal, 'Social video extraction aborted.');
+    const text = parseCaptionText(raw, captionFile.ext);
+    if (!text) {
+      throw new Error(`Caption file ${path.basename(captionFile.path)} parsed to empty text.`);
+    }
+    return text;
+  }
+
+  async #transcribeViaStt(context) {
+    const audioPath = await this.#downloadAudioForStt(context);
+    const preparedPath = await this.#prepareAudioForStt(audioPath, context);
 
     const sttConfig = await Promise.resolve(
       this.voiceSettingsResolver(context.userId, context.agentId),
     );
     throwIfAborted(context.signal, 'Social video transcription aborted.');
-    return this.voiceTranscriber(audioPath, {
+    return this.voiceTranscriber(preparedPath, {
       provider: sttConfig?.provider || 'openai',
       model: sttConfig?.model || '',
-      mimeType: detectMimeFromFile(audioPath),
+      mimeType: detectMimeFromFile(preparedPath),
       signal: context.signal,
     });
+  }
+
+  async #downloadAudioForStt(context) {
+    const template = path.join(context.jobDir, 'audio.%(ext)s');
+    const command = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg(context.cookieFilePath)} -o ${shellEscape(template)} -f "bestaudio/best" --extract-audio --audio-format mp3 --audio-quality 0 -- ${shellEscape(context.sourceUrl)}`;
+
+    try {
+      await this.#runCommand(command, {
+        cwd: context.jobDir,
+        timeout: 10 * 60 * 1000,
+        signal: context.signal,
+      });
+    } catch (error) {
+      rethrowCancellation(error, context.signal);
+      // Some extractors reject --extract-audio; fall back to raw bestaudio/best download.
+      context.warnings.push(`Audio extract-audio path failed (${error.message}). Retrying raw media download.`);
+      const fallbackCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg(context.cookieFilePath)} -o ${shellEscape(template)} -f "bestaudio/best" -- ${shellEscape(context.sourceUrl)}`;
+      await this.#runCommand(fallbackCommand, {
+        cwd: context.jobDir,
+        timeout: 10 * 60 * 1000,
+        signal: context.signal,
+      });
+    }
+
+    const audioPath = firstFileMatching(context.jobDir, 'audio.');
+    if (!audioPath || !fileExists(audioPath)) {
+      throw new Error('Audio download succeeded but no audio file was created.');
+    }
+    return audioPath;
+  }
+
+  async #prepareAudioForStt(audioPath, context) {
+    const ext = path.extname(String(audioPath || '')).toLowerCase();
+    const mimeType = detectMimeFromFile(audioPath);
+    // Prefer formats STT providers accept directly. Normalize anything else
+    // (including video containers from bestaudio/best fallbacks) to mono mp3.
+    const readyAsIs = (
+      mimeType === 'audio/mpeg'
+      || mimeType === 'audio/mp4'
+      || mimeType === 'audio/wav'
+      || mimeType === 'audio/webm'
+      || mimeType === 'audio/ogg'
+      || mimeType === 'audio/opus'
+    ) && !['.mp4', '.mkv', '.mov', '.avi'].includes(ext);
+
+    if (readyAsIs) {
+      return audioPath;
+    }
+
+    const normalizedPath = path.join(context.jobDir, 'audio.stt.mp3');
+    const command = `${shellEscape(this.ffmpegBin)} -hwaccel none -y -hide_banner -loglevel error -i ${shellEscape(audioPath)} -vn -ac 1 -ar 16000 -b:a 64k ${shellEscape(normalizedPath)}`;
+    await this.#runCommand(command, {
+      cwd: context.jobDir,
+      timeout: 3 * 60 * 1000,
+      signal: context.signal,
+    });
+    if (!fileExists(normalizedPath)) {
+      throw new Error('ffmpeg did not produce a normalized audio file for transcription.');
+    }
+    return normalizedPath;
   }
 
   async #resolveVoiceSttConfig(userId, agentId) {
@@ -738,8 +903,7 @@ class SocialVideoService {
 
   async #extractFrameFromVideo(context) {
     const template = path.join(context.jobDir, 'video.%(ext)s');
-    const cookieArg = context.cookieFilePath ? ` --cookies ${shellEscape(context.cookieFilePath)}` : '';
-    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
+    const downloadCommand = `${shellEscape(this.ytDlpBin)} --quiet --no-warnings --no-playlist ${this.#networkFlags()}${cookieArg(context.cookieFilePath)} -o ${shellEscape(template)} -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best" --merge-output-format mp4 -- ${shellEscape(context.sourceUrl)}`;
     await this.#runCommand(downloadCommand, {
       cwd: context.jobDir,
       timeout: 14 * 60 * 1000,
@@ -767,7 +931,7 @@ class SocialVideoService {
   }
 
   async #downloadThumbnailArtifact(userId, thumbnailUrl, signal = null) {
-    const response = await fetchPublicResource(thumbnailUrl, {
+    const response = await this.publicResourceFetcher(thumbnailUrl, {
       signal,
       maxResponseBytes: MAX_THUMBNAIL_BYTES,
       responseType: 'buffer',
@@ -855,6 +1019,7 @@ module.exports = {
   detectMimeFromFile,
   fileExists,
   firstFileMatching,
+  pickDownloadedCaptionFile,
   pickBestThumbnail,
   classifyExtractionError,
   resolveVoiceSttConfigFromSettings,

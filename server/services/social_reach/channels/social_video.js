@@ -47,7 +47,7 @@ class SocialVideoReachChannel extends SocialReachChannel {
       };
     });
     const missing = (health.dependencies || [])
-      .filter((item) => !item.available)
+      .filter((item) => item.required !== false && !item.available)
       .map((item) => item.name)
       .filter(Boolean);
 
