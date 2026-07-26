@@ -3032,6 +3032,71 @@ Future<void> _showMessagingAccessPolicyDialog(
     return result;
   }
 
+  List<MessagingAccessRule> sharedSpaces() {
+    final spaces = <MessagingAccessRule>[
+      ...policy.sharedSpaceRules,
+      ...policy.sharedMemberRules
+          .where(
+            (rule) =>
+                (rule.spaceScope ?? '').isNotEmpty &&
+                (rule.spaceValue ?? '').isNotEmpty,
+          )
+          .map(
+            (rule) => MessagingAccessRule(
+              scope: rule.spaceScope!,
+              value: rule.spaceValue!,
+              label: rule.spaceLabel,
+            ),
+          ),
+      ...policy.sharedParticipationRules.map(
+        (rule) => MessagingAccessRule(
+          scope: rule.scope,
+          value: rule.value,
+          label: rule.label,
+        ),
+      ),
+      ...catalog.suggestedTargets
+          .where((target) => target.bucket == 'sharedSpaceRules')
+          .map((target) => target.asRule),
+      ...catalog.discoveredTargets
+          .where((target) => target.bucket == 'sharedSpaceRules')
+          .map((target) => target.asRule),
+    ];
+    return dedupeRules(spaces);
+  }
+
+  bool allowsUntagged(MessagingAccessRule space) {
+    for (final rule in policy.sharedParticipationRules) {
+      if (rule.scope == space.scope && rule.value == space.value) {
+        return rule.allowUntagged;
+      }
+    }
+    return policy.defaultAllowUntaggedInShared;
+  }
+
+  void setAllowsUntagged(
+    MessagingAccessRule space,
+    bool allow,
+    void Function(void Function()) setLocalState,
+  ) {
+    setLocalState(() {
+      final rules = policy.sharedParticipationRules
+          .where(
+            (rule) => !(rule.scope == space.scope && rule.value == space.value),
+          )
+          .toList();
+      rules.add(
+        MessagingSharedParticipationRule(
+          scope: space.scope,
+          value: space.value,
+          label: space.label,
+          allowUntagged: allow,
+        ),
+      );
+      policy = policy.copyWith(sharedParticipationRules: rules);
+    });
+  }
+
   void addRule(
     _MessagingRuleSelection selection,
     void Function(void Function()) setLocalState,
@@ -3051,11 +3116,25 @@ Future<void> _showMessagingAccessPolicyDialog(
           break;
         case 'sharedActorRules':
           policy = policy.copyWith(
+            directPolicy: policy.directPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.directPolicy,
             sharedPolicy: policy.sharedPolicy == 'disabled'
                 ? 'allowlist'
                 : policy.sharedPolicy,
             sharedActorRules: dedupeRules(<MessagingAccessRule>[
               ...policy.sharedActorRules,
+              selection.rule,
+            ]),
+          );
+          break;
+        case 'sharedMemberRules':
+          policy = policy.copyWith(
+            sharedPolicy: policy.sharedPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.sharedPolicy,
+            sharedMemberRules: dedupeRules(<MessagingAccessRule>[
+              ...policy.sharedMemberRules,
               selection.rule,
             ]),
           );
@@ -3095,6 +3174,13 @@ Future<void> _showMessagingAccessPolicyDialog(
                 .toList(growable: false),
           );
           break;
+        case 'sharedMemberRules':
+          policy = policy.copyWith(
+            sharedMemberRules: policy.sharedMemberRules
+                .where((item) => item.id != rule.id)
+                .toList(growable: false),
+          );
+          break;
         default:
           policy = policy.copyWith(
             sharedSpaceRules: policy.sharedSpaceRules
@@ -3111,14 +3197,20 @@ Future<void> _showMessagingAccessPolicyDialog(
       return StatefulBuilder(
         builder: (context, setLocalState) {
           final capabilities = catalog.capabilities;
+          final participationSpaces = sharedSpaces();
+          final taggedOnlyCount = participationSpaces
+              .where((space) => !allowsUntagged(space))
+              .length;
           final summaryText = [
             'DMs ${policy.directPolicy}',
             if (capabilities.supportsSharedPolicy)
               'shared ${policy.sharedPolicy}',
-            if (capabilities.supportsMentionGate)
-              policy.requireMentionInShared
-                  ? 'mentions required'
-                  : 'mentions optional',
+            if (capabilities.supportsUntaggedGroupToggle)
+              !policy.defaultAllowUntaggedInShared
+                  ? 'untagged off by default'
+                  : taggedOnlyCount == 0
+                  ? 'social intelligence enabled'
+                  : '$taggedOnlyCount tagged-only',
             if (policy.totalRuleCount > 0) '${policy.totalRuleCount} rules',
           ].join(' • ');
 
@@ -3128,7 +3220,45 @@ Future<void> _showMessagingAccessPolicyDialog(
               horizontal: 24,
               vertical: 18,
             ),
-            title: Text('${platform.label} Access Policy'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: platform.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    Icons.admin_panel_settings_outlined,
+                    color: platform.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        '${platform.label} access',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'People, groups, and response behavior',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: 760,
               child: SingleChildScrollView(
@@ -3146,7 +3276,10 @@ Future<void> _showMessagingAccessPolicyDialog(
                     const SizedBox(height: 18),
                     if (capabilities.supportsDirectPolicy)
                       _AccessModeField(
+                        icon: Icons.chat_bubble_outline_rounded,
                         label: 'Direct messages',
+                        description:
+                            'Control who can reach the agent one-to-one.',
                         value: policy.directPolicy,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(directPolicy: value);
@@ -3155,28 +3288,24 @@ Future<void> _showMessagingAccessPolicyDialog(
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 12),
                       _AccessModeField(
+                        icon: Icons.groups_2_outlined,
                         label: 'Shared spaces',
+                        description:
+                            'Control access in groups, channels, and rooms.',
                         value: policy.sharedPolicy,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
                         }),
                       ),
                     ],
-                    if (capabilities.supportsMentionGate) ...<Widget>[
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Require mention in shared spaces'),
-                        subtitle: Text(
-                          'Keep channels quiet until the bot is directly mentioned.',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                        value: policy.requireMentionInShared,
-                        onChanged: (value) => setLocalState(() {
-                          policy = policy.copyWith(
-                            requireMentionInShared: value,
-                          );
-                        }),
+                    if (capabilities.supportsUntaggedGroupToggle) ...<Widget>[
+                      const SizedBox(height: 16),
+                      _GroupParticipationSection(
+                        spaces: participationSpaces,
+                        supportsMentionGate: capabilities.supportsMentionGate,
+                        allowsUntagged: allowsUntagged,
+                        onChanged: (space, value) =>
+                            setAllowsUntagged(space, value, setLocalState),
                       ),
                     ],
                     const SizedBox(height: 14),
@@ -3195,7 +3324,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             }
                           },
                           icon: Icon(Icons.add_rounded),
-                          label: Text('Add Rule'),
+                          label: Text('Add access'),
                         ),
                         const SizedBox(width: 10),
                         OutlinedButton.icon(
@@ -3207,14 +3336,15 @@ Future<void> _showMessagingAccessPolicyDialog(
                             });
                           },
                           icon: Icon(Icons.travel_explore_rounded),
-                          label: Text('Refresh Discovery'),
+                          label: Text('Refresh groups & people'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     _AccessRuleSection(
-                      title: 'Direct senders',
-                      subtitle: 'Who can start a one-to-one conversation.',
+                      title: 'Direct-only rules',
+                      subtitle:
+                          'Specific one-to-one chats that do not grant group access.',
                       rules: policy.directRules,
                       emptyLabel: 'No direct sender rules yet.',
                       onRemove: (rule) =>
@@ -3223,9 +3353,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Shared spaces',
+                        title: 'Everyone in a shared space',
                         subtitle:
-                            'Which channels, groups, rooms, or servers can trigger the agent.',
+                            'Allow every sender in a selected channel, group, room, or server.',
                         rules: policy.sharedSpaceRules,
                         emptyLabel: 'No shared-space rules yet.',
                         onRemove: (rule) =>
@@ -3233,13 +3363,27 @@ Future<void> _showMessagingAccessPolicyDialog(
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Shared actors',
+                        title: 'Senders everywhere',
                         subtitle:
-                            'Optional extra filter for who inside allowed shared spaces can trigger the agent.',
+                            'Allow these people in DMs and shared spaces. Role rules apply only in shared spaces.',
                         rules: policy.sharedActorRules,
                         emptyLabel: 'No shared-actor rules yet.',
                         onRemove: (rule) =>
                             removeRule('sharedActorRules', rule, setLocalState),
+                      ),
+                      const SizedBox(height: 16),
+                      _AccessRuleSection(
+                        title: 'Senders in one shared space',
+                        subtitle:
+                            'Allow a sender only in the selected group, channel, or room.',
+                        rules: policy.sharedMemberRules,
+                        emptyLabel: 'No group-specific sender rules yet.',
+                        onRemove: (rule) => removeRule(
+                          'sharedMemberRules',
+                          rule,
+                          setLocalState,
+                        ),
+                        showSpace: true,
                       ),
                     ],
                   ],
@@ -3258,7 +3402,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     Navigator.of(dialogContext).pop();
                   }
                 },
-                child: Text('Save Policy'),
+                child: Text('Save changes'),
               ),
             ],
           );
@@ -3270,32 +3414,175 @@ Future<void> _showMessagingAccessPolicyDialog(
 
 class _AccessModeField extends StatelessWidget {
   const _AccessModeField({
+    required this.icon,
     required this.label,
+    required this.description,
     required this.value,
     required this.onChanged,
   });
 
+  final IconData icon;
   final String label;
+  final String description;
   final String value;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: const <DropdownMenuItem<String>>[
-            DropdownMenuItem(value: 'allowlist', child: Text('Allowlist only')),
-            DropdownMenuItem(value: 'open', child: Text('Open access')),
-            DropdownMenuItem(value: 'disabled', child: Text('Disabled')),
-          ],
-          onChanged: (next) {
-            if (next != null) onChanged(next);
-          },
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, color: _accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(description, style: TextStyle(color: _textSecondary)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    ChoiceChip(
+                      avatar: Icon(Icons.rule_rounded, size: 18),
+                      label: Text('Allowlist'),
+                      selected: value == 'allowlist',
+                      onSelected: (_) => onChanged('allowlist'),
+                    ),
+                    ChoiceChip(
+                      avatar: Icon(Icons.public_rounded, size: 18),
+                      label: Text('Open'),
+                      selected: value == 'open',
+                      onSelected: (_) => onChanged('open'),
+                    ),
+                    ChoiceChip(
+                      avatar: Icon(Icons.block_rounded, size: 18),
+                      label: Text('Off'),
+                      selected: value == 'disabled',
+                      onSelected: (_) => onChanged('disabled'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupParticipationSection extends StatelessWidget {
+  const _GroupParticipationSection({
+    required this.spaces,
+    required this.supportsMentionGate,
+    required this.allowsUntagged,
+    required this.onChanged,
+  });
+
+  final List<MessagingAccessRule> spaces;
+  final bool supportsMentionGate;
+  final bool Function(MessagingAccessRule) allowsUntagged;
+  final void Function(MessagingAccessRule, bool) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.alternate_email_rounded, color: _accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Untagged group messages',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      supportsMentionGate
+                          ? 'Tags and replies always get a response. Choose which groups may also use social intelligence for untagged messages.'
+                          : 'Choose which shared spaces may use social intelligence for untagged messages. This bridge may not identify tags separately.',
+                      style: TextStyle(color: _textSecondary, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (spaces.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
+                style: TextStyle(color: _textMuted),
+              ),
+            )
+          else
+            ...spaces.map((space) {
+              final enabled = allowsUntagged(space);
+              return Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
+                  secondary: Icon(
+                    enabled
+                        ? Icons.psychology_alt_outlined
+                        : Icons.notifications_off_outlined,
+                    color: enabled ? _accent : _textMuted,
+                  ),
+                  title: Text(
+                    space.displayLabel,
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    enabled
+                        ? 'Untagged messages use social intelligence'
+                        : 'Untagged messages are ignored completely',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  value: enabled,
+                  onChanged: (value) => onChanged(space, value),
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
@@ -3308,6 +3595,7 @@ class _AccessRuleSection extends StatelessWidget {
     required this.rules,
     required this.emptyLabel,
     required this.onRemove,
+    this.showSpace = false,
   });
 
   final String title;
@@ -3315,6 +3603,7 @@ class _AccessRuleSection extends StatelessWidget {
   final List<MessagingAccessRule> rules;
   final String emptyLabel;
   final ValueChanged<MessagingAccessRule> onRemove;
+  final bool showSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -3341,8 +3630,14 @@ class _AccessRuleSection extends StatelessWidget {
               runSpacing: 8,
               children: rules
                   .map((rule) {
+                    final spaceSuffix =
+                        showSpace && rule.spaceDisplayLabel.isNotEmpty
+                        ? ' in ${rule.spaceDisplayLabel}'
+                        : '';
                     return Chip(
-                      label: Text('${rule.scopeLabel}: ${rule.displayLabel}'),
+                      label: Text(
+                        '${rule.scopeLabel}: ${rule.displayLabel}$spaceSuffix',
+                      ),
                       deleteIcon: Icon(Icons.close_rounded, size: 18),
                       onDeleted: () => onRemove(rule),
                     );
@@ -3387,30 +3682,47 @@ class _MessagingAccessRulePickerSheet extends StatefulWidget {
 class _MessagingAccessRulePickerSheetState
     extends State<_MessagingAccessRulePickerSheet> {
   late final TextEditingController _queryController;
+  late final TextEditingController _valueController;
+  late final TextEditingController _spaceValueController;
   late String _selectedBucket;
   late String _selectedScope;
+  late String _selectedSpaceScope;
 
   @override
   void initState() {
     super.initState();
     _queryController = TextEditingController();
-    _selectedBucket = widget.catalog.capabilities.directRuleScopes.isNotEmpty
+    _valueController = TextEditingController();
+    _spaceValueController = TextEditingController();
+    _selectedBucket =
+        widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
+        ? 'sharedActorRules'
+        : _directOnlyScopes().isNotEmpty
         ? 'directRules'
         : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
               ? 'sharedSpaceRules'
               : 'sharedActorRules');
-    _selectedScope = widget.catalog.capabilities.directRuleScopes.isNotEmpty
-        ? widget.catalog.capabilities.directRuleScopes.first
+    _selectedScope =
+        widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
+        ? widget.catalog.capabilities.sharedActorRuleScopes.first
+        : _directOnlyScopes().isNotEmpty
+        ? _directOnlyScopes().first
         : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
               ? widget.catalog.capabilities.sharedSpaceRuleScopes.first
               : (widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
                     ? widget.catalog.capabilities.sharedActorRuleScopes.first
                     : 'chat'));
+    _selectedSpaceScope =
+        widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
+        ? widget.catalog.capabilities.sharedSpaceRuleScopes.first
+        : 'chat';
   }
 
   @override
   void dispose() {
     _queryController.dispose();
+    _valueController.dispose();
+    _spaceValueController.dispose();
     super.dispose();
   }
 
@@ -3423,12 +3735,21 @@ class _MessagingAccessRulePickerSheetState
   List<String> _scopesForBucket() {
     switch (_selectedBucket) {
       case 'directRules':
-        return widget.catalog.capabilities.directRuleScopes;
+        return _directOnlyScopes();
       case 'sharedActorRules':
+      case 'sharedMemberRules':
         return widget.catalog.capabilities.sharedActorRuleScopes;
       default:
         return widget.catalog.capabilities.sharedSpaceRuleScopes;
     }
+  }
+
+  List<String> _directOnlyScopes() {
+    final sharedActorScopes = widget.catalog.capabilities.sharedActorRuleScopes
+        .toSet();
+    return widget.catalog.capabilities.directRuleScopes
+        .where((scope) => !sharedActorScopes.contains(scope))
+        .toList(growable: false);
   }
 
   void _syncSelectedScope() {
@@ -3439,24 +3760,59 @@ class _MessagingAccessRulePickerSheetState
     _selectedScope = availableScopes.first;
   }
 
+  void _submitManualRule(BuildContext context) {
+    final value = _valueController.text.trim();
+    if (value.isEmpty) return;
+    final isMemberRule = _selectedBucket == 'sharedMemberRules';
+    final spaceValue = _spaceValueController.text.trim();
+    if (isMemberRule && spaceValue.isEmpty) return;
+    Navigator.of(context).pop(
+      _MessagingRuleSelection(
+        bucket: _selectedBucket,
+        rule: MessagingAccessRule(
+          scope: _selectedScope,
+          value: value,
+          spaceScope: isMemberRule ? _selectedSpaceScope : null,
+          spaceValue: isMemberRule ? spaceValue : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final availableScopes = _scopesForBucket();
     final query = _queryController.text.trim().toLowerCase();
-    final targets =
-        <MessagingAccessTarget>[
-              ...widget.catalog.suggestedTargets,
-              ...widget.catalog.discoveredTargets,
-            ]
-            .where((target) {
-              if (target.bucket != _selectedBucket) return false;
-              if (query.isEmpty) return true;
-              final haystack =
-                  '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
-                      .toLowerCase();
-              return haystack.contains(query);
-            })
-            .toList(growable: false);
+    final allTargets = <MessagingAccessTarget>[
+      ...widget.catalog.suggestedTargets,
+      ...widget.catalog.discoveredTargets,
+    ];
+    bool matchesQuery(MessagingAccessTarget target) {
+      if (query.isEmpty) return true;
+      final haystack =
+          '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
+              .toLowerCase();
+      return haystack.contains(query);
+    }
+
+    final targets = allTargets
+        .where((target) {
+          if (target.bucket != _selectedBucket) return false;
+          return matchesQuery(target);
+        })
+        .toList(growable: false);
+    final memberActorTargets = allTargets
+        .where(
+          (target) =>
+              target.bucket == 'sharedActorRules' && matchesQuery(target),
+        )
+        .toList(growable: false);
+    final memberSpaceTargets = allTargets
+        .where(
+          (target) =>
+              target.bucket == 'sharedSpaceRules' && matchesQuery(target),
+        )
+        .toList(growable: false);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -3484,9 +3840,9 @@ class _MessagingAccessRulePickerSheetState
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                if (widget.catalog.capabilities.directRuleScopes.isNotEmpty)
+                if (_directOnlyScopes().isNotEmpty)
                   ChoiceChip(
-                    label: Text('Direct'),
+                    label: Text('Direct only'),
                     selected: _selectedBucket == 'directRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'directRules';
@@ -3499,7 +3855,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedSpaceRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Shared spaces'),
+                    label: Text('Everyone in space'),
                     selected: _selectedBucket == 'sharedSpaceRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedSpaceRules';
@@ -3512,10 +3868,28 @@ class _MessagingAccessRulePickerSheetState
                     .sharedActorRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Shared actors'),
+                    label: Text('Sender everywhere'),
                     selected: _selectedBucket == 'sharedActorRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedActorRules';
+                      _syncSelectedScope();
+                    }),
+                  ),
+                if (widget
+                        .catalog
+                        .capabilities
+                        .sharedActorRuleScopes
+                        .isNotEmpty &&
+                    widget
+                        .catalog
+                        .capabilities
+                        .sharedSpaceRuleScopes
+                        .isNotEmpty)
+                  ChoiceChip(
+                    label: Text('Sender in one space'),
+                    selected: _selectedBucket == 'sharedMemberRules',
+                    onSelected: (_) => setState(() {
+                      _selectedBucket = 'sharedMemberRules';
                       _syncSelectedScope();
                     }),
                   ),
@@ -3557,6 +3931,59 @@ class _MessagingAccessRulePickerSheetState
               }),
               const Divider(height: 24),
             ],
+            if (_selectedBucket == 'sharedMemberRules' &&
+                (memberActorTargets.isNotEmpty ||
+                    memberSpaceTargets.isNotEmpty)) ...<Widget>[
+              if (memberActorTargets.isNotEmpty) ...<Widget>[
+                Text(
+                  'Choose a discovered sender',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: memberActorTargets
+                      .take(10)
+                      .map((target) {
+                        return ActionChip(
+                          label: Text(target.label),
+                          onPressed: () => setState(() {
+                            _selectedScope = target.scope;
+                            _valueController.text = target.value;
+                          }),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (memberSpaceTargets.isNotEmpty) ...<Widget>[
+                Text(
+                  'Choose a discovered shared space',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: memberSpaceTargets
+                      .take(10)
+                      .map((target) {
+                        return ActionChip(
+                          label: Text(target.label),
+                          onPressed: () => setState(() {
+                            _selectedSpaceScope = target.scope;
+                            _spaceValueController.text = target.value;
+                          }),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 14),
+              ],
+              const Divider(height: 10),
+            ],
             Text('Manual entry', style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             if (availableScopes.isNotEmpty)
@@ -3584,23 +4011,58 @@ class _MessagingAccessRulePickerSheetState
               ),
             const SizedBox(height: 12),
             TextField(
+              controller: _valueController,
               decoration: InputDecoration(
-                labelText: 'ID / value',
+                labelText: _selectedBucket == 'sharedMemberRules'
+                    ? 'Sender ID / value'
+                    : 'ID / value',
                 helperText: widget.catalog.capabilities.manualEntryHint,
               ),
-              onSubmitted: (value) {
-                final trimmed = value.trim();
-                if (trimmed.isEmpty) return;
-                Navigator.of(context).pop(
-                  _MessagingRuleSelection(
-                    bucket: _selectedBucket,
-                    rule: MessagingAccessRule(
-                      scope: _selectedScope,
-                      value: trimmed,
-                    ),
+              onSubmitted: _selectedBucket == 'sharedMemberRules'
+                  ? null
+                  : (_) => _submitManualRule(context),
+            ),
+            if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
+              const SizedBox(height: 12),
+              InputDecorator(
+                decoration: InputDecoration(labelText: 'Shared-space scope'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedSpaceScope,
+                    isExpanded: true,
+                    items: widget.catalog.capabilities.sharedSpaceRuleScopes
+                        .map(
+                          (scope) => DropdownMenuItem<String>(
+                            value: scope,
+                            child: Text(scope.replaceAll('_', ' ')),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedSpaceScope = value);
+                      }
+                    },
                   ),
-                );
-              },
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _spaceValueController,
+                decoration: InputDecoration(
+                  labelText: 'Group / channel / room ID',
+                ),
+                onSubmitted: (_) => _submitManualRule(context),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () => _submitManualRule(context),
+                icon: Icon(Icons.add_rounded),
+                label: Text('Add rule'),
+              ),
             ),
           ],
         ),

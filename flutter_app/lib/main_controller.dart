@@ -1766,11 +1766,24 @@ class NeoAgentController extends ChangeNotifier {
         );
       case 'sharedActorRules':
         return policy.copyWith(
+          directPolicy: policy.directPolicy == 'disabled'
+              ? 'allowlist'
+              : policy.directPolicy,
           sharedPolicy: policy.sharedPolicy == 'disabled'
               ? 'allowlist'
               : policy.sharedPolicy,
           sharedActorRules: _dedupeAccessRules(<MessagingAccessRule>[
             ...policy.sharedActorRules,
+            suggestion.rule,
+          ]),
+        );
+      case 'sharedMemberRules':
+        return policy.copyWith(
+          sharedPolicy: policy.sharedPolicy == 'disabled'
+              ? 'allowlist'
+              : policy.sharedPolicy,
+          sharedMemberRules: _dedupeAccessRules(<MessagingAccessRule>[
+            ...policy.sharedMemberRules,
             suggestion.rule,
           ]),
         );

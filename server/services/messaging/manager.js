@@ -190,9 +190,13 @@ class MessagingManager extends EventEmitter {
       wasMentioned: msg.wasMentioned === true,
       repliedToAgent: msg.repliedToAgent === true,
       groupId: msg.groupId || null,
+      groupName: msg.groupName || null,
       channelId: msg.channelId || null,
+      channelName: msg.channelName || null,
       serverId: msg.serverId || msg.guildId || null,
+      serverName: msg.serverName || msg.guildName || null,
       roomId: msg.roomId || null,
+      roomName: msg.roomName || null,
       roleIds: Array.isArray(msg.roleIds) ? msg.roleIds.map(String) : [],
       mediaType: msg.mediaType,
       localMediaPath: msg.localMediaPath || null,
@@ -409,7 +413,13 @@ class MessagingManager extends EventEmitter {
     const unique = [];
     const seen = new Set();
     for (const item of merged) {
-      const id = `${item.bucket}:${item.rule.scope}:${item.rule.value}`;
+      const id = [
+        item.bucket,
+        item.rule.scope,
+        item.rule.value,
+        item.rule.spaceScope || '',
+        item.rule.spaceValue || '',
+      ].join(':');
       if (seen.has(id)) continue;
       seen.add(id);
       unique.push(item);
@@ -1123,7 +1133,22 @@ class MessagingManager extends EventEmitter {
 
   async getAccessCatalog(userId, platformName, options = {}) {
     const agentId = this._agentId(userId, options);
-    const discoveredTargets = await this.listAccessTargets(userId, platformName, { agentId });
+    const capabilities = getPlatformAccessCapabilities(platformName);
+    const normalizeTargetBucket = (target) => (
+      target?.bucket === 'directRules'
+      && capabilities.supportsSharedPolicy
+      && capabilities.sharedActorRuleScopes.includes(target.scope)
+        ? { ...target, bucket: 'sharedActorRules' }
+        : target
+    );
+    const listedTargets = await this.listAccessTargets(
+      userId,
+      platformName,
+      { agentId },
+    );
+    const discoveredTargets = (
+      Array.isArray(listedTargets) ? listedTargets : []
+    ).map(normalizeTargetBucket);
 
     const recentRows = db.prepare(
       `SELECT platform_chat_id, metadata
@@ -1140,20 +1165,29 @@ class MessagingManager extends EventEmitter {
         } catch {
           metadata = {};
         }
-        return classifyRecentTarget(platformName, { ...row, metadata });
+        return normalizeTargetBucket(
+          classifyRecentTarget(platformName, { ...row, metadata }),
+        );
       })
       .filter(Boolean);
 
     const seen = new Set();
     const unique = (items) => items.filter((item) => {
-      const keyValue = `${item.bucket}:${item.scope}:${item.value}`;
+      const rule = item?.rule || item || {};
+      const keyValue = [
+        item?.bucket,
+        rule.scope,
+        rule.value,
+        rule.spaceScope || '',
+        rule.spaceValue || '',
+      ].join(':');
       if (seen.has(keyValue)) return false;
       seen.add(keyValue);
       return true;
     });
 
     return {
-      capabilities: getPlatformAccessCapabilities(platformName),
+      capabilities,
       discoveredTargets: unique([...(Array.isArray(discoveredTargets) ? discoveredTargets : []), ...recentTargets]),
       suggestedTargets: unique(this.accessSuggestions.get(this._accessSuggestionKey(userId, agentId, platformName)) || []),
       policy: this._loadAccessPolicy(userId, agentId, platformName),

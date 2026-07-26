@@ -276,7 +276,7 @@ describe('messaging automation queue', () => {
       JSON.stringify({
         directPolicy: 'open',
         sharedPolicy: 'disabled',
-        requireMentionInShared: true,
+        defaultAllowUntaggedInShared: true,
         directRules: [],
         sharedSpaceRules: [],
         sharedActorRules: [],
@@ -322,7 +322,7 @@ describe('messaging automation queue', () => {
       JSON.stringify({
         directPolicy: 'open',
         sharedPolicy: 'disabled',
-        requireMentionInShared: true,
+        defaultAllowUntaggedInShared: true,
         directRules: [],
         sharedSpaceRules: [],
         sharedActorRules: [],

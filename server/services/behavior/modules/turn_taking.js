@@ -102,6 +102,20 @@ async function shouldEngage(ctx) {
     };
   }
 
+  if (msg.wasMentioned || msg.repliedToAgent) {
+    return {
+      decision: 'speak',
+      needScore: 1,
+      confidence: 1,
+      reasonCodes: [msg.repliedToAgent ? 'reply_to_agent' : 'addressed'],
+      urgency: 'medium',
+      rationale: 'Platform metadata directly addresses the agent.',
+      tokenPath: 'gate_skip',
+      latencyMs: Date.now() - startedAt,
+      turnEpoch,
+    };
+  }
+
   const mode = config.participationMode || 'automatic';
   if (mode === 'always') {
     return {
@@ -116,7 +130,7 @@ async function shouldEngage(ctx) {
       turnEpoch,
     };
   }
-  if (mode === 'mention_only' && !msg.wasMentioned && !msg.repliedToAgent) {
+  if (mode === 'mention_only') {
     return {
       decision: 'stay_silent',
       needScore: 0,
@@ -124,19 +138,6 @@ async function shouldEngage(ctx) {
       reasonCodes: ['mention_only'],
       urgency: 'low',
       rationale: 'Room participation requires a structural mention or reply.',
-      tokenPath: 'gate_skip',
-      latencyMs: Date.now() - startedAt,
-      turnEpoch,
-    };
-  }
-  if (mode === 'mention_only') {
-    return {
-      decision: 'speak',
-      needScore: 1,
-      confidence: 1,
-      reasonCodes: [msg.repliedToAgent ? 'reply_to_agent' : 'addressed'],
-      urgency: 'medium',
-      rationale: 'The room is mention-only and platform metadata directly addressed the agent.',
       tokenPath: 'gate_skip',
       latencyMs: Date.now() - startedAt,
       turnEpoch,

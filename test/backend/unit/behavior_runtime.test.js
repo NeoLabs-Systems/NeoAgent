@@ -226,6 +226,97 @@ test('mention-only rooms make zero model calls', async () => {
   assert.equal(inferenceCalls, 0);
 });
 
+test('mentions always engage without a social decision call in automatic mode', async () => {
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        throw new Error('should not run');
+      },
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+  const msg = groupMessage('direct question', { wasMentioned: true });
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg,
+  });
+
+  assert.equal(result.engage, true);
+  assert.equal(result.decision.tokenPath, 'gate_skip');
+  assert.deepEqual(result.decision.reasonCodes, ['addressed']);
+  assert.equal(inferenceCalls, 0);
+});
+
+test('per-group untagged policy is a hard gate before social intelligence', async () => {
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        return {
+          parsed: {
+            decision: 'speak',
+            needScore: 1,
+            confidence: 1,
+            reasonCodes: ['worthwhile'],
+            urgency: 'medium',
+            rationale: 'The message warrants a response.',
+          },
+        };
+      },
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+
+  behavior.setBehaviorConfig(user.userId, agentId, { enabled: false });
+  const taggedOnly = groupMessage('ordinary room message', {
+    accessPolicyAllowUntagged: false,
+  });
+  const silent = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: taggedOnly,
+  });
+  assert.equal(silent.engage, false);
+  assert.equal(inferenceCalls, 0);
+
+  const tagged = groupMessage('@neo answer this', {
+    accessPolicyAllowUntagged: false,
+    wasMentioned: true,
+  });
+  const taggedResult = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: tagged,
+  });
+  assert.equal(taggedResult.engage, true);
+  assert.equal(inferenceCalls, 0);
+
+  behavior.setBehaviorConfig(user.userId, agentId, {
+    enabled: true,
+    participationMode: 'automatic',
+  });
+  const sociallyEvaluated = groupMessage('another room message', {
+    accessPolicyAllowUntagged: true,
+  });
+  const engaged = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: sociallyEvaluated,
+  });
+  assert.equal(engaged.engage, true);
+  assert.equal(inferenceCalls, 1);
+});
+
 test('disabling behavior or turn-taking uses the standard path without gate calls', async () => {
   let inferenceCalls = 0;
   const pipeline = behavior.createBehaviorPipeline({

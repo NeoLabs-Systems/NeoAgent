@@ -32,6 +32,13 @@ test('WhatsApp unmentioned group messages reach access policy and allowed groups
   assert.equal(blockedDecision.allowed, false);
   assert.equal(blockedEvents.length, 1);
   assert.deepEqual(blockedEvents[0].suggestions.map((item) => item.rule), [
+    {
+      scope: 'phone_number',
+      value: '49123456789',
+      spaceScope: 'group',
+      spaceValue: groupId,
+      spaceLabel: groupId,
+    },
     { scope: 'phone_number', value: '49123456789' },
     { scope: 'group', value: groupId },
   ]);

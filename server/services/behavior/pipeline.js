@@ -25,13 +25,6 @@ function createBehaviorPipeline(deps = {}) {
       chatId: msg.chatId,
       isGroup: Boolean(msg.isGroup),
     });
-    if (
-      msg.isGroup
-      && config.participationModeSource === 'default'
-      && msg.accessPolicyRequireMention === true
-    ) {
-      config.participationMode = 'mention_only';
-    }
     return config;
   }
 
@@ -65,6 +58,30 @@ function createBehaviorPipeline(deps = {}) {
     const config = effectiveConfig(userId, agentId, msg);
     const turnEpoch = Number(msg.behaviorTurnEpoch)
       || noteInbound({ userId, agentId, msg });
+    if (
+      msg.isGroup
+      && msg.accessPolicyAllowUntagged === false
+      && !msg.wasMentioned
+      && !msg.repliedToAgent
+    ) {
+      return {
+        engage: false,
+        decision: {
+          decision: 'stay_silent',
+          needScore: 0,
+          confidence: 1,
+          reasonCodes: ['untagged_disabled_for_shared_space'],
+          urgency: 'low',
+          rationale: 'Untagged responses are disabled for this shared space.',
+          tokenPath: 'gate_skip',
+          latencyMs: 0,
+          turnEpoch,
+        },
+        config,
+        promptBlocks: [],
+        observeResult: null,
+      };
+    }
     if (config.enabled === false) {
       return {
         engage: true,

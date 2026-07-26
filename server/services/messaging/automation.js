@@ -532,7 +532,7 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   const policy = parseStoredAccessPolicy(msg.platform, policyRow?.value, legacyRow?.value);
   const decision = evaluateAccessPolicy(policy, contextFromMessage(msg), msg.platform);
   if (decision.allowed) {
-    msg.accessPolicyRequireMention = decision.policy?.requireMentionInShared === true;
+    msg.accessPolicyAllowUntagged = decision.allowUntagged !== false;
     return true;
   }
 

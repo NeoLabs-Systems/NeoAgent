@@ -131,6 +131,12 @@ function genericMessageFromWebhook(platform, config, req) {
   const senderTag = jsonPath(body, config.senderTagPath || 'senderTag')
     || senderUsername
     || null;
+  const wasMentioned = config.mentionedPath
+    ? jsonPath(body, config.mentionedPath) === true
+    : body.wasMentioned === true;
+  const repliedToAgent = config.repliedToAgentPath
+    ? jsonPath(body, config.repliedToAgentPath) === true
+    : body.repliedToAgent === true;
 
   if (!String(content || '').trim()) return null;
   return {
@@ -143,6 +149,8 @@ function genericMessageFromWebhook(platform, config, req) {
     content: String(content),
     mediaType: null,
     isGroup: Boolean(config.groupByDefault) || String(chatId) !== String(sender),
+    wasMentioned,
+    repliedToAgent,
     messageId: jsonPath(body, config.messageIdPath || 'messageId') || crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     rawMessage: body,
@@ -241,7 +249,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
       roomId: msg.isGroup ? String(msg.chatId || '') : '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned: msg.wasMentioned === true,
     }, {
       senderName: msg.senderName || null,
       meta: msg.isGroup ? `Chat: ${msg.chatId}` : '',
@@ -403,7 +411,10 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
     const body = req.body || {};
     const incoming = body.message || body;
     const content = incoming.argumentText || incoming.text || body.text;
+    const wasMentioned = Boolean(String(incoming.argumentText || '').trim());
     if (!content) return { handled: true, status: 202, body: 'ignored' };
+    const spaceType = String(incoming.space?.type || body.space?.type || '').toUpperCase();
+    const isGroup = spaceType !== 'DIRECT_MESSAGE';
     const message = {
       platform: 'google_chat',
       chatId: String(incoming.space?.name || body.space?.name || this.config.defaultTo || 'google_chat'),
@@ -413,7 +424,8 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
       senderTag: body.user?.name || incoming.sender?.name || null,
       content: String(content),
       mediaType: null,
-      isGroup: true,
+      isGroup,
+      wasMentioned,
       messageId: String(incoming.name || crypto.randomUUID()),
       timestamp: new Date().toISOString(),
       rawMessage: body,
@@ -422,15 +434,15 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
       platform: 'google_chat',
       senderId: message.sender,
       chatId: message.chatId,
-      isDirect: false,
-      isShared: true,
+      isDirect: !isGroup,
+      isShared: isGroup,
       groupId: '',
       channelId: '',
       serverId: '',
-      roomId: message.chatId,
+      roomId: isGroup ? message.chatId : '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned,
     }, {
       senderName: message.senderName,
       meta: `Space: ${message.chatId}`,
@@ -452,6 +464,14 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
     const body = req.body || {};
     const content = body.text || body.message?.text || body.value?.text;
     if (!content) return { handled: true, status: 202, body: 'ignored' };
+    const recipientId = String(body.recipient?.id || '').trim();
+    const wasMentioned = recipientId
+      ? (Array.isArray(body.entities) ? body.entities : [])
+        .some((entity) => entity?.type === 'mention' && String(entity.mentioned?.id || '') === recipientId)
+      : false;
+    const isGroup = typeof body.conversation?.isGroup === 'boolean'
+      ? body.conversation.isGroup
+      : true;
     const message = {
       platform: 'teams',
       chatId: String(body.conversation?.id || body.channelData?.channel?.id || this.config.defaultTo || 'teams'),
@@ -461,7 +481,8 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       senderTag: body.from?.id || null,
       content: String(content).replace(/<[^>]+>/g, '').trim(),
       mediaType: null,
-      isGroup: true,
+      isGroup,
+      wasMentioned,
       messageId: String(body.id || crypto.randomUUID()),
       timestamp: body.timestamp || new Date().toISOString(),
       rawMessage: body,
@@ -470,15 +491,15 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       platform: 'teams',
       senderId: message.sender,
       chatId: message.chatId,
-      isDirect: false,
-      isShared: true,
+      isDirect: !isGroup,
+      isShared: isGroup,
       groupId: '',
-      channelId: message.chatId,
+      channelId: isGroup ? message.chatId : '',
       serverId: '',
       roomId: '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned,
     }, {
       senderName: message.senderName,
       meta: `Conversation: ${message.chatId}`,
@@ -564,8 +585,8 @@ class MatrixPlatform extends BasePlatform {
         if (event.sender && this.userId && event.sender === this.userId) continue;
         const content = event.content?.body || '';
         if (!content) continue;
-        if (this.userId && !content.includes(this.userId)) continue;
-        const cleanContent = this.userId
+        const wasMentioned = this.userId ? String(content).includes(this.userId) : false;
+        const cleanContent = wasMentioned
           ? String(content).replaceAll(this.userId, '').trim()
           : String(content);
         if (!cleanContent) continue;
@@ -579,6 +600,7 @@ class MatrixPlatform extends BasePlatform {
           content: cleanContent,
           mediaType: null,
           isGroup: true,
+          wasMentioned,
           messageId: String(event.event_id || crypto.randomUUID()),
           timestamp: event.origin_server_ts ? new Date(event.origin_server_ts).toISOString() : new Date().toISOString(),
           rawMessage: event,
@@ -595,7 +617,7 @@ class MatrixPlatform extends BasePlatform {
           roomId: roomId,
           roleIds: [],
           phoneNumber: '',
-          wasMentioned: this.userId ? String(content).includes(this.userId) : false,
+          wasMentioned,
         }, {
           senderName: message.senderName,
           meta: `Room: ${roomId}`,
@@ -692,16 +714,37 @@ class SignalPlatform extends ConfigurableHttpPlatform {
       const dataMessage = envelope.dataMessage || {};
       const content = dataMessage.message || '';
       if (!content) continue;
+      const groupId = String(
+        dataMessage.groupInfo?.groupId
+        || dataMessage.groupInfo?.groupIdV2
+        || dataMessage.groupInfo?.id
+        || '',
+      );
+      const isGroup = Boolean(dataMessage.groupInfo);
+      const senderId = String(envelope.sourceNumber || envelope.source || 'signal');
+      const mentionedSelf = (Array.isArray(dataMessage.mentions) ? dataMessage.mentions : [])
+        .some((mention) => [
+          mention?.number,
+          mention?.uuid,
+          mention?.aci,
+        ].map(String).includes(String(this.account)));
+      const repliedToAgent = [
+        dataMessage.quote?.authorNumber,
+        dataMessage.quote?.author,
+        dataMessage.quote?.authorUuid,
+      ].map(String).includes(String(this.account));
       const message = {
         platform: 'signal',
-        chatId: String(envelope.sourceNumber || envelope.source || 'signal'),
-        sender: String(envelope.sourceNumber || envelope.source || 'signal'),
+        chatId: groupId || senderId,
+        sender: senderId,
         senderName: envelope.sourceName || null,
         senderDisplayName: envelope.sourceName || null,
         senderTag: envelope.sourceNumber || envelope.source || null,
         content: String(content),
         mediaType: null,
-        isGroup: Boolean(dataMessage.groupInfo),
+        isGroup,
+        wasMentioned: Boolean(mentionedSelf),
+        repliedToAgent: Boolean(repliedToAgent),
         messageId: String(envelope.timestamp || crypto.randomUUID()),
         timestamp: envelope.timestamp ? new Date(Number(envelope.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: item,
@@ -712,13 +755,13 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         chatId: message.chatId,
         isDirect: !message.isGroup,
         isShared: message.isGroup,
-        groupId: message.isGroup ? message.chatId : '',
+        groupId: message.isGroup ? (groupId || message.chatId) : '',
         channelId: '',
         serverId: '',
         roomId: '',
         roleIds: [],
         phoneNumber: message.sender,
-        wasMentioned: false,
+        wasMentioned: message.wasMentioned,
       }, {
         senderName: message.senderName,
         meta: message.isGroup ? `Group: ${message.chatId}` : '',
@@ -789,6 +832,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
         content: String(content),
         mediaType: null,
         isGroup: Boolean(event.source?.groupId || event.source?.roomId),
+        wasMentioned: false,
         messageId: String(event.message?.id || event.webhookEventId || crypto.randomUUID()),
         timestamp: event.timestamp ? new Date(Number(event.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: event,
@@ -951,11 +995,10 @@ class IrcPlatform extends BasePlatform {
       const [, nick, target, content] = match;
       if (nick === this.nick) continue;
       const isGroup = target.startsWith('#');
-      if (isGroup) {
-        const escaped = this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        if (!new RegExp(`(^|\\s)${escaped}[:,]?\\b`, 'i').test(content)) continue;
-      }
-      const cleanContent = isGroup
+      const escapedNick = this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wasMentioned = isGroup
+        && new RegExp(`(^|\\s)${escapedNick}[:,]?\\b`, 'i').test(content);
+      const cleanContent = wasMentioned
         ? content.replace(new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[:,]?\\s*`, 'i'), ' ').trim()
         : content;
       if (!cleanContent) continue;
@@ -969,6 +1012,7 @@ class IrcPlatform extends BasePlatform {
         content: cleanContent,
         mediaType: null,
         isGroup,
+        wasMentioned,
         messageId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
       };
@@ -984,7 +1028,7 @@ class IrcPlatform extends BasePlatform {
         roomId: '',
         roleIds: [],
         phoneNumber: '',
-        wasMentioned: !isGroup || new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}[:,]?\\b`, 'i').test(content),
+        wasMentioned,
       }, {
         senderName: nick,
         meta: isGroup ? `Channel: ${target}` : '',
