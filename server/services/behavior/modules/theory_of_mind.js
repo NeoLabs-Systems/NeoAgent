@@ -44,9 +44,11 @@ async function refineDraft(ctx) {
 
   try {
     const result = await requestStructuredJson({
+      agentEngine: ctx.agentEngine,
       userId,
       agentId,
-      preference: 'cheap',
+      modelId: config.decisionModelId,
+      purpose: config.decisionModelPurpose,
       system: SYSTEM_PROMPT,
       prompt: JSON.stringify({
         room: {
@@ -97,7 +99,7 @@ async function refineDraft(ctx) {
       content,
       risk: 'low',
       reasonCodes: ['tom_error_passthrough'],
-      error: error?.message || String(error),
+      failureCode: 'model_unavailable',
     };
   }
 }

@@ -345,9 +345,6 @@ class SlackPlatform extends BasePlatform {
     const isGroup = String(event.channel_type || '') !== 'im';
     const wasMentioned = event.type === 'app_mention'
       || (this._botUserId && String(event.text || '').includes(`<@${this._botUserId}>`));
-    if (isGroup && !wasMentioned) {
-      return { handled: true, status: 202, body: 'ignored' };
-    }
     const content = this._botUserId
       ? String(event.text).replace(new RegExp(`<@${this._botUserId}>`, 'g'), '').trim()
       : String(event.text);
@@ -365,8 +362,12 @@ class SlackPlatform extends BasePlatform {
       messageId: String(event.client_msg_id || event.ts || crypto.randomUUID()),
       timestamp: event.event_ts ? new Date(Number(event.event_ts) * 1000).toISOString() : new Date().toISOString(),
       threadTs: event.thread_ts || null,
+      threadId: event.thread_ts || null,
+      channelId: isGroup ? String(event.channel || '') : null,
+      groupId: isGroup ? String(event.channel || '') : null,
       rawMessage: body,
       wasMentioned,
+      repliedToAgent: Boolean(event.thread_ts && event.parent_user_id === this._botUserId),
     };
     const access = this._checkInboundAccess({
       platform: 'slack',

@@ -6,10 +6,47 @@ const { test } = require('node:test');
 const {
   classifyRecentTarget,
   contextFromMessage,
+  createDefaultAccessPolicy,
   evaluateAccessPolicy,
   migrateLegacyWhitelist,
 } = require('../../../server/services/messaging/access_policy');
 const { normalizeWhatsAppWhitelist } = require('../../../server/utils/whatsapp');
+
+test('new shared-room policies default to automatic participation', () => {
+  const policy = createDefaultAccessPolicy('telegram');
+  policy.sharedSpaceRules = [{ scope: 'group', value: '-1001' }];
+  const decision = evaluateAccessPolicy(policy, {
+    senderId: 'person-1',
+    chatId: '-1001',
+    groupId: '-1001',
+    isDirect: false,
+    isShared: true,
+    wasMentioned: false,
+  }, 'telegram');
+
+  assert.equal(policy.requireMentionInShared, false);
+  assert.equal(decision.allowed, true);
+  assert.equal(decision.participationHint, 'automatic');
+});
+
+test('legacy mention requirement becomes a participation hint, not admission', () => {
+  const policy = {
+    ...createDefaultAccessPolicy('telegram'),
+    requireMentionInShared: true,
+    sharedSpaceRules: [{ scope: 'group', value: '-1001' }],
+  };
+  const decision = evaluateAccessPolicy(policy, {
+    senderId: 'person-1',
+    chatId: '-1001',
+    groupId: '-1001',
+    isDirect: false,
+    isShared: true,
+    wasMentioned: false,
+  }, 'telegram');
+
+  assert.equal(decision.allowed, true);
+  assert.equal(decision.participationHint, 'mention_only');
+});
 
 test('WhatsApp legacy allowlist keeps group JIDs as shared group rules', () => {
   const policy = migrateLegacyWhitelist('whatsapp', [

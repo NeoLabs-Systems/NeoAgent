@@ -5,6 +5,9 @@ const { isMainAgent } = require('../agents/manager');
 const { MODULE_IDS, cloneDefaults, DEFAULT_MODULE_CONFIG } = require('./defaults');
 
 const SETTINGS_KEY = 'behavior_modules_config';
+const PARTICIPATION_MODES = new Set(['automatic', 'mention_only', 'always']);
+const MODEL_PURPOSES = new Set(['fast', 'general']);
+const DELIVERY_STYLES = new Set(['single', 'natural_bubbles']);
 
 function clampNumber(value, min, max, fallback) {
   const number = Number(value);
@@ -16,10 +19,11 @@ function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-function normalizeModules(rawModules, fallbackEnabled = true) {
+function normalizeModules(rawModules, fallbackEnabled = true, sparse = false) {
   const source = asObject(rawModules);
   const modules = {};
   for (const id of MODULE_IDS) {
+    if (sparse && !Object.prototype.hasOwnProperty.call(source, id)) continue;
     const entry = asObject(source[id]);
     modules[id] = {
       enabled: entry.enabled == null ? fallbackEnabled : entry.enabled !== false,
@@ -28,86 +32,116 @@ function normalizeModules(rawModules, fallbackEnabled = true) {
   return modules;
 }
 
-function normalizeLeafConfig(raw = {}, base = cloneDefaults()) {
+function normalizeOptionalString(value, fallback = null) {
+  if (value == null) return fallback;
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function normalizeLeafConfig(raw = {}, base = cloneDefaults(), sparse = false) {
   const input = asObject(raw);
+  const output = {};
+  const assign = (key, value) => {
+    if (!sparse || Object.prototype.hasOwnProperty.call(input, key)) output[key] = value;
+  };
   const enabled = input.enabled == null ? base.enabled !== false : input.enabled !== false;
-  return {
-    enabled,
-    modules: normalizeModules(input.modules, enabled),
-    holdBackStrength: clampNumber(
-      input.holdBackStrength,
-      0,
-      1,
-      base.holdBackStrength ?? DEFAULT_MODULE_CONFIG.holdBackStrength,
-    ),
-    cooldownSeconds: Math.round(clampNumber(
-      input.cooldownSeconds,
-      0,
-      3600,
-      base.cooldownSeconds ?? DEFAULT_MODULE_CONFIG.cooldownSeconds,
-    )),
-    requireAddressHint: input.requireAddressHint == null
-      ? Boolean(base.requireAddressHint)
-      : Boolean(input.requireAddressHint),
-    deliveryStyle: ['single', 'natural_bubbles'].includes(String(input.deliveryStyle || ''))
+  assign('enabled', enabled);
+  if (!sparse || Object.prototype.hasOwnProperty.call(input, 'modules')) {
+    output.modules = normalizeModules(input.modules, enabled, sparse);
+  }
+  assign(
+    'participationMode',
+    PARTICIPATION_MODES.has(String(input.participationMode || ''))
+      ? String(input.participationMode)
+      : (base.participationMode || DEFAULT_MODULE_CONFIG.participationMode),
+  );
+  assign('minimumNeedScore', clampNumber(
+    input.minimumNeedScore,
+    0,
+    1,
+    base.minimumNeedScore ?? DEFAULT_MODULE_CONFIG.minimumNeedScore,
+  ));
+  assign('batchWindowMs', Math.round(clampNumber(
+    input.batchWindowMs,
+    0,
+    5000,
+    base.batchWindowMs ?? DEFAULT_MODULE_CONFIG.batchWindowMs,
+  )));
+  assign('decisionContextMessageLimit', Math.round(clampNumber(
+    input.decisionContextMessageLimit,
+    4,
+    30,
+    base.decisionContextMessageLimit ?? DEFAULT_MODULE_CONFIG.decisionContextMessageLimit,
+  )));
+  assign(
+    'decisionModelId',
+    normalizeOptionalString(input.decisionModelId, base.decisionModelId || null),
+  );
+  assign(
+    'decisionModelPurpose',
+    MODEL_PURPOSES.has(String(input.decisionModelPurpose || ''))
+      ? String(input.decisionModelPurpose)
+      : (base.decisionModelPurpose || DEFAULT_MODULE_CONFIG.decisionModelPurpose),
+  );
+  assign(
+    'deliveryStyle',
+    DELIVERY_STYLES.has(String(input.deliveryStyle || ''))
       ? String(input.deliveryStyle)
       : (base.deliveryStyle || DEFAULT_MODULE_CONFIG.deliveryStyle),
-    maxBubbles: Math.round(clampNumber(
-      input.maxBubbles,
-      1,
-      5,
-      base.maxBubbles ?? DEFAULT_MODULE_CONFIG.maxBubbles,
-    )),
-    bubbleGapMs: Math.round(clampNumber(
-      input.bubbleGapMs,
-      0,
-      5000,
-      base.bubbleGapMs ?? DEFAULT_MODULE_CONFIG.bubbleGapMs,
-    )),
-    decisionModelPreference: ['cheap', 'default'].includes(String(input.decisionModelPreference || ''))
-      ? String(input.decisionModelPreference)
-      : (base.decisionModelPreference || DEFAULT_MODULE_CONFIG.decisionModelPreference),
-    memoryRetentionDays: Math.round(clampNumber(
-      input.memoryRetentionDays,
-      1,
-      3650,
-      base.memoryRetentionDays ?? DEFAULT_MODULE_CONFIG.memoryRetentionDays,
-    )),
-    normsRefreshMessageGap: Math.round(clampNumber(
-      input.normsRefreshMessageGap,
-      3,
-      200,
-      base.normsRefreshMessageGap ?? DEFAULT_MODULE_CONFIG.normsRefreshMessageGap,
-    )),
-    observabilityIntervalMinutes: Math.round(clampNumber(
-      input.observabilityIntervalMinutes,
-      30,
-      10080,
-      base.observabilityIntervalMinutes ?? DEFAULT_MODULE_CONFIG.observabilityIntervalMinutes,
-    )),
-  };
+  );
+  assign('maxBubbles', Math.round(clampNumber(
+    input.maxBubbles,
+    1,
+    5,
+    base.maxBubbles ?? DEFAULT_MODULE_CONFIG.maxBubbles,
+  )));
+  assign('bubbleGapMs', Math.round(clampNumber(
+    input.bubbleGapMs,
+    0,
+    5000,
+    base.bubbleGapMs ?? DEFAULT_MODULE_CONFIG.bubbleGapMs,
+  )));
+  assign('normsRefreshMessageGap', Math.round(clampNumber(
+    input.normsRefreshMessageGap,
+    3,
+    200,
+    base.normsRefreshMessageGap ?? DEFAULT_MODULE_CONFIG.normsRefreshMessageGap,
+  )));
+  assign('observabilityIntervalMinutes', Math.round(clampNumber(
+    input.observabilityIntervalMinutes,
+    30,
+    10080,
+    base.observabilityIntervalMinutes ?? DEFAULT_MODULE_CONFIG.observabilityIntervalMinutes,
+  )));
+  return output;
 }
 
 function normalizeStoredConfig(raw) {
   const base = cloneDefaults();
   const input = asObject(raw);
-  const normalized = normalizeLeafConfig(input, base);
+  const normalized = {
+    schemaVersion: DEFAULT_MODULE_CONFIG.schemaVersion,
+    ...normalizeLeafConfig(input, base),
+  };
   const platformOverrides = {};
   for (const [platform, value] of Object.entries(asObject(input.platformOverrides))) {
     const key = String(platform || '').trim();
     if (!key) continue;
-    platformOverrides[key] = normalizeLeafConfig(value, normalized);
+    platformOverrides[key] = normalizeLeafConfig(value, normalized, true);
   }
-  const groupOverrides = {};
-  for (const [groupKey, value] of Object.entries(asObject(input.groupOverrides))) {
-    const key = String(groupKey || '').trim();
+  const roomOverrides = {};
+  const rawRoomOverrides = Object.keys(asObject(input.roomOverrides)).length
+    ? asObject(input.roomOverrides)
+    : asObject(input.groupOverrides);
+  for (const [roomKey, value] of Object.entries(rawRoomOverrides)) {
+    const key = String(roomKey || '').trim();
     if (!key) continue;
-    groupOverrides[key] = normalizeLeafConfig(value, normalized);
+    roomOverrides[key] = normalizeLeafConfig(value, normalized, true);
   }
   return {
     ...normalized,
     platformOverrides,
-    groupOverrides,
+    roomOverrides,
   };
 }
 
@@ -149,7 +183,7 @@ function setBehaviorConfig(userId, agentId, config) {
   return normalized;
 }
 
-function groupConfigKey(platform, chatId) {
+function roomConfigKey(platform, chatId) {
   return `${String(platform || '').trim()}::${String(chatId || '').trim()}`;
 }
 
@@ -166,26 +200,35 @@ function mergeConfigs(base, override) {
 }
 
 function resolveBehaviorConfig(userId, agentId, { platform = null, chatId = null, isGroup = false } = {}) {
-  const stored = getBehaviorConfig(userId, agentId);
+  const storedValue = readSettingRow(userId, agentId);
+  const stored = parseStoredValue(storedValue);
   let effective = normalizeLeafConfig(stored, cloneDefaults());
+  let participationModeSource = storedValue == null ? 'default' : 'agent';
   const platformKey = String(platform || '').trim();
   if (platformKey && stored.platformOverrides?.[platformKey]) {
     effective = mergeConfigs(effective, stored.platformOverrides[platformKey]);
+    if (Object.prototype.hasOwnProperty.call(stored.platformOverrides[platformKey], 'participationMode')) {
+      participationModeSource = 'platform';
+    }
   }
   if (isGroup && platformKey && chatId) {
-    const key = groupConfigKey(platformKey, chatId);
-    if (stored.groupOverrides?.[key]) {
-      effective = mergeConfigs(effective, stored.groupOverrides[key]);
+    const key = roomConfigKey(platformKey, chatId);
+    if (stored.roomOverrides?.[key]) {
+      effective = mergeConfigs(effective, stored.roomOverrides[key]);
+      if (Object.prototype.hasOwnProperty.call(stored.roomOverrides[key], 'participationMode')) {
+        participationModeSource = 'room';
+      }
     }
   }
   effective.modules = normalizeModules(effective.modules, effective.enabled !== false);
   effective.platformOverrides = stored.platformOverrides || {};
-  effective.groupOverrides = stored.groupOverrides || {};
+  effective.roomOverrides = stored.roomOverrides || {};
+  effective.participationModeSource = participationModeSource;
   effective.scope = {
     platform: platformKey || null,
     chatId: chatId ? String(chatId) : null,
     isGroup: Boolean(isGroup),
-    groupKey: isGroup && platformKey && chatId ? groupConfigKey(platformKey, chatId) : null,
+    roomKey: isGroup && platformKey && chatId ? roomConfigKey(platformKey, chatId) : null,
   };
   return effective;
 }
@@ -203,6 +246,6 @@ module.exports = {
   setBehaviorConfig,
   resolveBehaviorConfig,
   normalizeStoredConfig,
-  groupConfigKey,
+  roomConfigKey,
   isModuleEnabled,
 };

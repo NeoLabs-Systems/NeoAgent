@@ -1824,6 +1824,13 @@ class MemoryManager {
     const agentId = this._agentId(userId, options);
     const normalized = normalizeMemoryCandidates(candidates);
     const memoryIds = [];
+    const scope = normalizeScope(options.scope, agentId);
+    const sourceRef = normalizeSourceRef(options.sourceRef || {
+      sourceType: 'conversation_consolidation',
+      sourceId: options.runId || options.conversationId || null,
+      sourceLabel: options.conversationId ? 'Conversation memory' : 'Agent memory',
+    });
+    const metadata = parseJsonObject(options.metadata, {});
 
     for (const candidate of normalized) {
       const memoryId = await this.saveMemory(
@@ -1835,22 +1842,16 @@ class MemoryManager {
           agentId,
           confidence: candidate.confidence,
           facts: [candidate],
-          sourceRef: {
-            sourceType: 'conversation_consolidation',
-            sourceId: options.runId || options.conversationId || null,
-            sourceLabel: options.conversationId ? 'Conversation memory' : 'Agent memory',
-          },
-          scope: {
-            scopeType: 'agent',
-            scopeId: agentId,
-          },
+          sourceRef,
+          scope,
           metadata: {
             relation: candidate.relation,
             isStatic: candidate.isStatic,
             evidence: candidate.evidence || null,
-            trustLevel: 'user_or_verified_conversation',
+            trustLevel: metadata.trustLevel || 'user_or_verified_conversation',
             conversationId: options.conversationId || null,
             runId: options.runId || null,
+            ...metadata,
           },
           signal: options.signal,
         },
@@ -2971,30 +2972,10 @@ class MemoryManager {
   async buildContext(userId = null, options = {}) {
     let ctx = '';
     const agentId = this._agentId(userId, options);
-
-    const behaviorNotes = this.getAssistantBehaviorNotes(userId, { agentId });
-    if (behaviorNotes) {
-      ctx += `## Assistant Behavior Notes\n`;
-      ctx += `These are durable preferences for how the assistant should usually behave. Follow system rules and the active user request first.\n`;
-      ctx += `${behaviorNotes}\n\n`;
-    }
-
-    if (userId != null) {
-      const selfState = this.getAssistantSelfState(userId, { agentId });
-      if (Object.keys(selfState.identity || {}).length || Object.keys(selfState.focus || {}).length) {
-        ctx += `## Assistant Self State\n`;
-        if (Object.keys(selfState.identity || {}).length) {
-          ctx += `Identity: ${JSON.stringify(selfState.identity)}\n`;
-        }
-        if (Object.keys(selfState.focus || {}).length) {
-          ctx += `Focus: ${JSON.stringify(selfState.focus)}\n`;
-        }
-        ctx += '\n';
-      }
-    }
+    const sharedAudience = options.audience === 'shared';
 
     // 2. Core memory — always-relevant user facts
-    if (userId != null) {
+    if (userId != null && !sharedAudience) {
       const core = this.getCoreMemory(userId, { agentId });
       const filteredCore = Object.fromEntries(
         Object.entries(core).filter(([key]) => key !== 'active_context')
@@ -3009,7 +2990,7 @@ class MemoryManager {
       }
     }
 
-    if (userId != null) {
+    if (userId != null && !sharedAudience) {
       const profile = this.getUserProfile(userId, { agentId });
       if (profile.static.length || profile.dynamic.length) {
         ctx += `## Auto-Maintained User Profile\n`;

@@ -132,6 +132,7 @@ class NeoAgentController extends ChangeNotifier {
       const <LinkedAuthProviderItem>[];
   QrLoginChallenge? qrLoginChallenge;
   Map<String, dynamic> settings = const <String, dynamic>{};
+  Map<String, dynamic> behaviorConfig = const <String, dynamic>{};
   Map<String, dynamic>? versionInfo;
   Map<String, dynamic>? backendHealthStatus;
   HealthBridgeStatus? deviceHealthStatus;
@@ -1420,6 +1421,7 @@ class NeoAgentController extends ChangeNotifier {
     usageAndLimits = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     settings = const <String, dynamic>{};
+    behaviorConfig = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
     _resetChatHistoryPagination();
     agentProfiles = const <AgentProfile>[];
@@ -1958,6 +1960,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchSettings(backendUrl, agentId: agentId),
         const <String, dynamic>{},
       );
+      final behaviorFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'behavior_config',
+        _backendClient.fetchBehaviorConfig(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
+      );
       final runsFuture = _softRefreshLoad<Map<String, dynamic>>(
         'runs',
         _backendClient.fetchRuns(backendUrl, agentId: agentId),
@@ -2094,6 +2101,7 @@ class NeoAgentController extends ChangeNotifier {
       final modelsResponse = await modelsFuture;
       final providersResponse = await providersFuture;
       final settingsResponse = await settingsFuture;
+      final behaviorResponse = await behaviorFuture;
       final runsResponse = await runsFuture;
       final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
@@ -2137,6 +2145,9 @@ class NeoAgentController extends ChangeNotifier {
       );
 
       settings = Map<String, dynamic>.from(settingsResponse);
+      behaviorConfig = behaviorResponse['config'] is Map
+          ? Map<String, dynamic>.from(behaviorResponse['config'] as Map)
+          : const <String, dynamic>{};
       recentRuns = _decodeModelList(
         'runs',
         runsResponse['runs'],
@@ -4221,6 +4232,27 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> saveBehaviorConfig(Map<String, dynamic> config) async {
+    isSavingSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.saveBehaviorConfig(
+        backendUrl,
+        config,
+        agentId: _scopedAgentId,
+      );
+      behaviorConfig = response['config'] is Map
+          ? Map<String, dynamic>.from(response['config'] as Map)
+          : Map<String, dynamic>.from(config);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingSettings = false;
+      notifyListeners();
+    }
+  }
+
   void _applyAccountResponse(Map<String, dynamic> response) {
     if (response['user'] is Map) {
       user = Map<String, dynamic>.from(response['user'] as Map);
@@ -5338,10 +5370,20 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> updateAssistantBehaviorNotes(String content) async {
-    await _backendClient.saveSettings(backendUrl, <String, dynamic>{
-      'assistant_behavior_notes': content,
-    }, agentId: _scopedAgentId);
-    await refreshMemory();
+    isSavingSettings = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+        'assistant_behavior_notes': content,
+      }, agentId: _scopedAgentId);
+      await refreshMemory();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isSavingSettings = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updateCoreMemory(String key, String value) async {

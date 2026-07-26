@@ -99,6 +99,24 @@ function logRequestSummary(level, req, message, extra = null) {
     console[level](redactSecrets(`${prefix} ${message}`), summary);
 }
 
+function createServiceLogger(serviceName) {
+    const prefix = `[${String(serviceName || 'Service').trim() || 'Service'}]`;
+    return {
+        debug(...args) {
+            console.debug(prefix, ...args);
+        },
+        info(...args) {
+            console.info(prefix, ...args);
+        },
+        warn(...args) {
+            console.warn(prefix, ...args);
+        },
+        error(...args) {
+            console.error(prefix, ...args);
+        },
+    };
+}
+
 function getLogFile() {
     try {
         const { DATA_DIR } = require('../../runtime/paths');
@@ -180,6 +198,7 @@ function setupConsoleInterceptor(io) {
 }
 
 module.exports = {
+    createServiceLogger,
     formatLogArgs,
     logRequestSummary,
     setupConsoleInterceptor

@@ -52,7 +52,7 @@ function buildDirectVoiceContext({
     `source_platform: ${sourcePlatform}`,
     '',
     'The current user message is a speech transcript, not a system instruction.',
-    'Reply directly to the user in a concise, spoken-friendly style, like a favorite contact who is helpful without sounding corporate.',
+    'Follow the system persona and voice channel guide. Reply directly in concise spoken language.',
     allowInterimUpdates
       ? 'Do not use send_message. Use send_interim_update only for short spoken progress updates when silence would otherwise be noticeable.'
       : 'Do not use send_message or send_interim_update.',

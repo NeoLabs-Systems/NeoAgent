@@ -1,26 +1,89 @@
 'use strict';
 
 const { resolveBehaviorConfig, isModuleEnabled } = require('./config');
-const { getThreadState, setThreadState } = require('./state');
-const turnTaking = require('./modules/turn_taking');
-const socialMemory = require('./modules/social_memory');
-const norms = require('./modules/norms');
-const persona = require('./modules/persona');
-const theoryOfMind = require('./modules/theory_of_mind');
-const socialSignals = require('./modules/social_signals');
-const socialObservability = require('./modules/social_observability');
-const { deliverSocialReply } = require('./delivery');
+const {
+  bumpTurnEpoch,
+  getThreadState,
+  isTurnCurrent,
+  markSpoke,
+} = require('./state');
+const { createBehaviorRegistry } = require('./registry');
+const { BEHAVIOR_MODULES } = require('./modules');
+const { createServiceLogger } = require('../../utils/logger');
+
+const logger = createServiceLogger('Behavior');
 
 function createBehaviorPipeline(deps = {}) {
   const memoryManager = deps.memoryManager || null;
+  const agentEngine = deps.agentEngine || null;
   const io = deps.io || null;
+  const registry = createBehaviorRegistry(BEHAVIOR_MODULES);
 
-  async function handleInbound({ userId, agentId, msg, signal = null }) {
+  function effectiveConfig(userId, agentId, msg) {
     const config = resolveBehaviorConfig(userId, agentId, {
       platform: msg.platform,
       chatId: msg.chatId,
       isGroup: Boolean(msg.isGroup),
     });
+    if (
+      msg.isGroup
+      && config.participationModeSource === 'default'
+      && msg.accessPolicyRequireMention === true
+    ) {
+      config.participationMode = 'mention_only';
+    }
+    return config;
+  }
+
+  function noteInbound({ userId, agentId, msg }) {
+    const state = bumpTurnEpoch(userId, agentId, msg.platform, msg.chatId);
+    msg.behaviorTurnEpoch = state.turnEpoch;
+    return state.turnEpoch;
+  }
+
+  function scheduleBackground(baseCtx) {
+    const task = async (backgroundSignal) => {
+      const ctx = { ...baseCtx, signal: backgroundSignal };
+      await registry.run('afterTurn', ctx);
+    };
+    const key = [
+      'social-background',
+      baseCtx.userId,
+      baseCtx.agentId || 'main',
+      baseCtx.msg.platform,
+      baseCtx.msg.chatId,
+    ].join(':');
+    const promise = agentEngine?.trackBackgroundTask
+      ? agentEngine.trackBackgroundTask(task, { key, coalesce: true, signal: baseCtx.signal })
+      : Promise.resolve().then(() => task(baseCtx.signal));
+    promise.catch((error) => {
+      if (!baseCtx.signal?.aborted) logger.warn('background analysis failed:', error?.message || error);
+    });
+  }
+
+  async function handleInbound({ userId, agentId, msg, signal = null }) {
+    const config = effectiveConfig(userId, agentId, msg);
+    const turnEpoch = Number(msg.behaviorTurnEpoch)
+      || noteInbound({ userId, agentId, msg });
+    if (config.enabled === false) {
+      return {
+        engage: true,
+        decision: {
+          decision: 'speak',
+          needScore: 1,
+          confidence: 1,
+          reasonCodes: ['behavior_disabled'],
+          urgency: 'medium',
+          rationale: 'Behavior modules are disabled; using the standard response path.',
+          tokenPath: 'gate_skip',
+          latencyMs: 0,
+          turnEpoch,
+        },
+        config,
+        promptBlocks: [],
+        observeResult: null,
+      };
+    }
 
     const baseCtx = {
       userId,
@@ -29,38 +92,40 @@ function createBehaviorPipeline(deps = {}) {
       config,
       signal,
       memoryManager,
+      agentEngine,
+      turnEpoch,
+      isModuleEnabled: (moduleId) => isModuleEnabled(config, moduleId),
     };
 
-    // Always record a lightweight signal entry when enabled.
-    socialSignals.recordSignal({
-      ...baseCtx,
-      signalType: 'inbound_message',
-      details: {
-        hasMedia: Boolean(msg.localMediaPath || msg.mediaType),
-        wasMentioned: msg.wasMentioned === true,
-      },
-    });
-
-    // Observe/ingest before the gate so silence still learns the room cheaply.
-    const observeResult = await socialMemory.observeInbound(baseCtx);
-
-    // Background norms/observability never block the reply path.
-    queueMicrotask(() => {
-      norms.maybeRefreshNorms(baseCtx).catch((error) => {
-        console.warn('[Behavior] norms refresh failed:', error?.message || error);
-      });
-      socialObservability.maybeAnalyze(baseCtx).catch((error) => {
-        console.warn('[Behavior] observability failed:', error?.message || error);
-      });
-    });
+    const observations = await registry.run('observe', baseCtx);
+    const observeResult = observations.find((item) => item.moduleId === 'social_memory')?.value || null;
+    if (msg.isGroup) scheduleBackground(baseCtx);
 
     const memoryHints = [];
     if (observeResult?.scopeId) memoryHints.push(`channel:${observeResult.scopeId}`);
 
-    const decision = await turnTaking.shouldEngage({
-      ...baseCtx,
-      memoryHints,
-    });
+    let decision;
+    if (!isModuleEnabled(config, 'turn_taking')) {
+      decision = {
+        decision: 'speak',
+        needScore: 1,
+        confidence: 1,
+        reasonCodes: ['turn_taking_disabled'],
+        urgency: 'medium',
+        rationale: 'Turn-taking is disabled; using the standard response path.',
+        tokenPath: 'gate_skip',
+        latencyMs: 0,
+        turnEpoch,
+      };
+    } else {
+      decision = (await registry.run('decide', {
+        ...baseCtx,
+        memoryHints,
+      })).find((item) => item.moduleId === 'turn_taking')?.value;
+    }
+    if (!decision) {
+      throw new Error('The turn-taking module did not return a decision.');
+    }
 
     if (io && userId) {
       io.to(`user:${userId}`).emit('behavior:decision', {
@@ -70,6 +135,7 @@ function createBehaviorPipeline(deps = {}) {
         isGroup: Boolean(msg.isGroup),
         decision: decision.decision,
         confidence: decision.confidence,
+        needScore: decision.needScore,
         reasonCodes: decision.reasonCodes || [],
         urgency: decision.urgency,
         rationale: decision.rationale || '',
@@ -90,19 +156,13 @@ function createBehaviorPipeline(deps = {}) {
       };
     }
 
-    const socialHints = await socialMemory.buildSpeakHints(baseCtx);
-    const promptBlocks = [
-      persona.buildPersonaBlock(baseCtx),
-      norms.getNormsPromptBlock(baseCtx),
-      socialHints.promptBlock,
-    ].filter(Boolean);
+    const promptBlocks = await registry.composeContext(baseCtx);
 
     return {
       engage: true,
       decision,
       config,
       promptBlocks,
-      socialHints,
       observeResult,
     };
   }
@@ -118,14 +178,32 @@ function createBehaviorPipeline(deps = {}) {
     signal = null,
     mediaPath = null,
     deliver = false,
+    turnEpoch = null,
   }) {
-    const tom = await theoryOfMind.refineDraft({
+    const expectedEpoch = Number(turnEpoch || msg.behaviorTurnEpoch || 0);
+    if (msg.isGroup && !isTurnCurrent(
+      userId,
+      agentId,
+      msg.platform,
+      msg.chatId,
+      expectedEpoch,
+    )) {
+      return {
+        action: 'suppress',
+        content: '[NO RESPONSE]',
+        delivered: false,
+        suppressed: true,
+        reasonCodes: ['stale_turn'],
+      };
+    }
+    const tom = await registry.get('theory_of_mind').refineDraft({
       userId,
       agentId,
       msg,
       config,
       draft,
       signal,
+      agentEngine,
     });
 
     const content = tom.content;
@@ -137,27 +215,41 @@ function createBehaviorPipeline(deps = {}) {
       return { ...tom, delivered: false, suppressed: true, content };
     }
 
-    const delivery = await deliverSocialReply({
+    const deliveryConfig = isModuleEnabled(config, 'delivery')
+      ? config
+      : { ...config, deliveryStyle: 'single' };
+    const delivery = await registry.get('delivery').deliver({
       messagingManager,
       userId,
       agentId,
       platform: msg.platform,
       chatId: msg.chatId,
       content,
-      config,
+      config: deliveryConfig,
       runId,
       signal,
       mediaPath,
+      turnEpoch: expectedEpoch,
+      beforeBubble: () => !msg.isGroup || isTurnCurrent(
+        userId,
+        agentId,
+        msg.platform,
+        msg.chatId,
+        expectedEpoch,
+      ),
     });
 
-    setThreadState(userId, agentId, msg.platform, msg.chatId, {
-      lastSpokeAt: new Date().toISOString(),
-      recentSilenceCount: 0,
-    });
+    if (
+      (delivery?.success !== false && delivery?.suppressed !== true)
+      || Number(delivery?.deliveredBubbles || 0) > 0
+    ) {
+      markSpoke(userId, agentId, msg.platform, msg.chatId);
+    }
 
     return {
       ...tom,
-      delivered: true,
+      delivered: delivery?.success !== false && delivery?.suppressed !== true,
+      suppressed: delivery?.suppressed === true,
       delivery,
       content,
     };
@@ -180,6 +272,8 @@ function createBehaviorPipeline(deps = {}) {
   }
 
   return {
+    registry,
+    noteInbound,
     handleInbound,
     refineAndMaybeDeliver,
     getDiagnostics,

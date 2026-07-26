@@ -2400,6 +2400,13 @@ async function executeTool(toolName, args, context, engine) {
             if (!engine || !runId) {
                 return { error: 'Interim updates require an active run.' };
             }
+            if (engine.getRunMeta(runId)?.messagingContext?.behavior?.isGroup === true) {
+                return {
+                    sent: false,
+                    skipped: true,
+                    reason: 'Interim progress updates are suppressed in shared rooms.',
+                };
+            }
             const interimContent = typeof args.content === 'string' ? args.content : '';
             const expectsReply = args.expects_reply === true;
             const deferFollowUp = args.defer_follow_up === true;
@@ -2495,13 +2502,58 @@ async function executeTool(toolName, args, context, engine) {
             if (triggerSource === 'messaging' && originDelivery) {
                 await engine?.stopMessagingProgressSupervisor?.(runId);
             }
-            const sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
-                agentId,
-                mediaPath: args.media_path,
-                runId,
-                persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks',
-                signal,
-            });
+            const behavior = runState?.messagingContext?.behavior;
+            const behaviorPipeline = app?.locals?.behaviorPipeline;
+            let deliveredContent = normalizedMessage;
+            let sendResult;
+            if (
+                originDelivery
+                && behavior
+                && behavior.enabled !== false
+                && behaviorPipeline
+                && typeof behaviorPipeline.refineAndMaybeDeliver === 'function'
+            ) {
+                const behaviorResult = await behaviorPipeline.refineAndMaybeDeliver({
+                    userId,
+                    agentId,
+                    msg: behavior.message,
+                    config: behavior.config,
+                    draft: normalizedMessage,
+                    messagingManager: manager,
+                    runId,
+                    signal,
+                    mediaPath: args.media_path,
+                    turnEpoch: behavior.turnEpoch,
+                    deliver: true,
+                });
+                deliveredContent = behaviorResult.content;
+                if (behaviorResult.delivered) {
+                    sendResult = { success: true, behavior: true, result: behaviorResult.delivery };
+                } else if (behaviorResult.suppressed) {
+                    markProactiveNoResponse({ runState, deliveryState });
+                    sendResult = {
+                        success: true,
+                        sent: false,
+                        suppressed: true,
+                        reason: behaviorResult.reasonCodes?.[0] || 'behavior_suppressed',
+                    };
+                } else {
+                    sendResult = {
+                        success: false,
+                        error: behaviorResult.delivery?.error
+                            || behaviorResult.delivery?.reason
+                            || 'Behavior delivery was not confirmed.',
+                    };
+                }
+            } else {
+                sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
+                    agentId,
+                    mediaPath: args.media_path,
+                    runId,
+                    persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks',
+                    signal,
+                });
+            }
             // Track that the agent explicitly sent a message during this run
             if (
                 !suppressReply
@@ -2509,7 +2561,7 @@ async function executeTool(toolName, args, context, engine) {
                 && sendResult?.suppressed !== true
                 && originDelivery
             ) {
-                markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
+                markProactiveMessageSent({ runState, deliveryState, content: deliveredContent });
                 if (runState && triggerSource === 'messaging') {
                     runState.explicitMessageSent = true;
                 }

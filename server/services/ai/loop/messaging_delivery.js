@@ -85,6 +85,9 @@ async function sendRuntimeMessagingHeartbeat(engine, runId, options = {}) {
   if (runMeta.triggerSource !== 'messaging') {
     return { sent: false, skipped: true };
   }
+  if (runMeta.messagingContext?.behavior?.isGroup === true) {
+    return { sent: false, skipped: true, reason: 'group_progress_suppressed' };
+  }
   const createdAt = isoNow();
   const heartbeatCount = Number(runMeta.progressLedger?.heartbeatCount || 0) + 1;
   runMeta.lastSupervisorNudgeAt = createdAt;
@@ -177,6 +180,7 @@ function shouldSendMessagingFinalFallback(_engine, runMeta, content, platform = 
   return Boolean(
     cleanedContent
     && !runMeta?.terminalInterim
+    && runMeta?.noResponse !== true
     && runMeta?.explicitMessageSent !== true
     && runMeta?.finalDeliverySent !== true
     && runMeta?.deliveryState?.finalContentDelivered !== true
@@ -199,6 +203,49 @@ async function deliverMessagingFinalFallback(engine, {
   });
   if (!shouldSendMessagingFinalFallback(engine, runMeta, cleanedContent, platform)) {
     return { sent: false, skipped: true };
+  }
+
+  const behavior = runMeta.messagingContext?.behavior;
+  const behaviorPipeline = engine.app?.locals?.behaviorPipeline;
+  if (
+    behavior
+    && behavior.enabled !== false
+    && behaviorPipeline
+    && typeof behaviorPipeline.refineAndMaybeDeliver === 'function'
+  ) {
+    const result = await behaviorPipeline.refineAndMaybeDeliver({
+      userId,
+      agentId,
+      msg: behavior.message,
+      config: behavior.config,
+      draft: cleanedContent,
+      messagingManager: engine.messagingManager,
+      runId,
+      signal: runMeta.abortController?.signal || null,
+      turnEpoch: behavior.turnEpoch,
+      deliver: true,
+    });
+    if (!result.delivered) {
+      if (result.suppressed !== true) {
+        const error = new Error(
+          result.delivery?.error || result.delivery?.reason || 'Behavior delivery was not confirmed.',
+        );
+        error.code = 'MESSAGING_DELIVERY_FAILED';
+        throw error;
+      }
+      runMeta.noResponse = true;
+      if (runMeta.deliveryState) runMeta.deliveryState.noResponse = true;
+      return {
+        sent: false,
+        suppressed: result.suppressed === true,
+        reason: result.reasonCodes?.[0] || 'behavior_suppressed',
+      };
+    }
+    runMeta.lastSentMessage = result.content;
+    if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
+    runMeta.sentMessages.push(result.content);
+    engine.markRunFinalDelivery(runId, result.content);
+    return { sent: true, behavior: true, content: result.content };
   }
 
   const chunks = splitOutgoingMessageForPlatform(platform, cleanedContent);

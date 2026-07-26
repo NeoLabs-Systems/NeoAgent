@@ -232,7 +232,7 @@ function createDefaultAccessPolicy(platform) {
   return {
     directPolicy: 'allowlist',
     sharedPolicy: capabilities.supportsSharedPolicy ? 'allowlist' : 'disabled',
-    requireMentionInShared: capabilities.supportsMentionGate,
+    requireMentionInShared: false,
     directRules: [],
     sharedSpaceRules: [],
     sharedActorRules: [],
@@ -272,7 +272,7 @@ function normalizeAccessPolicy(platform, value) {
     directPolicy: normalizeMode(raw.directPolicy, defaults.directPolicy),
     sharedPolicy: normalizeMode(raw.sharedPolicy, defaults.sharedPolicy),
     requireMentionInShared: capabilities.supportsMentionGate
-      ? raw.requireMentionInShared !== false
+      ? raw.requireMentionInShared === true
       : false,
     directRules: dedupeRules((Array.isArray(raw.directRules) ? raw.directRules : [])
       .map((rule) => normalizeRule(rule, directScopes))
@@ -509,10 +509,14 @@ function evaluateAccessPolicy(policyInput, context, platform) {
         return { allowed: false, reason: 'shared_actor_not_allowed', policy };
       }
     }
-    if (capabilities.supportsMentionGate && policy.requireMentionInShared && !context?.wasMentioned) {
-      return { allowed: false, reason: 'mention_required', policy };
-    }
-    return { allowed: true, reason: 'allowed', policy };
+    return {
+      allowed: true,
+      reason: 'allowed',
+      policy,
+      participationHint: capabilities.supportsMentionGate && policy.requireMentionInShared
+        ? 'mention_only'
+        : 'automatic',
+    };
   }
 
   return { allowed: false, reason: 'unsupported_context', policy };

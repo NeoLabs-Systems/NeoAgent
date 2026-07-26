@@ -22,7 +22,20 @@ function recordSignal(ctx) {
   return { recorded: true, count: signals.length };
 }
 
+function observe(ctx) {
+  return recordSignal({
+    ...ctx,
+    signalType: ctx.msg?.eventType || 'inbound_message',
+    details: {
+      hasMedia: Boolean(ctx.msg?.localMediaPath || ctx.msg?.mediaType),
+      wasMentioned: ctx.msg?.wasMentioned === true,
+      repliedToAgent: ctx.msg?.repliedToAgent === true,
+    },
+  });
+}
+
 module.exports = {
   id: 'social_signals',
+  observe,
   recordSignal,
 };

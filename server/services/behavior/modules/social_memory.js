@@ -8,40 +8,17 @@ function participantLabel(msg) {
 }
 
 async function observeInbound(ctx) {
-  const { userId, agentId, msg, config, memoryManager } = ctx;
-  if (!isModuleEnabled(config, 'social_memory') || !memoryManager || !msg?.isGroup) {
+  const { msg, config } = ctx;
+  if (!isModuleEnabled(config, 'social_memory') || !msg?.isGroup) {
     return { observed: false };
   }
 
   const scopeId = buildChannelScopeId(msg.platform, msg.chatId);
-  const content = [
-    `Group chat ${msg.platform}:${msg.chatId}`,
-    `Speaker ${participantLabel(msg)} (${msg.sender || 'unknown'}) said: ${truncate(msg.content, 500)}`,
-  ].join('. ');
-
-  try {
-    await memoryManager.saveMemory(userId, content, 'episodic', 3, {
-      agentId,
-      scope: { scopeType: 'channel', scopeId },
-      sourceRef: {
-        sourceType: 'messaging_group',
-        sourceId: msg.messageId || null,
-        sourceLabel: `${msg.platform} ${msg.chatId}`,
-      },
-      metadata: {
-        platform: msg.platform,
-        chat_id: String(msg.chatId || ''),
-        participant_id: msg.sender || null,
-        participant_name: participantLabel(msg),
-        social: true,
-        was_mentioned: msg.wasMentioned === true,
-      },
-    });
-  } catch (error) {
-    return { observed: false, error: error?.message || String(error) };
-  }
-
-  return { observed: true, scopeId };
+  return {
+    observed: true,
+    scopeId,
+    participantSubject: `${msg.platform}:${String(msg.sender || 'unknown')}`,
+  };
 }
 
 async function buildSpeakHints(ctx) {
@@ -68,23 +45,6 @@ async function buildSpeakHints(ctx) {
     recalled = [];
   }
 
-  // Also pull a couple of contact facts about the speaker without expanding into owner core memory.
-  try {
-    const personHits = await memoryManager.recallMemory(
-      userId,
-      `${participantLabel(msg)} ${msg.sender || ''} contact relationship`,
-      3,
-      { agentId },
-    );
-    for (const hit of personHits) {
-      if (['contacts', 'identity', 'preferences'].includes(hit.category)) {
-        recalled.push(hit);
-      }
-    }
-  } catch {
-    // ignore
-  }
-
   const unique = [];
   const seen = new Set();
   for (const item of recalled) {
@@ -107,8 +67,20 @@ async function buildSpeakHints(ctx) {
   };
 }
 
+async function composeContext(ctx) {
+  const hints = await buildSpeakHints(ctx);
+  if (!hints.promptBlock) return null;
+  return {
+    key: 'social_memory',
+    priority: 40,
+    content: hints.promptBlock,
+  };
+}
+
 module.exports = {
   id: 'social_memory',
+  observe: observeInbound,
+  composeContext,
   observeInbound,
   buildSpeakHints,
 };

@@ -791,6 +791,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       ? {
         platform: options.source || null,
         chatId: options.chatId || null,
+        behavior: options.context?.socialIntelligence || null,
       }
       : null,
     goalContract: carriedGoalContract,
@@ -805,7 +806,9 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     progressLedger,
     goalContract: carriedGoalContract,
   });
-  engine.startMessagingProgressSupervisor(runId);
+  if (options.context?.socialIntelligence?.isGroup !== true) {
+    engine.startMessagingProgressSupervisor(runId);
+  }
   engine.emit(userId, 'run:start', {
     runId,
     agentId,
@@ -842,6 +845,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
     userMessage,
     agentId,
     triggerSource,
+    memoryAudience: options.memoryAudience || 'owner',
   });
   // Pass short descriptions so the model always knows every available tool.
   // compactToolDefinition caps tool desc at 120 chars, param desc at 70 chars.
@@ -992,7 +996,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           // Reuse the run's real system prompt so the update follows the same voice and
           // formatting guidelines as every other message (single source of truth).
           const sysContent = [systemPrompt?.stable, systemPrompt?.dynamic].filter(Boolean).join('\n\n')
-            || 'You are the user\'s favorite contact: warm, direct, and competent.';
+            || 'Respond directly and accurately using only the verified progress evidence.';
           const resp = await runAbortableModelCall(
             (signal) => provider.chat(
               [
@@ -1762,15 +1766,6 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
           iteration = iterationBudget.used;
           lastContent = '';
           continue;
-        }
-        if (engine.shouldFastCompleteVoiceReply({
-          options,
-          toolExecutions,
-          failedStepCount,
-          messagingSent: engine.activeRuns.get(runId)?.messagingSent || false,
-          lastReply: lastContent,
-        })) {
-          break;
         }
         if (shouldContinueAfterBlankToolFailure({
           lastContent,

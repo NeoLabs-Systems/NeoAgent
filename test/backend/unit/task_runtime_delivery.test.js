@@ -576,7 +576,7 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, ['Finished result.']);
   });
 
-  test('send_message cannot terminate the originating run with a progress-only promise', async () => {
+  test('send_message does not use phrase matching to classify an origin reply', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const sent = [];
     const runState = {
@@ -609,16 +609,16 @@ describe('scheduled task result delivery', () => {
       content: "I'm working on that and will update you.",
     }, context, engine);
 
-    assert.match(result.error, /cannot end the run with a promise/);
-    assert.equal(sent.length, 0);
-    assert.equal(runState.finalDeliverySent, false);
+    assert.equal(result.success, true);
+    assert.equal(sent.length, 1);
+    assert.equal(runState.finalDeliverySent, true);
 
     await executeTool('send_message', {
       platform: 'whatsapp',
       to: '49987654321',
       content: "I'm working on that and will update you.",
     }, context, engine);
-    assert.equal(sent.length, 1, 'a requested message to a third party is not reclassified');
+    assert.equal(sent.length, 2, 'a requested message to a third party is not reclassified');
   });
 
   test('task runtime start is idempotent and reports truthful state', async () => {

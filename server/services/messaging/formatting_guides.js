@@ -31,11 +31,10 @@ function buildPlatformFormattingGuide(_platform, options = {}) {
     ? ''
     : 'Reply formatting guide:';
   const body = [
-    'Write like a favorite contact texting back: compact, natural, human.',
     'Prefer short paragraphs or multi-line chat bursts over document structure.',
     'Use simple single-level lists only when they genuinely improve clarity.',
     'Avoid tables, raw HTML, and formal report formatting in chat replies.',
-    'Lead with the useful result. Skip helpdesk filler and throat-clearing.',
+    'A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat.',
     'The runtime will adapt the final text to the destination platform.'
   ].map((line) => `- ${line}`).join('\n');
   return [intro, body].filter(Boolean).join('\n');
@@ -43,8 +42,7 @@ function buildPlatformFormattingGuide(_platform, options = {}) {
 
 function buildSendMessageFormattingReference() {
   return [
-    'Use one plain chat-style reply, like a favorite contact texting.',
-    'Lead with the result and keep filler out.',
+    'Use one plain chat-style reply unless intentional bubble breaks improve it.',
     'The runtime adapts final formatting for the destination platform.',
     'For WhatsApp, media attachments still use media_path.'
   ].join(' ');

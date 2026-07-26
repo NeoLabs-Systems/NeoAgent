@@ -223,7 +223,10 @@ class TelegramPlatform extends BasePlatform {
       ? senderName
       : `${senderName} in ${msg.chat.title || rawChatId}`;
 
-    const channelContext = (!isPrivate && this._isMentioned(msg)) ? this._getContext(rawChatId) : null;
+    const channelContext = !isPrivate ? this._getContext(rawChatId) : null;
+    const repliedToAgent = !isPrivate
+      && msg.reply_to_message?.from?.id
+      && String(msg.reply_to_message.from.id) === String(this._botUser?.id || '');
 
     this.emit('message', {
       platform: 'telegram',
@@ -233,6 +236,12 @@ class TelegramPlatform extends BasePlatform {
       senderDisplayName,
       senderUsername,
       senderTag: senderUsername,
+      wasMentioned: !isPrivate && this._isMentioned(msg),
+      repliedToAgent: Boolean(repliedToAgent),
+      replyToMessageId: msg.reply_to_message?.message_id
+        ? String(msg.reply_to_message.message_id)
+        : null,
+      groupId: isPrivate ? null : rawChatId,
       content,
       mediaType: null,
       isGroup: !isPrivate,

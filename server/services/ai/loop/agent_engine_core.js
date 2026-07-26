@@ -638,6 +638,53 @@ class AgentEngine {
     });
   }
 
+  async inferStructured({
+    userId,
+    agentId = null,
+    modelId = null,
+    purpose = 'fast',
+    system,
+    prompt,
+    maxTokens = 400,
+    fallback = {},
+    signal = null,
+  }) {
+    const selected = await getProviderForUser(
+      userId,
+      prompt,
+      false,
+      modelId,
+      {
+        agentId,
+        signal,
+        selectionHint: {
+          purpose: purpose === 'general' ? 'general' : 'fast',
+          costMode: purpose === 'fast' ? 'economy' : 'balanced_auto',
+        },
+      },
+    );
+    const result = await this.requestStructuredJson({
+      provider: selected.provider,
+      providerName: selected.providerName,
+      model: selected.model,
+      messages: system ? [{ role: 'system', content: String(system) }] : [],
+      prompt: String(prompt || ''),
+      maxTokens,
+      normalize: (value) => value,
+      fallback,
+      telemetry: { userId, agentId, signal },
+      phase: 'behavior_inference',
+    });
+    return {
+      parsed: result.value,
+      raw: result.raw,
+      usage: result.usage,
+      model: selected.model,
+      modelSelectionId: selected.modelSelectionId,
+      providerName: selected.providerName,
+    };
+  }
+
   async requestModelResponse({
     provider,
     providerName,
@@ -973,6 +1020,15 @@ class AgentEngine {
         content: [
           'Return JSON only. Distill the current thread working state. Keep it concise and concrete.',
           'Track summary, open_commitments, unresolved_questions, referenced_entities, and last_verified_facts. Do not invent facts.',
+          options.memoryScope?.scopeType === 'channel'
+            ? [
+                'This is a shared room. Extract only durable room or participant facts that are safe and useful in this room.',
+                'Do not infer or store facts about the authenticated owner from another participant’s message.',
+                options.context?.socialIntelligence?.message?.sender
+                  ? `For facts about the current speaker, use the canonical subject "${options.source}:${options.context.socialIntelligence.message.sender}".`
+                  : '',
+              ].filter(Boolean).join(' ')
+            : '',
           buildMemoryConsolidationInstructions(new Date().toISOString()),
           'Schema:',
           JSON.stringify({
@@ -1049,6 +1105,14 @@ class AgentEngine {
           agentId: options.agentId || null,
           conversationId,
           runId,
+          scope: options.memoryScope || undefined,
+          metadata: options.memoryScope
+            ? {
+                trustLevel: 'shared_room_conversation',
+                platform: options.source || null,
+                chatId: options.chatId || null,
+              }
+            : undefined,
           signal: options.signal,
         },
       );
@@ -1243,22 +1307,6 @@ class AgentEngine {
       return 'low';
     }
     return options.reasoningEffort || process.env.REASONING_EFFORT || 'low';
-  }
-
-  shouldFastCompleteVoiceReply({
-    options = {},
-    toolExecutions = [],
-    failedStepCount = 0,
-    messagingSent = false,
-    lastReply = '',
-  }) {
-    // Voice fast-path is structural only: short reply, no tools/failures.
-    // Content terminality is left to the model completion judge.
-    return options.latencyProfile === 'voice'
-      && toolExecutions.length === 0
-      && failedStepCount === 0
-      && !messagingSent
-      && Boolean(String(lastReply || '').trim());
   }
 
   getMessagingRetryLimit(maxIterations) {

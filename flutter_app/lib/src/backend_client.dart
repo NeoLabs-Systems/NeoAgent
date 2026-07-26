@@ -514,6 +514,25 @@ class BackendClient {
     return putMap(baseUrl, '/api/settings', _withAgentId(payload, agentId));
   }
 
+  Future<Map<String, dynamic>> fetchBehaviorConfig(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/behavior', agentId));
+  }
+
+  Future<Map<String, dynamic>> saveBehaviorConfig(
+    String baseUrl,
+    Map<String, dynamic> config, {
+    String? agentId,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/behavior',
+      _withAgentId(<String, dynamic>{'config': config}, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> fetchTokenUsageSummary(
     String baseUrl, {
     String? agentId,

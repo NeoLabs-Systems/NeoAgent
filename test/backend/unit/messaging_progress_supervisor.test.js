@@ -207,6 +207,69 @@ describe('messaging progress supervisor', () => {
     assert.equal(messagingManager.sent.length, 1);
   });
 
+  test('a suppressed group fallback becomes a terminal no-response decision', async () => {
+    const messagingManager = createMessagingManager();
+    const app = {
+      locals: {
+        behaviorPipeline: {
+          async refineAndMaybeDeliver() {
+            return {
+              delivered: false,
+              suppressed: true,
+              reasonCodes: ['stale_turn'],
+            };
+          },
+        },
+      },
+    };
+    const engine = new AgentEngine(null, {
+      app,
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
+    const behavior = {
+      isGroup: true,
+      message: {
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        isGroup: true,
+      },
+      config: {},
+      turnEpoch: 1,
+    };
+    const { runId, runMeta } = seedMessagingRun(engine, {
+      messagingContext: {
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        behavior,
+      },
+      deliveryState: {},
+    });
+
+    const first = await engine.deliverMessagingFinalFallback({
+      runId,
+      userId: user.userId,
+      agentId: null,
+      platform: 'whatsapp',
+      chatId: 'chat-1',
+      content: 'Obsolete answer.',
+    });
+    const second = await engine.deliverMessagingFinalFallback({
+      runId,
+      userId: user.userId,
+      agentId: null,
+      platform: 'whatsapp',
+      chatId: 'chat-1',
+      content: 'Obsolete answer.',
+    });
+
+    assert.equal(first.suppressed, true);
+    assert.equal(second.skipped, true);
+    assert.equal(runMeta.noResponse, true);
+    assert.equal(runMeta.deliveryState.noResponse, true);
+    assert.equal(messagingManager.sent.length, 0);
+  });
+
   test('failed final fallback delivery never records terminal delivery', async () => {
     const messagingManager = createMessagingManager();
     messagingManager.sendMessage = async () => ({

@@ -106,6 +106,18 @@ const _workspaceSettingsSection = _SettingsSection('workspace', <String>[
   'routing',
 ]);
 
+const _behaviorSettingsSection = _SettingsSection('behavior', <String>[
+  'behavior',
+  'persona',
+  'social intelligence',
+  'turn taking',
+  'groups',
+  'memory',
+  'norms',
+  'theory of mind',
+  'delivery',
+]);
+
 const _modelsSettingsSection = _SettingsSection('models', <String>[
   'models',
   'providers',
@@ -173,6 +185,7 @@ const _securitySettingsSection = _SettingsSection('security', <String>[
 
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
+  _behaviorSettingsSection,
   _workspaceSettingsSection,
   _socialReachSettingsSection,
   _modelsSettingsSection,
@@ -200,6 +213,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
+  late final TextEditingController _behaviorNotesController;
+  late bool _behaviorEnabled;
+  late String _behaviorParticipationMode;
+  late double _behaviorMinimumNeedScore;
+  late double _behaviorBatchWindowMs;
+  late String _behaviorDecisionModelId;
+  late String _behaviorDeliveryStyle;
+  late bool _behaviorTheoryOfMindEnabled;
+  late bool _behaviorSocialMemoryEnabled;
+  late bool _behaviorNormsEnabled;
+  late bool _behaviorObservabilityEnabled;
 
   bool _hasUnsavedChanges = false;
 
@@ -218,12 +242,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _behaviorNotesController = TextEditingController();
     _hydrate();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _behaviorNotesController.dispose();
     for (final controller in _providerBaseUrlControllers.values) {
       controller.dispose();
     }
@@ -234,6 +260,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
   void didUpdateWidget(covariant SettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller.settings != widget.controller.settings ||
+        oldWidget.controller.behaviorConfig !=
+            widget.controller.behaviorConfig ||
+        oldWidget.controller.memoryOverview !=
+            widget.controller.memoryOverview ||
         oldWidget.controller.aiProviders != widget.controller.aiProviders ||
         oldWidget.controller.supportedModels !=
             widget.controller.supportedModels) {
@@ -270,6 +300,45 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _voiceLiveProvider = controller.voiceLiveProvider;
     _voiceLiveModel = controller.voiceLiveModel;
     _voiceLiveVoice = controller.voiceLiveVoice;
+    final behavior = controller.behaviorConfig;
+    final modules = behavior['modules'] is Map
+        ? Map<String, dynamic>.from(behavior['modules'] as Map)
+        : const <String, dynamic>{};
+    bool moduleEnabled(String id) {
+      final module = modules[id];
+      return module is! Map || module['enabled'] != false;
+    }
+
+    _behaviorEnabled = behavior['enabled'] != false;
+    _behaviorParticipationMode =
+        <String>{
+          'automatic',
+          'mention_only',
+          'always',
+        }.contains(behavior['participationMode']?.toString())
+        ? behavior['participationMode'].toString()
+        : 'automatic';
+    _behaviorMinimumNeedScore =
+        ((behavior['minimumNeedScore'] as num?)?.toDouble() ?? 0.72)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    _behaviorBatchWindowMs =
+        ((behavior['batchWindowMs'] as num?)?.toDouble() ?? 900)
+            .clamp(0.0, 5000.0)
+            .toDouble();
+    _behaviorDecisionModelId =
+        behavior['decisionModelId']?.toString().trim() ?? '';
+    _behaviorDeliveryStyle = behavior['deliveryStyle'] == 'single'
+        ? 'single'
+        : 'natural_bubbles';
+    _behaviorTheoryOfMindEnabled = moduleEnabled('theory_of_mind');
+    _behaviorSocialMemoryEnabled = moduleEnabled('social_memory');
+    _behaviorNormsEnabled = moduleEnabled('norms');
+    _behaviorObservabilityEnabled = moduleEnabled('social_observability');
+    final behaviorNotes = controller.memoryOverview.assistantBehaviorNotes;
+    if (_behaviorNotesController.text != behaviorNotes) {
+      _behaviorNotesController.text = behaviorNotes;
+    }
     if (!_voiceLiveModelsByProvider.containsKey(_voiceLiveProvider)) {
       _voiceLiveProvider = 'openai';
     }
@@ -403,6 +472,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ],
           if (_matchesSettingsSection(
             searchQuery,
+            _behaviorSettingsSection,
+          )) ...<Widget>[
+            _buildBehaviorSection(controller, routingModels),
+            const SizedBox(height: 16),
+          ],
+          if (_matchesSettingsSection(
+            searchQuery,
             _workspaceSettingsSection,
           )) ...<Widget>[
             _buildWorkspaceSection(controller),
@@ -522,6 +598,42 @@ class _SettingsPanelState extends State<SettingsPanel> {
       voiceLiveVoice: _voiceLiveVoice,
       aiProviderConfigs: _buildProviderPayload(),
     );
+    if (controller.errorMessage != null) return;
+    final existingModules = controller.behaviorConfig['modules'] is Map
+        ? Map<String, dynamic>.from(controller.behaviorConfig['modules'] as Map)
+        : <String, dynamic>{};
+    existingModules.addAll(<String, dynamic>{
+      'theory_of_mind': <String, dynamic>{
+        'enabled': _behaviorTheoryOfMindEnabled,
+      },
+      'social_memory': <String, dynamic>{
+        'enabled': _behaviorSocialMemoryEnabled,
+      },
+      'norms': <String, dynamic>{'enabled': _behaviorNormsEnabled},
+      'social_observability': <String, dynamic>{
+        'enabled': _behaviorObservabilityEnabled,
+      },
+    });
+    await controller.saveBehaviorConfig(<String, dynamic>{
+      ...controller.behaviorConfig,
+      'enabled': _behaviorEnabled,
+      'participationMode': _behaviorParticipationMode,
+      'minimumNeedScore': _behaviorMinimumNeedScore,
+      'batchWindowMs': _behaviorBatchWindowMs.round(),
+      'decisionModelId': _behaviorDecisionModelId.isEmpty
+          ? null
+          : _behaviorDecisionModelId,
+      'deliveryStyle': _behaviorDeliveryStyle,
+      'modules': existingModules,
+    });
+    if (controller.errorMessage != null) return;
+    if (_behaviorNotesController.text !=
+        controller.memoryOverview.assistantBehaviorNotes) {
+      await controller.updateAssistantBehaviorNotes(
+        _behaviorNotesController.text,
+      );
+      if (controller.errorMessage != null) return;
+    }
     if (mounted) setState(() => _hasUnsavedChanges = false);
   }
 
@@ -619,6 +731,232 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 icon: const Icon(Icons.replay_rounded, size: 18),
                 label: const Text('Redo onboarding'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBehaviorSection(
+    NeoAgentController controller,
+    List<ModelMeta> routingModels,
+  ) {
+    final modelIds = <String>{
+      if (_behaviorDecisionModelId.isNotEmpty) _behaviorDecisionModelId,
+      ...routingModels.map((model) => model.id),
+    }.toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Behavior Modules'),
+            const SizedBox(height: 10),
+            Text(
+              'One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enable behavior modules'),
+              subtitle: const Text(
+                'Direct messages remain responsive. Allowlisted groups use the participation mode below.',
+              ),
+              value: _behaviorEnabled,
+              onChanged: (value) => setState(() {
+                _behaviorEnabled = value;
+                _hasUnsavedChanges = true;
+              }),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _behaviorParticipationMode,
+              decoration: const InputDecoration(
+                labelText: 'Default group participation',
+                helperText:
+                    'Automatic reads the room and normally holds back. Mention-only makes no decision call until directly addressed.',
+              ),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem(
+                  value: 'automatic',
+                  child: Text('Automatic, reserved'),
+                ),
+                DropdownMenuItem(
+                  value: 'mention_only',
+                  child: Text('Mention or reply only'),
+                ),
+                DropdownMenuItem(value: 'always', child: Text('Always engage')),
+              ],
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _behaviorParticipationMode = value;
+                        _hasUnsavedChanges = true;
+                      });
+                    },
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Minimum contribution value: ${_behaviorMinimumNeedScore.toStringAsFixed(2)}',
+              style: TextStyle(
+                color: _textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Slider(
+              value: _behaviorMinimumNeedScore,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              label: _behaviorMinimumNeedScore.toStringAsFixed(2),
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorMinimumNeedScore = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            Text(
+              'Higher values make NeoAgent more selective in groups.',
+              style: TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Room batch window: ${_behaviorBatchWindowMs.round()} ms',
+              style: TextStyle(
+                color: _textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Slider(
+              value: _behaviorBatchWindowMs,
+              min: 0,
+              max: 5000,
+              divisions: 20,
+              label: '${_behaviorBatchWindowMs.round()} ms',
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorBatchWindowMs = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _behaviorDecisionModelId,
+              decoration: const InputDecoration(
+                labelText: 'Turn-taking model',
+                helperText:
+                    'Automatic selects a fast model through the normal model catalog.',
+              ),
+              items: <DropdownMenuItem<String>>[
+                const DropdownMenuItem(
+                  value: '',
+                  child: Text('Automatic (fast)'),
+                ),
+                ...modelIds.map(
+                  (id) => DropdownMenuItem(value: id, child: Text(id)),
+                ),
+              ],
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _behaviorDecisionModelId = value;
+                        _hasUnsavedChanges = true;
+                      });
+                    },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _behaviorDeliveryStyle,
+              decoration: const InputDecoration(
+                labelText: 'Messaging delivery',
+              ),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem(
+                  value: 'natural_bubbles',
+                  child: Text('Natural bubbles'),
+                ),
+                DropdownMenuItem(
+                  value: 'single',
+                  child: Text('Single message'),
+                ),
+              ],
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _behaviorDeliveryStyle = value;
+                        _hasUnsavedChanges = true;
+                      });
+                    },
+            ),
+            const SizedBox(height: 10),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Theory of Mind refinement'),
+              value: _behaviorTheoryOfMindEnabled,
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorTheoryOfMindEnabled = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Channel-scoped social memory'),
+              value: _behaviorSocialMemoryEnabled,
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorSocialMemoryEnabled = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Learn room norms'),
+              value: _behaviorNormsEnabled,
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorNormsEnabled = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Social observability'),
+              value: _behaviorObservabilityEnabled,
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) => setState(() {
+                      _behaviorObservabilityEnabled = value;
+                      _hasUnsavedChanges = true;
+                    }),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _behaviorNotesController,
+              minLines: 4,
+              maxLines: 10,
+              onChanged: (_) => setState(() {
+                _hasUnsavedChanges = true;
+              }),
+              decoration: const InputDecoration(
+                labelText: 'Persona behavior notes',
+                helperText:
+                    'Durable instructions for voice and interaction style. Safety and execution rules still take priority.',
               ),
             ),
           ],

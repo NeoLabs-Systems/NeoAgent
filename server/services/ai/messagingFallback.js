@@ -43,10 +43,10 @@ function normalizeInterimText(content, platform = null) {
 function buildBlankMessagingReplyPrompt(attempt, platform = null) {
   const formattingGuide = buildPlatformFormattingGuide(platform);
   if (attempt <= 1) {
-    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Keep the same text-native voice you use with this user: short, direct, human. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
+    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Follow the existing system persona and channel guide. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
   }
 
-  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, explain the blocker in one short human sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Stay text-native and direct. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
+  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, explain the blocker in one short sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Follow the existing system persona and channel guide. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
 }
 
 function buildProgressUpdatePrompt() {

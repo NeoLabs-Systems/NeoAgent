@@ -198,7 +198,10 @@ class DiscordPlatform extends BasePlatform {
       : `${senderDisplayName} in #${message.channel.name || channelId}${message.guild ? ` (${message.guild.name})` : ''}`;
 
     // Fetch recent channel history for context on guild/channel mentions
-    const channelContext = (!isDM && this._isMentioned(message)) ? await this._fetchContext(message.channel, 20) : null;
+    const channelContext = !isDM ? await this._fetchContext(message.channel, 20) : null;
+    const repliedToAgent = !isDM
+      && message.reference?.messageId
+      && message.mentions?.repliedUser?.id === this._botUser?.id;
 
     this.emit('message', {
       platform: 'discord',
@@ -209,6 +212,13 @@ class DiscordPlatform extends BasePlatform {
       senderUsername,
       senderTag,
       guildId,
+      serverId: guildId,
+      groupId: isDM ? null : channelId,
+      channelId: isDM ? null : channelId,
+      roleIds: !isDM && message.member ? [...message.member.roles.cache.keys()] : [],
+      wasMentioned: !isDM && this._isMentioned(message),
+      repliedToAgent: Boolean(repliedToAgent),
+      replyToMessageId: message.reference?.messageId || null,
       content,
       mediaType: null,
       isGroup: !isDM,

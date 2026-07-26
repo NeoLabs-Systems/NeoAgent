@@ -21,25 +21,72 @@ function cancelPending(queue) {
   for (const item of queue.pending.splice(0)) settleWaiters(item, result);
 }
 
+function queueKeyForMessage(userId, msg) {
+  return [
+    String(userId),
+    String(msg.agentId || 'main'),
+    String(msg.platform || ''),
+    String(msg.chatId || ''),
+  ].join(':');
+}
+
+function batchEntry(msg) {
+  return {
+    sender: msg.sender || null,
+    senderName: msg.senderDisplayName || msg.senderName || msg.senderUsername || null,
+    content: String(msg.content || ''),
+    messageId: msg.messageId || null,
+    timestamp: msg.timestamp || null,
+    wasMentioned: msg.wasMentioned === true,
+    repliedToAgent: msg.repliedToAgent === true,
+  };
+}
+
+function mergeMessage(target, msg) {
+  const existingBatch = Array.isArray(target.message.messageBatch)
+    ? target.message.messageBatch
+    : [batchEntry(target.message)];
+  const nextBatch = [...existingBatch, batchEntry(msg)];
+  target.message.messageBatch = nextBatch;
+  target.message.content = target.message.isGroup
+    ? nextBatch.map((entry) => (
+      `[${entry.senderName || entry.sender || 'participant'}]: ${entry.content}`
+    )).join('\n')
+    : nextBatch.map((entry) => entry.content).join('\n');
+  target.message.messageId = msg.messageId || target.message.messageId;
+  target.message.timestamp = msg.timestamp || target.message.timestamp;
+  target.message.wasMentioned = target.message.wasMentioned === true || msg.wasMentioned === true;
+  target.message.repliedToAgent = target.message.repliedToAgent === true || msg.repliedToAgent === true;
+  target.message.behaviorTurnEpoch = Math.max(
+    Number(target.message.behaviorTurnEpoch || 0),
+    Number(msg.behaviorTurnEpoch || 0),
+  );
+  target.message.inboundJobIds = Array.from(new Set([
+    ...(target.message.inboundJobIds || []),
+    target.message.inboundJobId,
+    ...(msg.inboundJobIds || []),
+    msg.inboundJobId,
+  ].filter(Boolean)));
+}
+
 function queuedResult(queue, msg) {
   let resolveCompletion;
   const completion = new Promise((resolve) => {
     resolveCompletion = resolve;
   });
-  const last = queue.pending[queue.pending.length - 1];
+  const last = queue.collecting && queue.activeItem
+    ? queue.activeItem
+    : queue.pending[queue.pending.length - 1];
   if (
     last
     && last.message.platform === msg.platform
     && last.message.chatId === msg.chatId
-    && String(last.message.sender || '') === String(msg.sender || '')
+    && (
+      last.message.isGroup === true
+      || String(last.message.sender || '') === String(msg.sender || '')
+    )
   ) {
-    last.message.content += `\n${msg.content}`;
-    last.message.messageId = msg.messageId;
-    last.message.inboundJobIds = Array.from(new Set([
-      ...(last.message.inboundJobIds || []),
-      ...(msg.inboundJobIds || []),
-      msg.inboundJobId,
-    ].filter(Boolean)));
+    mergeMessage(last, msg);
     last.waiters.push(resolveCompletion);
   } else {
     queue.pending.push({
@@ -57,14 +104,16 @@ async function processInboundQueue({
   userId,
   msg,
   executeMessage,
-  onProcessingError = null
+  onProcessingError = null,
+  batchWindowMs = 0,
 }) {
-  const agentId = msg.agentId || null;
-  const queueKey = `${userId}:${agentId || 'main'}`;
+  const queueKey = queueKeyForMessage(userId, msg);
   if (!userQueues[queueKey]) {
     userQueues[queueKey] = {
       running: false,
       pending: [],
+      activeItem: null,
+      collecting: false,
       cancelRequested: false,
       cancelPending() {
         cancelPending(this);
@@ -91,6 +140,15 @@ async function processInboundQueue({
 
   try {
     while (currentItem) {
+      queue.activeItem = currentItem;
+      const delayMs = currentItem.message.isGroup
+        ? Math.max(0, Math.min(5000, Number(batchWindowMs) || 0))
+        : 0;
+      if (delayMs > 0) {
+        queue.collecting = true;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        queue.collecting = false;
+      }
       let outcome;
       try {
         outcome = await executeMessage(currentItem.message);
@@ -123,6 +181,8 @@ async function processInboundQueue({
     }
   } finally {
     queue.running = false;
+    queue.collecting = false;
+    queue.activeItem = null;
     cancelPending(queue);
     queue.cancelRequested = false;
     if (userQueues[queueKey] === queue) {
@@ -161,5 +221,6 @@ async function notifyProcessingError(handler, details) {
 }
 
 module.exports = {
-  processInboundQueue
+  processInboundQueue,
+  queueKeyForMessage,
 };

@@ -10,23 +10,13 @@ const {
 const {
   enforceTerminalReplyDecision,
   enforceChurnAssessment,
+  normalizeCompletionDecision,
 } = require('../../../server/services/ai/loop/completion_judge');
-const {
-  isDeferredWorkReply,
-  isTerminalQuestionOrBlockerReply,
-} = require('../../../server/services/ai/terminal_reply');
 const {
   assessResearchAdequacy,
 } = require('../../../server/services/ai/toolEvidence');
 
-test('terminal_reply helpers stay free of phrase-based filtering', () => {
-  assert.equal(isDeferredWorkReply("I'm working on that."), false);
-  assert.equal(isDeferredWorkReply('The tests pass.'), false);
-  assert.equal(isTerminalQuestionOrBlockerReply('Which three devices?'), false);
-  assert.equal(isTerminalQuestionOrBlockerReply('Blocked without the API key.'), false);
-});
-
-test('incomplete research still cannot complete even without phrase filters', () => {
+test('incomplete research cannot complete while structured blockers can stop', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'execute',
     goal: 'Compare AnoleX 3030-Evo Max and Genmitsu 3018 Pro',
@@ -47,7 +37,8 @@ test('incomplete research still cannot complete even without phrase filters', ()
     },
   ];
   const researchAdequacy = assessResearchAdequacy({ analysis, toolExecutions });
-  assert.equal(researchAdequacy.adequate, false);
+  assert.equal(researchAdequacy.structurallyReady, true);
+  assert.equal(researchAdequacy.semanticReviewRequired, true);
 
   assert.deepEqual(
     enforceTerminalReplyDecision(
@@ -60,10 +51,31 @@ test('incomplete research still cannot complete even without phrase filters', ()
 
   assert.equal(
     enforceChurnAssessment(
-      { assessment: 'blocked', reason: 'stuck' },
+      {
+        assessment: 'blocked',
+        reason: 'The user must identify the third device.',
+        blocker_kind: 'user_input',
+        resolvable_in_run: false,
+      },
       { analysis, toolExecutions, researchAdequacy },
     ).assessment,
-    'progressing',
+    'blocked',
+  );
+  assert.equal(
+    enforceTerminalReplyDecision(
+      normalizeCompletionDecision({
+        status: 'blocked',
+        reason: 'The user must identify the third device.',
+        blocker_review: {
+          kind: 'user_input',
+          resolvable_in_run: false,
+          required_value: 'The exact third device model',
+        },
+      }),
+      'Which exact third device do you mean?',
+      { analysis, toolExecutions, researchAdequacy },
+    ).status,
+    'blocked',
   );
 });
 
@@ -71,6 +83,7 @@ test('named research targets cannot fast-path as direct answers', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'direct_answer',
     draft_reply: 'They all look fine.',
+    draft_status: 'final',
     goal: 'Look into three CNC machines',
     research_targets: ['AnoleX 3030-Evo Max', 'Genmitsu 3018 Pro', 'SainSmart 3018'],
     verification_need: 'none',
@@ -84,6 +97,7 @@ test('simple direct answers remain eligible without research burden', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'direct_answer',
     draft_reply: 'The answer is 42.',
+    draft_status: 'final',
     goal: 'quick answer',
     verification_need: 'none',
     freshness_risk: 'none',

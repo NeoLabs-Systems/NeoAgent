@@ -43,9 +43,9 @@ test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
   const first = buildBlankMessagingReplyPrompt(1);
   const second = buildBlankMessagingReplyPrompt(2);
   assert.match(first, /one non-empty reply/);
-  assert.match(first, /text-native voice/i);
+  assert.match(first, /existing system persona and channel guide/i);
   assert.match(second, /previous reply was empty/);
-  assert.match(second, /text-native and direct/i);
+  assert.match(second, /existing system persona and channel guide/i);
 });
 
 test('progress update prompt forbids claiming changes from read-only evidence', () => {

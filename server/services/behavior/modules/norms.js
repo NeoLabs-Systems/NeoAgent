@@ -26,7 +26,7 @@ async function maybeRefreshNorms(ctx) {
   const state = getThreadState(userId, agentId, msg.platform, msg.chatId);
   const count = Number(state.messageCountSinceNorms || 0) + 1;
   const gap = Number(config.normsRefreshMessageGap || 18);
-  if (count < gap && state.normsPromptBlock) {
+  if (count < gap) {
     setThreadState(userId, agentId, msg.platform, msg.chatId, {
       messageCountSinceNorms: count,
     });
@@ -49,9 +49,10 @@ async function maybeRefreshNorms(ctx) {
 
   try {
     const result = await requestStructuredJson({
+      agentEngine: ctx.agentEngine,
       userId,
       agentId,
-      preference: 'cheap',
+      purpose: 'fast',
       system: SYSTEM_PROMPT,
       prompt: JSON.stringify({
         platform: msg.platform,
@@ -86,8 +87,15 @@ async function maybeRefreshNorms(ctx) {
   }
 }
 
+function composeContext(ctx) {
+  const content = getNormsPromptBlock(ctx);
+  return content ? { key: 'norms', priority: 50, content } : null;
+}
+
 module.exports = {
   id: 'norms',
+  composeContext,
+  afterTurn: maybeRefreshNorms,
   getNormsPromptBlock,
   maybeRefreshNorms,
 };

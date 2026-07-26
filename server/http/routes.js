@@ -11,6 +11,7 @@ const routeRegistry = [
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
+  { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },
   { basePath: '/api/messaging', modulePath: '../routes/messaging' },

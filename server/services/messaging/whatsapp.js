@@ -172,6 +172,7 @@ class WhatsAppPlatform extends BasePlatform {
         const isGroup = chatId?.endsWith('@g.us');
         const sender = isGroup ? msg.key.participant : chatId;
         const pushName = msg.pushName || '';
+        const wasMentioned = isGroup && this._isGroupAddressedToBot(msg.message || {});
 
         let content = '';
         let mediaType = null;
@@ -258,6 +259,16 @@ class WhatsAppPlatform extends BasePlatform {
           senderName: pushName,
           senderDisplayName: pushName || null,
           senderTag: normalizeWhatsAppId(sender) || sender,
+          wasMentioned,
+          repliedToAgent: Boolean(
+            msg.message?.extendedTextMessage?.contextInfo?.stanzaId
+            && msg.message?.extendedTextMessage?.contextInfo?.participant
+            && this._ownIds().has(normalizeWhatsAppId(
+              msg.message.extendedTextMessage.contextInfo.participant
+            ))
+          ),
+          replyToMessageId: msg.message?.extendedTextMessage?.contextInfo?.stanzaId || null,
+          groupId: isGroup ? chatId : null,
           content,
           mediaType,
           localMediaPath,

@@ -20,6 +20,13 @@ async function maybeAnalyze(ctx) {
   }
 
   const state = getThreadState(userId, agentId, msg.platform, msg.chatId);
+  const messageCount = Number(state.messageCountSinceObservability || 0) + 1;
+  if (!state.lastObservabilitySummary && messageCount < 24) {
+    setThreadState(userId, agentId, msg.platform, msg.chatId, {
+      messageCountSinceObservability: messageCount,
+    });
+    return { analyzed: false, deferred: true };
+  }
   const intervalMs = Number(config.observabilityIntervalMinutes || 360) * 60 * 1000;
   if (state.lastObservabilityAt) {
     const age = Date.now() - Date.parse(state.lastObservabilityAt);
@@ -41,9 +48,10 @@ async function maybeAnalyze(ctx) {
 
   try {
     const result = await requestStructuredJson({
+      agentEngine: ctx.agentEngine,
       userId,
       agentId,
-      preference: 'cheap',
+      purpose: 'fast',
       system: SYSTEM_PROMPT,
       prompt: JSON.stringify({
         platform: msg.platform,
@@ -64,6 +72,7 @@ async function maybeAnalyze(ctx) {
     setThreadState(userId, agentId, msg.platform, msg.chatId, {
       lastObservabilityAt: summary.at,
       lastObservabilitySummary: summary,
+      messageCountSinceObservability: 0,
     });
     return { analyzed: true, summary };
   } catch (error) {
@@ -79,6 +88,7 @@ function getLatestSummary(userId, agentId, platform, chatId) {
 
 module.exports = {
   id: 'social_observability',
+  afterTurn: maybeAnalyze,
   maybeAnalyze,
   getLatestSummary,
 };

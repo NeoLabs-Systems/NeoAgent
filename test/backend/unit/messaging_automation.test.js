@@ -212,7 +212,8 @@ describe('messaging automation queue', () => {
       msg: createMessage(mainAgentId, 'second'),
     });
 
-    const queueKey = `${user.userId}:${mainAgentId}`;
+    const { queueKeyForMessage } = require('../../../server/services/messaging/inbound_queue');
+    const queueKey = queueKeyForMessage(user.userId, createMessage(mainAgentId, 'first'));
     userQueues[queueKey].cancelRequested = true;
     resolveFirst({ status: 'stopped', content: '' });
     const result = await processing;

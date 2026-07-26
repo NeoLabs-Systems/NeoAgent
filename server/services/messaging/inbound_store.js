@@ -156,6 +156,38 @@ function attachRunToInboundJobs(jobIds, runId) {
   ))();
 }
 
+function annotateInboundJobs(jobIds, annotation) {
+  const ids = Array.from(new Set(
+    (Array.isArray(jobIds) ? jobIds : [jobIds])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean),
+  ));
+  if (!ids.length) return 0;
+  const read = db.prepare(
+    `SELECT messages.id, messages.metadata
+     FROM messaging_inbound_jobs
+     JOIN messages ON messages.id = messaging_inbound_jobs.message_id
+     WHERE messaging_inbound_jobs.id = ?`,
+  );
+  const update = db.prepare('UPDATE messages SET metadata = ? WHERE id = ?');
+  return db.transaction(() => {
+    let count = 0;
+    for (const id of ids) {
+      const row = read.get(id);
+      if (!row) continue;
+      let metadata = {};
+      try {
+        metadata = row.metadata ? JSON.parse(row.metadata) : {};
+      } catch {
+        metadata = {};
+      }
+      update.run(JSON.stringify({ ...metadata, ...annotation }), row.id);
+      count += 1;
+    }
+    return count;
+  })();
+}
+
 function reconcileInterruptedInboundJobs() {
   return db.transaction(() => {
     const completed = db.prepare(
@@ -214,6 +246,7 @@ function payloadForInboundJob(job) {
 }
 
 module.exports = {
+  annotateInboundJobs,
   attachRunToInboundJobs,
   claimInboundJob,
   enqueueInboundMessage,

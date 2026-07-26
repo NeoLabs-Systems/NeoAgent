@@ -9,6 +9,7 @@ const {
   buildAnalysisPrompt,
   buildExecutionGuidance,
   buildVerifierPrompt,
+  normalizeVerificationResult,
 } = require('../../../server/services/ai/taskAnalysis');
 const {
   buildLoopPolicy,
@@ -18,10 +19,12 @@ const {
   enforceTerminalReplyDecision,
   enforceChurnAssessment,
   buildCompletionDecisionPrompt,
+  normalizeCompletionDecision,
 } = require('../../../server/services/ai/loop/completion_judge');
 const {
   assessResearchAdequacy,
   resolveResearchIntensity,
+  summarizeResearchEvidenceCatalog,
 } = require('../../../server/services/ai/toolEvidence');
 const {
   buildMaxIterationWrapupPrompt,
@@ -34,6 +37,7 @@ test('simple Q&A stays on the cheap direct-answer path', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'direct_answer',
     draft_reply: 'Berlin is the capital of Germany.',
+    draft_status: 'final',
     goal: 'quick factual chat answer',
     verification_need: 'none',
     freshness_risk: 'none',
@@ -60,6 +64,7 @@ test('named research targets cannot fast-path as direct answers', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'direct_answer',
     draft_reply: 'They all look fine.',
+    draft_status: 'final',
     goal: 'Look into three CNC machines',
     research_targets: [
       'AnoleX 3030-Evo Max',
@@ -78,7 +83,7 @@ test('named research targets cannot fast-path as direct answers', () => {
   assert.equal(resolveResearchIntensity(analysis), 'deep');
 });
 
-test('incomplete multi-target research cannot complete or force-block via churn', () => {
+test('incomplete multi-target research cannot complete but real blockers remain terminal', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'execute',
     goal: 'Compare AnoleX 3030-Evo Max and Genmitsu 3018 Pro',
@@ -100,20 +105,34 @@ test('incomplete multi-target research cannot complete or force-block via churn'
   ];
 
   const adequacy = assessResearchAdequacy({ analysis, toolExecutions });
-  assert.equal(adequacy.adequate, false);
+  assert.equal(adequacy.structurallyReady, true);
+  assert.equal(adequacy.semanticReviewRequired, true);
 
   const terminal = enforceTerminalReplyDecision(
-    { status: 'complete', reason: 'Looks complete enough.' },
+    normalizeCompletionDecision({
+      status: 'complete',
+      reason: 'Looks complete enough.',
+      research_review: {
+        required: true,
+        adequate: false,
+        missing_targets: ['Genmitsu 3018 Pro'],
+      },
+    }),
     'Die AnoleX ist super und die Genmitsu auch, fertig.',
     { analysis, toolExecutions, researchAdequacy: adequacy },
   );
   assert.equal(terminal.status, 'continue');
 
   const churn = enforceChurnAssessment(
-    { assessment: 'blocked', reason: 'I am stuck after searching.' },
+    {
+      assessment: 'blocked',
+      reason: 'The user must identify the third device.',
+      blocker_kind: 'user_input',
+      resolvable_in_run: false,
+    },
     { analysis, toolExecutions, researchAdequacy: adequacy },
   );
-  assert.equal(churn.assessment, 'progressing');
+  assert.equal(churn.assessment, 'blocked');
 });
 
 test('complex research gets more productive read room before hard wrap-up', () => {
@@ -226,7 +245,7 @@ test('local implementation work does not inherit a research burden', () => {
   assert.equal(assessResearchAdequacy({ analysis, toolExecutions: [] }).adequate, true);
 });
 
-test('multi-target research is inadequate on search snippets alone and adequate with primary sources', () => {
+test('multi-target research completion requires AI-reviewed primary evidence for every exact target', () => {
   const analysis = normalizeTaskAnalysis({
     mode: 'execute',
     goal: 'Look into AnoleX 3030-Evo Max, Genmitsu 3018 Pro, and SainSmart 3018',
@@ -255,12 +274,30 @@ test('multi-target research is inadequate on search snippets alone and adequate 
       },
     ],
   });
-  assert.equal(onlySearch.adequate, false);
-  assert.ok(onlySearch.uncoveredTargets.includes('Genmitsu 3018 Pro'));
+  assert.equal(onlySearch.structurallyReady, true);
+  const searchOnlyCompletion = enforceTerminalReplyDecision(
+    normalizeCompletionDecision({
+      status: 'complete',
+      reason: 'Search snippets look sufficient.',
+      research_review: {
+        required: true,
+        adequate: true,
+        target_coverage: [
+          {
+            target: 'AnoleX 3030-Evo Max',
+            support: 'secondary',
+            evidence_indexes: [1],
+          },
+        ],
+        missing_targets: ['Genmitsu 3018 Pro', 'SainSmart 3018'],
+      },
+    }),
+    'All three devices look good.',
+    { analysis, toolExecutions: onlySearchToolExecutions(), researchAdequacy: onlySearch },
+  );
+  assert.equal(searchOnlyCompletion.status, 'continue');
 
-  const full = assessResearchAdequacy({
-    analysis,
-    toolExecutions: [
+  const fullToolExecutions = [
       {
         toolName: 'web_search',
         ok: true,
@@ -293,10 +330,180 @@ test('multi-target research is inadequate on search snippets alone and adequate 
         summary: 'opened SainSmart 3018 page',
         input: { url: 'https://example.test/sainsmart-3018' },
       },
-    ],
+    ];
+  const full = assessResearchAdequacy({
+    analysis,
+    toolExecutions: fullToolExecutions,
   });
-  assert.equal(full.adequate, true);
-  assert.equal(full.coveredTargets.length, 3);
-  assert.equal(full.primaryCoveredTargets.length, 3);
+  const completed = enforceTerminalReplyDecision(
+    normalizeCompletionDecision({
+      status: 'complete',
+      reason: 'Every target has primary evidence.',
+      research_review: {
+        required: true,
+        adequate: true,
+        evidence_indexes: [2, 3, 4],
+        target_coverage: [
+          { target: 'AnoleX 3030-Evo Max', support: 'primary', evidence_indexes: [2] },
+          { target: 'Genmitsu 3018 Pro', support: 'primary', evidence_indexes: [3] },
+          { target: 'SainSmart 3018', support: 'primary', evidence_indexes: [4] },
+        ],
+        missing_targets: [],
+      },
+    }),
+    'Evidence-backed comparison.',
+    { analysis, toolExecutions: fullToolExecutions, researchAdequacy: full },
+  );
+  assert.equal(completed.status, 'complete');
 });
 
+function onlySearchToolExecutions() {
+  return [
+    {
+      toolName: 'web_search',
+      ok: true,
+      evidenceSource: 'search',
+      evidenceRelevant: true,
+      summary: 'search hits for AnoleX 3030-Evo Max',
+      input: { query: 'AnoleX 3030-Evo Max specs' },
+    },
+  ];
+}
+
+test('pending direct-answer drafts enter the loop without phrase matching', () => {
+  const explicitPending = normalizeTaskAnalysis({
+    mode: 'direct_answer',
+    draft_reply: 'I will investigate and report back.',
+    draft_status: 'needs_execution',
+    verification_need: 'none',
+    freshness_risk: 'none',
+  });
+  assert.equal(explicitPending.mode, 'execute');
+  assert.equal(isDirectAnswerEligibleAnalysis(explicitPending), false);
+
+  const missingStatus = normalizeTaskAnalysis({
+    mode: 'direct_answer',
+    draft_reply: 'A draft with no structured terminal state.',
+    verification_need: 'none',
+    freshness_risk: 'none',
+  });
+  assert.equal(missingStatus.mode, 'execute');
+  assert.equal(isDirectAnswerEligibleAnalysis(missingStatus), false);
+});
+
+test('unsafe verifier output cannot pass through unchanged', () => {
+  const rejected = normalizeVerificationResult({
+    status: 'insufficient_evidence',
+    missing_evidence: ['No source supports the third device.'],
+    final_reply: 'All three devices are definitely excellent.',
+    safe_to_deliver: false,
+  }, 'All three devices are definitely excellent.');
+  assert.equal(rejected.safe_to_deliver, false);
+  assert.equal(rejected.final_reply, '');
+
+  const safePartial = normalizeVerificationResult({
+    status: 'insufficient_evidence',
+    missing_evidence: ['No source supports the third device.'],
+    final_reply: 'I verified two devices; the third model is still unidentified.',
+    safe_to_deliver: true,
+  });
+  assert.equal(safePartial.safe_to_deliver, true);
+  assert.match(safePartial.final_reply, /verified two devices/);
+});
+
+test('research evidence keeps stable global ids beyond the recent-tool window', () => {
+  const analysis = normalizeTaskAnalysis({
+    mode: 'plan_execute',
+    research_targets: ['Target Alpha'],
+    research_depth: 'deep',
+    verification_need: 'required',
+    freshness_risk: 'possible',
+  });
+  const toolExecutions = Array.from({ length: 15 }, (_, index) => ({
+    toolName: 'browser_navigate',
+    ok: true,
+    evidenceSource: 'browser',
+    evidenceRelevant: true,
+    summary: index === 0 ? 'Primary source for Target Alpha' : `Later evidence ${index + 1}`,
+    input: { url: `https://example.test/source-${index + 1}` },
+  }));
+  const catalog = summarizeResearchEvidenceCatalog(toolExecutions);
+  assert.match(catalog, /^E1\./);
+  assert.match(catalog, /E15\./);
+
+  const adequacy = assessResearchAdequacy({ analysis, toolExecutions });
+  const decision = normalizeCompletionDecision({
+    status: 'complete',
+    reason: 'Target Alpha is supported.',
+    research_review: {
+      required: true,
+      adequate: true,
+      target_coverage: [
+        { target: 'Target Alpha', support: 'primary', evidence_indexes: [1] },
+      ],
+    },
+  });
+  assert.equal(
+    enforceTerminalReplyDecision(
+      decision,
+      'Evidence-backed result.',
+      { analysis, toolExecutions, researchAdequacy: adequacy },
+    ).status,
+    'complete',
+  );
+});
+
+test('deep research without named targets still requires primary overall support', () => {
+  const analysis = normalizeTaskAnalysis({
+    mode: 'plan_execute',
+    research_depth: 'deep',
+    verification_need: 'required',
+    freshness_risk: 'possible',
+  });
+  const toolExecutions = [
+    {
+      toolName: 'browser_navigate',
+      ok: true,
+      evidenceSource: 'browser',
+      evidenceRelevant: true,
+      summary: 'Opened an authoritative primary document.',
+      input: { url: 'https://example.test/primary-document' },
+    },
+  ];
+  const researchAdequacy = assessResearchAdequacy({ analysis, toolExecutions });
+  const secondaryOnly = normalizeCompletionDecision({
+    status: 'complete',
+    research_review: {
+      required: true,
+      adequate: true,
+      overall_support: 'secondary',
+      evidence_indexes: [1],
+    },
+  });
+  assert.equal(
+    enforceTerminalReplyDecision(
+      secondaryOnly,
+      'Research result.',
+      { analysis, toolExecutions, researchAdequacy },
+    ).status,
+    'continue',
+  );
+
+  const primary = normalizeCompletionDecision({
+    status: 'complete',
+    research_review: {
+      required: true,
+      adequate: true,
+      overall_support: 'primary',
+      evidence_indexes: [1],
+    },
+  });
+  assert.equal(
+    enforceTerminalReplyDecision(
+      primary,
+      'Research result.',
+      { analysis, toolExecutions, researchAdequacy },
+    ).status,
+    'complete',
+  );
+});

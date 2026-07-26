@@ -346,6 +346,10 @@ router.put('/', async (req, res) => {
   });
 
   tx(Object.entries(normalizedBody));
+  if (Object.prototype.hasOwnProperty.call(normalizedBody, 'assistant_behavior_notes')) {
+    const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
+    invalidateSystemPromptCache(userId, agentId);
+  }
 
   if (Object.keys(normalizedBody).some((key) => VOICE_SETTING_KEYS.has(key))) {
     const manager = req.app?.locals?.messagingManager;

@@ -46,15 +46,8 @@ function splitIntoNaturalBubbles(platform, content, { maxBubbles = 4 } = {}) {
   const paragraphChunks = splitOutgoingMessageForPlatform(platform, normalized);
   const bubbles = [];
   for (const chunk of paragraphChunks) {
-    const sentences = String(chunk)
-      .split(/(?<=[.!?])\s+(?=[^\s])/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (sentences.length <= 1) {
-      bubbles.push(chunk);
-      continue;
-    }
-    for (const sentence of sentences) bubbles.push(sentence);
+    const bubble = String(chunk).trim();
+    if (bubble) bubbles.push(bubble);
   }
 
   const limited = [];
@@ -80,71 +73,104 @@ async function deliverSocialReply({
   runId = null,
   signal = null,
   mediaPath = null,
+  turnEpoch = null,
+  beforeBubble = null,
 }) {
   const style = config?.deliveryStyle === 'single' ? 'single' : 'natural_bubbles';
   if (style === 'single' || mediaPath) {
+    if (beforeBubble && !(await beforeBubble(0))) {
+      return { success: false, suppressed: true, reason: 'stale_turn', turnEpoch };
+    }
     return messagingManager.sendMessage(userId, platform, chatId, content, {
       agentId,
       runId,
       mediaPath,
       signal,
       deliveryKind: 'final',
+      idempotencyKey: runId ? `${runId}:social:0` : undefined,
     });
   }
 
   const bubbles = splitIntoNaturalBubbles(platform, content, {
-    maxBubbles: config?.maxBubbles || 4,
+    maxBubbles: config?.maxBubbles ?? 4,
   });
   if (bubbles.length <= 1) {
+    if (beforeBubble && !(await beforeBubble(0))) {
+      return { success: false, suppressed: true, reason: 'stale_turn', turnEpoch };
+    }
     return messagingManager.sendMessage(userId, platform, chatId, bubbles[0] || content, {
       agentId,
       runId,
       signal,
       deliveryKind: 'final',
+      idempotencyKey: runId ? `${runId}:social:0` : undefined,
     });
   }
 
-  let lastResult = null;
-  for (let index = 0; index < bubbles.length; index += 1) {
-    if (signal?.aborted) {
-      const error = new Error('Delivery aborted.');
-      error.name = 'AbortError';
-      throw error;
+  try {
+    let lastResult = null;
+    for (let index = 0; index < bubbles.length; index += 1) {
+      if (signal?.aborted) {
+        const error = new Error('Delivery aborted.');
+        error.name = 'AbortError';
+        throw error;
+      }
+      if (index > 0) {
+        await sleep(config?.bubbleGapMs ?? 650, signal);
+      }
+      if (beforeBubble && !(await beforeBubble(index))) {
+        return {
+          success: false,
+          suppressed: true,
+          reason: 'stale_turn',
+          turnEpoch,
+          deliveredBubbles: index,
+        };
+      }
+      try {
+        await messagingManager.sendTyping?.(userId, platform, chatId, true, { agentId, runId, signal });
+      } catch {
+        // typing is best-effort
+      }
+      lastResult = await messagingManager.sendMessage(userId, platform, chatId, bubbles[index], {
+        agentId,
+        runId,
+        signal,
+        idempotencyKey: runId ? `${runId}:social:${index}` : undefined,
+        deliveryKind: index === bubbles.length - 1 ? 'final' : 'partial',
+        metadata: {
+          socialDelivery: true,
+          bubbleIndex: index,
+          bubbleCount: bubbles.length,
+        },
+      });
+      if (lastResult?.success === false || lastResult?.suppressed === true) {
+        return {
+          success: false,
+          error: lastResult?.error || lastResult?.reason || 'Messaging platform rejected delivery.',
+          result: lastResult,
+          deliveredBubbles: index,
+        };
+      }
     }
+    return {
+      success: true,
+      bubbled: true,
+      bubbleCount: bubbles.length,
+      result: lastResult,
+    };
+  } finally {
     try {
-      await messagingManager.sendTyping?.(userId, platform, chatId, true, { agentId, runId, signal });
+      await messagingManager.sendTyping?.(userId, platform, chatId, false, { agentId, runId, signal });
     } catch {
       // typing is best-effort
     }
-    if (index > 0) {
-      await sleep(config?.bubbleGapMs || 650, signal);
-    }
-    lastResult = await messagingManager.sendMessage(userId, platform, chatId, bubbles[index], {
-      agentId,
-      runId,
-      signal,
-      deliveryKind: index === bubbles.length - 1 ? 'final' : 'partial',
-      metadata: {
-        socialDelivery: true,
-        bubbleIndex: index,
-        bubbleCount: bubbles.length,
-      },
-    });
   }
-  try {
-    await messagingManager.sendTyping?.(userId, platform, chatId, false, { agentId, runId, signal });
-  } catch {
-    // ignore
-  }
-  return {
-    success: true,
-    bubbled: true,
-    bubbleCount: bubbles.length,
-    result: lastResult,
-  };
 }
 
 module.exports = {
+  id: 'delivery',
+  deliver: deliverSocialReply,
   splitIntoNaturalBubbles,
   deliverSocialReply,
 };

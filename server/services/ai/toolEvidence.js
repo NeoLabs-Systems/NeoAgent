@@ -200,41 +200,6 @@ function isSubstantiveProgressToolName(toolName = '') {
   return true;
 }
 
-const PRIMARY_RESEARCH_SOURCES = new Set([
-  'browser',
-  'http',
-  'integration',
-  'files',
-  'command',
-  'mcp',
-  'android',
-  'data',
-  'vision',
-  'skills',
-  'subagent',
-]);
-
-const SECONDARY_RESEARCH_SOURCES = new Set([
-  'search',
-  'memory',
-]);
-
-// External/source-backed tools only. Local file/edit/shell work must not
-// inherit a research burden just because inspection tools are available.
-const RESEARCH_TOOL_HINTS = new Set([
-  'web_search',
-  'http_request',
-  'browser_navigate',
-  'browser_open',
-  'browser_click',
-  'browser_type',
-  'browser_snapshot',
-  'browser_evaluate',
-  'analyze_image',
-  'spawn_subagent',
-  'delegate_to_agent',
-]);
-
 function clampResearchText(value, maxChars = 220) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
@@ -266,18 +231,20 @@ function collectResearchTargets(analysis = null, goalContext = null) {
   ], { limit: 8 });
 }
 
-function hasResearchToolHint(analysis = null) {
-  const tools = Array.isArray(analysis?.suggested_tools) ? analysis.suggested_tools : [];
-  return tools.some((name) => {
-    const tool = String(name || '').trim().toLowerCase();
-    if (!tool) return false;
-    if (RESEARCH_TOOL_HINTS.has(tool)) return true;
-    // Tool-schema identity only: family prefixes, not free-text phrase matching.
-    return tool.startsWith('browser_') || tool.startsWith('mcp_');
-  });
-}
-
 function resolveResearchIntensity(analysis = null, goalContext = null) {
+  const declaredDepth = String(
+    analysis?.research_depth
+    || analysis?.researchDepth
+    || '',
+  ).trim().toLowerCase();
+  const declaredTargets = collectResearchTargets(analysis, goalContext);
+  if (
+    ['none', 'light', 'deep'].includes(declaredDepth)
+    && !(declaredDepth === 'none' && declaredTargets.length > 0)
+  ) {
+    return declaredDepth;
+  }
+
   const mode = String(analysis?.mode || '').trim().toLowerCase();
   const complexity = String(
     goalContext?.effectiveComplexity
@@ -297,21 +264,16 @@ function resolveResearchIntensity(analysis = null, goalContext = null) {
   const verificationNeed = String(analysis?.verification_need || '').trim().toLowerCase();
   const freshnessRisk = String(analysis?.freshness_risk || '').trim().toLowerCase();
   const planningDepth = String(analysis?.planning_depth || '').trim().toLowerCase();
-  const targets = collectResearchTargets(analysis, goalContext);
-  const researchToolHint = hasResearchToolHint(analysis);
+  const targets = declaredTargets;
 
   if (mode === 'direct_answer' && verificationNeed === 'none' && freshnessRisk === 'none') {
     return 'none';
   }
 
-  // External/source-backed work only. Pure local implementation tasks must not
-  // inherit a research burden just because they are complex or multi-step.
   const needsExternalEvidence = (
     targets.length > 0
-    || researchToolHint
     || freshnessRisk === 'possible'
     || freshnessRisk === 'high'
-    || verificationNeed === 'required'
   );
   if (!needsExternalEvidence) {
     return 'none';
@@ -342,32 +304,32 @@ function isSuccessfulResearchExecution(item = {}) {
   return Boolean(item.evidenceRelevant || item.dependsOnOutput || item.stateChanged);
 }
 
-function isPrimaryResearchSource(source = '') {
-  return PRIMARY_RESEARCH_SOURCES.has(String(source || '').trim().toLowerCase());
+function selectResearchEvidenceCandidates(toolExecutions = [], maxItems = 80) {
+  const candidates = (Array.isArray(toolExecutions) ? toolExecutions : [])
+    .map((execution, index) => ({ execution, evidenceIndex: index + 1 }))
+    .filter(({ execution }) => isSuccessfulResearchExecution(execution));
+  if (candidates.length <= maxItems) return candidates;
+
+  const firstCount = Math.floor(maxItems / 4);
+  return [
+    ...candidates.slice(0, firstCount),
+    ...candidates.slice(-(maxItems - firstCount)),
+  ];
 }
 
-function isSecondaryResearchSource(source = '') {
-  return SECONDARY_RESEARCH_SOURCES.has(String(source || '').trim().toLowerCase());
+function summarizeResearchEvidenceCatalog(toolExecutions = [], maxItems = 80) {
+  return selectResearchEvidenceCandidates(toolExecutions, maxItems)
+    .map(({ execution, evidenceIndex }) => (
+      `E${evidenceIndex}. ${execution.toolName} [${execution.evidenceSource || 'tool'}] :: ${clampRunContext(execution.summary || '', 160)}`
+    ))
+    .join('\n');
 }
 
-function executionMentionsTarget(execution = {}, target = '') {
-  const needle = String(target || '').trim().toLowerCase();
-  if (!needle) return false;
-  const haystack = [
-    execution.summary,
-    execution.toolName,
-    execution.evidenceSource,
-    JSON.stringify(execution.input || {}),
-  ].join(' ').toLowerCase();
-  if (haystack.includes(needle)) return true;
-
-  const tokens = needle
-    .split(/[^a-z0-9+]+/i)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3);
-  if (tokens.length === 0) return false;
-  const matched = tokens.filter((token) => haystack.includes(token)).length;
-  return matched >= Math.min(2, tokens.length);
+function researchExecutionSignature(execution = {}) {
+  return JSON.stringify([
+    String(execution.toolName || '').trim(),
+    execution.input && typeof execution.input === 'object' ? execution.input : {},
+  ]);
 }
 
 function assessResearchAdequacy({
@@ -380,111 +342,53 @@ function assessResearchAdequacy({
 
   const successful = (Array.isArray(toolExecutions) ? toolExecutions : [])
     .filter(isSuccessfulResearchExecution);
-  const primary = successful.filter((item) => isPrimaryResearchSource(item.evidenceSource));
-  const secondary = successful.filter((item) => isSecondaryResearchSource(item.evidenceSource));
-  const coveredTargets = targets.filter((target) => (
-    successful.some((item) => executionMentionsTarget(item, target))
-  ));
-  const primaryCoveredTargets = targets.filter((target) => (
-    primary.some((item) => executionMentionsTarget(item, target))
-  ));
-  const uncoveredTargets = targets.filter((target) => !coveredTargets.includes(target));
-  const primaryUncoveredTargets = targets.filter((target) => !primaryCoveredTargets.includes(target));
-
-  const requiredPrimarySources = intensity === 'deep'
-    ? (targets.length > 0 ? Math.min(4, targets.length) : 2)
-    : intensity === 'light'
-      ? 1
-      : 0;
-  const requiredSecondarySources = intensity === 'deep' ? 1 : 0;
-  const requiredTargetCoverage = intensity === 'deep'
-    ? targets.length
-    : intensity === 'light'
-      ? Math.min(targets.length, 1)
-      : 0;
-  const requiredPrimaryTargetCoverage = intensity === 'deep'
-    ? targets.length
-    : 0;
-
-  const missing = [];
-  if (primary.length < requiredPrimarySources) {
-    missing.push(
-      `Need ${requiredPrimarySources} primary source open/fetch/inspect step(s); have ${primary.length}.`,
-    );
-  }
-  if (secondary.length < requiredSecondarySources && primary.length < requiredPrimarySources) {
-    missing.push('Need at least one search lead before finishing deep research.');
-  }
-  if (targets.length > 0 && coveredTargets.length < requiredTargetCoverage) {
-    missing.push(
-      `Need evidence for: ${uncoveredTargets.slice(0, 4).join('; ') || targets.slice(0, 4).join('; ')}.`,
-    );
-  }
-  if (targets.length > 0 && primaryCoveredTargets.length < requiredPrimaryTargetCoverage) {
-    missing.push(
-      `Need primary-source evidence for: ${primaryUncoveredTargets.slice(0, 4).join('; ') || targets.slice(0, 4).join('; ')}.`,
-    );
-  }
-  if (intensity === 'deep' && primary.length === 0 && secondary.length > 0) {
-    missing.push('Search snippets alone are not enough; open primary sources for the key claims.');
-  }
-  if (intensity === 'light' && primary.length === 0 && secondary.length === 0) {
-    missing.push('Need at least one successful search or primary-source check before finishing.');
-  }
-
-  const adequate = intensity === 'none' ? true : missing.length === 0;
+  const uniqueEvidenceCandidateCount = new Set(
+    successful.map((item) => researchExecutionSignature(item)),
+  ).size;
+  const structurallyReady = intensity === 'none' || uniqueEvidenceCandidateCount > 0;
+  const missing = structurallyReady
+    ? []
+    : ['No successful source-bearing tool evidence is available for semantic review.'];
   const nextActions = [];
-  if (!adequate) {
-    if (primaryUncoveredTargets.length > 0) {
-      nextActions.push(
-        `Open or fetch primary sources for each remaining target: ${primaryUncoveredTargets.slice(0, 4).join('; ')}.`,
-      );
-    } else if (uncoveredTargets.length > 0) {
-      nextActions.push(
-        `Research each remaining target separately: ${uncoveredTargets.slice(0, 4).join('; ')}.`,
-      );
-    }
-    if (primary.length < requiredPrimarySources) {
-      nextActions.push('Open or fetch primary pages/docs for the remaining claims instead of guessing from memory or snippets.');
-    }
-    if (secondary.length === 0 && intensity === 'deep') {
-      nextActions.push('Run targeted searches, then open the strongest sources.');
-    }
+  if (!structurallyReady) {
+    nextActions.push('Gather source-backed evidence before requesting completion.');
+  } else if (intensity !== 'none') {
+    nextActions.push('Have the completion judge map each requested target to concrete evidence entries and assess source quality.');
   }
 
   return {
     intensity,
-    adequate,
-    requiredPrimarySources,
-    requiredSecondarySources,
-    requiredTargetCoverage,
-    requiredPrimaryTargetCoverage,
-    primarySourceCount: primary.length,
-    secondarySourceCount: secondary.length,
+    adequate: structurallyReady,
+    structurallyReady,
+    semanticReviewRequired: intensity !== 'none',
+    evidenceCandidateCount: successful.length,
+    uniqueEvidenceCandidateCount,
     targets,
-    coveredTargets,
-    primaryCoveredTargets,
-    uncoveredTargets,
-    primaryUncoveredTargets,
+    coveredTargets: [],
+    primaryCoveredTargets: [],
+    uncoveredTargets: intensity === 'none' ? [] : targets,
+    primaryUncoveredTargets: intensity === 'none' ? [] : targets,
     missing,
     nextActions,
-    reason: adequate
+    reason: structurallyReady
       ? (intensity === 'none'
         ? 'No research burden for this run.'
-        : 'Research evidence covers the requested targets.')
+        : 'Source candidates exist; the AI completion judge must still validate target coverage and source quality.')
       : clampResearchText(missing.join(' ') || 'Research evidence is still incomplete.', 320),
   };
 }
 
 function formatResearchAdequacyGuidance(assessment = null) {
-  if (!assessment || assessment.adequate !== false) return '';
+  if (!assessment || assessment.intensity === 'none') return '';
   const lines = [
-    'Research self-check: evidence is still incomplete for this run.',
+    assessment.structurallyReady
+      ? 'Research self-check: source candidates exist, but semantic target coverage is not inferred from tool names, arguments, or token overlap.'
+      : 'Research self-check: no successful source evidence is available yet.',
     assessment.reason ? `Gap: ${assessment.reason}` : '',
     assessment.nextActions?.length
       ? `Next safe steps:\n- ${assessment.nextActions.join('\n- ')}`
       : '',
-    'Do not complete with memory, guesses, or a partial comparison while these gaps remain. Gather the missing evidence first, or return a blocker that names exactly what could not be verified.',
+    'The completion judge must explicitly map every requested target to supporting evidence and judge whether that evidence is primary, secondary, or merely contextual.',
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -569,6 +473,8 @@ module.exports = {
   isSubstantiveProgressEvidence,
   isSubstantiveProgressToolName,
   resolveResearchIntensity,
+  selectResearchEvidenceCandidates,
+  summarizeResearchEvidenceCatalog,
   summarizeProgressToolExecutions,
   summarizeToolExecutions,
   summarizeAvailableTools,

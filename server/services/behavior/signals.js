@@ -33,7 +33,7 @@ function loadRecentRoomMessages({ userId, agentId, platform, chatId, limit = 12 
     }
     const sender = row.role === 'assistant'
       ? 'assistant'
-      : (metadata?.senderName || metadata?.sender || 'participant');
+      : (metadata?.senderDisplayName || metadata?.senderName || metadata?.sender || 'participant');
     return {
       role: row.role,
       sender,
@@ -82,21 +82,20 @@ function buildDecisionPacket({
       hasMedia: Boolean(msg.localMediaPath || msg.mediaType),
       mediaType: msg.mediaType || null,
       wasMentioned: msg.wasMentioned === true,
+      repliedToAgent: msg.repliedToAgent === true,
       timestamp: msg.timestamp || new Date().toISOString(),
     },
     room: {
       recentMessages: recent,
-      agentRecentlyActive: secondsSinceSpoke != null && secondsSinceSpoke < Math.max(30, Number(config.cooldownSeconds || 45) * 2),
       secondsSinceAgentSpoke: secondsSinceSpoke,
       recentSilenceCount: Number(threadState?.recentSilenceCount || 0),
     },
     policy: {
-      holdBackStrength: Number(config.holdBackStrength || 0.72),
-      cooldownSeconds: Number(config.cooldownSeconds || 45),
-      requireAddressHint: Boolean(config.requireAddressHint),
+      participationMode: config.participationMode || 'automatic',
+      minimumNeedScore: Number(config.minimumNeedScore ?? 0.72),
       groupDefaultPosture: 'prefer_hold_back',
     },
-    memoryHints: Array.isArray(localMemoryHints) ? localMemoryHints.slice(0, 4) : [],
+    roomHints: Array.isArray(localMemoryHints) ? localMemoryHints.slice(0, 4) : [],
   };
 }
 

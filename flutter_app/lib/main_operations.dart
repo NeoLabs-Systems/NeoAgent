@@ -1663,11 +1663,6 @@ class _MemoryPanelState extends State<MemoryPanel>
                 icon: Icon(Icons.bug_report_outlined),
                 label: Text('Inspect'),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _openBehaviorNotesEditor(context, controller),
-                icon: Icon(Icons.edit_outlined),
-                label: Text('Behavior Notes'),
-              ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
                 icon: Icon(Icons.add),
@@ -2280,50 +2275,6 @@ class _MemoryPanelState extends State<MemoryPanel>
                   category: category,
                   importance:
                       int.tryParse(importanceController.text.trim()) ?? 5,
-                );
-                if (context.mounted) Navigator.of(context).pop();
-              },
-              child: Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _openBehaviorNotesEditor(
-    BuildContext context,
-    NeoAgentController controller,
-  ) async {
-    final contentController = TextEditingController(
-      text: controller.memoryOverview.assistantBehaviorNotes,
-    );
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text('Edit Assistant Behavior Notes'),
-          content: SizedBox(
-            width: 720,
-            child: TextField(
-              controller: contentController,
-              minLines: 16,
-              maxLines: 24,
-              decoration: const InputDecoration(
-                labelText: 'assistant_behavior_notes',
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await controller.updateAssistantBehaviorNotes(
-                  contentController.text,
                 );
                 if (context.mounted) Navigator.of(context).pop();
               },
