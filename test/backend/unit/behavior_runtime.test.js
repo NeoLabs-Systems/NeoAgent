@@ -29,6 +29,14 @@ function groupMessage(content = 'room update', overrides = {}) {
   };
 }
 
+function directMessage(content = 'direct update', overrides = {}) {
+  return groupMessage(content, {
+    chatId: 'direct-1',
+    isGroup: false,
+    ...overrides,
+  });
+}
+
 beforeEach(async () => {
   ctx = createTestRuntime();
   user = await createTestUser(ctx.db);
@@ -341,6 +349,137 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
   assert.equal(sendCalls, 0);
 });
 
+test('direct messaging uses the run model for one lightweight interaction-voice pass', async () => {
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      getRunMeta(runId) {
+        assert.equal(runId, 'run-voice');
+        return { modelSelectionId: 'provider::main-model' };
+      },
+      async inferStructured(request) {
+        calls.push(request);
+        return {
+          parsed: {
+            action: 'revise',
+            revisedContent: 'natural final text',
+            reasonCodes: ['removed_assistant_framing'],
+            rationale: 'The draft had a generic service preamble.',
+          },
+          modelSelectionId: request.modelId,
+          usage: 51,
+        };
+      },
+    },
+  });
+  const msg = directMessage('can you make this sound normal');
+  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
+    platform: msg.platform,
+    chatId: msg.chatId,
+    isGroup: false,
+  });
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config,
+    draft: 'Here is a polished response. Let me know if you need anything else.',
+    runId: 'run-voice',
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].modelId, 'provider::main-model');
+  assert.equal(calls[0].purpose, 'general');
+  assert.equal(result.content, 'natural final text');
+  assert.equal(result.personaAction, 'revise');
+  assert.deepEqual(result.reasonCodes, [
+    'removed_assistant_framing',
+    'tom_disabled_or_direct',
+  ]);
+});
+
+test('group messaging combines interaction voice and theory of mind in one model call', async () => {
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured(request) {
+        calls.push(request);
+        return {
+          parsed: {
+            action: 'revise',
+            revisedContent: 'one useful room reply',
+            risk: 'low',
+            reasonCodes: ['kept_group_reply_brief'],
+            rationale: 'The original draft was too long for the room.',
+          },
+          modelSelectionId: 'provider::review-model',
+        };
+      },
+    },
+  });
+  const msg = groupMessage('can someone settle this');
+  const turnEpoch = pipeline.noteInbound({ userId: user.userId, agentId, msg });
+  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
+    platform: msg.platform,
+    chatId: msg.chatId,
+    isGroup: true,
+  });
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config,
+    draft: 'A long, assistant-like answer that should not dominate the room.',
+    turnEpoch,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].system, /Mandatory interaction-voice editing rules/);
+  assert.match(calls[0].system, /multi-party chat/);
+  assert.equal(result.content, 'one useful room reply');
+  assert.deepEqual(result.reasonCodes, [
+    'persona_refine_combined_with_tom',
+    'kept_group_reply_brief',
+  ]);
+});
+
+test('large messaging deliverables bypass the lightweight interaction-voice pass', async () => {
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        throw new Error('large deliverables should not be rewritten');
+      },
+    },
+  });
+  const msg = directMessage('send the detailed report');
+  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
+    platform: msg.platform,
+    chatId: msg.chatId,
+    isGroup: false,
+  });
+  const draft = 'x'.repeat(2801);
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config,
+    draft,
+  });
+
+  assert.equal(inferenceCalls, 0);
+  assert.equal(result.content, draft);
+  assert.equal(result.personaAction, 'send');
+  assert.deepEqual(result.reasonCodes, [
+    'persona_refine_large_passthrough',
+    'tom_disabled_or_direct',
+  ]);
+});
+
 test('natural bubble delivery rechecks the room epoch after each inter-bubble gap', async () => {
   const sent = [];
   let current = true;
@@ -474,7 +613,7 @@ test('system prompt injects behavior notes once and excludes owner memory for sh
   }, memoryManager);
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.equal(prompt.match(/VOICE AND CHARACTER/g)?.length, 1);
+  assert.equal(prompt.match(/MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/g)?.length, 1);
   assert.equal(prompt.match(/Keep replies compact\./g)?.length, 1);
   assert.doesNotMatch(prompt, /private owner fact/);
   assert.doesNotMatch(prompt, /owner only/);
@@ -499,7 +638,7 @@ test('the persona module owns and can disable the legacy behavior prompt', async
   });
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.doesNotMatch(prompt, /VOICE AND CHARACTER/);
+  assert.doesNotMatch(prompt, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
 });
 
 test('system prompt caching keeps room-scoped behavior overrides isolated', async () => {
@@ -543,6 +682,6 @@ test('system prompt caching keeps room-scoped behavior overrides isolated', asyn
     memoryAudience: 'shared',
   }, memoryManager);
 
-  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /VOICE AND CHARACTER/);
-  assert.match(`${normal.stable}\n${normal.dynamic}`, /VOICE AND CHARACTER/);
+  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
+  assert.match(`${normal.stable}\n${normal.dynamic}`, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
 });

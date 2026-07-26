@@ -254,7 +254,7 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     ...behaviorPrompt.stable,
   ];
   const dynamic = [
-    `Current local date/time: ${formatCurrentLocalDateTime()}`,
+    `Current server clock: ${formatCurrentLocalDateTime()}. Use it for date arithmetic only; it does not establish the user's location or timezone.`,
     ...behaviorPrompt.dynamic,
   ];
   if (context.includeRuntimeDetails || context.additionalContext) {

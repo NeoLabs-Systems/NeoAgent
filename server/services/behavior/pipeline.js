@@ -196,23 +196,60 @@ function createBehaviorPipeline(deps = {}) {
         reasonCodes: ['stale_turn'],
       };
     }
+    const combinedGroupReview = msg.isGroup
+      && isModuleEnabled(config, 'persona')
+      && isModuleEnabled(config, 'theory_of_mind');
+    const persona = combinedGroupReview
+      ? {
+        action: 'send',
+        content: draft,
+        reasonCodes: ['persona_refine_combined_with_tom'],
+      }
+      : await registry.get('persona').refineDraft({
+        userId,
+        agentId,
+        msg,
+        config,
+        draft,
+        signal,
+        agentEngine,
+        runId,
+      });
     const tom = await registry.get('theory_of_mind').refineDraft({
       userId,
       agentId,
       msg,
       config,
-      draft,
+      draft: persona.content,
       signal,
       agentEngine,
+      runId,
     });
 
     const content = tom.content;
+    const reasonCodes = [
+      ...(persona.reasonCodes || []),
+      ...(tom.reasonCodes || []),
+    ];
     if (!deliver || !messagingManager) {
-      return { ...tom, delivered: false, content };
+      return {
+        ...tom,
+        delivered: false,
+        content,
+        reasonCodes,
+        personaAction: persona.action,
+      };
     }
 
     if (!content || content.toUpperCase() === '[NO RESPONSE]') {
-      return { ...tom, delivered: false, suppressed: true, content };
+      return {
+        ...tom,
+        delivered: false,
+        suppressed: true,
+        content,
+        reasonCodes,
+        personaAction: persona.action,
+      };
     }
 
     const deliveryConfig = isModuleEnabled(config, 'delivery')
@@ -252,6 +289,8 @@ function createBehaviorPipeline(deps = {}) {
       suppressed: delivery?.suppressed === true,
       delivery,
       content,
+      reasonCodes,
+      personaAction: persona.action,
     };
   }
 

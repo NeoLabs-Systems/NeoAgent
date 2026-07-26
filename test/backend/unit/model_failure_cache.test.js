@@ -34,6 +34,16 @@ test('request-shape failures do not quarantine a model', () => {
   assert.equal(isModelCoolingDown(7, 'main', 'google::gemini'), false);
 });
 
+test('an endpoint-specific unsupported model response quarantines that model', () => {
+  const unsupported = Object.assign(new Error('The requested model is not supported.'), {
+    status: 400,
+  });
+
+  assert.equal(isPermanentModelFailure(unsupported), true);
+  assert.equal(recordModelFailure(7, 'main', 'copilot::unsupported', unsupported), true);
+  assert.equal(isModelCoolingDown(7, 'main', 'copilot::unsupported'), true);
+});
+
 test('exhausted transient and empty-response failures enter a short cooldown', () => {
   const unavailable = Object.assign(new Error('service unavailable'), {
     status: 503,

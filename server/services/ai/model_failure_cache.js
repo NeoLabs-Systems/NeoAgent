@@ -35,6 +35,13 @@ function readRecoveryCooldownMs() {
 function isPermanentModelFailure(error) {
   const status = getHttpStatus(error);
   if (status === 404) return true;
+  if (
+    status === 400
+    && /\b(requested\s+)?model\b.*\b(not supported|unsupported|not available)\b/i
+      .test(String(error?.message || ''))
+  ) {
+    return true;
+  }
   return /\b404\b.*\b(model|nim|provider|request)\b|\b(model|nim)\b.*\b404\b/i
     .test(String(error?.message || ''));
 }

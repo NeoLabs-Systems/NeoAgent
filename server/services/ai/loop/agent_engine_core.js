@@ -20,6 +20,10 @@ const { summarizeCapabilityHealth } = require('../capabilityHealth');
 const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
+const {
+  recordModelFailure,
+  recordModelSuccess,
+} = require('../model_failure_cache');
 const { runConversation } = require('./conversation_loop');
 const {
   TERMINAL_STATUSES,
@@ -649,32 +653,61 @@ class AgentEngine {
     fallback = {},
     signal = null,
   }) {
-    const selected = await getProviderForUser(
-      userId,
-      prompt,
-      false,
-      modelId,
-      {
-        agentId,
-        signal,
-        selectionHint: {
-          purpose: purpose === 'general' ? 'general' : 'fast',
-          costMode: purpose === 'fast' ? 'economy' : 'balanced_auto',
+    const { getFailureFallbackModelId } = require('./conversation_loop');
+    const configuredFallbackId = getAiSettings(userId, agentId).fallback_model_id;
+    const failedModelIds = new Set();
+    let requestedModelId = modelId;
+    let selected = null;
+    let result = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      selected = await getProviderForUser(
+        userId,
+        prompt,
+        false,
+        requestedModelId,
+        {
+          agentId,
+          signal,
+          selectionHint: {
+            purpose: purpose === 'general' ? 'general' : 'fast',
+            costMode: purpose === 'fast' ? 'economy' : 'balanced_auto',
+          },
         },
-      },
-    );
-    const result = await this.requestStructuredJson({
-      provider: selected.provider,
-      providerName: selected.providerName,
-      model: selected.model,
-      messages: system ? [{ role: 'system', content: String(system) }] : [],
-      prompt: String(prompt || ''),
-      maxTokens,
-      normalize: (value) => value,
-      fallback,
-      telemetry: { userId, agentId, signal },
-      phase: 'behavior_inference',
-    });
+      );
+      try {
+        result = await this.requestStructuredJson({
+          provider: selected.provider,
+          providerName: selected.providerName,
+          model: selected.model,
+          messages: system ? [{ role: 'system', content: String(system) }] : [],
+          prompt: String(prompt || ''),
+          maxTokens,
+          normalize: (value) => value,
+          fallback,
+          telemetry: { userId, agentId, signal },
+          phase: 'behavior_inference',
+        });
+        recordModelSuccess(userId, agentId, selected.modelSelectionId);
+        break;
+      } catch (error) {
+        if (isAbortError(error, signal) || signal?.aborted) throw error;
+        recordModelFailure(userId, agentId, selected.modelSelectionId, error);
+        failedModelIds.add(selected.modelSelectionId);
+        if (attempt >= 2) throw error;
+        requestedModelId = await getFailureFallbackModelId(
+          userId,
+          agentId,
+          selected.modelSelectionId,
+          configuredFallbackId,
+          error,
+          signal,
+          failedModelIds,
+        );
+        if (!requestedModelId) throw error;
+      }
+    }
+
     return {
       parsed: result.value,
       raw: result.raw,

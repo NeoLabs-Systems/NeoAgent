@@ -3,15 +3,16 @@
 const { requestStructuredJson } = require('../model_client');
 const { isModuleEnabled } = require('../config');
 const { truncate } = require('../signals');
+const { INTERACTION_VOICE_RULES } = require('./persona');
 
-const SYSTEM_PROMPT = `You refine an AI draft for a multi-party chat using lightweight theory of mind.
+const BASE_SYSTEM_PROMPT = `You are the final reviewer for an AI draft in a multi-party chat.
 Return JSON with keys:
 action ("send"|"revise"|"suppress"),
 revisedContent (string, required if action is revise, else empty),
 risk ("low"|"medium"|"high"),
 reasonCodes (array of short strings),
 rationale (one short sentence).
-Preserve the agent's voice and safety limits. Prefer minimal edits. Suppress only if the draft is likely harmful, invasive, or clearly socially damaging.`;
+Prefer minimal edits. Suppress only if the draft is likely harmful, invasive, clearly socially damaging, redundant after the conversation moved on, or no longer worth adding.`;
 
 async function refineDraft(ctx) {
   const {
@@ -21,6 +22,7 @@ async function refineDraft(ctx) {
     config,
     draft,
     signal = null,
+    runId = null,
   } = ctx;
 
   if (!msg?.isGroup || !isModuleEnabled(config, 'theory_of_mind')) {
@@ -43,13 +45,19 @@ async function refineDraft(ctx) {
   }
 
   try {
+    const runModelId = runId
+      ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
+      : null;
+    const system = isModuleEnabled(config, 'persona')
+      ? `${BASE_SYSTEM_PROMPT}\n\n${INTERACTION_VOICE_RULES}`
+      : BASE_SYSTEM_PROMPT;
     const result = await requestStructuredJson({
       agentEngine: ctx.agentEngine,
       userId,
       agentId,
-      modelId: config.decisionModelId,
-      purpose: config.decisionModelPurpose,
-      system: SYSTEM_PROMPT,
+      modelId: config.decisionModelId || runModelId,
+      purpose: runModelId ? 'general' : config.decisionModelPurpose,
+      system,
       prompt: JSON.stringify({
         room: {
           platform: msg.platform,
@@ -58,10 +66,10 @@ async function refineDraft(ctx) {
           sender: msg.senderName || msg.sender,
           inbound: truncate(msg.content, 500),
         },
-        draft: truncate(content, 1800),
+        draft: truncate(content, 2800),
       }),
       signal,
-      maxTokens: 350,
+      maxTokens: 900,
     });
     const parsed = result.parsed || {};
     const action = ['send', 'revise', 'suppress'].includes(String(parsed.action || ''))

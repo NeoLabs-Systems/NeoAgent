@@ -21,7 +21,7 @@ const DEFAULT_MODULE_CONFIG = Object.freeze({
   batchWindowMs: 900,
   decisionContextMessageLimit: 12,
   decisionModelId: null,
-  decisionModelPurpose: 'fast',
+  decisionModelPurpose: 'general',
   deliveryStyle: 'natural_bubbles',
   maxBubbles: 4,
   bubbleGapMs: 650,
