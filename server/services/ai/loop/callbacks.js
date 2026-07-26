@@ -65,6 +65,7 @@ async function publishInterimUpdate(engine, {
       persistConversation: true,
       metadata,
       deliveryKind: 'interim',
+      signal: runMeta.abortController?.signal || null,
     });
     requireSuccessfulMessagingDelivery(deliveryResult, 'Interim messaging delivery');
   } else if (triggerSource === 'voice_live') {

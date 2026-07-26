@@ -39,6 +39,9 @@ async function getBrowserHealth(userId, app, engine) {
   const runtimeSettings = typeof runtimeManager?.getSettings === 'function'
     ? runtimeManager.getSettings(userId)
     : null;
+  const runtimeSnapshot = typeof runtimeManager?.getCapabilitySnapshot === 'function'
+    ? runtimeManager.getCapabilitySnapshot(userId)
+    : null;
   const extensionStatus = runtimeSettings?.browser_backend === 'extension'
     ? app?.locals?.browserExtensionRegistry?.getStatus(userId)
     : null;
@@ -63,122 +66,81 @@ async function getBrowserHealth(userId, app, engine) {
       });
     }
   }
-  let controller = null;
-  let resolutionError = null;
-
-  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
-    try {
-      controller = await runtimeManager.getBrowserProviderForUser(userId);
-    } catch (err) {
-      resolutionError = err;
-    }
-  }
-
-  if (!controller) {
-    resolutionError = resolutionError || new Error('Browser provider is unavailable. VM runtime is required.');
-  }
-
-  if (!controller && resolutionError) {
+  if (!runtimeManager) {
     return capabilityEntry({
-      configured: true,
-      healthy: false,
-      degraded: true,
-      summary: `Browser controller resolution failed: ${resolutionError.message}`,
-      details: {
-        error: resolutionError.message,
-      },
+      summary: 'Browser runtime is not available in this environment.',
     });
   }
-  let pageInfo = null;
-  let launched = false;
-  let error = null;
 
-  try {
-    launched = typeof controller?.isLaunched === 'function'
-      ? await Promise.resolve(controller.isLaunched())
-      : false;
-    pageInfo = typeof controller?.getPageInfo === 'function' ? await controller.getPageInfo() : null;
-  } catch (err) {
-    error = err.message;
-  }
+  // Capability reporting runs on every agent turn. It must never resolve a
+  // provider because the VM provider performs image builds and container boot.
+  // Tool execution remains the authoritative health check and starts/restarts
+  // the runtime only when the model actually uses a browser tool.
+  const preferredBackend = runtimeSettings?.browser_backend
+    || runtimeSnapshot?.browser?.preferredBackend
+    || 'vm';
+  const vmInitialized = runtimeSnapshot?.browser?.vmInitialized === true;
+  const extensionConnected = extensionStatus?.connected === true
+    || runtimeSnapshot?.browser?.extensionConnected === true;
+  const extensionPreferredButOffline = preferredBackend === 'extension' && !extensionConnected;
 
   return capabilityEntry({
-    connected: launched,
+    connected: vmInitialized || extensionConnected,
     configured: true,
-    healthy: !error,
-    degraded: Boolean(error) || runtimeSettings?.browser_backend === 'extension',
-    summary: error
-      ? `Browser runtime error: ${error}`
-      : runtimeSettings?.browser_backend === 'extension'
-        ? `No extension device is active. Falling back to the vm browser runtime.`
-        : (launched ? 'Browser runtime is ready.' : 'Browser runtime is available but not launched.'),
+    healthy: true,
+    degraded: extensionPreferredButOffline,
+    summary: extensionPreferredButOffline
+      ? 'No extension device is active. The VM browser will start on first use.'
+      : vmInitialized
+        ? 'Browser VM session is initialized.'
+        : 'Browser runtime is available and will start on first use.',
     details: {
-      preferredBackend: runtimeSettings?.browser_backend || null,
-      backend: runtimeSettings?.browser_backend === 'extension'
-        ? 'vm'
-        : runtimeSettings?.browser_backend || null,
-      extensionConnected: extensionStatus?.connected === true,
+      preferredBackend,
+      backend: extensionConnected ? 'extension' : 'vm',
+      extensionConnected,
       activeTokenCount: Array.isArray(extensionStatus?.tokens)
         ? extensionStatus.tokens.filter((token) => token.status === 'active').length
         : 0,
-      launched,
-      pageInfo,
+      runtimeInitialized: vmInitialized,
     },
   });
 }
 
 async function getAndroidHealth(userId, app, engine) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
-  let controller = null;
-  let resolutionError = null;
-
-  if (runtimeManager && typeof runtimeManager.getAndroidProviderForUser === 'function') {
-    try {
-      controller = await runtimeManager.getAndroidProviderForUser(userId);
-    } catch (err) {
-      resolutionError = err;
-    }
-  }
-
-  if (!controller) {
-    resolutionError = resolutionError || new Error('Android provider is unavailable. VM runtime is required.');
-  }
-
-  if (!controller || typeof controller.getStatus !== 'function') {
+  if (!runtimeManager) {
     return capabilityEntry({
-      degraded: Boolean(resolutionError),
-      summary: resolutionError
-        ? `Android controller resolution failed: ${resolutionError.message}`
-        : 'Android controller is not available.',
-      details: resolutionError ? { error: resolutionError.message } : {},
+      summary: 'Android runtime is not available in this environment.',
     });
   }
 
-  try {
-    const status = await controller.getStatus();
-    const bootstrapped = status.bootstrapped === true;
-    const canBootstrap = status.canBootstrap === true;
-    return capabilityEntry({
-      connected: Array.isArray(status.devices) && status.devices.some((device) => device.status === 'device'),
-      configured: canBootstrap || bootstrapped,
-      healthy: canBootstrap || bootstrapped,
-      degraded: Boolean(status.lastStartError),
-      summary: status.lastStartError
-        ? `Android tooling reported: ${status.lastStartError}`
-        : bootstrapped
-          ? 'Android environment is ready on this host.'
-          : (canBootstrap ? 'Android environment can be bootstrapped on this host.' : 'Android tooling cannot bootstrap on this host.'),
-      details: status,
-    });
-  } catch (err) {
-    return capabilityEntry({
-      configured: true,
-      healthy: false,
-      degraded: true,
-      summary: `Android status check failed: ${err.message}`,
-      details: { error: err.message },
-    });
-  }
+  // Like browser health, Android health is a snapshot. Creating a controller or
+  // running adb here makes unrelated chat turns pay runtime startup/status costs.
+  const runtimeSnapshot = typeof runtimeManager.getCapabilitySnapshot === 'function'
+    ? runtimeManager.getCapabilitySnapshot(userId)
+    : null;
+  const status = runtimeSnapshot?.android?.status || null;
+  const bootstrapped = status?.bootstrapped === true;
+  const starting = status?.starting === true;
+  const lastStartError = String(status?.lastStartError || '').trim();
+  return capabilityEntry({
+    connected: bootstrapped,
+    configured: true,
+    healthy: !lastStartError,
+    degraded: Boolean(lastStartError),
+    summary: lastStartError
+      ? `Android tooling reported: ${lastStartError}`
+      : bootstrapped
+        ? 'Android environment is ready.'
+        : starting
+          ? 'Android environment is starting.'
+          : 'Android runtime is available and will initialize on first use.',
+    details: status || {
+      initialized: runtimeSnapshot?.android?.initialized === true,
+      bootstrapped: false,
+      starting: false,
+    },
+  });
 }
 
 function getMessagingHealth(userId, app, engine, agentId = null) {
@@ -342,7 +304,9 @@ function getTaskHealth(userId, agentId = null) {
 }
 
 async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
-  const providers = await getProviderHealthCatalog(userId, agentId);
+  const providers = await getProviderHealthCatalog(userId, agentId, {
+    probeLocal: false,
+  });
 
   return {
     providers,
@@ -363,6 +327,8 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
 }
 
 module.exports = {
+  getAndroidHealth,
+  getBrowserHealth,
   getCapabilityHealth,
   summarizeCapabilityHealth,
 };

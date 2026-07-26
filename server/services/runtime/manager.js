@@ -10,21 +10,34 @@ const { DesktopProvider } = require('../desktop/provider');
 // Resource defaults for Docker VMs (overridable via env).
 const DEFAULT_VM_MEMORY_MB = Number(process.env.NEOAGENT_VM_MEMORY_MB ?? 2048);
 const DEFAULT_VM_CPUS = Number(process.env.NEOAGENT_VM_CPUS ?? 2);
+const DEFAULT_CLI_VM_MEMORY_MB = Number(process.env.NEOAGENT_CLI_VM_MEMORY_MB ?? 1024);
+const DEFAULT_CLI_VM_CPUS = Number(process.env.NEOAGENT_CLI_VM_CPUS ?? 1);
 
 class RuntimeManager {
   constructor(options = {}) {
     this.browserExtensionRegistry = options.browserExtensionRegistry || null;
     this.desktopCompanionRegistry = options.desktopCompanionRegistry || null;
     this.shellWorkerPool = options.shellWorkerPool || null;
+    this.androidControllers = new Map();
 
     const browserVmManager = options.browserVmManager || new DockerVMManager({
-      runtimeProfile: 'browser_cli',
+      runtimeProfile: 'browser',
       memoryMb: DEFAULT_VM_MEMORY_MB,
       cpus: DEFAULT_VM_CPUS,
     });
     this.browserBackend = new LocalVmExecutionBackend({
-      runtimeProfile: 'browser_cli',
+      runtimeProfile: 'browser',
       vmManager: browserVmManager,
+      artifactStore: options.artifactStore,
+    });
+    const cliVmManager = options.cliVmManager || new DockerVMManager({
+      runtimeProfile: 'cli',
+      memoryMb: DEFAULT_CLI_VM_MEMORY_MB,
+      cpus: DEFAULT_CLI_VM_CPUS,
+    });
+    this.cliBackend = new LocalVmExecutionBackend({
+      runtimeProfile: 'cli',
+      vmManager: cliVmManager,
       artifactStore: options.artifactStore,
     });
 
@@ -43,6 +56,12 @@ class RuntimeManager {
         registry: options.desktopCompanionRegistry,
         artifactStore: options.artifactStore,
         userId,
+      }));
+
+    this.createAndroidController = options.createAndroidController
+      || ((userId) => new AndroidController({
+        userId,
+        artifactStore: this.artifactStore,
       }));
   }
 
@@ -68,37 +87,73 @@ class RuntimeManager {
     );
   }
 
+  getCapabilitySnapshot(userId) {
+    const settings = this.getSettings(userId) || {};
+    const key = String(userId || '').trim();
+    const extensionConnected = this.hasActiveExtensionBrowser(userId);
+    const androidController = key && this.androidControllers instanceof Map
+      ? this.androidControllers.get(key)
+      : null;
+    let androidStatus = null;
+    if (androidController && typeof androidController.getStatusSync === 'function') {
+      try {
+        androidStatus = androidController.getStatusSync();
+      } catch {
+        androidStatus = null;
+      }
+    }
+
+    return {
+      browser: {
+        preferredBackend: settings.browser_backend,
+        activeBackend: extensionConnected ? 'extension' : 'vm',
+        extensionConnected,
+        vmInitialized: Boolean(
+          this.browserBackend?.vmManager?.hasTrackedVm?.(userId),
+        ),
+      },
+      android: {
+        initialized: Boolean(androidController),
+        status: androidStatus,
+      },
+      desktop: {
+        connected: this.hasActiveDesktopCompanion(userId),
+      },
+    };
+  }
+
   resolveBackend(userId, requested) {
     void userId;
-    void requested;
-    return this.browserBackend;
+    return requested === 'browser' ? this.browserBackend : this.cliBackend;
   }
 
   async executeCommand(userId, command, options = {}) {
-    const backend = this.resolveBackend(userId, 'browser_cli');
+    const backend = this.resolveBackend(userId, 'cli');
     return backend.executeCommand(userId, command, options);
   }
 
   hasVmForUser(userId, capability = 'browser') {
-    return Boolean(this.browserBackend?.vmManager?.hasVm?.(userId));
+    const backend = capability === 'browser' ? this.browserBackend : this.cliBackend;
+    return Boolean(backend?.vmManager?.hasVm?.(userId));
   }
 
   async killCommand(userId, pid, reason = 'aborted') {
-    return this.browserBackend.killCommand(userId, pid, reason);
+    return this.cliBackend.killCommand(userId, pid, reason);
   }
 
   async getCommandExecutorForUser(userId) {
-    return this.browserBackend.getCommandExecutorForUser(userId);
+    return this.cliBackend.getCommandExecutorForUser(userId);
   }
 
-  async getBrowserProviderForUser(userId) {
+  async getBrowserProviderForUser(userId, options = {}) {
     const settings = this.getSettings(userId);
     if (settings.browser_backend === 'extension' && this.hasActiveExtensionBrowser(userId)) {
       return this.getExtensionBrowserProvider(userId, {
         tokenId: settings.browser_extension_token_id,
+        signal: options.signal,
       });
     }
-    return this.browserBackend.getBrowserProviderForUser(userId);
+    return this.browserBackend.getBrowserProviderForUser(userId, options);
   }
 
   async getCliProviderForUser(userId) {
@@ -116,18 +171,12 @@ class RuntimeManager {
         kill: () => Promise.resolve(false),
       };
     }
-    const executor = await this.browserBackend.getCommandExecutorForUser(userId);
+    const executor = await this.cliBackend.getCommandExecutorForUser(userId);
     return { ...executor, backend: 'vm' };
   }
 
   async executeCliCommand(userId, command, options = {}) {
     const provider = await this.getCliProviderForUser(userId);
-    // Route desktop-companion shell commands through the isolated worker pool
-    // when available. The VM (Docker) path is already isolated.
-    if (provider.backend === 'desktop-companion' && this.shellWorkerPool && options.pty !== true) {
-      const result = await this.shellWorkerPool.execute(command, options);
-      return { ...result, backend: 'desktop-companion-worker' };
-    }
     const result = await (options.pty === true && provider.executeInteractive
       ? provider.executeInteractive(command, options.inputs || [], options)
       : provider.execute(command, options));
@@ -146,23 +195,28 @@ class RuntimeManager {
     if (userId == null || String(userId).trim() === '') {
       throw new Error('Android provider requires a user ID.');
     }
-    return new AndroidController({
-      userId: String(userId).trim(),
-      artifactStore: this.artifactStore,
-    });
+    const key = String(userId).trim();
+    if (!this.androidControllers.has(key)) {
+      this.androidControllers.set(key, this.createAndroidController(key));
+    }
+    return this.androidControllers.get(key);
   }
 
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000, capability = 'browser') {
-    if (typeof this.browserBackend?.isGuestAgentReadyForUser !== 'function') {
+    const backend = capability === 'browser' ? this.browserBackend : this.cliBackend;
+    if (typeof backend?.isGuestAgentReadyForUser !== 'function') {
       return false;
     }
-    return this.browserBackend.isGuestAgentReadyForUser(userId, timeoutMs);
+    return backend.isGuestAgentReadyForUser(userId, timeoutMs);
   }
 
   async shutdown() {
     const tasks = [
       this.browserBackend?.shutdown?.(),
+      this.cliBackend?.shutdown?.(),
+      ...Array.from(this.androidControllers.values(), (controller) => controller?.close?.()),
     ];
+    this.androidControllers.clear();
     if (typeof this.shellWorkerPool?.shutdown === 'function') {
       tasks.push(Promise.resolve().then(() => this.shellWorkerPool.shutdown()));
     }

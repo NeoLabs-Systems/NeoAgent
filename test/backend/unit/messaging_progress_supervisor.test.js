@@ -207,6 +207,69 @@ describe('messaging progress supervisor', () => {
     assert.equal(messagingManager.sent.length, 1);
   });
 
+  test('a suppressed group fallback becomes a terminal no-response decision', async () => {
+    const messagingManager = createMessagingManager();
+    const app = {
+      locals: {
+        behaviorPipeline: {
+          async refineAndMaybeDeliver() {
+            return {
+              delivered: false,
+              suppressed: true,
+              reasonCodes: ['stale_turn'],
+            };
+          },
+        },
+      },
+    };
+    const engine = new AgentEngine(null, {
+      app,
+      messagingManager,
+      messagingDeliveryRetry: { maxAttempts: 1 },
+    });
+    const behavior = {
+      isGroup: true,
+      message: {
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        isGroup: true,
+      },
+      config: {},
+      turnEpoch: 1,
+    };
+    const { runId, runMeta } = seedMessagingRun(engine, {
+      messagingContext: {
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        behavior,
+      },
+      deliveryState: {},
+    });
+
+    const first = await engine.deliverMessagingFinalFallback({
+      runId,
+      userId: user.userId,
+      agentId: null,
+      platform: 'whatsapp',
+      chatId: 'chat-1',
+      content: 'Obsolete answer.',
+    });
+    const second = await engine.deliverMessagingFinalFallback({
+      runId,
+      userId: user.userId,
+      agentId: null,
+      platform: 'whatsapp',
+      chatId: 'chat-1',
+      content: 'Obsolete answer.',
+    });
+
+    assert.equal(first.suppressed, true);
+    assert.equal(second.skipped, true);
+    assert.equal(runMeta.noResponse, true);
+    assert.equal(runMeta.deliveryState.noResponse, true);
+    assert.equal(messagingManager.sent.length, 0);
+  });
+
   test('failed final fallback delivery never records terminal delivery', async () => {
     const messagingManager = createMessagingManager();
     messagingManager.sendMessage = async () => ({
@@ -297,6 +360,42 @@ describe('messaging progress supervisor', () => {
     assert.equal(result.sent, true);
     assert.equal(attempts, 2);
     assert.equal(engine.getRunMeta(runId).finalDeliverySent, true);
+  });
+
+  test('final fallback does not retry an ambiguous thrown transport failure', async () => {
+    const messagingManager = createMessagingManager();
+    let attempts = 0;
+    messagingManager.sendMessage = async () => {
+      attempts += 1;
+      const error = new Error('socket closed while awaiting acknowledgement');
+      error.code = 'ECONNRESET';
+      throw error;
+    };
+    const engine = new AgentEngine(null, {
+      messagingManager,
+      messagingDeliveryRetry: {
+        maxAttempts: 3,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+      },
+    });
+    const { runId } = seedMessagingRun(engine);
+
+    await assert.rejects(
+      engine.deliverMessagingFinalFallback({
+        runId,
+        userId: user.userId,
+        agentId: null,
+        platform: 'whatsapp',
+        chatId: 'chat-1',
+        content: 'Do not duplicate this result.',
+      }),
+      (error) => error.code === 'ECONNRESET'
+        && error.disableAutonomousRetry === true,
+    );
+
+    assert.equal(attempts, 1);
+    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
   });
 
   test('exhausted final delivery cannot trigger an autonomous task replay', async () => {
@@ -711,6 +810,67 @@ describe('messaging progress supervisor', () => {
     assert.equal(engine.getRunMeta(runId).progressLedger.heartbeatCount, 1);
   });
 
+  test('overlapping supervisor ticks are coalesced into one heartbeat', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    let releaseCompose;
+    const composed = new Promise((resolve) => { releaseCompose = resolve; });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+      composeProgressUpdate: () => composed,
+      progressLedger: {
+        currentPhase: 'model',
+        currentStep: 'model:2',
+        currentStepStartedAt: new Date(0).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    const firstTick = engine.tickMessagingProgressSupervisor(runId);
+    await new Promise((resolve) => setImmediate(resolve));
+    const overlappingTick = await engine.tickMessagingProgressSupervisor(runId);
+
+    assert.equal(overlappingTick.inFlight, true);
+    releaseCompose('Checked the actual repository state.');
+    await firstTick;
+    assert.equal(messagingManager.sent.length, 1);
+  });
+
+  test('a heartbeat composed before finalization is discarded after final delivery wins', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    t.mock.timers.setTime(0);
+
+    const messagingManager = createMessagingManager();
+    const engine = new AgentEngine(null, { messagingManager });
+    let releaseCompose;
+    const composed = new Promise((resolve) => { releaseCompose = resolve; });
+    const { runId } = seedMessagingRun(engine, {
+      startedAt: 0,
+      startedAtIso: new Date(0).toISOString(),
+      composeProgressUpdate: () => composed,
+      progressLedger: {
+        currentPhase: 'tool',
+        currentStep: 'step-1',
+        currentTool: 'execute_command',
+        currentStepStartedAt: new Date(0).toISOString(),
+      },
+    });
+
+    t.mock.timers.setTime(60_001);
+    const tick = engine.tickMessagingProgressSupervisor(runId);
+    await new Promise((resolve) => setImmediate(resolve));
+    engine.markRunFinalDelivery(runId, 'Finished result.');
+    releaseCompose('A stale progress update.');
+
+    const result = await tick;
+    assert.equal(result.terminal, true);
+    assert.equal(messagingManager.sent.length, 0);
+  });
+
   test('structured model phases stay visible to the supervisor until they settle', async (t) => {
     t.mock.timers.enable({ apis: ['Date'] });
     t.mock.timers.setTime(0);
@@ -745,6 +905,7 @@ describe('messaging progress supervisor', () => {
     });
 
     assert.equal(engine.getRunMeta(runId).progressLedger.currentPhase, 'model');
+    const verifiedBeforeCall = engine.getRunMeta(runId).progressLedger.lastVerifiedProgressAt;
     assert.equal(
       engine.getRunMeta(runId).progressLedger.currentStep,
       'model:completion_decision',
@@ -764,6 +925,11 @@ describe('messaging progress supervisor', () => {
 
     assert.equal(engine.getRunMeta(runId).progressLedger.currentPhase, 'idle');
     assert.equal(engine.getRunMeta(runId).progressLedger.currentStep, null);
+    assert.equal(
+      engine.getRunMeta(runId).progressLedger.lastVerifiedProgressAt,
+      verifiedBeforeCall,
+      'a model self-check is activity, not verified task progress',
+    );
   });
 
   test('runtime heartbeat does not depend on messaging delivery', async (t) => {

@@ -54,6 +54,24 @@ class WhatsAppPlatform extends BasePlatform {
     return [...ownIds].some((id) => text.includes(`@${id}`));
   }
 
+  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    const senderId = normalizeWhatsAppId(sender);
+    return this._checkInboundAccess({
+      platform: 'whatsapp',
+      senderId,
+      chatId,
+      isDirect: !isGroup,
+      isShared: isGroup,
+      groupId: isGroup ? chatId : '',
+      phoneNumber: senderId,
+      wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
+    }, {
+      senderName: pushName || senderId,
+      meta: isGroup ? `Group: ${chatId}` : '',
+      groupLabel: chatId,
+    });
+  }
+
   async connect() {
     this._manualDisconnect = false;
     if (this._reconnectTimer) {
@@ -154,6 +172,7 @@ class WhatsAppPlatform extends BasePlatform {
         const isGroup = chatId?.endsWith('@g.us');
         const sender = isGroup ? msg.key.participant : chatId;
         const pushName = msg.pushName || '';
+        const wasMentioned = isGroup && this._isGroupAddressedToBot(msg.message || {});
 
         let content = '';
         let mediaType = null;
@@ -180,22 +199,12 @@ class WhatsAppPlatform extends BasePlatform {
         }
 
         if (!content && !mediaType) continue;
-        if (isGroup && !this._isGroupAddressedToBot(msg.message || {})) continue;
 
-        const senderId = normalizeWhatsAppId(sender);
-        const access = this._checkInboundAccess({
-          platform: 'whatsapp',
-          senderId,
+        const access = this._checkMessageAccess(msg, {
           chatId,
-          isDirect: !isGroup,
-          isShared: isGroup,
-          groupId: isGroup ? chatId : '',
-          phoneNumber: senderId,
-          wasMentioned: isGroup,
-        }, {
-          senderName: pushName || senderId,
-          meta: isGroup ? `Group: ${chatId}` : '',
-          groupLabel: chatId,
+          isGroup,
+          sender,
+          pushName,
         });
 
         if (!access.allowed) continue;
@@ -250,6 +259,16 @@ class WhatsAppPlatform extends BasePlatform {
           senderName: pushName,
           senderDisplayName: pushName || null,
           senderTag: normalizeWhatsAppId(sender) || sender,
+          wasMentioned,
+          repliedToAgent: Boolean(
+            msg.message?.extendedTextMessage?.contextInfo?.stanzaId
+            && msg.message?.extendedTextMessage?.contextInfo?.participant
+            && this._ownIds().has(normalizeWhatsAppId(
+              msg.message.extendedTextMessage.contextInfo.participant
+            ))
+          ),
+          replyToMessageId: msg.message?.extendedTextMessage?.contextInfo?.stanzaId || null,
+          groupId: isGroup ? chatId : null,
           content,
           mediaType,
           localMediaPath,

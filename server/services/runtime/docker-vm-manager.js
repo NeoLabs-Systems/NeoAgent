@@ -306,6 +306,15 @@ class DockerVMManager {
     return Boolean(session && isContainerRunning(session.containerId));
   }
 
+  // A side-effect-free snapshot for request-path capability reporting. Unlike
+  // hasVm(), this deliberately avoids a synchronous `docker inspect`, which can
+  // block the Node event loop. Tool execution still calls ensureVm() and performs
+  // the authoritative liveness check before using a tracked session.
+  hasTrackedVm(userId) {
+    const key = String(userId || '').trim();
+    return Boolean(key && this.instances.has(key));
+  }
+
   // Used by validation.js — cached to avoid docker calls on every status poll.
   getReadiness() {
     const now = Date.now();

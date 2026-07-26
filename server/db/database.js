@@ -1021,7 +1021,7 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
   const staleRunIds = db.prepare(
     `SELECT id
      FROM agent_runs
-     WHERE status = 'running'`
+     WHERE status IN ('running', 'pausing', 'paused', 'resuming')`
   ).all().map((row) => row.id);
   const runsResult = db.prepare(
     `UPDATE agent_runs
@@ -1029,7 +1029,7 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
          error = COALESCE(NULLIF(error, ''), ?),
          updated_at = datetime('now'),
          completed_at = COALESCE(completed_at, datetime('now'))
-     WHERE status = 'running'`
+     WHERE status IN ('running', 'pausing', 'paused', 'resuming')`
   ).run(normalizedReason);
 
   db.prepare(
@@ -1311,8 +1311,8 @@ function getMainAgentId(userId) {
        id, user_id, slug, display_name, description, responsibilities, instructions,
        is_default, can_delegate, can_be_delegated_to, delegate_targets_json
      )
-     VALUES (?, ?, 'main', 'Main', 'Default personal assistant and fallback agent.',
-       'Handle general requests and delegate to specialist agents only when there is a clear match.',
+     VALUES (?, ?, 'main', 'Main', 'Default personal AI contact and fallback agent.',
+       'Handle general requests like a proactive favorite contact and delegate to specialist agents only when there is a clear match.',
        '', 1, 1, 0, '[]'
      )`
   ).run(id, userId);

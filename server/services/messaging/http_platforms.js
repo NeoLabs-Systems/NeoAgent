@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const net = require('net');
 const tls = require('tls');
 const { BasePlatform } = require('./base');
+const { fetchResponseText } = require('../network/http');
 
 function requireText(value, label) {
   const text = String(value || '').trim();
@@ -51,14 +52,18 @@ function parseHeaders(value) {
 }
 
 async function fetchJson(url, options = {}, serviceName = 'Messaging platform') {
-  const response = await fetch(url, {
+  const { response, text } = await fetchResponseText(url, {
     ...options,
     headers: {
       ...(options.body == null ? {} : { 'content-type': 'application/json' }),
       ...(options.headers || {}),
     },
+    maxResponseBytes: Number(options.maxResponseBytes) > 0
+      ? Number(options.maxResponseBytes)
+      : 2 * 1024 * 1024,
+    serviceName,
+    timeoutMs: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 15000,
   });
-  const text = await response.text();
   let body = null;
   if (text) {
     try { body = JSON.parse(text); } catch { body = text; }
@@ -71,7 +76,13 @@ async function fetchJson(url, options = {}, serviceName = 'Messaging platform') 
       .replace(/https?:\/\/[^\s"'<>]+/gi, '[redacted-url]')
       .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*"[^"]*"/gi, '$1=[redacted]')
       .replace(/\b(token|access_token|refresh_token|authorization)\b\s*[:=]\s*[^,\s;"'}\]]+/gi, '$1=[redacted]');
-    throw new Error(`${serviceName} request failed (${response.status}): ${detail || response.statusText}`);
+    const error = new Error(
+      `${serviceName} request failed (${response.status}): ${detail || response.statusText}`,
+    );
+    error.status = response.status;
+    error.headers = response.headers;
+    error.safeToRetry = response.status === 429;
+    throw error;
   }
   return body;
 }
@@ -120,6 +131,12 @@ function genericMessageFromWebhook(platform, config, req) {
   const senderTag = jsonPath(body, config.senderTagPath || 'senderTag')
     || senderUsername
     || null;
+  const wasMentioned = config.mentionedPath
+    ? jsonPath(body, config.mentionedPath) === true
+    : body.wasMentioned === true;
+  const repliedToAgent = config.repliedToAgentPath
+    ? jsonPath(body, config.repliedToAgentPath) === true
+    : body.repliedToAgent === true;
 
   if (!String(content || '').trim()) return null;
   return {
@@ -132,6 +149,8 @@ function genericMessageFromWebhook(platform, config, req) {
     content: String(content),
     mediaType: null,
     isGroup: Boolean(config.groupByDefault) || String(chatId) !== String(sender),
+    wasMentioned,
+    repliedToAgent,
     messageId: jsonPath(body, config.messageIdPath || 'messageId') || crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     rawMessage: body,
@@ -173,7 +192,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
     };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     const urlTemplate = this.config.outboundUrl || this.config.webhookUrl || this.defaults.outboundUrl || this.defaults.webhookUrl;
     if (!urlTemplate) throw new Error(`${this.defaults.label || this.name} outbound URL is not configured`);
 
@@ -209,6 +228,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
       method: this.config.method || this.defaults.method || 'POST',
       headers,
       body: JSON.stringify(body),
+      signal: options.signal,
     }, this.defaults.label || this.name);
     return { success: true };
   }
@@ -229,7 +249,7 @@ class ConfigurableHttpPlatform extends BasePlatform {
       roomId: msg.isGroup ? String(msg.chatId || '') : '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned: msg.wasMentioned === true,
     }, {
       senderName: msg.senderName || null,
       meta: msg.isGroup ? `Chat: ${msg.chatId}` : '',
@@ -284,12 +304,13 @@ class SlackPlatform extends BasePlatform {
     return this._botUserId ? { username: this._botUserId } : null;
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (!this.botToken) throw new Error('Slack bot token is required for outbound messages');
     const result = await fetchJson('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.botToken}` },
       body: JSON.stringify({ channel: to, text: content }),
+      signal: options.signal,
     }, 'Slack');
     if (result && result.ok === false) throw new Error(`Slack post failed: ${result.error || 'unknown error'}`);
     return { success: true, ts: result?.ts };
@@ -332,9 +353,6 @@ class SlackPlatform extends BasePlatform {
     const isGroup = String(event.channel_type || '') !== 'im';
     const wasMentioned = event.type === 'app_mention'
       || (this._botUserId && String(event.text || '').includes(`<@${this._botUserId}>`));
-    if (isGroup && !wasMentioned) {
-      return { handled: true, status: 202, body: 'ignored' };
-    }
     const content = this._botUserId
       ? String(event.text).replace(new RegExp(`<@${this._botUserId}>`, 'g'), '').trim()
       : String(event.text);
@@ -352,8 +370,12 @@ class SlackPlatform extends BasePlatform {
       messageId: String(event.client_msg_id || event.ts || crypto.randomUUID()),
       timestamp: event.event_ts ? new Date(Number(event.event_ts) * 1000).toISOString() : new Date().toISOString(),
       threadTs: event.thread_ts || null,
+      threadId: event.thread_ts || null,
+      channelId: isGroup ? String(event.channel || '') : null,
+      groupId: isGroup ? String(event.channel || '') : null,
       rawMessage: body,
       wasMentioned,
+      repliedToAgent: Boolean(event.thread_ts && event.parent_user_id === this._botUserId),
     };
     const access = this._checkInboundAccess({
       platform: 'slack',
@@ -389,7 +411,10 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
     const body = req.body || {};
     const incoming = body.message || body;
     const content = incoming.argumentText || incoming.text || body.text;
+    const wasMentioned = Boolean(String(incoming.argumentText || '').trim());
     if (!content) return { handled: true, status: 202, body: 'ignored' };
+    const spaceType = String(incoming.space?.type || body.space?.type || '').toUpperCase();
+    const isGroup = spaceType !== 'DIRECT_MESSAGE';
     const message = {
       platform: 'google_chat',
       chatId: String(incoming.space?.name || body.space?.name || this.config.defaultTo || 'google_chat'),
@@ -399,7 +424,8 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
       senderTag: body.user?.name || incoming.sender?.name || null,
       content: String(content),
       mediaType: null,
-      isGroup: true,
+      isGroup,
+      wasMentioned,
       messageId: String(incoming.name || crypto.randomUUID()),
       timestamp: new Date().toISOString(),
       rawMessage: body,
@@ -408,15 +434,15 @@ class GoogleChatPlatform extends ConfigurableHttpPlatform {
       platform: 'google_chat',
       senderId: message.sender,
       chatId: message.chatId,
-      isDirect: false,
-      isShared: true,
+      isDirect: !isGroup,
+      isShared: isGroup,
       groupId: '',
       channelId: '',
       serverId: '',
-      roomId: message.chatId,
+      roomId: isGroup ? message.chatId : '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned,
     }, {
       senderName: message.senderName,
       meta: `Space: ${message.chatId}`,
@@ -438,6 +464,14 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
     const body = req.body || {};
     const content = body.text || body.message?.text || body.value?.text;
     if (!content) return { handled: true, status: 202, body: 'ignored' };
+    const recipientId = String(body.recipient?.id || '').trim();
+    const wasMentioned = recipientId
+      ? (Array.isArray(body.entities) ? body.entities : [])
+        .some((entity) => entity?.type === 'mention' && String(entity.mentioned?.id || '') === recipientId)
+      : false;
+    const isGroup = typeof body.conversation?.isGroup === 'boolean'
+      ? body.conversation.isGroup
+      : true;
     const message = {
       platform: 'teams',
       chatId: String(body.conversation?.id || body.channelData?.channel?.id || this.config.defaultTo || 'teams'),
@@ -447,7 +481,8 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       senderTag: body.from?.id || null,
       content: String(content).replace(/<[^>]+>/g, '').trim(),
       mediaType: null,
-      isGroup: true,
+      isGroup,
+      wasMentioned,
       messageId: String(body.id || crypto.randomUUID()),
       timestamp: body.timestamp || new Date().toISOString(),
       rawMessage: body,
@@ -456,15 +491,15 @@ class TeamsPlatform extends ConfigurableHttpPlatform {
       platform: 'teams',
       senderId: message.sender,
       chatId: message.chatId,
-      isDirect: false,
-      isShared: true,
+      isDirect: !isGroup,
+      isShared: isGroup,
       groupId: '',
-      channelId: message.chatId,
+      channelId: isGroup ? message.chatId : '',
       serverId: '',
       roomId: '',
       roleIds: [],
       phoneNumber: '',
-      wasMentioned: false,
+      wasMentioned,
     }, {
       senderName: message.senderName,
       meta: `Conversation: ${message.chatId}`,
@@ -550,8 +585,8 @@ class MatrixPlatform extends BasePlatform {
         if (event.sender && this.userId && event.sender === this.userId) continue;
         const content = event.content?.body || '';
         if (!content) continue;
-        if (this.userId && !content.includes(this.userId)) continue;
-        const cleanContent = this.userId
+        const wasMentioned = this.userId ? String(content).includes(this.userId) : false;
+        const cleanContent = wasMentioned
           ? String(content).replaceAll(this.userId, '').trim()
           : String(content);
         if (!cleanContent) continue;
@@ -565,6 +600,7 @@ class MatrixPlatform extends BasePlatform {
           content: cleanContent,
           mediaType: null,
           isGroup: true,
+          wasMentioned,
           messageId: String(event.event_id || crypto.randomUUID()),
           timestamp: event.origin_server_ts ? new Date(event.origin_server_ts).toISOString() : new Date().toISOString(),
           rawMessage: event,
@@ -581,7 +617,7 @@ class MatrixPlatform extends BasePlatform {
           roomId: roomId,
           roleIds: [],
           phoneNumber: '',
-          wasMentioned: this.userId ? String(content).includes(this.userId) : false,
+          wasMentioned,
         }, {
           senderName: message.senderName,
           meta: `Room: ${roomId}`,
@@ -593,12 +629,13 @@ class MatrixPlatform extends BasePlatform {
     }
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.status !== 'connected') throw new Error('Matrix not connected');
     const txnId = encodeURIComponent(crypto.randomUUID());
     await this.#matrix(`/rooms/${encodeURIComponent(to)}/send/m.room.message/${txnId}`, {
       method: 'PUT',
       body: JSON.stringify({ msgtype: 'm.text', body: content }),
+      signal: options.signal,
     });
     return { success: true };
   }
@@ -618,9 +655,9 @@ class BlueBubblesPlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.config.outboundUrl || this.config.webhookUrl) {
-      return super.sendMessage(to, content);
+      return super.sendMessage(to, content, options);
     }
     const url = new URL(`${this.serverUrl}${this.config.sendPath || '/api/v1/message/text'}`);
     url.searchParams.set('guid', to);
@@ -629,6 +666,7 @@ class BlueBubblesPlatform extends ConfigurableHttpPlatform {
     await fetchJson(url.toString(), {
       method: 'POST',
       body: JSON.stringify({ message: content }),
+      signal: options.signal,
     }, this.defaults.label);
     return { success: true };
   }
@@ -676,16 +714,37 @@ class SignalPlatform extends ConfigurableHttpPlatform {
       const dataMessage = envelope.dataMessage || {};
       const content = dataMessage.message || '';
       if (!content) continue;
+      const groupId = String(
+        dataMessage.groupInfo?.groupId
+        || dataMessage.groupInfo?.groupIdV2
+        || dataMessage.groupInfo?.id
+        || '',
+      );
+      const isGroup = Boolean(dataMessage.groupInfo);
+      const senderId = String(envelope.sourceNumber || envelope.source || 'signal');
+      const mentionedSelf = (Array.isArray(dataMessage.mentions) ? dataMessage.mentions : [])
+        .some((mention) => [
+          mention?.number,
+          mention?.uuid,
+          mention?.aci,
+        ].map(String).includes(String(this.account)));
+      const repliedToAgent = [
+        dataMessage.quote?.authorNumber,
+        dataMessage.quote?.author,
+        dataMessage.quote?.authorUuid,
+      ].map(String).includes(String(this.account));
       const message = {
         platform: 'signal',
-        chatId: String(envelope.sourceNumber || envelope.source || 'signal'),
-        sender: String(envelope.sourceNumber || envelope.source || 'signal'),
+        chatId: groupId || senderId,
+        sender: senderId,
         senderName: envelope.sourceName || null,
         senderDisplayName: envelope.sourceName || null,
         senderTag: envelope.sourceNumber || envelope.source || null,
         content: String(content),
         mediaType: null,
-        isGroup: Boolean(dataMessage.groupInfo),
+        isGroup,
+        wasMentioned: Boolean(mentionedSelf),
+        repliedToAgent: Boolean(repliedToAgent),
         messageId: String(envelope.timestamp || crypto.randomUUID()),
         timestamp: envelope.timestamp ? new Date(Number(envelope.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: item,
@@ -696,13 +755,13 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         chatId: message.chatId,
         isDirect: !message.isGroup,
         isShared: message.isGroup,
-        groupId: message.isGroup ? message.chatId : '',
+        groupId: message.isGroup ? (groupId || message.chatId) : '',
         channelId: '',
         serverId: '',
         roomId: '',
         roleIds: [],
         phoneNumber: message.sender,
-        wasMentioned: false,
+        wasMentioned: message.wasMentioned,
       }, {
         senderName: message.senderName,
         meta: message.isGroup ? `Group: ${message.chatId}` : '',
@@ -713,9 +772,9 @@ class SignalPlatform extends ConfigurableHttpPlatform {
     }
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (this.config.outboundUrl || this.config.webhookUrl) {
-      return super.sendMessage(to, content);
+      return super.sendMessage(to, content, options);
     }
     await fetchJson(`${this.restUrl}/v2/send`, {
       method: 'POST',
@@ -724,6 +783,7 @@ class SignalPlatform extends ConfigurableHttpPlatform {
         number: this.account,
         recipients: [to],
       }),
+      signal: options.signal,
     }, 'Signal');
     return { success: true };
   }
@@ -743,7 +803,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     const token = requireText(this.config.channelAccessToken || this.config.token, 'LINE channel access token');
     await fetchJson('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
@@ -752,6 +812,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
         to,
         messages: [{ type: 'text', text: content }],
       }),
+      signal: options.signal,
     }, 'LINE');
     return { success: true };
   }
@@ -771,6 +832,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
         content: String(content),
         mediaType: null,
         isGroup: Boolean(event.source?.groupId || event.source?.roomId),
+        wasMentioned: false,
         messageId: String(event.message?.id || event.webhookEventId || crypto.randomUUID()),
         timestamp: event.timestamp ? new Date(Number(event.timestamp)).toISOString() : new Date().toISOString(),
         rawMessage: event,
@@ -815,14 +877,17 @@ class MattermostPlatform extends ConfigurableHttpPlatform {
     return { status: 'connected' };
   }
 
-  async sendMessage(to, content) {
-    if (this.config.webhookUrl || this.config.outboundUrl) return super.sendMessage(to, content);
+  async sendMessage(to, content, options = {}) {
+    if (this.config.webhookUrl || this.config.outboundUrl) {
+      return super.sendMessage(to, content, options);
+    }
     const baseUrl = trimTrailingSlash(this.config.baseUrl);
     const token = requireText(this.config.token, 'Mattermost token');
     await fetchJson(`${baseUrl}/api/v4/posts`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({ channel_id: to, message: content }),
+      signal: options.signal,
     }, 'Mattermost');
     return { success: true };
   }
@@ -930,11 +995,10 @@ class IrcPlatform extends BasePlatform {
       const [, nick, target, content] = match;
       if (nick === this.nick) continue;
       const isGroup = target.startsWith('#');
-      if (isGroup) {
-        const escaped = this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        if (!new RegExp(`(^|\\s)${escaped}[:,]?\\b`, 'i').test(content)) continue;
-      }
-      const cleanContent = isGroup
+      const escapedNick = this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wasMentioned = isGroup
+        && new RegExp(`(^|\\s)${escapedNick}[:,]?\\b`, 'i').test(content);
+      const cleanContent = wasMentioned
         ? content.replace(new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[:,]?\\s*`, 'i'), ' ').trim()
         : content;
       if (!cleanContent) continue;
@@ -948,6 +1012,7 @@ class IrcPlatform extends BasePlatform {
         content: cleanContent,
         mediaType: null,
         isGroup,
+        wasMentioned,
         messageId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
       };
@@ -963,7 +1028,7 @@ class IrcPlatform extends BasePlatform {
         roomId: '',
         roleIds: [],
         phoneNumber: '',
-        wasMentioned: !isGroup || new RegExp(`(^|\\s)${this.nick.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}[:,]?\\b`, 'i').test(content),
+        wasMentioned,
       }, {
         senderName: nick,
         meta: isGroup ? `Channel: ${target}` : '',

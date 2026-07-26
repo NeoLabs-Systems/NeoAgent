@@ -1,17 +1,14 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('../../../../runtime/paths');
+const { writeBufferAtomic } = require('../../../utils/files');
+const { decodeBase64Image } = require('../../../utils/image_payload');
 const { EXTENSION_COMMANDS, ExtensionBrowserUnavailableError } = require('./protocol');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
-
-function extractBase64Png(value) {
-  const text = String(value || '');
-  if (!text) return null;
-  const match = text.match(/^data:image\/png;base64,(.+)$/);
-  return match ? match[1] : text;
-}
 
 class ExtensionBrowserProvider {
   constructor(options = {}) {
@@ -31,11 +28,18 @@ class ExtensionBrowserProvider {
 
   async #dispatch(command, payload = {}, options = {}) {
     this.#assertReady();
-    const result = await this.registry.dispatch(this.userId, command, payload, {
+    const safePayload = { ...(payload || {}) };
+    const signal = options.signal || safePayload.signal || null;
+    const timeoutMs = options.timeoutMs ?? safePayload.timeoutMs;
+    delete safePayload.signal;
+    delete safePayload.timeoutMs;
+    const result = await this.registry.dispatch(this.userId, command, safePayload, {
       ...options,
+      signal,
+      timeoutMs,
       tokenId: options.tokenId || this.tokenId,
     });
-    return this.#materialize(result);
+    return this.#materialize(result, { signal });
   }
 
   #disconnect() {
@@ -46,18 +50,17 @@ class ExtensionBrowserProvider {
     }
   }
 
-  #writeScreenshotArtifact(base64) {
-    const buffer = Buffer.from(base64, 'base64');
+  async #writeScreenshotArtifact(image, options = {}) {
     if (this.artifactStore && this.userId != null) {
-      const artifact = this.artifactStore.allocateFile(this.userId, {
+      const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
         kind: 'browser-screenshot',
         backend: 'extension',
-        extension: 'png',
-        contentType: 'image/png',
+        extension: image.extension,
+        contentType: image.contentType,
         filenameBase: 'browser-extension-screenshot',
+        content: image.buffer,
+        signal: options.signal,
       });
-      fs.writeFileSync(artifact.storagePath, buffer);
-      this.artifactStore.finalizeFile(artifact.artifactId, artifact.storagePath);
       return {
         screenshotPath: artifact.url,
         artifactId: artifact.artifactId,
@@ -68,7 +71,7 @@ class ExtensionBrowserProvider {
 
     const filename = `browser_extension_${Date.now()}_${Math.random().toString(16).slice(2)}.png`;
     const fullPath = path.join(SCREENSHOTS_DIR, filename);
-    fs.writeFileSync(fullPath, buffer);
+    await writeBufferAtomic(fullPath, image.buffer, { signal: options.signal });
     return {
       screenshotPath: `/screenshots/${filename}`,
       artifactId: null,
@@ -77,13 +80,12 @@ class ExtensionBrowserProvider {
     };
   }
 
-  #materialize(result) {
+  async #materialize(result, options = {}) {
     if (!result || typeof result !== 'object') return result;
     const raw = result.screenshotDataUrl || result.screenshotData || result.screenshotBase64;
     if (!raw) return result;
-    const base64 = extractBase64Png(raw);
-    if (!base64) return result;
-    const screenshot = this.#writeScreenshotArtifact(base64);
+    const image = decodeBase64Image(raw, { allowedTypes: ['image/png'] });
+    const screenshot = await this.#writeScreenshotArtifact(image, options);
     const next = { ...result, ...screenshot };
     delete next.screenshotDataUrl;
     delete next.screenshotData;
@@ -92,77 +94,100 @@ class ExtensionBrowserProvider {
   }
 
   navigate(url, options = {}) {
-    return this.#dispatch(EXTENSION_COMMANDS.NAVIGATE, { url, ...options });
+    return this.#dispatch(EXTENSION_COMMANDS.NAVIGATE, { url, ...options }, options);
   }
 
-  click(selector, text, screenshot = true) {
-    return this.#dispatch(EXTENSION_COMMANDS.CLICK, { selector, text, screenshot });
+  click(selector, text, screenshot = true, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.CLICK, { selector, text, screenshot }, options);
   }
 
-  clickPoint(x, y, screenshot = true) {
-    return this.#dispatch(EXTENSION_COMMANDS.CLICK_POINT, { x, y, screenshot });
+  clickPoint(x, y, screenshot = true, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.CLICK_POINT, { x, y, screenshot }, options);
   }
 
   type(selector, text, options = {}) {
-    return this.#dispatch(EXTENSION_COMMANDS.TYPE, { selector, text, ...options });
+    return this.#dispatch(EXTENSION_COMMANDS.TYPE, { selector, text, ...options }, options);
   }
 
   typeText(text, options = {}) {
-    return this.#dispatch(EXTENSION_COMMANDS.TYPE_TEXT, { text, ...options });
+    return this.#dispatch(EXTENSION_COMMANDS.TYPE_TEXT, { text, ...options }, options);
   }
 
-  pressKey(key, screenshot = true) {
-    return this.#dispatch(EXTENSION_COMMANDS.PRESS_KEY, { key, screenshot });
+  pressKey(key, screenshot = true, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.PRESS_KEY, { key, screenshot }, options);
   }
 
-  scroll(deltaX = 0, deltaY = 0, screenshot = true) {
-    return this.#dispatch(EXTENSION_COMMANDS.SCROLL, { deltaX, deltaY, screenshot });
+  scroll(deltaX = 0, deltaY = 0, screenshot = true, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.SCROLL, { deltaX, deltaY, screenshot }, options);
   }
 
-  extract(selector, attribute, all = false) {
-    return this.#dispatch(EXTENSION_COMMANDS.EXTRACT, { selector, attribute, all });
+  extract(selector, attribute, all = false, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.EXTRACT, { selector, attribute, all }, options);
   }
 
-  evaluate(script) {
-    return this.#dispatch(EXTENSION_COMMANDS.EVALUATE, { script });
+  evaluate(script, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.EVALUATE, { script }, options);
   }
 
   screenshot(options = {}) {
-    return this.#dispatch(EXTENSION_COMMANDS.SCREENSHOT, options);
+    return this.#dispatch(EXTENSION_COMMANDS.SCREENSHOT, options, options);
   }
 
   launch(options = {}) {
-    return this.#dispatch(EXTENSION_COMMANDS.LAUNCH, options);
+    return this.#dispatch(EXTENSION_COMMANDS.LAUNCH, options, options);
   }
 
-  async closeBrowser() {
+  async closeBrowser(options = {}) {
     if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId, this.tokenId)) {
       return { success: true, extensionConnected: false };
     }
-    const result = await this.#dispatch(EXTENSION_COMMANDS.CLOSE, {});
+    const result = await this.#dispatch(EXTENSION_COMMANDS.CLOSE, {}, options);
     this.#disconnect();
     return { ...result, success: result?.success !== false, extensionConnected: false };
   }
 
-  fill(selector, value) {
-    return this.type(selector, String(value));
+  fill(selector, value, options = {}) {
+    return this.type(selector, String(value), options);
+  }
+
+  fillCredential(input, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.FILL_CREDENTIAL, input, options);
+  }
+
+  submitProtectedCredential(protectedFillId, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.SUBMIT_CREDENTIAL, { protectedFillId }, options);
+  }
+
+  cancelProtectedCredential(protectedFillId, options = {}) {
+    return this.#dispatch(EXTENSION_COMMANDS.CANCEL_CREDENTIAL, { protectedFillId }, options);
   }
 
   extractContent(options = {}) {
-    return this.extract(options.selector, options.attribute, options.all);
+    return this.extract(options.selector, options.attribute, options.all, options);
   }
 
-  executeJS(code) {
-    return this.evaluate(code);
+  executeJS(code, options = {}) {
+    return this.evaluate(code, options);
   }
 
-  async getPageInfo() {
+  async getPageInfo(options = {}) {
     if (!this.registry || this.userId == null || !this.registry.isConnected(this.userId, this.tokenId)) {
       return { url: null, title: null, extensionConnected: false };
     }
     return this.registry.dispatch(this.userId, EXTENSION_COMMANDS.GET_PAGE_INFO, {}, {
       tokenId: this.tokenId,
+      signal: options.signal,
     });
+  }
+
+  async getCookies(options = {}) {
+    const pageInfo = await this.getPageInfo(options);
+    let hostname = '';
+    try { hostname = new URL(String(pageInfo?.url || '')).hostname; } catch {}
+    if (!hostname) return { cookies: [], domains: [] };
+    return this.#dispatch(EXTENSION_COMMANDS.GET_COOKIES, {
+      domains: [hostname],
+    }, options);
   }
 
   isLaunched() {
@@ -181,5 +206,4 @@ class ExtensionBrowserProvider {
 
 module.exports = {
   ExtensionBrowserProvider,
-  extractBase64Png,
 };

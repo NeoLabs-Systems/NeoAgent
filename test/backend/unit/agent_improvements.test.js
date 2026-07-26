@@ -184,6 +184,34 @@ test('loop policy keeps the iteration ceiling high and relies on the read-only n
   assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
 });
 
+test('loop policy supports bounded agent settings and per-run overrides', () => {
+  const configured = buildLoopPolicy({
+    max_iterations: 320,
+    max_consecutive_read_only_iterations: 14,
+    max_consecutive_tool_failures: 12,
+    max_model_failure_recoveries: 7,
+    compaction_threshold: 0.72,
+  });
+  assert.equal(configured.maxIterations, 320);
+  assert.equal(configured.maxConsecutiveReadOnlyIterations, 14);
+  assert.equal(configured.maxConsecutiveToolFailures, 12);
+  assert.equal(configured.maxModelFailureRecoveries, 7);
+  assert.equal(configured.compactionThreshold, 0.72);
+
+  const overridden = buildLoopPolicy(configured, 'messaging', 'execute', {
+    maxIterations: 350,
+    maxConsecutiveReadOnlyIterations: 18,
+    maxConsecutiveToolFailures: 16,
+    maxModelFailureRecoveries: 9,
+    compactionThreshold: 0.9,
+  });
+  assert.equal(overridden.maxIterations, 350);
+  assert.equal(overridden.maxConsecutiveReadOnlyIterations, 18);
+  assert.equal(overridden.maxConsecutiveToolFailures, 16);
+  assert.equal(overridden.maxModelFailureRecoveries, 9);
+  assert.equal(overridden.compactionThreshold, 0.9);
+});
+
 test('create_task accepts schedule config as object, JSON string, or bare cron', () => {
   // Canonical object shape.
   const obj = resolveTaskTriggerArgs({

@@ -3,6 +3,7 @@
 const { getProviderRuntimeConfig } = require('../ai/models');
 const { resolveSttModel, transcribeVoiceInput } = require('./providers');
 const { writeTempAudioFile, removeTempFile } = require('./liveAudio');
+const { createAbortError } = require('../../utils/abort');
 
 const DEFAULT_PARTIAL_DEBOUNCE_MS = 700;
 const DEFAULT_MIN_PARTIAL_BYTES = 8000;
@@ -68,6 +69,7 @@ class BufferedLiveRelayAdapter {
         userId: session.userId,
         agentId: session.agentId,
         timeoutMs: 20000,
+        signal: session.signal,
       });
     } finally {
       // Release buffered audio immediately after commit so completed turns do
@@ -99,6 +101,7 @@ class BufferedLiveRelayAdapter {
           userId: session.userId,
           agentId: session.agentId,
           timeoutMs: 6000,
+          signal: session.signal,
         });
         if (transcript) {
           await session.publishTranscriptPartial(transcript);
@@ -136,9 +139,11 @@ class BufferedLiveRelayAdapter {
             apiKey: attempt.apiKey,
             baseUrl: attempt.baseUrl,
             timeoutMs: options.timeoutMs,
+            signal: options.signal,
           });
           return String(transcript || '').trim();
         } catch (error) {
+          if (options.signal?.aborted) throw createAbortError(options.signal);
           lastError = error;
         }
       }

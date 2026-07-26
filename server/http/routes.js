@@ -11,6 +11,7 @@ const routeRegistry = [
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
+  { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },
   { basePath: '/api/messaging', modulePath: '../routes/messaging' },
@@ -56,6 +57,13 @@ function registerApiRoutes(app) {
   if (isBillingEnabled()) {
     app.use('/api/billing/webhook', require('../routes/billing_webhook'));
     app.use('/api/billing', require('../routes/billing'));
+  } else {
+    // The Flutter client probes this public endpoint to decide whether to show
+    // billing. Return an explicit disabled state instead of generating a noisy
+    // 404 on every client startup.
+    app.get('/api/billing/plans', (_req, res) => {
+      res.json({ enabled: false, plans: null });
+    });
   }
 
   setupTelnyxWebhook(app);
@@ -185,24 +193,22 @@ function registerApiRoutes(app) {
   app.get('/api/system/test/cli', requireAuth, async (req, res) => {
     const userId = req.session?.userId;
     const runtimeManager = req.app?.locals?.runtimeManager;
-    if (!runtimeManager || typeof runtimeManager.executeCommand !== 'function') {
+    if (!runtimeManager || typeof runtimeManager.executeCliCommand !== 'function') {
       return res.json({ passed: false, backendUsed: 'vm', detail: 'Runtime not configured on this server.' });
     }
-    // Note: executeCommand always routes through the VM backend regardless of
-    // the cli_backend setting — desktop CLI routing is not yet implemented.
     try {
-      const result = await runtimeManager.executeCommand(userId, 'echo "cli_test_ok"', { timeout: 15000 });
+      const result = await runtimeManager.executeCliCommand(userId, 'echo "cli_test_ok"', { timeout: 15000 });
       const exitOk = result?.exitCode === 0;
       const outputOk = String(result?.stdout || '').includes('cli_test_ok');
       return res.json({
         passed: exitOk && outputOk,
-        backendUsed: 'vm',
+        backendUsed: result?.backend || 'unknown',
         detail: exitOk && outputOk
           ? 'Command executed successfully'
           : `Exit ${result?.exitCode ?? '?'}: ${String(result?.stderr || result?.stdout || '').slice(0, 120)}`,
       });
     } catch (err) {
-      return res.json({ passed: false, backendUsed: 'vm', detail: String(err?.message || err).slice(0, 120) });
+      return res.json({ passed: false, backendUsed: 'unknown', detail: String(err?.message || err).slice(0, 120) });
     }
   });
 

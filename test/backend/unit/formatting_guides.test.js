@@ -86,6 +86,18 @@ describe('normalizeOutgoingMessageForPlatform', () => {
     assert.ok(!result.includes('+ '));
   });
 
+  it('converts literal newline tokens for whatsapp', () => {
+    const input = 'first line /n second line\\nthird line';
+    const result = normalizeOutgoingMessageForPlatform('whatsapp', input);
+    assert.equal(result, 'first line\nsecond line\nthird line');
+  });
+
+  it('does not convert slash-n at the start of a word for whatsapp', () => {
+    const input = 'See https://example.com/news for details';
+    const result = normalizeOutgoingMessageForPlatform('whatsapp', input);
+    assert.equal(result, input);
+  });
+
   it('strips bold markdown for telnyx spoken output', () => {
     const result = normalizeOutgoingMessageForPlatform('telnyx', '**important** word');
     assert.ok(!result.includes('**'));

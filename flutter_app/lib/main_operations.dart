@@ -505,8 +505,10 @@ class _SkillsPanelState extends State<SkillsPanel>
 
   // Installed tab search & filter state
   String _installedQuery = '';
-  String _installedStatusFilter = 'all'; // 'all' | 'active' | 'draft' | 'disabled'
-  String _installedSourceFilter = 'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
+  String _installedStatusFilter =
+      'all'; // 'all' | 'active' | 'draft' | 'disabled'
+  String _installedSourceFilter =
+      'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
   late final TextEditingController _installedSearchController;
 
   @override
@@ -645,18 +647,36 @@ class _SkillsPanelState extends State<SkillsPanel>
       final q = _installedQuery;
       if (q.isNotEmpty &&
           !skill.name.toLowerCase().contains(q) &&
-          !skill.description.toLowerCase().contains(q)) return false;
-      if (_installedStatusFilter != 'all') {
-        if (_installedStatusFilter == 'active' && (!skill.enabled || skill.draft)) return false;
-        if (_installedStatusFilter == 'draft' && !skill.draft) return false;
-        if (_installedStatusFilter == 'disabled' && skill.enabled) return false;
+          !skill.description.toLowerCase().contains(q)) {
+        return false;
       }
-      if (_installedSourceFilter != 'all' && skill.source != _installedSourceFilter) return false;
+      if (_installedStatusFilter != 'all') {
+        if (_installedStatusFilter == 'active' &&
+            (!skill.enabled || skill.draft)) {
+          return false;
+        }
+        if (_installedStatusFilter == 'draft' && !skill.draft) {
+          return false;
+        }
+        if (_installedStatusFilter == 'disabled' && skill.enabled) {
+          return false;
+        }
+      }
+      if (_installedSourceFilter != 'all' &&
+          skill.source != _installedSourceFilter) {
+        return false;
+      }
       return true;
     }).toList();
 
     final statusFilters = <String>['all', 'active', 'draft', 'disabled'];
-    final sourceFilters = <String>['all', 'built-in', 'learned', 'user', 'store'];
+    final sourceFilters = <String>[
+      'all',
+      'built-in',
+      'learned',
+      'user',
+      'store',
+    ];
 
     return Card(
       child: Column(
@@ -757,157 +777,174 @@ class _SkillsPanelState extends State<SkillsPanel>
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final skill = filteredSkills[index];
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 760;
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: compact
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  skill.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                              Switch(
-                                value: skill.enabled,
-                                onChanged: (value) => controller
-                                    .setSkillEnabled(skill.name, value),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            skill.description.ifEmpty('No description'),
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: <Widget>[
-                              _MetaPill(
-                                label: skill.category,
-                                icon: Icons.folder_outlined,
-                              ),
-                              _MetaPill(
-                                label: skill.source,
-                                icon: Icons.source_outlined,
-                              ),
-                              if (skill.draft)
-                                const _MetaPill(
-                                  label: 'Draft',
-                                  icon: Icons.edit_note_outlined,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: <Widget>[
-                              const Spacer(),
-                              OutlinedButton(
-                                onPressed: () =>
-                                    _openSkillEditor(context, skill.name),
-                                child: Text('Open'),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _confirmDeleteSkill(context, skill.name),
-                                icon: Icon(Icons.delete_outline),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _danger,
-                                ),
-                                label: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  skill.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  skill.description.ifEmpty('No description'),
-                                  style: TextStyle(color: _textSecondary),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: <Widget>[
-                                    _MetaPill(
-                                      label: skill.category,
-                                      icon: Icons.folder_outlined,
-                                    ),
-                                    _MetaPill(
-                                      label: skill.source,
-                                      icon: Icons.source_outlined,
-                                    ),
-                                    if (skill.draft)
-                                      const _MetaPill(
-                                        label: 'Draft',
-                                        icon: Icons.edit_note_outlined,
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 760;
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _border),
+                        ),
+                        child: compact
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Row(
+                                    children: <Widget>[
+                                      Expanded(
+                                        child: Text(
+                                          skill.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
                                       ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            children: <Widget>[
-                              Switch(
-                                value: skill.enabled,
-                                onChanged: (value) => controller
-                                    .setSkillEnabled(skill.name, value),
+                                      Switch(
+                                        value: skill.enabled,
+                                        onChanged: (value) => controller
+                                            .setSkillEnabled(skill.name, value),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    skill.description.ifEmpty('No description'),
+                                    style: TextStyle(color: _textSecondary),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      _MetaPill(
+                                        label: skill.category,
+                                        icon: Icons.folder_outlined,
+                                      ),
+                                      _MetaPill(
+                                        label: skill.source,
+                                        icon: Icons.source_outlined,
+                                      ),
+                                      if (skill.draft)
+                                        const _MetaPill(
+                                          label: 'Draft',
+                                          icon: Icons.edit_note_outlined,
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: <Widget>[
+                                      const Spacer(),
+                                      OutlinedButton(
+                                        onPressed: () => _openSkillEditor(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        child: Text('Open'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        onPressed: () => _confirmDeleteSkill(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        icon: Icon(Icons.delete_outline),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _danger,
+                                        ),
+                                        label: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          skill.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          skill.description.ifEmpty(
+                                            'No description',
+                                          ),
+                                          style: TextStyle(
+                                            color: _textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: <Widget>[
+                                            _MetaPill(
+                                              label: skill.category,
+                                              icon: Icons.folder_outlined,
+                                            ),
+                                            _MetaPill(
+                                              label: skill.source,
+                                              icon: Icons.source_outlined,
+                                            ),
+                                            if (skill.draft)
+                                              const _MetaPill(
+                                                label: 'Draft',
+                                                icon: Icons.edit_note_outlined,
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    children: <Widget>[
+                                      Switch(
+                                        value: skill.enabled,
+                                        onChanged: (value) => controller
+                                            .setSkillEnabled(skill.name, value),
+                                      ),
+                                      OutlinedButton(
+                                        onPressed: () => _openSkillEditor(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        child: Text('Open'),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextButton.icon(
+                                        onPressed: () => _confirmDeleteSkill(
+                                          context,
+                                          skill.name,
+                                        ),
+                                        icon: Icon(Icons.delete_outline),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _danger,
+                                        ),
+                                        label: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              OutlinedButton(
-                                onPressed: () =>
-                                    _openSkillEditor(context, skill.name),
-                                child: Text('Open'),
-                              ),
-                              const SizedBox(height: 6),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _confirmDeleteSkill(context, skill.name),
-                                icon: Icon(Icons.delete_outline),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _danger,
-                                ),
-                                label: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-              );
-            },
-          );
+                      );
+                    },
+                  );
                 },
               ),
             ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   Widget _buildStoreTab(
@@ -1465,8 +1502,9 @@ class _MemoryPanelState extends State<MemoryPanel>
       );
       if (!mounted) return;
       _llmImportController.clear();
-      final warningText =
-          result.warnings.isEmpty ? '' : ' ${result.warnings.join(' ')}';
+      final warningText = result.warnings.isEmpty
+          ? ''
+          : ' ${result.warnings.join(' ')}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1494,9 +1532,7 @@ class _MemoryPanelState extends State<MemoryPanel>
         : controller.memories;
     if (_entityFilter == null) return base;
     return base
-        .where(
-          (m) => m.entities.any((e) => e.name == _entityFilter),
-        )
+        .where((m) => m.entities.any((e) => e.name == _entityFilter))
         .toList();
   }
 
@@ -1588,7 +1624,10 @@ class _MemoryPanelState extends State<MemoryPanel>
     });
   }
 
-  void _openRetrievalInspector(BuildContext context, NeoAgentController controller) {
+  void _openRetrievalInspector(
+    BuildContext context,
+    NeoAgentController controller,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RetrievalInspectorView(controller: controller),
@@ -1603,7 +1642,8 @@ class _MemoryPanelState extends State<MemoryPanel>
     final memoriesToShow = _visibleMemories;
     final selectedIds = _selectedVisibleMemoryIds.toSet();
     final selectedCount = selectedIds.length;
-    final allVisibleSelected = memoriesToShow.isNotEmpty &&
+    final allVisibleSelected =
+        memoriesToShow.isNotEmpty &&
         memoriesToShow.every((m) => selectedIds.contains(m.id));
     final showingSearchResults = controller.memoryRecallResults.isNotEmpty;
     final compact = MediaQuery.sizeOf(context).width < 760;
@@ -1623,11 +1663,6 @@ class _MemoryPanelState extends State<MemoryPanel>
                 icon: Icon(Icons.bug_report_outlined),
                 label: Text('Inspect'),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _openBehaviorNotesEditor(context, controller),
-                icon: Icon(Icons.edit_outlined),
-                label: Text('Behavior Notes'),
-              ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
                 icon: Icon(Icons.add),
@@ -1644,9 +1679,7 @@ class _MemoryPanelState extends State<MemoryPanel>
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: <Widget>[
-                  _MemoryConfidenceGauge(
-                    confidence: stats.averageConfidence,
-                  ),
+                  _MemoryConfidenceGauge(confidence: stats.averageConfidence),
                   const SizedBox(width: 18),
                   Expanded(
                     child: Wrap(
@@ -1705,9 +1738,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Expanded(
-                          child: const _SectionTitle('Knowledge Graph'),
-                        ),
+                        Expanded(child: const _SectionTitle('Knowledge Graph')),
                         if (_entityFilter != null)
                           TextButton.icon(
                             onPressed: () =>
@@ -1720,10 +1751,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                     const SizedBox(height: 4),
                     Text(
                       'Tap an entity to filter memories by it.',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
@@ -1857,15 +1885,16 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
-                                  crossAxisAlignment:
-                                      WrapCrossAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: <Widget>[
                                     OutlinedButton.icon(
-                                      onPressed: allVisibleSelected ||
+                                      onPressed:
+                                          allVisibleSelected ||
                                               _bulkActionInFlight
                                           ? null
                                           : () => _selectAllVisibleMemories(
-                                              memoriesToShow),
+                                              memoriesToShow,
+                                            ),
                                       icon: Icon(
                                         Icons.done_all_outlined,
                                         size: 16,
@@ -1903,9 +1932,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.archive_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(
-                                          'Archive ($selectedCount)',
-                                        ),
+                                        label: Text('Archive ($selectedCount)'),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: _bulkActionInFlight
@@ -1923,9 +1950,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.delete_sweep_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(
-                                          'Delete ($selectedCount)',
-                                        ),
+                                        label: Text('Delete ($selectedCount)'),
                                       ),
                                     ],
                                   ],
@@ -1941,8 +1966,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 )
                               else
                                 ...memoriesToShow.map((memory) {
-                                  final isSelected =
-                                      selectedIds.contains(memory.id);
+                                  final isSelected = selectedIds.contains(
+                                    memory.id,
+                                  );
                                   return _MemoryRow(
                                     memory: memory,
                                     isSelected: isSelected,
@@ -1950,8 +1976,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       memory.id,
                                       !isSelected,
                                     ),
-                                    onCheck: (value) =>
-                                        _toggleMemorySelection(
+                                    onCheck: (value) => _toggleMemorySelection(
                                       memory.id,
                                       value ?? false,
                                     ),
@@ -1964,9 +1989,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                                 'This memory will be removed permanently.',
                                             onConfirm: () =>
                                                 _deleteSingleMemory(
-                                              controller,
-                                              memory.id,
-                                            ),
+                                                  controller,
+                                                  memory.id,
+                                                ),
                                           ),
                                   );
                                 }),
@@ -1985,9 +2010,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   Expanded(
                                     child: Text(
                                       'Key-value pairs that persist across conversations.',
-                                      style: TextStyle(
-                                        color: _textSecondary,
-                                      ),
+                                      style: TextStyle(color: _textSecondary),
                                     ),
                                   ),
                                   TextButton.icon(
@@ -2001,75 +2024,75 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              if (controller
-                                  .memoryOverview.coreEntries.isEmpty)
+                              if (controller.memoryOverview.coreEntries.isEmpty)
                                 Text(
                                   'No core memory entries yet.',
                                   style: TextStyle(color: _textSecondary),
                                 )
                               else
-                                ...controller.memoryOverview.coreEntries
-                                    .entries
+                                ...controller.memoryOverview.coreEntries.entries
                                     .map((entry) {
-                                  return Container(
-                                    width: double.infinity,
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: _bgSecondary,
-                                      borderRadius:
-                                          BorderRadius.circular(12),
-                                      border: Border.all(color: _border),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Text(
-                                                entry.key,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                entry.value.toString(),
-                                              ),
-                                            ],
-                                          ),
+                                      return Container(
+                                        width: double.infinity,
+                                        margin: const EdgeInsets.only(
+                                          bottom: 10,
                                         ),
-                                        IconButton(
-                                          onPressed: () =>
-                                              _openCoreMemoryEditor(
-                                            context,
-                                            controller,
-                                            keyValue: entry,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: _bgSecondary,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          icon: Icon(Icons.edit_outlined),
+                                          border: Border.all(color: _border),
                                         ),
-                                        IconButton(
-                                          onPressed: () => _confirmDelete(
-                                            context,
-                                            title:
-                                                'Delete core memory entry?',
-                                            message:
-                                                'Remove "${entry.key}" from core memory.',
-                                            onConfirm: () => controller
-                                                .deleteCoreMemory(
-                                              entry.key,
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: <Widget>[
+                                                  Text(
+                                                    entry.key,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(entry.value.toString()),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          icon: Icon(Icons.delete_outline),
+                                            IconButton(
+                                              onPressed: () =>
+                                                  _openCoreMemoryEditor(
+                                                    context,
+                                                    controller,
+                                                    keyValue: entry,
+                                                  ),
+                                              icon: Icon(Icons.edit_outlined),
+                                            ),
+                                            IconButton(
+                                              onPressed: () => _confirmDelete(
+                                                context,
+                                                title:
+                                                    'Delete core memory entry?',
+                                                message:
+                                                    'Remove "${entry.key}" from core memory.',
+                                                onConfirm: () =>
+                                                    controller.deleteCoreMemory(
+                                                      entry.key,
+                                                    ),
+                                              ),
+                                              icon: Icon(Icons.delete_outline),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }),
+                                      );
+                                    }),
                             ],
                           ),
                         ),
@@ -2092,11 +2115,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   FilledButton.icon(
                                     onPressed: _llmPromptLoading
                                         ? null
-                                        : () =>
-                                            _loadLlmPrompt(controller),
-                                    icon: Icon(
-                                      Icons.auto_awesome_outlined,
-                                    ),
+                                        : () => _loadLlmPrompt(controller),
+                                    icon: Icon(Icons.auto_awesome_outlined),
                                     label: Text(
                                       _llmPromptLoading
                                           ? 'Generating...'
@@ -2105,11 +2125,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   ),
                                   OutlinedButton.icon(
                                     onPressed:
-                                        _llmPromptController.text
-                                                .trim()
-                                                .isEmpty
-                                            ? null
-                                            : _copyLlmPrompt,
+                                        _llmPromptController.text.trim().isEmpty
+                                        ? null
+                                        : _copyLlmPrompt,
                                     icon: Icon(Icons.copy_all_outlined),
                                     label: Text('Copy Prompt'),
                                   ),
@@ -2122,8 +2140,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 maxLines: 8,
                                 readOnly: true,
                                 decoration: const InputDecoration(
-                                  labelText:
-                                      'Prompt to paste into another AI',
+                                  labelText: 'Prompt to paste into another AI',
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -2133,8 +2150,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 onChanged: _llmImporting
                                     ? null
                                     : (value) => setState(
-                                        () =>
-                                            _llmApplyBehaviorNotes = value,
+                                        () => _llmApplyBehaviorNotes = value,
                                       ),
                                 title: Text('Apply behavior notes'),
                                 subtitle: Text(
@@ -2147,8 +2163,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 onChanged: _llmImporting
                                     ? null
                                     : (value) => setState(
-                                        () =>
-                                            _llmApplyCoreMemory = value,
+                                        () => _llmApplyCoreMemory = value,
                                       ),
                                 title: Text('Apply core memory'),
                                 subtitle: Text(
@@ -2168,13 +2183,10 @@ class _MemoryPanelState extends State<MemoryPanel>
                               FilledButton.icon(
                                 onPressed: _llmImporting
                                     ? null
-                                    : () =>
-                                        _importLlmMemories(controller),
+                                    : () => _importLlmMemories(controller),
                                 icon: Icon(Icons.file_download_outlined),
                                 label: Text(
-                                  _llmImporting
-                                      ? 'Importing...'
-                                      : 'Import',
+                                  _llmImporting ? 'Importing...' : 'Import',
                                 ),
                               ),
                             ],
@@ -2263,50 +2275,6 @@ class _MemoryPanelState extends State<MemoryPanel>
                   category: category,
                   importance:
                       int.tryParse(importanceController.text.trim()) ?? 5,
-                );
-                if (context.mounted) Navigator.of(context).pop();
-              },
-              child: Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _openBehaviorNotesEditor(
-    BuildContext context,
-    NeoAgentController controller,
-  ) async {
-    final contentController = TextEditingController(
-      text: controller.memoryOverview.assistantBehaviorNotes,
-    );
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text('Edit Assistant Behavior Notes'),
-          content: SizedBox(
-            width: 720,
-            child: TextField(
-              controller: contentController,
-              minLines: 16,
-              maxLines: 24,
-              decoration: const InputDecoration(
-                labelText: 'assistant_behavior_notes',
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await controller.updateAssistantBehaviorNotes(
-                  contentController.text,
                 );
                 if (context.mounted) Navigator.of(context).pop();
               },
@@ -2453,9 +2421,10 @@ class _MemoryConfidenceGaugeState extends State<_MemoryConfidenceGauge>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _progress = Tween<double>(begin: 0, end: widget.confidence).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _progress = Tween<double>(
+      begin: 0,
+      end: widget.confidence,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _controller.forward();
   }
 
@@ -2463,12 +2432,10 @@ class _MemoryConfidenceGaugeState extends State<_MemoryConfidenceGauge>
   void didUpdateWidget(_MemoryConfidenceGauge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.confidence != widget.confidence) {
-      _progress = Tween<double>(
-        begin: _progress.value,
-        end: widget.confidence,
-      ).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-      );
+      _progress = Tween<double>(begin: _progress.value, end: widget.confidence)
+          .animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          );
       _controller
         ..reset()
         ..forward();
@@ -2658,10 +2625,7 @@ class _MemoryRow extends StatelessWidget {
                           if (onDelete != null)
                             IconButton(
                               onPressed: onDelete,
-                              icon: Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                              ),
+                              icon: Icon(Icons.delete_outline, size: 18),
                             ),
                         ],
                       ),
@@ -2686,10 +2650,7 @@ class _MemoryRow extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         memory.createdAtLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _textMuted,
-                        ),
+                        style: TextStyle(fontSize: 11, color: _textMuted),
                       ),
                     ],
                   ),
@@ -2778,27 +2739,31 @@ class _EntityGraphViewState extends State<_EntityGraphView>
     for (int i = 0; i < entities.length; i++) {
       final entity = entities[i];
       final sizeFactor = 0.4 + 0.6 * (entity.mentionCount / maxMention);
-      _nodes.add(_GraphNode(
-        id: entity.name,
-        label: entity.name,
-        radius: 18 + 20 * sizeFactor,
-        color: _kindColors[entity.kind] ?? _kindColors['concept']!,
-        kind: entity.kind,
-        isReflection: false,
-        offsetPhase: i * 0.7,
-      ));
+      _nodes.add(
+        _GraphNode(
+          id: entity.name,
+          label: entity.name,
+          radius: 18 + 20 * sizeFactor,
+          color: _kindColors[entity.kind] ?? _kindColors['concept']!,
+          kind: entity.kind,
+          isReflection: false,
+          offsetPhase: i * 0.7,
+        ),
+      );
     }
 
     for (int i = 0; i < views.length && i < 6; i++) {
-      _nodes.add(_GraphNode(
-        id: 'kv_${views[i].title}',
-        label: views[i].title,
-        radius: 14,
-        color: const Color(0xFF8B7EC8),
-        kind: views[i].viewType,
-        isReflection: true,
-        offsetPhase: (entities.length + i) * 0.9,
-      ));
+      _nodes.add(
+        _GraphNode(
+          id: 'kv_${views[i].title}',
+          label: views[i].title,
+          radius: 14,
+          color: const Color(0xFF8B7EC8),
+          kind: views[i].viewType,
+          isReflection: true,
+          offsetPhase: (entities.length + i) * 0.9,
+        ),
+      );
     }
 
     _layoutDone = false;
@@ -2939,10 +2904,12 @@ class _EntityGraphPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (nodes.isEmpty) return;
 
-    final entityNodes =
-        nodes.where((n) => !n.isReflection).toList(growable: false);
-    final reflectionNodes =
-        nodes.where((n) => n.isReflection).toList(growable: false);
+    final entityNodes = nodes
+        .where((n) => !n.isReflection)
+        .toList(growable: false);
+    final reflectionNodes = nodes
+        .where((n) => n.isReflection)
+        .toList(growable: false);
 
     // Draw connections between entity nodes (subtle web)
     final linePaint = Paint()
@@ -2974,8 +2941,8 @@ class _EntityGraphPainter extends CustomPainter {
         var closest = entityNodes.first;
         var minDist = double.infinity;
         for (final en in entityNodes) {
-          final d = (en.x - rn.x) * (en.x - rn.x) +
-              (en.y - rn.y) * (en.y - rn.y);
+          final d =
+              (en.x - rn.x) * (en.x - rn.x) + (en.y - rn.y) * (en.y - rn.y);
           if (d < minDist) {
             minDist = d;
             closest = en;
@@ -3002,8 +2969,9 @@ class _EntityGraphPainter extends CustomPainter {
       // Glow
       if (isSelected || isHovered) {
         final glowPaint = Paint()
-          ..color = (isSelected ? accentColor : node.color)
-              .withValues(alpha: 0.22)
+          ..color = (isSelected ? accentColor : node.color).withValues(
+            alpha: 0.22,
+          )
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(Offset(cx, cy), r + 6, glowPaint);
       }
@@ -3023,8 +2991,8 @@ class _EntityGraphPainter extends CustomPainter {
         ..color = isSelected
             ? accentColor
             : (isHovered
-                ? node.color.withValues(alpha: 0.8)
-                : node.color.withValues(alpha: 0.35))
+                  ? node.color.withValues(alpha: 0.8)
+                  : node.color.withValues(alpha: 0.35))
         ..style = PaintingStyle.stroke
         ..strokeWidth = isSelected ? 2.5 : 1.5;
       canvas.drawCircle(Offset(cx, cy), r, borderPaint);
@@ -3041,10 +3009,7 @@ class _EntityGraphPainter extends CustomPainter {
         maxLines: 1,
         ellipsis: '…',
       )..layout(maxWidth: r * 3);
-      tp.paint(
-        canvas,
-        Offset(cx - tp.width / 2, cy + r + 5),
-      );
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy + r + 5));
     }
   }
 
@@ -5087,6 +5052,284 @@ _TaskTriggerOption _taskTriggerOptionForType(String type) {
   );
 }
 
+class _TaskSchedulePreset {
+  const _TaskSchedulePreset({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final String id;
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+const List<_TaskSchedulePreset> _taskSchedulePresets = <_TaskSchedulePreset>[
+  _TaskSchedulePreset(
+    id: 'every_15_minutes',
+    label: 'Every 15 minutes',
+    description: 'Runs four times per hour.',
+    icon: Icons.timer_outlined,
+  ),
+  _TaskSchedulePreset(
+    id: 'every_30_minutes',
+    label: 'Every 30 minutes',
+    description: 'Runs twice per hour.',
+    icon: Icons.timelapse_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'hourly',
+    label: 'Hourly',
+    description: 'Runs once per hour.',
+    icon: Icons.schedule_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'daily',
+    label: 'Daily',
+    description: 'Runs every day at the selected time.',
+    icon: Icons.today_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'weekdays',
+    label: 'Weekdays',
+    description: 'Runs Monday through Friday.',
+    icon: Icons.work_outline_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'weekly',
+    label: 'Weekly',
+    description: 'Runs on selected weekdays.',
+    icon: Icons.view_week_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'monthly',
+    label: 'Monthly',
+    description: 'Runs once per month on the selected day.',
+    icon: Icons.calendar_month_rounded,
+  ),
+  _TaskSchedulePreset(
+    id: 'custom',
+    label: 'Custom Cron',
+    description: 'Advanced manual schedule for special cases.',
+    icon: Icons.tune_rounded,
+  ),
+];
+
+const List<String> _taskWeekdayLabels = <String>[
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+  'Sun',
+];
+
+_TaskSchedulePreset _taskSchedulePresetForId(String id) {
+  return _taskSchedulePresets.firstWhere(
+    (entry) => entry.id == id,
+    orElse: () => _taskSchedulePresets[1],
+  );
+}
+
+class _TaskScheduleDraft {
+  _TaskScheduleDraft({
+    required this.mode,
+    required this.presetId,
+    required this.time,
+    required this.weekdays,
+    required this.monthDay,
+    required this.customCronExpression,
+  });
+
+  factory _TaskScheduleDraft.fromTask(TaskItem? task) {
+    final runAt = task?.triggerConfig['runAt']?.toString().trim() ?? '';
+    if (runAt.isNotEmpty) {
+      return _TaskScheduleDraft(
+        mode: 'one_time',
+        presetId: 'daily',
+        time: const TimeOfDay(hour: 9, minute: 0),
+        weekdays: <int>{1},
+        monthDay: 1,
+        customCronExpression: '',
+      );
+    }
+    final cron =
+        task?.triggerConfig['cronExpression']?.toString().trim() ??
+        '*/30 * * * *';
+    final parsed = _parseCronExpression(cron);
+    if (parsed != null) return parsed;
+    return _TaskScheduleDraft(
+      mode: 'recurring',
+      presetId: 'custom',
+      time: const TimeOfDay(hour: 9, minute: 0),
+      weekdays: <int>{1},
+      monthDay: 1,
+      customCronExpression: cron,
+    );
+  }
+
+  String mode;
+  String presetId;
+  TimeOfDay time;
+  Set<int> weekdays;
+  int monthDay;
+  String customCronExpression;
+
+  bool get usesTime =>
+      presetId == 'daily' ||
+      presetId == 'weekdays' ||
+      presetId == 'weekly' ||
+      presetId == 'monthly';
+
+  String get cronExpression {
+    if (presetId == 'custom') return customCronExpression;
+    final minute = time.minute.toString();
+    final hour = time.hour.toString();
+    return switch (presetId) {
+      'every_15_minutes' => '*/15 * * * *',
+      'every_30_minutes' => '*/30 * * * *',
+      'hourly' => '0 * * * *',
+      'daily' => '$minute $hour * * *',
+      'weekdays' => '$minute $hour * * 1-5',
+      'weekly' => '$minute $hour * * ${_cronWeekdays(weekdays)}',
+      'monthly' => '$minute $hour $monthDay * *',
+      'custom' => customCronExpression,
+      _ => '*/30 * * * *',
+    };
+  }
+
+  String get summary {
+    if (mode == 'one_time') return 'One-time run';
+    if (presetId == 'custom') return 'Custom Cron';
+    final preset = _taskSchedulePresetForId(presetId);
+    if (!usesTime) return preset.label;
+    final timeLabel = _formatTaskScheduleTime(time);
+    if (presetId == 'weekly') {
+      return '${preset.label} ${_formatTaskWeekdays(weekdays)} at $timeLabel';
+    }
+    if (presetId == 'monthly') {
+      return '${preset.label} on day $monthDay at $timeLabel';
+    }
+    return '${preset.label} at $timeLabel';
+  }
+}
+
+_TaskScheduleDraft? _parseCronExpression(String cron) {
+  final fields = cron.trim().split(RegExp(r'\s+'));
+  if (fields.length != 5) return null;
+  final minute = fields[0];
+  final hour = fields[1];
+  final dayOfMonth = fields[2];
+  final month = fields[3];
+  final dayOfWeek = fields[4];
+  if (cron == '*/15 * * * *') {
+    return _recurringScheduleDraft('every_15_minutes');
+  }
+  if (cron == '*/30 * * * *') {
+    return _recurringScheduleDraft('every_30_minutes');
+  }
+  if (cron == '0 * * * *') return _recurringScheduleDraft('hourly');
+  final parsedMinute = int.tryParse(minute);
+  final parsedHour = int.tryParse(hour);
+  if (parsedMinute == null ||
+      parsedMinute < 0 ||
+      parsedMinute > 59 ||
+      parsedHour == null ||
+      parsedHour < 0 ||
+      parsedHour > 23 ||
+      month != '*') {
+    return null;
+  }
+  final time = TimeOfDay(hour: parsedHour, minute: parsedMinute);
+  if (dayOfMonth == '*' && dayOfWeek == '*') {
+    return _recurringScheduleDraft('daily', time: time);
+  }
+  if (dayOfMonth == '*' && dayOfWeek == '1-5') {
+    return _recurringScheduleDraft('weekdays', time: time);
+  }
+  if (dayOfMonth == '*') {
+    final weekdays = _parseCronWeekdays(dayOfWeek);
+    if (weekdays == null || weekdays.isEmpty) return null;
+    return _recurringScheduleDraft('weekly', time: time, weekdays: weekdays);
+  }
+  if (dayOfWeek == '*') {
+    final parsedDay = int.tryParse(dayOfMonth);
+    if (parsedDay == null || parsedDay < 1 || parsedDay > 31) return null;
+    return _recurringScheduleDraft('monthly', time: time, monthDay: parsedDay);
+  }
+  return null;
+}
+
+bool _looksLikeCronExpression(String cron) {
+  return cron.trim().split(RegExp(r'\s+')).length == 5;
+}
+
+_TaskScheduleDraft _recurringScheduleDraft(
+  String presetId, {
+  TimeOfDay time = const TimeOfDay(hour: 9, minute: 0),
+  Set<int> weekdays = const <int>{1},
+  int monthDay = 1,
+}) {
+  return _TaskScheduleDraft(
+    mode: 'recurring',
+    presetId: presetId,
+    time: time,
+    weekdays: Set<int>.from(weekdays),
+    monthDay: monthDay,
+    customCronExpression: '',
+  );
+}
+
+Set<int>? _parseCronWeekdays(String value) {
+  final result = <int>{};
+  for (final part in value.split(',')) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty) return null;
+    final rangeParts = trimmed.split('-');
+    if (rangeParts.length == 2) {
+      final start = _parseCronWeekday(rangeParts[0]);
+      final end = _parseCronWeekday(rangeParts[1]);
+      if (start == null || end == null || start > end) return null;
+      for (var day = start; day <= end; day += 1) {
+        result.add(day);
+      }
+    } else if (rangeParts.length == 1) {
+      final day = _parseCronWeekday(trimmed);
+      if (day == null) return null;
+      result.add(day);
+    } else {
+      return null;
+    }
+  }
+  return result;
+}
+
+int? _parseCronWeekday(String value) {
+  final parsed = int.tryParse(value.trim());
+  if (parsed == null || parsed < 0 || parsed > 7) return null;
+  return parsed == 0 ? 7 : parsed;
+}
+
+String _cronWeekdays(Set<int> weekdays) {
+  final sorted = weekdays.where((day) => day >= 1 && day <= 7).toList()..sort();
+  if (sorted.isEmpty) return '1';
+  return sorted.join(',');
+}
+
+String _formatTaskScheduleTime(TimeOfDay time) {
+  final hour = time.hour.toString().padLeft(2, '0');
+  final minute = time.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+String _formatTaskWeekdays(Set<int> weekdays) {
+  final sorted = weekdays.where((day) => day >= 1 && day <= 7).toList()..sort();
+  if (sorted.isEmpty) return 'Monday';
+  return sorted.map((day) => _taskWeekdayLabels[day - 1]).join(', ');
+}
 
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
@@ -6255,8 +6498,9 @@ class _TasksPanelState extends State<TasksPanel> {
   }) async {
     final nameController = TextEditingController(text: task?.name ?? '');
     final triggerType = ValueNotifier<String>(task?.triggerType ?? 'schedule');
-    final cronController = TextEditingController(
-      text: task?.triggerConfig['cronExpression']?.toString() ?? '*/30 * * * *',
+    final scheduleDraft = _TaskScheduleDraft.fromTask(task);
+    final customCronController = TextEditingController(
+      text: scheduleDraft.customCronExpression,
     );
     final runAtController = TextEditingController(
       text: task?.triggerConfig['runAt']?.toString() ?? '',
@@ -6267,9 +6511,7 @@ class _TasksPanelState extends State<TasksPanel> {
     final selectedConnectionId = ValueNotifier<int?>(
       task?.triggerConfig['connectionId'] is int
           ? task!.triggerConfig['connectionId'] as int
-          : int.tryParse(
-              task?.triggerConfig['connectionId']?.toString() ?? '',
-            ),
+          : int.tryParse(task?.triggerConfig['connectionId']?.toString() ?? ''),
     );
     final selectedDeliveryTarget = ValueNotifier<TaskDeliveryTarget?>(
       _taskDeliveryTargetFromTask(task),
@@ -6463,21 +6705,246 @@ class _TasksPanelState extends State<TasksPanel> {
                           if (selectedTriggerType == 'schedule') {
                             return Column(
                               children: <Widget>[
-                                TextField(
-                                  controller: cronController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Cron Expression',
-                                    helperText:
-                                        'Use cron for recurring tasks. Leave Run At empty for recurring schedules.',
-                                  ),
+                                SegmentedButton<String>(
+                                  segments: const <ButtonSegment<String>>[
+                                    ButtonSegment<String>(
+                                      value: 'recurring',
+                                      icon: Icon(Icons.repeat_rounded),
+                                      label: Text('Recurring'),
+                                    ),
+                                    ButtonSegment<String>(
+                                      value: 'one_time',
+                                      icon: Icon(Icons.event_rounded),
+                                      label: Text('Once'),
+                                    ),
+                                  ],
+                                  selected: <String>{scheduleDraft.mode},
+                                  onSelectionChanged: (selection) {
+                                    setLocalState(() {
+                                      scheduleDraft.mode = selection.first;
+                                      if (scheduleDraft.mode == 'recurring') {
+                                        runAtController.clear();
+                                      }
+                                    });
+                                  },
                                 ),
                                 const SizedBox(height: 12),
-                                TextField(
-                                  controller: runAtController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Run At (optional ISO datetime)',
+                                if (scheduleDraft.mode == 'one_time')
+                                  TextField(
+                                    controller: runAtController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Run At',
+                                      helperText:
+                                          'Use a date and time, for example 2026-07-03T09:00:00.',
+                                    ),
+                                  )
+                                else ...<Widget>[
+                                  DropdownButtonFormField<String>(
+                                    initialValue: scheduleDraft.presetId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Repeat',
+                                    ),
+                                    items: <DropdownMenuItem<String>>[
+                                      ..._taskSchedulePresets.map(
+                                        (preset) => DropdownMenuItem<String>(
+                                          value: preset.id,
+                                          child: Text(preset.label),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setLocalState(() {
+                                        final currentCron =
+                                            scheduleDraft.cronExpression;
+                                        scheduleDraft.presetId = value;
+                                        if (value == 'custom' &&
+                                            customCronController.text
+                                                .trim()
+                                                .isEmpty) {
+                                          customCronController.text =
+                                              currentCron;
+                                          scheduleDraft.customCronExpression =
+                                              currentCron;
+                                        }
+                                      });
+                                    },
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  if (scheduleDraft.presetId ==
+                                      'custom') ...<Widget>[
+                                    TextField(
+                                      controller: customCronController,
+                                      onChanged: (value) =>
+                                          scheduleDraft.customCronExpression =
+                                              value,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Cron expression',
+                                        helperText:
+                                            'Advanced: minute hour day month weekday.',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (scheduleDraft.usesTime) ...<Widget>[
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: scheduleDraft.time,
+                                          builder: (context, child) {
+                                            return MediaQuery(
+                                              data: MediaQuery.of(context)
+                                                  .copyWith(
+                                                    alwaysUse24HourFormat: true,
+                                                  ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked == null) return;
+                                        setLocalState(() {
+                                          scheduleDraft.time = picked;
+                                        });
+                                      },
+                                      child: InputDecorator(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Time',
+                                        ),
+                                        child: Row(
+                                          children: <Widget>[
+                                            const Icon(
+                                              Icons.access_time_rounded,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                _formatTaskScheduleTime(
+                                                  scheduleDraft.time,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.unfold_more_rounded,
+                                              color: _textSecondary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (scheduleDraft.presetId ==
+                                      'weekly') ...<Widget>[
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: List<Widget>.generate(7, (
+                                          index,
+                                        ) {
+                                          final day = index + 1;
+                                          return ChoiceChip(
+                                            label: Text(
+                                              _taskWeekdayLabels[index],
+                                            ),
+                                            selected: scheduleDraft.weekdays
+                                                .contains(day),
+                                            onSelected: (selected) {
+                                              setLocalState(() {
+                                                if (selected) {
+                                                  scheduleDraft.weekdays.add(
+                                                    day,
+                                                  );
+                                                } else if (scheduleDraft
+                                                        .weekdays
+                                                        .length >
+                                                    1) {
+                                                  scheduleDraft.weekdays.remove(
+                                                    day,
+                                                  );
+                                                }
+                                              });
+                                            },
+                                          );
+                                        }),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (scheduleDraft.presetId ==
+                                      'monthly') ...<Widget>[
+                                    DropdownButtonFormField<int>(
+                                      initialValue: scheduleDraft.monthDay,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Day of month',
+                                      ),
+                                      items:
+                                          List<DropdownMenuItem<int>>.generate(
+                                            31,
+                                            (index) => DropdownMenuItem<int>(
+                                              value: index + 1,
+                                              child: Text('Day ${index + 1}'),
+                                            ),
+                                          ),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setLocalState(() {
+                                          scheduleDraft.monthDay = value;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  InputDecorator(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Schedule',
+                                    ),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final preset = _taskSchedulePresetForId(
+                                          scheduleDraft.presetId,
+                                        );
+                                        return Row(
+                                          children: <Widget>[
+                                            Icon(preset.icon, color: _accent),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: <Widget>[
+                                                  Text(
+                                                    scheduleDraft.summary,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 3),
+                                                  Text(
+                                                    preset.description,
+                                                    style: TextStyle(
+                                                      color: _textSecondary,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ],
                             );
                           }
@@ -6835,13 +7302,44 @@ class _TasksPanelState extends State<TasksPanel> {
                       // Manual trigger uses no trigger-specific config.
                     } else if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
-                      triggerConfig['mode'] = runAt.isEmpty
-                          ? 'recurring'
-                          : 'one_time';
-                      if (runAt.isEmpty) {
-                        triggerConfig['cronExpression'] = cronController.text
+                      triggerConfig['mode'] = scheduleDraft.mode;
+                      if (scheduleDraft.mode == 'recurring') {
+                        scheduleDraft.customCronExpression =
+                            customCronController.text.trim();
+                        final cronExpression = scheduleDraft.cronExpression
                             .trim();
+                        if (cronExpression.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please choose a schedule.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (scheduleDraft.presetId == 'custom' &&
+                            !_looksLikeCronExpression(cronExpression)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Custom Cron must have 5 fields.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        triggerConfig['cronExpression'] = cronExpression;
                       } else {
+                        if (runAt.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter when the task should run.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
                         triggerConfig['runAt'] = runAt;
                       }
                     } else {

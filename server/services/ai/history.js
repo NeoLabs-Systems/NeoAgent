@@ -1,5 +1,8 @@
+'use strict';
+
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
+const { throwIfAborted } = require('../../utils/abort');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
@@ -109,13 +112,21 @@ function serializeHistoryForSummary(messages) {
   }).join('\n');
 }
 
-async function summarizeMessages(provider, model, existingSummary, messages, label = 'conversation') {
+async function summarizeMessages(
+  provider,
+  model,
+  existingSummary,
+  messages,
+  label = 'conversation',
+  options = {},
+) {
   if (!messages.length) return existingSummary || '';
+  throwIfAborted(options.signal, 'Conversation summary refresh aborted.');
 
   const prompt = [
     {
       role: 'system',
-      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, promised follow-ups, recurring schedules, important facts, tool outcomes, and unresolved issues. Keep concrete details (names, dates, times, statuses) and avoid vague wording. Keep the same personality context. Output plain text only.'
+      content: 'Compress conversation context. Preserve user goals, constraints, preferences, decisions, promised follow-ups, recurring schedules, important facts, tool outcomes, unresolved issues, and any user-stated communication preferences. Keep concrete details (names, dates, times, statuses) and avoid vague wording. Output plain text only.'
     },
     {
       role: 'user',
@@ -127,7 +138,12 @@ async function summarizeMessages(provider, model, existingSummary, messages, lab
     }
   ];
 
-  const response = await provider.chat(prompt, [], { model, maxTokens: 900 });
+  const response = await provider.chat(prompt, [], {
+    model,
+    maxTokens: 900,
+    signal: options.signal,
+  });
+  throwIfAborted(options.signal, 'Conversation summary refresh aborted.');
   return clampSummary(response.content || existingSummary || '');
 }
 
@@ -183,7 +199,15 @@ async function refreshWebChatSummary(userId, provider, model, recentLimit, force
     'SELECT role, content FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
   ).all(userId, agentId, newMessages, count);
 
-  const nextSummary = clampSummary(await summarizeMessages(provider, model, summary, normalizeHistoryRows(rows), 'web chat'));
+  const nextSummary = clampSummary(await summarizeMessages(
+    provider,
+    model,
+    summary,
+    normalizeHistoryRows(rows),
+    'web chat',
+    options,
+  ));
+  throwIfAborted(options.signal, 'Web chat summary refresh aborted.');
   const upsert = db.prepare(
     'INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value'
   );
@@ -214,7 +238,14 @@ function getConversationContext(conversationId, recentLimit) {
   };
 }
 
-async function refreshConversationSummary(conversationId, provider, model, recentLimit, force = false) {
+async function refreshConversationSummary(
+  conversationId,
+  provider,
+  model,
+  recentLimit,
+  force = false,
+  options = {},
+) {
   const convo = db.prepare(
     'SELECT summary, summary_message_count FROM conversations WHERE id = ?'
   ).get(conversationId);
@@ -233,7 +264,15 @@ async function refreshConversationSummary(conversationId, provider, model, recen
     'SELECT role, content, tool_calls, tool_call_id, name FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
   ).all(conversationId, newMessages, currentCount);
 
-  const nextSummary = clampSummary(await summarizeMessages(provider, model, convo.summary || '', normalizeHistoryRows(rows), 'thread'));
+  const nextSummary = clampSummary(await summarizeMessages(
+    provider,
+    model,
+    convo.summary || '',
+    normalizeHistoryRows(rows),
+    'thread',
+    options,
+  ));
+  throwIfAborted(options.signal, 'Conversation summary refresh aborted.');
   db.prepare(
     "UPDATE conversations SET summary = ?, summary_message_count = ?, last_summary = datetime('now') WHERE id = ?"
   ).run(nextSummary, targetCount, conversationId);

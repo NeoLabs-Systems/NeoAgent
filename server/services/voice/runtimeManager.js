@@ -16,6 +16,15 @@ const {
   sanitizeSpeechText,
 } = require('./providers');
 const { VoiceAgentBridge } = require('./agentBridge');
+const { waitForBoundedResult } = require('../network/http');
+const { createAbortError, throwIfAborted } = require('../../utils/abort');
+
+function voiceRuntimeStoppedError() {
+  const error = new Error('Voice runtime is shutting down.');
+  error.name = 'AbortError';
+  error.code = 'VOICE_RUNTIME_SHUTDOWN';
+  return error;
+}
 
 class VoiceRuntimeManager {
   constructor({ io, agentEngine, memoryManager }) {
@@ -23,6 +32,8 @@ class VoiceRuntimeManager {
     this.agentEngine = agentEngine;
     this.memoryManager = memoryManager;
     this.sessions = new Map();
+    this.shuttingDown = false;
+    this.shutdownPromise = null;
     this.agentBridge = new VoiceAgentBridge({
       agentEngine,
       memoryManager,
@@ -34,6 +45,10 @@ class VoiceRuntimeManager {
     return this.sessions.get(String(sessionId || '').trim()) || null;
   }
 
+  #assertRunning() {
+    if (this.shuttingDown) throw voiceRuntimeStoppedError();
+  }
+
   async openSession({
     userId,
     agentId = null,
@@ -42,6 +57,7 @@ class VoiceRuntimeManager {
     sink,
     outputMode = 'audio_and_text',
   } = {}) {
+    this.#assertRunning();
     if (!sink) {
       throw new Error('A voice session sink is required.');
     }
@@ -57,6 +73,14 @@ class VoiceRuntimeManager {
     }
     const adapter = this.#createAdapter(voiceSettings.liveProvider);
     await adapter.open();
+    if (this.shuttingDown) {
+      await adapter.close?.(resolvedSessionId).catch(() => {});
+      throw voiceRuntimeStoppedError();
+    }
+    if (this.sessions.has(resolvedSessionId)) {
+      await adapter.close?.(resolvedSessionId).catch(() => {});
+      throw new Error('Voice session ID collision: a session with this ID already exists.');
+    }
 
     const session = new VoiceLiveSession({
       id: resolvedSessionId,
@@ -74,8 +98,15 @@ class VoiceRuntimeManager {
 
     session.adapter = adapter;
     this.sessions.set(resolvedSessionId, session);
-    await session.publishReady();
-    return session;
+    try {
+      await session.publishReady();
+      return session;
+    } catch (error) {
+      this.sessions.delete(resolvedSessionId);
+      await session.close('startup_failed').catch(() => {});
+      await adapter.close?.(resolvedSessionId).catch(() => {});
+      throw error;
+    }
   }
 
   async openFlutterSession({ userId, agentId = null, socket, sessionId = null } = {}) {
@@ -162,12 +193,12 @@ class VoiceRuntimeManager {
     if (userId != null && session.userId != null && String(session.userId) !== String(userId)) {
       throw new Error('Voice session access denied.');
     }
-    if (reason === 'socket_disconnected') {
-      await this.abortActiveRun(session.id, 'voice_disconnect');
-    }
+    await this.abortActiveRun(session.id, reason === 'socket_disconnected'
+      ? 'voice_disconnect'
+      : 'voice_session_closed');
     this.sessions.delete(session.id);
-    await session.adapter?.close?.(session.id);
     await session.close(reason);
+    await session.adapter?.close?.(session.id);
   }
 
   async beginInput(sessionId, options = {}, userId = null) {
@@ -255,7 +286,13 @@ class VoiceRuntimeManager {
     };
   }
 
-  async deliverDeferredVoiceFollowUp(session, followUpPlan, replyText, runId = null) {
+  async deliverDeferredVoiceFollowUp(
+    session,
+    followUpPlan,
+    replyText,
+    runId = null,
+    options = {},
+  ) {
     if (!session || session.closed || !followUpPlan || session.deferFollowUpRequested !== true) {
       return { sent: false, skipped: true };
     }
@@ -298,9 +335,11 @@ class VoiceRuntimeManager {
           agentId: session.agentId,
           runId,
           persistConversation: true,
+          signal: options.signal,
         },
       );
     } catch (err) {
+      if (options.signal?.aborted) throw createAbortError(options.signal);
       console.error('Failed to send deferred voice follow-up:', err);
       return {
         sent: false,
@@ -334,6 +373,7 @@ class VoiceRuntimeManager {
     sink,
     metadata = null,
   } = {}) {
+    this.#assertRunning();
     const sessionId = `telnyx:${userId}:${callId}`;
     let session = this.getSession(sessionId);
     if (!session) {
@@ -358,10 +398,18 @@ class VoiceRuntimeManager {
       });
       session.adapter = this.#createAdapter(voiceSettings.liveProvider);
       await session.adapter.open();
+      if (this.shuttingDown) {
+        await session.close('server_shutdown').catch(() => {});
+        await session.adapter.close?.(sessionId).catch(() => {});
+        throw voiceRuntimeStoppedError();
+      }
       this.sessions.set(sessionId, session);
     }
 
     await session.interruptOutput();
+    await this.abortActiveRun(session.id, 'voice_interrupt');
+    session.resetTurnState();
+    const turnSignal = session.signal;
     await session.setState('thinking');
 
     try {
@@ -370,7 +418,9 @@ class VoiceRuntimeManager {
       });
       return result;
     } finally {
-      await session.setState('idle');
+      if (!session.closed && session.signal === turnSignal && !turnSignal.aborted) {
+        await session.setState('idle');
+      }
     }
   }
 
@@ -378,7 +428,29 @@ class VoiceRuntimeManager {
     const session = this.getSession(sessionId);
     const runId = session?.currentRunId;
     if (!runId || !this.agentEngine) return;
-    this.agentEngine.abort(runId, reason);
+    this.agentEngine.abort(runId, { userId: session.userId, reason });
+  }
+
+  shutdown() {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
+    const sessionIds = Array.from(this.sessions.keys());
+    const closing = Promise.allSettled(
+      sessionIds.map((sessionId) => this.closeSession(sessionId, 'server_shutdown')),
+    );
+    this.shutdownPromise = waitForBoundedResult(closing, {
+      serviceName: 'Voice runtime shutdown',
+      timeoutMs: 10000,
+    }).then((results) => ({
+      state: 'stopped',
+      timedOut: false,
+      failedSessionCount: results.filter((result) => result.status === 'rejected').length,
+    })).catch((error) => ({
+      state: 'timeout',
+      timedOut: error?.code === 'HTTP_TIMEOUT',
+      error: error?.message || String(error),
+    }));
+    return this.shutdownPromise;
   }
 
   #createAdapter(provider) {
@@ -389,6 +461,7 @@ class VoiceRuntimeManager {
   }
 
   #requireSession(sessionId, userId = null) {
+    this.#assertRunning();
     const session = this.getSession(sessionId);
     if (!session) {
       throw new Error('Voice session was not found.');
@@ -466,6 +539,8 @@ class VoiceRuntimeManager {
   }
 
   async #deliverFlutterAssistantOutput(socket, sessionId, session, content, options = {}) {
+    const turnSignal = session.signal;
+    throwIfAborted(turnSignal, 'Voice output was interrupted.');
     const kind = String(options.kind || 'final').trim() || 'final';
     socket.emit('voice:assistant_text', {
       sessionId,
@@ -486,7 +561,7 @@ class VoiceRuntimeManager {
 
     let index = 0;
     let streamError = null;
-    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions);
+    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions, turnSignal);
     if (spokenContent) {
       try {
       for (const attempt of ttsAttempts) {
@@ -498,7 +573,12 @@ class VoiceRuntimeManager {
             spokenContent,
             attempt,
             async ({ audioBytes, mimeType }) => {
-              if (session.closed || session.interrupted) return;
+              if (
+                session.closed
+                || session.interrupted
+                || turnSignal.aborted
+                || session.signal !== turnSignal
+              ) return;
               socket.emit('voice:audio_chunk', {
                 sessionId,
                 kind,
@@ -516,6 +596,7 @@ class VoiceRuntimeManager {
           streamError = null;
           break;
         } catch (error) {
+          if (turnSignal.aborted || session.signal !== turnSignal) return;
           streamError = String(error?.message || error || 'Voice playback failed.');
           console.warn(`[VoiceRuntime] ${attempt.provider} TTS failed for flutter session ${sessionId}: ${streamError}`);
           if (attemptChunks > 0) {
@@ -524,13 +605,16 @@ class VoiceRuntimeManager {
         }
       }
       } catch (error) {
+        if (turnSignal.aborted || session.signal !== turnSignal) return;
         streamError = String(error?.message || error || 'Voice playback failed.');
       }
     }
 
-    if (!streamError && !session.closed && !session.interrupted) {
+    if (!streamError && !session.closed && !session.interrupted
+      && !turnSignal.aborted && session.signal === turnSignal) {
       socket.emit('voice:audio_done', { sessionId, kind, totalChunks: index });
-    } else if (kind === 'final' && !session.closed && !session.interrupted) {
+    } else if (kind === 'final' && !session.closed && !session.interrupted
+      && !turnSignal.aborted && session.signal === turnSignal) {
       socket.emit('voice:error', {
         sessionId,
         error: streamError,
@@ -540,7 +624,8 @@ class VoiceRuntimeManager {
       await session.setState('degraded', { kind, phase: 'tts' });
     }
 
-    if (kind === 'final' && !streamError) {
+    if (kind === 'final' && !streamError
+      && !turnSignal.aborted && session.signal === turnSignal) {
       await session.setState('idle');
     }
   }
@@ -550,6 +635,8 @@ class VoiceRuntimeManager {
     if (!session) {
       return;
     }
+    const turnSignal = session.signal;
+    throwIfAborted(turnSignal, 'Voice output was interrupted.');
     const kind = String(options.kind || 'final').trim() || 'final';
     ws.send(JSON.stringify({
       type: 'voice:assistant_text',
@@ -572,7 +659,7 @@ class VoiceRuntimeManager {
     const spokenContent = sanitizeSpeechText(content);
     let index = 0;
     let streamError = null;
-    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions);
+    const ttsAttempts = this.#buildTtsAttemptOrder(session, voiceOptions, turnSignal);
 
     if (spokenContent) {
       try {
@@ -585,7 +672,12 @@ class VoiceRuntimeManager {
               spokenContent,
               attempt,
               async ({ audioBytes, mimeType }) => {
-                if (session.closed || session.interrupted) return;
+                if (
+                  session.closed
+                  || session.interrupted
+                  || turnSignal.aborted
+                  || session.signal !== turnSignal
+                ) return;
                 ws.send(JSON.stringify({
                   type: 'voice:audio_chunk',
                   sessionId,
@@ -603,6 +695,7 @@ class VoiceRuntimeManager {
             }
             break;
           } catch (error) {
+            if (turnSignal.aborted || session.signal !== turnSignal) return;
             streamError = String(error?.message || error || 'Voice playback failed.');
             console.warn(`[VoiceRuntime] ${attempt.provider} TTS failed for wearable session ${sessionId}: ${streamError}`);
             if (attemptChunks > 0) {
@@ -611,18 +704,21 @@ class VoiceRuntimeManager {
           }
         }
       } catch (error) {
+        if (turnSignal.aborted || session.signal !== turnSignal) return;
         streamError = String(error?.message || error || 'Voice playback failed.');
       }
     }
 
-    if (!streamError && !session.closed && !session.interrupted) {
+    if (!streamError && !session.closed && !session.interrupted
+      && !turnSignal.aborted && session.signal === turnSignal) {
       ws.send(JSON.stringify({
         type: 'voice:audio_done',
         sessionId,
         kind,
         totalChunks: index,
       }));
-    } else if (kind === 'final' && !session.closed && !session.interrupted) {
+    } else if (kind === 'final' && !session.closed && !session.interrupted
+      && !turnSignal.aborted && session.signal === turnSignal) {
       ws.send(JSON.stringify({
         type: 'voice:error',
         sessionId,
@@ -633,12 +729,13 @@ class VoiceRuntimeManager {
       await session.setState('degraded', { kind, phase: 'tts' });
     }
 
-    if (kind === 'final' && !streamError) {
+    if (kind === 'final' && !streamError
+      && !turnSignal.aborted && session.signal === turnSignal) {
       await session.setState('idle');
     }
   }
 
-  #buildTtsAttemptOrder(session, voiceOptions) {
+  #buildTtsAttemptOrder(session, voiceOptions, signal = null) {
     const attempts = [];
     const providers = [
       voiceOptions.provider,
@@ -663,6 +760,7 @@ class VoiceRuntimeManager {
         apiKey: runtime.apiKey,
         baseUrl: runtime.baseUrl,
         timeoutMs: 20000,
+        signal,
       });
     }
     return attempts;

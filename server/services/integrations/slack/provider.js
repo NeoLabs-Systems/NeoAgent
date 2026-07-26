@@ -130,7 +130,11 @@ function requireText(value, label) {
   return text;
 }
 
-async function slackApi(credentials, methodName, { httpMethod = 'POST', query, body } = {}) {
+async function slackApi(
+  credentials,
+  methodName,
+  { httpMethod = 'POST', query, body, signal } = {},
+) {
   const normalizedMethod = requireText(methodName, 'method_name');
   if (!/^[a-zA-Z0-9_.]+$/.test(normalizedMethod)) {
     throw new Error('method_name must be a Slack Web API method name.');
@@ -149,16 +153,92 @@ async function slackApi(credentials, methodName, { httpMethod = 'POST', query, b
       method: normalizedHttpMethod,
       headers: { Authorization: `Bearer ${credentials.access_token}` },
       ...(body === undefined ? {} : { json: body }),
+      signal,
     },
     { serviceName: 'Slack' },
   );
 }
 
-async function executeSlackTool(toolName, args, { credentials }) {
+function expiresAtFromSeconds(expiresIn) {
+  const seconds = Number(expiresIn);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return new Date(Date.now() + seconds * 1000).toISOString();
+}
+
+function tokenExpiresSoon(credentials) {
+  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
+}
+
+async function refreshSlackCredentials(credentials, signal) {
+  const refreshToken = String(credentials?.refresh_token || '').trim();
+  if (!refreshToken) {
+    throw new Error('Slack refresh token is missing. Reconnect this integration account.');
+  }
+  const config = resolveSlackOAuthConfig();
+  const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
+  const token = await fetchJson(
+    'https://slack.com/api/oauth.v2.access',
+    {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basic}` },
+      form: {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      },
+      signal,
+    },
+    { serviceName: 'Slack token refresh' },
+  );
+  const userToken = token?.authed_user?.access_token || token.access_token;
+  if (!userToken) {
+    throw new Error('Slack token refresh did not return an access token.');
+  }
+  const nextRefreshToken =
+    token?.authed_user?.refresh_token || token.refresh_token || refreshToken;
+  const expiresIn = token?.authed_user?.expires_in || token.expires_in;
+  return {
+    ...credentials,
+    access_token: userToken,
+    refresh_token: nextRefreshToken,
+    expires_in: expiresIn,
+    expires_at: expiresAtFromSeconds(expiresIn),
+    bot_access_token: token.access_token || credentials.bot_access_token,
+    token_type: token?.authed_user?.token_type || token.token_type || credentials.token_type,
+    team: token.team || credentials.team || null,
+    enterprise: token.enterprise || credentials.enterprise || null,
+    authed_user: token.authed_user
+      ? { ...(credentials.authed_user || {}), ...token.authed_user }
+      : credentials.authed_user || null,
+  };
+}
+
+async function slackRequest(context, methodName, options = {}) {
+  const { signal } = context;
+  let credentials = context.credentials;
+  if (tokenExpiresSoon(credentials)) {
+    credentials = await refreshSlackCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+  }
+
+  try {
+    return await slackApi(credentials, methodName, { ...options, signal });
+  } catch (error) {
+    const code = String(error?.data?.error || '').toLowerCase();
+    if (!credentials.refresh_token || !['invalid_auth', 'token_expired'].includes(code)) {
+      throw error;
+    }
+    credentials = await refreshSlackCredentials(credentials, signal);
+    context.updateCredentials(credentials);
+    return slackApi(credentials, methodName, { ...options, signal });
+  }
+}
+
+async function executeSlackTool(toolName, args, context) {
   switch (toolName) {
     case 'slack_list_conversations':
       return {
-        result: await slackApi(credentials, 'conversations.list', {
+        result: await slackRequest(context, 'conversations.list', {
           httpMethod: 'GET',
           query: {
             types: String(args.types || 'public_channel,private_channel,im,mpim'),
@@ -168,7 +248,7 @@ async function executeSlackTool(toolName, args, { credentials }) {
       };
     case 'slack_get_conversation_history':
       return {
-        result: await slackApi(credentials, 'conversations.history', {
+        result: await slackRequest(context, 'conversations.history', {
           httpMethod: 'GET',
           query: {
             channel: requireText(args.channel, 'channel'),
@@ -178,7 +258,7 @@ async function executeSlackTool(toolName, args, { credentials }) {
       };
     case 'slack_post_message':
       return {
-        result: await slackApi(credentials, 'chat.postMessage', {
+        result: await slackRequest(context, 'chat.postMessage', {
           body: {
             channel: requireText(args.channel, 'channel'),
             text: requireText(args.text, 'text'),
@@ -188,7 +268,7 @@ async function executeSlackTool(toolName, args, { credentials }) {
       };
     case 'slack_search_messages':
       return {
-        result: await slackApi(credentials, 'search.messages', {
+        result: await slackRequest(context, 'search.messages', {
           httpMethod: 'GET',
           query: {
             query: requireText(args.query, 'query'),
@@ -198,7 +278,7 @@ async function executeSlackTool(toolName, args, { credentials }) {
       };
     case 'slack_get_user_info':
       return {
-        result: await slackApi(credentials, 'users.info', {
+        result: await slackRequest(context, 'users.info', {
           httpMethod: 'GET',
           query: { user: requireText(args.user, 'user') },
         }),
@@ -208,7 +288,7 @@ async function executeSlackTool(toolName, args, { credentials }) {
         throw new Error('slack_api_request is disabled by default. Set NEOAGENT_ENABLE_SLACK_DYNAMIC_API_REQUEST=true to enable it.');
       }
       return {
-        result: await slackApi(credentials, requireText(args.method_name, 'method_name'), {
+        result: await slackRequest(context, requireText(args.method_name, 'method_name'), {
           httpMethod: args.http_method || 'POST',
           query: args.query,
           body: args.body,
@@ -247,7 +327,7 @@ function createSlackProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app }) {
+    async finishOAuth({ code, app, signal }) {
       const config = resolveSlackOAuthConfig();
       const token = await fetchJson(
         'https://slack.com/api/oauth.v2.access',
@@ -260,18 +340,24 @@ function createSlackProvider() {
             grant_type: 'authorization_code',
             redirect_uri: config.redirectUri,
           },
+          signal,
         },
         { serviceName: 'Slack' },
       );
 
       const userToken = token?.authed_user?.access_token || token.access_token;
+      const refreshToken =
+        token?.authed_user?.refresh_token || token.refresh_token || null;
+      const expiresIn = token?.authed_user?.expires_in || token.expires_in || null;
       const authTest = await slackApi({ access_token: userToken }, 'auth.test', {
         httpMethod: 'GET',
+        signal,
       });
       const profile = authTest?.user_id
         ? await slackApi({ access_token: userToken }, 'users.info', {
             httpMethod: 'GET',
             query: { user: authTest.user_id },
+            signal,
           }).catch(() => null)
         : null;
       const user = profile?.user || {};
@@ -287,6 +373,9 @@ function createSlackProvider() {
         accountEmail,
         credentials: {
           access_token: userToken,
+          refresh_token: refreshToken,
+          expires_in: expiresIn,
+          expires_at: expiresAtFromSeconds(expiresIn),
           bot_access_token: token.access_token,
           token_type: token.token_type,
           team: token.team || null,

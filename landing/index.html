@@ -814,8 +814,10 @@ p { margin: 0; text-wrap: pretty; }
   .nav-center { display: none; }
   .nav-right .signin { display: none; }
   .nav-toggle { display: grid; }
+  .nav.open { display: flex; flex-direction: column; max-height: 100vh; max-height: 100dvh; }
+  .nav.open .nav-inner { flex: none; width: 100%; }
   .nav.open .mobile-menu { display: flex; }
-  .mobile-menu { flex-direction: column; gap: 2px; padding: 10px var(--gutter) 22px; background: var(--nav-bg); backdrop-filter: blur(18px); border-bottom: 1px solid var(--line); }
+  .mobile-menu { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; flex-direction: column; gap: 2px; padding: 10px var(--gutter) 22px; background: var(--nav-bg); backdrop-filter: blur(18px); border-bottom: 1px solid var(--line); }
   .mobile-menu a { padding: 13px 4px; color: var(--ink-2); font-size: 16px; border-bottom: 1px solid var(--line); }
   .mobile-menu .btn { margin-top: 12px; justify-content: center; }
   .split { grid-template-columns: 1fr; gap: 32px; }

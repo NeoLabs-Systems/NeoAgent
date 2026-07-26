@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
+const { wrapProviderError } = require('./provider_error');
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
@@ -32,15 +33,15 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels() {
+  async listModels(signal = null) {
     try {
-      const res = await this.client.models.list();
+      const res = await this.client.models.list({ signal });
       const DROP = /embed|bge|e5-|rerank|guard|safety|moderat|diffus|flux|stable|imagen|vision-enc|whisper|tts|speech|paraphrase|classif/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
         .map((m) => ({ id: m.id, name: m.id }));
     } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'NVIDIA NIM request failed', { signal });
     }
   }
 
@@ -76,9 +77,11 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     const params = this._buildParams(model, messages, tools, options);
     let response;
     try {
-      response = await this.client.chat.completions.create(params);
+      response = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'NVIDIA NIM request failed', {
+        signal: options.signal,
+      });
     }
     return this.normalizeResponse(response);
   }
@@ -93,9 +96,11 @@ class NvidiaProvider extends OpenAICompatibleProvider {
 
     let stream;
     try {
-      stream = await this.client.chat.completions.create(params);
+      stream = await this.client.chat.completions.create(params, { signal: options.signal });
     } catch (err) {
-      throw new Error(`NVIDIA NIM request failed: ${err?.message || String(err)}`);
+      throw wrapProviderError(err, 'NVIDIA NIM request failed', {
+        signal: options.signal,
+      });
     }
 
     let toolCalls = [];

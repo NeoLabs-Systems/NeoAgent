@@ -230,6 +230,9 @@ void _openOfficialIntegrationSetupDialog(
   String providerId,
 ) {
   switch (providerId) {
+    case 'bitwarden':
+      _showBitwardenSetupDialog(context, controller);
+      return;
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
@@ -243,6 +246,587 @@ void _openOfficialIntegrationSetupDialog(
       _showTrelloSetupDialog(context, controller);
       return;
   }
+}
+
+Future<void> _showBitwardenBindingDialog(
+  BuildContext context,
+  NeoAgentController controller, {
+  required int connectionId,
+}) async {
+  List<Map<String, dynamic>> items;
+  try {
+    items = await controller.fetchBitwardenItems();
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+  if (items.isEmpty || !context.mounted) return;
+  String itemId = items.first['id']?.toString() ?? '';
+  var usageType = 'browser';
+  var saving = false;
+  var errorText = '';
+  final aliasController = TextEditingController();
+  final originController = TextEditingController(
+    text: ((items.first['origins'] as List?)?.firstOrNull)?.toString() ?? '',
+  );
+  final pathController = TextEditingController(text: '/');
+  final headerController = TextEditingController(text: 'X-API-Key');
+  var authType = 'bearer';
+  var secretField = 'login.password';
+
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final selected = items.firstWhere(
+          (item) => item['id']?.toString() == itemId,
+          orElse: () => items.first,
+        );
+        final customFields = (selected['fields'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (field) => (
+                field['id']?.toString().isNotEmpty == true
+                    ? field['id'].toString()
+                    : field['name'].toString(),
+                field['name']?.toString() ?? 'Custom field',
+              ),
+            )
+            .toList();
+        final secretOptions = <(String, String)>[
+          ('login.password', 'Login password'),
+          ...customFields,
+        ];
+        if (!secretOptions.any((entry) => entry.$1 == secretField)) {
+          secretField = secretOptions.first.$1;
+        }
+        return AlertDialog(
+          title: const Text('Add credential binding'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  DropdownButtonFormField<String>(
+                    initialValue: itemId,
+                    decoration: const InputDecoration(
+                      labelText: 'Bitwarden item',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: items
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item['id']?.toString(),
+                            child: Text(item['name']?.toString() ?? 'Untitled'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) => setState(() {
+                            itemId = value ?? itemId;
+                            final item = items.firstWhere(
+                              (candidate) =>
+                                  candidate['id']?.toString() == itemId,
+                            );
+                            final origins = item['origins'] as List?;
+                            if (origins?.isNotEmpty == true) {
+                              originController.text = origins!.first.toString();
+                            }
+                          }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: aliasController,
+                    decoration: const InputDecoration(
+                      labelText: 'Agent-visible name',
+                      hintText: 'Work account',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: usageType,
+                    decoration: const InputDecoration(
+                      labelText: 'Use for',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'browser',
+                        child: Text('Browser login'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'http',
+                        child: Text('API request'),
+                      ),
+                    ],
+                    onChanged: saving
+                        ? null
+                        : (value) =>
+                              setState(() => usageType = value ?? usageType),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: originController,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      labelText: usageType == 'browser'
+                          ? 'Allowed HTTPS origin'
+                          : 'API HTTPS origin',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  if (usageType == 'http') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pathController,
+                      decoration: const InputDecoration(
+                        labelText: 'Allowed path prefix',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: authType,
+                      decoration: const InputDecoration(
+                        labelText: 'Authentication',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'bearer',
+                          child: Text('Bearer token'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'basic',
+                          child: Text('Basic authentication'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'header',
+                          child: Text('Custom header'),
+                        ),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (value) =>
+                                setState(() => authType = value ?? authType),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: secretField,
+                      decoration: const InputDecoration(
+                        labelText: 'Secret field',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: secretOptions
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.$1,
+                              child: Text(entry.$2),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: saving
+                          ? null
+                          : (value) => setState(
+                              () => secretField = value ?? secretField,
+                            ),
+                    ),
+                    if (authType == 'header') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: headerController,
+                        decoration: const InputDecoration(
+                          labelText: 'Header name',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ],
+                  if (errorText.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(errorText, style: TextStyle(color: _danger)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setState(() {
+                        saving = true;
+                        errorText = '';
+                      });
+                      try {
+                        await controller.createCredentialBinding(
+                          <String, dynamic>{
+                            'connectionId': connectionId,
+                            'alias': aliasController.text.trim(),
+                            'usageType': usageType,
+                            'itemId': itemId,
+                            if (usageType == 'browser')
+                              'origins': <String>[originController.text.trim()],
+                            if (usageType == 'http') ...<String, dynamic>{
+                              'origin': originController.text.trim(),
+                              'pathPrefix': pathController.text.trim(),
+                              'methods': const [
+                                'GET',
+                                'POST',
+                                'PUT',
+                                'PATCH',
+                                'DELETE',
+                              ],
+                              'authType': authType,
+                              'secretField': secretField,
+                              if (authType == 'basic')
+                                'usernameField': 'login.username',
+                              if (authType == 'header')
+                                'headerName': headerController.text.trim(),
+                            },
+                          },
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (_) {
+                        setState(() {
+                          errorText =
+                              controller.errorMessage ??
+                              'Could not create binding.';
+                          saving = false;
+                        });
+                      }
+                    },
+              child: Text(saving ? 'Adding...' : 'Add binding'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+  aliasController.dispose();
+  originController.dispose();
+  pathController.dispose();
+  headerController.dispose();
+}
+
+Future<void> _showBitwardenSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> config;
+  List<Map<String, dynamic>> bindings;
+  try {
+    config = await controller.getOfficialIntegrationConfig('bitwarden');
+    bindings = await controller.fetchCredentialBindings();
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
+      );
+    }
+    return;
+  }
+  var unlocked = config['unlocked'] == true;
+  var busy = false;
+  var errorText = '';
+  final serverController = TextEditingController(
+    text: config['serverUrl']?.toString() ?? 'https://vault.bitwarden.com',
+  );
+  final emailController = TextEditingController(
+    text: config['email']?.toString() ?? '',
+  );
+  final clientIdController = TextEditingController();
+  final clientSecretController = TextEditingController();
+  final masterPasswordController = TextEditingController();
+  final timeoutController = TextEditingController(
+    text: (config['idleTimeoutMinutes'] ?? 30).toString(),
+  );
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: const Text('Bitwarden credential broker'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'NeoAgent receives only opaque binding IDs. Your master password, vault session, usernames, passwords, and API tokens stay outside the AI context.',
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: serverController,
+                  decoration: const InputDecoration(
+                    labelText: 'Bitwarden server',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Account email',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: clientIdController,
+                  decoration: InputDecoration(
+                    labelText: config['hasClientId'] == true
+                        ? 'Replacement personal API client ID'
+                        : 'Personal API client ID',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: clientSecretController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: config['hasClientSecret'] == true
+                        ? 'Replacement personal API client secret'
+                        : 'Personal API client secret',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  unlocked ? 'Vault unlocked' : 'Vault locked',
+                  style: TextStyle(color: unlocked ? _success : _textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: masterPasswordController,
+                        obscureText: true,
+                        enabled: !busy && !unlocked,
+                        decoration: const InputDecoration(
+                          labelText: 'Master password',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 92,
+                      child: TextField(
+                        controller: timeoutController,
+                        keyboardType: TextInputType.number,
+                        enabled: !busy && !unlocked,
+                        decoration: const InputDecoration(
+                          labelText: 'Minutes',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed:
+                          busy || (!unlocked && config['configured'] != true)
+                          ? null
+                          : () async {
+                              setState(() => busy = true);
+                              try {
+                                if (unlocked) {
+                                  await controller.lockBitwarden();
+                                  unlocked = false;
+                                } else {
+                                  await controller.unlockBitwarden(
+                                    masterPasswordController.text,
+                                    idleTimeoutMinutes:
+                                        int.tryParse(timeoutController.text) ??
+                                        30,
+                                  );
+                                  masterPasswordController.clear();
+                                  unlocked = true;
+                                }
+                                setState(() {});
+                              } catch (_) {
+                                setState(
+                                  () => errorText =
+                                      controller.errorMessage ??
+                                      'Vault operation failed.',
+                                );
+                              } finally {
+                                setState(() => busy = false);
+                              }
+                            },
+                      child: Text(unlocked ? 'Lock' : 'Unlock'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Credential bindings',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed:
+                          !unlocked || config['connectionId'] == null || busy
+                          ? null
+                          : () async {
+                              await _showBitwardenBindingDialog(
+                                dialogContext,
+                                controller,
+                                connectionId: (config['connectionId'] as num)
+                                    .toInt(),
+                              );
+                              bindings = await controller
+                                  .fetchCredentialBindings();
+                              setState(() {});
+                            },
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Add'),
+                    ),
+                  ],
+                ),
+                if (bindings.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No bindings yet.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  )
+                else
+                  ...bindings.map(
+                    (binding) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(binding['alias']?.toString() ?? 'Credential'),
+                      subtitle: Text(binding['usageType']?.toString() ?? ''),
+                      trailing: IconButton(
+                        tooltip: 'Delete binding',
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                await controller.deleteCredentialBinding(
+                                  binding['id'].toString(),
+                                );
+                                bindings = await controller
+                                    .fetchCredentialBindings();
+                                setState(() {});
+                              },
+                      ),
+                    ),
+                  ),
+                if (errorText.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(errorText, style: TextStyle(color: _danger)),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          if (config['configured'] == true)
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      setState(() => busy = true);
+                      try {
+                        await controller.clearOfficialIntegrationConfig(
+                          'bitwarden',
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (_) {
+                        setState(() {
+                          errorText =
+                              controller.errorMessage ??
+                              'Could not disconnect Bitwarden.';
+                          busy = false;
+                        });
+                      }
+                    },
+              child: const Text('Disconnect'),
+            ),
+          TextButton(
+            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: busy
+                ? null
+                : () async {
+                    setState(() {
+                      busy = true;
+                      errorText = '';
+                    });
+                    try {
+                      await controller.saveOfficialIntegrationConfig(
+                        'bitwarden',
+                        config: <String, dynamic>{
+                          'serverUrl': serverController.text.trim(),
+                          'email': emailController.text.trim(),
+                          if (clientIdController.text.trim().isNotEmpty)
+                            'clientId': clientIdController.text.trim(),
+                          if (clientSecretController.text.isNotEmpty)
+                            'clientSecret': clientSecretController.text,
+                          'idleTimeoutMinutes':
+                              int.tryParse(timeoutController.text) ?? 30,
+                        },
+                      );
+                      config = await controller.getOfficialIntegrationConfig(
+                        'bitwarden',
+                      );
+                      setState(() {});
+                    } catch (_) {
+                      setState(
+                        () => errorText =
+                            controller.errorMessage ??
+                            'Could not save Bitwarden setup.',
+                      );
+                    } finally {
+                      setState(() => busy = false);
+                    }
+                  },
+            child: Text(busy ? 'Saving...' : 'Save setup'),
+          ),
+        ],
+      ),
+    ),
+  );
+  serverController.dispose();
+  emailController.dispose();
+  clientIdController.dispose();
+  clientSecretController.dispose();
+  masterPasswordController.dispose();
+  timeoutController.dispose();
 }
 
 Future<void> _showNeoRecallSetupDialog(
@@ -305,7 +889,8 @@ Future<void> _showNeoRecallSetupDialog(
       if (dialogContext.mounted) Navigator.of(dialogContext).pop();
     } catch (_) {
       setState(() {
-        errorText = controller.errorMessage ?? 'Could not save NeoRecall setup.';
+        errorText =
+            controller.errorMessage ?? 'Could not save NeoRecall setup.';
         busy = false;
       });
     }
@@ -380,11 +965,13 @@ Future<void> _showNeoRecallSetupDialog(
                               ),
                               actions: <Widget>[
                                 TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
                                   child: const Text('Cancel'),
                                 ),
                                 FilledButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
                                   child: const Text('Disconnect'),
                                 ),
                               ],
@@ -397,11 +984,17 @@ Future<void> _showNeoRecallSetupDialog(
                         errorText = '';
                       });
                       try {
-                        await controller.clearOfficialIntegrationConfig('neorecall');
-                        if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                        await controller.clearOfficialIntegrationConfig(
+                          'neorecall',
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
                       } catch (_) {
                         setState(() {
-                          errorText = controller.errorMessage ?? 'Could not disconnect NeoRecall.';
+                          errorText =
+                              controller.errorMessage ??
+                              'Could not disconnect NeoRecall.';
                           busy = false;
                         });
                       }
@@ -413,11 +1006,15 @@ Future<void> _showNeoRecallSetupDialog(
             child: const Text('Close'),
           ),
           TextButton(
-            onPressed: busy ? null : () => save(setState, dialogContext, connect: false),
+            onPressed: busy
+                ? null
+                : () => save(setState, dialogContext, connect: false),
             child: const Text('Save Only'),
           ),
           FilledButton(
-            onPressed: busy ? null : () => save(setState, dialogContext, connect: true),
+            onPressed: busy
+                ? null
+                : () => save(setState, dialogContext, connect: true),
             child: Text(
               busy
                   ? 'Working...'
@@ -1544,6 +2141,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'neorecall' => const Color(0xFFD98AA6),
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
+      'password' => const Color(0xFF175DDC),
       'trello' => const Color(0xFF0C66E4),
       _ => _accent,
     };
@@ -1552,6 +2150,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'neorecall' => 'R',
       'google' => 'G',
       'home_assistant' => 'H',
+      'password' => 'B',
       'trello' => 'T',
       _ => item.label.isNotEmpty ? item.label[0] : '?',
     };

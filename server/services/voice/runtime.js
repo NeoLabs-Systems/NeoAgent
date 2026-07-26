@@ -38,10 +38,10 @@ function buildVoiceMessagingPrompt(msg = {}) {
       formattingGuide,
       '',
       'Send send_interim_update immediately with a brief spoken acknowledgment — do not leave silence while working.',
-      'Keep interim updates short (one sentence). Spoken language only: no bullet points, no markdown, no lists.',
+      'Keep interim updates to one spoken sentence: no bullet points, markdown, or lists.',
       'If the task takes time, give one short update then work, do not narrate every step.',
       `Finish with send_message platform="${msg.platform}" to="${msg.chatId}".`,
-      'Final reply must be natural spoken language. Contractions, direct address, and short sentences.',
+      'Final reply must be natural spoken language with direct address and short sentences.',
     ].join('\n');
   }
 

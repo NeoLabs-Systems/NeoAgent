@@ -212,7 +212,8 @@ describe('messaging automation queue', () => {
       msg: createMessage(mainAgentId, 'second'),
     });
 
-    const queueKey = `${user.userId}:${mainAgentId}`;
+    const { queueKeyForMessage } = require('../../../server/services/messaging/inbound_queue');
+    const queueKey = queueKeyForMessage(user.userId, createMessage(mainAgentId, 'first'));
     userQueues[queueKey].cancelRequested = true;
     resolveFirst({ status: 'stopped', content: '' });
     const result = await processing;
@@ -275,7 +276,7 @@ describe('messaging automation queue', () => {
       JSON.stringify({
         directPolicy: 'open',
         sharedPolicy: 'disabled',
-        requireMentionInShared: true,
+        defaultAllowUntaggedInShared: true,
         directRules: [],
         sharedSpaceRules: [],
         sharedActorRules: [],
@@ -304,5 +305,68 @@ describe('messaging automation queue', () => {
     assert.match(errorEvent.payload.error, /could not finish/);
     assert.ok(errorEvent.payload.runId);
     assert.deepEqual(Object.keys(app.locals.userQueues), []);
+  });
+
+  test('automation shutdown aborts an active run and drops queued work without a false failure', async () => {
+    const manager = new MessagingManagerStub();
+    const io = createIoRecorder();
+    const app = { locals: {} };
+    const { accessPolicyKey } = require('../../../server/services/messaging/access_policy');
+    ctx.db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, ?, ?)`
+    ).run(
+      user.userId,
+      mainAgentId,
+      accessPolicyKey('telegram'),
+      JSON.stringify({
+        directPolicy: 'open',
+        sharedPolicy: 'disabled',
+        defaultAllowUntaggedInShared: true,
+        directRules: [],
+        sharedSpaceRules: [],
+        sharedActorRules: [],
+      }),
+    );
+    let runCalls = 0;
+    let runSignal = null;
+    const runtime = automation.registerMessagingAutomation({
+      app,
+      io,
+      messagingManager: manager,
+      agentEngine: {
+        run(_userId, _prompt, options) {
+          runCalls += 1;
+          runSignal = options.signal;
+          return new Promise((resolve, reject) => {
+            runSignal.addEventListener('abort', () => reject(runSignal.reason), { once: true });
+          });
+        },
+      },
+    });
+
+    const active = manager.handler(
+      user.userId,
+      createMessage(mainAgentId, 'first'),
+    );
+    await waitForTurn();
+    const queued = await manager.handler(
+      user.userId,
+      createMessage(mainAgentId, 'second'),
+    );
+    assert.deepEqual(queued, { queued: true });
+    assert.equal(runCalls, 1);
+    assert.ok(runSignal);
+
+    const firstShutdown = runtime.shutdown();
+    const secondShutdown = runtime.shutdown();
+    assert.equal(firstShutdown, secondShutdown);
+    const [status] = await Promise.all([firstShutdown, active]);
+
+    assert.equal(status.state, 'stopped');
+    assert.equal(runSignal.aborted, true);
+    assert.equal(runCalls, 1);
+    assert.deepEqual(Object.keys(app.locals.userQueues), []);
+    assert.equal(io.events.some((entry) => entry.event === 'messaging:error'), false);
   });
 });

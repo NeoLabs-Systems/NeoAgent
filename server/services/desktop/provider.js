@@ -1,27 +1,17 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { writeBufferAtomic } = require('../../utils/files');
+const { decodeBase64Image } = require('../../utils/image_payload');
 const {
   DESKTOP_COMMANDS,
-  DesktopCompanionSelectionError,
   DesktopCompanionUnavailableError,
 } = require('./protocol');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
-
-function extractBase64Image(value) {
-  const text = String(value || '');
-  if (!text) return null;
-  const match = text.match(/^data:image\/(?:png|jpeg|jpg);base64,(.+)$/i);
-  return match ? match[1] : text;
-}
-
-function guessExtension(result = {}) {
-  const mime = String(result.contentType || result.mimeType || 'image/png').toLowerCase();
-  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
-  return 'png';
-}
 
 class DesktopProvider {
   constructor(options = {}) {
@@ -36,24 +26,21 @@ class DesktopProvider {
     }
   }
 
-  _writeScreenshotArtifact(base64, result = {}) {
-    const buffer = Buffer.from(base64, 'base64');
-    const extension = guessExtension(result);
-    const contentType = result.contentType || (extension === 'jpg' ? 'image/jpeg' : 'image/png');
+  async _writeScreenshotArtifact(image, result = {}, options = {}) {
     if (this.artifactStore && this.userId != null) {
-      const artifact = this.artifactStore.allocateFile(this.userId, {
+      const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
         kind: 'desktop-screenshot',
         backend: 'desktop-companion',
-        extension,
-        contentType,
+        extension: image.extension,
+        contentType: image.contentType,
         filenameBase: 'desktop-companion-screenshot',
+        content: image.buffer,
+        signal: options.signal,
         metadata: {
           deviceId: result.device?.deviceId || null,
           displayId: result.displayId || result.device?.activeDisplayId || null,
         },
       });
-      fs.writeFileSync(artifact.storagePath, buffer);
-      this.artifactStore.finalizeFile(artifact.artifactId, artifact.storagePath);
       return {
         screenshotPath: artifact.url,
         artifactId: artifact.artifactId,
@@ -62,9 +49,9 @@ class DesktopProvider {
       };
     }
 
-    const filename = `desktop_${Date.now()}_${Math.random().toString(16).slice(2)}.${extension}`;
+    const filename = `desktop_${Date.now()}_${Math.random().toString(16).slice(2)}.${image.extension}`;
     const fullPath = path.join(SCREENSHOTS_DIR, filename);
-    fs.writeFileSync(fullPath, buffer);
+    await writeBufferAtomic(fullPath, image.buffer, { signal: options.signal });
     return {
       screenshotPath: `/screenshots/${filename}`,
       artifactId: null,
@@ -73,13 +60,14 @@ class DesktopProvider {
     };
   }
 
-  _materialize(result) {
+  async _materialize(result, options = {}) {
     if (!result || typeof result !== 'object') return result;
     const raw = result.screenshotDataUrl || result.screenshotData || result.screenshotBase64;
     if (!raw) return result;
-    const base64 = extractBase64Image(raw);
-    if (!base64) return result;
-    const screenshot = this._writeScreenshotArtifact(base64, result);
+    const image = decodeBase64Image(raw, {
+      allowedTypes: ['image/png', 'image/jpeg'],
+    });
+    const screenshot = await this._writeScreenshotArtifact(image, result, options);
     const next = { ...result, ...screenshot };
     delete next.screenshotDataUrl;
     delete next.screenshotData;
@@ -89,16 +77,19 @@ class DesktopProvider {
 
   async _dispatch(command, payload = {}, options = {}) {
     this._assertReady();
-    try {
-      return this._materialize(
-        await this.registry.dispatch(this.userId, payload.deviceId || null, command, payload, options),
-      );
-    } catch (error) {
-      if (error instanceof DesktopCompanionSelectionError || error instanceof DesktopCompanionUnavailableError) {
-        throw error;
-      }
-      throw error;
-    }
+    const safePayload = { ...(payload || {}) };
+    const signal = options.signal || safePayload.signal || null;
+    const timeoutMs = options.timeoutMs ?? safePayload.timeoutMs;
+    delete safePayload.signal;
+    delete safePayload.timeoutMs;
+    const result = await this.registry.dispatch(
+      this.userId,
+      safePayload.deviceId || null,
+      command,
+      safePayload,
+      { ...options, signal, timeoutMs },
+    );
+    return this._materialize(result, { signal });
   }
 
   getStatus() {
@@ -121,9 +112,9 @@ class DesktopProvider {
     return this.registry.revoke(this.userId, deviceId);
   }
 
-  pauseDevice(deviceId, paused = true) {
+  pauseDevice(deviceId, paused = true, options = {}) {
     this._assertReady();
-    return this.registry.pause(this.userId, deviceId, paused);
+    return this.registry.pause(this.userId, deviceId, paused, options);
   }
 
   screenshot(options = {}) {
@@ -137,7 +128,7 @@ class DesktopProvider {
 
   stopStream(options = {}) {
     this._assertReady();
-    return this.registry.stopStream(this.userId, options.deviceId || null);
+    return this.registry.stopStream(this.userId, options.deviceId || null, options);
   }
 
   observe(options = {}) {
@@ -192,6 +183,12 @@ class DesktopProvider {
       stdin_input: options.stdinInput || null,
       pty: options.pty === true,
       inputs: options.inputs || [],
+      signal: options.signal,
+    }, {
+      signal: options.signal,
+      timeoutMs: Number(options.timeout || 0) > 0
+        ? Number(options.timeout) + 10_000
+        : undefined,
     });
   }
 }

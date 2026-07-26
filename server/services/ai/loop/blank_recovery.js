@@ -33,9 +33,9 @@ function shouldContinueAfterRecoverableToolFailure({
   if (Number(remainingIterations || 0) <= 0) return false;
   const failedExecution = latestFailedToolExecution(toolExecutions);
   if (!isRecoverableInternalToolFailure(failedExecution)) return false;
-  const visible = normalizeOutgoingMessage(lastContent || '');
-  if (!visible) return false;
-  return /\b(blocked|could not|cannot|can't|do not have a confirmed finished result|not found|missing|internal tool issue)\b/i.test(visible);
+  // Structural only: recoverable internal tool failure + remaining budget.
+  // Do not phrase-match the draft reply.
+  return Boolean(normalizeOutgoingMessage(lastContent || '') || failedExecution);
 }
 
 function buildBlankAfterToolFailureGuidance(toolExecutions = []) {
@@ -46,7 +46,8 @@ function buildBlankAfterToolFailureGuidance(toolExecutions = []) {
   return [
     `The previous tool "${toolName}" failed with: ${summarizeForLog(failure, 240)}.`,
     'The latest assistant turn returned no user-facing answer and no tool call, so the task is not terminal.',
-    'Continue with the next safe recovery action: retry with corrected arguments, use another available tool, verify from existing evidence, or report a real blocker only if no autonomous path remains.',
+    'Continue with the next safe recovery action now in this same turn: retry with corrected arguments, use another available tool, verify from existing evidence, or report a real blocker only if no autonomous path remains.',
+    'Do not invent a finished result. Prefer a concrete recovery step or a truthful partial answer over silence.',
   ].join(' ');
 }
 

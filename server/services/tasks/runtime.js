@@ -15,6 +15,7 @@ const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 const { isTransientError } = require('../ai/providerRetry');
+const { isAbortError, throwIfAborted } = require('../../utils/abort');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -112,6 +113,7 @@ class TaskRuntime {
     this.runningTaskExecutions = new Set();
     this.activeExecutionPromises = new Set();
     this.activePolls = new Map();
+    this.abortController = new AbortController();
     this.integrationEventCleanups = [];
     this.triggerRegistry = new TriggerRegistry(taskAdapters);
     this.started = false;
@@ -149,6 +151,9 @@ class TaskRuntime {
       throw new Error('Task runtime cannot start while shutdown is in progress.');
     }
 
+    if (this.abortController.signal.aborted) {
+      this.abortController = new AbortController();
+    }
     this.started = true;
     this.stopping = false;
     this.state = 'starting';
@@ -208,6 +213,7 @@ class TaskRuntime {
     this.started = false;
     this.stopping = true;
     this.state = 'stopping';
+    this.abortController.abort('Task runtime is stopping.');
     this._stopScheduling();
 
     this.stopPromise = (async () => {
@@ -301,6 +307,9 @@ class TaskRuntime {
   runTaskNow(taskId, userId) {
     const task = this.taskRepository.getTaskById(taskId, userId);
     if (!task) throw new Error('Task not found');
+    if (this.stopping || this.abortController.signal.aborted) {
+      return { running: false, skipped: true, reason: 'runtime_stopping' };
+    }
     void this._executeTask(taskId, userId, {
       scheduledAt: new Date().toISOString(),
       manual: true,
@@ -349,6 +358,7 @@ class TaskRuntime {
     const due = this.taskRepository.listDueOneTimeTasks();
 
     for (const task of due) {
+      if (this.abortController.signal.aborted) break;
       this.scheduleJobs.delete(task.id);
       try {
         const result = await this._executeTask(task.id, task.user_id, {
@@ -373,9 +383,13 @@ class TaskRuntime {
       return this._runPoll('integration', async () => {
         const tasks = this.taskRepository.listEnabledByTriggerTypes(POLLED_TRIGGER_TYPES);
         for (const task of tasks) {
+          if (this.abortController.signal.aborted) break;
           try {
-            await pollIntegrationTask(this, task);
+            await pollIntegrationTask(this, task, {
+              signal: this.abortController.signal,
+            });
           } catch (error) {
+            if (isAbortError(error, this.abortController.signal) && this.stopping) break;
             console.error(`[Tasks] Trigger poll failed for task ${task.id}:`, error.message);
           }
         }
@@ -390,13 +404,16 @@ class TaskRuntime {
     if (active) {
       return active;
     }
-    if (this.stopping) {
+    if (this.stopping || this.abortController.signal.aborted) {
       return Promise.resolve({ skipped: true, reason: 'runtime_stopping' });
     }
 
     const promise = Promise.resolve()
-      .then(callback)
+      .then(() => callback(this.abortController.signal))
       .catch((error) => {
+        if (isAbortError(error, this.abortController.signal) && this.stopping) {
+          return { skipped: true, reason: 'runtime_stopping' };
+        }
         this.lastError = error.message;
         onError(error);
         return { error: error.message };
@@ -453,7 +470,7 @@ class TaskRuntime {
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
-    if (this.stopping) {
+    if (this.stopping || this.abortController.signal.aborted) {
       return { skipped: true, reason: 'runtime_stopping' };
     }
     const executionKey = `${userId}:${taskId}`;
@@ -488,6 +505,8 @@ class TaskRuntime {
   }
 
   async _executeTaskSerial(taskId, userId, executionMeta = {}) {
+    const signal = this.abortController.signal;
+    if (signal.aborted) return { skipped: true, reason: 'runtime_stopping' };
     const task = this.taskRepository.getTaskById(taskId, userId);
     if (!task || !task.enabled) return { skipped: true, reason: 'missing_or_disabled' };
 
@@ -582,7 +601,11 @@ class TaskRuntime {
           taskId,
           manual: executionMeta.manual === true,
           scheduledAt: executionMeta.scheduledAt || null,
+          signal,
         });
+        if (this.stopping || signal.aborted) {
+          return { skipped: true, reason: 'runtime_stopping' };
+        }
         this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
         this._recordTaskLifecycle({
           userId,
@@ -647,12 +670,16 @@ class TaskRuntime {
           skipVerifier: false,
           stream: false,
           context: executionMeta.triggerPayload || {},
+          signal,
         };
         try {
           const result = typeof this.agentEngine.runWithModel === 'function'
             ? await this.agentEngine.runWithModel(userId, finalPrompt, runOptions, normalizedConfig.model || null)
             : await this.agentEngine.run(userId, finalPrompt, runOptions);
           completedRunId = result?.runId || null;
+          if (this.stopping || signal.aborted) {
+            return { skipped: true, reason: 'runtime_stopping', runId: completedRunId };
+          }
           const fallbackDelivery = await this._deliverTaskResultIfNeeded({
             userId,
             agentId,
@@ -692,6 +719,9 @@ class TaskRuntime {
           });
           return result;
         } catch (err) {
+          if (isAbortError(err, signal) && this.stopping) {
+            return { skipped: true, reason: 'runtime_stopping', runId: completedRunId };
+          }
           const transientExecutionError = isTransientError(err);
           if (completedRunId && !transientExecutionError) {
             this.taskRepository.markAgentRunFailed(completedRunId, userId, err.message);
@@ -733,6 +763,9 @@ class TaskRuntime {
         }
       }
     } catch (err) {
+      if (isAbortError(err, signal) && this.stopping) {
+        return { skipped: true, reason: 'runtime_stopping', runId: completedRunId };
+      }
       console.error(`[Tasks] Task ${taskId} error:`, err.message);
       if (err?.code !== 'TASK_DELIVERY_FAILED') {
         const failureMessage = this._buildTaskFailureMessage(taskName, err);
@@ -1045,6 +1078,7 @@ class TaskRuntime {
     deliveryState,
     allowPlainResultFallback = true,
   }) {
+    throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
     if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
     const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
@@ -1118,6 +1152,7 @@ class TaskRuntime {
           mediaPath: target.mediaPath || null,
           runId: result?.runId || null,
           persistConversation: true,
+          signal: this.abortController.signal,
         });
         deliveryState.messagingSent = true;
         deliveryState.proactiveMessageStaged = false;

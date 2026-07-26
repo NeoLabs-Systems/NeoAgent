@@ -45,6 +45,12 @@ runs:
 The engine records steps, run events, model usage, timing, and artifacts.
 Repetition guards and loop limits prevent unbounded retries.
 
+Run control is checked at model and tool boundaries. Abort and interruption
+are terminal; pause cancels the active model or command, records a checkpoint,
+and parks the in-process run until the authenticated resume action releases it.
+If a state-changing tool is interrupted after dispatch, its outcome is recorded
+as unknown and must be verified before the model can attempt it again.
+
 ## 4. Complete and deliver
 
 The final response is sanitized and stored. Messaging-triggered runs send an
@@ -54,6 +60,10 @@ was already delivered.
 The engine emits `run:complete`, persists prompt and usage metrics, refreshes
 conversation summaries and working state, and cancels unfinished subagents.
 Failures and user stops produce separate terminal run states.
+
+Terminal transitions are first-writer-wins. A late model, tool, verifier, or
+delivery callback cannot overwrite an earlier stop or interruption, and active
+run, step, and delegation rows are settled together.
 
 ## 5. Post-run processing
 

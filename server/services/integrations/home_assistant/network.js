@@ -2,8 +2,11 @@
 
 const dns = require('dns').promises;
 const net = require('net');
+const {
+  fetchResponseText,
+  waitForAbortableResult,
+} = require('../http');
 
-const HTTP_TIMEOUT_MS = 15000;
 const ALLOWED_PORTS = new Set(['', '443', '8123']);
 
 function trimText(value) {
@@ -100,7 +103,7 @@ function isBlockedIpAddress(address) {
   return true;
 }
 
-async function assertPublicHomeAssistantEndpoint(baseUrl) {
+async function assertPublicHomeAssistantEndpoint(baseUrl, options = {}) {
   const url = new URL(normalizeHomeAssistantBaseUrl(baseUrl));
   const hostname = String(url.hostname || '').replace(/^\[|\]$/g, '');
   if (net.isIP(hostname) && isBlockedIpAddress(hostname)) {
@@ -109,7 +112,10 @@ async function assertPublicHomeAssistantEndpoint(baseUrl) {
 
   let addresses;
   try {
-    addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+    addresses = await waitForAbortableResult(
+      dns.lookup(hostname, { all: true, verbatim: true }),
+      options.signal,
+    );
   } catch (error) {
     throw new Error(`Could not resolve Home Assistant host: ${error?.message || 'DNS lookup failed'}`);
   }
@@ -140,7 +146,7 @@ function buildHomeAssistantUrl(baseUrl, path, query = {}) {
 async function homeAssistantRequest(credentials, options = {}) {
   const baseUrl = normalizeHomeAssistantBaseUrl(credentials.baseUrl);
   const token = requireText(credentials.token, 'Home Assistant token');
-  await assertPublicHomeAssistantEndpoint(baseUrl);
+  await assertPublicHomeAssistantEndpoint(baseUrl, { signal: options.signal });
 
   const method = String(options.method || 'GET').trim().toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -154,31 +160,22 @@ async function homeAssistantRequest(credentials, options = {}) {
     body = JSON.stringify(options.body);
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
-  let response;
-  try {
-    response = await fetch(buildHomeAssistantUrl(baseUrl, options.path, options.query), {
+  const { response, text } = await fetchResponseText(
+    buildHomeAssistantUrl(baseUrl, options.path, options.query),
+    {
       method,
       headers,
       body,
       redirect: 'manual',
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error(`Home Assistant request timed out after ${HTTP_TIMEOUT_MS}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+      signal: options.signal,
+    },
+    { serviceName: 'Home Assistant' },
+  );
 
   if (response.status >= 300 && response.status < 400) {
     throw new Error('Home Assistant redirected the API request; redirects are not followed.');
   }
 
-  const text = await response.text();
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;

@@ -436,7 +436,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       double? prevExtent;
       void settleInitial(int framesLeft) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || generation != _scrollGeneration || !_scrollController.hasClients) {
+          if (!mounted ||
+              generation != _scrollGeneration ||
+              !_scrollController.hasClients) {
             return;
           }
           final pos = _scrollController.position;
@@ -463,6 +465,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
           settleInitial(framesLeft - 1);
         });
       }
+
       settleInitial(120);
       return;
     }
@@ -511,7 +514,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (messages.isEmpty) {
       // Agent switch resets the settle tracker so the next batch triggers hiding.
       _visibleMessageCountAtLastSettle = 0;
-    } else if (_visibleMessageCountAtLastSettle == 0 && !_awaitingInitialScrollSettle) {
+    } else if (_visibleMessageCountAtLastSettle == 0 &&
+        !_awaitingInitialScrollSettle) {
       // Messages just went from 0 → N: hide until the scroll position settles.
       _awaitingInitialScrollSettle = true;
     }
@@ -2039,7 +2043,11 @@ class _IgnoredChatsPanel extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
-                      style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -2049,50 +2057,58 @@ class _IgnoredChatsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           for (final key in ignored)
-            Builder(builder: (context) {
-              final sep = key.indexOf(':');
-              final platform = sep > 0 ? key.substring(0, sep) : key;
-              final chatId = sep > 0 ? key.substring(sep + 1) : '';
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _borderLight),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.block_rounded, size: 16, color: _textMuted),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            platform.toUpperCase(),
-                            style: TextStyle(
-                              color: _textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
+            Builder(
+              builder: (context) {
+                final sep = key.indexOf(':');
+                final platform = sep > 0 ? key.substring(0, sep) : key;
+                final chatId = sep > 0 ? key.substring(sep + 1) : '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bgSecondary,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.block_rounded, size: 16, color: _textMuted),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              platform.toUpperCase(),
+                              style: TextStyle(
+                                color: _textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
                             ),
-                          ),
-                          Text(
-                            chatId.isNotEmpty ? chatId : platform,
-                            style: TextStyle(color: _textPrimary, fontSize: 13),
-                          ),
-                        ],
+                            Text(
+                              chatId.isNotEmpty ? chatId : platform,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () => controller.removeIgnoredChat(key),
-                      child: Text('Remove'),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      TextButton(
+                        onPressed: () => controller.removeIgnoredChat(key),
+                        child: Text('Remove'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -2236,7 +2252,9 @@ class _ConnectionReconnectingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final msg = hasNetwork ? 'Reconnecting to server…' : 'No network connection';
+    final msg = hasNetwork
+        ? 'Reconnecting to server…'
+        : 'No network connection';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -2308,7 +2326,6 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
 
   int _remaining() {
     final expiry = widget.approval.expiresAt;
-    if (expiry == null) return 30;
     return expiry.difference(DateTime.now()).inSeconds.clamp(0, 300);
   }
 
@@ -2340,11 +2357,7 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
                 color: _accent.withValues(alpha: 0.16),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.security_outlined,
-                size: 13,
-                color: _accent,
-              ),
+              child: Icon(Icons.security_outlined, size: 13, color: _accent),
             ),
           ),
           const SizedBox(width: 10),
@@ -3019,6 +3032,71 @@ Future<void> _showMessagingAccessPolicyDialog(
     return result;
   }
 
+  List<MessagingAccessRule> sharedSpaces() {
+    final spaces = <MessagingAccessRule>[
+      ...policy.sharedSpaceRules,
+      ...policy.sharedMemberRules
+          .where(
+            (rule) =>
+                (rule.spaceScope ?? '').isNotEmpty &&
+                (rule.spaceValue ?? '').isNotEmpty,
+          )
+          .map(
+            (rule) => MessagingAccessRule(
+              scope: rule.spaceScope!,
+              value: rule.spaceValue!,
+              label: rule.spaceLabel,
+            ),
+          ),
+      ...policy.sharedParticipationRules.map(
+        (rule) => MessagingAccessRule(
+          scope: rule.scope,
+          value: rule.value,
+          label: rule.label,
+        ),
+      ),
+      ...catalog.suggestedTargets
+          .where((target) => target.bucket == 'sharedSpaceRules')
+          .map((target) => target.asRule),
+      ...catalog.discoveredTargets
+          .where((target) => target.bucket == 'sharedSpaceRules')
+          .map((target) => target.asRule),
+    ];
+    return dedupeRules(spaces);
+  }
+
+  bool allowsUntagged(MessagingAccessRule space) {
+    for (final rule in policy.sharedParticipationRules) {
+      if (rule.scope == space.scope && rule.value == space.value) {
+        return rule.allowUntagged;
+      }
+    }
+    return policy.defaultAllowUntaggedInShared;
+  }
+
+  void setAllowsUntagged(
+    MessagingAccessRule space,
+    bool allow,
+    void Function(void Function()) setLocalState,
+  ) {
+    setLocalState(() {
+      final rules = policy.sharedParticipationRules
+          .where(
+            (rule) => !(rule.scope == space.scope && rule.value == space.value),
+          )
+          .toList();
+      rules.add(
+        MessagingSharedParticipationRule(
+          scope: space.scope,
+          value: space.value,
+          label: space.label,
+          allowUntagged: allow,
+        ),
+      );
+      policy = policy.copyWith(sharedParticipationRules: rules);
+    });
+  }
+
   void addRule(
     _MessagingRuleSelection selection,
     void Function(void Function()) setLocalState,
@@ -3038,11 +3116,25 @@ Future<void> _showMessagingAccessPolicyDialog(
           break;
         case 'sharedActorRules':
           policy = policy.copyWith(
+            directPolicy: policy.directPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.directPolicy,
             sharedPolicy: policy.sharedPolicy == 'disabled'
                 ? 'allowlist'
                 : policy.sharedPolicy,
             sharedActorRules: dedupeRules(<MessagingAccessRule>[
               ...policy.sharedActorRules,
+              selection.rule,
+            ]),
+          );
+          break;
+        case 'sharedMemberRules':
+          policy = policy.copyWith(
+            sharedPolicy: policy.sharedPolicy == 'disabled'
+                ? 'allowlist'
+                : policy.sharedPolicy,
+            sharedMemberRules: dedupeRules(<MessagingAccessRule>[
+              ...policy.sharedMemberRules,
               selection.rule,
             ]),
           );
@@ -3082,6 +3174,13 @@ Future<void> _showMessagingAccessPolicyDialog(
                 .toList(growable: false),
           );
           break;
+        case 'sharedMemberRules':
+          policy = policy.copyWith(
+            sharedMemberRules: policy.sharedMemberRules
+                .where((item) => item.id != rule.id)
+                .toList(growable: false),
+          );
+          break;
         default:
           policy = policy.copyWith(
             sharedSpaceRules: policy.sharedSpaceRules
@@ -3098,14 +3197,20 @@ Future<void> _showMessagingAccessPolicyDialog(
       return StatefulBuilder(
         builder: (context, setLocalState) {
           final capabilities = catalog.capabilities;
+          final participationSpaces = sharedSpaces();
+          final taggedOnlyCount = participationSpaces
+              .where((space) => !allowsUntagged(space))
+              .length;
           final summaryText = [
             'DMs ${policy.directPolicy}',
             if (capabilities.supportsSharedPolicy)
               'shared ${policy.sharedPolicy}',
-            if (capabilities.supportsMentionGate)
-              policy.requireMentionInShared
-                  ? 'mentions required'
-                  : 'mentions optional',
+            if (capabilities.supportsUntaggedGroupToggle)
+              !policy.defaultAllowUntaggedInShared
+                  ? 'untagged off by default'
+                  : taggedOnlyCount == 0
+                  ? 'social intelligence enabled'
+                  : '$taggedOnlyCount tagged-only',
             if (policy.totalRuleCount > 0) '${policy.totalRuleCount} rules',
           ].join(' • ');
 
@@ -3115,7 +3220,45 @@ Future<void> _showMessagingAccessPolicyDialog(
               horizontal: 24,
               vertical: 18,
             ),
-            title: Text('${platform.label} Access Policy'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: platform.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    Icons.admin_panel_settings_outlined,
+                    color: platform.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        '${platform.label} access',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'People, groups, and response behavior',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: 760,
               child: SingleChildScrollView(
@@ -3133,7 +3276,10 @@ Future<void> _showMessagingAccessPolicyDialog(
                     const SizedBox(height: 18),
                     if (capabilities.supportsDirectPolicy)
                       _AccessModeField(
+                        icon: Icons.chat_bubble_outline_rounded,
                         label: 'Direct messages',
+                        description:
+                            'Control who can reach the agent one-to-one.',
                         value: policy.directPolicy,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(directPolicy: value);
@@ -3142,28 +3288,24 @@ Future<void> _showMessagingAccessPolicyDialog(
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 12),
                       _AccessModeField(
+                        icon: Icons.groups_2_outlined,
                         label: 'Shared spaces',
+                        description:
+                            'Control access in groups, channels, and rooms.',
                         value: policy.sharedPolicy,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
                         }),
                       ),
                     ],
-                    if (capabilities.supportsMentionGate) ...<Widget>[
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Require mention in shared spaces'),
-                        subtitle: Text(
-                          'Keep channels quiet until the bot is directly mentioned.',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                        value: policy.requireMentionInShared,
-                        onChanged: (value) => setLocalState(() {
-                          policy = policy.copyWith(
-                            requireMentionInShared: value,
-                          );
-                        }),
+                    if (capabilities.supportsUntaggedGroupToggle) ...<Widget>[
+                      const SizedBox(height: 16),
+                      _GroupParticipationSection(
+                        spaces: participationSpaces,
+                        supportsMentionGate: capabilities.supportsMentionGate,
+                        allowsUntagged: allowsUntagged,
+                        onChanged: (space, value) =>
+                            setAllowsUntagged(space, value, setLocalState),
                       ),
                     ],
                     const SizedBox(height: 14),
@@ -3182,7 +3324,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             }
                           },
                           icon: Icon(Icons.add_rounded),
-                          label: Text('Add Rule'),
+                          label: Text('Add access'),
                         ),
                         const SizedBox(width: 10),
                         OutlinedButton.icon(
@@ -3194,14 +3336,15 @@ Future<void> _showMessagingAccessPolicyDialog(
                             });
                           },
                           icon: Icon(Icons.travel_explore_rounded),
-                          label: Text('Refresh Discovery'),
+                          label: Text('Refresh groups & people'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     _AccessRuleSection(
-                      title: 'Direct senders',
-                      subtitle: 'Who can start a one-to-one conversation.',
+                      title: 'Direct-only rules',
+                      subtitle:
+                          'Specific one-to-one chats that do not grant group access.',
                       rules: policy.directRules,
                       emptyLabel: 'No direct sender rules yet.',
                       onRemove: (rule) =>
@@ -3210,9 +3353,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Shared spaces',
+                        title: 'Everyone in a shared space',
                         subtitle:
-                            'Which channels, groups, rooms, or servers can trigger the agent.',
+                            'Allow every sender in a selected channel, group, room, or server.',
                         rules: policy.sharedSpaceRules,
                         emptyLabel: 'No shared-space rules yet.',
                         onRemove: (rule) =>
@@ -3220,13 +3363,27 @@ Future<void> _showMessagingAccessPolicyDialog(
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Shared actors',
+                        title: 'Senders everywhere',
                         subtitle:
-                            'Optional extra filter for who inside allowed shared spaces can trigger the agent.',
+                            'Allow these people in DMs and shared spaces. Role rules apply only in shared spaces.',
                         rules: policy.sharedActorRules,
                         emptyLabel: 'No shared-actor rules yet.',
                         onRemove: (rule) =>
                             removeRule('sharedActorRules', rule, setLocalState),
+                      ),
+                      const SizedBox(height: 16),
+                      _AccessRuleSection(
+                        title: 'Senders in one shared space',
+                        subtitle:
+                            'Allow a sender only in the selected group, channel, or room.',
+                        rules: policy.sharedMemberRules,
+                        emptyLabel: 'No group-specific sender rules yet.',
+                        onRemove: (rule) => removeRule(
+                          'sharedMemberRules',
+                          rule,
+                          setLocalState,
+                        ),
+                        showSpace: true,
                       ),
                     ],
                   ],
@@ -3245,7 +3402,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     Navigator.of(dialogContext).pop();
                   }
                 },
-                child: Text('Save Policy'),
+                child: Text('Save changes'),
               ),
             ],
           );
@@ -3257,32 +3414,175 @@ Future<void> _showMessagingAccessPolicyDialog(
 
 class _AccessModeField extends StatelessWidget {
   const _AccessModeField({
+    required this.icon,
     required this.label,
+    required this.description,
     required this.value,
     required this.onChanged,
   });
 
+  final IconData icon;
   final String label;
+  final String description;
   final String value;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: const <DropdownMenuItem<String>>[
-            DropdownMenuItem(value: 'allowlist', child: Text('Allowlist only')),
-            DropdownMenuItem(value: 'open', child: Text('Open access')),
-            DropdownMenuItem(value: 'disabled', child: Text('Disabled')),
-          ],
-          onChanged: (next) {
-            if (next != null) onChanged(next);
-          },
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, color: _accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(description, style: TextStyle(color: _textSecondary)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    ChoiceChip(
+                      avatar: Icon(Icons.rule_rounded, size: 18),
+                      label: Text('Allowlist'),
+                      selected: value == 'allowlist',
+                      onSelected: (_) => onChanged('allowlist'),
+                    ),
+                    ChoiceChip(
+                      avatar: Icon(Icons.public_rounded, size: 18),
+                      label: Text('Open'),
+                      selected: value == 'open',
+                      onSelected: (_) => onChanged('open'),
+                    ),
+                    ChoiceChip(
+                      avatar: Icon(Icons.block_rounded, size: 18),
+                      label: Text('Off'),
+                      selected: value == 'disabled',
+                      onSelected: (_) => onChanged('disabled'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupParticipationSection extends StatelessWidget {
+  const _GroupParticipationSection({
+    required this.spaces,
+    required this.supportsMentionGate,
+    required this.allowsUntagged,
+    required this.onChanged,
+  });
+
+  final List<MessagingAccessRule> spaces;
+  final bool supportsMentionGate;
+  final bool Function(MessagingAccessRule) allowsUntagged;
+  final void Function(MessagingAccessRule, bool) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.alternate_email_rounded, color: _accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Untagged group messages',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      supportsMentionGate
+                          ? 'Tags and replies always get a response. Choose which groups may also use social intelligence for untagged messages.'
+                          : 'Choose which shared spaces may use social intelligence for untagged messages. This bridge may not identify tags separately.',
+                      style: TextStyle(color: _textSecondary, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (spaces.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
+                style: TextStyle(color: _textMuted),
+              ),
+            )
+          else
+            ...spaces.map((space) {
+              final enabled = allowsUntagged(space);
+              return Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
+                  secondary: Icon(
+                    enabled
+                        ? Icons.psychology_alt_outlined
+                        : Icons.notifications_off_outlined,
+                    color: enabled ? _accent : _textMuted,
+                  ),
+                  title: Text(
+                    space.displayLabel,
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    enabled
+                        ? 'Untagged messages use social intelligence'
+                        : 'Untagged messages are ignored completely',
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  value: enabled,
+                  onChanged: (value) => onChanged(space, value),
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
@@ -3295,6 +3595,7 @@ class _AccessRuleSection extends StatelessWidget {
     required this.rules,
     required this.emptyLabel,
     required this.onRemove,
+    this.showSpace = false,
   });
 
   final String title;
@@ -3302,6 +3603,7 @@ class _AccessRuleSection extends StatelessWidget {
   final List<MessagingAccessRule> rules;
   final String emptyLabel;
   final ValueChanged<MessagingAccessRule> onRemove;
+  final bool showSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -3328,8 +3630,14 @@ class _AccessRuleSection extends StatelessWidget {
               runSpacing: 8,
               children: rules
                   .map((rule) {
+                    final spaceSuffix =
+                        showSpace && rule.spaceDisplayLabel.isNotEmpty
+                        ? ' in ${rule.spaceDisplayLabel}'
+                        : '';
                     return Chip(
-                      label: Text('${rule.scopeLabel}: ${rule.displayLabel}'),
+                      label: Text(
+                        '${rule.scopeLabel}: ${rule.displayLabel}$spaceSuffix',
+                      ),
                       deleteIcon: Icon(Icons.close_rounded, size: 18),
                       onDeleted: () => onRemove(rule),
                     );
@@ -3374,30 +3682,47 @@ class _MessagingAccessRulePickerSheet extends StatefulWidget {
 class _MessagingAccessRulePickerSheetState
     extends State<_MessagingAccessRulePickerSheet> {
   late final TextEditingController _queryController;
+  late final TextEditingController _valueController;
+  late final TextEditingController _spaceValueController;
   late String _selectedBucket;
   late String _selectedScope;
+  late String _selectedSpaceScope;
 
   @override
   void initState() {
     super.initState();
     _queryController = TextEditingController();
-    _selectedBucket = widget.catalog.capabilities.directRuleScopes.isNotEmpty
+    _valueController = TextEditingController();
+    _spaceValueController = TextEditingController();
+    _selectedBucket =
+        widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
+        ? 'sharedActorRules'
+        : _directOnlyScopes().isNotEmpty
         ? 'directRules'
         : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
               ? 'sharedSpaceRules'
               : 'sharedActorRules');
-    _selectedScope = widget.catalog.capabilities.directRuleScopes.isNotEmpty
-        ? widget.catalog.capabilities.directRuleScopes.first
+    _selectedScope =
+        widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
+        ? widget.catalog.capabilities.sharedActorRuleScopes.first
+        : _directOnlyScopes().isNotEmpty
+        ? _directOnlyScopes().first
         : (widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
               ? widget.catalog.capabilities.sharedSpaceRuleScopes.first
               : (widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
                     ? widget.catalog.capabilities.sharedActorRuleScopes.first
                     : 'chat'));
+    _selectedSpaceScope =
+        widget.catalog.capabilities.sharedSpaceRuleScopes.isNotEmpty
+        ? widget.catalog.capabilities.sharedSpaceRuleScopes.first
+        : 'chat';
   }
 
   @override
   void dispose() {
     _queryController.dispose();
+    _valueController.dispose();
+    _spaceValueController.dispose();
     super.dispose();
   }
 
@@ -3410,12 +3735,21 @@ class _MessagingAccessRulePickerSheetState
   List<String> _scopesForBucket() {
     switch (_selectedBucket) {
       case 'directRules':
-        return widget.catalog.capabilities.directRuleScopes;
+        return _directOnlyScopes();
       case 'sharedActorRules':
+      case 'sharedMemberRules':
         return widget.catalog.capabilities.sharedActorRuleScopes;
       default:
         return widget.catalog.capabilities.sharedSpaceRuleScopes;
     }
+  }
+
+  List<String> _directOnlyScopes() {
+    final sharedActorScopes = widget.catalog.capabilities.sharedActorRuleScopes
+        .toSet();
+    return widget.catalog.capabilities.directRuleScopes
+        .where((scope) => !sharedActorScopes.contains(scope))
+        .toList(growable: false);
   }
 
   void _syncSelectedScope() {
@@ -3426,24 +3760,59 @@ class _MessagingAccessRulePickerSheetState
     _selectedScope = availableScopes.first;
   }
 
+  void _submitManualRule(BuildContext context) {
+    final value = _valueController.text.trim();
+    if (value.isEmpty) return;
+    final isMemberRule = _selectedBucket == 'sharedMemberRules';
+    final spaceValue = _spaceValueController.text.trim();
+    if (isMemberRule && spaceValue.isEmpty) return;
+    Navigator.of(context).pop(
+      _MessagingRuleSelection(
+        bucket: _selectedBucket,
+        rule: MessagingAccessRule(
+          scope: _selectedScope,
+          value: value,
+          spaceScope: isMemberRule ? _selectedSpaceScope : null,
+          spaceValue: isMemberRule ? spaceValue : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final availableScopes = _scopesForBucket();
     final query = _queryController.text.trim().toLowerCase();
-    final targets =
-        <MessagingAccessTarget>[
-              ...widget.catalog.suggestedTargets,
-              ...widget.catalog.discoveredTargets,
-            ]
-            .where((target) {
-              if (target.bucket != _selectedBucket) return false;
-              if (query.isEmpty) return true;
-              final haystack =
-                  '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
-                      .toLowerCase();
-              return haystack.contains(query);
-            })
-            .toList(growable: false);
+    final allTargets = <MessagingAccessTarget>[
+      ...widget.catalog.suggestedTargets,
+      ...widget.catalog.discoveredTargets,
+    ];
+    bool matchesQuery(MessagingAccessTarget target) {
+      if (query.isEmpty) return true;
+      final haystack =
+          '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
+              .toLowerCase();
+      return haystack.contains(query);
+    }
+
+    final targets = allTargets
+        .where((target) {
+          if (target.bucket != _selectedBucket) return false;
+          return matchesQuery(target);
+        })
+        .toList(growable: false);
+    final memberActorTargets = allTargets
+        .where(
+          (target) =>
+              target.bucket == 'sharedActorRules' && matchesQuery(target),
+        )
+        .toList(growable: false);
+    final memberSpaceTargets = allTargets
+        .where(
+          (target) =>
+              target.bucket == 'sharedSpaceRules' && matchesQuery(target),
+        )
+        .toList(growable: false);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -3471,9 +3840,9 @@ class _MessagingAccessRulePickerSheetState
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                if (widget.catalog.capabilities.directRuleScopes.isNotEmpty)
+                if (_directOnlyScopes().isNotEmpty)
                   ChoiceChip(
-                    label: Text('Direct'),
+                    label: Text('Direct only'),
                     selected: _selectedBucket == 'directRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'directRules';
@@ -3486,7 +3855,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedSpaceRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Shared spaces'),
+                    label: Text('Everyone in space'),
                     selected: _selectedBucket == 'sharedSpaceRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedSpaceRules';
@@ -3499,10 +3868,28 @@ class _MessagingAccessRulePickerSheetState
                     .sharedActorRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Shared actors'),
+                    label: Text('Sender everywhere'),
                     selected: _selectedBucket == 'sharedActorRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedActorRules';
+                      _syncSelectedScope();
+                    }),
+                  ),
+                if (widget
+                        .catalog
+                        .capabilities
+                        .sharedActorRuleScopes
+                        .isNotEmpty &&
+                    widget
+                        .catalog
+                        .capabilities
+                        .sharedSpaceRuleScopes
+                        .isNotEmpty)
+                  ChoiceChip(
+                    label: Text('Sender in one space'),
+                    selected: _selectedBucket == 'sharedMemberRules',
+                    onSelected: (_) => setState(() {
+                      _selectedBucket = 'sharedMemberRules';
                       _syncSelectedScope();
                     }),
                   ),
@@ -3544,6 +3931,59 @@ class _MessagingAccessRulePickerSheetState
               }),
               const Divider(height: 24),
             ],
+            if (_selectedBucket == 'sharedMemberRules' &&
+                (memberActorTargets.isNotEmpty ||
+                    memberSpaceTargets.isNotEmpty)) ...<Widget>[
+              if (memberActorTargets.isNotEmpty) ...<Widget>[
+                Text(
+                  'Choose a discovered sender',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: memberActorTargets
+                      .take(10)
+                      .map((target) {
+                        return ActionChip(
+                          label: Text(target.label),
+                          onPressed: () => setState(() {
+                            _selectedScope = target.scope;
+                            _valueController.text = target.value;
+                          }),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (memberSpaceTargets.isNotEmpty) ...<Widget>[
+                Text(
+                  'Choose a discovered shared space',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: memberSpaceTargets
+                      .take(10)
+                      .map((target) {
+                        return ActionChip(
+                          label: Text(target.label),
+                          onPressed: () => setState(() {
+                            _selectedSpaceScope = target.scope;
+                            _spaceValueController.text = target.value;
+                          }),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 14),
+              ],
+              const Divider(height: 10),
+            ],
             Text('Manual entry', style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             if (availableScopes.isNotEmpty)
@@ -3571,23 +4011,58 @@ class _MessagingAccessRulePickerSheetState
               ),
             const SizedBox(height: 12),
             TextField(
+              controller: _valueController,
               decoration: InputDecoration(
-                labelText: 'ID / value',
+                labelText: _selectedBucket == 'sharedMemberRules'
+                    ? 'Sender ID / value'
+                    : 'ID / value',
                 helperText: widget.catalog.capabilities.manualEntryHint,
               ),
-              onSubmitted: (value) {
-                final trimmed = value.trim();
-                if (trimmed.isEmpty) return;
-                Navigator.of(context).pop(
-                  _MessagingRuleSelection(
-                    bucket: _selectedBucket,
-                    rule: MessagingAccessRule(
-                      scope: _selectedScope,
-                      value: trimmed,
-                    ),
+              onSubmitted: _selectedBucket == 'sharedMemberRules'
+                  ? null
+                  : (_) => _submitManualRule(context),
+            ),
+            if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
+              const SizedBox(height: 12),
+              InputDecorator(
+                decoration: InputDecoration(labelText: 'Shared-space scope'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedSpaceScope,
+                    isExpanded: true,
+                    items: widget.catalog.capabilities.sharedSpaceRuleScopes
+                        .map(
+                          (scope) => DropdownMenuItem<String>(
+                            value: scope,
+                            child: Text(scope.replaceAll('_', ' ')),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedSpaceScope = value);
+                      }
+                    },
                   ),
-                );
-              },
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _spaceValueController,
+                decoration: InputDecoration(
+                  labelText: 'Group / channel / room ID',
+                ),
+                onSubmitted: (_) => _submitManualRule(context),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () => _submitManualRule(context),
+                icon: Icon(Icons.add_rounded),
+                label: Text('Add rule'),
+              ),
             ),
           ],
         ),
@@ -3685,61 +4160,6 @@ class _MessagingMiniPill extends StatelessWidget {
   }
 }
 
-class _RunsMetricsStrip extends StatelessWidget {
-  const _RunsMetricsStrip({required this.runs, required this.totalLoaded});
-
-  final List<RunSummary> runs;
-  final int totalLoaded;
-
-  @override
-  Widget build(BuildContext context) {
-    final running = runs.where((run) => run.status == 'running').length;
-    final failed = runs.where((run) => run.isFailure).length;
-    final completed = runs.where((run) => run.status == 'completed').length;
-    final tokens = runs.fold<int>(0, (sum, run) => sum + run.totalTokens);
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: <Widget>[
-        _RunMetricCard(
-          title: 'Showing',
-          value: '${runs.length}',
-          helper: totalLoaded == runs.length
-              ? 'Recent runs loaded'
-              : 'Filtered from $totalLoaded loaded runs',
-          color: _info,
-        ),
-        _RunMetricCard(
-          title: 'Completed',
-          value: '$completed',
-          helper: 'Finished successfully',
-          color: _success,
-        ),
-        _RunMetricCard(
-          title: 'Failed',
-          value: '$failed',
-          helper: 'Need attention',
-          color: _danger,
-        ),
-        _RunMetricCard(
-          title: 'Tokens',
-          value: _formatNumber(tokens),
-          helper: 'Across visible runs',
-          color: _accentHover,
-        ),
-        if (running > 0)
-          _RunMetricCard(
-            title: 'Running',
-            value: '$running',
-            helper: 'Still in progress',
-            color: _warning,
-          ),
-      ],
-    );
-  }
-}
-
 class _RunMetricCard extends StatelessWidget {
   const _RunMetricCard({
     required this.title,
@@ -3783,323 +4203,6 @@ class _RunMetricCard extends StatelessWidget {
           Text(helper, style: TextStyle(color: _textSecondary)),
         ],
       ),
-    );
-  }
-}
-
-class _RunsFilterBar extends StatelessWidget {
-  const _RunsFilterBar({
-    required this.searchController,
-    required this.statusFilter,
-    required this.onStatusChanged,
-  });
-
-  final TextEditingController searchController;
-  final String statusFilter;
-  final ValueChanged<String> onStatusChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const filters = <String>['all', 'running', 'completed', 'failed'];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const _SectionTitle('Filter Runs'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search title, model, trigger, error, or run id',
-                suffixIcon: searchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: searchController.clear,
-                        icon: Icon(Icons.close),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: filters.map((filter) {
-                return FilterChip(
-                  label: Text(_titleCase(filter)),
-                  selected: statusFilter == filter,
-                  selectedColor: _accentMuted,
-                  checkmarkColor: _accent,
-                  backgroundColor: _bgSecondary,
-                  side: BorderSide(color: _border),
-                  onSelected: (_) => onStatusChanged(filter),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunsHistoryPane extends StatelessWidget {
-  const _RunsHistoryPane({
-    required this.runs,
-    required this.selectedRunId,
-    required this.onSelect,
-  });
-
-  final List<RunSummary> runs;
-  final String? selectedRunId;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Run History')),
-                Text(
-                  '${runs.length} items',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...runs.map((run) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _RunHistoryRow(
-                  run: run,
-                  selected: run.id == selectedRunId,
-                  onTap: () => onSelect(run.id),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunHistoryRow extends StatelessWidget {
-  const _RunHistoryRow({
-    required this.run,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final RunSummary run;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? _accentMuted : _bgSecondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? _accent : _border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(top: 5),
-              decoration: BoxDecoration(
-                color: run.statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    run.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w700, height: 1.2),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${run.triggerLabel} • ${run.createdAtLabel}${run.durationLabel == 'In progress' ? '' : ' • ${run.durationLabel}'}',
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${run.modelLabel} • ${run.totalTokensLabel} tokens',
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                  if (run.deliverableType.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Deliverable • ${run.deliverableType.replaceAll('_', ' ')}',
-                      style: TextStyle(color: _accent, fontSize: 12),
-                    ),
-                  ],
-                  if (run.error.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      run.error,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _danger,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                _StatusPill(label: run.statusLabel, color: run.statusColor),
-                const SizedBox(height: 12),
-                Icon(
-                  Icons.chevron_right,
-                  color: selected ? _textPrimary : _textSecondary,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunDetailWorkspace extends StatelessWidget {
-  const _RunDetailWorkspace({
-    required this.run,
-    required this.detail,
-    required this.errorMessage,
-    required this.loading,
-    required this.onDelete,
-    required this.onCopyResponse,
-  });
-
-  final RunSummary? run;
-  final RunDetailSnapshot? detail;
-  final String? errorMessage;
-  final bool loading;
-  final Future<void> Function() onDelete;
-  final Future<void> Function(String response) onCopyResponse;
-
-  @override
-  Widget build(BuildContext context) {
-    if (run == null) {
-      return const _EmptyCard(
-        title: 'Select a run',
-        subtitle: 'Pick a run from the history list to inspect its steps.',
-      );
-    }
-
-    final selectedRun = run!;
-    final snapshot = detail;
-    return Column(
-      children: <Widget>[
-        _RunHeroCard(run: selectedRun, onDelete: onDelete),
-        const SizedBox(height: 16),
-        if (loading && snapshot == null)
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Row(
-                children: <Widget>[
-                  SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Loading run detail...',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (errorMessage case final message?) ...<Widget>[
-          _InlineError(message: message),
-          const SizedBox(height: 16),
-        ] else if (snapshot != null) ...<Widget>[
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              _RunMetricCard(
-                title: 'Steps',
-                value: '${snapshot.steps.length}',
-                helper: 'Recorded events',
-                color: _info,
-              ),
-              _RunMetricCard(
-                title: 'Completed tools',
-                value: '${snapshot.completedTools}',
-                helper: 'Successful tool calls',
-                color: _success,
-              ),
-              _RunMetricCard(
-                title: 'Failures',
-                value: '${snapshot.failedTools}',
-                helper: 'Tool errors',
-                color: _danger,
-              ),
-              _RunMetricCard(
-                title: 'Helpers',
-                value: '${snapshot.helperCount}',
-                helper: 'Subagents or helpers',
-                color: _accentHover,
-              ),
-              _RunMetricCard(
-                title: 'Trace events',
-                value: '${snapshot.events.length}',
-                helper: 'Structured run timeline',
-                color: _warning,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _RunResponseCard(
-            response: snapshot.response,
-            onCopy: () => onCopyResponse(snapshot.response),
-          ),
-          if (snapshot.run.deliverableType.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 16),
-            _DeliverableSummaryCard(run: snapshot.run),
-          ],
-          const SizedBox(height: 16),
-          _RunTimelineCard(steps: snapshot.steps, loading: loading),
-          const SizedBox(height: 16),
-          _RunEventTimelineCard(events: snapshot.events, loading: loading),
-        ] else
-          const _EmptyCard(
-            title: 'No detail available',
-            subtitle: 'This run does not have step detail yet.',
-          ),
-      ],
     );
   }
 }
@@ -4165,22 +4268,13 @@ class _RunHeroCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: <Widget>[
-                _MetaPill(
-                  label: run.triggerLabel,
-                  icon: Icons.bolt_outlined,
-                ),
-                _MetaPill(
-                  label: run.modelLabel,
-                  icon: Icons.memory_outlined,
-                ),
+                _MetaPill(label: run.triggerLabel, icon: Icons.bolt_outlined),
+                _MetaPill(label: run.modelLabel, icon: Icons.memory_outlined),
                 _MetaPill(
                   label: run.createdAtLabel,
                   icon: Icons.schedule_outlined,
                 ),
-                _MetaPill(
-                  label: run.durationLabel,
-                  icon: Icons.timer_outlined,
-                ),
+                _MetaPill(label: run.durationLabel, icon: Icons.timer_outlined),
                 if (run.totalTokensLabel.isNotEmpty)
                   _MetaPill(
                     label: '${run.totalTokensLabel} tok',
@@ -4350,259 +4444,6 @@ class _DeliverableSummaryCard extends StatelessWidget {
                 );
               }),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunTimelineCard extends StatelessWidget {
-  const _RunTimelineCard({required this.steps, required this.loading});
-
-  final List<RunStepItem> steps;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Step Timeline')),
-                if (loading)
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (steps.isEmpty)
-              Text(
-                'No run steps recorded yet.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...steps.map((step) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _RunStepCard(step: step),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunEventTimelineCard extends StatelessWidget {
-  const _RunEventTimelineCard({required this.events, required this.loading});
-
-  final List<RunEventItem> events;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle('Execution Trace')),
-                if (loading)
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (events.isEmpty)
-              Text(
-                'No structured run events recorded yet.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...events.map((event) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _RunEventCard(event: event),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RunEventCard extends StatelessWidget {
-  const _RunEventCard({required this.event});
-
-  final RunEventItem event;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = event.isFailure ? _danger : _info;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  event.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (event.createdAtLabel.isNotEmpty)
-                Text(
-                  event.createdAtLabel,
-                  style: TextStyle(color: _textSecondary, fontSize: 12),
-                ),
-            ],
-          ),
-          if (event.detail.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              event.detail,
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RunStepCard extends StatelessWidget {
-  const _RunStepCard({required this.step});
-
-  final RunStepItem step;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          initiallyExpanded:
-              step.status == 'failed' || step.status == 'running',
-          leading: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: step.statusColor.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '${step.displayIndex}',
-                style: TextStyle(
-                  color: step.statusColor,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(step.label, style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(
-                step.summary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 12,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _StatusPill(label: step.statusLabel, color: step.statusColor),
-                  _MetaPill(label: step.typeLabel, icon: Icons.layers_outlined),
-                  if (step.startedAt != null)
-                    _MetaPill(
-                      label: step.startedAtLabel!,
-                      icon: Icons.schedule_outlined,
-                    ),
-                  if (step.durationLabel != null)
-                    _MetaPill(
-                      label: step.durationLabel!,
-                      icon: Icons.timer_outlined,
-                    ),
-                  if (step.tokensUsed > 0)
-                    _MetaPill(
-                      label: '${_formatNumber(step.tokensUsed)} tokens',
-                      icon: Icons.toll_outlined,
-                    ),
-                ],
-              ),
-            ],
-          ),
-          children: <Widget>[
-            if (step.description.trim().isNotEmpty &&
-                step.description.trim() != step.summary.trim())
-              _RunDetailBlock(label: 'Description', value: step.description),
-            if (step.inputSummary.trim().isNotEmpty)
-              _RunDetailBlock(label: 'Input summary', value: step.inputSummary),
-            if (step.toolInput.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Tool input',
-                value: _truncateRunText(step.toolInput),
-                monospace: true,
-              ),
-            if (step.error.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Error',
-                value: step.error,
-                monospace: true,
-              )
-            else if (step.result.trim().isNotEmpty)
-              _RunDetailBlock(
-                label: 'Result',
-                value: _truncateRunText(step.result),
-                monospace: true,
-              ),
           ],
         ),
       ),
@@ -4855,10 +4696,7 @@ class _RunGraphEdgePainter extends CustomPainter {
         ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round;
 
-      final start = Offset(
-        from.x + _FlowNode.w,
-        from.y + _FlowNode.h / 2,
-      );
+      final start = Offset(from.x + _FlowNode.w, from.y + _FlowNode.h / 2);
       final end = Offset(to.x, to.y + _FlowNode.h / 2);
 
       if (from.y != to.y) {
@@ -4971,10 +4809,7 @@ class _FlowNodeWidget extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   isSpecial ? node.nodeType : node.status,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: _textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -5093,10 +4928,7 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                 Expanded(
                   child: Text(
                     '$stepCount step${stepCount == 1 ? '' : 's'} · tap a node to inspect',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12.5,
-                    ),
+                    style: TextStyle(color: _textSecondary, fontSize: 12.5),
                   ),
                 ),
                 if (widget.loading)
@@ -5116,8 +4948,14 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                       vertical: 6,
                     ),
                   ),
-                  icon: const Icon(Icons.center_focus_strong_outlined, size: 15),
-                  label: const Text('Reset view', style: TextStyle(fontSize: 12)),
+                  icon: const Icon(
+                    Icons.center_focus_strong_outlined,
+                    size: 15,
+                  ),
+                  label: const Text(
+                    'Reset view',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -5155,7 +4993,9 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                               node: node,
                               selected: node.id == widget.selectedNodeId,
                               onTap: () => widget.onNodeSelected(
-                                node.id == widget.selectedNodeId ? null : node.id,
+                                node.id == widget.selectedNodeId
+                                    ? null
+                                    : node.id,
                               ),
                             ),
                           ),
@@ -5312,32 +5152,31 @@ class _RunSelectorRail extends StatelessWidget {
                   style: TextStyle(color: _textSecondary, fontSize: 12),
                 ),
               )
-            else
-              ...<Widget>[
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: math.min(filteredRuns.length, 40),
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final run = filteredRuns[index];
-                    final isSelected = run.id == selectedRunId;
-                    return _RunSelectorRow(
-                      run: run,
-                      selected: isSelected,
-                      onTap: () => onSelect(run.id),
-                    );
-                  },
-                ),
-                if (filteredRuns.length > 40)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Showing 40 of ${filteredRuns.length} — use search to narrow results',
-                      style: TextStyle(color: _textSecondary, fontSize: 11),
-                    ),
+            else ...<Widget>[
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: math.min(filteredRuns.length, 40),
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final run = filteredRuns[index];
+                  final isSelected = run.id == selectedRunId;
+                  return _RunSelectorRow(
+                    run: run,
+                    selected: isSelected,
+                    onTap: () => onSelect(run.id),
+                  );
+                },
+              ),
+              if (filteredRuns.length > 40)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Showing 40 of ${filteredRuns.length} — use search to narrow results',
+                    style: TextStyle(color: _textSecondary, fontSize: 11),
                   ),
-              ],
+                ),
+            ],
           ],
         ),
       ),
@@ -5396,10 +5235,7 @@ class _RunSelectorRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${run.createdAtLabel} · ${run.durationLabel}',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: _textSecondary, fontSize: 11),
                   ),
                 ],
               ),
@@ -5522,7 +5358,11 @@ class _RunSelectedStepCard extends StatelessWidget {
                     color: color.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.build_circle_outlined, size: 18, color: color),
+                  child: Icon(
+                    Icons.build_circle_outlined,
+                    size: 18,
+                    color: color,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -5539,10 +5379,7 @@ class _RunSelectedStepCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         step.typeLabel,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -5583,7 +5420,11 @@ class _RunSelectedStepCard extends StatelessWidget {
             ],
             if (step.error.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
-              _RunDetailBlock(label: 'Error', value: step.error, monospace: true),
+              _RunDetailBlock(
+                label: 'Error',
+                value: step.error,
+                monospace: true,
+              ),
             ] else if (step.result.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
               _RunDetailBlock(

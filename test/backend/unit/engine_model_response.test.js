@@ -169,11 +169,13 @@ test('requestModelResponse does not retry once stream content has been emitted',
 
 test('requestModelResponse times out a model call that never settles', async () => {
   const engine = new AgentEngine(null);
+  let providerSignal;
 
   await assert.rejects(
     engine.requestModelResponse({
       provider: {
-        async chat() {
+        async chat(_messages, _tools, options) {
+          providerSignal = options.signal;
           return new Promise(() => {});
         },
       },
@@ -192,6 +194,35 @@ test('requestModelResponse times out a model call that never settles', async () 
     }),
     (error) => error.code === 'MODEL_CALL_TIMEOUT',
   );
+  assert.equal(providerSignal.aborted, true);
+});
+
+test('requestStructuredJson aborts a timed-out provider call without retrying it', async () => {
+  const engine = new AgentEngine(null);
+  let calls = 0;
+  let providerSignal;
+
+  await assert.rejects(
+    engine.requestStructuredJson({
+      provider: {
+        async chat(_messages, _tools, options) {
+          calls += 1;
+          providerSignal = options.signal;
+          return new Promise(() => {});
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Inspect the task.' }],
+      prompt: 'Return JSON.',
+      normalize: (value) => value,
+      telemetry: { modelCallTimeoutMs: 20 },
+      phase: 'analysis',
+    }),
+    (error) => error.code === 'MODEL_CALL_TIMEOUT',
+  );
+  assert.equal(calls, 1);
+  assert.equal(providerSignal.aborted, true);
 });
 
 test('requestModelResponse times out a stalled stream without replaying partial output', async () => {
@@ -224,4 +255,35 @@ test('requestModelResponse times out a stalled stream without replaying partial 
   );
 
   assert.equal(calls, 1);
+});
+
+test('requestModelResponse returns promptly when the parent aborts even if the provider ignores signals', async () => {
+  const engine = new AgentEngine(null);
+  const controller = new AbortController();
+  const request = engine.requestModelResponse({
+    provider: {
+      async chat() {
+        return new Promise(() => {});
+      },
+    },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Run the task.' }],
+    tools: [],
+    options: {
+      stream: false,
+      userId: 1,
+      signal: controller.signal,
+      modelCallTimeoutMs: 10_000,
+      retry: { maxAttempts: 1 },
+    },
+    runId: 'abort-ignoring-provider-run',
+    iteration: 1,
+  });
+
+  controller.abort('run stopped');
+  await assert.rejects(
+    request,
+    (error) => error.name === 'AbortError' && error.code === 'ABORT_ERR',
+  );
 });

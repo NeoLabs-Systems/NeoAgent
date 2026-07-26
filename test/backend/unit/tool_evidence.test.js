@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const {
   classifyToolExecution,
   deriveEvidenceSource,
+  gatheredNewEvidence,
   isSubstantiveProgressEvidence,
   isSubstantiveProgressToolName,
   summarizeProgressToolExecutions,
@@ -14,6 +15,18 @@ const {
   inferToolFailureMessage,
   buildAutonomousRecoveryContext,
 } = require('../../../server/services/ai/toolEvidence');
+const {
+  isReadOnlyToolCall,
+} = require('../../../server/services/ai/loop/tool_dispatch');
+
+function toolCall(name, args = {}) {
+  return {
+    function: {
+      name,
+      arguments: JSON.stringify(args),
+    },
+  };
+}
 
 test('deriveEvidenceSource maps each tool family to its bucket', () => {
   const cases = {
@@ -62,6 +75,108 @@ test('classifyToolExecution tags evidence source, relevance, and state change', 
   const browserClass = classifyToolExecution('browser_click', {}, { success: true });
   assert.equal(browserClass.evidenceSource, 'browser');
   assert.equal(browserClass.stateChanged, true);
+});
+
+test('official integration access metadata drives evidence and state classification', () => {
+  const notionRead = classifyToolExecution(
+    'notion_search',
+    { query: 'roadmap' },
+    { results: [{ id: 'page-1' }] },
+    '',
+    { name: 'notion_search', access: 'read' },
+  );
+  assert.equal(notionRead.evidenceSource, 'integration');
+  assert.equal(notionRead.evidenceRelevant, true);
+  assert.equal(notionRead.stateChanged, false);
+  assert.equal(gatheredNewEvidence(notionRead, { unchangedCount: 1 }), true);
+  assert.equal(gatheredNewEvidence(notionRead, { unchangedCount: 2 }), false);
+
+  const notionWrite = classifyToolExecution(
+    'notion_create_page',
+    {},
+    { id: 'page-2' },
+    '',
+    { name: 'notion_create_page', access: 'write' },
+  );
+  assert.equal(notionWrite.evidenceSource, 'integration');
+  assert.equal(notionWrite.stateChanged, true);
+
+  const dynamicRead = classifyToolExecution(
+    'notion_api_request',
+    { method: 'GET' },
+    { results: [] },
+    '',
+    { name: 'notion_api_request', access: 'dynamic_http_method' },
+  );
+  const dynamicWrite = classifyToolExecution(
+    'notion_api_request',
+    { method: 'PATCH' },
+    { id: 'page-3' },
+    '',
+    { name: 'notion_api_request', access: 'dynamic_http_method' },
+  );
+  assert.equal(dynamicRead.stateChanged, false);
+  assert.equal(dynamicWrite.stateChanged, true);
+});
+
+test('official integration access metadata safely enables parallel read batches', () => {
+  assert.equal(
+    isReadOnlyToolCall(
+      toolCall('google_workspace_gmail_get_thread', { thread_id: 'thread-1' }),
+      { access: 'read' },
+    ),
+    true,
+  );
+  assert.equal(
+    isReadOnlyToolCall(
+      toolCall('google_workspace_gmail_send_email', { to: ['person@example.test'] }),
+      { access: 'write' },
+    ),
+    false,
+  );
+  assert.equal(
+    isReadOnlyToolCall(
+      toolCall('notion_api_request', { method: 'GET', path: '/v1/users' }),
+      { access: 'dynamic_http_method' },
+    ),
+    true,
+  );
+  assert.equal(
+    isReadOnlyToolCall(
+      toolCall('notion_api_request', { method: 'PATCH', path: '/v1/pages/page-1' }),
+      { access: 'dynamic_http_method' },
+    ),
+    false,
+  );
+
+  const { AgentEngine } = require('../../../server/services/ai/loop/agent_engine_core');
+  const engine = new AgentEngine(null);
+  assert.equal(
+    engine.isReadOnlyToolCall(toolCall('notion_search'), { access: 'read' }),
+    true,
+  );
+});
+
+test('new MCP and device reads count as evidence without pretending they mutate state', () => {
+  const mcpRead = classifyToolExecution(
+    'linear_search_issues',
+    { query: 'reliability' },
+    { issues: [{ id: 'ENG-1' }] },
+  );
+  assert.equal(mcpRead.evidenceRelevant, true);
+  assert.equal(mcpRead.stateChanged, false);
+  assert.equal(gatheredNewEvidence(mcpRead, { unchangedCount: 1 }), true);
+
+  const androidRead = classifyToolExecution('android_screenshot', {}, { image: 'artifact' });
+  const desktopRead = classifyToolExecution('desktop_observe', {}, { tree: [] });
+  assert.equal(androidRead.stateChanged, false);
+  assert.equal(desktopRead.stateChanged, false);
+  assert.equal(androidRead.evidenceRelevant, true);
+  assert.equal(desktopRead.evidenceRelevant, true);
+
+  assert.equal(classifyToolExecution('android_tap', {}, { success: true }).stateChanged, true);
+  assert.equal(classifyToolExecution('desktop_click', {}, { success: true }).stateChanged, true);
+  assert.equal(classifyToolExecution('think', {}, { thought: 'still thinking' }).evidenceRelevant, false);
 });
 
 test('classifyToolExecution derives failure from execute_command exit code', () => {
@@ -135,6 +250,7 @@ test('summarizeToolExecutions renders a numbered status list', () => {
 test('progress evidence excludes communication and meta-only tool activity', () => {
   assert.equal(isSubstantiveProgressToolName('send_message'), false);
   assert.equal(isSubstantiveProgressToolName('send_interim_update'), false);
+  assert.equal(isSubstantiveProgressToolName('notify_user'), false);
   assert.equal(isSubstantiveProgressToolName('think'), false);
   assert.equal(isSubstantiveProgressToolName('read_file'), true);
 

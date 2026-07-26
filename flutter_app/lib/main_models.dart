@@ -719,6 +719,9 @@ class MessagingAccessRule {
     required this.scope,
     required this.value,
     this.label,
+    this.spaceScope,
+    this.spaceValue,
+    this.spaceLabel,
   });
 
   factory MessagingAccessRule.fromJson(Map<String, dynamic> json) {
@@ -726,22 +729,37 @@ class MessagingAccessRule {
       scope: json['scope']?.toString() ?? 'chat',
       value: json['value']?.toString() ?? '',
       label: json['label']?.toString(),
+      spaceScope: json['spaceScope']?.toString(),
+      spaceValue: json['spaceValue']?.toString(),
+      spaceLabel: json['spaceLabel']?.toString(),
     );
   }
 
   final String scope;
   final String value;
   final String? label;
+  final String? spaceScope;
+  final String? spaceValue;
+  final String? spaceLabel;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'scope': scope,
     'value': value,
     if (label != null && label!.trim().isNotEmpty) 'label': label,
+    if (spaceScope != null && spaceScope!.trim().isNotEmpty)
+      'spaceScope': spaceScope,
+    if (spaceValue != null && spaceValue!.trim().isNotEmpty)
+      'spaceValue': spaceValue,
+    if (spaceLabel != null && spaceLabel!.trim().isNotEmpty)
+      'spaceLabel': spaceLabel,
   };
 
-  String get id => '$scope:$value';
+  String get id => '$scope:$value:${spaceScope ?? ''}:${spaceValue ?? ''}';
 
   String get displayLabel => label?.ifEmpty(value) ?? value;
+
+  String get spaceDisplayLabel =>
+      spaceLabel?.ifEmpty(spaceValue ?? '') ?? spaceValue ?? '';
 
   String get scopeLabel {
     switch (scope) {
@@ -767,23 +785,63 @@ class MessagingAccessRule {
   }
 }
 
+class MessagingSharedParticipationRule {
+  const MessagingSharedParticipationRule({
+    required this.scope,
+    required this.value,
+    required this.allowUntagged,
+    this.label,
+  });
+
+  factory MessagingSharedParticipationRule.fromJson(Map<String, dynamic> json) {
+    return MessagingSharedParticipationRule(
+      scope: json['scope']?.toString() ?? 'chat',
+      value: json['value']?.toString() ?? '',
+      allowUntagged: json['allowUntagged'] == true,
+      label: json['label']?.toString(),
+    );
+  }
+
+  final String scope;
+  final String value;
+  final bool allowUntagged;
+  final String? label;
+
+  String get id => '$scope:$value';
+  String get displayLabel => label?.ifEmpty(value) ?? value;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'scope': scope,
+    'value': value,
+    'allowUntagged': allowUntagged,
+    if (label != null && label!.trim().isNotEmpty) 'label': label,
+  };
+}
+
 class MessagingAccessPolicy {
   const MessagingAccessPolicy({
+    required this.schemaVersion,
     required this.directPolicy,
     required this.sharedPolicy,
-    required this.requireMentionInShared,
+    required this.defaultAllowUntaggedInShared,
     required this.directRules,
     required this.sharedSpaceRules,
     required this.sharedActorRules,
+    required this.sharedMemberRules,
+    required this.sharedParticipationRules,
   });
 
   factory MessagingAccessPolicy.fromJson(Map<String, dynamic> json) {
+    final schemaVersion = (json['schemaVersion'] as num?)?.toInt() ?? 2;
     return MessagingAccessPolicy(
+      schemaVersion: schemaVersion,
       directPolicy:
           json['directPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
       sharedPolicy:
           json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
-      requireMentionInShared: json['requireMentionInShared'] == true,
+      defaultAllowUntaggedInShared: schemaVersion < 3
+          ? json['requireMentionInShared'] != true
+          : json['defaultAllowUntaggedInShared'] != false,
       directRules:
           (json['directRules'] is List
                   ? json['directRules'] as List
@@ -817,48 +875,85 @@ class MessagingAccessPolicy {
                 ),
               )
               .toList(growable: false),
+      sharedMemberRules:
+          (json['sharedMemberRules'] is List
+                  ? json['sharedMemberRules'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => MessagingAccessRule.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false),
+      sharedParticipationRules:
+          (json['sharedParticipationRules'] is List
+                  ? json['sharedParticipationRules'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => MessagingSharedParticipationRule.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .where((item) => item.value.isNotEmpty)
+              .toList(growable: false),
     );
   }
 
   const MessagingAccessPolicy.defaults({
+    this.schemaVersion = 3,
     this.directPolicy = 'allowlist',
     this.sharedPolicy = 'allowlist',
-    this.requireMentionInShared = true,
+    this.defaultAllowUntaggedInShared = true,
     this.directRules = const <MessagingAccessRule>[],
     this.sharedSpaceRules = const <MessagingAccessRule>[],
     this.sharedActorRules = const <MessagingAccessRule>[],
+    this.sharedMemberRules = const <MessagingAccessRule>[],
+    this.sharedParticipationRules = const <MessagingSharedParticipationRule>[],
   });
 
+  final int schemaVersion;
   final String directPolicy;
   final String sharedPolicy;
-  final bool requireMentionInShared;
+  final bool defaultAllowUntaggedInShared;
   final List<MessagingAccessRule> directRules;
   final List<MessagingAccessRule> sharedSpaceRules;
   final List<MessagingAccessRule> sharedActorRules;
+  final List<MessagingAccessRule> sharedMemberRules;
+  final List<MessagingSharedParticipationRule> sharedParticipationRules;
 
   MessagingAccessPolicy copyWith({
+    int? schemaVersion,
     String? directPolicy,
     String? sharedPolicy,
-    bool? requireMentionInShared,
+    bool? defaultAllowUntaggedInShared,
     List<MessagingAccessRule>? directRules,
     List<MessagingAccessRule>? sharedSpaceRules,
     List<MessagingAccessRule>? sharedActorRules,
+    List<MessagingAccessRule>? sharedMemberRules,
+    List<MessagingSharedParticipationRule>? sharedParticipationRules,
   }) {
     return MessagingAccessPolicy(
+      schemaVersion: schemaVersion ?? this.schemaVersion,
       directPolicy: directPolicy ?? this.directPolicy,
       sharedPolicy: sharedPolicy ?? this.sharedPolicy,
-      requireMentionInShared:
-          requireMentionInShared ?? this.requireMentionInShared,
+      defaultAllowUntaggedInShared:
+          defaultAllowUntaggedInShared ?? this.defaultAllowUntaggedInShared,
       directRules: directRules ?? this.directRules,
       sharedSpaceRules: sharedSpaceRules ?? this.sharedSpaceRules,
       sharedActorRules: sharedActorRules ?? this.sharedActorRules,
+      sharedMemberRules: sharedMemberRules ?? this.sharedMemberRules,
+      sharedParticipationRules:
+          sharedParticipationRules ?? this.sharedParticipationRules,
     );
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'schemaVersion': schemaVersion,
     'directPolicy': directPolicy,
     'sharedPolicy': sharedPolicy,
-    'requireMentionInShared': requireMentionInShared,
+    'defaultAllowUntaggedInShared': defaultAllowUntaggedInShared,
     'directRules': directRules
         .map((rule) => rule.toJson())
         .toList(growable: false),
@@ -868,10 +963,19 @@ class MessagingAccessPolicy {
     'sharedActorRules': sharedActorRules
         .map((rule) => rule.toJson())
         .toList(growable: false),
+    'sharedMemberRules': sharedMemberRules
+        .map((rule) => rule.toJson())
+        .toList(growable: false),
+    'sharedParticipationRules': sharedParticipationRules
+        .map((rule) => rule.toJson())
+        .toList(growable: false),
   };
 
   int get totalRuleCount =>
-      directRules.length + sharedSpaceRules.length + sharedActorRules.length;
+      directRules.length +
+      sharedSpaceRules.length +
+      sharedActorRules.length +
+      sharedMemberRules.length;
 }
 
 class MessagingAccessCapabilities {
@@ -879,6 +983,7 @@ class MessagingAccessCapabilities {
     this.supportsDirectPolicy = true,
     this.supportsSharedPolicy = true,
     this.supportsMentionGate = false,
+    this.supportsUntaggedGroupToggle = true,
     this.supportsDiscovery = false,
     this.directRuleScopes = const <String>[],
     this.sharedSpaceRuleScopes = const <String>[],
@@ -899,6 +1004,7 @@ class MessagingAccessCapabilities {
       supportsDirectPolicy: json['supportsDirectPolicy'] != false,
       supportsSharedPolicy: json['supportsSharedPolicy'] != false,
       supportsMentionGate: json['supportsMentionGate'] == true,
+      supportsUntaggedGroupToggle: json['supportsUntaggedGroupToggle'] != false,
       supportsDiscovery: json['supportsDiscovery'] == true,
       directRuleScopes: stringList(json['directRuleScopes']),
       sharedSpaceRuleScopes: stringList(json['sharedSpaceRuleScopes']),
@@ -910,6 +1016,7 @@ class MessagingAccessCapabilities {
   final bool supportsDirectPolicy;
   final bool supportsSharedPolicy;
   final bool supportsMentionGate;
+  final bool supportsUntaggedGroupToggle;
   final bool supportsDiscovery;
   final List<String> directRuleScopes;
   final List<String> sharedSpaceRuleScopes;
@@ -920,6 +1027,7 @@ class MessagingAccessCapabilities {
     'supportsDirectPolicy': supportsDirectPolicy,
     'supportsSharedPolicy': supportsSharedPolicy,
     'supportsMentionGate': supportsMentionGate,
+    'supportsUntaggedGroupToggle': supportsUntaggedGroupToggle,
     'supportsDiscovery': supportsDiscovery,
     'directRuleScopes': directRuleScopes,
     'sharedSpaceRuleScopes': sharedSpaceRuleScopes,
@@ -936,18 +1044,41 @@ class MessagingAccessTarget {
     required this.value,
     required this.label,
     required this.subtitle,
+    this.spaceScope,
+    this.spaceValue,
+    this.spaceLabel,
   });
 
   factory MessagingAccessTarget.fromJson(Map<String, dynamic> json) {
+    final nestedRule = _jsonMap(json['rule']);
+    final scope =
+        json['scope']?.toString() ?? nestedRule['scope']?.toString() ?? 'chat';
+    final value =
+        json['value']?.toString() ?? nestedRule['value']?.toString() ?? '';
     return MessagingAccessTarget(
       source: json['source']?.toString() ?? 'manual',
       bucket: json['bucket']?.toString() ?? 'sharedSpaceRules',
-      scope: json['scope']?.toString() ?? 'chat',
-      value: json['value']?.toString() ?? '',
+      scope: scope,
+      value: value,
       label:
-          json['label']?.toString().ifEmpty(json['value']?.toString() ?? '') ??
-          (json['value']?.toString() ?? ''),
-      subtitle: json['subtitle']?.toString() ?? '',
+          nestedRule['label']?.toString().ifEmpty(
+            json['label']?.toString() ?? value,
+          ) ??
+          json['label']?.toString().ifEmpty(value) ??
+          value,
+      subtitle:
+          json['subtitle']?.toString() ??
+          nestedRule['spaceLabel']?.toString() ??
+          '',
+      spaceScope:
+          json['spaceScope']?.toString() ??
+          nestedRule['spaceScope']?.toString(),
+      spaceValue:
+          json['spaceValue']?.toString() ??
+          nestedRule['spaceValue']?.toString(),
+      spaceLabel:
+          json['spaceLabel']?.toString() ??
+          nestedRule['spaceLabel']?.toString(),
     );
   }
 
@@ -957,11 +1088,21 @@ class MessagingAccessTarget {
   final String value;
   final String label;
   final String subtitle;
+  final String? spaceScope;
+  final String? spaceValue;
+  final String? spaceLabel;
 
-  MessagingAccessRule get asRule =>
-      MessagingAccessRule(scope: scope, value: value, label: label);
+  MessagingAccessRule get asRule => MessagingAccessRule(
+    scope: scope,
+    value: value,
+    label: label,
+    spaceScope: spaceScope,
+    spaceValue: spaceValue,
+    spaceLabel: spaceLabel,
+  );
 
-  String get id => '$bucket:$scope:$value';
+  String get id =>
+      '$bucket:$scope:$value:${spaceScope ?? ''}:${spaceValue ?? ''}';
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'source': source,
@@ -970,6 +1111,12 @@ class MessagingAccessTarget {
     'value': value,
     'label': label,
     'subtitle': subtitle,
+    if (spaceScope != null && spaceScope!.trim().isNotEmpty)
+      'spaceScope': spaceScope,
+    if (spaceValue != null && spaceValue!.trim().isNotEmpty)
+      'spaceValue': spaceValue,
+    if (spaceLabel != null && spaceLabel!.trim().isNotEmpty)
+      'spaceLabel': spaceLabel,
   };
 }
 
@@ -1852,6 +1999,7 @@ class AgentProfile {
 class ModelMeta {
   const ModelMeta({
     required this.id,
+    required this.modelId,
     required this.label,
     required this.provider,
     required this.purpose,
@@ -1864,6 +2012,7 @@ class ModelMeta {
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
     return ModelMeta(
       id: json['id']?.toString() ?? '',
+      modelId: json['modelId']?.toString() ?? json['id']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
       provider: json['provider']?.toString() ?? '',
       purpose: json['purpose']?.toString() ?? '',
@@ -1875,6 +2024,7 @@ class ModelMeta {
   }
 
   final String id;
+  final String modelId;
   final String label;
   final String provider;
   final String purpose;
@@ -2545,7 +2695,8 @@ class OfficialIntegrationAppItem {
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
 
-  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
+  String get statusLabel =>
+      effectiveStatus == 'expired' ? 'Expired' : connection.statusLabel;
 }
 
 class OfficialIntegrationEnvStatus {
@@ -2777,7 +2928,8 @@ class OfficialIntegrationItem {
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
 
-  String get statusLabel => _titleCase(effectiveStatus.replaceAll('_', ' '));
+  String get statusLabel =>
+      effectiveStatus == 'expired' ? 'Expired' : connection.statusLabel;
 }
 
 class SkillDocument {

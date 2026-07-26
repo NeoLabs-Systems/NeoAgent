@@ -1,12 +1,20 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
+const { wrapProviderError } = require('./provider_error');
 
 class OpenAIProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'openai';
     this.models = [
+      'gpt-5.6',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
       'gpt-5.5',
+      'gpt-5.4',
+      'gpt-5.4-mini',
+      'gpt-5.4-nano',
       'gpt-5',
       'gpt-5-mini',
       'gpt-5-nano',
@@ -16,9 +24,35 @@ class OpenAIProvider extends OpenAICompatibleProvider {
       'o4-mini'
     ];
     // Reasoning models: no temperature, use max_completion_tokens, support reasoning_effort
-    this.reasoningModels = new Set(['gpt-5.5', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2', 'gpt-5.1', 'o1', 'o3', 'o3-pro', 'o4-mini', 'o3-mini']);
+    this.reasoningModels = new Set([
+      'gpt-5.6',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+      'gpt-5.5',
+      'gpt-5.4',
+      'gpt-5.4-mini',
+      'gpt-5.4-nano',
+      'gpt-5',
+      'gpt-5-mini',
+      'gpt-5-nano',
+      'gpt-5.2',
+      'gpt-5.1',
+      'o1',
+      'o3',
+      'o3-pro',
+      'o4-mini',
+      'o3-mini',
+    ]);
     this.contextWindows = {
-      'gpt-5.5': 1000000,
+      'gpt-5.6': 1050000,
+      'gpt-5.6-sol': 1050000,
+      'gpt-5.6-terra': 1050000,
+      'gpt-5.6-luna': 1050000,
+      'gpt-5.5': 1050000,
+      'gpt-5.4': 1050000,
+      'gpt-5.4-mini': 400000,
+      'gpt-5.4-nano': 400000,
       'gpt-5': 400000,
       'gpt-5-mini': 400000,
       'gpt-5-nano': 128000,
@@ -36,15 +70,15 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels() {
+  async listModels(signal = null) {
     try {
-      const res = await this.client.models.list();
+      const res = await this.client.models.list({ signal });
       const DROP = /dall-e|whisper|tts|embed|moderat|realtime|audio|transcribe|search-api|-image-|babbage|davinci-002|^sora|-instruct/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
         .map((m) => ({ id: m.id, name: m.id }));
     } catch (err) {
-      throw new Error(`Failed to list OpenAI models: ${err.message || String(err)}`);
+      throw wrapProviderError(err, 'Failed to list OpenAI models', { signal });
     }
   }
 
@@ -108,7 +142,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     const model = options.model || this.config.model || this.getDefaultModel();
     const params = this._buildParams(model, messages, tools, options);
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await this.client.chat.completions.create(params, { signal: options.signal });
     const choice = response.choices[0];
 
     return {
@@ -125,7 +159,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     const params = this._buildParams(model, messages, tools, options);
     params.stream = true;
     params.stream_options = { include_usage: true };
-    const stream = await this.client.chat.completions.create(params);
+    const stream = await this.client.chat.completions.create(params, { signal: options.signal });
 
     let currentToolCalls = [];
     let content = '';

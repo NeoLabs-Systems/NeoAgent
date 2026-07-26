@@ -127,3 +127,30 @@ test('withProviderRetry honors a custom isRetryable guard', async () => {
   );
   assert.equal(calls, 1);
 });
+
+test('withProviderRetry aborts during backoff without starting another attempt', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const retry = withProviderRetry(
+    async () => {
+      calls += 1;
+      const err = new Error('temporarily unavailable');
+      err.status = 503;
+      throw err;
+    },
+    {
+      baseDelayMs: 10_000,
+      maxDelayMs: 10_000,
+      maxAttempts: 3,
+      signal: controller.signal,
+    },
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort('run stopped');
+  await assert.rejects(
+    retry,
+    (error) => error.name === 'AbortError' && error.code === 'ABORT_ERR',
+  );
+  assert.equal(calls, 1);
+});

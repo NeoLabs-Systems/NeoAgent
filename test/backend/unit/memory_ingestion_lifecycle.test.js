@@ -204,3 +204,84 @@ test('memory ingestion rejects invalid polling intervals', () => {
     /greater than or equal to 1000/,
   );
 });
+
+test('memory ingestion stop aborts a cooperative provider without recording a failure', async () => {
+  const timerHarness = createTimerHarness();
+  const collectorStarted = deferred();
+  const memoryManager = createMemoryManager();
+  const connection = {
+    id: 1,
+    user_id: 10,
+    agent_id: 'agent-10',
+    provider_key: 'google_workspace',
+    app_key: 'gmail',
+    account_email: 'user@example.com',
+    status: 'connected',
+  };
+  const service = new MemoryIngestionService({
+    memoryManager,
+    integrationManager: {
+      getProvider() {
+        return {
+          collectMemoryDocuments({ signal }) {
+            collectorStarted.resolve(signal);
+            return new Promise((_, reject) => {
+              signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+            });
+          },
+        };
+      },
+    },
+    intervalMs: 5000,
+    database: {
+      prepare() {
+        return { all: () => [connection] };
+      },
+    },
+    ...timerHarness,
+  });
+
+  service.start();
+  const signal = await collectorStarted.promise;
+  const status = await service.stop();
+
+  assert.equal(signal.aborted, true);
+  assert.equal(status.state, 'stopped');
+  assert.equal(status.lastError, null);
+  assert.equal(memoryManager.jobs.some((job) => job.status === 'failed'), false);
+});
+
+test('caller cancellation marks an in-progress ingestion job as cancelled', async () => {
+  const saveStarted = deferred();
+  const memoryManager = {
+    ...createMemoryManager(),
+    upsertIngestionDocument() {
+      return 'document-1';
+    },
+    saveMemory(_userId, _content, _category, _importance, { signal }) {
+      saveStarted.resolve();
+      return new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    },
+  };
+  const service = new MemoryIngestionService({ memoryManager });
+  const controller = new AbortController();
+  const pending = service.ingestDocuments(null, [{
+    externalObjectId: 'message-1',
+    sourceType: 'email',
+    title: 'Subject',
+    content: 'A durable source document with enough content to create a chunk.',
+  }], {
+    sourceType: 'email',
+    signal: controller.signal,
+  });
+  await saveStarted.promise;
+
+  const reason = new Error('request disconnected');
+  controller.abort(reason);
+  await assert.rejects(pending, (error) => error === reason);
+  assert.equal(memoryManager.jobs.at(-1).status, 'cancelled');
+  assert.equal(memoryManager.jobs.at(-1).error, null);
+  assert.equal(memoryManager.jobs.at(-1).nextSyncAt, null);
+});

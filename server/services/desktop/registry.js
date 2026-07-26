@@ -1,5 +1,8 @@
+'use strict';
+
 const crypto = require('crypto');
 const db = require('../../db/database');
+const { createAbortError } = require('../../utils/abort');
 const {
   DESKTOP_COMMANDS,
   FRAME_TYPE_VIDEO,
@@ -66,6 +69,7 @@ class DesktopCompanionRegistry {
       || DEFAULT_PRESENCE_TOUCH_INTERVAL_MS,
     );
     this.connectionsByUser = new Map();
+    this.closed = false;
   }
 
   _getUserMap(userId, create = false) {
@@ -199,6 +203,9 @@ class DesktopCompanionRegistry {
   }
 
   registerConnection({ userId, sessionId, ws, hello, remoteAddress = null, userAgent = null }) {
+    if (this.closed) {
+      throw new DesktopCompanionUnavailableError('Desktop companion registry is shutting down.');
+    }
     const record = this._upsertDeviceRecord(userId, hello, sessionId);
     const userMap = this._getUserMap(userId, true);
     const existing = userMap.get(record.deviceId);
@@ -249,11 +256,15 @@ class DesktopCompanionRegistry {
       // Only mark offline in the DB when this connection is still the active owner.
       // If a newer connection has already taken over (reconnect race), its
       // _upsertDeviceRecord already wrote status='online' and we must not clobber it.
-      this.db.prepare(
-        `UPDATE desktop_companion_devices
-         SET status = 'offline', updated_at = datetime('now')
-         WHERE user_id = ? AND device_id = ?`
-      ).run(connection.userId, connection.deviceId);
+      try {
+        this.db.prepare(
+          `UPDATE desktop_companion_devices
+           SET status = 'offline', updated_at = datetime('now')
+           WHERE user_id = ? AND device_id = ?`
+        ).run(connection.userId, connection.deviceId);
+      } catch (error) {
+        console.warn('[DesktopCompanion] Failed to record disconnect:', error?.message);
+      }
     }
   }
 
@@ -300,18 +311,22 @@ class DesktopCompanionRegistry {
     const userMap = this._getUserMap(userId);
     const connection = userMap?.get(String(deviceId));
     if (!connection?.isOpen()) return;
-    this.db.prepare(
-      `UPDATE desktop_companion_devices
-       SET status = 'online',
-           last_seen_at = datetime('now'),
-           updated_at = datetime('now')
-       WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`
-    ).run(userId, deviceId);
+    try {
+      this.db.prepare(
+        `UPDATE desktop_companion_devices
+         SET status = 'online',
+             last_seen_at = datetime('now'),
+             updated_at = datetime('now')
+         WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`
+      ).run(userId, deviceId);
+    } catch (error) {
+      console.warn('[DesktopCompanion] Failed to update presence:', error?.message);
+    }
   }
 
   isConnected(userId) {
     const userMap = this._getUserMap(userId);
-    return userMap != null && userMap.size > 0;
+    return userMap != null && Array.from(userMap.values()).some((connection) => connection.isOpen());
   }
 
   getConnection(userId, deviceId) {
@@ -394,15 +409,19 @@ class DesktopCompanionRegistry {
       throw new DesktopCompanionUnavailableError();
     }
     const result = await connection.sendCommand(command, payload, options);
-    this.touchConnection(userId, device.deviceId, {
-      label: result?.device?.label,
-      paused: result?.paused === true,
-      activeDisplayId: result?.activeDisplayId || result?.device?.activeDisplayId,
-      permissions: result?.permissions,
-      capabilities: result?.capabilities,
-      displays: result?.displays || result?.device?.displays,
-      metadata: result?.device?.metadata,
-    });
+    try {
+      this.touchConnection(userId, device.deviceId, {
+        label: result?.device?.label,
+        paused: typeof result?.paused === 'boolean' ? result.paused : null,
+        activeDisplayId: result?.activeDisplayId || result?.device?.activeDisplayId,
+        permissions: result?.permissions,
+        capabilities: result?.capabilities,
+        displays: result?.displays || result?.device?.displays,
+        metadata: result?.device?.metadata,
+      });
+    } catch (error) {
+      console.warn('[DesktopCompanion] Failed to record command result:', error?.message);
+    }
     return {
       ...result,
       device: this.getDeviceRecordByDeviceId(userId, device.deviceId),
@@ -429,13 +448,13 @@ class DesktopCompanionRegistry {
     };
   }
 
-  async stopStream(userId, deviceId) {
+  async stopStream(userId, deviceId, options = {}) {
     const device = this.resolveDevice(userId, deviceId);
     const connection = this.getConnection(userId, device.deviceId);
     if (!connection || !connection.isOpen()) {
       throw new DesktopCompanionUnavailableError();
     }
-    const result = await connection.sendCommand(DESKTOP_COMMANDS.STREAM_STOP, {});
+    const result = await connection.sendCommand(DESKTOP_COMMANDS.STREAM_STOP, {}, options);
     connection._streaming = false;
     return {
       ...result,
@@ -489,7 +508,7 @@ class DesktopCompanionRegistry {
     return { success: true, deviceId: normalizedDeviceId };
   }
 
-  pause(userId, deviceId, paused = true) {
+  async pause(userId, deviceId, paused = true, options = {}) {
     const normalizedDeviceId = String(deviceId || '').trim();
     if (!normalizedDeviceId) {
       throw new DesktopCompanionUnavailableError();
@@ -500,27 +519,40 @@ class DesktopCompanionRegistry {
     if (!existing) {
       throw new DesktopCompanionUnavailableError();
     }
-    this.db.prepare(
-      `UPDATE desktop_companion_devices
-       SET paused = ?, updated_at = datetime('now')
-       WHERE user_id = ? AND device_id = ?`
-    ).run(paused ? 1 : 0, userId, normalizedDeviceId);
     const connection = this.getConnection(userId, normalizedDeviceId);
-    if (connection) {
-      void connection.sendCommand('pauseControl', { paused }).catch(() => {});
+    if (!connection?.isOpen()) {
+      throw new DesktopCompanionUnavailableError();
+    }
+    const result = await connection.sendCommand(
+      DESKTOP_COMMANDS.PAUSE_CONTROL,
+      { paused },
+      options,
+    );
+    if (result?.success !== false) {
+      try {
+        this.db.prepare(
+          `UPDATE desktop_companion_devices
+           SET paused = ?, updated_at = datetime('now')
+           WHERE user_id = ? AND device_id = ?`
+        ).run(paused ? 1 : 0, userId, normalizedDeviceId);
+      } catch (error) {
+        console.warn('[DesktopCompanion] Failed to record pause state:', error?.message);
+      }
     }
     return {
-      success: true,
+      ...result,
+      success: result?.success !== false,
       deviceId: normalizedDeviceId,
       paused,
     };
   }
 
   closeAll() {
-    for (const userMap of this.connectionsByUser.values()) {
-      for (const connection of userMap.values()) {
-        connection.close('server shutdown');
-      }
+    this.closed = true;
+    const connections = Array.from(this.connectionsByUser.values())
+      .flatMap((userMap) => Array.from(userMap.values()));
+    for (const connection of connections) {
+      connection.close('server shutdown');
     }
     this.connectionsByUser.clear();
   }
@@ -555,24 +587,37 @@ class DesktopCompanionConnection {
     this.lastPongAt = Date.now();
     this.lastPresenceTouchAt = 0;
     this.heartbeatTimer = null;
+    this.closed = false;
 
-    ws.on('message', (data) => this._handleMessage(data));
+    ws.on('message', (data) => {
+      try {
+        this._handleMessage(data);
+      } catch (error) {
+        try { ws.terminate(); } catch {}
+        this._closePending(error);
+      }
+    });
     ws.on('pong', () => {
       this.lastPongAt = Date.now();
       this.touchPresence();
     });
     ws.on('close', () => this._closePending(new DesktopCompanionUnavailableError('Desktop companion disconnected.')));
-    ws.on('error', (error) => this._closePending(error));
+    ws.on('error', (error) => {
+      try { ws.terminate(); } catch {}
+      this._closePending(error);
+    });
     this._startHeartbeat();
   }
 
   isOpen() {
-    return this.ws && this.ws.readyState === 1;
+    return !this.closed && this.ws && this.ws.readyState === 1;
   }
 
   close(reason) {
+    const wasOpen = this.isOpen();
+    this.closed = true;
     try {
-      if (this.isOpen()) {
+      if (wasOpen) {
         this.ws.close(1000, String(reason || 'closing').slice(0, 120));
       }
     } catch {}
@@ -602,19 +647,51 @@ class DesktopCompanionConnection {
       return Promise.reject(new DesktopCompanionUnavailableError());
     }
     const id = crypto.randomUUID();
-    const timeoutMs = Number(options.timeoutMs || this.timeoutMs);
+    const requestedTimeout = Number(options.timeoutMs || this.timeoutMs);
+    const timeoutMs = Number.isFinite(requestedTimeout)
+      ? Math.min(30 * 60 * 1000, Math.max(100, requestedTimeout))
+      : DEFAULT_COMMAND_TIMEOUT_MS;
     const message = createDesktopCommandMessage(id, command, payload);
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const signal = options.signal || null;
+      const sendCancellation = () => {
+        if (!this.isOpen() || command === DESKTOP_COMMANDS.CANCEL_COMMAND) return;
+        try {
+          this.ws.send(JSON.stringify(createDesktopCommandMessage(
+            crypto.randomUUID(),
+            DESKTOP_COMMANDS.CANCEL_COMMAND,
+            { commandId: id },
+          )));
+        } catch {}
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         this.pending.delete(id);
-        reject(new Error(`Desktop companion command timed out: ${command}`));
+      };
+      const onAbort = () => {
+        cleanup();
+        sendCancellation();
+        reject(createAbortError(signal, `Desktop companion command aborted: ${command}`));
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        sendCancellation();
+        const error = new Error(`Desktop companion command timed out: ${command}`);
+        error.code = 'DESKTOP_COMPANION_COMMAND_TIMEOUT';
+        reject(error);
       }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer, command });
+      timer.unref?.();
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.pending.set(id, { resolve, reject, timer, command, signal, onAbort });
       try {
         this.ws.send(JSON.stringify(message));
       } catch (error) {
-        clearTimeout(timer);
-        this.pending.delete(id);
+        cleanup();
         reject(error);
       }
     });
@@ -636,10 +713,14 @@ class DesktopCompanionConnection {
 
     if (message.type === 'event') {
       if (message.event === 'statusChanged' || message.event === 'permissionsChanged') {
-        this.registry.touchConnection(this.userId, this.deviceId, {
-          ...message.payload,
-          metadata: message.payload?.metadata,
-        });
+        try {
+          this.registry.touchConnection(this.userId, this.deviceId, {
+            ...message.payload,
+            metadata: message.payload?.metadata,
+          });
+        } catch (error) {
+          console.warn('[DesktopCompanion] Failed to record device event:', error?.message);
+        }
       }
       return;
     }
@@ -648,6 +729,7 @@ class DesktopCompanionConnection {
     const pending = this.pending.get(message.id);
     if (!pending) return;
     clearTimeout(pending.timer);
+    pending.signal?.removeEventListener('abort', pending.onAbort);
     this.pending.delete(message.id);
     if (message.ok === false) {
       const error = new Error(String(message.error || `Desktop companion command failed: ${pending.command}`));
@@ -655,16 +737,18 @@ class DesktopCompanionConnection {
       pending.reject(error);
       return;
     }
-    pending.resolve(message.payload || {});
+    pending.resolve(message.payload ?? {});
   }
 
   _closePending(error) {
+    this.closed = true;
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
+      pending.signal?.removeEventListener('abort', pending.onAbort);
       pending.reject(error);
     }
     this.pending.clear();
@@ -702,5 +786,6 @@ class DesktopCompanionConnection {
 }
 
 module.exports = {
+  DesktopCompanionConnection,
   DesktopCompanionRegistry,
 };

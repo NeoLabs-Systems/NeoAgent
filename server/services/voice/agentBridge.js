@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 
 const { runVoiceTranscriptTurn } = require('./turnRunner');
+const { createAbortError, throwIfAborted } = require('../../utils/abort');
 
 class VoiceAgentBridge {
   constructor({ agentEngine, memoryManager, runtimeManager }) {
@@ -20,6 +21,8 @@ class VoiceAgentBridge {
     await session.publishTranscriptFinal(transcriptText);
     await session.setState('thinking');
     const runId = randomUUID();
+    let ownedRunId = runId;
+    const turnSignal = session.signal;
     session.currentRunId = runId;
 
     try {
@@ -40,8 +43,11 @@ class VoiceAgentBridge {
         allowInterimUpdates: true,
         voiceSessionId: session.id,
         runId,
+        signal: turnSignal,
       });
-      session.currentRunId = result.runId || runId;
+      throwIfAborted(turnSignal, 'Voice turn was interrupted.');
+      ownedRunId = result.runId || runId;
+      session.currentRunId = ownedRunId;
       const replyText = String(result.replyText || '').trim();
       if (replyText) {
         if (deferredFollowUp) {
@@ -50,6 +56,7 @@ class VoiceAgentBridge {
             deferredFollowUp,
             replyText,
             result.runId || runId,
+            { signal: turnSignal },
           );
           if (!followUp?.sent) {
             await this.runtimeManager.deliverAssistantMessage(session, replyText, {
@@ -62,12 +69,18 @@ class VoiceAgentBridge {
           });
         }
       }
+      throwIfAborted(turnSignal, 'Voice turn was interrupted.');
       await session.setState('idle');
-      session.currentRunId = null;
+      if (session.currentRunId === ownedRunId) {
+        session.currentRunId = null;
+      }
       return result;
     } catch (error) {
-      session.currentRunId = null;
-      await session.setState('idle');
+      if (session.currentRunId === ownedRunId) session.currentRunId = null;
+      if (session.signal === turnSignal && !session.closed) {
+        await session.setState('idle');
+      }
+      if (turnSignal.aborted) throw createAbortError(turnSignal);
       throw error;
     }
   }

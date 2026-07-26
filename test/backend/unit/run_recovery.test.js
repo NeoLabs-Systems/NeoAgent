@@ -44,6 +44,29 @@ test('interruptStaleAgentRuns marks orphaned running rows as interrupted on star
   assert.ok(stepRow.completed_at);
 });
 
+test('interruptStaleAgentRuns also closes orphaned pause transition states', async () => {
+  ctx = createTestRuntime();
+  const db = require('../../../server/db/database');
+  const user = await createTestUser(ctx.db, { username: 'stale_pause_recovery' });
+
+  for (const status of ['pausing', 'paused', 'resuming']) {
+    db.prepare(
+      'INSERT INTO agent_runs (id, user_id, status, title) VALUES (?, ?, ?, ?)'
+    ).run(`run-${status}`, user.userId, status, `Stale ${status} run`);
+  }
+
+  assert.equal(db.interruptStaleAgentRuns(), 3);
+  const rows = db.prepare(
+    "SELECT id, status, error, completed_at FROM agent_runs WHERE id LIKE 'run-%' ORDER BY id"
+  ).all();
+  assert.equal(rows.length, 3);
+  for (const row of rows) {
+    assert.equal(row.status, 'interrupted');
+    assert.equal(row.error, db.STALE_RUN_INTERRUPTED_ERROR);
+    assert.ok(row.completed_at);
+  }
+});
+
 test('stopServices interrupts active runs before shutdown continues', async () => {
   ctx = createTestRuntime();
   const { stopServices } = require('../../../server/services/manager');
@@ -60,4 +83,28 @@ test('stopServices interrupts active runs before shutdown continues', async () =
   });
 
   assert.equal(interrupted, 1);
+});
+
+test('stopServices uses the engine shutdown barrier when available', async () => {
+  ctx = createTestRuntime();
+  const { stopServices } = require('../../../server/services/manager');
+  let shutdowns = 0;
+  let interrupts = 0;
+
+  await stopServices({
+    locals: {
+      agentEngine: {
+        async shutdown() {
+          shutdowns += 1;
+          return { state: 'stopped', timedOut: false, pendingCount: 0 };
+        },
+        interruptAllActiveRuns() {
+          interrupts += 1;
+        },
+      },
+    },
+  });
+
+  assert.equal(shutdowns, 1);
+  assert.equal(interrupts, 0);
 });

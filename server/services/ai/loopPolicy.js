@@ -1,21 +1,24 @@
-// Limits resolve in priority order: per-run options → agent AI settings → hardcoded defaults.
+// Limits resolve in priority order: per-run options → agent AI settings → conservative defaults.
 // They are safety nets only; task_complete / progress guards are the real exit signals.
 
 // The iteration ceiling is a pure runaway safety net, NOT the primary stop signal.
 // A run stops when it makes no real progress (consecutiveReadOnlyIterations cap,
-// which resets the moment the agent does anything state-changing), or when the
+// which resets on a state change or genuinely new evidence), or when the
 // repetition / tool-failure / model-recovery guards fire, or when the model signals
 // task_complete. These ceilings are set high so they only ever catch a genuine
 // runaway and never guillotine a long, legitimately-progressing complex task.
 const DEFAULT_MAX_ITERATIONS = 250;
+const DEFAULT_SIMPLE_MAX_ITERATIONS = 16;
 const DEFAULT_WIDGET_MAX_ITERATIONS = 150;
 const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 250;
 // Less aggressive than 0.60 so the model retains file contents it already read for
 // longer, instead of losing them to compaction and re-reading the same files.
 const DEFAULT_COMPACTION_THRESHOLD = 0.80;
-// The real "stop when stuck" guard. Counts consecutive turns of pure reading/
-// searching/inspecting with zero state change; resets to 0 on any concrete progress.
+// The real "stop when stuck" guard. Counts consecutive turns with no state
+// change and no new evidence; resets to 0 on any concrete progress.
 const DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 8;
+const DEFAULT_SIMPLE_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 3;
+const DEFAULT_COMPLEX_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS = 14;
 const DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES = 5;
 const DEFAULT_MAX_MODEL_FAILURE_RECOVERIES = 3;
 
@@ -25,8 +28,9 @@ const MAX_ALLOWED_TOOL_FAILURES = 50;
 const MAX_ALLOWED_MODEL_RECOVERIES = 10;
 const MAX_ALLOWED_BUDGET_CHARS = 500_000;
 
-function finitePositive(n, fallback) {
-  return Number.isFinite(n) && n > 0 ? n : fallback;
+function optionalNumber(value) {
+  if (value == null || value === '') return Number.NaN;
+  return Number(value);
 }
 
 function clampFinite(n, lo, hi, fallback) {
@@ -56,6 +60,10 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
   } else if (complexity === 'complex' || autonomyLevel === 'high') {
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
+  } else if (analysisMode === 'direct_answer' || complexity === 'simple') {
+    // Short Q&A / casual chat must stay cheap. This is a hard runaway cap, not
+    // a target: direct answers usually finish in 0-1 model turns.
+    rawIterations = DEFAULT_SIMPLE_MAX_ITERATIONS;
   } else if (parallelWork || complexity === 'standard') {
     rawIterations = Math.max(DEFAULT_MAX_ITERATIONS, 28);
   } else {
@@ -70,41 +78,58 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
 
   // ── Tool result size budget ───────────────────────────────────────────────
   // Must be a finite positive integer; bad values fall back to 2400.
-  const defaultBudget = clampFinite(
-    Math.floor(Number(aiSettings.tool_replay_budget_chars) || 0),
-    500,
-    MAX_ALLOWED_BUDGET_CHARS,
-    2400,
-  );
+  const requestedDefaultBudget = optionalNumber(aiSettings.tool_replay_budget_chars);
+  const defaultBudget = Number.isFinite(requestedDefaultBudget) && requestedDefaultBudget > 0
+    ? clampFinite(Math.floor(requestedDefaultBudget), 500, MAX_ALLOWED_BUDGET_CHARS, 2400)
+    : 2400;
 
   // ── Scalar policy fields ─────────────────────────────────────────────────
   const maxConsecutiveToolFailures = clampFinite(
-    Math.floor(Number(aiSettings.max_consecutive_tool_failures)),
+    Math.floor(optionalNumber(
+      options.maxConsecutiveToolFailures
+      ?? aiSettings.max_consecutive_tool_failures,
+    )),
     1,
     MAX_ALLOWED_TOOL_FAILURES,
     DEFAULT_MAX_CONSECUTIVE_TOOL_FAILURES,
   );
 
   const maxModelFailureRecoveries = clampFinite(
-    Math.floor(Number(aiSettings.max_model_failure_recoveries)),
+    Math.floor(optionalNumber(
+      options.maxModelFailureRecoveries
+      ?? aiSettings.max_model_failure_recoveries,
+    )),
     0,
     MAX_ALLOWED_MODEL_RECOVERIES,
     DEFAULT_MAX_MODEL_FAILURE_RECOVERIES,
   );
 
+  let defaultReadOnlyIterations = DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  if (analysisMode === 'direct_answer' || complexity === 'simple') {
+    defaultReadOnlyIterations = DEFAULT_SIMPLE_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  } else if (
+    analysisMode === 'plan_execute'
+    || complexity === 'complex'
+    || autonomyLevel === 'high'
+  ) {
+    // Long-horizon research/implementation needs more productive read/search
+    // room before the hard no-progress wrap-up fires.
+    defaultReadOnlyIterations = DEFAULT_COMPLEX_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS;
+  }
+
   const rawReadOnlyIterations = options.maxConsecutiveReadOnlyIterations != null
     ? Number(options.maxConsecutiveReadOnlyIterations)
-    : Number(aiSettings.max_consecutive_read_only_iterations);
+    : optionalNumber(aiSettings.max_consecutive_read_only_iterations);
   const maxConsecutiveReadOnlyIterations = clampFinite(
     Math.floor(rawReadOnlyIterations),
     3,
     MAX_ALLOWED_READ_ONLY_ITERATIONS,
-    DEFAULT_MAX_CONSECUTIVE_READ_ONLY_ITERATIONS,
+    defaultReadOnlyIterations,
   );
 
   // compactionThreshold must be in (0, 1]; clamp to [0.1, 1].
   const compactionThreshold = clampFinite(
-    Number(aiSettings.compaction_threshold),
+    optionalNumber(options.compactionThreshold ?? aiSettings.compaction_threshold),
     0.1,
     1,
     DEFAULT_COMPACTION_THRESHOLD,
@@ -122,9 +147,9 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     // Per-category tool result size budgets (chars)
     toolResultBudget: {
       default: defaultBudget,
-      file:    clampFinite(Math.floor(Number(aiSettings.tool_replay_budget_file_chars)),    500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 6000)),
-      browser: clampFinite(Math.floor(Number(aiSettings.tool_replay_budget_browser_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
-      command: clampFinite(Math.floor(Number(aiSettings.tool_replay_budget_command_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
+      file:    clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_file_chars)),    500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 6000)),
+      browser: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_browser_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
+      command: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_command_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
     },
 
     // Hard ceiling is always 2× soft, capped at a reasonable absolute max
@@ -152,7 +177,9 @@ function resolveChurnNudgeThreshold(goalContract) {
   const complexity = String(goalContract?.complexity || 'standard').toLowerCase();
   const autonomyLevel = String(goalContract?.autonomyLevel || goalContract?.autonomy_level || 'normal').toLowerCase();
   if (complexity === 'simple') return 2;
-  if (complexity === 'complex' || autonomyLevel === 'high') return 5;
+  // Complex/high-autonomy work, including multi-target research, should get more
+  // productive inspection room before the soft churn nudge fires.
+  if (complexity === 'complex' || autonomyLevel === 'high') return 6;
   return 3;
 }
 

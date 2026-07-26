@@ -71,9 +71,9 @@ function createNeoRecallProvider() {
     connectionMethod: 'user_config',
     requiresRefreshToken: true,
     getEnvStatus: envStatus,
-    async beginOAuth({ state, codeVerifier, userId, agentId }) {
+    async beginOAuth({ state, codeVerifier, userId, agentId, signal }) {
       const baseUrl = normalizeBaseUrl(storedConfig(userId, resolveAgentId(userId, agentId)).baseUrl);
-      const boot = await bootstrap(baseUrl, callbackUrl());
+      const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
       const challenge = crypto.createHash('sha256').update(String(codeVerifier)).digest('base64url');
       return {
         url: appendQuery(text(boot.authorizationEndpoint) || `${baseUrl}/oauth/authorize`, {
@@ -83,18 +83,19 @@ function createNeoRecallProvider() {
         }),
       };
     },
-    async finishOAuth({ userId, agentId, code, codeVerifier }) {
+    async finishOAuth({ userId, agentId, code, codeVerifier, signal }) {
       const baseUrl = normalizeBaseUrl(storedConfig(userId, resolveAgentId(userId, agentId)).baseUrl);
-      const boot = await bootstrap(baseUrl, callbackUrl());
+      const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
       const issued = await token(baseUrl, {
         grant_type: 'authorization_code', client_id: boot.clientId, code: text(code),
         redirect_uri: text(boot.redirectUri) || callbackUrl(), code_verifier: text(codeVerifier),
-      });
+      }, { signal });
       const accessToken = text(issued.access_token);
       const refreshToken = text(issued.refresh_token);
       if (!accessToken || !refreshToken) throw new Error('NeoRecall did not return durable OAuth credentials.');
       const info = await fetchJson(`${baseUrl}/oauth/userinfo`, {
         headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
       }, { serviceName: 'NeoRecall userinfo' });
       const host = new URL(baseUrl).host;
       const accountEmail = text(info.email) || text(info.preferred_username) || `neorecall:${text(info.sub) || host}`;
@@ -109,10 +110,14 @@ function createNeoRecallProvider() {
       };
     },
     executeTool(toolName, args, context) {
-      return executeTool(toolName, args || {}, context.credentials);
+      return executeTool(toolName, args || {}, context.credentials, {
+        signal: context.signal,
+      });
     },
-    disconnect(connection) {
-      return revoke(connectionCredentials(connection));
+    disconnect(connection, executionOptions = {}) {
+      return revoke(connectionCredentials(connection), {
+        signal: executionOptions.signal || null,
+      });
     },
   });
 
@@ -122,16 +127,20 @@ function createNeoRecallProvider() {
     const accountCount = connectedAccountCount(Number(userId), scoped);
     return { baseUrl: stored.baseUrl, configured: Boolean(stored.baseUrl), accountCount, hasConnectedAccount: accountCount > 0 };
   };
-  provider.saveUserConfig = async ({ userId, agentId, config }) => {
+  provider.saveUserConfig = async ({ userId, agentId, config, signal }) => {
     const normalizedUserId = Number(userId);
     const scoped = resolveAgentId(normalizedUserId, agentId);
     const existing = storedConfig(normalizedUserId, scoped);
     const baseUrl = normalizeBaseUrl(parseConfig(config, existing).baseUrl);
-    const health = await fetchJson(`${baseUrl}/health`, { method: 'GET' }, { serviceName: 'NeoRecall health check' });
+    const health = await fetchJson(
+      `${baseUrl}/health`,
+      { method: 'GET', signal },
+      { serviceName: 'NeoRecall health check' },
+    );
     if (text(health?.status) !== 'ok' || text(health?.process) !== 'http') {
       throw new Error('The configured endpoint did not identify itself as a healthy NeoRecall HTTP service.');
     }
-    const boot = await bootstrap(baseUrl, callbackUrl());
+    const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
     if (text(boot?.companion) !== 'neoagent' || !text(boot?.clientId)) {
       throw new Error('The NeoRecall server does not expose the NeoAgent companion OAuth contract.');
     }

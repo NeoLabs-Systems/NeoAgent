@@ -1,6 +1,13 @@
+'use strict';
+
 const crypto = require('crypto');
 const db = require('../../../db/database');
+const { createAbortError } = require('../../../utils/abort');
+const { validateCloudUrlWithDns } = require('../../../utils/cloud-security');
 const {
+  EXTENSION_COMMANDS,
+  EXTENSION_MESSAGE_TYPES,
+  EXTENSION_PROTOCOL_VERSION,
   ExtensionBrowserUnavailableError,
   createCommandMessage,
   parseExtensionMessage,
@@ -11,6 +18,8 @@ const DEFAULT_COMMAND_TIMEOUT_MS = 30 * 1000;
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 25 * 1000;
 const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75 * 1000;
 const DEFAULT_PRESENCE_TOUCH_INTERVAL_MS = 15 * 1000;
+const DEFAULT_URL_VALIDATION_LIMIT = 128;
+const MAX_URL_VALIDATION_CHARS = 8192;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
@@ -48,7 +57,13 @@ class BrowserExtensionRegistry {
     this.heartbeatIntervalMs = Number(options.heartbeatIntervalMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_INTERVAL_MS || DEFAULT_HEARTBEAT_INTERVAL_MS);
     this.heartbeatTimeoutMs = Number(options.heartbeatTimeoutMs || process.env.NEOAGENT_BROWSER_EXTENSION_HEARTBEAT_TIMEOUT_MS || DEFAULT_HEARTBEAT_TIMEOUT_MS);
     this.presenceTouchIntervalMs = Number(options.presenceTouchIntervalMs || process.env.NEOAGENT_BROWSER_EXTENSION_PRESENCE_TOUCH_INTERVAL_MS || DEFAULT_PRESENCE_TOUCH_INTERVAL_MS);
+    this.urlValidator = options.urlValidator || validateCloudUrlWithDns;
+    this.urlValidationLimit = Math.max(1, Math.min(
+      512,
+      Number(options.urlValidationLimit || DEFAULT_URL_VALIDATION_LIMIT),
+    ));
     this.connectionsByUser = new Map();
+    this.closed = false;
   }
 
   #getUserConnections(userId, create = false) {
@@ -204,6 +219,9 @@ class BrowserExtensionRegistry {
   }
 
   registerConnection(tokenRow, ws, meta = {}) {
+    if (this.closed) {
+      throw new ExtensionBrowserUnavailableError('Browser extension registry is shutting down.');
+    }
     const userId = String(tokenRow.user_id);
     const userMap = this.#getUserConnections(userId, true);
     const existing = userMap.get(tokenRow.id);
@@ -223,11 +241,15 @@ class BrowserExtensionRegistry {
       presenceTouchIntervalMs: this.presenceTouchIntervalMs,
     });
     userMap.set(tokenRow.id, connection);
-    this.db.prepare(
-      `UPDATE browser_extension_tokens
-       SET last_connected_at = datetime('now'), last_seen_at = datetime('now')
-       WHERE id = ?`
-    ).run(tokenRow.id);
+    try {
+      this.db.prepare(
+        `UPDATE browser_extension_tokens
+         SET last_connected_at = datetime('now'), last_seen_at = datetime('now')
+         WHERE id = ?`
+      ).run(tokenRow.id);
+    } catch (error) {
+      console.warn('[BrowserExtension] Failed to record connection presence:', error?.message);
+    }
     return connection;
   }
 
@@ -322,9 +344,13 @@ class BrowserExtensionRegistry {
     const userMap = this.#getUserConnections(userId);
     const connection = userMap?.get(String(tokenId));
     if (!connection?.isOpen()) return;
-    this.db.prepare(
-      `UPDATE browser_extension_tokens SET last_seen_at = datetime('now') WHERE id = ?`
-    ).run(tokenId);
+    try {
+      this.db.prepare(
+        `UPDATE browser_extension_tokens SET last_seen_at = datetime('now') WHERE id = ?`
+      ).run(tokenId);
+    } catch (error) {
+      console.warn('[BrowserExtension] Failed to update connection presence:', error?.message);
+    }
   }
 
   async dispatch(userId, command, payload = {}, options = {}) {
@@ -333,10 +359,12 @@ class BrowserExtensionRegistry {
       throw new ExtensionBrowserUnavailableError();
     }
     const result = await connection.sendCommand(command, payload, options);
-    this.db.prepare(
-      `UPDATE browser_extension_tokens SET last_seen_at = datetime('now') WHERE id = ?`
-    ).run(connection.tokenId);
+    this.touchPresence(userId, connection.tokenId);
     return result;
+  }
+
+  validateBrowserUrl(url, options = {}) {
+    return this.urlValidator(url, options);
   }
 
   getStatus(userId) {
@@ -396,22 +424,22 @@ class BrowserExtensionRegistry {
       ).run(userId);
     }
 
-    const connection = this.getConnection(userId, targetTokenId);
-    if (connection && (!targetTokenId || connection.tokenId === targetTokenId)) {
+    const userMap = this.#getUserConnections(userId);
+    const connections = targetTokenId
+      ? [userMap?.get(targetTokenId)].filter(Boolean)
+      : Array.from(userMap?.values() || []);
+    for (const connection of connections) {
       connection.close('extension token revoked');
     }
     return { success: true };
   }
 
   closeAll() {
-    for (const connection of this.connectionsByUser.values()) {
-      if (connection instanceof Map) {
-        for (const nested of connection.values()) {
-          nested.close('server shutdown');
-        }
-      } else {
-        connection.close('server shutdown');
-      }
+    this.closed = true;
+    const connections = Array.from(this.connectionsByUser.values())
+      .flatMap((entry) => entry instanceof Map ? Array.from(entry.values()) : [entry]);
+    for (const connection of connections) {
+      connection.close('server shutdown');
     }
     this.connectionsByUser.clear();
   }
@@ -433,24 +461,34 @@ class ExtensionBrowserConnection {
     this.lastPongAt = Date.now();
     this.lastPresenceTouchAt = 0;
     this.heartbeatTimer = null;
+    this.urlValidationCount = 0;
+    this.urlValidationController = new AbortController();
+    this.closed = false;
 
-    ws.on('message', (data) => this.#handleMessage(data));
+    ws.on('message', (data) => {
+      this.#handleMessage(data).catch(() => {});
+    });
     ws.on('pong', () => {
       this.lastPongAt = Date.now();
       this.touchPresence();
     });
     ws.on('close', () => this.#closePending(new ExtensionBrowserUnavailableError('Extension browser disconnected.')));
-    ws.on('error', (error) => this.#closePending(error));
+    ws.on('error', (error) => {
+      try { ws.terminate(); } catch {}
+      this.#closePending(error);
+    });
     this.#startHeartbeat();
   }
 
   isOpen() {
-    return this.ws && this.ws.readyState === 1;
+    return !this.closed && this.ws && this.ws.readyState === 1;
   }
 
   close(reason) {
+    const wasOpen = this.isOpen();
+    this.closed = true;
     try {
-      if (this.isOpen()) {
+      if (wasOpen) {
         this.ws.close(1000, String(reason || 'closing').slice(0, 120));
       }
     } catch {}
@@ -478,25 +516,57 @@ class ExtensionBrowserConnection {
       return Promise.reject(new ExtensionBrowserUnavailableError());
     }
     const id = crypto.randomUUID();
-    const timeoutMs = Number(options.timeoutMs || this.timeoutMs);
+    const requestedTimeout = Number(options.timeoutMs || this.timeoutMs);
+    const timeoutMs = Number.isFinite(requestedTimeout)
+      ? Math.min(10 * 60 * 1000, Math.max(100, requestedTimeout))
+      : DEFAULT_COMMAND_TIMEOUT_MS;
     const message = createCommandMessage(id, command, payload);
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const signal = options.signal || null;
+      const sendCancellation = () => {
+        if (!this.isOpen() || command === EXTENSION_COMMANDS.CANCEL_COMMAND) return;
+        try {
+          this.ws.send(JSON.stringify(createCommandMessage(
+            crypto.randomUUID(),
+            EXTENSION_COMMANDS.CANCEL_COMMAND,
+            { commandId: id },
+          )));
+        } catch {}
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         this.pending.delete(id);
-        reject(new Error(`Browser extension command timed out: ${command}`));
+      };
+      const onAbort = () => {
+        cleanup();
+        sendCancellation();
+        reject(createAbortError(signal, `Browser extension command aborted: ${command}`));
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        sendCancellation();
+        const error = new Error(`Browser extension command timed out: ${command}`);
+        error.code = 'BROWSER_EXTENSION_COMMAND_TIMEOUT';
+        reject(error);
       }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer, command });
+      timer.unref?.();
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.pending.set(id, { resolve, reject, timer, command, signal, onAbort });
       try {
         this.ws.send(JSON.stringify(message));
       } catch (error) {
-        clearTimeout(timer);
-        this.pending.delete(id);
+        cleanup();
         reject(error);
       }
     });
   }
 
-  #handleMessage(data) {
+  async #handleMessage(data) {
     this.lastPongAt = Date.now();
     this.touchPresence();
     let message;
@@ -505,21 +575,70 @@ class ExtensionBrowserConnection {
     } catch {
       return;
     }
-    if (!message || message.type !== 'result' || !message.id) {
+    if (!message || !message.id) {
       return;
     }
+    if (message.type === EXTENSION_MESSAGE_TYPES.URL_VALIDATION_REQUEST) {
+      await this.#handleUrlValidationRequest(message);
+      return;
+    }
+    if (message.type !== EXTENSION_MESSAGE_TYPES.RESULT) return;
     const pending = this.pending.get(message.id);
     if (!pending) return;
     clearTimeout(pending.timer);
+    pending.signal?.removeEventListener('abort', pending.onAbort);
     this.pending.delete(message.id);
     if (message.ok === false) {
       pending.reject(new Error(message.error || `Browser extension command failed: ${pending.command}`));
       return;
     }
-    pending.resolve(message.result || {});
+    pending.resolve(message.result ?? {});
+  }
+
+  async #handleUrlValidationRequest(message) {
+    const id = typeof message.id === 'string' ? message.id : '';
+    if (!id || id.length > 200 || !this.isOpen()) return;
+
+    let allowed = false;
+    const url = typeof message.url === 'string' ? message.url : '';
+    const versionMatches = Number(message.version) === EXTENSION_PROTOCOL_VERSION;
+    const validationLimit = Number(this.registry.urlValidationLimit) || DEFAULT_URL_VALIDATION_LIMIT;
+    if (
+      versionMatches
+      && url.length > 0
+      && url.length <= MAX_URL_VALIDATION_CHARS
+      && this.urlValidationCount < validationLimit
+      && typeof this.registry.validateBrowserUrl === 'function'
+    ) {
+      this.urlValidationCount += 1;
+      try {
+        const result = await this.registry.validateBrowserUrl(url, {
+          signal: this.urlValidationController.signal,
+        });
+        allowed = result?.allowed === true;
+      } catch {
+        allowed = false;
+      } finally {
+        this.urlValidationCount -= 1;
+      }
+    }
+
+    if (!this.isOpen()) return;
+    try {
+      this.ws.send(JSON.stringify({
+        type: EXTENSION_MESSAGE_TYPES.URL_VALIDATION_RESULT,
+        version: EXTENSION_PROTOCOL_VERSION,
+        id,
+        allowed,
+      }));
+    } catch {}
   }
 
   #closePending(error) {
+    this.closed = true;
+    if (!this.urlValidationController.signal.aborted) {
+      this.urlValidationController.abort(error);
+    }
     this.registry.unregisterConnection(this);
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
@@ -527,6 +646,7 @@ class ExtensionBrowserConnection {
     }
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
+      pending.signal?.removeEventListener('abort', pending.onAbort);
       pending.reject(error);
     }
     this.pending.clear();
@@ -559,6 +679,7 @@ class ExtensionBrowserConnection {
 }
 
 module.exports = {
+  ExtensionBrowserConnection,
   BrowserExtensionRegistry,
   sha256,
 };

@@ -17,6 +17,59 @@ import 'desktop_screen_capture.dart';
 
 typedef _JpegArgs = ({Uint8List bytes, int quality});
 
+String resolveDesktopDisplaySelection(
+  Object? rawDisplays,
+  String requested, {
+  String? activeDisplayId,
+}) {
+  final normalized = requested.trim();
+  if (normalized.isEmpty) {
+    throw ArgumentError.value(
+      requested,
+      'displayId',
+      'Display ID is required.',
+    );
+  }
+  final displays = rawDisplays is List
+      ? rawDisplays
+            .whereType<Map>()
+            .map(
+              (display) =>
+                  display.map((key, value) => MapEntry(key.toString(), value)),
+            )
+            .where(
+              (display) => display['id']?.toString().trim().isNotEmpty == true,
+            )
+            .toList(growable: false)
+      : const <Map<String, Object?>>[];
+  if (displays.isEmpty) {
+    throw StateError('No desktop displays are currently available.');
+  }
+
+  if (normalized.toLowerCase() == 'primary') {
+    for (final display in displays) {
+      if (display['primary'] == true) {
+        return display['id'].toString().trim();
+      }
+    }
+    final active = activeDisplayId?.trim() ?? '';
+    if (active.isNotEmpty &&
+        displays.any((display) => display['id']?.toString().trim() == active)) {
+      return active;
+    }
+  }
+
+  for (final display in displays) {
+    final id = display['id']?.toString().trim() ?? '';
+    if (id == normalized) return id;
+  }
+  throw ArgumentError.value(
+    requested,
+    'displayId',
+    'The requested desktop display is not available.',
+  );
+}
+
 Uint8List _compressJpegInIsolate(_JpegArgs args) {
   final decoded = img.decodeImage(args.bytes);
   if (decoded == null) return args.bytes;
@@ -47,6 +100,8 @@ class DesktopCompanionActions {
 
   final DesktopScreenCapture _screenCapture;
   final DesktopNativeBridge _nativeBridge = DesktopNativeBridge();
+  final Map<String, Process> _shellProcesses = <String, Process>{};
+  final Set<String> _cancelledShellCommandIds = <String>{};
 
   bool get isCaptureSupported => _screenCapture.isSupported;
 
@@ -64,6 +119,7 @@ class DesktopCompanionActions {
       activeDisplayId: activeDisplayId,
       platformStatus: platformStatus,
     );
+    final reportedDisplays = _coerceDisplays(platformStatus['displays']);
     final packageInfo = await PackageInfo.fromPlatform();
     return <String, Object?>{
       'deviceId': deviceId,
@@ -77,7 +133,7 @@ class DesktopCompanionActions {
       'paused': paused,
       'permissions': _permissions(capabilities, platformStatus: platformStatus),
       'capabilities': capabilities,
-      'displays': snapshot?.displays ?? const <Map<String, Object?>>[],
+      'displays': snapshot?.displays ?? reportedDisplays,
       'activeDisplayId':
           snapshot?.activeDisplayId ??
           platformStatus['activeDisplayId']?.toString() ??
@@ -144,10 +200,10 @@ class DesktopCompanionActions {
       contentType: capture.mimeType,
       width: width,
       height: height,
-      activeDisplayId: activeDisplayId ?? 'primary',
+      activeDisplayId: 'primary',
       displays: <Map<String, Object?>>[
         <String, Object?>{
-          'id': activeDisplayId ?? 'primary',
+          'id': 'primary',
           'label': 'Primary Display',
           'width': width,
           'height': height,
@@ -169,6 +225,7 @@ class DesktopCompanionActions {
       activeDisplayId: activeDisplayId,
       platformStatus: platformStatus,
     );
+    final reportedDisplays = _coerceDisplays(platformStatus['displays']);
     return <String, Object?>{
       'paused': paused,
       'label': label,
@@ -177,7 +234,7 @@ class DesktopCompanionActions {
           platformStatus['activeDisplayId']?.toString() ??
           activeDisplayId ??
           'primary',
-      'displays': snapshot?.displays ?? const <Map<String, Object?>>[],
+      'displays': snapshot?.displays ?? reportedDisplays,
       'permissions': _permissions(capabilities, platformStatus: platformStatus),
       'capabilities': capabilities,
       if (platformStatus['frontmostApp'] != null)
@@ -461,11 +518,17 @@ class DesktopCompanionActions {
   }
 
   Future<Map<String, Object?>> executeShellCommand({
+    required String commandId,
     required String command,
     String? cwd,
     int? timeoutMs,
     String? stdinInput,
+    bool requestedPty = false,
+    List<String> inputs = const <String>[],
   }) async {
+    if (command.trim().isEmpty) {
+      throw ArgumentError.value(command, 'command', 'Command is required.');
+    }
     final shell = Platform.isWindows
         ? 'cmd.exe'
         : (Platform.environment['SHELL'] ?? '/bin/sh');
@@ -483,9 +546,18 @@ class DesktopCompanionActions {
       workingDirectory: workingDir,
       runInShell: false,
     );
+    if (commandId.isNotEmpty) {
+      _shellProcesses[commandId] = process;
+    }
 
-    if (stdinInput != null && stdinInput.isNotEmpty) {
-      process.stdin.write(stdinInput);
+    if (_cancelledShellCommandIds.contains(commandId)) {
+      await _terminateShellProcess(process);
+    } else if ((stdinInput != null && stdinInput.isNotEmpty) ||
+        inputs.isNotEmpty) {
+      if (stdinInput != null) process.stdin.write(stdinInput);
+      for (final input in inputs) {
+        process.stdin.write(input);
+      }
       await process.stdin.close();
     } else {
       unawaited(process.stdin.close());
@@ -494,13 +566,41 @@ class DesktopCompanionActions {
     const maxChars = 50000;
     final stdoutBuf = StringBuffer();
     final stderrBuf = StringBuffer();
+    var stdoutChars = 0;
+    var stderrChars = 0;
+    final stdoutDone = Completer<void>();
+    final stderrDone = Completer<void>();
 
-    final stdoutSub = process.stdout.transform(utf8.decoder).listen((data) {
-      stdoutBuf.write(data);
-    });
-    final stderrSub = process.stderr.transform(utf8.decoder).listen((data) {
-      stderrBuf.write(data);
-    });
+    final stdoutSub = process.stdout
+        .transform(utf8.decoder)
+        .listen(
+          (data) {
+            stdoutChars += data.length;
+            final remaining = maxChars - stdoutBuf.length;
+            if (remaining > 0) {
+              stdoutBuf.write(
+                data.substring(0, data.length.clamp(0, remaining)),
+              );
+            }
+          },
+          onError: stdoutDone.completeError,
+          onDone: stdoutDone.complete,
+        );
+    final stderrSub = process.stderr
+        .transform(utf8.decoder)
+        .listen(
+          (data) {
+            stderrChars += data.length;
+            final remaining = maxChars - stderrBuf.length;
+            if (remaining > 0) {
+              stderrBuf.write(
+                data.substring(0, data.length.clamp(0, remaining)),
+              );
+            }
+          },
+          onError: stderrDone.completeError,
+          onDone: stderrDone.complete,
+        );
 
     final effectiveTimeout = Duration(
       milliseconds: (timeoutMs != null && timeoutMs > 0)
@@ -509,36 +609,79 @@ class DesktopCompanionActions {
     );
 
     bool timedOut = false;
+    bool externallyCancelled = false;
     int? exitCode;
     try {
       exitCode = await process.exitCode.timeout(effectiveTimeout);
     } on TimeoutException {
       timedOut = true;
-      process.kill(ProcessSignal.sigterm);
-      exitCode = null;
+      exitCode = await _terminateShellProcess(process);
+    } finally {
+      externallyCancelled = _cancelledShellCommandIds.contains(commandId);
+      if (commandId.isNotEmpty) {
+        _shellProcesses.remove(commandId);
+        _cancelledShellCommandIds.remove(commandId);
+      }
     }
 
-    await stdoutSub.cancel();
-    await stderrSub.cancel();
+    try {
+      await Future.wait<void>(<Future<void>>[
+        stdoutDone.future,
+        stderrDone.future,
+      ]).timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      await stdoutSub.cancel();
+      await stderrSub.cancel();
+    }
 
-    String trimOutput(StringBuffer buf) {
+    String trimOutput(StringBuffer buf, int totalChars) {
       final s = buf.toString().trim();
-      return s.length > maxChars
-          ? '${s.substring(0, maxChars)}\n...[truncated, ${s.length} total chars]'
+      return totalChars > maxChars
+          ? '$s\n...[truncated, $totalChars total chars]'
           : s;
     }
 
     return <String, Object?>{
       'exitCode': exitCode,
-      'stdout': trimOutput(stdoutBuf),
-      'stderr': trimOutput(stderrBuf),
+      'stdout': trimOutput(stdoutBuf, stdoutChars),
+      'stderr': trimOutput(stderrBuf, stderrChars),
       'timedOut': timedOut,
-      'killed': timedOut,
+      'killed': timedOut || externallyCancelled,
+      'cancelled': externallyCancelled,
       'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
       'command': command,
       'cwd': workingDir,
       'backend': 'desktop-companion',
+      'ptyRequested': requestedPty,
+      'ptyAllocated': false,
     };
+  }
+
+  Future<Map<String, Object?>> cancelShellCommand(String commandId) async {
+    if (commandId.isEmpty) {
+      return <String, Object?>{'success': false, 'cancelled': false};
+    }
+    _cancelledShellCommandIds.add(commandId);
+    final process = _shellProcesses[commandId];
+    if (process == null) {
+      return <String, Object?>{'success': true, 'cancelled': true};
+    }
+    await _terminateShellProcess(process);
+    return <String, Object?>{'success': true, 'cancelled': true};
+  }
+
+  Future<int?> _terminateShellProcess(Process process) async {
+    process.kill(ProcessSignal.sigterm);
+    try {
+      return await process.exitCode.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      process.kill(ProcessSignal.sigkill);
+      try {
+        return await process.exitCode.timeout(const Duration(seconds: 2));
+      } on TimeoutException {
+        return null;
+      }
+    }
   }
 
   Future<Map<String, Object?>> _capabilities({
@@ -687,12 +830,13 @@ class DesktopCompanionActions {
           'IdleHint',
         ]);
         if (result.exitCode == 0) {
-          final lines = result.stdout
-              ?.toString()
-              .split(RegExp(r'\r?\n'))
-              .map((line) => line.trim())
-              .where((line) => line.isNotEmpty)
-              .toList(growable: false) ??
+          final lines =
+              result.stdout
+                  ?.toString()
+                  .split(RegExp(r'\r?\n'))
+                  .map((line) => line.trim())
+                  .where((line) => line.isNotEmpty)
+                  .toList(growable: false) ??
               const <String>[];
           for (final line in lines) {
             if (line.startsWith('LockedHint=')) {
@@ -713,8 +857,7 @@ class DesktopCompanionActions {
         if (idleMs != null) {
           final idleSeconds = idleMs / 1000;
           state['idleSeconds'] = idleSeconds;
-          state['userIdle'] =
-              (state['userIdle'] == true) || idleSeconds >= 300;
+          state['userIdle'] = (state['userIdle'] == true) || idleSeconds >= 300;
         }
       }
     } catch (_) {}
@@ -812,6 +955,17 @@ class DesktopCompanionActions {
         'primary': true,
       },
     ];
+  }
+
+  List<Map<String, Object?>> _coerceDisplays(Object? raw) {
+    if (raw is! List) return const <Map<String, Object?>>[];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => item.map((key, value) => MapEntry(key.toString(), value)),
+        )
+        .where((item) => item['id']?.toString().trim().isNotEmpty == true)
+        .toList(growable: false);
   }
 
   Future<void> _run(_ShellCommand command) async {

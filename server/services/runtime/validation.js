@@ -6,14 +6,14 @@ function getRuntimeValidation(runtimeManager) {
   const policy = getDeploymentPolicy();
   const nodeEnvIsProd = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'prod';
   const browserVmReadiness = runtimeManager?.browserBackend?.vmManager?.getReadiness?.() || null;
-  const vmReadiness = browserVmReadiness || null;
+  const cliVmReadiness = runtimeManager?.cliBackend?.vmManager?.getReadiness?.() || null;
   const issues = [];
 
   if (policy.profile === 'prod' || nodeEnvIsProd) {
-    if (!browserVmReadiness) {
-      issues.push('prod profile requires a working container runtime for browser/CLI.');
-    } else if (!browserVmReadiness.dockerAvailable) {
-      issues.push('prod profile requires Docker to be installed and running for the browser/CLI runtime.');
+    if (!browserVmReadiness || !cliVmReadiness) {
+      issues.push('prod profile requires working isolated container runtimes for browser and CLI.');
+    } else if (!browserVmReadiness.dockerAvailable || !cliVmReadiness.dockerAvailable) {
+      issues.push('prod profile requires Docker to be installed and running for the browser and CLI runtimes.');
     }
   }
 
@@ -21,7 +21,8 @@ function getRuntimeValidation(runtimeManager) {
     ready: issues.length === 0,
     issues,
     vm: {
-      browser: vmReadiness,
+      browser: browserVmReadiness,
+      cli: cliVmReadiness,
       android: null,
     },
     guestTokenConfigured: true,

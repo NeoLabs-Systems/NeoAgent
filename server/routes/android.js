@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -6,8 +8,7 @@ const router = express.Router();
 const { DATA_DIR } = require('../../runtime/paths');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
-const { validateCloudUrl } = require('../utils/cloud-security');
-const { getRuntimeValidation } = require('../services/runtime/validation');
+const { validateAndroidIntentUrl } = require('../utils/cloud-security');
 
 router.use(requireAuth);
 
@@ -52,18 +53,6 @@ async function getAndroidController(req) {
   throw new Error('Android controller is unavailable.');
 }
 
-function getAndroidStatusSnapshot(req) {
-  const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
-  const ready = Boolean(runtimeValidation?.ready);
-  return {
-    bootstrapped: false,
-    canBootstrap: ready,
-    devices: [],
-    lastStartError: ready ? null : (runtimeValidation?.issues?.[0] || 'VM runtime is not ready.'),
-    runtimeReady: ready,
-  };
-}
-
 function handleAndroidAction(action) {
   return async (req, res) => {
     try {
@@ -79,45 +68,49 @@ function handleAndroidAction(action) {
 router.get('/status', async (req, res) => {
   try {
     const controller = await getAndroidController(req);
-    res.json(await controller.getStatus().catch(() => getAndroidStatusSnapshot(req)));
+    res.json(await controller.getStatus({ signal: req.signal }));
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }
 });
 
 router.post('/start', handleAndroidAction((controller, req) =>
-  controller.requestStartEmulator(req.body || {})));
+  controller.requestStartEmulator({ ...(req.body || {}), signal: req.signal })));
 
-router.post('/stop', handleAndroidAction((controller) => controller.stopEmulator()));
+router.post('/stop', handleAndroidAction((controller, req) => controller.stopEmulator({ signal: req.signal })));
 
-router.get('/devices', handleAndroidAction(async (controller) => ({
-  devices: await controller.listDevices(),
+router.get('/devices', handleAndroidAction(async (controller, req) => ({
+  devices: await controller.listDevices({ signal: req.signal }),
 })));
 
 router.post('/screenshot', handleAndroidAction((controller, req) =>
-  controller.screenshot(req.body || {})));
+  controller.screenshot({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/observe', handleAndroidAction((controller, req) =>
-  controller.observe(req.body || {})));
+  controller.observe({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/ui-dump', handleAndroidAction((controller, req) =>
-  controller.dumpUi(req.body || {})));
+  controller.dumpUi({ ...(req.body || {}), signal: req.signal })));
 
 router.get('/apps', handleAndroidAction((controller, req) =>
-  controller.listApps({ includeSystem: req.query.includeSystem === 'true' })));
+  controller.listApps({ includeSystem: req.query.includeSystem === 'true', signal: req.signal })));
 
 router.post('/open-app', handleAndroidAction((controller, req) =>
-  controller.openApp(req.body || {})));
+  controller.openApp({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/open-intent', async (req, res) => {
   try {
     const body = req.body || {};
     const intentUrl = body.data || body.url || body.uri;
-    if (intentUrl && typeof intentUrl === 'string' && !validateCloudUrl(intentUrl).allowed) {
+    if (
+      intentUrl
+      && typeof intentUrl === 'string'
+      && !(await validateAndroidIntentUrl(intentUrl, { signal: req.signal })).allowed
+    ) {
       return res.status(403).json({ error: 'This URL is not permitted.' });
     }
     const controller = await getAndroidController(req);
-    const result = await controller.openIntent(body);
+    const result = await controller.openIntent({ ...body, signal: req.signal });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
@@ -125,22 +118,22 @@ router.post('/open-intent', async (req, res) => {
 });
 
 router.post('/tap', handleAndroidAction((controller, req) =>
-  controller.tap(req.body || {})));
+  controller.tap({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/long-press', handleAndroidAction((controller, req) =>
-  controller.longPress(req.body || {})));
+  controller.longPress({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/type', handleAndroidAction((controller, req) =>
-  controller.type(req.body || {})));
+  controller.type({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/swipe', handleAndroidAction((controller, req) =>
-  controller.swipe(req.body || {})));
+  controller.swipe({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/press-key', handleAndroidAction((controller, req) =>
-  controller.pressKey(req.body || {})));
+  controller.pressKey({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/wait-for', handleAndroidAction((controller, req) =>
-  controller.waitFor(req.body || {})));
+  controller.waitFor({ ...(req.body || {}), signal: req.signal })));
 
 router.post('/install-apk', (req, res) => {
   androidApkUpload.single('apk')(req, res, async (uploadError) => {
@@ -162,7 +155,7 @@ router.post('/install-apk', (req, res) => {
 
     try {
       const controller = await getAndroidController(req);
-      const result = await controller.installApk({ apkPath: uploadedApkPath });
+      const result = await controller.installApk({ apkPath: uploadedApkPath, signal: req.signal });
       res.json({
         ...result,
         filename: req.file.originalname,
@@ -176,6 +169,9 @@ router.post('/install-apk', (req, res) => {
   });
 });
 
-router.post('/shell', handleAndroidAction((controller, req) => controller.shell(req.body || {})));
+router.post('/shell', handleAndroidAction((controller, req) => controller.shell({
+  ...(req.body || {}),
+  signal: req.signal,
+})));
 
 module.exports = router;

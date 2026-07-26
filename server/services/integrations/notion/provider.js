@@ -187,7 +187,8 @@ function notionUrl(path, query) {
   return url.toString();
 }
 
-async function notionRequest(credentials, { method = 'GET', path, query, body }) {
+async function notionRequest(context, { method = 'GET', path, query, body }) {
+  const { credentials, signal } = context;
   return fetchJson(
     notionUrl(path, query),
     {
@@ -197,16 +198,17 @@ async function notionRequest(credentials, { method = 'GET', path, query, body })
         'Notion-Version': NOTION_VERSION,
       },
       ...(body === undefined ? {} : { json: body }),
+      signal,
     },
     { serviceName: 'Notion' },
   );
 }
 
-async function executeNotionTool(toolName, args, { credentials }) {
+async function executeNotionTool(toolName, args, context) {
   switch (toolName) {
     case 'notion_search':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'POST',
           path: '/v1/search',
           body: {
@@ -218,13 +220,13 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_get_page':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           path: `/v1/pages/${encodeURIComponent(requireText(args.page_id, 'page_id'))}`,
         }),
       };
     case 'notion_create_page':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'POST',
           path: '/v1/pages',
           body: {
@@ -236,7 +238,7 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_update_page':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'PATCH',
           path: `/v1/pages/${encodeURIComponent(requireText(args.page_id, 'page_id'))}`,
           body: {
@@ -249,7 +251,7 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_query_database':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'POST',
           path: `/v1/databases/${encodeURIComponent(requireText(args.database_id, 'database_id'))}/query`,
           body: {
@@ -261,14 +263,14 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_get_block_children':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           path: `/v1/blocks/${encodeURIComponent(requireText(args.block_id, 'block_id'))}/children`,
           query: { page_size: Math.max(1, Math.min(Number(args.page_size) || 25, 100)) },
         }),
       };
     case 'notion_append_block_children':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'PATCH',
           path: `/v1/blocks/${encodeURIComponent(requireText(args.block_id, 'block_id'))}/children`,
           body: { children: Array.isArray(args.children) ? args.children : [] },
@@ -276,7 +278,7 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_update_block':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'PATCH',
           path: `/v1/blocks/${encodeURIComponent(requireText(args.block_id, 'block_id'))}`,
           body: args.body || {},
@@ -284,14 +286,14 @@ async function executeNotionTool(toolName, args, { credentials }) {
       };
     case 'notion_delete_block':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: 'DELETE',
           path: `/v1/blocks/${encodeURIComponent(requireText(args.block_id, 'block_id'))}`,
         }),
       };
     case 'notion_api_request':
       return {
-        result: await notionRequest(credentials, {
+        result: await notionRequest(context, {
           method: args.method,
           path: requireText(args.path, 'path'),
           query: args.query,
@@ -332,7 +334,7 @@ function createNotionProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app }) {
+    async finishOAuth({ code, app, signal }) {
       const config = resolveNotionOAuthConfig();
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
         'base64',
@@ -349,6 +351,7 @@ function createNotionProvider() {
             code,
             redirect_uri: config.redirectUri,
           },
+          signal,
         },
         { serviceName: 'Notion' },
       );

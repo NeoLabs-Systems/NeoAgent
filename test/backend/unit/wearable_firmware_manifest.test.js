@@ -62,7 +62,7 @@ test('GitHub firmware manifest exposes the release binary and checksum', async (
     if (String(url).includes('/releases?')) {
       return {
         ok: true,
-        json: async () => [firmwareRelease],
+        text: async () => JSON.stringify([firmwareRelease]),
       };
     }
     if (url === 'https://downloads.example/neoagent-wearable-firmware.bin.sha256') {
@@ -88,4 +88,48 @@ test('GitHub firmware manifest exposes the release binary and checksum', async (
     manifest.downloadUrl,
     'https://github.com/NeoLabs-Systems/NeoAgent/releases/download/v4.0.0/neoagent-wearable-firmware.bin',
   );
+});
+
+test('firmware release lookup preserves caller cancellation', async () => {
+  const controller = new AbortController();
+  const reason = new Error('manifest request stopped');
+  let capturedSignal = null;
+  const fetchImpl = (_url, options) => {
+    capturedSignal = options.signal;
+    return new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(options.signal.reason), {
+        once: true,
+      });
+    });
+  };
+
+  const pending = resolveFirmwareManifest({
+    channel: 'stable',
+    repositoryOverride: 'Example/NeoAgentFirmwareAbortTest',
+    fetchImpl,
+    signal: controller.signal,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(capturedSignal);
+  assert.notEqual(capturedSignal, controller.signal);
+
+  controller.abort(reason);
+  await assert.rejects(pending, (error) => error === reason);
+  assert.equal(capturedSignal.aborted, true);
+});
+
+test('firmware release lookup rejects oversized GitHub responses safely', async () => {
+  const fetchImpl = async () => new Response('', {
+    status: 200,
+    headers: { 'content-length': String(3 * 1024 * 1024) },
+  });
+
+  const manifest = await resolveFirmwareManifest({
+    channel: 'stable',
+    repositoryOverride: 'Example/NeoAgentFirmwareOversizeTest',
+    fetchImpl,
+  });
+
+  assert.equal(manifest.configured, false);
+  assert.match(manifest.error, /response exceeded the .* safety limit/i);
 });

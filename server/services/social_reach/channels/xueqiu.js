@@ -37,7 +37,7 @@ class XueqiuChannel extends SocialReachChannel {
     };
   }
 
-  async search({ userId, query, limit }) {
+  async search({ userId, query, limit, signal }) {
     const q = String(query || '').trim();
     if (!q) {
       const error = new Error('query is required.');
@@ -45,7 +45,7 @@ class XueqiuChannel extends SocialReachChannel {
       throw error;
     }
     const url = `https://xueqiu.com/stock/search.json?code=${encodeURIComponent(q)}&size=${normalizeLimit(limit, 10, 50)}`;
-    const data = await fetchJson(url, { headers: this.#headers(userId) });
+    const data = await fetchJson(url, { headers: this.#headers(userId), signal });
     return {
       platform: this.id,
       query: q,
@@ -58,12 +58,12 @@ class XueqiuChannel extends SocialReachChannel {
     };
   }
 
-  async read({ userId, symbol, limit }) {
+  async read({ userId, symbol, limit, signal }) {
     const raw = String(symbol || '').trim().toUpperCase();
     if (raw) {
       const data = await fetchJson(
         `https://stock.xueqiu.com/v5/stock/batch/quote.json?symbol=${encodeURIComponent(raw)}`,
-        { headers: this.#headers(userId) },
+        { headers: this.#headers(userId), signal },
       );
       const quote = data.data?.items?.[0]?.quote || {};
       return {
@@ -76,7 +76,7 @@ class XueqiuChannel extends SocialReachChannel {
     }
     const data = await fetchJson(
       'https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&max_id=-1&count=20&category=-1',
-      { headers: this.#headers(userId) },
+      { headers: this.#headers(userId), signal },
     );
     return {
       platform: this.id,

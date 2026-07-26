@@ -31,8 +31,8 @@ class AnthropicProvider extends BaseProvider {
     });
   }
 
-  async listModels() {
-    const res = await this.client.models.list({ limit: 100 });
+  async listModels(signal = null) {
+    const res = await this.client.models.list({ limit: 100 }, { signal });
     return (res.data || []).map((m) => ({ id: m.id, name: m.display_name || m.id }));
   }
 
@@ -169,7 +169,7 @@ class AnthropicProvider extends BaseProvider {
 
     if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
-    const response = await this.client.messages.create(params);
+    const response = await this.client.messages.create(params, { signal: options.signal });
     const responseBlocks = Array.isArray(response?.content)
       ? response.content
       : (response?.content && typeof response.content === 'object' ? [response.content] : []);
@@ -225,7 +225,7 @@ class AnthropicProvider extends BaseProvider {
 
     if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
-    const stream = await this.client.messages.stream(params);
+    const stream = await this.client.messages.stream(params, { signal: options.signal });
 
     let content = '';
     let currentToolCalls = [];

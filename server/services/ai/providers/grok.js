@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
+const { wrapProviderError } = require('./provider_error');
 
 class GrokProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
@@ -11,15 +12,15 @@ class GrokProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels() {
+  async listModels(signal = null) {
     try {
-      const res = await this.client.models.list();
+      const res = await this.client.models.list({ signal });
       const DROP = /imagine|diffus|embed|-tts/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
         .map((m) => ({ id: m.id, name: m.id }));
     } catch (err) {
-      throw new Error(`Failed to list Grok models: ${err.message || String(err)}`);
+      throw wrapProviderError(err, 'Failed to list Grok models', { signal });
     }
   }
 
@@ -61,7 +62,7 @@ class GrokProvider extends OpenAICompatibleProvider {
     const model = options.model || 'grok-4-1-fast-reasoning';
     const params = this._buildParams(model, messages, tools, options);
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await this.client.chat.completions.create(params, { signal: options.signal });
     return this.normalizeResponse(response);
   }
 
@@ -73,7 +74,7 @@ class GrokProvider extends OpenAICompatibleProvider {
       stream_options: { include_usage: true }
     };
 
-    const stream = await this.client.chat.completions.create(params);
+    const stream = await this.client.chat.completions.create(params, { signal: options.signal });
 
     let toolCalls = [];
     let content = '';

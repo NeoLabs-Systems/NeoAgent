@@ -25,7 +25,7 @@ router.get('/status', async (req, res) => {
     if (!service || typeof service.getStatus !== 'function') {
       return res.status(503).json({ error: 'Social reach service is unavailable.' });
     }
-    return res.json(await service.getStatus(req.session.userId));
+    return res.json(await service.getStatus(req.session.userId, { signal: req.signal }));
   } catch (error) {
     return sendError(res, error);
   }
@@ -37,7 +37,11 @@ router.post('/read', async (req, res) => {
     if (!service || typeof service.read !== 'function') {
       return res.status(503).json({ error: 'Social reach service is unavailable.' });
     }
-    return res.json(await service.read(req.session.userId, req.body || {}));
+    return res.json(await service.read(
+      req.session.userId,
+      req.body || {},
+      { signal: req.signal },
+    ));
   } catch (error) {
     return sendError(res, error);
   }
@@ -49,7 +53,11 @@ router.post('/search', async (req, res) => {
     if (!service || typeof service.search !== 'function') {
       return res.status(503).json({ error: 'Social reach service is unavailable.' });
     }
-    return res.json(await service.search(req.session.userId, req.body || {}));
+    return res.json(await service.search(
+      req.session.userId,
+      req.body || {},
+      { signal: req.signal },
+    ));
   } catch (error) {
     return sendError(res, error);
   }
@@ -67,6 +75,7 @@ router.post('/cookies/import', async (req, res) => {
     }
     return res.json(await service.importCookiesFromExtension(req.session.userId, platform, {
       tokenId: req.body?.tokenId || req.body?.token_id || null,
+      signal: req.signal,
     }));
   } catch (error) {
     return sendError(res, error);

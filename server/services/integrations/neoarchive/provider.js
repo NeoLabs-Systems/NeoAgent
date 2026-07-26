@@ -13,9 +13,11 @@ const {
 const { getConnectionAccessMode } = require("../access");
 const { decryptValue } = require("../secrets");
 const { appendQuery, fetchJson } = require("../oauth_provider");
+const { fetchResponseText } = require("../http");
 const { resolvePublicBaseUrl } = require("../env");
 
 const KEY = "neoarchive";
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const APP = Object.freeze({
   id: "archive",
   label: "Archive",
@@ -277,24 +279,25 @@ function snapshot(provider, rows, context) {
     connectionMethod: "oauth",
   };
 }
-async function bootstrap(baseUrl) {
+async function bootstrap(baseUrl, options = {}) {
   return fetchJson(
     `${baseUrl}/api/oauth/companion/neoagent/bootstrap`,
     {
       method: "POST",
       json: { redirectUri: callbackUrl(), appName: "NeoAgent" },
+      signal: options.signal,
     },
     { serviceName: "NeoArchive companion bootstrap" },
   );
 }
-async function token(baseUrl, form) {
+async function token(baseUrl, form, options = {}) {
   return fetchJson(
     `${baseUrl}/oauth/token`,
-    { method: "POST", form },
+    { method: "POST", form, signal: options.signal },
     { serviceName: "NeoArchive OAuth token" },
   );
 }
-async function access(connection) {
+async function access(connection, options = {}) {
   const saved = credentials(connection);
   const baseUrl = normalizeBaseUrl(saved.baseUrl);
   if (saved.access_token && Number(saved.expires_at_ms) > Date.now() + 60000)
@@ -307,7 +310,7 @@ async function access(connection) {
     grant_type: "refresh_token",
     client_id: saved.client_id,
     refresh_token: saved.refresh_token,
-  });
+  }, options);
   const next = {
     ...saved,
     access_token: text(refreshed.access_token),
@@ -319,13 +322,14 @@ async function access(connection) {
   return { baseUrl, accessToken: next.access_token, credentials: next };
 }
 async function request(connection, apiPath, options = {}) {
-  const auth = await access(connection);
+  const auth = await access(connection, options);
   const response = await fetchJson(
     `${auth.baseUrl}${apiPath}`,
     {
       method: options.method || "GET",
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       ...(options.json === undefined ? {} : { json: options.json }),
+      signal: options.signal,
     },
     { serviceName: "NeoArchive API" },
   );
@@ -336,7 +340,7 @@ function required(value, name) {
   if (!normalized) throw new Error(`${name} is required.`);
   return normalized;
 }
-async function upload(connection, filePath) {
+async function upload(connection, filePath, options = {}) {
   const raw = text(filePath);
   if (!raw || raw.split(/[\\/]+/).includes(".."))
     throw new Error(
@@ -346,27 +350,40 @@ async function upload(connection, filePath) {
   const stats = await fs.promises.stat(resolved);
   if (!stats.isFile())
     throw new Error("file_path must point to a readable file.");
+  if (stats.size > MAX_UPLOAD_BYTES)
+    throw new Error(`file_path exceeds the ${MAX_UPLOAD_BYTES}-byte upload limit.`);
   await fs.promises.access(resolved, fs.constants.R_OK);
-  const auth = await access(connection);
+  const auth = await access(connection, options);
   const form = new FormData();
   form.append(
     "files",
-    new Blob([await fs.promises.readFile(resolved)]),
+    new Blob([await fs.promises.readFile(resolved, { signal: options.signal })]),
     path.basename(resolved),
   );
-  const response = await fetch(`${auth.baseUrl}/api/v1/documents`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${auth.accessToken}` },
-    body: form,
-  });
-  const result = await response.json().catch(() => null);
+  const { response, text: responseText } = await fetchResponseText(
+    `${auth.baseUrl}/api/v1/documents`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: form,
+      signal: options.signal,
+      timeoutMs: 120000,
+    },
+    { serviceName: "NeoArchive upload" },
+  );
+  let result = null;
+  try {
+    result = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    result = null;
+  }
   if (!response.ok)
     throw new Error(
       `NeoArchive upload request failed: ${result?.error || response.statusText}`,
     );
   return { result, credentials: auth.credentials };
 }
-async function execute(toolName, args, connection) {
+async function execute(toolName, args, connection, options = {}) {
   let pathName;
   let method = "GET";
   let json;
@@ -401,7 +418,7 @@ async function execute(toolName, args, connection) {
       pathName = "/api/v1/document-types";
       break;
     case "neoarchive_upload_document":
-      return upload(connection, args.file_path);
+      return upload(connection, args.file_path, options);
     case "neoarchive_update_document":
       pathName = `/api/v1/documents/${encodeURIComponent(required(args.document_id, "document_id"))}`;
       method = "PATCH";
@@ -426,7 +443,11 @@ async function execute(toolName, args, connection) {
     default:
       throw new Error(`Unsupported NeoArchive tool: ${toolName}`);
   }
-  const result = await request(connection, pathName, { method, json });
+  const result = await request(connection, pathName, {
+    method,
+    json,
+    signal: options.signal,
+  });
   return { result: result.response, credentials: result.credentials };
 }
 
@@ -483,7 +504,7 @@ function createNeoArchiveProvider() {
           ? "NeoArchive: setup is ready, but no archive account is connected."
           : "NeoArchive: connected with document search, metadata, text, upload, archive, and reprocessing tools.";
     },
-    async beginOAuth({ state, codeVerifier, userId, agentId, appKey }) {
+    async beginOAuth({ state, codeVerifier, userId, agentId, appKey, signal }) {
       if (text(appKey) !== APP.id) throw new Error("Unknown NeoArchive app.");
       const stored = config(
         getProviderConfig(
@@ -493,7 +514,7 @@ function createNeoArchiveProvider() {
         ),
       );
       const baseUrl = normalizeBaseUrl(stored.baseUrl);
-      const boot = await bootstrap(baseUrl);
+      const boot = await bootstrap(baseUrl, { signal });
       const challenge = crypto
         .createHash("sha256")
         .update(String(codeVerifier))
@@ -515,7 +536,7 @@ function createNeoArchiveProvider() {
         ),
       };
     },
-    async finishOAuth({ userId, agentId, code, codeVerifier }) {
+    async finishOAuth({ userId, agentId, code, codeVerifier, signal }) {
       const stored = config(
         getProviderConfig(
           Number(userId),
@@ -524,21 +545,24 @@ function createNeoArchiveProvider() {
         ),
       );
       const baseUrl = normalizeBaseUrl(stored.baseUrl);
-      const boot = await bootstrap(baseUrl);
+      const boot = await bootstrap(baseUrl, { signal });
       const issued = await token(baseUrl, {
         grant_type: "authorization_code",
         client_id: boot.clientId,
         code: text(code),
         redirect_uri: text(boot.redirectUri) || callbackUrl(),
         code_verifier: text(codeVerifier),
-      });
+      }, { signal });
       const accessToken = text(issued.access_token);
       const refreshToken = text(issued.refresh_token);
       if (!accessToken || !refreshToken)
         throw new Error("NeoArchive did not return durable OAuth credentials.");
       const info = await fetchJson(
         `${baseUrl}/oauth/userinfo`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal,
+        },
         { serviceName: "NeoArchive userinfo" },
       );
       const host = new URL(baseUrl).host;
@@ -565,8 +589,10 @@ function createNeoArchiveProvider() {
         },
       };
     },
-    async executeTool(toolName, args, connection) {
-      return execute(toolName, args || {}, connection);
+    async executeTool(toolName, args, connection, executionOptions = {}) {
+      return execute(toolName, args || {}, connection, {
+        signal: executionOptions.signal || null,
+      });
     },
     getUserConfig({ userId, agentId }) {
       const scoped = resolveAgentId(Number(userId), agentId);
@@ -584,17 +610,17 @@ function createNeoArchiveProvider() {
         hasConnectedAccount: accountCount > 0,
       };
     },
-    async saveUserConfig({ userId, agentId, config: input }) {
+    async saveUserConfig({ userId, agentId, config: input, signal }) {
       const scoped = resolveAgentId(Number(userId), agentId);
       const existing = config(getProviderConfig(Number(userId), KEY, scoped));
       const parsed = config(input, existing);
       const baseUrl = normalizeBaseUrl(parsed.baseUrl);
       await fetchJson(
         `${baseUrl}/api/v1/health`,
-        { method: "GET" },
+        { method: "GET", signal },
         { serviceName: "NeoArchive health check" },
       );
-      await bootstrap(baseUrl);
+      await bootstrap(baseUrl, { signal });
       setProviderConfig(Number(userId), KEY, { baseUrl }, scoped);
       if (existing.baseUrl && existing.baseUrl !== baseUrl)
         db.prepare(

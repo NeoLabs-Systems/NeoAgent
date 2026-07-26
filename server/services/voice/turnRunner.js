@@ -13,6 +13,7 @@ const {
   VOICE_HISTORY_WINDOW,
   buildDirectVoiceRunOptions,
 } = require('./runtime');
+const { createAbortError, throwIfAborted } = require('../../utils/abort');
 
 async function runVoiceTranscriptTurn({
   userId,
@@ -30,10 +31,12 @@ async function runVoiceTranscriptTurn({
   allowInterimUpdates = false,
   voiceSessionId = null,
   runId = null,
+  signal = null,
 }) {
   if (!agentEngine || !memoryManager) {
     throw new Error('Voice turn service is not initialized.');
   }
+  throwIfAborted(signal, 'Voice turn aborted before startup.');
 
   const transcriptText = String(transcript || '').trim();
   if (!transcriptText) {
@@ -83,6 +86,7 @@ async function runVoiceTranscriptTurn({
     priorMessages,
     priorSummary,
     voiceSessionId,
+    signal,
     context: {
       rawUserMessage: storedUserContent,
       additionalContext: directVoiceContext,
@@ -161,6 +165,7 @@ async function runVoiceTranscriptTurn({
           apiKey: runtime.apiKey,
           baseUrl: runtime.baseUrl,
           timeoutMs: 12000,
+          signal,
         });
         providerUsed = normalized.provider;
         modelUsed = normalized.model;
@@ -168,6 +173,7 @@ async function runVoiceTranscriptTurn({
         ttsError = null;
         break;
       } catch (error) {
+        if (signal?.aborted) throw createAbortError(signal);
         lastTtsError = error;
       }
     }

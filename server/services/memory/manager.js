@@ -3,7 +3,6 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../db/database');
 const {
-  getEmbedding,
   getEmbeddingWithMetadata,
   cosineSimilarity,
   serializeEmbedding,
@@ -41,11 +40,14 @@ const {
   isLocalEncryptedValue,
 } = require('../../utils/local_secrets');
 
-async function getActiveProvider(userId, agentId = null) {
+async function getActiveProvider(userId, agentId = null, options = {}) {
   try {
     const { getSupportedModels } = require('../ai/models');
+    const { resolveModelSelection } = require('../ai/model_identity');
     const { getAiSettings } = require('../ai/settings');
-    const models = await getSupportedModels(userId, agentId);
+    const models = await getSupportedModels(userId, agentId, {
+      signal: options.signal,
+    });
     const aiSettings = getAiSettings(userId, agentId);
     const defaultChatModel = aiSettings.default_chat_model || null;
     const enabledIds = Array.isArray(aiSettings.enabled_models) ? aiSettings.enabled_models : null;
@@ -55,7 +57,10 @@ async function getActiveProvider(userId, agentId = null) {
       : (Array.isArray(enabledIds) && enabledIds.length > 0 ? enabledIds[0] : null);
 
     if (modelId) {
-      const def = models.find(m => m.id === modelId && m.available !== false);
+      const def = resolveModelSelection(
+        models.filter((model) => model.available !== false),
+        modelId,
+      );
       if (def) return def.provider;
     }
   } catch { }
@@ -1649,29 +1654,32 @@ class MemoryManager {
     const memoryHash = stableHash(`${category}:${content}`);
     const summary = summarizeForPrompt({ content, entities: extractEntities(content) });
 
-    const embeddingResult = await getEmbeddingWithMetadata(
-      content,
-      await getActiveProvider(userId, agentId),
-    );
-    const embedding = embeddingResult?.vector || null;
-
     const exact = this._findExactMemory(userId, agentId, memoryHash, scope);
     if (exact?.id) {
       return this._reinforceExactMemory(exact.id, importance);
     }
+
+    const embeddingResult = await getEmbeddingWithMetadata(
+      content,
+      await getActiveProvider(userId, agentId, options),
+      { signal: options.signal, inputType: 'document' },
+    );
+    const embedding = embeddingResult?.vector || null;
 
     const duplicateCandidateIds = embedding
       ? findEmbeddingCandidates(db, {
         userId,
         agentId,
         embedding,
+        embeddingProvider: embeddingResult.provider,
+        embeddingModel: embeddingResult.model,
         limit: 120,
       }).map((candidate) => candidate.memory_id)
       : this._searchMemoryFts(userId, agentId, content, 120)
         .map((candidate) => candidate.memory_id);
     const existing = duplicateCandidateIds.length
       ? db.prepare(
-        `SELECT id, content, embedding, metadata_json
+        `SELECT id, content, embedding, embedding_provider, embedding_model, metadata_json
          FROM memories
          WHERE id IN (${duplicateCandidateIds.map(() => '?').join(', ')})
            AND user_id = ? AND agent_id = ? AND archived = 0
@@ -1688,7 +1696,12 @@ class MemoryManager {
 
     for (const mem of structuredFacts.length ? [] : existing) {
       let sim = 0;
-      if (embedding && mem.embedding) {
+      if (
+        embedding
+        && mem.embedding
+        && mem.embedding_provider === embeddingResult?.provider
+        && mem.embedding_model === embeddingResult?.model
+      ) {
         const memVec = deserializeEmbedding(mem.embedding);
         if (memVec) sim = cosineSimilarity(embedding, memVec);
       } else {
@@ -1811,6 +1824,13 @@ class MemoryManager {
     const agentId = this._agentId(userId, options);
     const normalized = normalizeMemoryCandidates(candidates);
     const memoryIds = [];
+    const scope = normalizeScope(options.scope, agentId);
+    const sourceRef = normalizeSourceRef(options.sourceRef || {
+      sourceType: 'conversation_consolidation',
+      sourceId: options.runId || options.conversationId || null,
+      sourceLabel: options.conversationId ? 'Conversation memory' : 'Agent memory',
+    });
+    const metadata = parseJsonObject(options.metadata, {});
 
     for (const candidate of normalized) {
       const memoryId = await this.saveMemory(
@@ -1822,23 +1842,18 @@ class MemoryManager {
           agentId,
           confidence: candidate.confidence,
           facts: [candidate],
-          sourceRef: {
-            sourceType: 'conversation_consolidation',
-            sourceId: options.runId || options.conversationId || null,
-            sourceLabel: options.conversationId ? 'Conversation memory' : 'Agent memory',
-          },
-          scope: {
-            scopeType: 'agent',
-            scopeId: agentId,
-          },
+          sourceRef,
+          scope,
           metadata: {
             relation: candidate.relation,
             isStatic: candidate.isStatic,
             evidence: candidate.evidence || null,
-            trustLevel: 'user_or_verified_conversation',
+            trustLevel: metadata.trustLevel || 'user_or_verified_conversation',
             conversationId: options.conversationId || null,
             runId: options.runId || null,
+            ...metadata,
           },
+          signal: options.signal,
         },
       );
       if (memoryId) memoryIds.push(memoryId);
@@ -1860,9 +1875,18 @@ class MemoryManager {
     const route = routeMemoryQuery(query);
 
     const suppliedQueryEmbedding = options.queryEmbedding;
-    const queryVec = suppliedQueryEmbedding
-      ? new Float32Array(Array.from(suppliedQueryEmbedding, Number))
-      : await getEmbedding(query, await getActiveProvider(userId, agentId));
+    const queryEmbeddingResult = suppliedQueryEmbedding
+      ? {
+        vector: new Float32Array(Array.from(suppliedQueryEmbedding, Number)),
+        provider: options.queryEmbeddingProvider || null,
+        model: options.queryEmbeddingModel || null,
+      }
+      : await getEmbeddingWithMetadata(
+        query,
+        await getActiveProvider(userId, agentId, options),
+        { signal: options.signal, inputType: 'query' },
+      );
+    const queryVec = queryEmbeddingResult?.vector || null;
     const lexicalHits = this._searchMemoryFts(userId, agentId, query, Math.max(80, limit * 12));
     const entityHits = this._searchEntityMemoryIds(userId, agentId, query, Math.max(80, limit * 12));
     const vectorHits = queryVec
@@ -1870,6 +1894,8 @@ class MemoryManager {
         userId,
         agentId,
         embedding: queryVec,
+        embeddingProvider: queryEmbeddingResult?.provider,
+        embeddingModel: queryEmbeddingResult?.model,
         limit: Math.min(500, Math.max(300, limit * 20)),
       })
       : [];
@@ -1917,7 +1943,8 @@ class MemoryManager {
     let all = db.prepare(
       `SELECT id, category, content, summary, importance, confidence, embedding, access_count,
               memory_strength, last_accessed_at, pinned, created_at, updated_at,
-              scope_type, scope_id, source_type, source_id, source_label, stale_after_days, metadata_json
+              scope_type, scope_id, source_type, source_id, source_label, stale_after_days,
+              embedding_provider, embedding_model, metadata_json
        FROM memories
        WHERE id IN (${candidatePlaceholders})
          AND user_id = ? AND agent_id = ? AND archived = 0
@@ -1997,7 +2024,13 @@ class MemoryManager {
 
     const semanticScored = all.map(mem => {
       let semanticScore = 0;
-      if (queryVec && mem.embedding) {
+      const sameEmbeddingSpace = !queryEmbeddingResult?.provider
+        || !queryEmbeddingResult?.model
+        || (
+          mem.embedding_provider === queryEmbeddingResult.provider
+          && mem.embedding_model === queryEmbeddingResult.model
+        );
+      if (queryVec && mem.embedding && sameEmbeddingSpace) {
         const memVec = deserializeEmbedding(mem.embedding);
         if (memVec) {
           semanticScore = cosineSimilarity(queryVec, memVec);
@@ -2126,7 +2159,7 @@ class MemoryManager {
   /**
    * Update a memory's content and/or importance.
    */
-  async updateMemory(id, { content, importance, category }) {
+  async updateMemory(id, { content, importance, category, signal = null }) {
     const mem = db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id);
     if (!mem) return null;
 
@@ -2141,7 +2174,8 @@ class MemoryManager {
     if (content && content !== mem.content) {
       embeddingResult = await getEmbeddingWithMetadata(
         newContent,
-        await getActiveProvider(mem.user_id, mem.agent_id),
+        await getActiveProvider(mem.user_id, mem.agent_id, { signal }),
+        { signal, inputType: 'document' },
       );
       newEmbed = embeddingResult?.vector
         ? serializeEmbedding(embeddingResult.vector)
@@ -2938,30 +2972,10 @@ class MemoryManager {
   async buildContext(userId = null, options = {}) {
     let ctx = '';
     const agentId = this._agentId(userId, options);
-
-    const behaviorNotes = this.getAssistantBehaviorNotes(userId, { agentId });
-    if (behaviorNotes) {
-      ctx += `## Assistant Behavior Notes\n`;
-      ctx += `These are durable preferences for how the assistant should usually behave. Follow system rules and the active user request first.\n`;
-      ctx += `${behaviorNotes}\n\n`;
-    }
-
-    if (userId != null) {
-      const selfState = this.getAssistantSelfState(userId, { agentId });
-      if (Object.keys(selfState.identity || {}).length || Object.keys(selfState.focus || {}).length) {
-        ctx += `## Assistant Self State\n`;
-        if (Object.keys(selfState.identity || {}).length) {
-          ctx += `Identity: ${JSON.stringify(selfState.identity)}\n`;
-        }
-        if (Object.keys(selfState.focus || {}).length) {
-          ctx += `Focus: ${JSON.stringify(selfState.focus)}\n`;
-        }
-        ctx += '\n';
-      }
-    }
+    const sharedAudience = options.audience === 'shared';
 
     // 2. Core memory — always-relevant user facts
-    if (userId != null) {
+    if (userId != null && !sharedAudience) {
       const core = this.getCoreMemory(userId, { agentId });
       const filteredCore = Object.fromEntries(
         Object.entries(core).filter(([key]) => key !== 'active_context')
@@ -2976,7 +2990,7 @@ class MemoryManager {
       }
     }
 
-    if (userId != null) {
+    if (userId != null && !sharedAudience) {
       const profile = this.getUserProfile(userId, { agentId });
       if (profile.static.length || profile.dynamic.length) {
         ctx += `## Auto-Maintained User Profile\n`;

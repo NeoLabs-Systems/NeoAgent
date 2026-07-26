@@ -1673,53 +1673,112 @@ class _HomeViewState extends State<HomeView> {
         builder: (dialogContext) {
           return AlertDialog(
             backgroundColor: _bgCard,
-            title: Text('Allow sender on ${notice.platform.toUpperCase()}?'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            title: Row(
+              children: <Widget>[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(Icons.shield_outlined, color: _accent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Message needs access',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        notice.platform.toUpperCase(),
+                        style: TextStyle(
+                          color: _textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             content: SizedBox(
-              width: 520,
+              width: 560,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      notice.senderLabel,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _bgSecondary,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _borderLight),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          CircleAvatar(
+                            backgroundColor: _accent.withValues(alpha: 0.12),
+                            foregroundColor: _accent,
+                            child: Icon(Icons.person_outline_rounded),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  notice.senderLabel,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (notice.meta.isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    notice.meta,
+                                    style: TextStyle(color: _textSecondary),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    if (notice.meta.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 6),
-                      Text(
-                        notice.meta,
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                    ],
                     const SizedBox(height: 12),
                     Text(
-                      'This sender is currently blocked by the access list. You can allow them now or jump to Messaging to edit the full list.',
+                      'Choose exactly where this sender should be allowed. You can change or remove the rule later in Messaging.',
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
                       ...notice.suggestions.map(
                         (suggestion) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: () async {
-                                Navigator.of(dialogContext).pop();
-                                await widget.controller
-                                    .allowMessagingSuggestion(
-                                      notice.platform,
-                                      suggestion,
-                                      chatId: notice.chatId,
-                                    );
-                              },
-                              icon: Icon(Icons.verified_user_outlined),
-                              label: Text(suggestion.label),
-                            ),
+                          child: _BlockedAccessChoice(
+                            suggestion: suggestion,
+                            onPressed: () async {
+                              Navigator.of(dialogContext).pop();
+                              await widget.controller.allowMessagingSuggestion(
+                                notice.platform,
+                                suggestion,
+                                chatId: notice.chatId,
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -1734,18 +1793,18 @@ class _HomeViewState extends State<HomeView> {
                   widget.controller.setSelectedSection(AppSection.messaging);
                   Navigator.of(dialogContext).pop();
                 },
-                child: Text('Open Messaging'),
+                child: Text('Review all access'),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.of(dialogContext).pop();
                   await widget.controller.ignoreBlockedSender(notice);
                 },
-                child: Text('Ignore'),
+                child: Text('Ignore this chat'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Dismiss'),
+                child: Text('Not now'),
               ),
             ],
           );
@@ -1759,6 +1818,91 @@ class _HomeViewState extends State<HomeView> {
         _blockedDialogOpen = false;
       }
     }
+  }
+}
+
+class _BlockedAccessChoice extends StatelessWidget {
+  const _BlockedAccessChoice({
+    required this.suggestion,
+    required this.onPressed,
+  });
+
+  final QuickAllowSuggestion suggestion;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title, description) = switch (suggestion.bucket) {
+      'sharedMemberRules' => (
+        Icons.person_pin_circle_outlined,
+        'Only in this group',
+        'Allow this sender here, without granting access in DMs or other groups.',
+      ),
+      'sharedActorRules' => (
+        Icons.person_add_alt_1_rounded,
+        'This sender everywhere',
+        'Allow this person in DMs and in every group or shared space.',
+      ),
+      'sharedSpaceRules' => (
+        Icons.groups_2_outlined,
+        'Everyone in this group',
+        'Allow messages from every participant in this group or shared space.',
+      ),
+      _ => (
+        Icons.person_outline_rounded,
+        'Allow this sender',
+        'Allow this person to message the agent directly.',
+      ),
+    };
+    return Material(
+      color: _bgSecondary,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onPressed,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _borderLight),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: _accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: _textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

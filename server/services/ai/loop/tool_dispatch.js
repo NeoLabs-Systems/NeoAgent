@@ -4,7 +4,10 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../../../db/database');
 const { globalHooks } = require('../hooks');
 const { summarizeForLog } = require('../logFormat');
-const { inferToolFailureMessage } = require('../toolEvidence');
+const {
+  inferToolFailureMessage,
+  resolveDeclaredToolAccess,
+} = require('../toolEvidence');
 
 function getAvailableTools(_engine, app, options = {}) {
   const { getAvailableTools: loadAvailableTools } = require('../tools');
@@ -16,8 +19,21 @@ async function executeTool(engine, toolName, args, context) {
   return runTool(toolName, args, context, engine);
 }
 
-function isReadOnlyToolCall(toolCall) {
+function isReadOnlyToolCall(toolCall, toolDefinition = null) {
   const name = String(toolCall?.function?.name || '');
+  let toolArgs = {};
+  try {
+    toolArgs = typeof toolCall?.function?.arguments === 'string'
+      ? JSON.parse(toolCall.function.arguments || '{}')
+      : (toolCall?.function?.arguments || {});
+  } catch {
+    return false;
+  }
+
+  const declaredAccess = resolveDeclaredToolAccess(toolDefinition, toolArgs);
+  if (declaredAccess === 'read') return true;
+  if (declaredAccess === 'write') return false;
+
   const readOnly = new Set([
     'read_file',
     'read_files',
@@ -35,12 +51,7 @@ function isReadOnlyToolCall(toolCall) {
     'read_health_data',
   ]);
   if (name === 'http_request') {
-    try {
-      const args = JSON.parse(toolCall.function.arguments || '{}');
-      return String(args.method || 'GET').toUpperCase() === 'GET';
-    } catch {
-      return false;
-    }
+    return String(toolArgs.method || 'GET').toUpperCase() === 'GET';
   }
   return readOnly.has(name);
 }
@@ -145,6 +156,14 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
   }, { agentId });
   const results = await Promise.all(prepared.map(async (item) => {
     if (item.blocked) return item;
+    const runMeta = engine.getRunMeta(runId);
+    if (!runMeta || runMeta.status !== 'running') {
+      const result = { status: 'paused', reason: 'Run paused before this read-only call started.' };
+      db.prepare(
+        `UPDATE agent_steps SET status = 'paused', result = ?, completed_at = datetime('now') WHERE id = ? AND status = 'running'`,
+      ).run(JSON.stringify(result), item.stepId);
+      return { ...item, result };
+    }
     const startedAt = Date.now();
     try {
       const result = await executeTool(engine, item.toolName, item.toolArgs, {
@@ -162,6 +181,7 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
         deliveryState: options.deliveryState || null,
         allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
         allowExternalSideEffects: false,
+        signal: runMeta.abortController?.signal,
       });
       const error = inferToolFailureMessage(item.toolName, result);
       const status = error ? 'failed' : 'completed';
