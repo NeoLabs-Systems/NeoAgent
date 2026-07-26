@@ -2,7 +2,11 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
-const { DATA_DIR, ensureRuntimeDirs } = require('../../runtime/paths');
+const {
+  DATA_DIR,
+  DATABASE_FILE,
+  ensureRuntimeDirs,
+} = require('../../runtime/paths');
 const {
   encryptValue,
   isEncryptedValue,
@@ -10,7 +14,7 @@ const {
 const { runSchemaMigrations } = require('../../lib/schema_migrations');
 ensureRuntimeDirs();
 
-const DB_PATH = path.join(DATA_DIR, 'neoagent.db');
+const DB_PATH = DATABASE_FILE;
 
 function removeWalSidecars(dbPath) {
   for (const suffix of ['-wal', '-shm']) {

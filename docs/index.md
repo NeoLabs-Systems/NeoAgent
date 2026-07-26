@@ -18,11 +18,13 @@ sensitive accounts.
 
 ```bash
 npm install -g neoagent
-neoagent install
+neoagent
 ```
 
-The installer starts the service and prints any host-specific action items.
-Open `http://localhost:3333` when it finishes.
+On a new machine, the bare command detects that NeoAgent is not installed,
+runs the installer, and guides you through AI provider API keys. It starts the
+service and prints any host-specific action items. Open
+`http://localhost:3333` when it finishes.
 
 Continue with:
 

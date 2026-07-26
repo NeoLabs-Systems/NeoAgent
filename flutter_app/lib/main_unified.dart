@@ -2,7 +2,7 @@ part of 'main.dart';
 
 enum _ToolsPageTab { integrations, mcp, skills }
 
-enum _SettingsWorkspaceSection { app, account, security }
+enum _SettingsWorkspaceSection { app, account, usage, security }
 
 class ToolsPanel extends StatefulWidget {
   const ToolsPanel({super.key, required this.controller});
@@ -137,9 +137,7 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel> {
             subtitle: 'Inspect execution history, failures, and tool traces.',
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: RunsPanel(controller: controller, embedded: true),
-          ),
+          Expanded(child: RunsPanel(controller: controller, embedded: true)),
         ],
       ),
     );
@@ -157,27 +155,29 @@ class SettingsWorkspacePanel extends StatefulWidget {
 
 class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
   late _SettingsWorkspaceSection _selectedSection;
+  late AppSection _lastControllerSection;
 
   @override
   void initState() {
     super.initState();
-    _selectedSection =
-        widget.controller.selectedSection == AppSection.accountSettings
-        ? _SettingsWorkspaceSection.account
-        : _SettingsWorkspaceSection.app;
+    _lastControllerSection = widget.controller.selectedSection;
+    _selectedSection = _sectionForAppSection(_lastControllerSection);
   }
 
   @override
   void didUpdateWidget(covariant SettingsWorkspacePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.controller.selectedSection == AppSection.settings &&
-        _selectedSection != _SettingsWorkspaceSection.app) {
-      _selectedSection = _SettingsWorkspaceSection.app;
+    final controllerSection = widget.controller.selectedSection;
+    if (controllerSection != _lastControllerSection) {
+      _lastControllerSection = controllerSection;
+      _selectedSection = _sectionForAppSection(controllerSection);
     }
-    if (widget.controller.selectedSection == AppSection.accountSettings &&
-        _selectedSection == _SettingsWorkspaceSection.app) {
-      _selectedSection = _SettingsWorkspaceSection.account;
-    }
+  }
+
+  _SettingsWorkspaceSection _sectionForAppSection(AppSection section) {
+    return section == AppSection.accountSettings
+        ? _SettingsWorkspaceSection.account
+        : _SettingsWorkspaceSection.app;
   }
 
   @override
@@ -194,39 +194,34 @@ class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: compact
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _SettingsWorkspaceNav(
-                            selected: _selectedSection,
-                            compact: true,
-                            onSelected: _selectSection,
-                          ),
-                          const SizedBox(height: 16),
-                          Expanded(child: _buildContent()),
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          SizedBox(
-                            width: 220,
-                            child: _SettingsWorkspaceNav(
-                              selected: _selectedSection,
-                              compact: false,
-                              onSelected: _selectSection,
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(child: _buildContent()),
-                        ],
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SettingsWorkspaceNav(
+                        selected: _selectedSection,
+                        compact: true,
+                        onSelected: _selectSection,
                       ),
-              ),
-            ),
+                      const SizedBox(height: 16),
+                      Expanded(child: _buildContent()),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 240,
+                        child: _SettingsWorkspaceNav(
+                          selected: _selectedSection,
+                          compact: false,
+                          onSelected: _selectSection,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildContent()),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -235,11 +230,13 @@ class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
 
   void _selectSection(_SettingsWorkspaceSection section) {
     setState(() => _selectedSection = section);
-    if (section == _SettingsWorkspaceSection.app) {
-      widget.controller.setSelectedSection(AppSection.settings);
-      return;
+    final appSection = section == _SettingsWorkspaceSection.app
+        ? AppSection.settings
+        : AppSection.accountSettings;
+    _lastControllerSection = appSection;
+    if (widget.controller.selectedSection != appSection) {
+      widget.controller.setSelectedSection(appSection);
     }
-    widget.controller.setSelectedSection(AppSection.accountSettings);
   }
 
   Widget _buildContent() {
@@ -251,6 +248,12 @@ class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
           controller: widget.controller,
           embedded: true,
           initialTab: AccountSettingsTab.account,
+        );
+      case _SettingsWorkspaceSection.usage:
+        return AccountSettingsPanel(
+          controller: widget.controller,
+          embedded: true,
+          initialTab: AccountSettingsTab.usage,
         );
       case _SettingsWorkspaceSection.security:
         return AccountSettingsPanel(
@@ -275,45 +278,144 @@ class _SettingsWorkspaceNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <Widget>[
-      _navButton(
+    final items = <_SettingsWorkspaceNavItem>[
+      const _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.app,
         icon: Icons.tune,
-        label: 'App Settings',
+        label: 'General',
+        description: 'Models, behavior, voice, and workspace',
       ),
-      _navButton(
+      const _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.account,
         icon: Icons.person_outline,
         label: 'Account',
+        description: 'Profile, email, and personal data',
       ),
-      _navButton(
+      const _SettingsWorkspaceNavItem(
+        section: _SettingsWorkspaceSection.usage,
+        icon: Icons.data_usage_outlined,
+        label: 'Usage & limits',
+        description: 'Plan usage and allowance details',
+      ),
+      const _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.security,
         icon: Icons.security_outlined,
         label: 'Security',
+        description: 'Password, 2FA, and active sessions',
       ),
     ];
-    return compact
-        ? Wrap(spacing: 8, runSpacing: 8, children: items)
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: items,
-          );
+    if (compact) {
+      return DropdownButtonFormField<_SettingsWorkspaceSection>(
+        key: ValueKey<_SettingsWorkspaceSection>(selected),
+        initialValue: selected,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Settings area',
+          prefixIcon: Icon(Icons.settings_outlined),
+        ),
+        items: items
+            .map(
+              (item) => DropdownMenuItem<_SettingsWorkspaceSection>(
+                value: item.section,
+                child: Text(item.label),
+              ),
+            )
+            .toList(),
+        onChanged: (section) {
+          if (section != null) onSelected(section);
+        },
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+            child: Text(
+              'Settings areas',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          for (final item in items) _navButton(item),
+        ],
+      ),
+    );
   }
 
-  Widget _navButton({
-    required _SettingsWorkspaceSection section,
-    required IconData icon,
-    required String label,
-  }) {
-    final button = _SidebarButton(
-      label: label,
-      icon: icon,
-      active: selected == section,
-      onTap: () => onSelected(section),
+  Widget _navButton(_SettingsWorkspaceNavItem item) {
+    final active = selected == item.section;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => onSelected(item.section),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  item.icon,
+                  size: 20,
+                  color: active ? _accent : _textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: active ? _accent : _textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.description,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 11,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
-    if (compact) {
-      return button;
-    }
-    return Padding(padding: const EdgeInsets.only(bottom: 8), child: button);
   }
+}
+
+class _SettingsWorkspaceNavItem {
+  const _SettingsWorkspaceNavItem({
+    required this.section,
+    required this.icon,
+    required this.label,
+    required this.description,
+  });
+
+  final _SettingsWorkspaceSection section;
+  final IconData icon;
+  final String label;
+  final String description;
 }

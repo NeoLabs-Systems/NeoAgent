@@ -45,8 +45,13 @@ is available.
 
 ```bash
 npm install -g neoagent
-neoagent install
+neoagent
 ```
+
+On its first run, `neoagent` scans the computer for an existing instance. If
+none is found, it installs the application, prepares the service and isolated
+runtime, then opens a focused terminal wizard for your AI provider API keys.
+Running `neoagent` again shows the status of the existing installation.
 
 <p align="center">
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download macOS app" src="https://img.shields.io/badge/macOS_app-download-black?style=flat-square&logo=apple&logoColor=white"></a>

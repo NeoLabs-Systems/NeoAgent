@@ -79,116 +79,143 @@ const Map<String, List<String>> _voiceLiveVoicesByProvider =
 class _SettingsSection {
   const _SettingsSection(
     this.title,
+    this.label,
+    this.icon,
     this.keywords, {
     this.requiresDesktop = false,
   });
 
   final String title;
+  final String label;
+  final IconData icon;
   final List<String> keywords;
   final bool requiresDesktop;
 }
 
-const _overviewSettingsSection = _SettingsSection('overview', <String>[
+const _overviewSettingsSection = _SettingsSection(
   'overview',
-  'summary',
-  'onboarding',
-  'platform',
-  'providers',
-]);
+  'Overview',
+  Icons.dashboard_outlined,
+  <String>['overview', 'summary', 'onboarding', 'platform', 'providers'],
+);
 
-const _workspaceSettingsSection = _SettingsSection('workspace', <String>[
+const _workspaceSettingsSection = _SettingsSection(
   'workspace',
-  'browser',
-  'extension',
-  'cli',
-  'claude code',
-  'desktop',
-  'routing',
-]);
+  'Workspace',
+  Icons.workspaces_outline,
+  <String>[
+    'workspace',
+    'browser',
+    'extension',
+    'cli',
+    'claude code',
+    'desktop',
+    'routing',
+  ],
+);
 
-const _behaviorSettingsSection = _SettingsSection('behavior', <String>[
+const _behaviorSettingsSection = _SettingsSection(
   'behavior',
-  'persona',
-  'social intelligence',
-  'turn taking',
-  'groups',
-  'memory',
-  'norms',
-  'theory of mind',
-  'delivery',
-]);
+  'Behavior',
+  Icons.psychology_outlined,
+  <String>[
+    'behavior',
+    'persona',
+    'social intelligence',
+    'turn taking',
+    'groups',
+    'memory',
+    'norms',
+    'theory of mind',
+    'delivery',
+  ],
+);
 
-const _modelsSettingsSection = _SettingsSection('models', <String>[
-  'models',
-  'providers',
-  'routing',
-  'fallback',
-  'chat',
-  'sub-agent',
-  'subagent',
-  'smart selector',
-]);
+const _modelsSettingsSection =
+    _SettingsSection('models', 'Models & routing', Icons.hub_outlined, <String>[
+      'models',
+      'providers',
+      'routing',
+      'fallback',
+      'chat',
+      'sub-agent',
+      'subagent',
+      'smart selector',
+    ]);
 
-const _socialReachSettingsSection = _SettingsSection('social reach', <String>[
-  'social',
-  'reach',
-  'web',
-  'rss',
-  'github',
-  'youtube',
-  'linkedin',
-  'xueqiu',
-  'twitter',
-  'reddit',
-  'instagram',
-  'facebook',
-  'cookies',
-]);
+const _socialReachSettingsSection = _SettingsSection(
+  'social reach',
+  'Social reach',
+  Icons.public_outlined,
+  <String>[
+    'social',
+    'reach',
+    'web',
+    'rss',
+    'github',
+    'youtube',
+    'linkedin',
+    'xueqiu',
+    'twitter',
+    'reddit',
+    'instagram',
+    'facebook',
+    'cookies',
+  ],
+);
 
-const _voiceSettingsSection = _SettingsSection('voice', <String>[
+const _voiceSettingsSection = _SettingsSection(
   'voice',
-  'speech',
-  'tts',
-  'stt',
-  'live',
-]);
+  'Voice',
+  Icons.mic_none_outlined,
+  <String>['voice', 'speech', 'tts', 'stt', 'live'],
+);
 
-const _desktopSettingsSection = _SettingsSection('desktop', <String>[
+const _desktopSettingsSection = _SettingsSection(
   'desktop',
-  'permissions',
-  'capture',
-  'companion',
-  'screen recording',
-  'accessibility',
-  'input',
-], requiresDesktop: true);
+  'Desktop',
+  Icons.desktop_windows_outlined,
+  <String>[
+    'desktop',
+    'permissions',
+    'capture',
+    'companion',
+    'screen recording',
+    'accessibility',
+    'input',
+  ],
+  requiresDesktop: true,
+);
 
-const _diagnosticsSettingsSection = _SettingsSection('diagnostics', <String>[
+const _diagnosticsSettingsSection = _SettingsSection(
   'diagnostics',
-  'logs',
-  'token',
-  'usage',
-  'debug',
-  'health',
-]);
+  'Diagnostics',
+  Icons.monitor_heart_outlined,
+  <String>['diagnostics', 'logs', 'token', 'usage', 'debug', 'health'],
+);
 
-const _securitySettingsSection = _SettingsSection('security', <String>[
+const _securitySettingsSection = _SettingsSection(
   'security',
-  'tool',
-  'permission',
-  'allowlist',
-  'shell',
-  'android',
-  'approval',
-  'policy',
-]);
+  'Permissions',
+  Icons.admin_panel_settings_outlined,
+  <String>[
+    'security',
+    'tool',
+    'permission',
+    'allowlist',
+    'shell',
+    'android',
+    'approval',
+    'policy',
+  ],
+);
 
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
-  _behaviorSettingsSection,
-  _workspaceSettingsSection,
-  _socialReachSettingsSection,
   _modelsSettingsSection,
+  _workspaceSettingsSection,
+  _behaviorSettingsSection,
+  _socialReachSettingsSection,
   _voiceSettingsSection,
   _desktopSettingsSection,
   _securitySettingsSection,
@@ -197,6 +224,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
 
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
+  _SettingsSection _selectedSettingsSection = _overviewSettingsSection;
   late String _browserBackend;
   String? _browserExtensionTokenId;
   late String _cliBackend;
@@ -433,11 +461,30 @@ class _SettingsPanelState extends State<SettingsPanel> {
               trailing: _settingsSaveButton(controller),
             )
           else
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _settingsSaveButton(controller),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'General settings',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Choose a category or search across all settings.',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _settingsSaveButton(controller),
+                ],
               ),
             ),
           if (controller.errorMessage != null) ...<Widget>[
@@ -462,36 +509,38 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildSettingsCategoryPicker(visibleSearchSections),
           const SizedBox(height: 16),
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _overviewSettingsSection,
           )) ...<Widget>[
             _buildSettingsOverview(controller, availableModels.length),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _behaviorSettingsSection,
           )) ...<Widget>[
             _buildBehaviorSection(controller, routingModels),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _workspaceSettingsSection,
           )) ...<Widget>[
             _buildWorkspaceSection(controller),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _socialReachSettingsSection,
           )) ...<Widget>[
             _buildSocialReachSection(controller),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _modelsSettingsSection,
           )) ...<Widget>[
@@ -505,7 +554,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _voiceSettingsSection,
           )) ...<Widget>[
@@ -517,21 +566,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 16),
           ],
           if (visibleSearchSections.contains(_desktopSettingsSection) &&
-              _matchesSettingsSection(
+              _showsSettingsSection(
                 searchQuery,
                 _desktopSettingsSection,
               )) ...<Widget>[
             _buildDesktopSection(controller),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _securitySettingsSection,
           )) ...<Widget>[
             _buildSecuritySection(context, controller),
             const SizedBox(height: 16),
           ],
-          if (_matchesSettingsSection(
+          if (_showsSettingsSection(
             searchQuery,
             _diagnosticsSettingsSection,
           )) ...<Widget>[_buildDiagnosticsSection(controller)],
@@ -558,6 +607,70 @@ class _SettingsPanelState extends State<SettingsPanel> {
       ...section.keywords,
     ].join(' ').toLowerCase();
     return haystack.contains(query);
+  }
+
+  bool _showsSettingsSection(String query, _SettingsSection section) {
+    if (query.isNotEmpty) {
+      return _matchesSettingsSection(query, section);
+    }
+    return _selectedSettingsSection == section;
+  }
+
+  Widget _buildSettingsCategoryPicker(Set<_SettingsSection> visibleSections) {
+    final sections = _settingsSearchSections
+        .where(visibleSections.contains)
+        .toList();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return DropdownButtonFormField<_SettingsSection>(
+            key: ValueKey<_SettingsSection>(_selectedSettingsSection),
+            initialValue: _selectedSettingsSection,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              prefixIcon: Icon(Icons.category_outlined),
+            ),
+            items: sections
+                .map(
+                  (section) => DropdownMenuItem<_SettingsSection>(
+                    value: section,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(section.icon, size: 18),
+                        const SizedBox(width: 10),
+                        Text(section.label),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (section) {
+              if (section == null) return;
+              _searchController.clear();
+              setState(() => _selectedSettingsSection = section);
+            },
+          );
+        }
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: sections
+              .map(
+                (section) => ChoiceChip(
+                  avatar: Icon(section.icon, size: 17),
+                  label: Text(section.label),
+                  selected: _selectedSettingsSection == section,
+                  onSelected: (_) {
+                    _searchController.clear();
+                    setState(() => _selectedSettingsSection = section);
+                  },
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 
   bool _noSettingsMatches(

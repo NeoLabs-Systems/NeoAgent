@@ -11,6 +11,7 @@ const DATA_DIR = path.resolve(process.env.NEOAGENT_DATA_DIR || path.join(RUNTIME
 const AGENT_DATA_DIR = path.resolve(process.env.NEOAGENT_AGENT_DATA_DIR || path.join(RUNTIME_HOME, 'agent-data'));
 const LOG_DIR = path.join(DATA_DIR, 'logs');
 const ENV_FILE = path.resolve(process.env.NEOAGENT_ENV_FILE || path.join(RUNTIME_HOME, '.env'));
+const DATABASE_FILE = path.join(DATA_DIR, 'neoagent.db');
 const UPDATE_STATUS_FILE = path.join(DATA_DIR, 'update-status.json');
 const PID_FILE = path.join(DATA_DIR, 'neoagent.pid');
 
@@ -347,6 +348,7 @@ module.exports = {
   AGENT_DATA_DIR,
   LOG_DIR,
   ENV_FILE,
+  DATABASE_FILE,
   UPDATE_STATUS_FILE,
   PID_FILE,
   LEGACY_ENV_FILE,

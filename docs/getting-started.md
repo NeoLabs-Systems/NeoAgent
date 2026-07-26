@@ -29,12 +29,15 @@ the cloud browser/CLI become available once Docker is running.
 
 ```bash
 npm install -g neoagent
-neoagent install
+neoagent
 ```
 
-`neoagent install` checks the host, creates the runtime configuration, installs
-application dependencies and supported system tools, prepares the isolated
-runtime, and registers a launchd or systemd user service when available.
+The first `neoagent` run checks the host for an existing installation. On a new
+machine it creates the runtime configuration, installs application dependencies
+and supported system tools, prepares the isolated runtime, guides you through
+the API keys for the hosted providers you choose, and registers a launchd or
+systemd user service when available. Later runs show the existing
+installation's status.
 
 Read the post-install actions printed by the command. They describe anything
 the installer could not complete automatically.
@@ -45,10 +48,10 @@ and `PUBLIC_URL` before connecting integrations or mobile clients.
 ## First run
 
 1. Create the first user account.
-2. Open **Settings > AI Providers**.
-3. Configure a hosted provider or connect local Ollama.
-4. Select a model and send a message in **Chat**.
-5. Open **Settings > Tool Permissions** and review the approval policy before
+2. Open **Settings > AI Providers** and verify the provider configured by the
+   terminal wizard, or connect local Ollama.
+3. Select a model and send a message in **Chat**.
+4. Open **Settings > Tool Permissions** and review the approval policy before
    enabling browser, shell, file-write, desktop, or Android actions.
 
 The first isolated-runtime boot downloads and prepares an Ubuntu image. It can
