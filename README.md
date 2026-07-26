@@ -19,6 +19,10 @@
 </p>
 
 <p align="center">
+  <a href="https://discord.gg/f59rg2RwUT"><img src="https://img.shields.io/badge/Join%20NeoLabs-Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join the NeoLabs Discord"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3ddc84?style=flat-square&logo=android&logoColor=white"></a>
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="iOS" src="https://img.shields.io/badge/iOS-coming_soon-lightgrey?style=flat-square&logo=apple&logoColor=white"></a>
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows&logoColor=white"></a>
