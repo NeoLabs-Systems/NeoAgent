@@ -317,21 +317,10 @@ function normalizeAccessPolicy(platform, value) {
     Number(raw.schemaVersion || 0) < 2
     && rawSharedMemberRules.length === 0
     && rawSharedActorRules.length > 0
+    && normalizeMode(rawSharedPolicy, defaults.sharedPolicy) === 'open'
   ) {
-    if (normalizeMode(rawSharedPolicy, defaults.sharedPolicy) === 'open') {
-      rawSharedPolicy = 'allowlist';
-      rawSharedSpaceRules = [];
-    } else if (rawSharedSpaceRules.length > 0) {
-      rawSharedMemberRules = rawSharedActorRules.flatMap((actorRule) =>
-        rawSharedSpaceRules.map((spaceRule) => ({
-          ...actorRule,
-          spaceScope: spaceRule.scope,
-          spaceValue: spaceRule.value,
-          spaceLabel: spaceRule.label,
-        })));
-      rawSharedSpaceRules = [];
-      rawSharedActorRules = [];
-    }
+    rawSharedPolicy = 'allowlist';
+    rawSharedSpaceRules = [];
   }
 
   const normalized = {
