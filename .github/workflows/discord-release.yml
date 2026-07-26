@@ -1,0 +1,111 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+  workflow_call:
+    inputs:
+      release_tag:
+        description: GitHub release tag to announce
+        required: true
+        type: string
+    secrets:
+      DISCORD_RELEASE_WEBHOOK_URL:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify Discord
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+      DISCORD_RELEASE_ROLE_ID: ${{ vars.DISCORD_RELEASE_ROLE_ID }}
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+    steps:
+      - name: Send release notification
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
+            echo "::error::DISCORD_RELEASE_WEBHOOK_URL is not configured."
+            exit 1
+          fi
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::error::No GitHub release tag was provided."
+            exit 1
+          fi
+
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
+          is_prerelease="$(jq -r '.prerelease' <<<"$release_json")"
+
+          if [[ "$is_prerelease" == "true" ]]; then
+            release_channel="Beta"
+            embed_color=5793266
+            content=""
+            allowed_mentions='{"parse":[]}'
+          else
+            if [[ -z "$DISCORD_RELEASE_ROLE_ID" ]]; then
+              echo "::error::DISCORD_RELEASE_ROLE_ID is not configured."
+              exit 1
+            fi
+            release_channel="Stable"
+            embed_color=5763719
+            content="<@&${DISCORD_RELEASE_ROLE_ID}>"
+            allowed_mentions="$(jq -cn \
+              --arg role "$DISCORD_RELEASE_ROLE_ID" \
+              '{roles: [$role], users: [], replied_user: false}')"
+          fi
+
+          payload="$(jq -c \
+            --arg content "$content" \
+            --argjson allowed_mentions "$allowed_mentions" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg release_channel "$release_channel" \
+            --argjson embed_color "$embed_color" \
+            '{
+              content: $content,
+              allowed_mentions: $allowed_mentions,
+              embeds: [{
+                title: (if (.name // "") == "" then .tag_name else .name end),
+                url: .html_url,
+                description: (
+                  (if (.body // "") == "" then "No release notes were provided." else .body end)
+                  | if length > 3500 then .[0:3497] + "..." else . end
+                ),
+                color: $embed_color,
+                fields: [
+                  {
+                    name: "Repository",
+                    value: ("[" + $repository + "](https://github.com/" + $repository + ")"),
+                    inline: true
+                  },
+                  {
+                    name: "Version",
+                    value: ("`" + .tag_name + "`"),
+                    inline: true
+                  },
+                  {
+                    name: "Channel",
+                    value: $release_channel,
+                    inline: true
+                  }
+                ],
+                footer: {text: "NeoLabs Releases"},
+                timestamp: .published_at
+              }]
+            }' <<<"$release_json")"
+
+          curl \
+            --fail-with-body \
+            --retry 3 \
+            --retry-all-errors \
+            --silent \
+            --show-error \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "$DISCORD_WEBHOOK_URL"
