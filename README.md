@@ -106,5 +106,11 @@ for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/is
 for reproducible bugs. Security reports belong in the process described by
 [SECURITY.md](SECURITY.md).
 
-*Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*
+## License
 
+NeoAgent is licensed under the
+[GNU Affero General Public License v3.0 only](LICENSE). The
+[licensing decision](docs/licensing.md) explains why AGPL remains the fit for
+this networked, self-hosted project and compares it with MPL-2.0.
+
+*Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*

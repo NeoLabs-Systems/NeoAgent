@@ -253,9 +253,11 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
   Process? _proc;
   String? _errorMsg;
 
-  String get _home => Platform.isWindows
-      ? (Platform.environment['USERPROFILE'] ?? '')
-      : (Platform.environment['HOME'] ?? '');
+  LocalRuntimePaths get _runtimePaths => LocalRuntimePaths.fromEnvironment(
+    Platform.environment,
+    isWindows: Platform.isWindows,
+  );
+  String get _home => _runtimePaths.homeDirectory;
 
   @override
   void initState() {
@@ -307,10 +309,10 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
   }
 
   bool _ensureEnvFile() {
-    final envPath = '$_home/.neoagent/runtime/.env';
+    final envPath = _runtimePaths.envFile;
     if (!File(envPath).existsSync()) {
       try {
-        Directory('$_home/.neoagent/runtime').createSync(recursive: true);
+        Directory(_runtimePaths.runtimeHome).createSync(recursive: true);
         File(envPath).writeAsStringSync('NODE_ENV=production\nPORT=3333\n');
       } catch (_) {
         return false;
@@ -324,7 +326,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
       setState(() {
         _phase = _LocalInstallPhase.failed;
         _errorMsg =
-            'Could not create ~/.neoagent/runtime/.env — check directory permissions.';
+            'Could not create the NeoAgent runtime configuration — check directory permissions.';
       });
       return;
     }

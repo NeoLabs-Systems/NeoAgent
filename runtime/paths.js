@@ -17,6 +17,15 @@ const PID_FILE = path.join(DATA_DIR, 'neoagent.pid');
 const LEGACY_ENV_FILE = path.join(APP_DIR, '.env');
 const LEGACY_DATA_DIR = path.join(APP_DIR, 'data');
 const LEGACY_AGENT_DATA_DIR = path.join(APP_DIR, 'agent-data');
+const LEGACY_DESKTOP_RUNTIME_DIR = path.join(HOME_DIR, '.neoagent', 'runtime');
+const LEGACY_DESKTOP_ENV_FILE = path.join(LEGACY_DESKTOP_RUNTIME_DIR, '.env');
+const PERSISTENT_IDENTITY_ENV_KEYS = new Set([
+  'SESSION_SECRET',
+  'NEOAGENT_ENCRYPTION_KEY',
+  'NEOAGENT_VM_GUEST_TOKEN',
+  'ADMIN_USERNAME',
+  'ADMIN_PASSWORD',
+]);
 const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
   arm64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img',
   x64: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img',
@@ -44,6 +53,39 @@ function copyDirMerge(src, dest) {
   }
   fs.mkdirSync(dest, { recursive: true });
   fs.cpSync(src, dest, { recursive: true, force: false, errorOnExist: false });
+  return true;
+}
+
+function migrationBackupPath(sourcePath) {
+  const basePath = `${sourcePath}.migrated`;
+  if (!fs.existsSync(basePath)) return basePath;
+  return `${basePath}.${Date.now()}`;
+}
+
+function migrateLegacyDesktopEnv({
+  legacyEnvFile = LEGACY_DESKTOP_ENV_FILE,
+  envFile = ENV_FILE,
+  logger = () => {},
+} = {}) {
+  if (path.resolve(legacyEnvFile) === path.resolve(envFile)) return false;
+  if (!fs.existsSync(legacyEnvFile)) return false;
+
+  const legacyValues = parseEnv(readEnvFileRaw(legacyEnvFile));
+  if (legacyValues.size === 0) return false;
+
+  const currentValues = parseEnv(readEnvFileRaw(envFile));
+  for (const [key, value] of legacyValues.entries()) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    const currentValue = String(currentValues.get(key) || '').trim();
+    if (PERSISTENT_IDENTITY_ENV_KEYS.has(key) && currentValue) continue;
+    upsertEnvValue(envFile, key, value);
+  }
+
+  const backupPath = migrationBackupPath(legacyEnvFile);
+  fs.renameSync(legacyEnvFile, backupPath);
+  logger(
+    `migrated desktop config ${legacyEnvFile} -> ${envFile} (backup: ${backupPath})`,
+  );
   return true;
 }
 
@@ -88,6 +130,15 @@ function migrateLegacyRuntime(logger = () => {}) {
     }
     log(`migrated ${LEGACY_ENV_FILE} -> ${ENV_FILE}`);
     changed = true;
+  }
+  try {
+    if (migrateLegacyDesktopEnv({ logger: log })) {
+      changed = true;
+    }
+  } catch (error) {
+    logError(
+      `failed to migrate desktop runtime config ${LEGACY_DESKTOP_ENV_FILE} -> ${ENV_FILE}: ${error.message}`,
+    );
   }
   if (copyDirMerge(LEGACY_DATA_DIR, DATA_DIR)) {
     log(`migrated ${LEGACY_DATA_DIR} -> ${DATA_DIR}`);
@@ -248,6 +299,22 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   }
   env.SESSION_SECRET = sessionSecret;
 
+  let adminUsername = String(env.ADMIN_USERNAME || parsed.get('ADMIN_USERNAME') || '').trim();
+  if (!adminUsername) {
+    adminUsername = 'admin';
+    upsertEnvValue(envFile, 'ADMIN_USERNAME', adminUsername);
+    changes.push('ADMIN_USERNAME');
+  }
+  env.ADMIN_USERNAME = adminUsername;
+
+  let adminPassword = String(env.ADMIN_PASSWORD || parsed.get('ADMIN_PASSWORD') || '').trim();
+  if (!adminPassword) {
+    adminPassword = generateSecret(16);
+    upsertEnvValue(envFile, 'ADMIN_PASSWORD', adminPassword);
+    changes.push('ADMIN_PASSWORD');
+  }
+  env.ADMIN_PASSWORD = adminPassword;
+
   let guestToken = String(env.NEOAGENT_VM_GUEST_TOKEN || parsed.get('NEOAGENT_VM_GUEST_TOKEN') || '').trim();
   if (!isValidVmGuestToken(guestToken)) {
     guestToken = generateSecret(32);
@@ -285,10 +352,13 @@ module.exports = {
   LEGACY_ENV_FILE,
   LEGACY_DATA_DIR,
   LEGACY_AGENT_DATA_DIR,
+  LEGACY_DESKTOP_RUNTIME_DIR,
+  LEGACY_DESKTOP_ENV_FILE,
   DEFAULT_VM_BASE_IMAGE_URLS,
   ensureRuntimeDirs,
   ensureSecureRuntimeEnv,
   getDefaultVmBaseImageUrl,
+  migrateLegacyDesktopEnv,
   migrateLegacyRuntime,
   removeEnvValue,
   upsertEnvValue,

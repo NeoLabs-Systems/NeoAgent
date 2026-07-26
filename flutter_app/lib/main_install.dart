@@ -186,10 +186,12 @@ class _ServerPanelState extends State<ServerPanel> {
   bool _secureCookies = false;
   bool _trustProxy = false;
 
-  String get _home => Platform.isWindows
-      ? (Platform.environment['USERPROFILE'] ?? '')
-      : (Platform.environment['HOME'] ?? '');
-  String get _envPath => '$_home/.neoagent/runtime/.env';
+  LocalRuntimePaths get _runtimePaths => LocalRuntimePaths.fromEnvironment(
+    Platform.environment,
+    isWindows: Platform.isWindows,
+  );
+  String get _home => _runtimePaths.homeDirectory;
+  String get _envPath => _runtimePaths.envFile;
 
   @override
   void initState() {
@@ -275,7 +277,7 @@ class _ServerPanelState extends State<ServerPanel> {
     if (Platform.isLinux) {
       return File('$_home/.config/systemd/user/neoagent.service').existsSync();
     }
-    return File('$_home/.neoagent/runtime/neoagent.pid').existsSync();
+    return File(_runtimePaths.pidFile).existsSync();
   }
 
   Future<bool> _checkServiceRunning() async {
@@ -297,7 +299,7 @@ class _ServerPanelState extends State<ServerPanel> {
 
   void _ensureEnvFile() {
     if (!File(_envPath).existsSync()) {
-      Directory('$_home/.neoagent/runtime').createSync(recursive: true);
+      Directory(_runtimePaths.runtimeHome).createSync(recursive: true);
       final port =
           _portCtrl.text.trim().isEmpty ? '3333' : _portCtrl.text.trim();
       final buf = StringBuffer()
@@ -843,7 +845,7 @@ class _ServerPanelState extends State<ServerPanel> {
   }
 
   Widget _buildLogsTab() {
-    final path = '$_home/.neoagent/runtime/logs/neoagent.log';
+    final path = _runtimePaths.logFile;
     final f = File(path);
     String content;
     if (f.existsSync()) {

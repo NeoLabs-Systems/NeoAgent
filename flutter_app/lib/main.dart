@@ -36,6 +36,7 @@ import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
+import 'src/local_runtime_paths.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/security/password_strength.dart';

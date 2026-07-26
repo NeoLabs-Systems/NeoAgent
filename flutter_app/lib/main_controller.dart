@@ -1504,13 +1504,19 @@ class NeoAgentController extends ChangeNotifier {
     final sessionCookie = _backendClient.sessionCookie?.trim() ?? '';
     final shouldPersistSession = isAuthenticated && sessionCookie.isNotEmpty;
     if (shouldPersistSession) {
+      var storedSecurely = false;
       try {
         await _secureStorage.write(
           key: _sessionCookieSecureStorageKey,
           value: sessionCookie,
         );
+        storedSecurely = true;
       } catch (_) {}
-      await _prefs?.remove(_sessionCookiePrefsKey);
+      if (storedSecurely) {
+        await _prefs?.remove(_sessionCookiePrefsKey);
+      } else {
+        await _prefs?.setString(_sessionCookiePrefsKey, sessionCookie);
+      }
       await _prefs?.setString(_sessionCookieBackendPrefsKey, backendUrl);
       await _syncDesktopCompanionSession();
       unawaited(_syncHomeWidgetConfig());
