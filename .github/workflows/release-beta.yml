@@ -208,3 +208,13 @@ jobs:
     uses: ./.github/workflows/_publish-release-assets.yml
     with:
       release_tag: ${{ needs.release.outputs.release_tag }}
+
+  notify-discord:
+    name: Notify Discord
+    needs: release
+    if: needs.release.outputs.release_tag != ''
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+    secrets:
+      DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
