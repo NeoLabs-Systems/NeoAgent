@@ -314,18 +314,16 @@ async function executeQueuedMessage({
     };
   }
 
-  const stopTypingKeepalive = msg.isGroup
-    ? async () => {}
-    : startTypingKeepalive({
-        messagingManager,
-        userId,
-        agentId,
-        runId,
-        platform: msg.platform,
-        chatId: msg.chatId,
-        signal,
-        onError: reportSideEffectError
-      });
+  const stopTypingKeepalive = startTypingKeepalive({
+    messagingManager,
+    userId,
+    agentId,
+    runId,
+    platform: msg.platform,
+    chatId: msg.chatId,
+    signal,
+    onError: reportSideEffectError,
+  });
 
   try {
     const socialConfig = behaviorResult?.config || resolveBehaviorConfig(userId, agentId, {

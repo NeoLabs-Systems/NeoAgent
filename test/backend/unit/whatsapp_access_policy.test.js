@@ -311,3 +311,35 @@ test('WhatsApp recent group targets are shared group allowlist entries', () => {
     subtitle: 'Recent WhatsApp group',
   });
 });
+
+
+test('Discord channel allowlist admits tagged messages and preserves untagged policy', () => {
+  const policy = migrateLegacyWhitelist('discord', [
+    'channel:123456789012345678',
+  ]);
+  assert.deepEqual(policy.sharedSpaceRules, [{
+    scope: 'channel',
+    value: '123456789012345678',
+  }]);
+
+  const tagged = evaluateAccessPolicy(policy, {
+    senderId: 'user-1',
+    chatId: '123456789012345678',
+    channelId: '123456789012345678',
+    isDirect: false,
+    isShared: true,
+    wasMentioned: true,
+  }, 'discord');
+  assert.equal(tagged.allowed, true);
+
+  const untagged = evaluateAccessPolicy(policy, {
+    senderId: 'user-1',
+    chatId: '123456789012345678',
+    channelId: '123456789012345678',
+    isDirect: false,
+    isShared: true,
+    wasMentioned: false,
+  }, 'discord');
+  assert.equal(untagged.allowed, true);
+  assert.equal(untagged.allowUntagged, true);
+});

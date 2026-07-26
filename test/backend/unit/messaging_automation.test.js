@@ -369,4 +369,22 @@ describe('messaging automation queue', () => {
     assert.deepEqual(Object.keys(app.locals.userQueues), []);
     assert.equal(io.events.some((entry) => entry.event === 'messaging:error'), false);
   });
+
+  test('starts typing for group messaging runs', async () => {
+    const manager = new MessagingManagerStub();
+    const agentEngine = {
+      async run() {
+        return { status: 'completed', content: 'done' };
+      },
+    };
+    const userQueues = Object.create(null);
+    await automation.processQueuedMessage({
+      userQueues,
+      messagingManager: manager,
+      agentEngine,
+      userId: user.userId,
+      msg: createMessage(mainAgentId, 'hello room', { isGroup: true, wasMentioned: true }),
+    });
+    assert.ok(manager.typingCalls.some((entry) => entry.isTyping === true));
+  });
 });

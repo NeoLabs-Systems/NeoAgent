@@ -557,6 +557,7 @@ class MessagingMessage {
     this.sender,
     this.senderName,
     this.target,
+    this.agentId,
   });
 
   factory MessagingMessage.fromJson(Map<dynamic, dynamic> json) {
@@ -583,6 +584,7 @@ class MessagingMessage {
       sender: sender.isEmpty ? null : sender,
       senderName: senderName.isEmpty ? null : senderName,
       target: chatId.isEmpty ? null : chatId,
+      agentId: json['agent_id']?.toString() ?? json['agentId']?.toString(),
     );
   }
 
@@ -599,6 +601,7 @@ class MessagingMessage {
       sender: json['sender']?.toString(),
       senderName: json['senderName']?.toString(),
       target: json['to']?.toString(),
+      agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
     );
   }
 
@@ -630,6 +633,7 @@ class MessagingMessage {
   final String? sender;
   final String? senderName;
   final String? target;
+  final String? agentId;
 
   String get createdAtLabel => _formatTimestamp(createdAt);
 

@@ -47,6 +47,7 @@ class NeoAgentController extends ChangeNotifier {
     'NEOAGENT_BACKEND_URL',
   );
   static const String _selectedSectionPrefsKey = 'ui.selectedSection';
+  static const String _selectedAgentPrefsKey = 'ui.selectedAgentId';
 
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -268,6 +269,20 @@ class NeoAgentController extends ChangeNotifier {
   String get activeAgentLabel => activeAgent?.displayName ?? 'Main';
 
   String? get _scopedAgentId => selectedAgentId;
+
+  bool _matchesSelectedAgent(String? agentId) {
+    final selected = selectedAgentId?.trim() ?? '';
+    if (selected.isEmpty) {
+      return true;
+    }
+    final incoming = agentId?.trim() ?? '';
+    if (incoming.isEmpty) {
+      // Legacy payloads without agent scope belong to the default/main agent.
+      final active = activeAgent;
+      return active == null || active.isDefault || active.id == selected;
+    }
+    return incoming == selected;
+  }
 
   bool get requiresBackendUrlSetup =>
       !kIsWeb &&
@@ -1426,6 +1441,7 @@ class NeoAgentController extends ChangeNotifier {
     _resetChatHistoryPagination();
     agentProfiles = const <AgentProfile>[];
     selectedAgentId = null;
+    unawaited(_persistSelectedAgentId(null));
     supportedModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
@@ -1596,14 +1612,33 @@ class NeoAgentController extends ChangeNotifier {
       (agent) => agent.id == selectedAgentId,
     );
     if (selectedExists) {
+      unawaited(_persistSelectedAgentId(selectedAgentId));
       return;
     }
+
+    final restoredId = _prefs?.getString(_selectedAgentPrefsKey)?.trim() ?? '';
+    if (restoredId.isNotEmpty &&
+        agentProfiles.any((agent) => agent.id == restoredId)) {
+      selectedAgentId = restoredId;
+      return;
+    }
+
     selectedAgentId = agentProfiles
         .firstWhere(
           (agent) => agent.isDefault,
           orElse: () => agentProfiles.first,
         )
         .id;
+    unawaited(_persistSelectedAgentId(selectedAgentId));
+  }
+
+  Future<void> _persistSelectedAgentId(String? id) async {
+    final normalized = id?.trim() ?? '';
+    if (normalized.isEmpty) {
+      await _prefs?.remove(_selectedAgentPrefsKey);
+      return;
+    }
+    await _prefs?.setString(_selectedAgentPrefsKey, normalized);
   }
 
   Future<void> switchAgent(String id) async {
@@ -1611,6 +1646,7 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     selectedAgentId = id;
+    unawaited(_persistSelectedAgentId(id));
     chatMessages = const <ChatEntry>[];
     _resetChatHistoryPagination();
     recentRuns = const <RunSummary>[];
@@ -1656,9 +1692,11 @@ class NeoAgentController extends ChangeNotifier {
           await _backendClient.createAgentProfile(backendUrl, payload),
         );
         selectedAgentId = created.id;
+        unawaited(_persistSelectedAgentId(created.id));
       } else {
         await _backendClient.updateAgentProfile(backendUrl, id, payload);
         selectedAgentId = id;
+        unawaited(_persistSelectedAgentId(id));
       }
       await refresh();
       return true;
@@ -1685,6 +1723,7 @@ class NeoAgentController extends ChangeNotifier {
       await _backendClient.archiveAgentProfile(backendUrl, id);
       if (selectedAgentId == id) {
         selectedAgentId = null;
+        unawaited(_persistSelectedAgentId(null));
       }
       await refresh();
     } catch (error) {
@@ -6430,6 +6469,11 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('messaging:sent', (dynamic data) {
       final payload = _jsonMap(data);
+      final agentId =
+          payload['agentId']?.toString() ?? payload['agent_id']?.toString();
+      if (!_matchesSelectedAgent(agentId)) {
+        return;
+      }
       messagingMessages = <MessagingMessage>[
         MessagingMessage.fromSocket(payload, outgoing: true),
         ...messagingMessages,
@@ -6443,6 +6487,11 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('messaging:message', (dynamic data) {
       final payload = _jsonMap(data);
+      final agentId =
+          payload['agentId']?.toString() ?? payload['agent_id']?.toString();
+      if (!_matchesSelectedAgent(agentId)) {
+        return;
+      }
       messagingMessages = <MessagingMessage>[
         MessagingMessage.fromSocket(payload, outgoing: false),
         ...messagingMessages,
@@ -6634,12 +6683,18 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final triggerSource = payload['triggerSource']?.toString() ?? '';
       final runId = payload['runId']?.toString() ?? '';
+      final agentId =
+          payload['agentId']?.toString() ?? payload['agent_id']?.toString();
       if (triggerSource == 'voice_live') {
         _voiceRunIds.add(runId);
         return;
       }
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
+        _backgroundRunIds.add(runId);
+        return;
+      }
+      if (!_matchesSelectedAgent(agentId)) {
         _backgroundRunIds.add(runId);
         return;
       }

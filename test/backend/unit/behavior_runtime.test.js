@@ -402,17 +402,61 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
       },
     },
   });
-  const original = groupMessage('first');
-  const originalEpoch = pipeline.noteInbound({
+  const original = groupMessage('@neo first', { wasMentioned: true });
+  const engaged = await pipeline.handleInbound({
     userId: user.userId,
     agentId,
     msg: original,
   });
+  assert.equal(engaged.engage, true);
+  const originalEpoch = engaged.decision.turnEpoch;
+
+  // Silent room traffic should observe without invalidating the active speak turn.
+  const silent = groupMessage('side chatter', {
+    accessPolicyAllowUntagged: false,
+  });
   pipeline.noteInbound({
     userId: user.userId,
     agentId,
-    msg: groupMessage('newer'),
+    msg: silent,
   });
+  const silentDecision = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: silent,
+  });
+  assert.equal(silentDecision.engage, false);
+
+  const stillCurrent = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg: original,
+    config: behavior.resolveBehaviorConfig(user.userId, agentId, {
+      platform: original.platform,
+      chatId: original.chatId,
+      isGroup: true,
+    }),
+    draft: 'active reply',
+    messagingManager: {
+      async sendMessage() {
+        sendCalls += 1;
+        return { success: true };
+      },
+    },
+    turnEpoch: originalEpoch,
+    deliver: true,
+  });
+  assert.equal(stillCurrent.suppressed, false);
+  assert.equal(sendCalls, 1);
+
+  // A later engaged turn should supersede the older speak epoch.
+  const newer = groupMessage('@neo newer', { wasMentioned: true });
+  const next = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: newer,
+  });
+  assert.equal(next.engage, true);
 
   const result = await pipeline.refineAndMaybeDeliver({
     userId: user.userId,
@@ -436,8 +480,7 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
 
   assert.equal(result.suppressed, true);
   assert.deepEqual(result.reasonCodes, ['stale_turn']);
-  assert.equal(inferenceCalls, 0);
-  assert.equal(sendCalls, 0);
+  assert.equal(sendCalls, 1);
 });
 
 test('direct messaging uses the run model for one lightweight interaction-voice pass', async () => {

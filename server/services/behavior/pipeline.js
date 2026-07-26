@@ -29,6 +29,15 @@ function createBehaviorPipeline(deps = {}) {
   }
 
   function noteInbound({ userId, agentId, msg }) {
+    // Snapshot the current epoch without claiming a new speak-turn.
+    // Speak turns are claimed only when the gate decides to engage, so
+    // silent room traffic cannot invalidate an in-flight reply.
+    const state = getThreadState(userId, agentId, msg.platform, msg.chatId);
+    msg.behaviorTurnEpoch = state.turnEpoch;
+    return state.turnEpoch;
+  }
+
+  function claimSpeakTurn({ userId, agentId, msg }) {
     const state = bumpTurnEpoch(userId, agentId, msg.platform, msg.chatId);
     msg.behaviorTurnEpoch = state.turnEpoch;
     return state.turnEpoch;
@@ -83,6 +92,7 @@ function createBehaviorPipeline(deps = {}) {
       };
     }
     if (config.enabled === false) {
+      const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
       return {
         engage: true,
         decision: {
@@ -94,7 +104,7 @@ function createBehaviorPipeline(deps = {}) {
           rationale: 'Behavior modules are disabled; using the standard response path.',
           tokenPath: 'gate_skip',
           latencyMs: 0,
-          turnEpoch,
+          turnEpoch: speakTurnEpoch,
         },
         config,
         promptBlocks: [],
@@ -173,7 +183,14 @@ function createBehaviorPipeline(deps = {}) {
       };
     }
 
-    const promptBlocks = await registry.composeContext(baseCtx);
+    // Claim the speak turn only after engagement is confirmed.
+    const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
+    decision.turnEpoch = speakTurnEpoch;
+
+    const promptBlocks = await registry.composeContext({
+      ...baseCtx,
+      turnEpoch: speakTurnEpoch,
+    });
 
     return {
       engage: true,
