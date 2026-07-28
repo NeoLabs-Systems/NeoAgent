@@ -8,6 +8,8 @@ import 'package:neoagent_flutter/src/local_runtime_manager.dart';
 import 'package:neoagent_flutter/src/local_runtime_paths.dart';
 import 'package:neoagent_flutter/src/local_setup_engine.dart';
 import 'package:neoagent_flutter/src/runtime_activation_service.dart';
+import 'package:neoagent_flutter/src/runtime_archive_service.dart';
+import 'package:neoagent_flutter/src/runtime_release_service.dart';
 
 void main() {
   test('runtime manifest selects an exact platform and architecture', () {
@@ -41,6 +43,69 @@ void main() {
           (error) => error.code,
           'code',
           'SETUP_PLATFORM_UNSUPPORTED',
+        ),
+      ),
+    );
+  });
+
+  test('runtime manifest rejects unsafe version paths', () {
+    expect(
+      () => RuntimeArtifactManifest.fromJson(<String, dynamic>{
+        'schemaVersion': 1,
+        'version': '../../outside',
+        'artifacts': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'platform': 'macos',
+            'architecture': 'arm64',
+            'assetName': 'runtime.zip',
+            'sha256': List<String>.filled(64, 'a').join(),
+            'sizeBytes': 1024,
+          },
+        ],
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('runtime manifest rejects unsafe artifact paths', () {
+    expect(
+      () => RuntimeArtifact.fromJson(<String, dynamic>{
+        'platform': 'macos',
+        'architecture': 'arm64',
+        'assetName': '../../outside.zip',
+        'sha256': List<String>.filled(64, 'a').join(),
+        'sizeBytes': 1024,
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('runtime archive paths cannot escape staging', () {
+    expect(isSafeRuntimeArchivePath('app/bin/neoagent.js'), true);
+    expect(isSafeRuntimeArchivePath('../outside'), false);
+    expect(isSafeRuntimeArchivePath(r'C:\outside'), false);
+    expect(
+      isSafeRuntimeArchivePath('../../outside', basePath: 'app/bin'),
+      true,
+    );
+    expect(
+      isSafeRuntimeArchivePath('../../../outside', basePath: 'app/bin'),
+      false,
+    );
+  });
+
+  test('runtime downloads accept only HTTPS addresses', () {
+    expect(
+      validateRuntimeDownloadUri('https://github.com/NeoAgent').scheme,
+      'https',
+    );
+    expect(
+      () => validateRuntimeDownloadUri('http://github.com/NeoAgent'),
+      throwsA(
+        isA<LocalBackendInstallerException>().having(
+          (error) => error.code,
+          'code',
+          'SETUP_DOWNLOAD_URL_INVALID',
         ),
       ),
     );
@@ -140,15 +205,11 @@ void main() {
         'neoagent-runtime-manager-',
       );
       addTearDown(() => directory.deleteSync(recursive: true));
-      final paths = LocalRuntimePaths.fromEnvironment(
-        <String, String>{
-          if (Platform.isWindows) 'USERPROFILE': directory.path,
-          if (!Platform.isWindows) 'HOME': directory.path,
-          'NEOAGENT_HOME':
-              '${directory.path}${Platform.pathSeparator}runtime',
-        },
-        isWindows: Platform.isWindows,
-      );
+      final paths = LocalRuntimePaths.fromEnvironment(<String, String>{
+        if (Platform.isWindows) 'USERPROFILE': directory.path,
+        if (!Platform.isWindows) 'HOME': directory.path,
+        'NEOAGENT_HOME': '${directory.path}${Platform.pathSeparator}runtime',
+      }, isWindows: Platform.isWindows);
       final manager = LocalRuntimeManager(paths: paths);
 
       final status = await manager.inspect();

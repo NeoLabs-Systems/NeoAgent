@@ -18,6 +18,18 @@ const String runtimeReleaseChannel = String.fromEnvironment(
 typedef RuntimeDownloadProgress = void Function(double progress);
 typedef RuntimeCancellationCheck = void Function();
 
+Uri validateRuntimeDownloadUri(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+    throw const LocalBackendInstallerException(
+      'SETUP_DOWNLOAD_URL_INVALID',
+      'NeoAgent runtime downloads require a secure address.',
+      retryable: false,
+    );
+  }
+  return uri;
+}
+
 class PreparedRuntimeRelease {
   const PreparedRuntimeRelease({
     required this.manifest,
@@ -103,7 +115,10 @@ class RuntimeReleaseService {
     PreparedRuntimeRelease release,
     File target,
   ) async {
-    final request = http.Request('GET', Uri.parse(release.downloadUrl));
+    final request = http.Request(
+      'GET',
+      validateRuntimeDownloadUri(release.downloadUrl),
+    );
     request.headers.addAll(_headers);
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -203,7 +218,7 @@ class RuntimeReleaseService {
     String errorMessage =
         'A required NeoAgent setup file could not be downloaded.',
   }) async {
-    final request = http.Request('GET', Uri.parse(url));
+    final request = http.Request('GET', validateRuntimeDownloadUri(url));
     request.headers.addAll(_headers);
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {

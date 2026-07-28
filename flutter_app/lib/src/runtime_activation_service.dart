@@ -154,7 +154,11 @@ class RuntimeActivationService {
         }
       }
     } finally {
-      if (await temporary.exists()) await temporary.delete();
+      try {
+        if (await temporary.exists()) await temporary.delete();
+      } on FileSystemException {
+        // The next installer run can safely remove an inactive staging marker.
+      }
     }
   }
 

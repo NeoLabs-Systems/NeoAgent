@@ -13,6 +13,7 @@ const {
   runtimeHome,
   safeExtract,
   selectArtifact,
+  validateDownloadUrl,
   verifyManifest,
 } = require('../../../lib/setup/bootstrap_cli');
 
@@ -27,7 +28,11 @@ test('bootstrap selects only the exact platform and architecture artifact', () =
   const selected = selectArtifact({
     schemaVersion: 1,
     artifacts: [{
-      platform: process.platform === 'darwin' ? 'macos' : process.platform,
+      platform: {
+        darwin: 'macos',
+        win32: 'windows',
+        linux: 'linux',
+      }[process.platform],
       architecture: process.arch,
       assetName: 'runtime.zip',
       sha256: 'a'.repeat(64),
@@ -79,5 +84,16 @@ test('bootstrap extraction rejects paths outside staging', (t) => {
   assert.throws(
     () => assertSafeArchiveEntry('../outside.txt', path.join(root, 'extract')),
     (error) => error.code === 'SETUP_RUNTIME_ARCHIVE_INVALID',
+  );
+});
+
+test('bootstrap accepts only HTTPS runtime download URLs', () => {
+  assert.equal(
+    validateDownloadUrl('https://github.com/NeoLabs-Systems/NeoAgent').protocol,
+    'https:',
+  );
+  assert.throws(
+    () => validateDownloadUrl('http://github.com/NeoLabs-Systems/NeoAgent'),
+    (error) => error.code === 'SETUP_DOWNLOAD_URL_INVALID',
   );
 });

@@ -100,4 +100,8 @@ test('JSON setup events expose a stable machine-readable contract', () => {
   assert.equal(events[0].runId, events[1].runId);
   assert.equal(events[1].stage, 'download');
   assert.equal(events[1].state, 'completed');
+  assert.throws(
+    () => writer.start('unknown-stage', 'Invalid'),
+    (error) => error.code === 'SETUP_EVENT_STAGE_INVALID',
+  );
 });

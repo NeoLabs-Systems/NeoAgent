@@ -41,6 +41,19 @@ void main() {
       await tester.tap(find.text('Full setup'));
       await tester.pump();
       expect(find.text('Start full setup'), findsOneWidget);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ServerPanel(controller: controller)),
+      );
+      await tester.pump();
+      expect(find.text('NeoAgent on this computer'), findsOneWidget);
+      expect(
+        find.textContaining('terminal commands are not required'),
+        findsOneWidget,
+      );
+      expect(find.text('Node.js'), findsNothing);
+      expect(find.text('npm'), findsNothing);
+      expect(find.text('Git'), findsNothing);
       debugDefaultTargetPlatformOverride = null;
     },
   );

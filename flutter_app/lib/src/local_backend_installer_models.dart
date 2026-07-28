@@ -78,7 +78,7 @@ class RuntimeArtifactManifest {
     final version = json['version']?.toString().trim() ?? '';
     final rawArtifacts = json['artifacts'];
     if (schemaVersion != setupContractSchemaVersion ||
-        version.isEmpty ||
+        !RegExp(r'^[0-9A-Za-z][0-9A-Za-z.+_-]*$').hasMatch(version) ||
         rawArtifacts is! List) {
       throw const FormatException('Invalid NeoAgent runtime manifest.');
     }
@@ -150,7 +150,7 @@ class RuntimeArtifact {
     final sizeBytes = int.tryParse(json['sizeBytes']?.toString() ?? '') ?? 0;
     if (platform.isEmpty ||
         architecture.isEmpty ||
-        assetName.isEmpty ||
+        !RegExp(r'^[0-9A-Za-z][0-9A-Za-z._-]*$').hasMatch(assetName) ||
         !RegExp(r'^[a-f0-9]{64}$').hasMatch(sha256) ||
         sizeBytes <= 0) {
       throw const FormatException(

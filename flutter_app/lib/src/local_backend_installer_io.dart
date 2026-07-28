@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,6 +9,7 @@ import 'local_backend_installer_models.dart';
 import 'local_runtime_paths.dart';
 import 'local_setup_engine.dart';
 import 'runtime_activation_service.dart';
+import 'runtime_archive_service.dart';
 import 'runtime_release_service.dart';
 
 class LocalBackendInstaller {
@@ -126,7 +126,10 @@ class LocalBackendInstaller {
         'Installing NeoAgent',
         progress: 0.58,
       );
-      await extractFileToDisk(archiveFile.path, extractedDirectory.path);
+      await extractVerifiedRuntimeArchive(
+        archiveFile.path,
+        extractedDirectory.path,
+      );
       _activationService.validateExtractedRuntime(extractedDirectory);
       final versionDirectory = Directory(
         '${versionsRoot.path}${Platform.pathSeparator}${release.manifest.version}',

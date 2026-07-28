@@ -35,6 +35,17 @@ test('runtime manifest is deterministic and rejects duplicate targets', () => {
     () => createRuntimeManifest('3.4.0', [artifacts[0], artifacts[0]]),
     (error) => error.code === 'RUNTIME_MANIFEST_DUPLICATE',
   );
+  assert.throws(
+    () => createRuntimeManifest('../../outside', artifacts),
+    (error) => error.code === 'RUNTIME_MANIFEST_VERSION_REQUIRED',
+  );
+  assert.throws(
+    () => createRuntimeManifest('3.4.0', [{
+      ...artifacts[0],
+      assetName: '../../outside.zip',
+    }]),
+    (error) => error.code === 'RUNTIME_MANIFEST_INVALID',
+  );
 });
 
 test('runtime manifest Ed25519 signature detects tampering', () => {

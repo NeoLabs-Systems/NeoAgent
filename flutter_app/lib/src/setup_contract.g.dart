@@ -33,6 +33,7 @@ const List<String> setupEventStages = <String>[
   'service',
   'connect',
   'complete',
+  'status',
   'doctor',
   'setup',
 ];

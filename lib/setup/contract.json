@@ -60,6 +60,7 @@
     "service",
     "connect",
     "complete",
+    "status",
     "doctor",
     "setup"
   ],
