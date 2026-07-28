@@ -54,6 +54,7 @@ describe('injection, sessions, rate limiting, and CORS', () => {
     const client = agent(app);
     const beforeLogin = await client.get('/api/auth/status').expect(200);
     const beforeSid = sidCookie(beforeLogin);
+    const loginStartedAt = Date.now();
     const login = await client.post('/api/auth/login').send({
       username: user.username,
       password: user.password,
@@ -61,8 +62,16 @@ describe('injection, sessions, rate limiting, and CORS', () => {
     const afterSid = sidCookie(login);
     assert.ok(afterSid);
     assert.notEqual(afterSid, beforeSid);
+    const expiresMatch = (login.headers['set-cookie'] || [])
+      .join(';')
+      .match(/Expires=([^;]+)/);
+    assert.ok(expiresMatch);
+    const sessionLifetimeMs = Date.parse(expiresMatch[1]) - loginStartedAt;
+    assert.ok(sessionLifetimeMs >= 29 * 24 * 60 * 60 * 1000);
+    assert.ok(sessionLifetimeMs <= 30 * 24 * 60 * 60 * 1000);
     assert.equal(login.text.includes('$2'), false);
     const me = await client.get('/api/auth/me').expect(200);
+    assert.ok(sidCookie(me), 'authenticated activity should renew the session cookie');
     assert.equal(me.text.includes('$2'), false);
     await client.post('/api/auth/logout').expect(200);
     await client.get('/api/auth/me').expect(401);

@@ -1,13 +1,5 @@
 part of 'main.dart';
 
-// QR login panel atmospheric colors — intentionally deeper than the standard
-// surface palette to create visual contrast during the auth flow. Named here
-// so they can be updated in one place rather than hunted across the widget tree.
-const Color _qrPanelGradientStart = Color(0xFF0A1D2E);
-const Color _qrPanelGradientEnd = Color(0xFF112B43);
-const Color _qrPanelGlowBlue = Color(0xFF6EDBFF);
-const Color _qrPanelGlowGreen = Color(0xFF58E0A2);
-
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
 
@@ -526,6 +518,7 @@ class _AuthViewState extends State<AuthView> {
         challenge?.isUsable == true && !(challenge?.isExpired ?? true);
     return LayoutBuilder(
       builder: (context, constraints) {
+        final isLight = Theme.of(context).brightness == Brightness.light;
         final compact = constraints.maxWidth < 420;
         final narrow = constraints.maxWidth < 520;
         final showInlineQr = !narrow;
@@ -554,15 +547,15 @@ class _AuthViewState extends State<AuthView> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: <Color>[
-                _qrPanelGradientStart,
-                _bgSecondary.withValues(alpha: 0.96),
-                _qrPanelGradientEnd,
+                Color.lerp(_bgCard, _accentAlt, isLight ? 0.05 : 0.11)!,
+                _bgSecondary.withValues(alpha: isLight ? 0.92 : 0.96),
+                Color.lerp(_bgCard, _accent, isLight ? 0.04 : 0.08)!,
               ],
             ),
             border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: _qrPanelGlowBlue.withValues(alpha: 0.12),
+                color: _accent.withValues(alpha: isLight ? 0.08 : 0.12),
                 blurRadius: 36,
                 spreadRadius: 2,
               ),
@@ -579,7 +572,7 @@ class _AuthViewState extends State<AuthView> {
                     height: compact ? 86 : 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _qrPanelGlowBlue.withValues(alpha: 0.12),
+                      color: _accent.withValues(alpha: isLight ? 0.07 : 0.12),
                     ),
                   ),
                 ),
@@ -593,7 +586,9 @@ class _AuthViewState extends State<AuthView> {
                     height: compact ? 110 : 140,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _qrPanelGlowGreen.withValues(alpha: 0.10),
+                      color: _accentAlt.withValues(
+                        alpha: isLight ? 0.06 : 0.10,
+                      ),
                     ),
                   ),
                 ),
@@ -610,7 +605,7 @@ class _AuthViewState extends State<AuthView> {
                         fontSize: titleSize,
                         fontWeight: FontWeight.w700,
                         letterSpacing: compact ? -0.3 : -0.6,
-                        color: Colors.white,
+                        color: _textPrimary,
                         height: compact ? 1.05 : null,
                       ),
                     ),
@@ -620,10 +615,7 @@ class _AuthViewState extends State<AuthView> {
                       child: Text(
                         'On a signed-in Android device, open Account settings, scan this code, and approve the login.',
                         textAlign: titleAlignment,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          height: 1.5,
-                        ),
+                        style: TextStyle(color: _textSecondary, height: 1.5),
                       ),
                     ),
                     SizedBox(height: compact ? 18 : 22),
@@ -631,11 +623,9 @@ class _AuthViewState extends State<AuthView> {
                       width: double.infinity,
                       padding: EdgeInsets.all(qrShellPadding),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: _bgCard.withValues(alpha: isLight ? 0.72 : 0.48),
                         borderRadius: BorderRadius.circular(compact ? 20 : 24),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
+                        border: Border.all(color: _borderLight),
                       ),
                       child: Column(
                         children: <Widget>[
@@ -730,10 +720,7 @@ class _AuthViewState extends State<AuthView> {
                     Text(
                       'Approval stays inside your authenticated mobile session, and each code expires automatically after a short window.',
                       textAlign: titleAlignment,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                        height: 1.45,
-                      ),
+                      style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     const SizedBox(height: 18),
                     SizedBox(
@@ -753,10 +740,8 @@ class _AuthViewState extends State<AuthView> {
                         label: const Text('Refresh code'),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(52),
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
+                          foregroundColor: _textPrimary,
+                          side: BorderSide(color: _borderLight),
                         ),
                       ),
                     ),

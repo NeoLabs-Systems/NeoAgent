@@ -9,6 +9,7 @@ const { getSessionSecret } = require('../services/account/session_secret');
 
 const sessionsDb = require('../db/sessions_db');
 const LEGACY_SESSION_EXPIRE_FALLBACK = 0;
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function boolEnv(name, fallback = false) {
   const raw = String(process.env[name] || '').trim().toLowerCase();
@@ -135,9 +136,10 @@ function createSessionMiddleware({ secureCookies, trustProxy }) {
     name: 'neoagent.sid',
     proxy: trustProxy,
     resave: false,
+    rolling: true,
     saveUninitialized: false,
     cookie: {
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: SESSION_MAX_AGE_MS,
       httpOnly: true,
       sameSite: 'lax',
       secure: secureCookies

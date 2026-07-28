@@ -58,6 +58,26 @@ const updateTriggerLimiter = rateLimit({
 
 // --- Auth ---
 
+function establishAdminSession(req, res, responseBody) {
+  const userId = req.session?.userId;
+  const username = req.session?.username;
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Session error' });
+    if (userId != null) {
+      req.session.userId = userId;
+    }
+    if (username) {
+      req.session.username = username;
+    }
+    req.session.isAdmin = true;
+    req.session.cookie.maxAge = ADMIN_SESSION_TTL;
+    req.session.save((saveErr) => {
+      if (saveErr) return res.status(500).json({ error: 'Session error' });
+      res.json(responseBody);
+    });
+  });
+}
+
 router.get('/login', (req, res) => {
   if (req.session?.isAdmin) return res.redirect('/admin');
   res.sendFile(path.join(ADMIN_DIR, 'login.html'));
@@ -114,15 +134,7 @@ router.post('/api/2fa/verify', loginLimiter, express.json(), async (req, res) =>
     const adminTwoFactor = require('../services/account/admin_two_factor');
     const valid = await adminTwoFactor.verifyCode(code);
     if (!valid) return res.status(401).json({ error: 'Invalid code — try again' });
-    req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: 'Session error' });
-      req.session.isAdmin = true;
-      req.session.cookie.maxAge = ADMIN_SESSION_TTL;
-      req.session.save((saveErr) => {
-        if (saveErr) return res.status(500).json({ error: 'Session error' });
-        res.json({ ok: true });
-      });
-    });
+    establishAdminSession(req, res, { ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -135,21 +147,22 @@ router.post('/api/login/2fa/setup/enable', loginLimiter, express.json(), async (
   try {
     const adminTwoFactor = require('../services/account/admin_two_factor');
     const { recoveryCodes } = await adminTwoFactor.enable(req.body?.code);
-    req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: 'Session error' });
-      req.session.isAdmin = true;
-      req.session.cookie.maxAge = ADMIN_SESSION_TTL;
-      req.session.save((saveErr) => {
-        if (saveErr) return res.status(500).json({ error: 'Session error' });
-        res.json({ ok: true, recoveryCodes });
-      });
-    });
+    establishAdminSession(req, res, { ok: true, recoveryCodes });
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
 router.post('/api/logout', (req, res) => {
+  if (req.session?.userId != null) {
+    delete req.session.isAdmin;
+    delete req.session.adminPendingTwoFactor;
+    delete req.session.adminPendingTwoFactorSetup;
+    return req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json({ ok: true });
+    });
+  }
   req.session.destroy(() => res.json({ ok: true }));
 });
 

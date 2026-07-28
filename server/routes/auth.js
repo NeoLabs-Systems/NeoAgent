@@ -89,6 +89,7 @@ function toUserPayload(user) {
 }
 
 function establishSession(req, res, user, options = {}) {
+  const preserveAdminAccess = req.session?.isAdmin === true;
   req.session.regenerate((regenerateError) => {
     if (regenerateError) {
       console.error('Auth session regenerate error:', regenerateError);
@@ -97,6 +98,9 @@ function establishSession(req, res, user, options = {}) {
 
     req.session.userId = user.id;
     req.session.username = user.username;
+    if (preserveAdminAccess) {
+      req.session.isAdmin = true;
+    }
     if (Number.isFinite(options.maxAgeMs) && options.maxAgeMs > 0) {
       req.session.cookie.maxAge = options.maxAgeMs;
     }
@@ -769,6 +773,15 @@ router.post('/api/auth/password/reset', passwordResetLimiter, async (req, res) =
 });
 
 router.post('/api/auth/logout', (req, res) => {
+  if (req.session?.isAdmin === true) {
+    delete req.session.userId;
+    delete req.session.username;
+    return req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Logout failed' });
+      res.json({ success: true });
+    });
+  }
+
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: 'Logout failed' });
     const secureCookies = req.app?.locals?.httpRuntimeConfig?.secureCookies === true;

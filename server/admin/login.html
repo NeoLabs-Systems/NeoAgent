@@ -6,6 +6,14 @@
   <title>NeoAgent Admin</title>
   <link rel="icon" href="/admin/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin/admin.css">
+  <script>
+    const adminColorScheme = window.matchMedia('(prefers-color-scheme: light)');
+    const syncAdminTheme = (isLight) => {
+      document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+    };
+    syncAdminTheme(adminColorScheme.matches);
+    adminColorScheme.addEventListener('change', (event) => syncAdminTheme(event.matches));
+  </script>
   <style>
     body {
       display: flex;
