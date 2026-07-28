@@ -226,7 +226,6 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'send_message':
-    case 'make_call':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.skipped

@@ -21,10 +21,10 @@ abstract class AppBreakpoints {
 /// panel → major glass surfaces, primary cards (matches theme CardTheme)
 /// pill  → avatars, full-pill badges, status indicators
 abstract class AppRadius {
-  static const double tag   = 8.0;
-  static const double card  = 14.0;
-  static const double input = 14.0;
-  static const double panel = 22.0;
+  static const double tag   = 10.0;
+  static const double card  = 16.0;
+  static const double input = 16.0;
+  static const double panel = 24.0;
   static const double pill  = 999.0;
 }
 

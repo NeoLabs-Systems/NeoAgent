@@ -1,11 +1,9 @@
-const fs = require('fs');
-const path = require('path');
 const { analyzeImageForUser } = require('./imageAnalysis');
+const { resolveUserFileReference } = require('../files/user_file_access');
 const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
 const { isAbortError } = require('../../utils/abort');
 const { fetchResponseText } = require('../network/http');
 const db = require('../../db/database');
-const { DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent } = require('../agents/manager');
 const {
     buildSendMessageFormattingReference,
@@ -928,27 +926,15 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
-            name: 'make_call',
-            description: 'Initiate an outbound phone call via Telnyx Voice to a given phone number. The call will ring the recipient; once answered the AI will greet them and conduct a voice conversation. Use this ONLY when the user explicitly requests a call in their current message. Do NOT call again in follow-up turns unless the user gives a fresh explicit request — discussing or acknowledging a previous call is not a trigger to call again. If the user says stop calling, do not call.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    to: { type: 'string', description: 'Phone number to call in E.164 format, e.g. +12125550100' },
-                    greeting: { type: 'string', description: 'Opening sentence spoken to the recipient when they answer, e.g. "Hi, I am calling on behalf of Neo about your appointment."' }
-                },
-                required: ['to', 'greeting']
-            }
-        },
-        {
             name: 'send_message',
-            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. Supports WhatsApp (text/media), Telnyx Voice (phone calls — TTS), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
-                    platform: { type: 'string', description: 'Platform name, for example whatsapp, telnyx, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
-                    to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Telnyx call_control_id, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target' },
+                    platform: { type: 'string', description: 'Platform name, for example whatsapp, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
+                    to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target' },
                     content: { type: 'string', description: 'Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform.' },
-                    media_path: { type: 'string', description: 'WhatsApp only: absolute path to a local file to attach. Leave empty for text-only or Telnyx.' },
+                    media_path: { type: 'string', description: 'WhatsApp only: a path inside the user workspace or an owned artifact URL. Leave empty for text-only.' },
                     purpose: { type: 'string', enum: ['final_result', 'blocker', 'no_response'], description: 'For background task or schedule runs, required intent for this outbound message. Use final_result for a concrete useful outcome, blocker for a real issue the user should know about, or no_response to intentionally send nothing.' }
                 },
                 required: ['platform', 'to', 'content']
@@ -1290,9 +1276,7 @@ function getAvailableTools(app, options = {}) {
                     trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
-                    model: { type: 'string', description: 'Optional model override.' },
-                    call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this task fires.' },
-                    call_greeting: { type: 'string', description: 'Optional spoken greeting hint for make_call.' }
+                    model: { type: 'string', description: 'Optional model override.' }
                 },
                 required: ['name', 'prompt']
             }
@@ -1326,9 +1310,7 @@ function getAvailableTools(app, options = {}) {
                     trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time).' },
                     prompt: { type: 'string', description: 'Updated task prompt.' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task.' },
-                    model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' },
-                    call_to: { type: 'string', description: 'Optional E.164 phone number to call via Telnyx when this task fires. Set to empty string to remove.' },
-                    call_greeting: { type: 'string', description: 'Updated spoken greeting hint.' }
+                    model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' }
                 },
                 required: ['task_id']
             }
@@ -2362,37 +2344,6 @@ async function executeTool(toolName, args, context, engine) {
             return mm.read(args.target, { date: args.date, userId });
         }
 
-        case 'make_call': {
-            if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
-                return { error: 'Delegated agents cannot make external calls unless external side effects were explicitly allowed.' };
-            }
-            const manager = msg();
-            if (!manager) return { error: 'Messaging not available' };
-            const runState = getRunState(engine, runId);
-            if (hasAlreadySentProactiveMessage({
-                triggerSource,
-                runState,
-                deliveryState,
-                allowMultipleProactiveMessages
-            })) {
-                return {
-                    called: false,
-                    skipped: true,
-                    reason: 'A proactive notification was already sent in this task run; duplicate make_call was suppressed.'
-                };
-            }
-
-            const callResult = await manager.makeCall(userId, args.to, args.greeting, { agentId });
-            if (callResult?.success !== false) {
-                markProactiveMessageSent({
-                    runState,
-                    deliveryState,
-                    content: args.greeting || `[call:${args.to || 'unknown'}]`
-                });
-            }
-            return callResult;
-        }
-
         case 'send_interim_update': {
             if (triggerSource === 'agent_delegation' || triggerSource === 'agent' || context.triggerType === 'subagent') {
                 return { error: 'Interim user-facing updates are not allowed from delegated or sub-agent runs.' };
@@ -2944,8 +2895,6 @@ async function executeTool(toolName, args, context, engine) {
                     prompt: args.prompt,
                     enabled: args.enabled !== false,
                     model: args.model || null,
-                    callTo: args.call_to || null,
-                    callGreeting: args.call_greeting || null,
                     agentId
                 });
                 return { success: true, task, message: `Task "${args.name}" created.` };
@@ -2988,8 +2937,6 @@ async function executeTool(toolName, args, context, engine) {
                 if (args.prompt !== undefined) updates.prompt = args.prompt;
                 if (args.enabled !== undefined) updates.enabled = args.enabled;
                 if (args.model !== undefined) updates.model = args.model || null;
-                if (args.call_to !== undefined) updates.callTo = args.call_to || null;
-                if (args.call_greeting !== undefined) updates.callGreeting = args.call_greeting || null;
                 const updated = await s.updateTask(args.task_id, userId, updates);
                 return { success: true, task: updated };
             } catch (err) {
@@ -3178,6 +3125,9 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'generate_image': {
             try {
+                if (!artifactStore) {
+                    return { error: 'Artifact storage is unavailable.' };
+                }
                 const OpenAI = require('openai');
                 const xai = new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: 'https://api.x.ai/v1' });
                 const count = Math.min(args.n || 1, 4);
@@ -3187,16 +3137,27 @@ async function executeTool(toolName, args, context, engine) {
                     n: count,
                     response_format: 'b64_json'
                 });
-                const MEDIA_DIR = path.join(DATA_DIR, 'media');
-                if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
-                const savedPaths = [];
+                const artifacts = [];
                 for (const img of result.data) {
-                    const fname = `generated_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
-                    const fpath = path.join(MEDIA_DIR, fname);
-                    fs.writeFileSync(fpath, Buffer.from(img.b64_json, 'base64'));
-                    savedPaths.push(fpath);
+                    const artifact = await artifactStore.createBufferArtifact(userId, {
+                        kind: 'generated-image',
+                        filenameBase: 'generated-image',
+                        extension: 'png',
+                        contentType: 'image/png',
+                        content: Buffer.from(img.b64_json, 'base64'),
+                    });
+                    artifacts.push({
+                        artifactId: artifact.artifactId,
+                        path: artifact.url,
+                    });
                 }
-                return { success: true, paths: savedPaths, count: savedPaths.length, message: `Generated ${savedPaths.length} image(s). Use send_message with media_path to share.` };
+                return {
+                    success: true,
+                    artifacts,
+                    paths: artifacts.map((artifact) => artifact.path),
+                    count: artifacts.length,
+                    message: `Generated ${artifacts.length} image(s). Use send_message with media_path to share.`,
+                };
             } catch (err) {
                 return { error: err.message };
             }
@@ -3210,10 +3171,17 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'analyze_image': {
             try {
+                const imagePath = resolveUserFileReference({
+                    userId,
+                    reference: args.image_path,
+                    artifactStore,
+                    workspaceManager: wc(),
+                    label: 'Image',
+                });
                 const result = await analyzeImageForUser({
                     userId,
                     agentId,
-                    imagePath: args.image_path,
+                    imagePath,
                     question: args.question || 'Describe this image in detail.',
                 });
                 return result;
@@ -3224,11 +3192,15 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'ocr_extract': {
             try {
-                if (!fs.existsSync(args.image_path)) {
-                    return { error: 'File not found: ' + args.image_path };
-                }
+                const imagePath = resolveUserFileReference({
+                    userId,
+                    reference: args.image_path,
+                    artifactStore,
+                    workspaceManager: wc(),
+                    label: 'OCR image',
+                });
                 const Tesseract = require('tesseract.js');
-                const result = await Tesseract.recognize(args.image_path, 'eng');
+                const result = await Tesseract.recognize(imagePath, 'eng');
                 return { text: result.data.text, confidence: result.data.confidence };
             } catch (err) {
                 return { error: err.message };

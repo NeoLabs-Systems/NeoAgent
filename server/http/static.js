@@ -40,18 +40,6 @@ function setFlutterStaticHeaders(res, filePath) {
 
 function registerStaticRoutes(app) {
   app.use(
-    '/telnyx-audio',
-    express.static(path.join(DATA_DIR, 'telnyx-audio'), {
-      index: false,
-      setHeaders: (res, filePath) => {
-        if (!filePath.match(/\.(mp3|wav|ogg|aac|m4a)$/i)) {
-          res.status(403).end();
-        }
-      }
-    })
-  );
-
-  app.use(
     '/screenshots',
     requireAuth,
     express.static(path.join(DATA_DIR, 'screenshots'))

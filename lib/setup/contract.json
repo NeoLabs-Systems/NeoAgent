@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "defaultPort": 3333,
+  "profiles": [
+    {
+      "id": "quick",
+      "label": "Quickstart",
+      "description": "Install the NeoAgent core with safe defaults.",
+      "optionalCapabilities": false
+    },
+    {
+      "id": "full",
+      "label": "Full setup",
+      "description": "Configure networking, providers, integrations, voice, and optional capabilities.",
+      "optionalCapabilities": true
+    }
+  ],
+  "completionSections": [
+    "core",
+    "network",
+    "providers",
+    "integrations",
+    "voice",
+    "optional-capabilities"
+  ],
+  "wizardSections": [
+    {
+      "id": "core",
+      "label": "Installation and network",
+      "optional": false
+    },
+    {
+      "id": "providers",
+      "label": "AI providers",
+      "optional": true
+    },
+    {
+      "id": "integrations",
+      "label": "Integrations",
+      "optional": true
+    },
+    {
+      "id": "voice",
+      "label": "Voice and media",
+      "optional": true
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "optional": false
+    }
+  ],
+  "eventStages": [
+    "prepare",
+    "configuration",
+    "dependencies",
+    "download",
+    "verify",
+    "install",
+    "service",
+    "connect",
+    "complete",
+    "doctor",
+    "setup"
+  ],
+  "resumeValueKeys": [
+    "PORT",
+    "PUBLIC_URL",
+    "SECURE_COOKIES",
+    "TRUST_PROXY",
+    "NEOAGENT_DEPLOYMENT_MODE",
+    "NEOAGENT_RELEASE_CHANNEL",
+    "ALLOWED_ORIGINS",
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_BASE_URL",
+    "XAI_BASE_URL",
+    "OLLAMA_URL",
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    "NOTION_OAUTH_REDIRECT_URI",
+    "MICROSOFT_OAUTH_REDIRECT_URI",
+    "MICROSOFT_OAUTH_TENANT_ID",
+    "SLACK_OAUTH_REDIRECT_URI",
+    "FIGMA_OAUTH_REDIRECT_URI",
+    "GITHUB_OAUTH_REDIRECT_URI",
+    "DEEPGRAM_BASE_URL",
+    "DEEPGRAM_MODEL",
+    "DEEPGRAM_LANGUAGE"
+  ],
+  "runtimeTargets": {
+    "macos": [
+      "x64",
+      "arm64"
+    ],
+    "windows": [
+      "x64",
+      "arm64"
+    ],
+    "linux": [
+      "x64"
+    ]
+  }
+}

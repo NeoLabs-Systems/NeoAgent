@@ -1,4 +1,5 @@
 ---
+catalog: false
 name: agent-migration
 description: Guides users through migrating from OpenClaw or Hermes to NeoAgent. Run this skill when a user wants to migrate their existing agent setup. Provides step-by-step guidance, dry-run previews, and handles API key conflicts interactively.
 version: 1.0.0

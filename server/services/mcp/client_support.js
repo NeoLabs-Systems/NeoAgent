@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const db = require('../../db/database');
+const { DEFAULT_NEOAGENT_PORT } = require('../../../lib/setup/contract');
 
 const OAUTH_STATE_TTL_MS = 10 * 60_000;
 
@@ -17,7 +18,8 @@ class DBAuthProvider {
   }
 
   get redirectUrl() {
-    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3333}`;
+    const baseUrl = process.env.PUBLIC_URL
+      || `http://localhost:${process.env.PORT || DEFAULT_NEOAGENT_PORT}`;
     return `${baseUrl}/api/mcp/oauth/callback`;
   }
 

@@ -1,12 +1,12 @@
 'use strict';
 
 const { requireAuth } = require('../middleware/auth');
-const { setupTelnyxWebhook } = require('../routes/telnyx');
 const { getVersionInfo } = require('../utils/version');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 
 const routeRegistry = [
   { basePath: '/api/public', modulePath: '../routes/public_status' },
+  { basePath: '/api/setup', modulePath: '../routes/setup' },
   { basePath: '/api/runtime', modulePath: '../routes/runtime' },
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
@@ -65,8 +65,6 @@ function registerApiRoutes(app) {
       res.json({ enabled: false, plans: null });
     });
   }
-
-  setupTelnyxWebhook(app);
 
   app.get('/api/health', requireAuth, (req, res) => {
     const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);

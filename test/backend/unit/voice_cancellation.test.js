@@ -110,6 +110,56 @@ test('voice session interruption aborts old turn work and reset creates a fresh 
   assert.equal(session.interrupted, false);
 });
 
+test('voice runtime mutations require the owning user id', async () => {
+  const ctx = createTestRuntime();
+  const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');
+  const manager = new VoiceRuntimeManager({
+    io: null,
+    agentEngine: { abort() {} },
+    memoryManager: null,
+  });
+  let inputStarted = false;
+  const session = {
+    id: 'owned-session',
+    userId: 7,
+    currentRunId: null,
+    async interruptOutput() {},
+    resetTurnState() {},
+    async setState() {},
+    async close() {},
+    adapter: {
+      async onInputStart() {
+        inputStarted = true;
+      },
+      async close() {},
+    },
+  };
+  manager.sessions.set(session.id, session);
+
+  try {
+    await assert.rejects(
+      manager.beginInput(session.id, {}, 8),
+      /access denied/,
+    );
+    await assert.rejects(
+      manager.beginInput(session.id),
+      /access denied/,
+    );
+    await assert.rejects(
+      manager.closeSession(session.id, 'client_closed', 8),
+      /access denied/,
+    );
+    assert.equal(manager.getSession(session.id), session);
+
+    await manager.beginInput(session.id, {}, 7);
+    assert.equal(inputStarted, true);
+    await manager.closeSession(session.id, 'client_closed', 7);
+    assert.equal(manager.getSession(session.id), null);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
 test('voice runtime shutdown closes sessions, aborts runs, and refuses new sessions', async () => {
   const ctx = createTestRuntime();
   const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');

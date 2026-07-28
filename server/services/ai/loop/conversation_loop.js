@@ -2435,7 +2435,7 @@ async function runConversation(engine, userId, userMessage, options = {}, _model
       || '',
       options?.source || null,
     );
-    const lastToolWasMessaging = runMeta?.lastToolName === 'send_message' || runMeta?.lastToolName === 'make_call';
+    const lastToolWasMessaging = runMeta?.lastToolName === 'send_message';
 
     // Hermes _handle_max_iterations: if the run exhausted its step budget without a
     // judged completion, the model's last text is usually a mid-thought fragment

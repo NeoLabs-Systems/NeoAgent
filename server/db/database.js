@@ -5,6 +5,7 @@ const { randomUUID } = require('crypto');
 const {
   DATA_DIR,
   DATABASE_FILE,
+  ensurePrivateFile,
   ensureRuntimeDirs,
 } = require('../../runtime/paths');
 const {
@@ -88,6 +89,9 @@ function runWithBusyRetry(action, { attempts = 3, label = 'SQLite operation' } =
 
 let db = new Database(DB_PATH);
 db = initializeDatabase(db, DB_PATH);
+ensurePrivateFile(DB_PATH);
+ensurePrivateFile(`${DB_PATH}-wal`);
+ensurePrivateFile(`${DB_PATH}-shm`);
 
 const STALE_RUN_INTERRUPTED_ERROR = 'Server restarted while run was in progress.';
 

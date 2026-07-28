@@ -68,7 +68,7 @@ when NeoAgent only needs retrieval context.
 
 Configure messaging under **Settings > Messaging**. Supported bridges include
 WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal,
-iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, Telnyx Voice, and
+iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, and
 several webhook-backed services.
 
 Each channel has its own authentication and allowlist behavior. Restrict which

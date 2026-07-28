@@ -7,6 +7,8 @@ Prefer the setup wizard or environment CLI over manual file edits:
 
 ```bash
 neoagent setup
+neoagent setup --quick
+neoagent setup --full
 neoagent env list
 ```
 
@@ -18,7 +20,7 @@ startup.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `3333` | HTTP port |
+| `PORT` | first available preferred port | HTTP port |
 | `PUBLIC_URL` | unset | Public HTTPS base URL for remote clients, OAuth, and webhooks |
 | `SESSION_SECRET` | required | Session-signing secret |
 | `NODE_ENV` | `production` | Node environment |
@@ -27,6 +29,8 @@ startup.
 | `ALLOWED_ORIGINS` | unset | Additional comma-separated CORS origins |
 | `NEOAGENT_PROFILE` | `prod` | Deployment/runtime policy profile |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Update channel |
+| `NEOAGENT_SETUP_PROFILE` | `quick` | Last selected setup profile |
+| `NEOAGENT_SETUP_COMPLETED_SECTIONS` | `core` | Non-secret setup completion state |
 
 Generate a session secret before setting it:
 
@@ -135,8 +139,6 @@ documentation or issue reports.
 ## Messaging
 
 Messaging credentials are normally configured in **Settings > Messaging**.
-`TELNYX_WEBHOOK_TOKEN` remains a server environment value for Telnyx webhook
-verification.
 
 ## Runtime paths
 

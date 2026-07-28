@@ -2099,7 +2099,6 @@ class AgentEngine {
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_interim_update') return 'note';
     if (toolName === 'send_message') return 'messaging';
-    if (toolName === 'make_call') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
     if (toolName === 'create_task' || toolName === 'update_task' || toolName === 'delete_task' || toolName === 'list_tasks' || toolName.includes('widget')) return 'tasks';
     if (toolName.includes('subagent')) return 'subagent';

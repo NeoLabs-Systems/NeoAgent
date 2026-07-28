@@ -475,6 +475,14 @@ function createSpotifyProvider() {
         },
       };
     },
+    async testConnection(context) {
+      const { credentials } = await spotifyRequest(
+        resolveSpotifyOAuthConfig(),
+        context,
+        { path: '/v1/me' },
+      );
+      return { credentials };
+    },
     executeTool: executeSpotifyTool,
   });
 }

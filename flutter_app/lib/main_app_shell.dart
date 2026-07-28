@@ -46,490 +46,6 @@ class SplashView extends StatelessWidget {
   }
 }
 
-class BackendSetupView extends StatefulWidget {
-  const BackendSetupView({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<BackendSetupView> createState() => _BackendSetupViewState();
-}
-
-class _BackendSetupViewState extends State<BackendSetupView> {
-  late final TextEditingController _backendUrlController;
-  bool _localInstall = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _backendUrlController = TextEditingController(
-      text: widget.controller.backendUrl,
-    );
-  }
-
-  @override
-  void dispose() {
-    _backendUrlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    await widget.controller.saveBackendUrl(_backendUrlController.text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_localInstall) {
-      return _LocalInstallWidget(
-        controller: widget.controller,
-        onBack: () => setState(() => _localInstall = false),
-      );
-    }
-    final controller = widget.controller;
-    return _AmbientBackdrop(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: _EntranceMotion(
-                  child: _GlassSurface(
-                    borderRadius: BorderRadius.circular(34),
-                    blurSigma: 28,
-                    boxShadow: _softPanelShadow,
-                    overlayGradient: _panelGradient,
-                    fillColor: _glassFill,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const _BrandLockup(logoSize: 60),
-                          const SizedBox(height: 22),
-                          Text(
-                            'FIRST-RUN SETUP',
-                            style: _sectionEyebrowStyle(),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Connect this build to your NeoAgent backend',
-                            style: _displayTitleStyle(34),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'This build was not bundled with a backend endpoint. Enter your NeoAgent server URL once and the app will store it locally for future launches.',
-                            style: TextStyle(
-                              color: _textSecondary,
-                              height: 1.55,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          TextField(
-                            controller: _backendUrlController,
-                            keyboardType: TextInputType.url,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _submit(),
-                            decoration: const InputDecoration(
-                              labelText: 'Backend URL',
-                              hintText: 'https://neoagent.example.com',
-                              prefixIcon: Icon(Icons.cloud_outlined),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: _bgSecondary.withValues(alpha: 0.72),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: _borderLight),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Icon(
-                                  Icons.privacy_tip_outlined,
-                                  color: _accent,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Use your hosted NeoAgent URL. If you enter a hostname without a scheme, the app will infer `https://` for remote hosts and `http://` for local addresses.',
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      height: 1.45,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (controller.errorMessage
-                              case final message?) ...<Widget>[
-                            const SizedBox(height: 16),
-                            _InlineError(message: message),
-                          ],
-                          const SizedBox(height: 22),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: controller.isSavingBackendUrl
-                                  ? null
-                                  : _submit,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _accent,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                              icon: controller.isSavingBackendUrl
-                                  ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.arrow_forward_rounded),
-                              label: Text(
-                                controller.isSavingBackendUrl
-                                    ? 'Connecting...'
-                                    : 'Connect Backend',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Center(
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  setState(() => _localInstall = true),
-                              icon: const Icon(
-                                Icons.download_outlined,
-                                size: 16,
-                              ),
-                              label: const Text(
-                                'Install NeoAgent on this machine',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Local Install Widget ────────────────────────────────────────────────────
-
-enum _LocalInstallPhase { checking, ready, installing, done, failed }
-
-class _LocalInstallWidget extends StatefulWidget {
-  const _LocalInstallWidget({required this.controller, required this.onBack});
-
-  final NeoAgentController controller;
-  final VoidCallback onBack;
-
-  @override
-  State<_LocalInstallWidget> createState() => _LocalInstallWidgetState();
-}
-
-class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
-  _LocalInstallPhase _phase = _LocalInstallPhase.checking;
-  String? _nodePath;
-  String? _installDir;
-  final List<String> _log = [];
-  final _logScrollCtrl = ScrollController();
-  Process? _proc;
-  String? _errorMsg;
-
-  LocalRuntimePaths get _runtimePaths => LocalRuntimePaths.fromEnvironment(
-    Platform.environment,
-    isWindows: Platform.isWindows,
-  );
-  String get _home => _runtimePaths.homeDirectory;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  @override
-  void dispose() {
-    _logScrollCtrl.dispose();
-    _proc?.kill(ProcessSignal.sigkill);
-    super.dispose();
-  }
-
-  Future<void> _check() async {
-    if (!mounted) return;
-    setState(() => _phase = _LocalInstallPhase.checking);
-
-    final r = await Process.run(Platform.isWindows ? 'where' : 'which', [
-      'node',
-    ]);
-    if (r.exitCode == 0) {
-      _nodePath = (r.stdout as String).trim().split('\n').first.trim();
-    } else if (!Platform.isWindows) {
-      for (final p in ['/opt/homebrew/bin/node', '/usr/local/bin/node']) {
-        if (File(p).existsSync()) {
-          _nodePath = p;
-          break;
-        }
-      }
-    }
-
-    final defaultDir = '$_home/NeoAgent';
-    if (File('$defaultDir/bin/neoagent.js').existsSync()) {
-      _installDir = defaultDir;
-    }
-
-    if (!mounted) return;
-    if (_nodePath != null && _installDir != null) {
-      setState(() => _phase = _LocalInstallPhase.ready);
-    } else {
-      setState(() {
-        _phase = _LocalInstallPhase.failed;
-        _errorMsg = _nodePath == null
-            ? 'Node.js not found. Install it from nodejs.org then retry.'
-            : 'NeoAgent not found at ~/NeoAgent. Run: npm install -g neoagent && neoagent install';
-      });
-    }
-  }
-
-  bool _ensureEnvFile() {
-    final envPath = _runtimePaths.envFile;
-    if (!File(envPath).existsSync()) {
-      try {
-        Directory(_runtimePaths.runtimeHome).createSync(recursive: true);
-        File(envPath).writeAsStringSync('NODE_ENV=production\nPORT=3333\n');
-      } catch (_) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  Future<void> _install() async {
-    if (!_ensureEnvFile()) {
-      setState(() {
-        _phase = _LocalInstallPhase.failed;
-        _errorMsg =
-            'Could not create the NeoAgent runtime configuration — check directory permissions.';
-      });
-      return;
-    }
-    setState(() {
-      _phase = _LocalInstallPhase.installing;
-      _log.clear();
-    });
-
-    final process = await Process.start(_nodePath!, [
-      'bin/neoagent.js',
-      'install',
-    ], workingDirectory: _installDir);
-    _proc = process;
-
-    void onChunk(String data) {
-      if (!mounted) return;
-      setState(() => _log.add(data));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScrollCtrl.hasClients) {
-          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
-        }
-      });
-    }
-
-    process.stdout.transform(utf8.decoder).listen(onChunk);
-    process.stderr.transform(utf8.decoder).listen(onChunk);
-
-    final exit = await process.exitCode;
-    _proc = null;
-    if (!mounted) return;
-    setState(() {
-      _phase = exit == 0 ? _LocalInstallPhase.done : _LocalInstallPhase.failed;
-      if (exit != 0) {
-        _errorMsg = 'Installation failed (exit $exit). Check the log above.';
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _AmbientBackdrop(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: _EntranceMotion(
-                  child: _GlassSurface(
-                    borderRadius: BorderRadius.circular(34),
-                    blurSigma: 28,
-                    boxShadow: _softPanelShadow,
-                    overlayGradient: _panelGradient,
-                    fillColor: _glassFill,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(34, 28, 34, 30),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          TextButton.icon(
-                            onPressed: widget.onBack,
-                            icon: const Icon(Icons.arrow_back, size: 16),
-                            label: const Text('Back'),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const _BrandLockup(logoSize: 60),
-                          const SizedBox(height: 22),
-                          Text(
-                            'INSTALL LOCALLY',
-                            style: _sectionEyebrowStyle(),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Install NeoAgent as a background service',
-                            style: _displayTitleStyle(28),
-                          ),
-                          const SizedBox(height: 20),
-                          _buildContent(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
-    switch (_phase) {
-      case _LocalInstallPhase.checking:
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ),
-        );
-      case _LocalInstallPhase.ready:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'NeoAgent found at $_installDir. Click Install to set up the background service.',
-              style: TextStyle(color: _textSecondary, height: 1.55),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _install,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('Install NeoAgent'),
-              ),
-            ),
-          ],
-        );
-      case _LocalInstallPhase.installing:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Installing...')),
-                TextButton(
-                  onPressed: () async {
-                    final proc = _proc;
-                    proc?.kill(ProcessSignal.sigterm);
-                    await proc?.exitCode;
-                    if (mounted) {
-                      setState(() => _phase = _LocalInstallPhase.ready);
-                    }
-                  },
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _InstallLogCard(lines: _log, scrollController: _logScrollCtrl),
-          ],
-        );
-      case _LocalInstallPhase.done:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(Icons.check_circle_outline, color: _success),
-                const SizedBox(width: 8),
-                const Text('NeoAgent is running.'),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () =>
-                    widget.controller.saveBackendUrl('http://localhost:3333'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Text('Connect to local NeoAgent'),
-              ),
-            ),
-          ],
-        );
-      case _LocalInstallPhase.failed:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _InlineError(message: _errorMsg ?? 'Installation failed.'),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _check,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        );
-    }
-  }
-}
-
 class AuthView extends StatefulWidget {
   const AuthView({super.key, required this.controller});
 
@@ -1922,47 +1438,76 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 268,
+      width: 276,
       decoration: BoxDecoration(
-        color: _bgSecondary,
+        color: _bgSecondary.withValues(alpha: 0.96),
         border: Border(right: BorderSide(color: _border)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 24,
+            offset: const Offset(4, 0),
+          ),
+        ],
       ),
       child: Column(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 18, 12),
-            child: Row(
-              children: <Widget>[
-                const _LogoBadge(size: 38),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        'NeoAgent',
-                        style: GoogleFonts.geist(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: _textPrimary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'CONTROL SURFACE',
-                        style: GoogleFonts.geistMono(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: _textMuted,
-                          letterSpacing: 1.8,
-                        ),
-                      ),
-                    ],
-                  ),
+            padding: const EdgeInsets.fromLTRB(18, 18, 16, 14),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _border),
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    _bgCard.withValues(alpha: 0.9),
+                    _bgSecondary.withValues(alpha: 0.55),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: _accent.withValues(alpha: 0.05),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: <Widget>[
+                  const _LogoBadge(size: 38),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          'NeoAgent',
+                          style: GoogleFonts.geist(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                            letterSpacing: -0.35,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'CONTROL SURFACE',
+                          style: GoogleFonts.geistMono(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: _textMuted,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (controller.agentProfiles.isNotEmpty)
@@ -1972,7 +1517,7 @@ class _Sidebar extends StatelessWidget {
             ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
               children: _buildSidebarItems(
                 controller,
                 onSelect: controller.setSelectedSection,
@@ -1982,9 +1527,19 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 14),
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: _border)),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+              color: _bgCard.withValues(alpha: 0.72),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Row(
               children: <Widget>[
@@ -2002,7 +1557,8 @@ class _Sidebar extends StatelessWidget {
                     style: GoogleFonts.geist(
                       color: _textSecondary,
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
                     ),
                   ),
                 ),
@@ -2013,7 +1569,7 @@ class _Sidebar extends StatelessWidget {
                   onTap: () =>
                       controller.setSelectedSection(AppSection.accountSettings),
                 ),
-                const SizedBox(width: 2),
+                const SizedBox(width: 4),
                 _SidebarIconButton(
                   tooltip: 'Logout',
                   icon: Icons.logout,

@@ -35,7 +35,6 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/browser-extension/pairing/request',
   'POST /api/browser-extension/pairing/:pairingId/claim',
   'POST /api/messaging/webhook/:platform',
-  'POST /api/telnyx/webhook',
 ]);
 
 const INTENTIONALLY_UNTESTED = new Map([

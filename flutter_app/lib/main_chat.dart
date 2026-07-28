@@ -1458,7 +1458,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
         'Local device bridges and TCP-connected integrations.',
         ['meshtastic'],
       ),
-      const ('Voice', 'Telephony integrations.', ['telnyx']),
     ];
     final query = _searchController.text.trim().toLowerCase();
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
@@ -2940,14 +2939,6 @@ class _MessagingCard extends StatelessWidget {
                 onPressed: () => _editAccessPolicy(context, controller),
                 icon: Icon(Icons.group_add_outlined),
               ),
-              if (platform.id == 'telnyx') ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: 'Voice PIN',
-                  onPressed: () => _editTelnyxSecret(context, controller),
-                  icon: Icon(Icons.password_outlined),
-                ),
-              ],
               if (connected) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
@@ -2981,26 +2972,6 @@ class _MessagingCard extends StatelessWidget {
       onSave: (policy) =>
           controller.saveMessagingAccessPolicy(platform.id, policy),
     );
-  }
-
-  Future<void> _editTelnyxSecret(
-    BuildContext context,
-    NeoAgentController controller,
-  ) async {
-    final initial =
-        controller.settings['platform_voice_secret_telnyx']?.toString() ?? '';
-    final saved = await _showTextSettingDialog(
-      context,
-      title: 'Voice PIN',
-      subtitle:
-          'Set the PIN callers must enter before the voice agent answers.',
-      label: 'PIN or passphrase',
-      initialValue: initial,
-      obscureText: true,
-    );
-    if (saved != null) {
-      await controller.saveTelnyxVoiceSecret(saved);
-    }
   }
 }
 
@@ -4068,54 +4039,6 @@ class _MessagingAccessRulePickerSheetState
         ),
       ),
     );
-  }
-}
-
-Future<String?> _showTextSettingDialog(
-  BuildContext context, {
-  required String title,
-  required String subtitle,
-  required String label,
-  required String initialValue,
-  bool obscureText = false,
-}) async {
-  final controller = TextEditingController(text: initialValue);
-  try {
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _bgCard,
-        title: Text(title),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(subtitle, style: TextStyle(color: _textSecondary)),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                obscureText: obscureText,
-                decoration: InputDecoration(labelText: label),
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text('Save'),
-          ),
-        ],
-      ),
-    );
-  } finally {
-    controller.dispose();
   }
 }
 
@@ -5456,8 +5379,6 @@ Future<void> openMessagingConfig(
         platformLabel: platform.label,
       );
       return;
-    case 'telnyx':
-      return _openTelnyxConfigHelper(context, controller);
     default:
       return _openGenericMessagingConfigHelper(context, controller, platform);
   }
@@ -5489,117 +5410,6 @@ Future<bool> _connectMessagingPlatformHelper(
       ),
     );
     return false;
-  }
-}
-
-Future<void> _openTelnyxConfigHelper(
-  BuildContext context,
-  NeoAgentController controller,
-) async {
-  final saved = _jsonMap(
-    _decodeMaybeJson(controller.settings['telnyx_config']),
-  );
-  final apiKey = TextEditingController(text: saved['apiKey']?.toString() ?? '');
-  final phoneNumber = TextEditingController(
-    text: saved['phoneNumber']?.toString() ?? '',
-  );
-  final connectionId = TextEditingController(
-    text: saved['connectionId']?.toString() ?? '',
-  );
-  final webhookUrl = TextEditingController(
-    text: saved['webhookUrl']?.toString() ?? controller.backendUrl,
-  );
-
-  try {
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setLocalState) {
-            return AlertDialog(
-              backgroundColor: _bgCard,
-              title: Text('Telnyx Voice'),
-              content: SizedBox(
-                width: 620,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextField(
-                        controller: apiKey,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: 'API Key'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: phoneNumber,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: connectionId,
-                        decoration: const InputDecoration(
-                          labelText: 'Connection ID',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: webhookUrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Webhook Base URL',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Voice STT/TTS providers and models are configured in global Settings > Voice.',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final config = <String, dynamic>{
-                      'apiKey': apiKey.text.trim(),
-                      'phoneNumber': phoneNumber.text.trim(),
-                      'connectionId': connectionId.text.trim(),
-                      'webhookUrl': webhookUrl.text.trim(),
-                    };
-                    final connected = await _connectMessagingPlatformHelper(
-                      context,
-                      controller,
-                      platform: 'telnyx',
-                      platformLabel: 'Telnyx Voice',
-                      config: config,
-                      configSnapshot: <String, dynamic>{
-                        'telnyx_config': jsonEncode(config),
-                      },
-                    );
-                    if (connected && context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: Text('Connect'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  } finally {
-    apiKey.dispose();
-    phoneNumber.dispose();
-    connectionId.dispose();
-    webhookUrl.dispose();
   }
 }
 

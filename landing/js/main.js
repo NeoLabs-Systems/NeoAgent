@@ -1,77 +1,107 @@
-/* NeoAgent landing v3 — interactions */
+/* NeoAgent landing — Control Surface interactions */
 (function () {
   'use strict';
+
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const nav = document.querySelector('[data-nav]');
+  const toggle = document.querySelector('[data-nav-toggle]');
+  const mobileMenu = document.querySelector('[data-mobile-menu]');
 
-  /* ---- nav scrolled ---- */
-  const nav = document.querySelector('.nav');
-  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 12);
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+  const onScrollNav = () => {
+    if (!nav) return;
+    nav.classList.toggle('scrolled', window.scrollY > 10);
+  };
+  window.addEventListener('scroll', onScrollNav, { passive: true });
+  onScrollNav();
 
-  /* ---- mobile menu ---- */
-  const toggle = document.querySelector('.nav-toggle');
-  if (toggle) {
-    toggle.addEventListener('click', () => nav.classList.toggle('open'));
-    nav.querySelectorAll('.mobile-menu a').forEach((a) =>
-      a.addEventListener('click', () => nav.classList.remove('open'))
-    );
+  if (toggle && nav) {
+    toggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    mobileMenu?.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        nav.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Open menu');
+      });
+    });
   }
 
-  /* ---- scroll reveals (rect-based) ---- */
+  // Duplicate marquee content for seamless loop
+  document.querySelectorAll('[data-marquee]').forEach((row) => {
+    row.innerHTML = row.innerHTML + row.innerHTML;
+  });
+
+  // Scroll reveals
   const reveals = Array.from(document.querySelectorAll('.reveal'));
   let pending = reveals.slice();
-  const check = () => {
+  const checkReveals = () => {
     const vh = window.innerHeight;
     pending = pending.filter((el) => {
-      const r = el.getBoundingClientRect();
-      if (r.top < vh * 0.9 && r.bottom > 0) { el.classList.add('in'); return false; }
+      const rect = el.getBoundingClientRect();
+      if (rect.top < vh * 0.9 && rect.bottom > 0) {
+        el.classList.add('in');
+        return false;
+      }
       return true;
     });
-    if (!pending.length) window.removeEventListener('scroll', onRev);
+    if (!pending.length) {
+      window.removeEventListener('scroll', onReveal);
+      window.removeEventListener('resize', onReveal);
+    }
   };
-  let tick = false;
-  const onRev = () => { if (tick) return; tick = true; requestAnimationFrame(() => { check(); tick = false; }); };
-  window.addEventListener('scroll', onRev, { passive: true });
-  window.addEventListener('resize', onRev, { passive: true });
-  requestAnimationFrame(check);
-  // safety nets: all reveals + hero animated elements
-  setTimeout(() => {
-    reveals.forEach((el) => el.classList.add('in'));
-    const heroEls = document.querySelectorAll('.hero h1 .w, .hero .pill, .hero .lede, .hero-actions, .hero-note');
-    heroEls.forEach((el) => { el.style.animation = 'none'; el.style.opacity = '1'; el.style.transform = 'none'; el.style.filter = 'none'; });
-  }, 1200);
 
-  /* ---- scroll progress ---- */
+  let revealTick = false;
+  const onReveal = () => {
+    if (revealTick) return;
+    revealTick = true;
+    requestAnimationFrame(() => {
+      checkReveals();
+      revealTick = false;
+    });
+  };
+
+  window.addEventListener('scroll', onReveal, { passive: true });
+  window.addEventListener('resize', onReveal, { passive: true });
+  requestAnimationFrame(checkReveals);
+  setTimeout(() => reveals.forEach((el) => el.classList.add('in')), 1400);
+
+  // Scroll progress
   const bar = document.createElement('div');
   bar.className = 'scroll-progress';
+  bar.setAttribute('aria-hidden', 'true');
   document.body.appendChild(bar);
-  const onProg = () => {
-    const h = document.documentElement.scrollHeight - window.innerHeight;
-    bar.style.width = (h > 0 ? (window.scrollY / h) * 100 : 0) + '%';
+  const onProgress = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
   };
-  window.addEventListener('scroll', onProg, { passive: true });
-  onProg();
+  window.addEventListener('scroll', onProgress, { passive: true });
+  onProgress();
+
+  // Hide sign-in on static GitHub Pages hosts
+  if (location.hostname.includes('github.io')) {
+    document.querySelectorAll('a.signin').forEach((a) => {
+      a.style.display = 'none';
+    });
+  }
 
   if (reduced) return;
 
-  /* ---- github pages: hide sign-in (no app at /app on static host) ---- */
-  if (location.hostname.includes('github.io')) {
-    document.querySelectorAll('a.signin').forEach((a) => (a.style.display = 'none'));
-  }
-
-  /* ---- hero parallax ---- */
-  const stage = document.querySelector('.hero-stage');
-  const orbitStage = document.querySelector('.orbit-stage');
+  // Subtle hero parallax
+  const stage = document.querySelector('.product-stage');
   let raf = null;
-  const onPar = () => {
+  const onParallax = () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
-      const y = window.scrollY;
-      if (stage) stage.style.transform = `translateY(${Math.min(y, 500) * -0.028}px)`;
-      if (orbitStage) orbitStage.style.transform = `translateY(${Math.min(y, 400) * -0.015}px)`;
+      if (stage) {
+        const y = Math.min(window.scrollY, 480);
+        stage.style.transform = `translateY(${y * -0.03}px)`;
+      }
       raf = null;
     });
   };
-  window.addEventListener('scroll', onPar, { passive: true });
+  window.addEventListener('scroll', onParallax, { passive: true });
 })();

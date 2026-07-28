@@ -13,12 +13,6 @@ const {
 // ── getPlatformFormattingProfile ────────────────────────────────────────────
 
 describe('getPlatformFormattingProfile', () => {
-  it('returns telnyx spoken-only profile', () => {
-    const p = getPlatformFormattingProfile('telnyx');
-    assert.equal(p.spokenOnly, true);
-    assert.equal(p.inlineCode, false);
-  });
-
   it('returns whatsapp non-spoken profile', () => {
     const p = getPlatformFormattingProfile('whatsapp');
     assert.equal(p.spokenOnly, false);
@@ -29,11 +23,6 @@ describe('getPlatformFormattingProfile', () => {
     const p = getPlatformFormattingProfile('unknown_platform');
     const def = getPlatformFormattingProfile('default');
     assert.deepEqual(p, def);
-  });
-
-  it('is case-insensitive', () => {
-    const p = getPlatformFormattingProfile('TELNYX');
-    assert.equal(p.spokenOnly, true);
   });
 
   it('handles null/undefined platform', () => {
@@ -64,7 +53,7 @@ describe('normalizeOutgoingMessageForPlatform', () => {
   });
 
   it('collapses markdown code fences for whatsapp', () => {
-    // normalizeVisualMarkdown is only applied by platform-specific adapters (whatsapp, telnyx)
+    // normalizeVisualMarkdown is applied by the WhatsApp adapter.
     const input = '```js\nconsole.log("hi")\n```';
     const result = normalizeOutgoingMessageForPlatform('whatsapp', input);
     assert.ok(!result.includes('```'));
@@ -96,18 +85,6 @@ describe('normalizeOutgoingMessageForPlatform', () => {
     const input = 'See https://example.com/news for details';
     const result = normalizeOutgoingMessageForPlatform('whatsapp', input);
     assert.equal(result, input);
-  });
-
-  it('strips bold markdown for telnyx spoken output', () => {
-    const result = normalizeOutgoingMessageForPlatform('telnyx', '**important** word');
-    assert.ok(!result.includes('**'));
-  });
-
-  it('telnyx flattens newlines to spaces', () => {
-    const result = normalizeOutgoingMessageForPlatform('telnyx', 'line one\nline two');
-    assert.ok(!result.includes('\n'));
-    assert.ok(result.includes('line one'));
-    assert.ok(result.includes('line two'));
   });
 
   it('coerces object content with text key', () => {
@@ -149,11 +126,6 @@ describe('splitOutgoingMessageForPlatform', () => {
     assert.equal(result.length, 2);
     assert.equal(result[0], 'para one');
     assert.equal(result[1], 'para two');
-  });
-
-  it('returns single chunk for telnyx (spoken-only, no splitting)', () => {
-    const result = splitOutgoingMessageForPlatform('telnyx', 'sentence one\n\nsentence two');
-    assert.equal(result.length, 1);
   });
 
   it('returns single chunk when no paragraph breaks', () => {

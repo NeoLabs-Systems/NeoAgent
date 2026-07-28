@@ -31,4 +31,20 @@ void main() {
     expect(integration.statusLabel, 'Setup Required');
     expect(integration.apps.single.statusLabel, 'Setup Required');
   });
+
+  test(
+    'connected accounts expose connection-test capability from the backend',
+    () {
+      final account = OfficialIntegrationAccountItem.fromJson(<String, dynamic>{
+        'id': 7,
+        'status': 'connected',
+        'connected': true,
+        'accountEmail': 'person@example.test',
+        'supportsConnectionTest': true,
+      });
+
+      expect(account.connected, true);
+      expect(account.supportsConnectionTest, true);
+    },
+  );
 }

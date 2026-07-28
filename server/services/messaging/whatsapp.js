@@ -16,6 +16,8 @@ class WhatsAppPlatform extends BasePlatform {
     this.reconnectAttempts = 0;
     this.maxReconnect = 5;
     this.authDir = config.authDir || AUTH_DIR;
+    this.artifactStore = config.artifactStore || null;
+    this.userId = config.userId;
     this._manualDisconnect = false;
     this._reconnectTimer = null;
   }
@@ -213,8 +215,6 @@ class WhatsAppPlatform extends BasePlatform {
         if (mediaType && mediaType !== 'sticker') {
           try {
             const { downloadMediaMessage } = require('baileys');
-            const MEDIA_DIR = path.join(DATA_DIR, 'media');
-            if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
             const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
               logger: this._logger,
               reuploadRequest: this.sock.updateMediaMessage
@@ -222,9 +222,26 @@ class WhatsAppPlatform extends BasePlatform {
             const extMap = { image: 'jpg', video: 'mp4', document: 'bin', audio: 'ogg' };
             const ext = extMap[mediaType] || 'bin';
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
-            const fname = `${Date.now()}_${safeId}.${ext}`;
-            localMediaPath = path.join(MEDIA_DIR, fname);
-            fs.writeFileSync(localMediaPath, buffer);
+            if (!this.artifactStore || !this.userId) {
+              throw new Error('Per-user artifact storage is unavailable.');
+            }
+            const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+              kind: 'messaging-inbound-media',
+              filenameBase: `${Date.now()}_${safeId}`,
+              extension: ext,
+              contentType: {
+                image: 'image/jpeg',
+                video: 'video/mp4',
+                audio: 'audio/ogg',
+              }[mediaType] || 'application/octet-stream',
+              content: buffer,
+              metadata: {
+                platform: 'whatsapp',
+                mediaType,
+                messageId: msg.key.id || null,
+              },
+            });
+            localMediaPath = artifact.filePath;
 
             // Transcribe WhatsApp voice notes using OpenAI Whisper
             if (mediaType === 'audio' && process.env.OPENAI_API_KEY) {

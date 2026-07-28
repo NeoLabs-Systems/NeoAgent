@@ -594,6 +594,12 @@ function createNeoArchiveProvider() {
         signal: executionOptions.signal || null,
       });
     },
+    async testConnection(connection, executionOptions = {}) {
+      const result = await request(connection, "/oauth/userinfo", {
+        signal: executionOptions.signal || null,
+      });
+      return { credentials: result.credentials };
+    },
     getUserConfig({ userId, agentId }) {
       const scoped = resolveAgentId(Number(userId), agentId);
       const stored = config(getProviderConfig(Number(userId), KEY, scoped));

@@ -117,7 +117,6 @@ const BUILT_IN_TOOLS = new Set([
   'memory_update_core',
   'memory_write',
   'memory_read',
-  'make_call',
   'send_message',
   'read_file',
   'read_files',

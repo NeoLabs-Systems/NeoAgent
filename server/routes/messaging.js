@@ -184,36 +184,6 @@ router.get('/:platform/devices', (req, res) => {
   }
 });
 
-// Update Telnyx voice secret code (for non-whitelisted caller gating)
-router.put('/telnyx/voice-secret', (req, res) => {
-  try {
-    const code = String(req.body.secret || '').replace(/\D/g, ''); // digits only
-    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, 'platform_voice_secret_telnyx', code);
-    const manager = req.app.locals.messagingManager;
-    if (manager) manager.updateTelnyxVoiceSecret(req.session.userId, code, { agentId });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
-
-// Update Telnyx allowed numbers (whitelist)
-router.put('/telnyx/whitelist', (req, res) => {
-  try {
-    const { numbers } = req.body;
-    if (!Array.isArray(numbers)) return res.status(400).json({ error: 'numbers must be an array' });
-    const list = numbers.map(n => n.replace(/[^0-9+]/g, '')).filter(Boolean);
-    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    upsertAgentSetting(req.session.userId, agentId, legacyWhitelistKey('telnyx'), list);
-    const manager = req.app.locals.messagingManager;
-    const policy = manager ? manager.updateTelnyxAllowedNumbers(req.session.userId, list, { agentId }) : null;
-    res.json({ success: true, numbers: list });
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
-
 // Update Discord allowed IDs (whitelist — prefixed: "user:ID", "guild:ID", "channel:ID")
 router.put('/discord/whitelist', (req, res) => {
   try {

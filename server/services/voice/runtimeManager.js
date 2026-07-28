@@ -190,9 +190,13 @@ class VoiceRuntimeManager {
   async closeSession(sessionId, reason = 'closed', userId = null) {
     const session = this.getSession(sessionId);
     if (!session) return;
-    if (userId != null && session.userId != null && String(session.userId) !== String(userId)) {
+    if (userId == null || session.userId == null || String(session.userId) !== String(userId)) {
       throw new Error('Voice session access denied.');
     }
+    await this.#closeSession(session, reason);
+  }
+
+  async #closeSession(session, reason) {
     await this.abortActiveRun(session.id, reason === 'socket_disconnected'
       ? 'voice_disconnect'
       : 'voice_session_closed');
@@ -365,65 +369,6 @@ class VoiceRuntimeManager {
     };
   }
 
-  async startTelnyxTurn({
-    userId,
-    agentId = null,
-    callId,
-    transcript,
-    sink,
-    metadata = null,
-  } = {}) {
-    this.#assertRunning();
-    const sessionId = `telnyx:${userId}:${callId}`;
-    let session = this.getSession(sessionId);
-    if (!session) {
-      const voiceSettings = getVoiceRuntimeSettings(userId, agentId);
-      const liveProviderRuntime = this.#getProviderRuntime(
-        userId,
-        voiceSettings.liveProvider,
-        agentId,
-      );
-      session = new VoiceLiveSession({
-        id: sessionId,
-        userId,
-        agentId,
-        platform: 'telnyx_live',
-        sink,
-        outputMode: 'text_only',
-        voiceSettings: {
-          ...voiceSettings,
-          liveApiKey: liveProviderRuntime.apiKey,
-          liveBaseUrl: liveProviderRuntime.baseUrl,
-        },
-      });
-      session.adapter = this.#createAdapter(voiceSettings.liveProvider);
-      await session.adapter.open();
-      if (this.shuttingDown) {
-        await session.close('server_shutdown').catch(() => {});
-        await session.adapter.close?.(sessionId).catch(() => {});
-        throw voiceRuntimeStoppedError();
-      }
-      this.sessions.set(sessionId, session);
-    }
-
-    await session.interruptOutput();
-    await this.abortActiveRun(session.id, 'voice_interrupt');
-    session.resetTurnState();
-    const turnSignal = session.signal;
-    await session.setState('thinking');
-
-    try {
-      const result = await this.agentBridge.runTranscriptTurn(session, transcript, {
-        metadata,
-      });
-      return result;
-    } finally {
-      if (!session.closed && session.signal === turnSignal && !turnSignal.aborted) {
-        await session.setState('idle');
-      }
-    }
-  }
-
   async abortActiveRun(sessionId, reason = 'voice_interrupt') {
     const session = this.getSession(sessionId);
     const runId = session?.currentRunId;
@@ -434,9 +379,9 @@ class VoiceRuntimeManager {
   shutdown() {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.shuttingDown = true;
-    const sessionIds = Array.from(this.sessions.keys());
+    const sessions = Array.from(this.sessions.values());
     const closing = Promise.allSettled(
-      sessionIds.map((sessionId) => this.closeSession(sessionId, 'server_shutdown')),
+      sessions.map((session) => this.#closeSession(session, 'server_shutdown')),
     );
     this.shutdownPromise = waitForBoundedResult(closing, {
       serviceName: 'Voice runtime shutdown',
@@ -466,7 +411,7 @@ class VoiceRuntimeManager {
     if (!session) {
       throw new Error('Voice session was not found.');
     }
-    if (userId != null && session.userId != null && String(session.userId) !== String(userId)) {
+    if (userId == null || session.userId == null || String(session.userId) !== String(userId)) {
       throw new Error('Voice session access denied.');
     }
     return session;

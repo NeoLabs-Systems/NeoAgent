@@ -14,6 +14,7 @@ const ENV_FILE = path.resolve(process.env.NEOAGENT_ENV_FILE || path.join(RUNTIME
 const DATABASE_FILE = path.join(DATA_DIR, 'neoagent.db');
 const UPDATE_STATUS_FILE = path.join(DATA_DIR, 'update-status.json');
 const PID_FILE = path.join(DATA_DIR, 'neoagent.pid');
+const SETUP_STATE_FILE = path.join(RUNTIME_HOME, 'setup-state.json');
 
 const LEGACY_ENV_FILE = path.join(APP_DIR, '.env');
 const LEGACY_DATA_DIR = path.join(APP_DIR, 'data');
@@ -34,8 +35,26 @@ const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
 
 function ensureRuntimeDirs() {
   for (const dir of [RUNTIME_HOME, DATA_DIR, LOG_DIR, AGENT_DATA_DIR]) {
-    fs.mkdirSync(dir, { recursive: true });
+    ensurePrivateDirectory(dir);
   }
+}
+
+function applySecureUmask() {
+  if (process.platform !== 'win32' && typeof process.umask === 'function') {
+    process.umask(0o077);
+  }
+}
+
+function ensurePrivateDirectory(dir) {
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (process.platform !== 'win32') {
+    fs.chmodSync(dir, 0o700);
+  }
+}
+
+function ensurePrivateFile(filePath) {
+  if (!fs.existsSync(filePath) || process.platform === 'win32') return;
+  fs.chmodSync(filePath, 0o600);
 }
 
 function copyFileIfMissing(src, dest) {
@@ -351,12 +370,16 @@ module.exports = {
   DATABASE_FILE,
   UPDATE_STATUS_FILE,
   PID_FILE,
+  SETUP_STATE_FILE,
   LEGACY_ENV_FILE,
   LEGACY_DATA_DIR,
   LEGACY_AGENT_DATA_DIR,
   LEGACY_DESKTOP_RUNTIME_DIR,
   LEGACY_DESKTOP_ENV_FILE,
   DEFAULT_VM_BASE_IMAGE_URLS,
+  applySecureUmask,
+  ensurePrivateDirectory,
+  ensurePrivateFile,
   ensureRuntimeDirs,
   ensureSecureRuntimeEnv,
   getDefaultVmBaseImageUrl,

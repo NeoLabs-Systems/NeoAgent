@@ -12,7 +12,7 @@ const SLACK_APPS = [
   {
     id: 'slack',
     label: 'Slack',
-    description: 'Connect a Slack identity for future official workspace and messaging tools.',
+    description: 'Browse conversations, read and search messages, and post to Slack.',
     userScopes: [
       'channels:read',
       'channels:history',
@@ -304,12 +304,12 @@ function createSlackProvider() {
     key: 'slack',
     label: 'Slack',
     description:
-      'Official Slack OAuth account connections for future workspace, channel, and messaging workflows.',
+      'Official Slack OAuth integration for workspace, channel, and messaging workflows.',
     icon: 'slack',
     apps: SLACK_APPS,
     toolDefinitions: slackToolDefinitions,
     connectPrompt:
-      'Slack account connection is available here now. Built-in Slack-native tools are not shipped yet in this run.',
+      'Connect Slack to browse conversations, read and search messages, and post replies.',
     getEnvStatus() {
       return describeEnvStatus(resolveSlackOAuthConfig(), {
         label: 'Slack',
@@ -392,6 +392,10 @@ function createSlackProvider() {
           userId: authTest?.user_id || null,
         },
       };
+    },
+    async testConnection(context) {
+      await slackRequest(context, 'auth.test', { httpMethod: 'GET' });
+      return {};
     },
     executeTool: executeSlackTool,
   });

@@ -8,7 +8,15 @@ const { appendQuery, createOAuthProvider, fetchJson } = require('../oauth_provid
 const { resolvePublicBaseUrl } = require('../env');
 const { decryptValue } = require('../secrets');
 const { APP, PROVIDER_KEY, SCOPES, TOOLS } = require('./constants');
-const { bootstrap, executeTool, normalizeBaseUrl, revoke, text, token } = require('./client');
+const {
+  authenticated,
+  bootstrap,
+  executeTool,
+  normalizeBaseUrl,
+  revoke,
+  text,
+  token,
+} = require('./client');
 
 function callbackUrl() {
   return `${resolvePublicBaseUrl()}/api/integrations/oauth/callback`;
@@ -118,6 +126,18 @@ function createNeoRecallProvider() {
       return revoke(connectionCredentials(connection), {
         signal: executionOptions.signal || null,
       });
+    },
+    async testConnection(context) {
+      const authorization = await authenticated(context.credentials, {
+        signal: context.signal,
+      });
+      await fetchJson(`${authorization.baseUrl}/oauth/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${authorization.accessToken}`,
+        },
+        signal: context.signal,
+      }, { serviceName: 'NeoRecall userinfo' });
+      return { credentials: authorization.credentials };
     },
   });
 

@@ -22,10 +22,10 @@ Page-level horizontal padding is handled by `_pagePadding(context)` (20–40px r
 
 | Token | Value | Use |
 |-------|-------|-----|
-| `AppRadius.tag` | 8px | Code blocks, chips, inline badges |
-| `AppRadius.card` | 14px | Secondary cards, list items, blockquotes |
-| `AppRadius.input` | 18px | Buttons, text fields (matches theme) |
-| `AppRadius.panel` | 28px | Major glass surfaces, primary cards (matches theme) |
+| `AppRadius.tag` | 10px | Code blocks, chips, inline badges |
+| `AppRadius.card` | 16px | Secondary cards, list items, blockquotes |
+| `AppRadius.input` | 16px | Buttons, text fields (matches theme) |
+| `AppRadius.panel` | 24px | Major glass surfaces, primary cards (matches theme) |
 | `AppRadius.pill` | 999px | Avatars, full-pill badges, status indicators |
 
 ### Typography — `main_theme.dart`

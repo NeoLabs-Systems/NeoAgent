@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Directory, File, Platform, Process, ProcessSignal;
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -31,15 +31,18 @@ import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
+import 'src/backend_discovery_service.dart';
 import 'src/desktop_companion.dart';
 import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/live_voice_capture.dart';
-import 'src/local_runtime_paths.dart';
+import 'src/local_backend_installer.dart';
+import 'src/local_runtime_manager.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/security/password_strength.dart';
+import 'src/setup_diagnostics_service.dart';
 import 'src/stream_renderer.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
@@ -53,6 +56,8 @@ import 'features/memory/views/retrieval_inspector_view.dart';
 
 part 'main_spacing.dart';
 part 'main_theme.dart';
+part 'main_setup.dart';
+part 'main_local_install.dart';
 part 'main_app_shell.dart';
 part 'main_launcher.dart';
 part 'main_integrations.dart';

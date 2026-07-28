@@ -163,6 +163,27 @@ class ArtifactStore {
       url: this.buildArtifactUrl(row.id),
     };
   }
+
+  getArtifactForUserByStoragePath(userId, storagePath) {
+    const normalizedPath = String(storagePath || '').trim();
+    if (!normalizedPath) return null;
+    const row = db.prepare(`
+      SELECT id, user_id, kind, backend, content_type, storage_path, original_filename, byte_size, metadata_json, created_at
+      FROM artifacts
+      WHERE storage_path = ? AND user_id = ?
+    `).get(normalizedPath, userId);
+
+    if (!row) return null;
+    let metadata = {};
+    try {
+      metadata = JSON.parse(row.metadata_json || '{}');
+    } catch {}
+    return {
+      ...row,
+      metadata,
+      url: this.buildArtifactUrl(row.id),
+    };
+  }
 }
 
 module.exports = {

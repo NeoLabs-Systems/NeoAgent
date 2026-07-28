@@ -44,36 +44,36 @@ LinearGradient get _appBackgroundGradient => LinearGradient(
 
 LinearGradient get _panelGradient => LinearGradient(
   colors: <Color>[
-    Colors.white.withValues(alpha: 0.08),
-    _bgCard.withValues(alpha: 0.9),
-    _bgSecondary.withValues(alpha: 0.82),
+    Colors.white.withValues(alpha: 0.10),
+    _bgCard.withValues(alpha: 0.94),
+    _bgSecondary.withValues(alpha: 0.88),
   ],
-  stops: const <double>[0, 0.18, 1],
+  stops: const <double>[0, 0.2, 1],
   begin: const Alignment(-0.85, -1),
   end: const Alignment(1, 1),
 );
 
 List<BoxShadow> get _softPanelShadow => <BoxShadow>[
   BoxShadow(
-    color: Colors.black.withValues(alpha: 0.22),
-    blurRadius: 52,
-    offset: const Offset(0, 22),
+    color: Colors.black.withValues(alpha: 0.18),
+    blurRadius: 40,
+    offset: const Offset(0, 18),
   ),
   BoxShadow(
-    color: _accent.withValues(alpha: 0.08),
-    blurRadius: 30,
+    color: _accent.withValues(alpha: 0.07),
+    blurRadius: 28,
     offset: const Offset(0, 8),
   ),
 ];
 
 Color get _glassFill =>
-    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.78 : 0.88);
+    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.82 : 0.9);
 Color get _glassOverlay =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.04 : 0.12);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.05 : 0.14);
 Color get _glassBorder =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.12 : 0.26);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.11 : 0.24);
 Color get _glassHighlight =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.1 : 0.18);
+    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.12 : 0.2);
 
 LinearGradient get _liquidMetalGradient => LinearGradient(
   colors: <Color>[
@@ -109,7 +109,7 @@ TextStyle _heroTitleStyle([double size = 24]) => TextStyle(
 TextStyle _sectionEyebrowStyle() => GoogleFonts.geistMono(
   fontSize: 11,
   fontWeight: FontWeight.w600,
-  letterSpacing: 1.6,
+  letterSpacing: 1.7,
   color: _accentHover,
 );
 
@@ -193,19 +193,19 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
             : Colors.white,
         disabledBackgroundColor: palette.bgTertiary,
         disabledForegroundColor: palette.textMuted,
-        shadowColor: palette.accent.withValues(alpha: 0.3),
+        shadowColor: palette.accent.withValues(alpha: 0.28),
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.input),
           side: BorderSide(
             color: Colors.white.withValues(
-              alpha: brightness == Brightness.dark ? 0.14 : 0.26,
+              alpha: brightness == Brightness.dark ? 0.14 : 0.22,
             ),
           ),
         ),
         textStyle: const TextStyle(
-          fontSize: 15,
+          fontSize: 14.5,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.1,
         ),

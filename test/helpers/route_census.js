@@ -42,7 +42,6 @@ const EXTRA_ROUTES = [
   'GET /api/system/test/extension',
   'GET /api/system/test/desktop',
   'GET /api/version',
-  'POST /api/telnyx/webhook',
 ];
 
 function toExpressPath(base, routePath) {

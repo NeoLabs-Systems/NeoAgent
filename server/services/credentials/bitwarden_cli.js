@@ -4,11 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { decryptValue, encryptValue } = require('../integrations/secrets');
 
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 const MIN_IDLE_TIMEOUT_MINUTES = 5;
 const MAX_IDLE_TIMEOUT_MINUTES = 120;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+const PERSISTED_SESSION_FILE = 'neoagent-session.enc';
+const TWO_STEP_METHODS = new Set(['0', '1', '3']);
 
 function resolveCliScript() {
   try {
@@ -30,10 +33,83 @@ function scopeKey(userId, agentId) {
   return `${String(userId)}:${String(agentId)}`;
 }
 
-function appDataDirectory(userId, agentId) {
+function appDataDirectory(userId, agentId, dataDirectory = DATA_DIR) {
   const safeUser = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeAgent = String(agentId).replace(/[^a-zA-Z0-9_-]/g, '_');
-  return path.join(DATA_DIR, 'integrations', 'bitwarden', safeUser, safeAgent);
+  return path.join(dataDirectory, 'integrations', 'bitwarden', safeUser, safeAgent);
+}
+
+function persistedSessionPath(userId, agentId, dataDirectory = DATA_DIR) {
+  return path.join(
+    appDataDirectory(userId, agentId, dataDirectory),
+    PERSISTED_SESSION_FILE,
+  );
+}
+
+function readPersistedSession(userId, agentId, dataDirectory = DATA_DIR) {
+  const filePath = persistedSessionPath(userId, agentId, dataDirectory);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const parsed = JSON.parse(decryptValue(fs.readFileSync(filePath, 'utf8')) || '{}');
+    const sessionKey = String(parsed.sessionKey || '').trim();
+    if (!sessionKey) return null;
+    return {
+      sessionKey,
+      lastUsedAt: Date.now(),
+      idleTimeoutMinutes: DEFAULT_IDLE_TIMEOUT_MINUTES,
+      persistent: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedSession(
+  userId,
+  agentId,
+  sessionKey,
+  dataDirectory = DATA_DIR,
+) {
+  const directory = appDataDirectory(userId, agentId, dataDirectory);
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  try { fs.chmodSync(directory, 0o700); } catch {}
+  fs.writeFileSync(
+    persistedSessionPath(userId, agentId, dataDirectory),
+    encryptValue(JSON.stringify({
+      sessionKey,
+      savedAt: new Date().toISOString(),
+    })),
+    { encoding: 'utf8', mode: 0o600 },
+  );
+  try {
+    fs.chmodSync(persistedSessionPath(userId, agentId, dataDirectory), 0o600);
+  } catch {}
+}
+
+function deletePersistedSession(userId, agentId, dataDirectory = DATA_DIR) {
+  const filePath = persistedSessionPath(userId, agentId, dataDirectory);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+function normalizeTwoStepMethod(value) {
+  const method = String(value ?? '').trim();
+  if (!method) return '';
+  if (!TWO_STEP_METHODS.has(method)) {
+    const error = new Error('Choose Authenticator, Email, or YubiKey for two-step login.');
+    error.code = 'BITWARDEN_TWO_STEP_METHOD_INVALID';
+    throw error;
+  }
+  return method;
+}
+
+function normalizeTwoStepCode(value) {
+  const code = String(value || '').trim();
+  if (/[\r\n\0]/.test(code) || code.length > 256) {
+    const error = new Error('The Bitwarden two-step login code is invalid.');
+    error.code = 'BITWARDEN_TWO_STEP_CODE_INVALID';
+    throw error;
+  }
+  return code;
 }
 
 function runProcess(command, args, options = {}) {
@@ -111,13 +187,23 @@ class BitwardenCli {
   constructor(options = {}) {
     this.runner = options.runner || runProcess;
     this.cliScript = options.cliScript || null;
+    this.dataDirectory = options.dataDirectory || DATA_DIR;
     this.sessions = new Map();
     this.timer = setInterval(() => this.lockExpired().catch(() => {}), 30_000);
     this.timer.unref?.();
   }
 
   #session(userId, agentId) {
-    return this.sessions.get(scopeKey(userId, agentId)) || null;
+    const key = scopeKey(userId, agentId);
+    const current = this.sessions.get(key);
+    if (current) return current;
+    const persisted = readPersistedSession(
+      userId,
+      agentId,
+      this.dataDirectory,
+    );
+    if (persisted) this.sessions.set(key, persisted);
+    return persisted;
   }
 
   #touch(userId, agentId) {
@@ -127,7 +213,7 @@ class BitwardenCli {
   }
 
   #environment(userId, agentId, extra = {}) {
-    const directory = appDataDirectory(userId, agentId);
+    const directory = appDataDirectory(userId, agentId, this.dataDirectory);
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     try { fs.chmodSync(directory, 0o700); } catch {}
     const inherited = {};
@@ -161,6 +247,99 @@ class BitwardenCli {
     });
   }
 
+  async #status(userId, agentId, options = {}) {
+    const raw = await this.#run(userId, agentId, ['status'], options);
+    try {
+      const parsed = JSON.parse(raw || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  async #createSessionWithPassword(
+    userId,
+    agentId,
+    masterPassword,
+    config,
+    options,
+  ) {
+    const serverUrl = String(
+      config.serverUrl || 'https://vault.bitwarden.com',
+    ).trim().replace(/\/+$/, '');
+    const email = String(config.email || '').trim();
+    if (!email) {
+      const error = new Error('Bitwarden account email is required.');
+      error.code = 'BITWARDEN_EMAIL_REQUIRED';
+      throw error;
+    }
+
+    await this.#run(userId, agentId, ['config', 'server', serverUrl], options);
+    const status = await this.#status(userId, agentId, options);
+    const userEmail = String(status.userEmail || '').trim().toLowerCase();
+    const needsLogin =
+      status.status === 'unauthenticated' ||
+      (userEmail && userEmail !== email.toLowerCase());
+    if (!needsLogin) {
+      return this.#run(userId, agentId, [
+        'unlock',
+        '--passwordenv',
+        'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
+        '--raw',
+      ], {
+        ...options,
+        env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: masterPassword },
+      });
+    }
+
+    if (status.status !== 'unauthenticated') {
+      await this.#run(userId, agentId, ['logout'], {
+        ...options,
+        timeoutMs: 15_000,
+      });
+      await this.#run(userId, agentId, ['config', 'server', serverUrl], options);
+    }
+    const clientId = String(config.clientId || '').trim();
+    const clientSecret = String(config.clientSecret || '').trim();
+    if (clientId && clientSecret) {
+      await this.#run(userId, agentId, ['login', '--apikey'], {
+        ...options,
+        env: {
+          BW_CLIENTID: clientId,
+          BW_CLIENTSECRET: clientSecret,
+        },
+      });
+      return this.#run(userId, agentId, [
+        'unlock',
+        '--passwordenv',
+        'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
+        '--raw',
+      ], {
+        ...options,
+        env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: masterPassword },
+      });
+    }
+    const method = normalizeTwoStepMethod(options.twoStepMethod);
+    const code = normalizeTwoStepCode(options.twoStepCode);
+    if (method && !code) {
+      const error = new Error('Enter the current Bitwarden two-step login code.');
+      error.code = 'BITWARDEN_TWO_STEP_CODE_REQUIRED';
+      throw error;
+    }
+    const args = [
+      'login',
+      email,
+      '--passwordenv',
+      'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
+      '--raw',
+    ];
+    if (method) args.push('--method', method, '--code', code);
+    return this.#run(userId, agentId, args, {
+      ...options,
+      env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: masterPassword },
+    });
+  }
+
   getStatus(userId, agentId) {
     const session = this.#session(userId, agentId);
     return {
@@ -173,23 +352,12 @@ class BitwardenCli {
         }
       })(),
       unlocked: Boolean(session?.sessionKey),
-      idleTimeoutMinutes: session?.idleTimeoutMinutes || DEFAULT_IDLE_TIMEOUT_MINUTES,
+      persistent: session?.persistent === true,
+      idleTimeoutMinutes: session?.persistent
+        ? null
+        : session?.idleTimeoutMinutes || DEFAULT_IDLE_TIMEOUT_MINUTES,
       lastUsedAt: session?.lastUsedAt ? new Date(session.lastUsedAt).toISOString() : null,
     };
-  }
-
-  async configure(userId, agentId, config, options = {}) {
-    const serverUrl = String(config.serverUrl || 'https://vault.bitwarden.com').trim().replace(/\/+$/, '');
-    await this.logout(userId, agentId);
-    await this.#run(userId, agentId, ['config', 'server', serverUrl], options);
-    await this.#run(userId, agentId, ['login', '--apikey'], {
-      ...options,
-      env: {
-        BW_CLIENTID: String(config.clientId || ''),
-        BW_CLIENTSECRET: String(config.clientSecret || ''),
-      },
-    });
-    return { configured: true };
   }
 
   async unlock(userId, agentId, masterPassword, idleTimeoutMinutes, options = {}) {
@@ -199,25 +367,48 @@ class BitwardenCli {
       error.code = 'BITWARDEN_MASTER_PASSWORD_REQUIRED';
       throw error;
     }
-    const sessionKey = await this.#run(userId, agentId, [
-      'unlock',
-      '--passwordenv',
-      'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
-      '--raw',
-    ], {
-      ...options,
-      env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: password },
-    });
+    const config = options.config && typeof options.config === 'object'
+      ? options.config
+      : null;
+    const sessionKey = config?.email
+      ? await this.#createSessionWithPassword(
+        userId,
+        agentId,
+        password,
+        config,
+        options,
+      )
+      : await this.#run(userId, agentId, [
+        'unlock',
+        '--passwordenv',
+        'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
+        '--raw',
+      ], {
+        ...options,
+        env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: password },
+      });
     if (!sessionKey) {
       const error = new Error('Bitwarden did not return an unlock session.');
       error.code = 'BITWARDEN_UNLOCK_FAILED';
       throw error;
     }
+    const persistent = options.persistSession === true;
     this.sessions.set(scopeKey(userId, agentId), {
       sessionKey,
       lastUsedAt: Date.now(),
       idleTimeoutMinutes: normalizeIdleTimeoutMinutes(idleTimeoutMinutes),
+      persistent,
     });
+    if (persistent) {
+      writePersistedSession(
+        userId,
+        agentId,
+        sessionKey,
+        this.dataDirectory,
+      );
+    } else {
+      deletePersistedSession(userId, agentId, this.dataDirectory);
+    }
     return this.getStatus(userId, agentId);
   }
 
@@ -264,8 +455,9 @@ class BitwardenCli {
 
   async lock(userId, agentId) {
     const key = scopeKey(userId, agentId);
-    const session = this.sessions.get(key);
+    const session = this.#session(userId, agentId);
     this.sessions.delete(key);
+    deletePersistedSession(userId, agentId, this.dataDirectory);
     if (!session?.sessionKey) return { locked: true };
     try {
       await this.#run(userId, agentId, ['lock'], {
@@ -285,7 +477,10 @@ class BitwardenCli {
     } catch {
       // Treat an already logged-out CLI as disconnected.
     }
-    fs.rmSync(appDataDirectory(userId, agentId), { recursive: true, force: true });
+    fs.rmSync(
+      appDataDirectory(userId, agentId, this.dataDirectory),
+      { recursive: true, force: true },
+    );
     return { loggedOut: true };
   }
 
@@ -293,6 +488,7 @@ class BitwardenCli {
     const now = Date.now();
     const expired = [];
     for (const [key, session] of this.sessions.entries()) {
+      if (session.persistent) continue;
       if (now - session.lastUsedAt >= session.idleTimeoutMinutes * 60_000) {
         expired.push(key);
       }
@@ -305,11 +501,14 @@ class BitwardenCli {
 
   async shutdown() {
     clearInterval(this.timer);
-    const scopes = Array.from(this.sessions.keys());
-    await Promise.allSettled(scopes.map((key) => {
+    const ephemeralScopes = Array.from(this.sessions.entries())
+      .filter(([, session]) => !session.persistent)
+      .map(([key]) => key);
+    await Promise.allSettled(ephemeralScopes.map((key) => {
       const separator = key.indexOf(':');
       return this.lock(key.slice(0, separator), key.slice(separator + 1));
     }));
+    this.sessions.clear();
   }
 }
 
@@ -317,6 +516,10 @@ module.exports = {
   BitwardenCli,
   DEFAULT_IDLE_TIMEOUT_MINUTES,
   appDataDirectory,
+  deletePersistedSession,
   normalizeIdleTimeoutMinutes,
+  persistedSessionPath,
+  readPersistedSession,
   runProcess,
+  writePersistedSession,
 };

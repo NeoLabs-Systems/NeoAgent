@@ -42,28 +42,33 @@
 
 ## 🚀 Install
 
-NeoAgent supports macOS and Linux hosts. You need Node.js 20 or newer and
-Docker for the isolated browser and terminal runtime; the installer handles the
-rest of the application setup and pre-builds the guest runtime image when Docker
-is available.
+The NeoAgent desktop app installs and starts the backend on macOS, Windows, and
+Linux without a terminal, Node.js, npm, Git, Docker, or a manually entered
+server address. Choose **Quickstart** for safe automatic defaults or **Full
+setup** to continue through providers, integrations, voice, and optional tools.
+
+<p align="center">
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download NeoAgent" src="https://img.shields.io/badge/Desktop_and_CLI-download-black?style=flat-square"></a>
+</p>
+
+The same releases contain standalone `neoagent` CLI executables. They include
+their own Node runtime and verify the backend package before installing it:
 
 ```bash
-npm install -g neoagent
 neoagent
 ```
 
-On its first run, `neoagent` scans the computer for an existing instance. If
-none is found, it installs the application, prepares the service and isolated
-runtime, then opens a focused terminal wizard for your AI provider API keys.
-Running `neoagent` again shows the status of the existing installation.
+The npm distribution remains available for existing Node.js installations:
 
-<p align="center">
-  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download macOS app" src="https://img.shields.io/badge/macOS_app-download-black?style=flat-square&logo=apple&logoColor=white"></a>
-</p>
+```bash
+npm install -g neoagent
+neoagent setup --quick
+```
 
-Open `http://localhost:3333`, create the first account, and configure a model.
-Local models can run through [Ollama](https://ollama.com/); hosted providers
-can be configured in the application.
+The first account is protected by a short-lived one-time setup claim. The app
+connects to the actual selected port automatically; nearby NeoAgent servers are
+discovered and verified on the local network. Docker is optional and only
+needed for isolated browser and terminal capabilities.
 
 Read the [installation guide](docs/getting-started.md) before exposing the
 service to a network.

@@ -85,6 +85,23 @@ class BackendClient {
     return getMap(baseUrl, '/api/auth/status', allowUnauthorized: true);
   }
 
+  Future<Map<String, dynamic>> getSetupHandshake(String baseUrl) async {
+    return getMap(baseUrl, '/api/setup/handshake', allowUnauthorized: true);
+  }
+
+  Future<Map<String, dynamic>> exchangeSetupClaim({
+    required String baseUrl,
+    required String token,
+  }) async {
+    return postMap(baseUrl, '/api/setup/claim', <String, dynamic>{
+      'token': token,
+    }, allowUnauthorized: true);
+  }
+
+  Future<Map<String, dynamic>> getSetupStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/setup/status');
+  }
+
   Future<Map<String, dynamic>?> getCurrentUser(String baseUrl) async {
     final response = await _request(
       'GET',
@@ -1321,6 +1338,19 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> testOfficialIntegration(
+    String baseUrl,
+    String providerId, {
+    required int connectionId,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/integrations/$providerId/test',
+      _withAgentId(<String, dynamic>{'connectionId': connectionId}, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> setOfficialIntegrationAccessMode(
     String baseUrl,
     String providerId, {
@@ -1381,7 +1411,9 @@ class BackendClient {
   Future<Map<String, dynamic>> unlockBitwarden(
     String baseUrl, {
     required String masterPassword,
-    required int idleTimeoutMinutes,
+    required bool persistSession,
+    String? twoStepMethod,
+    String? twoStepCode,
     String? agentId,
   }) {
     return postMap(
@@ -1389,7 +1421,11 @@ class BackendClient {
       '/api/integrations/bitwarden/unlock',
       _withAgentId(<String, dynamic>{
         'masterPassword': masterPassword,
-        'idleTimeoutMinutes': idleTimeoutMinutes,
+        'persistSession': persistSession,
+        if (twoStepMethod != null && twoStepMethod.isNotEmpty)
+          'twoStepMethod': twoStepMethod,
+        if (twoStepCode != null && twoStepCode.isNotEmpty)
+          'twoStepCode': twoStepCode,
       }, agentId),
     );
   }
@@ -1553,30 +1589,6 @@ class BackendClient {
       baseUrl,
       '/api/messaging/$platform/access-policy',
       _withAgentId(<String, dynamic>{'policy': policy}, agentId),
-    );
-  }
-
-  Future<Map<String, dynamic>> saveTelnyxWhitelist(
-    String baseUrl,
-    List<String> numbers, {
-    String? agentId,
-  }) async {
-    return putMap(
-      baseUrl,
-      '/api/messaging/telnyx/whitelist',
-      _withAgentId(<String, dynamic>{'numbers': numbers}, agentId),
-    );
-  }
-
-  Future<Map<String, dynamic>> saveTelnyxVoiceSecret(
-    String baseUrl,
-    String secret, {
-    String? agentId,
-  }) async {
-    return putMap(
-      baseUrl,
-      '/api/messaging/telnyx/voice-secret',
-      _withAgentId(<String, dynamic>{'secret': secret}, agentId),
     );
   }
 

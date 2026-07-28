@@ -7,6 +7,11 @@ on:
         description: Release tag to upload assets to
         required: true
         type: string
+    secrets:
+      NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY:
+        required: true
+      NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY:
+        required: true
 
 permissions:
   contents: write
@@ -20,7 +25,7 @@ jobs:
         uses: actions/download-artifact@v4.2.0
         with:
           path: dist
-          name: neoagent-windows-installer
+          pattern: neoagent-windows-installer-*
           merge-multiple: true
         continue-on-error: true
 
@@ -28,7 +33,7 @@ jobs:
         uses: actions/download-artifact@v4.2.0
         with:
           path: dist
-          name: neoagent-macos-installer
+          pattern: neoagent-macos-installer-*
           merge-multiple: true
         continue-on-error: true
 
@@ -39,6 +44,27 @@ jobs:
           name: neoagent-linux-installer
           merge-multiple: true
         continue-on-error: true
+
+      - name: Download Windows runtime
+        uses: actions/download-artifact@v4.2.0
+        with:
+          path: dist
+          pattern: neoagent-windows-runtime-*
+          merge-multiple: true
+
+      - name: Download macOS runtime
+        uses: actions/download-artifact@v4.2.0
+        with:
+          path: dist
+          pattern: neoagent-macos-runtime-*
+          merge-multiple: true
+
+      - name: Download Linux runtime
+        uses: actions/download-artifact@v4.2.0
+        with:
+          path: dist
+          name: neoagent-linux-runtime
+          merge-multiple: true
 
       - name: Download Android artifact
         uses: actions/download-artifact@v4.2.0
@@ -55,6 +81,38 @@ jobs:
           name: neoagent-wearable-firmware
           merge-multiple: true
 
+      - name: Checkout release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Create signed backend runtime manifest
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          node scripts/create_runtime_manifest.js \
+            --input dist \
+            --output "dist/neoagent-runtime-manifest-$VERSION.json" \
+            --version "$VERSION"
+          node scripts/verify_runtime_manifest.js \
+            --manifest "dist/neoagent-runtime-manifest-$VERSION.json" \
+            --signature "dist/neoagent-runtime-manifest-$VERSION.json.sig"
+
+      - name: Create signed release asset manifest
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          node scripts/create_release_manifest.js \
+            --input dist \
+            --output "dist/neoagent-release-manifest-$VERSION.json" \
+            --version "$VERSION"
+
       - name: Collect release files
         id: release_files
         run: |
@@ -67,6 +125,12 @@ jobs:
             dist/*.pkg.tar.zst
             dist/*.AppImage
             dist/*.apk
+            dist/neoagent-cli-*
+            dist/neoagent-runtime-*.zip
+            dist/neoagent-runtime-manifest-*.json
+            dist/neoagent-runtime-manifest-*.json.sig
+            dist/neoagent-release-manifest-*.json
+            dist/neoagent-release-manifest-*.json.sig
           )
           for firmware_file in \
             dist/neoagent-wearable-firmware.bin \

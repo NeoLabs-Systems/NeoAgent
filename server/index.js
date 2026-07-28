@@ -3,6 +3,7 @@
 const {
   ENV_FILE,
   LEGACY_ENV_FILE,
+  applySecureUmask,
   ensureSecureRuntimeEnv,
   migrateLegacyRuntime,
   ensureRuntimeDirs
@@ -10,6 +11,7 @@ const {
 
 const dotenv = require('dotenv');
 
+applySecureUmask();
 migrateLegacyRuntime();
 ensureRuntimeDirs();
 ensureSecureRuntimeEnv({ logger: console });
@@ -31,6 +33,7 @@ const { registerApiRoutes } = require('./http/routes');
 const { registerStaticRoutes } = require('./http/static');
 const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
+const { DEFAULT_NEOAGENT_PORT } = require('../lib/setup/contract');
 const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
 const { bindDesktopCompanionGateway } = require('./services/desktop/gateway');
 const { bindWearableGateway } = require('./services/wearable/gateway');
@@ -43,7 +46,7 @@ function parseBooleanFlag(value, fallback = false) {
   return fallback;
 }
 
-const PORT = Number(process.env.PORT) || 3333;
+const PORT = Number(process.env.PORT) || DEFAULT_NEOAGENT_PORT;
 const PUBLIC_URL = String(process.env.PUBLIC_URL || '').trim();
 const PUBLIC_URL_IS_HTTPS = PUBLIC_URL.startsWith('https://');
 const SECURE_COOKIES = parseBooleanFlag(
@@ -103,7 +106,7 @@ const sessionMiddleware = createSessionMiddleware({
 });
 const activeSockets = new Set();
 
-app.locals.logHistory = setupConsoleInterceptor(io);
+app.locals.logHistory = setupConsoleInterceptor();
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,

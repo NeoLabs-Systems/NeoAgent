@@ -208,6 +208,7 @@ jobs:
     uses: ./.github/workflows/_publish-release-assets.yml
     with:
       release_tag: ${{ needs.release.outputs.release_tag }}
+    secrets: inherit
 
   notify-discord:
     name: Notify Discord

@@ -52,13 +52,13 @@ router.post('/', async (req, res) => {
     const {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
-      prompt, callTo, callGreeting, model,
+      prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     } = req.body || {};
     const task = await tasks.createTask(req.session.userId, {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
-      prompt, callTo, callGreeting, model,
+      prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
       agentId,
     });
@@ -78,13 +78,13 @@ router.put('/:id', async (req, res) => {
     const {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
-      prompt, callTo, callGreeting, model,
+      prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     } = req.body || {};
     const task = await tasks.updateTask(taskId, req.session.userId, {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
-      prompt, callTo, callGreeting, model,
+      prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     });
     res.json(task);

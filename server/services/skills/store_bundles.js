@@ -10,45 +10,6 @@ const BUNDLED_SKILL_SOURCE_ROOT = path.join(
   'skills',
 );
 
-const BUNDLED_SKILL_PATHS = [
-  'creative/ascii-art',
-  'creative/ascii-video',
-  'creative/excalidraw',
-  'creative/manim-video',
-  'creative/p5js',
-  'creative/popular-web-designs',
-  'creative/songwriting-and-ai-music',
-  'data-science/jupyter-live-kernel',
-  'email/himalaya',
-  'github/codebase-inspection',
-  'github/github-auth',
-  'github/github-code-review',
-  'github/github-issues',
-  'github/github-pr-workflow',
-  'github/github-repo-management',
-  'leisure/find-nearby',
-  'mcp/mcporter',
-  'mcp/native-mcp',
-  'media/gif-search',
-  'media/youtube-content',
-  'note-taking/obsidian',
-  'productivity/catbox-upload-skill',
-  'productivity/linear',
-  'productivity/nano-pdf',
-  'productivity/notion',
-  'productivity/ocr-and-documents',
-  'research/arxiv',
-  'research/blogwatcher',
-  'research/llm-wiki',
-  'research/polymarket',
-  'software-development/plan',
-  'software-development/requesting-code-review',
-  'software-development/subagent-driven-development',
-  'software-development/systematic-debugging',
-  'software-development/test-driven-development',
-  'software-development/writing-plans',
-];
-
 const CATEGORY_ICONS = {
   creative: '🎨',
   'data-science': '📓',
@@ -121,6 +82,34 @@ function readFrontmatter(filePath) {
   return data;
 }
 
+function discoverBundledSkillPaths(rootDirectory = BUNDLED_SKILL_SOURCE_ROOT) {
+  const discovered = [];
+
+  function visit(directory) {
+    const entries = fs.readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const skillFile = entries.find(
+      (entry) => entry.isFile() && entry.name === 'SKILL.md',
+    );
+    if (skillFile) {
+      const frontmatter = readFrontmatter(path.join(directory, skillFile.name));
+      if (String(frontmatter.catalog || 'true').toLowerCase() !== 'false') {
+        discovered.push(path.relative(rootDirectory, directory).split(path.sep).join('/'));
+      }
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        visit(path.join(directory, entry.name));
+      }
+    }
+  }
+
+  if (fs.existsSync(rootDirectory)) {
+    visit(rootDirectory);
+  }
+  return discovered.sort((left, right) => left.localeCompare(right));
+}
+
 function toDisplayName(skillPath, frontmatterName) {
   if (frontmatterName && /[A-Z]/.test(frontmatterName)) {
     return frontmatterName;
@@ -149,10 +138,12 @@ function buildBundledCatalogEntry(skillPath) {
   };
 }
 
+const BUNDLED_SKILL_PATHS = discoverBundledSkillPaths();
 const BUNDLED_SKILLS_CATALOG = BUNDLED_SKILL_PATHS.map(buildBundledCatalogEntry);
 
 module.exports = {
   BUNDLED_SKILLS_CATALOG,
   BUNDLED_SKILL_PATHS,
   BUNDLED_SKILL_SOURCE_ROOT,
+  discoverBundledSkillPaths,
 };

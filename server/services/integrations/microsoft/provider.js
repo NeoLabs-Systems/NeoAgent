@@ -14,25 +14,25 @@ const MICROSOFT_APPS = [
   {
     id: 'outlook',
     label: 'Outlook',
-    description: 'Connect Outlook mail access for future Microsoft 365 native tools.',
+    description: 'List and send Outlook email through Microsoft 365.',
     scopes: [...MICROSOFT_BASE_SCOPES, 'Mail.ReadWrite', 'Mail.Send'],
   },
   {
     id: 'calendar',
     label: 'Calendar',
-    description: 'Connect Outlook Calendar access for future Microsoft 365 scheduling tools.',
+    description: 'List and create Microsoft 365 calendar events.',
     scopes: [...MICROSOFT_BASE_SCOPES, 'Calendars.ReadWrite'],
   },
   {
     id: 'onedrive',
     label: 'OneDrive',
-    description: 'Connect OneDrive file access for future Microsoft 365 document tools.',
+    description: 'Browse files and folders in the connected OneDrive.',
     scopes: [...MICROSOFT_BASE_SCOPES, 'Files.ReadWrite.All'],
   },
   {
     id: 'teams',
     label: 'Teams',
-    description: 'Connect Microsoft Teams chat access for future collaboration tools.',
+    description: 'List chats and send Microsoft Teams messages.',
     scopes: [...MICROSOFT_BASE_SCOPES, 'Chat.ReadWrite', 'ChannelMessage.Read.All'],
   },
 ];
@@ -414,7 +414,7 @@ function createMicrosoftProvider() {
     apps: MICROSOFT_APPS,
     toolDefinitions: microsoftToolDefinitions,
     connectPrompt:
-      'This wires Microsoft 365 account connections into Official Integrations now. Native Outlook, Calendar, OneDrive, and Teams tools can be layered on later.',
+      'Connect Microsoft 365 to work with Outlook mail, calendars, OneDrive files, and Teams chats.',
     getEnvStatus() {
       return describeEnvStatus(resolveMicrosoftOAuthConfig(), {
         label: 'Microsoft 365',
@@ -491,6 +491,13 @@ function createMicrosoftProvider() {
           userPrincipalName: profile?.userPrincipalName || null,
         },
       };
+    },
+    async testConnection(context) {
+      await graphRequest(context, {
+        path: '/v1.0/me',
+        query: { '$select': 'id,displayName,userPrincipalName' },
+      });
+      return {};
     },
     executeTool: executeMicrosoftTool,
   });

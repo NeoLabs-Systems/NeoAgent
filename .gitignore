@@ -178,3 +178,6 @@ server/public/assets/fonts/MaterialIcons-Regular.otf
 /benchmark/results
 /benchmark/workdir
 /marketing/remotion
+flutter_app/android/key.properties
+flutter_app/android/*.keystore
+flutter_app/android/*.jks

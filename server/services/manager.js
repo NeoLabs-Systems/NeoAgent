@@ -41,6 +41,8 @@ const {
   getErrorMessage,
   runBackgroundTask,
 } = require('./bootstrap_helpers');
+const { startSetupDiscovery } = require('./setup/discovery');
+const { DEFAULT_NEOAGENT_PORT } = require('../../lib/setup/contract');
 
 function registerLocal(app, key, value) {
   app.locals[key] = value;
@@ -360,7 +362,8 @@ function createMessagingManager(app, io, agentEngine) {
     app,
     'messagingManager',
     new MessagingManager(io, {
-      voiceRuntimeManager: app.locals.voiceRuntimeManager || null,
+      artifactStore: app.locals.artifactStore,
+      workspaceManager: app.locals.workspaceManager,
     }),
   );
   agentEngine.messagingManager = messagingManager;
@@ -550,6 +553,13 @@ async function startServices(app, io) {
       voiceRuntimeManager,
       streamHub: app.locals.streamHub || null,
     });
+    registerLocal(
+      app,
+      'setupDiscovery',
+      startSetupDiscovery({
+        port: Number(process.env.PORT) || DEFAULT_NEOAGENT_PORT,
+      }),
+    );
 
     // Sync billing rate limits for all active subscribers in case any
     // Stripe webhooks were delivered while the server was offline.
@@ -573,6 +583,15 @@ async function startServices(app, io) {
 async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
+  if (app.locals.setupDiscovery) {
+    try {
+      app.locals.setupDiscovery.stop();
+      app.locals.setupDiscovery = null;
+      logServiceReady('Local setup discovery stopped');
+    } catch (err) {
+      console.error('[SetupDiscovery] Shutdown error:', getErrorMessage(err));
+    }
+  }
   if (app.locals.approvalGateService && typeof app.locals.approvalGateService.shutdown === 'function') {
     try {
       app.locals.approvalGateService.shutdown();

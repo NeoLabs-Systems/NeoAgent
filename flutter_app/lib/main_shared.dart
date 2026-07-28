@@ -36,6 +36,18 @@ class _AmbientBackdropState extends State<_AmbientBackdrop>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller
+        ..stop()
+        ..value = 0.5;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -329,6 +341,9 @@ class _EntranceMotionState extends State<_EntranceMotion> {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return widget.child;
+    }
     return AnimatedSlide(
       duration: const Duration(milliseconds: 700),
       curve: Curves.easeOutCubic,
@@ -348,8 +363,10 @@ class _GlassSurface extends StatelessWidget {
     required this.child,
     this.width,
     this.padding,
-    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
-    this.blurSigma = 22,
+    this.borderRadius = const BorderRadius.all(
+      Radius.circular(AppRadius.panel),
+    ),
+    this.blurSigma = 20,
     this.fillColor,
     this.borderColor,
     this.overlayGradient,
@@ -600,7 +617,7 @@ class _PageTitle extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     title,
                     maxLines: 1,
@@ -1233,34 +1250,49 @@ class _SidebarButtonState extends State<_SidebarButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.active;
+    final radius = BorderRadius.circular(widget.compact ? 12 : 14);
     final BoxDecoration decoration = active
         ? BoxDecoration(
-            color: _bgCard,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: _border),
+            color: _bgCard.withValues(alpha: 0.96),
+            borderRadius: radius,
+            border: Border.all(color: _borderLight),
+            gradient: LinearGradient(
+              colors: <Color>[
+                _accent.withValues(alpha: 0.10),
+                _bgCard.withValues(alpha: 0.96),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: _accent.withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
           )
         : BoxDecoration(
             color: _hovering
-                ? _bgTertiary.withValues(alpha: 0.72)
+                ? _bgTertiary.withValues(alpha: 0.66)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: radius,
+            border: Border.all(color: _hovering ? _border : Colors.transparent),
           );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: 3),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovering = true),
         onExit: (_) => setState(() => _hovering = false),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: radius,
             onTap: widget.onTap,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -1289,17 +1321,43 @@ class _SidebarButtonState extends State<_SidebarButton> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                           ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: _accent.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   Row(
                     children: <Widget>[
-                      Icon(
-                        widget.icon,
-                        size: widget.iconSize,
-                        color: active ? _accent : _textMuted,
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        width: widget.iconSize + 14,
+                        height: widget.iconSize + 14,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(11),
+                          color: active
+                              ? _accent.withValues(alpha: 0.12)
+                              : (_hovering
+                                    ? _bgSecondary.withValues(alpha: 0.7)
+                                    : Colors.transparent),
+                          border: Border.all(
+                            color: active
+                                ? _accent.withValues(alpha: 0.22)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: Icon(
+                          widget.icon,
+                          size: widget.iconSize,
+                          color: active ? _accent : _textMuted,
+                        ),
                       ),
-                      const SizedBox(width: 11),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           widget.label,
@@ -1308,6 +1366,7 @@ class _SidebarButtonState extends State<_SidebarButton> {
                           style: GoogleFonts.geist(
                             fontSize: widget.fontSize,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
                             color: active ? _textPrimary : _textSecondary,
                           ),
                         ),
@@ -1368,12 +1427,12 @@ class _SidebarIconButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(9),
           onTap: onTap,
           child: Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(9),
-              color: _bgSecondary.withValues(alpha: 0.01),
-              border: Border.all(color: Colors.transparent),
+              borderRadius: BorderRadius.circular(12),
+              color: _bgSecondary.withValues(alpha: 0.55),
+              border: Border.all(color: _border),
             ),
             child: Icon(icon, size: 17, color: _textSecondary),
           ),
@@ -1534,29 +1593,46 @@ class _EmptyState extends StatelessWidget {
           alignment: Alignment.center,
           children: <Widget>[
             Container(
-              width: 74,
-              height: 74,
+              width: 84,
+              height: 84,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
                   colors: <Color>[
-                    _accent.withValues(alpha: 0.18),
+                    _accent.withValues(alpha: 0.20),
                     _accentAlt.withValues(alpha: 0.28),
                     Colors.transparent,
-                    _accent.withValues(alpha: 0.18),
+                    _accent.withValues(alpha: 0.20),
                   ],
                 ),
               ),
             ),
-            const _LogoBadge(size: 52),
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _bgCard.withValues(alpha: 0.72),
+                border: Border.all(color: _borderLight),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: _accent.withValues(alpha: 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+            ),
+            const _LogoBadge(size: 48),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Text(
           title,
           style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
             color: _textPrimary,
           ),
         ),
@@ -1566,7 +1642,7 @@ class _EmptyState extends StatelessWidget {
           child: Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: _textMuted),
+            style: TextStyle(fontSize: 13.5, height: 1.45, color: _textMuted),
           ),
         ),
       ],
@@ -2073,18 +2149,18 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         gradient: LinearGradient(
           colors: <Color>[
-            color.withValues(alpha: 0.2),
-            color.withValues(alpha: 0.08),
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.07),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: color.withValues(alpha: 0.08),
@@ -2093,12 +2169,30 @@ class _StatusPill extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: <BoxShadow>[
+                BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2986,8 +3080,6 @@ String _normalizeSuggestedWhitelistEntry(String platform, String entry) {
   switch (platform) {
     case 'whatsapp':
       return trimmed.replaceAll(RegExp(r'[^0-9]'), '');
-    case 'telnyx':
-      return trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
     case 'discord':
     case 'telegram':
       return trimmed.replaceAll(

@@ -203,7 +203,11 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
           }
           await Promise.allSettled(
             Array.from(activeSessionIds).map((sessionId) =>
-              voiceRuntimeManager.closeSession(sessionId, 'wearable_socket_closed'),
+              voiceRuntimeManager.closeSession(
+                sessionId,
+                'wearable_socket_closed',
+                req.session.userId,
+              ),
             ),
           );
         };
@@ -262,7 +266,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                 await voiceRuntimeManager.beginInput(sessionId, {
                   mimeType: toOptionalString(payload.mimeType, 128),
                   turnId: toOptionalString(payload.turnId, 128),
-                });
+                }, req.session.userId);
                 break;
               case 'voice:audio_chunk': {
                 if (!sessionId) throw new Error('sessionId is required');
@@ -277,7 +281,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                   mimeType: toOptionalString(payload.mimeType, 128),
                   turnId,
                   sequence,
-                });
+                }, req.session.userId);
                 sendJson(ws, {
                   type: 'voice:chunk_ack',
                   sessionId,
@@ -293,17 +297,21 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                   turnId: toOptionalString(payload.turnId, 128),
                   finalSequence: toBoundedInt(payload.finalSequence, -1, -1, 1000000),
                   promptHint: toOptionalString(payload.promptHint, 2000),
-                });
+                }, req.session.userId);
                 break;
               }
               case 'voice:interrupt':
                 if (!sessionId) throw new Error('sessionId is required');
-                await voiceRuntimeManager.interruptSession(sessionId);
+                await voiceRuntimeManager.interruptSession(sessionId, req.session.userId);
                 break;
               case 'voice:session_close':
                 if (!sessionId) throw new Error('sessionId is required');
                 activeSessionIds.delete(sessionId);
-                await voiceRuntimeManager.closeSession(sessionId, 'wearable_client_closed');
+                await voiceRuntimeManager.closeSession(
+                  sessionId,
+                  'wearable_client_closed',
+                  req.session.userId,
+                );
                 break;
               default:
                 break;

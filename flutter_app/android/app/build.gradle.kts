@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -7,29 +5,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val envReleaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim().orEmpty()
-val envReleaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim().orEmpty()
-val envReleaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")?.trim().orEmpty()
-val envReleaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.trim().orEmpty()
-val keyPropertiesFile = rootProject.file("key.properties")
-val keyProperties = Properties()
-if (keyPropertiesFile.exists()) {
-    keyPropertiesFile.inputStream().use(keyProperties::load)
-}
-val repoReleaseKeystorePath = keyProperties.getProperty("storeFile", "").trim()
-val repoReleaseKeystorePassword = keyProperties.getProperty("storePassword", "").trim()
-val repoReleaseKeyAlias = keyProperties.getProperty("keyAlias", "").trim()
-val repoReleaseKeyPassword = keyProperties.getProperty("keyPassword", "").trim()
-val hasEnvReleaseSigning =
-    envReleaseKeystorePath.isNotEmpty() &&
-        envReleaseKeystorePassword.isNotEmpty() &&
-        envReleaseKeyAlias.isNotEmpty() &&
-        envReleaseKeyPassword.isNotEmpty()
-val hasRepoReleaseSigning =
-    repoReleaseKeystorePath.isNotEmpty() &&
-        repoReleaseKeystorePassword.isNotEmpty() &&
-        repoReleaseKeyAlias.isNotEmpty() &&
-        repoReleaseKeyPassword.isNotEmpty()
 val launcherBuild =
     System.getenv("NEOAGENT_ANDROID_LAUNCHER_MODE")
         ?.trim()
@@ -65,35 +40,6 @@ android {
         manifestPlaceholders["neoagentAppMode"] = androidAppModeValue
         manifestPlaceholders["neoagentLauncherHomeEnabled"] =
             launcherHomeEnabledValue
-    }
-
-    signingConfigs {
-        if (hasEnvReleaseSigning) {
-            create("release") {
-                storeFile = file(envReleaseKeystorePath)
-                storePassword = envReleaseKeystorePassword
-                keyAlias = envReleaseKeyAlias
-                keyPassword = envReleaseKeyPassword
-            }
-        } else if (hasRepoReleaseSigning) {
-            create("release") {
-                storeFile = rootProject.file(repoReleaseKeystorePath)
-                storePassword = repoReleaseKeystorePassword
-                keyAlias = repoReleaseKeyAlias
-                keyPassword = repoReleaseKeyPassword
-            }
-        }
-    }
-
-    buildTypes {
-        release {
-            signingConfig =
-                if (hasEnvReleaseSigning || hasRepoReleaseSigning) {
-                    signingConfigs.getByName("release")
-                } else {
-                    signingConfigs.getByName("debug")
-                }
-        }
     }
 }
 

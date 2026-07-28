@@ -1,8 +1,15 @@
 'use strict';
 
 const Sqlite = require('better-sqlite3');
-const { DATA_DIR } = require('../../runtime/paths');
+const {
+  DATA_DIR,
+  ensurePrivateFile,
+  ensureRuntimeDirs,
+} = require('../../runtime/paths');
 
-const sessionsDb = new Sqlite(`${DATA_DIR}/sessions.db`);
+ensureRuntimeDirs();
+const sessionsDbPath = `${DATA_DIR}/sessions.db`;
+const sessionsDb = new Sqlite(sessionsDbPath);
+ensurePrivateFile(sessionsDbPath);
 
 module.exports = sessionsDb;

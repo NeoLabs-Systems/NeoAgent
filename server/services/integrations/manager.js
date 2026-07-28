@@ -195,6 +195,52 @@ class IntegrationManager {
       .get(userId, scopedAgentId, connectionId);
   }
 
+  getSafeConnectionTestTool(provider, appKey) {
+    const definitions = provider.getToolDefinitions({
+      connectedAppIds: [String(appKey || '').trim()],
+    });
+    return definitions.find((definition) => {
+      if (definition.access !== 'read') return false;
+      const required = Array.isArray(definition.parameters?.required)
+        ? definition.parameters.required
+        : [];
+      return required.length === 0;
+    }) || null;
+  }
+
+  supportsConnectionTest(provider, connection) {
+    if (!connection || connection.status !== 'connected') return false;
+    return (
+      typeof provider.testConnection === 'function' ||
+      Boolean(this.getSafeConnectionTestTool(provider, connection.app_key))
+    );
+  }
+
+  decorateConnectionTestSupport(snapshot, provider, connections) {
+    const byId = new Map(connections.map((connection) => [connection.id, connection]));
+    const apps = (snapshot.apps || []).map((app) => {
+      const accounts = (app.accounts || []).map((account) => ({
+        ...account,
+        supportsConnectionTest: this.supportsConnectionTest(
+          provider,
+          byId.get(account.id),
+        ),
+      }));
+      return {
+        ...app,
+        accounts,
+        supportsConnectionTest: accounts.some(
+          (account) => account.supportsConnectionTest,
+        ),
+      };
+    });
+    return {
+      ...snapshot,
+      apps,
+      supportsConnectionTest: apps.some((app) => app.supportsConnectionTest),
+    };
+  }
+
   listProviders(userId, agentId = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
     this.cleanupExpiredOauthStates();
@@ -206,14 +252,17 @@ class IntegrationManager {
       rowsByProvider.get(providerKey).push(row);
     }
 
-    const snapshots = this.registry
-      .list()
-      .map((provider) =>
-        provider.buildSnapshot(rowsByProvider.get(provider.key) || [], {
+    const snapshots = this.registry.list().map((provider) => {
+      const connections = rowsByProvider.get(provider.key) || [];
+      return this.decorateConnectionTestSupport(
+        provider.buildSnapshot(connections, {
           userId,
           agentId: scopedAgentId,
         }),
+        provider,
+        connections,
       );
+    });
     const ingestionService = this.app?.locals?.memoryIngestionService || null;
     if (!ingestionService || typeof ingestionService.decorateProviderSnapshot !== 'function') {
       return snapshots;
@@ -457,6 +506,119 @@ class IntegrationManager {
       connectionId: connection.id,
       existed: true,
     };
+  }
+
+  updateConnectionTestMetadata(connection, status) {
+    let metadata = {};
+    try {
+      metadata = JSON.parse(connection.metadata_json || '{}') || {};
+    } catch {
+      metadata = {};
+    }
+    const checkedAt = new Date().toISOString();
+    db.prepare(
+      `UPDATE integration_connections
+       SET metadata_json = ?, updated_at = datetime('now')
+       WHERE id = ? AND user_id = ? AND agent_id = ?`,
+    ).run(
+      JSON.stringify({
+        ...metadata,
+        last_connection_test_at: checkedAt,
+        last_connection_test_status: status,
+      }),
+      connection.id,
+      connection.user_id,
+      connection.agent_id,
+    );
+    return checkedAt;
+  }
+
+  async testConnection(userId, providerKey, options = {}) {
+    const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
+    const provider = this.getProvider(providerKey);
+    if (!provider) {
+      throw new Error(`Unknown integration provider: ${providerKey}`);
+    }
+    const connectionId = Number(options.connectionId);
+    if (!Number.isInteger(connectionId) || connectionId <= 0) {
+      throw new Error('Choose a connected account to test.');
+    }
+    const connection = this.getConnectionById(userId, connectionId, agentId);
+    if (
+      !connection ||
+      connection.provider_key !== provider.key ||
+      connection.status !== 'connected'
+    ) {
+      throw new Error(`The selected ${provider.label} account is not connected.`);
+    }
+    if (!this.supportsConnectionTest(provider, connection)) {
+      throw new Error(`${provider.label} does not provide a safe connection test yet.`);
+    }
+
+    try {
+      if (typeof provider.testConnection === 'function') {
+        const execution = await provider.testConnection(connection, {
+          signal: options.signal || null,
+        });
+        if (execution?.credentials) {
+          const credentials = this.mergeUpdatedCredentials(
+            this.parseCredentials(connection.credentials_json),
+            execution.credentials,
+          );
+          this.persistSharedCredentials(
+            userId,
+            agentId,
+            provider.key,
+            connection.account_email,
+            credentials,
+          );
+        }
+      } else {
+        const definition = this.getSafeConnectionTestTool(
+          provider,
+          connection.app_key,
+        );
+        const result = await this.executeTool(
+          userId,
+          definition.name,
+          { connection_id: connection.id },
+          agentId,
+          { signal: options.signal || null },
+        );
+        if (result?.error) {
+          throw new Error(result.error);
+        }
+      }
+      const checkedAt = this.updateConnectionTestMetadata(connection, 'passed');
+      return {
+        ok: true,
+        provider: provider.key,
+        connectionId: connection.id,
+        accountEmail: connection.account_email || null,
+        checkedAt,
+        message: `${provider.label} is connected and responding.`,
+      };
+    } catch (error) {
+      if (
+        options.signal?.aborted ||
+        error?.name === 'AbortError' ||
+        error?.code === 'ABORT_ERR'
+      ) {
+        throw options.signal?.aborted ? abortError(options.signal) : error;
+      }
+      this.updateConnectionTestMetadata(connection, 'failed');
+      if (isLikelyExpiredConnectionError(error)) {
+        db.prepare(
+          `UPDATE integration_connections
+           SET status = 'expired', updated_at = datetime('now')
+           WHERE id = ? AND user_id = ? AND agent_id = ?`,
+        ).run(connection.id, userId, agentId);
+        throw new Error(
+          `Your ${provider.label} connection has expired. Reconnect the account and try again.`,
+        );
+      }
+      throw error;
+    }
   }
 
   getToolDefinitions(userId, agentId = null) {

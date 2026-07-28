@@ -544,6 +544,8 @@ Future<void> _showBitwardenSetupDialog(
     return;
   }
   var unlocked = config['unlocked'] == true;
+  var persistSession = true;
+  var twoStepMethod = '';
   var busy = false;
   var errorText = '';
   final serverController = TextEditingController(
@@ -552,12 +554,8 @@ Future<void> _showBitwardenSetupDialog(
   final emailController = TextEditingController(
     text: config['email']?.toString() ?? '',
   );
-  final clientIdController = TextEditingController();
-  final clientSecretController = TextEditingController();
   final masterPasswordController = TextEditingController();
-  final timeoutController = TextEditingController(
-    text: (config['idleTimeoutMinutes'] ?? 30).toString(),
-  );
+  final twoStepCodeController = TextEditingController();
   if (!context.mounted) return;
   await showDialog<void>(
     context: context,
@@ -573,7 +571,7 @@ Future<void> _showBitwardenSetupDialog(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'NeoAgent receives only opaque binding IDs. Your master password, vault session, usernames, passwords, and API tokens stay outside the AI context.',
+                  'Sign in with the same email and master password you use in Bitwarden. The master password and two-step code are used only for sign-in and are never stored or sent to the AI.',
                   style: TextStyle(color: _textSecondary),
                 ),
                 const SizedBox(height: 16),
@@ -593,30 +591,13 @@ Future<void> _showBitwardenSetupDialog(
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: clientIdController,
-                  decoration: InputDecoration(
-                    labelText: config['hasClientId'] == true
-                        ? 'Replacement personal API client ID'
-                        : 'Personal API client ID',
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: clientSecretController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: config['hasClientSecret'] == true
-                        ? 'Replacement personal API client secret'
-                        : 'Personal API client secret',
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
                 const SizedBox(height: 20),
                 Text(
-                  unlocked ? 'Vault unlocked' : 'Vault locked',
+                  unlocked
+                      ? config['persistent'] == true
+                            ? 'Vault connected and available after restart'
+                            : 'Vault connected for this session'
+                      : 'Vault locked',
                   style: TextStyle(color: unlocked ? _success : _textSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -634,22 +615,8 @@ Future<void> _showBitwardenSetupDialog(
                       ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(
-                      width: 92,
-                      child: TextField(
-                        controller: timeoutController,
-                        keyboardType: TextInputType.number,
-                        enabled: !busy && !unlocked,
-                        decoration: const InputDecoration(
-                          labelText: 'Minutes',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     FilledButton(
-                      onPressed:
-                          busy || (!unlocked && config['configured'] != true)
+                      onPressed: busy
                           ? null
                           : () async {
                               setState(() => busy = true);
@@ -657,14 +624,29 @@ Future<void> _showBitwardenSetupDialog(
                                 if (unlocked) {
                                   await controller.lockBitwarden();
                                   unlocked = false;
+                                  config = <String, dynamic>{
+                                    ...config,
+                                    'unlocked': false,
+                                    'persistent': false,
+                                  };
                                 } else {
-                                  await controller.unlockBitwarden(
+                                  await controller
+                                      .saveOfficialIntegrationConfig(
+                                        'bitwarden',
+                                        config: <String, dynamic>{
+                                          'serverUrl': serverController.text
+                                              .trim(),
+                                          'email': emailController.text.trim(),
+                                        },
+                                      );
+                                  config = await controller.unlockBitwarden(
                                     masterPasswordController.text,
-                                    idleTimeoutMinutes:
-                                        int.tryParse(timeoutController.text) ??
-                                        30,
+                                    persistSession: persistSession,
+                                    twoStepMethod: twoStepMethod,
+                                    twoStepCode: twoStepCodeController.text,
                                   );
                                   masterPasswordController.clear();
+                                  twoStepCodeController.clear();
                                   unlocked = true;
                                 }
                                 setState(() {});
@@ -678,10 +660,68 @@ Future<void> _showBitwardenSetupDialog(
                                 setState(() => busy = false);
                               }
                             },
-                      child: Text(unlocked ? 'Lock' : 'Unlock'),
+                      child: Text(unlocked ? 'Lock' : 'Connect'),
                     ),
                   ],
                 ),
+                if (!unlocked) ...<Widget>[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: twoStepMethod,
+                    decoration: const InputDecoration(
+                      labelText: 'Two-step login (only if enabled)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('Not needed'),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: '0',
+                        child: Text('Authenticator app'),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: '1',
+                        child: Text('Email code'),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: '3',
+                        child: Text('YubiKey OTP'),
+                      ),
+                    ],
+                    onChanged: busy
+                        ? null
+                        : (value) =>
+                              setState(() => twoStepMethod = value ?? ''),
+                  ),
+                  if (twoStepMethod.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: twoStepCodeController,
+                      enabled: !busy,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Current two-step login code',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: persistSession,
+                    onChanged: busy
+                        ? null
+                        : (value) =>
+                              setState(() => persistSession = value ?? true),
+                    title: const Text('Keep the vault available'),
+                    subtitle: const Text(
+                      'Stores only the Bitwarden session key encrypted on this server, so connections survive restarts. You can lock it at any time.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -793,12 +833,6 @@ Future<void> _showBitwardenSetupDialog(
                         config: <String, dynamic>{
                           'serverUrl': serverController.text.trim(),
                           'email': emailController.text.trim(),
-                          if (clientIdController.text.trim().isNotEmpty)
-                            'clientId': clientIdController.text.trim(),
-                          if (clientSecretController.text.isNotEmpty)
-                            'clientSecret': clientSecretController.text,
-                          'idleTimeoutMinutes':
-                              int.tryParse(timeoutController.text) ?? 30,
                         },
                       );
                       config = await controller.getOfficialIntegrationConfig(
@@ -815,7 +849,7 @@ Future<void> _showBitwardenSetupDialog(
                       setState(() => busy = false);
                     }
                   },
-            child: Text(busy ? 'Saving...' : 'Save setup'),
+            child: Text(busy ? 'Saving...' : 'Save account'),
           ),
         ],
       ),
@@ -823,10 +857,8 @@ Future<void> _showBitwardenSetupDialog(
   );
   serverController.dispose();
   emailController.dispose();
-  clientIdController.dispose();
-  clientSecretController.dispose();
   masterPasswordController.dispose();
-  timeoutController.dispose();
+  twoStepCodeController.dispose();
 }
 
 Future<void> _showNeoRecallSetupDialog(
@@ -1942,6 +1974,9 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 final accessBusy = controller.isOfficialIntegrationBusy(
                   '${provider.id}:${account.id}:access_mode',
                 );
+                final testBusy = controller.isOfficialIntegrationBusy(
+                  '${provider.id}:${account.id}:test',
+                );
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
@@ -2040,6 +2075,45 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                                 ? _warning
                                 : _textSecondary,
                           ),
+                          if (account.supportsConnectionTest)
+                            OutlinedButton.icon(
+                              onPressed: testBusy
+                                  ? null
+                                  : () async {
+                                      try {
+                                        final result = await controller
+                                            .testOfficialIntegration(
+                                              provider.id,
+                                              connectionId: account.id,
+                                            );
+                                        if (!context.mounted) return;
+                                        final message =
+                                            result['message']?.toString() ??
+                                            '${provider.label} is connected and responding.';
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text(message)),
+                                        );
+                                      } catch (_) {
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              controller.errorMessage ??
+                                                  'The connection test failed.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                              icon: const Icon(Icons.network_check_rounded),
+                              label: Text(
+                                testBusy ? 'Testing...' : 'Test Connection',
+                              ),
+                            ),
                           OutlinedButton.icon(
                             onPressed: disconnectBusy
                                 ? null

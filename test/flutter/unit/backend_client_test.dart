@@ -7,6 +7,7 @@ import 'package:neoagent_flutter/src/network/app_http_client.dart';
 
 class FakeHttpClient implements AppHttpClient {
   Uri? lastUri;
+  Object? lastBody;
   String? _sessionCookie;
 
   @override
@@ -43,6 +44,7 @@ class FakeHttpClient implements AppHttpClient {
     Object? body,
   }) async {
     lastUri = uri;
+    lastBody = body;
     return _json(<String, dynamic>{'ok': true});
   }
 
@@ -117,4 +119,47 @@ void main() {
       'https://neo.test/api/timeline?limit=25&agentId=agent+one%2Ftwo&beforeOccurredAt=2026-06-23T10%3A00%3A00.000Z&beforeId=42&source=screen&source=runs',
     );
   });
+
+  test(
+    'BackendClient sends user-facing integration test and Bitwarden login requests',
+    () async {
+      final fake = FakeHttpClient();
+      final client = BackendClient(httpClient: fake);
+
+      await client.testOfficialIntegration(
+        'https://neo.test',
+        'google_workspace',
+        connectionId: 42,
+        agentId: 'main agent',
+      );
+      expect(
+        fake.lastUri.toString(),
+        'https://neo.test/api/integrations/google_workspace/test',
+      );
+      expect(jsonDecode(fake.lastBody! as String), <String, dynamic>{
+        'connectionId': 42,
+        'agentId': 'main agent',
+      });
+
+      await client.unlockBitwarden(
+        'https://neo.test',
+        masterPassword: 'master-password',
+        persistSession: true,
+        twoStepMethod: '0',
+        twoStepCode: '123456',
+        agentId: 'main agent',
+      );
+      expect(
+        fake.lastUri.toString(),
+        'https://neo.test/api/integrations/bitwarden/unlock',
+      );
+      expect(jsonDecode(fake.lastBody! as String), <String, dynamic>{
+        'masterPassword': 'master-password',
+        'persistSession': true,
+        'twoStepMethod': '0',
+        'twoStepCode': '123456',
+        'agentId': 'main agent',
+      });
+    },
+  );
 }

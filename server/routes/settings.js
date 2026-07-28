@@ -96,26 +96,6 @@ function isProtectedSecretSettingKey(key) {
   return /^social_reach_cookies_/i.test(String(key || ''));
 }
 
-function toOptionalTrimmedString(value) {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function extractVoiceSettings(payload = {}) {
-  return {
-    sttProvider: toOptionalTrimmedString(payload.voice_stt_provider),
-    sttModel: toOptionalTrimmedString(payload.voice_stt_model),
-    ttsProvider: toOptionalTrimmedString(payload.voice_tts_provider),
-    ttsModel: toOptionalTrimmedString(payload.voice_tts_model),
-    ttsVoice: toOptionalTrimmedString(payload.voice_tts_voice),
-    runtimeMode: toOptionalTrimmedString(payload.voice_runtime_mode),
-    liveProvider: toOptionalTrimmedString(payload.voice_live_provider),
-    liveModel: toOptionalTrimmedString(payload.voice_live_model),
-    liveVoice: toOptionalTrimmedString(payload.voice_live_voice),
-  };
-}
-
 const updateTriggerLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 3,
@@ -153,8 +133,7 @@ router.use(requireAuth);
 function isAgentScopedSettingKey(key) {
   return AGENT_SETTING_KEYS.has(key)
     || key.startsWith('platform_whitelist_')
-    || key.startsWith('platform_access_policy_')
-    || key === 'platform_voice_secret_telnyx';
+    || key.startsWith('platform_access_policy_');
 }
 
 function getBrowserController(req) {
@@ -350,17 +329,6 @@ router.put('/', async (req, res) => {
     const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
     invalidateSystemPromptCache(userId, agentId);
   }
-
-  if (Object.keys(normalizedBody).some((key) => VOICE_SETTING_KEYS.has(key))) {
-    const manager = req.app?.locals?.messagingManager;
-    if (manager && typeof manager.updateVoiceSettings === 'function') {
-      manager.updateVoiceSettings(userId, extractVoiceSettings(normalizedBody), {
-        agentId,
-      });
-    }
-  }
-
-
 
   res.json({ success: true });
 });
@@ -576,18 +544,6 @@ router.put('/:key', async (req, res) => {
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
       .run(userId, req.params.key, v);
   }
-
-  if (VOICE_SETTING_KEYS.has(req.params.key)) {
-    const manager = req.app?.locals?.messagingManager;
-    if (manager && typeof manager.updateVoiceSettings === 'function') {
-      manager.updateVoiceSettings(userId, extractVoiceSettings({
-        [req.params.key]: value,
-      }), {
-        agentId,
-      });
-    }
-  }
-
 
   res.json({ success: true });
 });

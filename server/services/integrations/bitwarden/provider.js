@@ -51,15 +51,16 @@ function publicConfig(config, connection, status = {}) {
   return {
     serverUrl: config.serverUrl || DEFAULT_SERVER_URL,
     email: config.email || '',
-    idleTimeoutMinutes: config.idleTimeoutMinutes || 30,
+    authenticationMethod: 'master_password',
     hasClientId: Boolean(config.clientId),
     hasClientSecret: Boolean(config.clientSecret),
-    configured: Boolean(config.email && config.clientId && config.clientSecret),
+    configured: Boolean(config.email),
     accountCount: connection?.status === 'connected' ? 1 : 0,
     hasConnectedAccount: connection?.status === 'connected',
     connectionId: connection?.id || null,
     cliAvailable: status.cliAvailable !== false,
     unlocked: Boolean(status.unlocked),
+    persistent: Boolean(status.persistent),
     lastUsedAt: status.lastUsedAt || null,
   };
 }
@@ -88,7 +89,10 @@ function upsertConnection(userId, agentId, config) {
     BITWARDEN_APP.id,
     config.email,
     JSON.stringify(['vault:read_selected']),
-    encryptValue(JSON.stringify(config)),
+    encryptValue(JSON.stringify({
+      serverUrl: config.serverUrl,
+      email: config.email,
+    })),
     metadata,
   );
   if (existing && existing.account_email !== config.email) {
@@ -108,7 +112,7 @@ function createBitwardenProvider(options = {}) {
     description: 'Fill browser logins and authenticate bounded API requests while keeping secrets hidden from the AI.',
     icon: 'password',
     apps: [BITWARDEN_APP],
-    connectPrompt: 'Add a Bitwarden API key, then unlock the vault when credentials are needed. The master password and vault secrets are never sent to the AI.',
+    connectPrompt: 'Sign in with your Bitwarden email and master password. The password is used only for that sign-in and is never stored or sent to the AI.',
     supportsMultipleAccounts: false,
     connectionMethod: 'user_config',
     getApp(appId) {
@@ -129,13 +133,13 @@ function createBitwardenProvider(options = {}) {
         ? resolveAgentId(userId, context.agentId || null)
         : null;
       const config = agentId ? parseConfig(getProviderConfig(userId, BITWARDEN_PROVIDER_KEY, agentId)) : {};
-      const missing = ['email', 'clientId', 'clientSecret'].filter((key) => !config[key]);
+      const missing = ['email'].filter((key) => !config[key]);
       return {
         configured: missing.length === 0,
         missing,
         summary: missing.length === 0
-          ? 'Bitwarden is configured. Unlock it only when a credential operation is needed.'
-          : 'Add a Bitwarden personal API key in Official Integrations.',
+          ? 'Bitwarden is ready. Sign in once with the master password to connect the vault.'
+          : 'Add the Bitwarden account email in Official Integrations.',
         setupMode: 'user',
       };
     },
@@ -160,7 +164,7 @@ function createBitwardenProvider(options = {}) {
       const config = parseConfig(getProviderConfig(normalizedUserId, BITWARDEN_PROVIDER_KEY, scopedAgentId));
       return publicConfig(config, loadConnection(normalizedUserId, scopedAgentId), cli()?.getStatus(normalizedUserId, scopedAgentId));
     },
-    async saveUserConfig({ userId, agentId, config, signal }) {
+    async saveUserConfig({ userId, agentId, config }) {
       const normalizedUserId = Number(userId);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
         throw new Error('A valid user is required to save Bitwarden configuration.');
@@ -168,14 +172,76 @@ function createBitwardenProvider(options = {}) {
       const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
       const existing = getProviderConfig(normalizedUserId, BITWARDEN_PROVIDER_KEY, scopedAgentId);
       const parsed = parseConfig(config, existing);
-      if (!parsed.email || !parsed.clientId || !parsed.clientSecret) {
-        throw new Error('Bitwarden email, client ID, and client secret are required.');
+      if (!parsed.email) {
+        throw new Error('Bitwarden account email is required.');
       }
       if (!cli()) throw new Error('Bitwarden credential service is unavailable.');
-      await cli().configure(normalizedUserId, scopedAgentId, parsed, { signal });
+      const currentConnection = loadConnection(normalizedUserId, scopedAgentId);
+      if (
+        currentConnection &&
+        (
+          text(currentConnection.account_email).toLowerCase() !== parsed.email.toLowerCase() ||
+          normalizeServerUrl(existing.serverUrl) !== parsed.serverUrl
+        )
+      ) {
+        await cli().logout(normalizedUserId, scopedAgentId);
+        db.prepare('DELETE FROM integration_connections WHERE id = ?').run(
+          currentConnection.id,
+        );
+      }
       setProviderConfig(normalizedUserId, BITWARDEN_PROVIDER_KEY, parsed, scopedAgentId);
-      const connection = upsertConnection(normalizedUserId, scopedAgentId, parsed);
-      return publicConfig(parsed, connection, cli().getStatus(normalizedUserId, scopedAgentId));
+      return publicConfig(
+        parsed,
+        loadConnection(normalizedUserId, scopedAgentId),
+        cli().getStatus(normalizedUserId, scopedAgentId),
+      );
+    },
+    async unlock({
+      userId,
+      agentId,
+      masterPassword,
+      persistSession = true,
+      twoStepMethod,
+      twoStepCode,
+      signal,
+    }) {
+      const normalizedUserId = Number(userId);
+      const scopedAgentId = resolveAgentId(normalizedUserId, agentId || null);
+      const config = parseConfig(
+        getProviderConfig(normalizedUserId, BITWARDEN_PROVIDER_KEY, scopedAgentId),
+      );
+      if (!config.email) {
+        throw new Error('Save the Bitwarden account email before signing in.');
+      }
+      if (!cli()) throw new Error('Bitwarden credential service is unavailable.');
+      await cli().unlock(
+        normalizedUserId,
+        scopedAgentId,
+        masterPassword,
+        config.idleTimeoutMinutes,
+        {
+          config,
+          persistSession,
+          twoStepMethod,
+          twoStepCode,
+          signal,
+        },
+      );
+      const connection = upsertConnection(normalizedUserId, scopedAgentId, config);
+      return publicConfig(
+        config,
+        connection,
+        cli().getStatus(normalizedUserId, scopedAgentId),
+      );
+    },
+    async testConnection(connection, executionOptions = {}) {
+      if (!cli()) throw new Error('Bitwarden credential service is unavailable.');
+      await cli().sync(
+        connection.user_id,
+        connection.agent_id,
+        { signal: executionOptions.signal || null },
+      );
+      return {};
     },
     async clearUserConfig({ userId, agentId }) {
       const normalizedUserId = Number(userId);

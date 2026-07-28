@@ -286,14 +286,6 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       ),
     ],
   ),
-  MessagingPlatformDescriptor(
-    id: 'telnyx',
-    label: 'Telnyx Voice',
-    subtitle: 'Inbound and outbound calling',
-    accent: Color(0xFF00C8A0),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.call_rounded,
-  ),
   ...longTailMessagingPlatforms,
 ];
 
@@ -1278,7 +1270,7 @@ class QuickAllowSuggestion {
 MessagingAccessRule? _ruleFromPrefixedEntry(String platform, String entry) {
   final normalized = _normalizeSuggestedWhitelistEntry(platform, entry);
   if (normalized.isEmpty) return null;
-  if (platform == 'telnyx' || platform == 'whatsapp') {
+  if (platform == 'whatsapp') {
     return MessagingAccessRule(scope: 'phone_number', value: normalized);
   }
   final match = RegExp(r'^([a-z_]+):(.*)$').firstMatch(normalized);
@@ -2828,6 +2820,7 @@ class OfficialIntegrationAccountItem {
     this.accountEmail,
     this.lastConnectedAt,
     this.accessMode = 'read_write',
+    this.supportsConnectionTest = false,
     this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
   });
 
@@ -2841,6 +2834,7 @@ class OfficialIntegrationAccountItem {
         json['lastConnectedAt']?.toString(),
       ),
       accessMode: json['accessMode']?.toString() ?? 'read_write',
+      supportsConnectionTest: json['supportsConnectionTest'] == true,
       memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
         _jsonMap(json['memoryCoverage']),
       ),
@@ -2853,6 +2847,7 @@ class OfficialIntegrationAccountItem {
   final String? accountEmail;
   final DateTime? lastConnectedAt;
   final String accessMode;
+  final bool supportsConnectionTest;
   final OfficialIntegrationMemoryCoverage memoryCoverage;
 
   bool get isExpired => status == 'expired';

@@ -942,7 +942,7 @@ function setupWebSocket(io, services) {
       }
       const activeVoiceSessionIds = Array.from(socket.data.voiceSessionIds || []);
       for (const sessionId of activeVoiceSessionIds) {
-        void voiceRuntimeManager.closeSession(sessionId, 'socket_disconnected').catch((err) => {
+        void voiceRuntimeManager.closeSession(sessionId, 'socket_disconnected', userId).catch((err) => {
           console.error(`[WS] Failed to close voice session ${sessionId} after socket disconnect:`, err);
         });
       }

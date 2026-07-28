@@ -271,6 +271,39 @@ function createOAuthProvider(options = {}) {
     return normalized;
   }
 
+  function createIntegrationContext(connectionRow, signal) {
+    let credentials = {};
+    try {
+      credentials = JSON.parse(
+        decryptValue(connectionRow.credentials_json || '{}') || '{}',
+      );
+    } catch {
+      credentials = {};
+    }
+    let credentialsUpdated = false;
+    const context = {
+      appId: connectionRow.app_key,
+      connection: connectionRow,
+      credentials,
+      env: options.getEnvStatus({
+        userId: connectionRow?.user_id,
+        agentId: connectionRow?.agent_id,
+      }),
+      signal: signal || null,
+      updateCredentials(nextCredentials) {
+        if (!nextCredentials || typeof nextCredentials !== 'object') return;
+        context.credentials = nextCredentials;
+        credentialsUpdated = true;
+      },
+    };
+    return {
+      context,
+      credentialsWereUpdated() {
+        return credentialsUpdated;
+      },
+    };
+  }
+
   const provider = {
     key: options.key,
     label: options.label,
@@ -408,41 +441,23 @@ function createOAuthProvider(options = {}) {
       if (typeof options.executeTool !== 'function') {
         return null;
       }
-      let credentials = {};
-      try {
-        credentials = JSON.parse(
-          decryptValue(connectionRow.credentials_json || '{}') || '{}',
-        );
-      } catch {
-        credentials = {};
-      }
-      let credentialsUpdated = false;
-      const integrationContext = {
-        appId: toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key,
-        connection: connectionRow,
-        credentials,
-        env: this.getEnvStatus({
-          userId: connectionRow?.user_id,
-          agentId: connectionRow?.agent_id,
-        }),
-        signal: executionOptions.signal || null,
-        updateCredentials(nextCredentials) {
-          if (!nextCredentials || typeof nextCredentials !== 'object') return;
-          integrationContext.credentials = nextCredentials;
-          credentialsUpdated = true;
-        },
-      };
+      const { context, credentialsWereUpdated } = createIntegrationContext(
+        connectionRow,
+        executionOptions.signal,
+      );
+      context.appId =
+        toolAppMap.get(String(toolName || '').trim()) || connectionRow.app_key;
       const execution = await options.executeTool(
         toolName,
         args,
-        integrationContext,
+        context,
       );
-      if (!execution || execution.credentials || !credentialsUpdated) {
+      if (!execution || execution.credentials || !credentialsWereUpdated()) {
         return execution;
       }
       return {
         ...execution,
-        credentials: integrationContext.credentials,
+        credentials: context.credentials,
       };
     },
     summarizeConnection(connectionRows) {
@@ -495,6 +510,23 @@ function createOAuthProvider(options = {}) {
       ].join('\n');
     },
   };
+
+  if (typeof options.testConnection === 'function') {
+    provider.testConnection = async (connectionRow, executionOptions = {}) => {
+      const { context, credentialsWereUpdated } = createIntegrationContext(
+        connectionRow,
+        executionOptions.signal,
+      );
+      const execution = await options.testConnection(context);
+      if (!execution || execution.credentials || !credentialsWereUpdated()) {
+        return execution;
+      }
+      return {
+        ...execution,
+        credentials: context.credentials,
+      };
+    };
+  }
 
   return provider;
 }

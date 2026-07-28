@@ -1,5 +1,7 @@
 'use strict';
 
+const { DEFAULT_NEOAGENT_PORT } = require('../../../lib/setup/contract');
+
 function trimEnv(name) {
   return String(process.env[name] || '').trim();
 }
@@ -10,7 +12,7 @@ function resolvePublicBaseUrl() {
   const schemeOverride = trimEnv('PUBLIC_URL_SCHEME').toLowerCase();
   const scheme = schemeOverride ||
     (String(process.env.NODE_ENV || '').trim() === 'development' ? 'http' : 'https');
-  return `${scheme}://localhost:${trimEnv('PORT') || '3333'}`;
+  return `${scheme}://localhost:${trimEnv('PORT') || DEFAULT_NEOAGENT_PORT}`;
 }
 
 function resolveOAuthConfig(prefix) {

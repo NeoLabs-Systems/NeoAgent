@@ -21,10 +21,13 @@
     }
 
     .login-card {
-      background: var(--bg-card);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, transparent), var(--bg-card));
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: 20px;
       padding: 36px 32px 32px;
+      box-shadow: 0 24px 70px -36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
     }
 
     .brand {
@@ -84,12 +87,13 @@
     .admin-a-mark {
       width: 80px;
       height: 80px;
-      border-radius: 22px;
-      background: var(--bg-secondary);
+      border-radius: 24px;
+      background:
+        linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--bg-secondary)), var(--bg-secondary));
       border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
       box-shadow:
         0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
-        0 12px 32px rgba(0,0,0,0.45);
+        0 16px 36px rgba(0,0,0,0.42);
       display: flex;
       align-items: center;
       justify-content: center;

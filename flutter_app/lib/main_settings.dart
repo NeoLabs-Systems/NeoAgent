@@ -797,6 +797,55 @@ class _SettingsPanelState extends State<SettingsPanel> {
               'Configure workspace behavior and model defaults.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
+            if (!controller.setupComplete &&
+                controller.setupOpenSections.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _accent.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Complete setup',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'NeoAgent is ready. Add these optional capabilities whenever you want:',
+                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        for (final section in controller.setupOpenSections)
+                          Chip(
+                            avatar: const Icon(Icons.circle_outlined, size: 15),
+                            label: Text(
+                              section
+                                  .replaceAll('-', ' ')
+                                  .split(' ')
+                                  .where((word) => word.isNotEmpty)
+                                  .map(
+                                    (word) =>
+                                        '${word[0].toUpperCase()}${word.substring(1)}',
+                                  )
+                                  .join(' '),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Wrap(
               spacing: 10,

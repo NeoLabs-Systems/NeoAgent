@@ -19,7 +19,7 @@ class NeoAgentController extends ChangeNotifier {
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
         .toList(growable: false);
-    _rebuildMergedLogs();
+    _rebuildLogs();
     _diagnosticLogSubscription = AppDiagnostics.stream.listen(
       _handleDiagnosticLogEntry,
     );
@@ -30,6 +30,8 @@ class NeoAgentController extends ChangeNotifier {
   final HealthBridge _healthBridge;
   final WidgetBridge _widgetBridge;
   final OAuthLauncher _oauthLauncher;
+  final BackendDiscoveryService _backendDiscoveryService =
+      BackendDiscoveryService();
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
       app_release_updater.AppReleaseUpdater();
   final LiveVoiceCapture _liveVoiceCapture = LiveVoiceCapture();
@@ -68,7 +70,6 @@ class NeoAgentController extends ChangeNotifier {
   bool _isPollingQrLogin = false;
   bool _socketHasConnectedOnce = false;
   bool _onboardingManuallyReopened = false;
-  List<LogEntry> _serverLogs = const <LogEntry>[];
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
   bool isBooting = true;
@@ -100,6 +101,7 @@ class NeoAgentController extends ChangeNotifier {
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
+  bool isDiscoveringBackends = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
@@ -121,6 +123,12 @@ class NeoAgentController extends ChangeNotifier {
   app_release_updater.AppReleaseInfo? availableAppUpdate;
   String? appUpdateErrorMessage;
   DateTime? appUpdateLastCheckedAt;
+  String? backendDiscoveryErrorMessage;
+  List<BackendDiscoveryCandidate> discoveredBackends =
+      const <BackendDiscoveryCandidate>[];
+  String setupProfile = 'quick';
+  bool setupComplete = true;
+  List<String> setupOpenSections = const <String>[];
 
   AppSection selectedSection = AppSection.chat;
   Map<String, dynamic>? user;
@@ -362,6 +370,7 @@ class NeoAgentController extends ChangeNotifier {
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
+    _backendDiscoveryService.dispose();
     _desktopCompanion.removeListener(notifyListeners);
     unawaited(_desktopCompanion.disconnect());
     unawaited(_liveVoiceCapture.dispose());
@@ -589,31 +598,12 @@ class NeoAgentController extends ChangeNotifier {
     _clientLogs = next.length > _maxVisibleLogs
         ? next.sublist(next.length - _maxVisibleLogs)
         : next;
-    _rebuildMergedLogs();
+    _rebuildLogs();
     notifyListeners();
   }
 
-  void _setServerLogs(List<LogEntry> entries) {
-    _serverLogs = entries.length > _maxVisibleLogs
-        ? entries.sublist(entries.length - _maxVisibleLogs)
-        : List<LogEntry>.from(entries, growable: false);
-    _rebuildMergedLogs();
-  }
-
-  void _appendServerLog(LogEntry entry) {
-    final next = <LogEntry>[..._serverLogs, entry];
-    _serverLogs = next.length > _maxVisibleLogs
-        ? next.sublist(next.length - _maxVisibleLogs)
-        : next;
-    _rebuildMergedLogs();
-  }
-
-  void _rebuildMergedLogs() {
-    final merged = <LogEntry>[..._serverLogs, ..._clientLogs]
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    logs = merged.length > _maxVisibleLogs
-        ? merged.sublist(merged.length - _maxVisibleLogs)
-        : merged;
+  void _rebuildLogs() {
+    logs = List<LogEntry>.from(_clientLogs, growable: false);
   }
 
   Future<void> bootstrap() async {
@@ -701,6 +691,7 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = false;
       errorMessage = null;
       notifyListeners();
+      unawaited(discoverBackends());
       return;
     }
 
@@ -896,10 +887,29 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<bool> saveBackendUrl(String rawValue) async {
+  Future<void> discoverBackends() async {
+    if (isDiscoveringBackends || kIsWeb) return;
+    isDiscoveringBackends = true;
+    backendDiscoveryErrorMessage = null;
+    notifyListeners();
+    try {
+      discoveredBackends = await _backendDiscoveryService.discover();
+    } catch (_) {
+      backendDiscoveryErrorMessage =
+          'Local NeoAgent discovery is temporarily unavailable.';
+    } finally {
+      isDiscoveringBackends = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> saveBackendUrl(
+    String rawValue, {
+    String? setupClaimToken,
+  }) async {
     final normalized = _normalizeBackendUrl(rawValue);
     if (normalized.isEmpty) {
-      errorMessage = 'Enter the NeoAgent backend URL.';
+      errorMessage = 'Enter the address of a NeoAgent server.';
       notifyListeners();
       return false;
     }
@@ -923,6 +933,23 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = true;
       notifyListeners();
       await bootstrap();
+      final claimToken = setupClaimToken?.trim() ?? '';
+      if (claimToken.isNotEmpty) {
+        await _backendClient.exchangeSetupClaim(
+          baseUrl: normalized,
+          token: claimToken,
+        );
+        final pendingSessionCookie = _backendClient.sessionCookie?.trim() ?? '';
+        if (pendingSessionCookie.isNotEmpty) {
+          try {
+            await _secureStorage.write(
+              key: _sessionCookieSecureStorageKey,
+              value: pendingSessionCookie,
+            );
+            await _prefs?.setString(_sessionCookieBackendPrefsKey, normalized);
+          } catch (_) {}
+        }
+      }
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1449,7 +1476,6 @@ class NeoAgentController extends ChangeNotifier {
     isRefreshingTimeline = false;
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
-    _serverLogs = const <LogEntry>[];
     _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
@@ -1459,6 +1485,9 @@ class NeoAgentController extends ChangeNotifier {
     skills = const <SkillItem>[];
     storeSkills = const <StoreSkillItem>[];
     officialIntegrations = const <OfficialIntegrationItem>[];
+    setupProfile = 'quick';
+    setupComplete = true;
+    setupOpenSections = const <String>[];
     memoryOverview = const MemoryOverview();
     memories = const <MemoryItem>[];
     memoryRecallResults = const <MemoryItem>[];
@@ -1766,7 +1795,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void clearLogs() {
-    _serverLogs = const <LogEntry>[];
     _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     notifyListeners();
@@ -2042,6 +2070,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchVersion(backendUrl),
         const <String, dynamic>{},
       );
+      final setupStatusFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'setup_status',
+        _backendClient.getSetupStatus(backendUrl),
+        const <String, dynamic>{'complete': true},
+      );
       final tokenFuture = _softRefreshLoad<Map<String, dynamic>>(
         'token_usage',
         _backendClient.fetchTokenUsageSummary(backendUrl, agentId: agentId),
@@ -2163,6 +2196,7 @@ class NeoAgentController extends ChangeNotifier {
       final runsResponse = await runsFuture;
       final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
+      final setupStatusResponse = await setupStatusFuture;
       final tokenResponse = await tokenFuture;
       final rateLimitResponse = await rateLimitFuture;
       final updateResponse = await updateFuture;
@@ -2219,6 +2253,15 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
+      setupProfile = setupStatusResponse['profile']?.toString() == 'full'
+          ? 'full'
+          : 'quick';
+      setupComplete = setupStatusResponse['complete'] != false;
+      setupOpenSections =
+          (setupStatusResponse['openSections'] as List? ?? const [])
+              .map((section) => section.toString())
+              .where((section) => section.isNotEmpty)
+              .toList(growable: false);
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
       usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
@@ -4982,14 +5025,18 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<Map<String, dynamic>> unlockBitwarden(
     String masterPassword, {
-    required int idleTimeoutMinutes,
+    required bool persistSession,
+    String? twoStepMethod,
+    String? twoStepCode,
   }) async {
     try {
       errorMessage = null;
       return await _backendClient.unlockBitwarden(
         backendUrl,
         masterPassword: masterPassword,
-        idleTimeoutMinutes: idleTimeoutMinutes,
+        persistSession: persistSession,
+        twoStepMethod: twoStepMethod,
+        twoStepCode: twoStepCode,
         agentId: _scopedAgentId,
       );
     } catch (error) {
@@ -5085,6 +5132,35 @@ class NeoAgentController extends ChangeNotifier {
       await refreshSkills();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrationKeys.remove(busyKey);
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> testOfficialIntegration(
+    String providerId, {
+    required int connectionId,
+  }) async {
+    final busyKey = '$providerId:$connectionId:test';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
+      return const <String, dynamic>{};
+    }
+    _busyOfficialIntegrationKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _backendClient.testOfficialIntegration(
+        backendUrl,
+        providerId,
+        connectionId: connectionId,
+        agentId: _scopedAgentId,
+      );
+      await refreshSkills();
+      return result;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
     } finally {
       _busyOfficialIntegrationKeys.remove(busyKey);
       notifyListeners();
@@ -5308,19 +5384,6 @@ class NeoAgentController extends ChangeNotifier {
           .toList(growable: false);
     }
     return const <Map<String, dynamic>>[];
-  }
-
-  Future<void> saveTelnyxVoiceSecret(String secret) async {
-    await _backendClient.saveTelnyxVoiceSecret(
-      backendUrl,
-      secret,
-      agentId: _scopedAgentId,
-    );
-    settings = <String, dynamic>{
-      ...settings,
-      'platform_voice_secret_telnyx': secret,
-    };
-    notifyListeners();
   }
 
   Future<void> saveMessagingAccessPolicy(
@@ -6361,7 +6424,6 @@ class NeoAgentController extends ChangeNotifier {
     final socket = io.io(origin, options);
     socket.onConnect((_) {
       socketConnected = true;
-      socket.emit('client:request_logs');
       socket.emit('integrations:status');
       if (_socketHasConnectedOnce && isAuthenticated) {
         unawaited(refresh());
@@ -6423,20 +6485,6 @@ class NeoAgentController extends ChangeNotifier {
           transportState: 'reconnecting',
         );
       }
-      notifyListeners();
-    });
-    socket.on('server:log_history', (dynamic data) {
-      final next = <LogEntry>[];
-      if (data is List) {
-        for (final item in data) {
-          next.add(LogEntry.fromJson(_jsonMap(item)));
-        }
-      }
-      _setServerLogs(next);
-      notifyListeners();
-    });
-    socket.on('server:log', (dynamic data) {
-      _appendServerLog(LogEntry.fromJson(_jsonMap(data)));
       notifyListeners();
     });
     socket.on('messaging:qr', (dynamic data) {

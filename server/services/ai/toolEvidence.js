@@ -28,7 +28,7 @@ const EVIDENCE_SOURCE_RULES = [
   { source: 'command', match: (name) => name === 'execute_command' },
   { source: 'skills', match: (name) => name.includes('skill') },
   { source: 'tasks', match: (name) => name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' || name.includes('widget') },
-  { source: 'messaging', match: (name) => name === 'send_message' || name === 'make_call' },
+  { source: 'messaging', match: (name) => name === 'send_message' },
   { source: 'data', match: (name) => name === 'read_health_data' },
   { source: 'vision', match: (name) => name === 'analyze_image' },
   { source: 'subagent', match: (name) => name.includes('subagent') },
@@ -85,7 +85,6 @@ function classifyToolExecution(
     'replace_file_range',
     'send_interim_update',
     'send_message',
-    'make_call',
     'create_skill',
     'update_skill',
     'delete_skill',
@@ -195,7 +194,7 @@ function gatheredNewEvidence(execution, repetitionObservation = null) {
 function isSubstantiveProgressToolName(toolName = '') {
   const name = String(toolName || '').trim();
   if (!name) return false;
-  if (name === 'send_message' || name === 'send_interim_update' || name === 'make_call' || name === 'notify_user') return false;
+  if (name === 'send_message' || name === 'send_interim_update' || name === 'notify_user') return false;
   if (name === 'think' || name === 'activate_tools' || name === 'task_complete') return false;
   return true;
 }

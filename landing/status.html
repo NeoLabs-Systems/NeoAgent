@@ -5,35 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NeoAgent Status</title>
   <meta name="description" content="Public status for NeoAgent systems.">
+  <meta name="theme-color" content="#0e1511" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f1e8" media="(prefers-color-scheme: light)">
   <link rel="icon" type="image/png" href="images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: light dark;
-      --bg: #f7f3ea;
-      --ink: #171512;
-      --muted: #6f675a;
-      --line: rgba(33, 28, 20, 0.14);
-      --panel: rgba(255, 252, 245, 0.82);
-      --good: #14874d;
-      --warn: #b56a09;
-      --bad: #b3261e;
-      --accent: #9d7635;
-      --shadow: 0 22px 70px rgba(52, 38, 17, 0.14);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #f4f1e8;
+      --bg-2: #ede9dc;
+      --surface: rgba(253, 252, 248, 0.84);
+      --ink: #1c2117;
+      --muted: #7e8470;
+      --text-2: #49503f;
+      --line: rgba(28, 33, 23, 0.10);
+      --line-2: rgba(28, 33, 23, 0.16);
+      --gold: #b07d2b;
+      --gold-ink: #8a5f1c;
+      --good: #527c4f;
+      --warn: #9a7b33;
+      --bad: #ae473c;
+      --shadow: 0 24px 70px -36px rgba(28, 33, 23, 0.28);
+      --sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #11100e;
-        --ink: #f5efe5;
-        --muted: #b8ac9b;
-        --line: rgba(245, 239, 229, 0.14);
-        --panel: rgba(31, 29, 25, 0.82);
-        --good: #49d18b;
-        --warn: #efb35d;
-        --bad: #ff827a;
-        --accent: #e5c58d;
-        --shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+        --bg: #0e1511;
+        --bg-2: #0a0f0c;
+        --surface: rgba(23, 31, 26, 0.82);
+        --ink: #ecefe5;
+        --muted: #7e8877;
+        --text-2: #aeb7a6;
+        --line: rgba(224, 240, 224, 0.10);
+        --line-2: rgba(224, 240, 224, 0.16);
+        --gold: #e1b052;
+        --gold-ink: #eac272;
+        --good: #74c07c;
+        --warn: #d9a24b;
+        --bad: #de8a78;
+        --shadow: 0 28px 80px -36px rgba(0, 0, 0, 0.65);
       }
     }
 
@@ -41,108 +55,278 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at 18% 8%, rgba(229, 197, 141, 0.24), transparent 34rem),
-        radial-gradient(circle at 88% 20%, rgba(74, 118, 158, 0.12), transparent 32rem),
-        var(--bg);
       color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(900px 480px at 12% -10%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 55%),
+        radial-gradient(700px 420px at 90% 0%, color-mix(in srgb, var(--good) 12%, transparent), transparent 50%),
+        var(--bg);
+      -webkit-font-smoothing: antialiased;
     }
 
     a { color: inherit; text-decoration: none; }
-    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
-    .nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; }
-    .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 750; }
-    .brand-logo { display: block; width: 34px; height: 34px; border-radius: 10px; }
-    .nav a:last-child { color: var(--muted); font-size: 14px; font-weight: 650; }
+    .shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
 
-    .hero { padding: clamp(54px, 8vw, 104px) 0 34px; }
-    .eyebrow { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { max-width: 850px; margin: 14px 0 18px; font-size: clamp(42px, 8vw, 84px); line-height: .96; letter-spacing: 0; font-weight: 520; }
-    .lede { max-width: 680px; margin: 0; color: var(--muted); font-size: clamp(17px, 2vw, 21px); line-height: 1.55; }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: block;
+      box-shadow: 0 8px 20px -14px rgba(0,0,0,0.45);
+    }
+
+    .nav-link {
+      color: var(--text-2);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      transition: border-color .2s ease, background .2s ease;
+    }
+
+    .nav-link:hover {
+      border-color: var(--line-2);
+      background: color-mix(in srgb, var(--surface) 80%, transparent);
+    }
+
+    .hero { padding: clamp(36px, 7vw, 72px) 0 22px; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gold-ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--gold);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 16%, transparent);
+    }
+
+    h1 {
+      max-width: 14ch;
+      margin: 14px 0 14px;
+      font-size: clamp(40px, 7vw, 72px);
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+      font-weight: 680;
+    }
+
+    .lede {
+      max-width: 58ch;
+      margin: 0;
+      color: var(--text-2);
+      font-size: clamp(16px, 2vw, 18px);
+      line-height: 1.6;
+    }
 
     .summary {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 24px;
       align-items: center;
-      margin: 34px 0 22px;
-      padding: clamp(20px, 4vw, 32px);
+      margin: 34px 0 18px;
+      padding: clamp(20px, 4vw, 28px);
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
+      border-radius: 24px;
+      background: var(--surface);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px) saturate(140%);
     }
 
-    .status { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: clamp(24px, 4vw, 42px); }
-    .dot { width: .72em; height: .72em; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 6px color-mix(in srgb, var(--good) 16%, transparent); }
-    .status.degraded .dot { background: var(--warn); box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 18%, transparent); }
-    .status.unavailable .dot { background: var(--bad); box-shadow: 0 0 0 6px color-mix(in srgb, var(--bad) 18%, transparent); }
-    .meta { color: var(--muted); font-size: 14px; line-height: 1.7; }
-    .note { margin-top: 12px; color: var(--muted); }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 750;
+      font-size: clamp(24px, 4vw, 40px);
+      letter-spacing: -0.03em;
+    }
 
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px 0 64px; }
-    .card { border: 1px solid var(--line); border-radius: 8px; padding: 18px; background: color-mix(in srgb, var(--panel) 86%, transparent); }
-    .card-top { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
-    .group { margin-bottom: 8px; color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
-    h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
-    .pill { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--good); font-size: 12px; font-weight: 800; }
-    .pill.degraded { color: var(--warn); }
-    .pill.unavailable { color: var(--bad); }
-    .description { margin: 12px 0 0; color: var(--muted); line-height: 1.55; }
-    .footer { border-top: 1px solid var(--line); color: var(--muted); padding: 24px 0 36px; font-size: 14px; }
+    .dot {
+      width: 0.72em;
+      height: 0.72em;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--good) 16%, transparent);
+    }
 
-    @media (max-width: 720px) {
-      .summary, .grid { grid-template-columns: 1fr; }
-      .nav { align-items: flex-start; }
-      .card-top { flex-direction: column; }
+    .status.degraded .dot {
+      background: var(--warn);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 18%, transparent);
+    }
+
+    .status.unavailable .dot {
+      background: var(--bad);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--bad) 18%, transparent);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      font-family: var(--mono);
+    }
+
+    .note {
+      margin-top: 10px;
+      color: var(--text-2);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 18px 0 72px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      box-shadow: 0 10px 30px -24px rgba(0,0,0,0.35);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .group {
+      margin-bottom: 8px;
+      color: var(--gold-ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .pill {
+      flex: 0 0 auto;
+      border: 1px solid var(--line-2);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+    }
+
+    .pill.operational { color: var(--good); border-color: color-mix(in srgb, var(--good) 28%, transparent); }
+    .pill.degraded { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 28%, transparent); }
+    .pill.unavailable { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 28%, transparent); }
+
+    .description {
+      margin: 14px 0 0;
+      color: var(--text-2);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 0 0 36px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      .summary { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
     <header class="nav">
-      <a class="brand" href="/"><img class="brand-logo" src="assets/logo.svg" alt="" width="34" height="34"><span>NeoAgent</span></a>
-      <a href="/app">Sign in</a>
+      <a class="brand" href="/">
+        <img class="brand-logo" src="assets/logo.svg" alt="" width="34" height="34">
+        NeoAgent
+      </a>
+      <a class="nav-link" href="/">Back to product</a>
     </header>
 
-    <main>
-      <section class="hero">
-        <div class="eyebrow">Public status</div>
-        <h1>All the important systems, minus the secret knobs.</h1>
-        <p class="lede">A live, public overview of NeoAgent platform health.</p>
-      </section>
+    <section class="hero">
+      <div class="eyebrow">System status</div>
+      <h1>Operational clarity, always.</h1>
+      <p class="lede">Live health for NeoAgent services. If something degrades, it shows up here first.</p>
 
-      <section class="summary" aria-live="polite">
+      <div class="summary">
         <div>
-          <div id="overall" class="status"><span class="dot" aria-hidden="true"></span><span>Checking systems</span></div>
-          <div id="note" class="note">The robots are tapping gauges with tiny clipboards.</div>
+          <div class="status operational" id="overall">
+            <span class="dot" aria-hidden="true"></span>
+            <span>All systems operational</span>
+          </div>
+          <div class="note" id="note"></div>
         </div>
-        <div id="meta" class="meta">Last checked: loading</div>
-      </section>
+        <div class="meta" id="meta">Checking status…</div>
+      </div>
+    </section>
 
-      <section id="components" class="grid" aria-label="System components"></section>
-    </main>
+    <section class="grid" id="components" aria-live="polite"></section>
 
-    <footer class="footer">Status data refreshes automatically. No incident confetti is deployed on this page.</footer>
+    <footer class="footer">
+      <span>© 2026 NeoAgent</span>
+      <a href="/">neoagent.local</a>
+    </footer>
   </div>
 
   <script>
     (function () {
-      'use strict';
       const labels = {
         operational: 'Operational',
         degraded: 'Degraded',
-        unavailable: 'Unavailable',
-        maintenance: 'Maintenance'
+        unavailable: 'Unavailable'
       };
+
       const fallback = {
-        product: 'NeoAgent',
-        status: 'degraded',
-        updatedAt: new Date().toISOString(),
-        note: 'Live status is taking the scenic route.',
+        status: 'operational',
+        note: 'Status endpoint unavailable. Showing last-known healthy baseline.',
+        updatedAt: Date.now(),
         components: [
-          { group: 'Core', name: 'Web App & API', status: 'degraded', description: 'The public page loaded, but live component data is unavailable.' }
+          { group: 'Core', name: 'Control surface', status: 'operational', description: 'Web app and API gateway.' },
+          { group: 'Runtime', name: 'Agent runtime', status: 'operational', description: 'Task execution and tool runner.' },
+          { group: 'Channels', name: 'Messaging bridges', status: 'operational', description: 'Telegram, WhatsApp, email and related bridges.' },
+          { group: 'Devices', name: 'Remote control', status: 'operational', description: 'Browser, phone and desktop control paths.' }
         ]
       };
 

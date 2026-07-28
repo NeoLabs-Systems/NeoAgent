@@ -15,10 +15,6 @@ const PLATFORM_FORMATTING = {
     spokenOnly: false,
     inlineCode: true,
   },
-  telnyx: {
-    spokenOnly: true,
-    inlineCode: false,
-  }
 };
 
 function getPlatformFormattingProfile(platform) {
@@ -60,7 +56,7 @@ function collapseTableRow(line) {
   return cells.join(' - ');
 }
 
-function normalizeVisualMarkdown(text, { inlineCode = true } = {}) {
+function normalizeVisualMarkdown(text) {
   let value = String(text || '');
 
   value = value.replace(/```([^\n`]*)\n?([\s\S]*?)```/g, (_, _lang, code) => `\n${String(code || '').trim()}\n`);
@@ -73,31 +69,14 @@ function normalizeVisualMarkdown(text, { inlineCode = true } = {}) {
   value = value.replace(/\*\*(.*?)\*\*/g, '*$1*');
   value = value.replace(/__(.*?)__/g, '_$1_');
 
-  if (!inlineCode) {
-    value = value.replace(/`([^`]+)`/g, '$1');
-    value = value.replace(/\*\*(.*?)\*\*/g, '$1');
-    value = value.replace(/__(.*?)__/g, '$1');
-    value = value.replace(/\*(.*?)\*/g, '$1');
-    value = value.replace(/_(.*?)_/g, '$1');
-    value = value.replace(/~~(.*?)~~/g, '$1');
-  }
-
   return value;
 }
 
 function adaptWhatsAppFormatting(text) {
-  return normalizeVisualMarkdown(text, { inlineCode: true })
+  return normalizeVisualMarkdown(text)
     .replace(/[ \t]*(?:\\n|\/n(?![a-zA-Z0-9_]))[ \t]*/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function adaptSpokenFormatting(text) {
-  return normalizeVisualMarkdown(text, { inlineCode: false })
-    .replace(/(?:^|\n)-\s+/g, ' ')
-    .replace(/\n+/g, ' ')
-    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -127,7 +106,6 @@ function coerceMessageContent(content) {
 }
 
 function normalizeOutgoingMessageForPlatform(platform, content, options = {}) {
-  const profile = getPlatformFormattingProfile(platform);
   let text = coerceMessageContent(content);
 
   if (options.stripNoResponseMarker !== false) {
@@ -145,21 +123,15 @@ function normalizeOutgoingMessageForPlatform(platform, content, options = {}) {
     text = adaptWhatsAppFormatting(text);
   }
 
-  if (profile.spokenOnly) {
-    return adaptSpokenFormatting(text);
-  }
-
   return text;
 }
 
 function splitOutgoingMessageForPlatform(platform, content) {
-  const profile = getPlatformFormattingProfile(platform);
   const normalized = normalizeOutgoingMessageForPlatform(platform, content, {
     stripNoResponseMarker: false
   });
 
   if (!normalized) return [];
-  if (profile.spokenOnly) return [normalized];
 
   const chunks = normalized
     .split(/\n{2,}/)

@@ -5,7 +5,7 @@ const { describeEnvStatus, resolveGithubOAuthConfig } = require('../env');
 const { decryptValue } = require('../secrets');
 const { getConnectionAccessMode } = require('../access');
 const { githubToolDefinitions, executeGithubTool } = require('./repos');
-const { base64UrlSha256 } = require('./common');
+const { base64UrlSha256, githubApiRequest } = require('./common');
 const { fetchJson } = require('../oauth_provider');
 const { fetchResponseText } = require('../http');
 
@@ -440,6 +440,15 @@ function createGithubProvider() {
     },
     async executeTool(toolName, args, connectionRow, executionOptions = {}) {
       return executeGithubRepoTool(toolName, args, connectionRow, executionOptions);
+    },
+    async testConnection(connectionRow, executionOptions = {}) {
+      const auth = await buildAuthorizedClient(connectionRow);
+      await githubApiRequest(auth, {
+        method: 'GET',
+        path: '/user',
+        signal: executionOptions.signal || null,
+      });
+      return { credentials: auth.credentials };
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);

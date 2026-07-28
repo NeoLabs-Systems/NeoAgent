@@ -154,16 +154,20 @@ router.use(requireAuth);
 
 router.post('/bitwarden/unlock', async (req, res) => {
   try {
-    const cli = req.app?.locals?.bitwardenCli;
-    if (!cli) throw new Error('Bitwarden credential service is unavailable.');
+    const manager = getIntegrationManager(req);
+    const provider = manager?.getProvider('bitwarden');
+    if (!provider || typeof provider.unlock !== 'function') {
+      throw new Error('Bitwarden credential service is unavailable.');
+    }
     const scope = getCredentialScope(req);
-    const status = await cli.unlock(
-      scope.userId,
-      scope.agentId,
-      req.body?.masterPassword,
-      req.body?.idleTimeoutMinutes,
-      { signal: req.signal },
-    );
+    const status = await provider.unlock({
+      ...scope,
+      masterPassword: req.body?.masterPassword,
+      persistSession: req.body?.persistSession !== false,
+      twoStepMethod: req.body?.twoStepMethod,
+      twoStepCode: req.body?.twoStepCode,
+      signal: req.signal,
+    });
     res.json(status);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err), code: err.code || null });
@@ -449,6 +453,27 @@ router.post('/:provider/disconnect', async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/:provider/test', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    if (!manager) {
+      throw new Error('Official integration manager is not available on app.locals.integrationManager.');
+    }
+    const result = await manager.testConnection(
+      req.session.userId,
+      req.params.provider,
+      {
+        connectionId: req.body?.connectionId,
+        agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+        signal: req.signal,
+      },
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: sanitizeError(err), code: err.code || null });
   }
 });
 

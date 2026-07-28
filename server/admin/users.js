@@ -78,7 +78,7 @@ function renderUsersTable(el, users) {
         <th>Rate Limits</th>
         <th style="text-align:right;">Actions</th>
       </tr></thead>
-      <tbody>${users.map((u) => `
+      <tbody>${users.map((u, userIndex) => `
         <tr data-uid="${esc(u.id)}">
           <td>
             <div style="display:flex;align-items:center;gap:9px;">
@@ -110,15 +110,15 @@ function renderUsersTable(el, users) {
           <td>
             <div style="display:flex;gap:6px;justify-content:flex-end;">
               <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;"
-                onclick="editRateLimits('${esc(u.id)}','${esc(u.username)}')" title="Edit Rate Limits">
+                data-user-action="limits" data-user-index="${userIndex}" title="Edit Rate Limits">
                 Limits
               </button>
               <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;"
-                onclick="forceLogout('${esc(u.id)}','${esc(u.username)}',this)" title="Revoke all sessions">
+                data-user-action="logout" data-user-index="${userIndex}" title="Revoke all sessions">
                 Logout
               </button>
               <button class="btn btn-danger" style="padding:5px 10px;font-size:11px;"
-                onclick="deleteUser('${esc(u.id)}','${esc(u.display_name || u.username)}',this)" title="GDPR: delete all user data">
+                data-user-action="delete" data-user-index="${userIndex}" title="GDPR: delete all user data">
                 Delete
               </button>
             </div>
@@ -129,10 +129,24 @@ function renderUsersTable(el, users) {
     <p class="gdpr-note">
       ⚠ <strong>Delete</strong> permanently erases all user data (runs, messages, memories, artifacts, sessions) — irreversible. Required by GDPR Art. 17 right to erasure.
     </p>`;
+
+  for (const button of el.querySelectorAll('[data-user-action]')) {
+    button.addEventListener('click', () => {
+      const user = users[Number(button.dataset.userIndex)];
+      if (!user) return;
+      if (button.dataset.userAction === 'limits') {
+        void editRateLimits(user.id, user.username);
+      } else if (button.dataset.userAction === 'logout') {
+        void forceLogout(user.id, user.username, button);
+      } else if (button.dataset.userAction === 'delete') {
+        void deleteUser(user.id, user.display_name || user.username, button);
+      }
+    });
+  }
 }
 
 async function forceLogout(id, username, btn) {
-  if (!await showConfirmModal({ title: `Force logout @${esc(username)}?`, body: 'This will revoke all active sessions. They can log back in.', confirmLabel: 'Force Logout', confirmClass: 'btn-danger' })) return;
+  if (!await showConfirmModal({ title: `Force logout @${username}?`, body: 'This will revoke all active sessions. They can log back in.', confirmLabel: 'Force Logout', confirmClass: 'btn-danger' })) return;
   btn.disabled = true;
   try {
     const res = await api(`/admin/api/users/${id}/sessions`, { method: 'DELETE' });
@@ -152,7 +166,7 @@ async function forceLogout(id, username, btn) {
 
 async function deleteUser(id, displayName, btn) {
   if (!await showConfirmModal({
-    title: `Delete "${esc(displayName)}"?`,
+    title: `Delete "${displayName}"?`,
     body: `<strong>GDPR Erasure</strong> — permanently deletes the account and <strong>all</strong> associated data:<br><br>• Agent runs, steps, and messages<br>• Memories and conversations<br>• Integrations and platform connections<br>• Artifacts and files on disk<br>• All sessions<br><br><span style="color:var(--danger)">This action cannot be undone.</span>`,
     confirmLabel: 'Delete User',
     confirmClass: 'btn-danger',

@@ -658,7 +658,6 @@ const PROVIDERS = [
   { key: 'DEEPGRAM_API_KEY',            label: 'Deepgram (Voice)',             type: 'key' },
   { key: 'GITHUB_COPILOT_ACCESS_TOKEN', label: 'GitHub Copilot',              type: 'key' },
   { key: 'OPENAI_CODEX_ACCESS_TOKEN',   label: 'OpenAI Codex',                type: 'key' },
-  { key: 'TELNYX_WEBHOOK_TOKEN',        label: 'Telnyx Webhook Token',        type: 'key' },
   { key: 'OLLAMA_URL',                  label: 'Ollama (Local)',               type: 'url' },
   { key: 'OPENAI_BASE_URL',             label: 'OpenAI Base URL override',    type: 'url' },
   { key: 'ANTHROPIC_BASE_URL',          label: 'Anthropic Base URL override', type: 'url' },

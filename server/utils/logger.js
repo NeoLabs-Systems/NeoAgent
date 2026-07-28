@@ -2,6 +2,11 @@
 
 const fs   = require('fs');
 const path = require('path');
+const {
+    DATA_DIR,
+    ensurePrivateDirectory,
+    ensurePrivateFile,
+} = require('../../runtime/paths');
 
 const SENSITIVE_KEY_RE = /(?:^|_|-)(?:token|secret|password|api[_-]?key|authorization|cookie|session(?:id)?|sid)(?:$|_|-)/i;
 
@@ -118,12 +123,7 @@ function createServiceLogger(serviceName) {
 }
 
 function getLogFile() {
-    try {
-        const { DATA_DIR } = require('../../runtime/paths');
-        return path.join(DATA_DIR, 'server-logs.jsonl');
-    } catch {
-        return path.join(require('os').homedir(), '.neoagent', 'data', 'server-logs.jsonl');
-    }
+    return path.join(DATA_DIR, 'server-logs.jsonl');
 }
 
 function loadPersistedLogs(logFile) {
@@ -141,20 +141,21 @@ function loadPersistedLogs(logFile) {
 }
 
 /**
- * Intercepts console methods and broadcasts logs via Socket.IO.
- * Persists up to 1000 entries to disk across server restarts.
- * @param {import('socket.io').Server} io
+ * Intercepts console methods and persists up to 1000 entries to disk.
  */
-function setupConsoleInterceptor(io) {
+function setupConsoleInterceptor() {
     const MAX_LOG_HISTORY = 1000;
     const TRIM_AT = 1100;
     const logFile = getLogFile();
-    const allowLogHistoryRequests = String(process.env.NEOAGENT_ENABLE_LOG_HISTORY_REQUESTS || '').trim().toLowerCase() === 'true';
 
-    try { fs.mkdirSync(path.dirname(logFile), { recursive: true }); } catch {}
+    try {
+        ensurePrivateDirectory(path.dirname(logFile));
+        fs.closeSync(fs.openSync(logFile, 'a', 0o600));
+        ensurePrivateFile(logFile);
+    } catch {}
     const logHistory = loadPersistedLogs(logFile);
 
-    function broadcastLog(type, args) {
+    function persistLog(type, args) {
         const msg = formatLogArgs(args);
         const logEntry = { type, message: msg, timestamp: new Date().toISOString() };
         logHistory.push(logEntry);
@@ -167,11 +168,6 @@ function setupConsoleInterceptor(io) {
                 fs.writeFileSync(logFile, logHistory.map(e => JSON.stringify(e)).join('\n') + '\n');
             } catch {}
         }
-
-        for (const [, socket] of io.sockets.sockets) {
-            const uid = socket.request?.session?.userId;
-            if (uid) socket.emit('server:log', logEntry);
-        }
     }
 
     const originalConsole = {
@@ -181,18 +177,10 @@ function setupConsoleInterceptor(io) {
         info: console.info
     };
 
-    console.log = function (...args) { originalConsole.log.apply(console, args); broadcastLog('log', args); };
-    console.error = function (...args) { originalConsole.error.apply(console, args); broadcastLog('error', args); };
-    console.warn = function (...args) { originalConsole.warn.apply(console, args); broadcastLog('warn', args); };
-    console.info = function (...args) { originalConsole.info.apply(console, args); broadcastLog('info', args); };
-
-    io.on('connection', (socket) => {
-        socket.on('client:request_logs', () => {
-            if (!allowLogHistoryRequests) return;
-            if (!socket.request?.session?.userId) return;
-            socket.emit('server:log_history', logHistory);
-        });
-    });
+    console.log = function (...args) { originalConsole.log.apply(console, args); persistLog('log', args); };
+    console.error = function (...args) { originalConsole.error.apply(console, args); persistLog('error', args); };
+    console.warn = function (...args) { originalConsole.warn.apply(console, args); persistLog('warn', args); };
+    console.info = function (...args) { originalConsole.info.apply(console, args); persistLog('info', args); };
 
     return logHistory;
 }

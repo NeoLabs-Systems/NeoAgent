@@ -572,6 +572,15 @@ function createGoogleWorkspaceProvider() {
         });
       }
     },
+    async testConnection(connectionRow, executionOptions = {}) {
+      const auth = await buildAuthorizedClient(connectionRow, executionOptions);
+      const oauth2 = google.oauth2({ version: 'v2', auth });
+      await waitForAbortableResult(
+        oauth2.userinfo.get(),
+        executionOptions.signal,
+      );
+      return { credentials: auth.credentials };
+    },
     async executeTool(toolName, args, connectionRow, executionOptions = {}) {
       return executeGoogleWorkspaceTool(
         toolName,

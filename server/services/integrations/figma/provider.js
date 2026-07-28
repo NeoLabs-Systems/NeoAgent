@@ -12,7 +12,7 @@ const FIGMA_APPS = [
   {
     id: 'figma',
     label: 'Figma',
-    description: 'Connect a Figma account for future official design and file tools.',
+    description: 'Read files and nodes, render images, and work with Figma comments.',
     scopes: [
       'current_user:read',
       'file_content:read',
@@ -301,13 +301,13 @@ function createFigmaProvider() {
     key: 'figma',
     label: 'Figma',
     description:
-      'Official Figma OAuth account connections for future design file and collaboration workflows.',
+      'Official Figma OAuth integration for design files, rendered nodes, and comments.',
     icon: 'figma',
     requiresRefreshToken: true,
     apps: FIGMA_APPS,
     toolDefinitions: figmaToolDefinitions,
     connectPrompt:
-      'This enables the official Figma account layer now. Native Figma tools are not shipped yet in this run.',
+      'Connect Figma to inspect files and nodes, render images, and work with comments.',
     getEnvStatus() {
       return describeEnvStatus(resolveFigmaOAuthConfig(), {
         label: 'Figma',
@@ -385,6 +385,10 @@ function createFigmaProvider() {
           avatarUrl: user.imgUrl,
         },
       };
+    },
+    async testConnection(context) {
+      await figmaRequest(context, { path: '/v1/me' });
+      return {};
     },
     executeTool: executeFigmaTool,
   });

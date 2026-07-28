@@ -21,14 +21,40 @@ on:
         required: false
       ANDROID_KEY_PASSWORD:
         required: false
+      NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY:
+        required: false
+      WINDOWS_SIGNING_CERTIFICATE_BASE64:
+        required: false
+      WINDOWS_SIGNING_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_DEVELOPER_ID_CERTIFICATE_BASE64:
+        required: false
+      APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_DEVELOPER_ID_IDENTITY:
+        required: false
+      APPLE_NOTARY_PRIVATE_KEY_BASE64:
+        required: false
+      APPLE_NOTARY_KEY_ID:
+        required: false
+      APPLE_NOTARY_ISSUER_ID:
+        required: false
 
 permissions:
   contents: read
 
 jobs:
   build-windows-installer:
-    name: Build Windows Installer
-    runs-on: windows-latest
+    name: Build Windows Installer (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            architecture: x64
+          - runner: windows-11-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         working-directory: flutter_app
@@ -59,9 +85,61 @@ jobs:
         shell: pwsh
         run: flutter pub get
 
+      - name: Validate Windows release trust configuration
+        if: inputs.release_tag != ''
+        shell: pwsh
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RUNTIME_SIGNING_PUBLIC_KEY)) {
+            throw "NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY is required for release builds."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_BASE64) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD)) {
+            throw "Windows Authenticode signing credentials are required for release builds."
+          }
+
+      - name: Prepare Windows signing certificate
+        if: inputs.release_tag != ''
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+        run: |
+          $certificate = Join-Path $env:RUNNER_TEMP "neoagent-signing.pfx"
+          [IO.File]::WriteAllBytes(
+            $certificate,
+            [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64)
+          )
+          "NEOAGENT_WINDOWS_CERTIFICATE=$certificate" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build Windows app
         shell: pwsh
-        run: flutter build windows --release
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          $channel = if ("${{ inputs.release_tag }}" -match "-beta\\.") { "beta" } else { "stable" }
+          flutter build windows --release --dart-define=NEOAGENT_RUNTIME_PUBLIC_KEY=$env:RUNTIME_SIGNING_PUBLIC_KEY --dart-define=NEOAGENT_RELEASE_CHANNEL=$channel
+
+      - name: Sign Windows application
+        if: inputs.release_tag != ''
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $signTool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signTool) {
+            throw "signtool.exe was not found."
+          }
+          Get-ChildItem "build/windows/${{ matrix.architecture }}/runner/Release" -Recurse -File |
+            Where-Object { $_.Extension -in @(".exe", ".dll") } |
+            ForEach-Object {
+              & $signTool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $env:NEOAGENT_WINDOWS_CERTIFICATE /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD $_.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $($_.Name)." }
+            }
 
       - name: Resolve app version
         shell: pwsh
@@ -83,7 +161,7 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
-          $releaseDir = Join-Path $PWD "build/windows/x64/runner/Release"
+          $releaseDir = Join-Path $PWD "build/windows/${{ matrix.architecture }}/runner/Release"
           $exe = Get-ChildItem $releaseDir -Filter *.exe | Select-Object -First 1
           if (-not $exe) {
             throw "No executable found in $releaseDir"
@@ -108,11 +186,12 @@ jobs:
             'DefaultGroupName={#MyAppName}'
             'DisableProgramGroupPage=yes'
             "OutputDir=$distDir"
-            'OutputBaseFilename=neoagent-windows-x64-setup-{#MyAppVersion}'
+            'OutputBaseFilename=neoagent-windows-${{ matrix.architecture }}-setup-{#MyAppVersion}'
             'Compression=lzma'
             'SolidCompression=yes'
             'WizardStyle=modern'
-            'ArchitecturesInstallIn64BitMode=x64'
+            'ArchitecturesAllowed=${{ matrix.architecture }}'
+            'ArchitecturesInstallIn64BitMode=${{ matrix.architecture }}'
             'UninstallDisplayIcon={app}\{#MyAppExeName}'
             ''
             '[Languages]'
@@ -134,16 +213,117 @@ jobs:
           Set-Content -Path $scriptPath -Value ($issLines -join "`r`n") -Encoding UTF8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $scriptPath
 
+      - name: Sign Windows installer
+        if: inputs.release_tag != ''
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $signTool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          Get-ChildItem "$env:GITHUB_WORKSPACE\dist\neoagent-windows-${{ matrix.architecture }}-setup-*.exe" |
+            ForEach-Object {
+              & $signTool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $env:NEOAGENT_WINDOWS_CERTIFICATE /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD $_.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Installer signing failed." }
+            }
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: neoagent-windows-installer
-          path: dist/neoagent-windows-x64-setup-*.exe
+          name: neoagent-windows-installer-${{ matrix.architecture }}
+          path: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
+          if-no-files-found: error
+
+      - name: Set up Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build bundled web client for Windows runtime
+        shell: pwsh
+        working-directory: ${{ github.workspace }}/flutter_app
+        run: |
+          $buildId = node ../scripts/web_build_id.js
+          flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
+
+      - name: Install Windows backend dependencies
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --no-audit --no-fund
+
+      - name: Build standalone Windows CLI
+        if: inputs.release_tag != ''
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $arch = node -p "process.arch"
+          if ($arch -ne "${{ matrix.architecture }}") {
+            throw "Expected ${{ matrix.architecture }} runner, received $arch."
+          }
+          node scripts/build_cli_sea.js --output "dist/neoagent-cli-windows-$arch-$version.exe"
+
+      - name: Sign standalone Windows CLI
+        if: inputs.release_tag != ''
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $signTool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          Get-ChildItem "dist/neoagent-cli-windows-*.exe" |
+            ForEach-Object {
+              & $signTool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $env:NEOAGENT_WINDOWS_CERTIFICATE /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD $_.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Standalone CLI signing failed." }
+            }
+
+      - name: Prune Windows runtime dependencies
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: npm prune --omit=dev --no-audit --no-fund
+
+      - name: Build Windows backend runtime
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $arch = node -p "process.arch"
+          $stage = Join-Path $env:RUNNER_TEMP "neoagent-runtime-windows-$arch"
+          $asset = Join-Path $env:GITHUB_WORKSPACE "dist/neoagent-runtime-windows-$arch-$version.zip"
+          node scripts/stage_runtime.js --output $stage --node (Get-Command node).Source
+          Compress-Archive -Path "$stage\*" -DestinationPath $asset -CompressionLevel Optimal
+          node scripts/create_runtime_metadata.js --asset $asset --output "dist/neoagent-runtime-metadata-windows-$arch.json" --platform windows --architecture $arch
+
+      - name: Upload Windows runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-windows-runtime-${{ matrix.architecture }}
+          path: |
+            dist/neoagent-cli-windows-*.exe
+            dist/neoagent-runtime-windows-*.zip
+            dist/neoagent-runtime-metadata-windows-*.json
           if-no-files-found: error
 
   build-macos-installer:
-    name: Build macOS Installer
-    runs-on: macos-latest
+    name: Build macOS Installer (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: x64
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         working-directory: flutter_app
@@ -171,10 +351,75 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build macOS app
-        run: flutter build macos --release
+      - name: Validate macOS release trust configuration
+        if: inputs.release_tag != ''
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          if [ -z "$RUNTIME_SIGNING_PUBLIC_KEY" ]; then
+            echo "NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY is required for release builds."
+            exit 1
+          fi
+          for value in \
+            "$APPLE_DEVELOPER_ID_CERTIFICATE_BASE64" \
+            "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            "$APPLE_DEVELOPER_ID_IDENTITY" \
+            "$APPLE_NOTARY_PRIVATE_KEY_BASE64" \
+            "$APPLE_NOTARY_KEY_ID" \
+            "$APPLE_NOTARY_ISSUER_ID"
+          do
+            if [ -z "$value" ]; then
+              echo "Developer ID signing and notarization credentials are required for release builds."
+              exit 1
+            fi
+          done
 
-      - name: Remove restricted macOS release entitlements
+      - name: Prepare macOS signing identity
+        if: inputs.release_tag != ''
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/neoagent-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          CERTIFICATE_PATH="$RUNNER_TEMP/neoagent-developer-id.p12"
+          printf '%s' "$APPLE_DEVELOPER_ID_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          echo "NEOAGENT_APPLE_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Build macOS app
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          CHANNEL="stable"
+          case "${{ inputs.release_tag }}" in
+            *-beta.*) CHANNEL="beta" ;;
+          esac
+          flutter build macos --release \
+            --dart-define=NEOAGENT_RUNTIME_PUBLIC_KEY="$RUNTIME_SIGNING_PUBLIC_KEY" \
+            --dart-define=NEOAGENT_RELEASE_CHANNEL="$CHANNEL"
+
+      - name: Sign macOS application
         run: |
           APP_DIR="build/macos/Build/Products/Release"
           APP_BUNDLE=$(find "$APP_DIR" -maxdepth 1 -name "*.app" | head -n 1)
@@ -183,8 +428,20 @@ jobs:
             exit 1
           fi
 
-          codesign --force --deep --sign - "$APP_BUNDLE"
+          if [ -n "${APPLE_DEVELOPER_ID_IDENTITY:-}" ]; then
+            codesign \
+              --force \
+              --deep \
+              --options runtime \
+              --timestamp \
+              --sign "$APPLE_DEVELOPER_ID_IDENTITY" \
+              "$APP_BUNDLE"
+          else
+            codesign --force --deep --sign - "$APP_BUNDLE"
+          fi
           codesign --verify --deep --strict --verbose=4 "$APP_BUNDLE"
+        env:
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
 
       - name: Resolve app version
         id: version
@@ -210,15 +467,123 @@ jobs:
             exit 1
           fi
           DIST_DIR="$GITHUB_WORKSPACE/dist"
-          DMG_PATH="$DIST_DIR/neoagent-macos-${{ steps.version.outputs.version }}.dmg"
+          ARCH="$(node -p process.arch)"
+          if [ "$ARCH" != "${{ matrix.architecture }}" ]; then
+            echo "Expected ${{ matrix.architecture }} runner, received $ARCH."
+            exit 1
+          fi
+          DMG_PATH="$DIST_DIR/neoagent-macos-$ARCH-${{ steps.version.outputs.version }}.dmg"
           mkdir -p "$DIST_DIR"
           bash ../scripts/build_macos_dmg.sh "$APP_BUNDLE" "$DMG_PATH"
+
+      - name: Sign, notarize, and staple macOS installer
+        if: inputs.release_tag != ''
+        env:
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          DMG_PATH="$GITHUB_WORKSPACE/dist/neoagent-macos-${{ matrix.architecture }}-${{ steps.version.outputs.version }}.dmg"
+          NOTARY_KEY="$RUNNER_TEMP/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          printf '%s' "$APPLE_NOTARY_PRIVATE_KEY_BASE64" | base64 --decode > "$NOTARY_KEY"
+          codesign \
+            --force \
+            --timestamp \
+            --sign "$APPLE_DEVELOPER_ID_IDENTITY" \
+            "$DMG_PATH"
+          xcrun notarytool submit "$DMG_PATH" \
+            --key "$NOTARY_KEY" \
+            --key-id "$APPLE_NOTARY_KEY_ID" \
+            --issuer "$APPLE_NOTARY_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: neoagent-macos-installer
+          name: neoagent-macos-installer-${{ matrix.architecture }}
           path: dist/neoagent-macos-*.dmg
+          if-no-files-found: error
+
+      - name: Set up Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build bundled web client for macOS runtime
+        working-directory: ${{ github.workspace }}/flutter_app
+        run: |
+          BUILD_ID="$(node ../scripts/web_build_id.js)"
+          flutter build web \
+            --output ../server/public \
+            --dart-define=NEOAGENT_BACKEND_URL= \
+            --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"
+
+      - name: Install macOS backend dependencies
+        working-directory: ${{ github.workspace }}
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --no-audit --no-fund
+
+      - name: Build standalone macOS CLI
+        if: inputs.release_tag != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCH="$(node -p process.arch)"
+          node scripts/build_cli_sea.js \
+            --output "dist/neoagent-cli-macos-$ARCH-$VERSION"
+
+      - name: Sign standalone macOS CLI
+        if: inputs.release_tag != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+        run: |
+          for CLI_PATH in dist/neoagent-cli-macos-*; do
+            codesign \
+              --force \
+              --options runtime \
+              --timestamp \
+              --sign "$APPLE_DEVELOPER_ID_IDENTITY" \
+              "$CLI_PATH"
+            codesign --verify --strict --verbose=4 "$CLI_PATH"
+          done
+
+      - name: Prune macOS runtime dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm prune --omit=dev --no-audit --no-fund
+
+      - name: Build macOS backend runtime
+        working-directory: ${{ github.workspace }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCH="$(node -p process.arch)"
+          STAGE="$RUNNER_TEMP/neoagent-runtime-macos-$ARCH"
+          ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-macos-$ARCH-$VERSION.zip"
+          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)"
+          (
+            cd "$STAGE"
+            zip -qry "$ASSET" .
+          )
+          node scripts/create_runtime_metadata.js \
+            --asset "$ASSET" \
+            --output "dist/neoagent-runtime-metadata-macos-$ARCH.json" \
+            --platform macos \
+            --architecture "$ARCH"
+
+      - name: Upload macOS runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-macos-runtime-${{ matrix.architecture }}
+          path: |
+            dist/neoagent-cli-macos-*
+            dist/neoagent-runtime-macos-*.zip
+            dist/neoagent-runtime-metadata-macos-*.json
           if-no-files-found: error
 
   build-linux-installer:
@@ -271,8 +636,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Validate Linux release trust configuration
+        if: inputs.release_tag != ''
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          if [ -z "$RUNTIME_SIGNING_PUBLIC_KEY" ]; then
+            echo "NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY is required for release builds."
+            exit 1
+          fi
+
       - name: Build Linux app
-        run: flutter build linux --release
+        env:
+          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          CHANNEL="stable"
+          case "${{ inputs.release_tag }}" in
+            *-beta.*) CHANNEL="beta" ;;
+          esac
+          flutter build linux --release \
+            --dart-define=NEOAGENT_RUNTIME_PUBLIC_KEY="$RUNTIME_SIGNING_PUBLIC_KEY" \
+            --dart-define=NEOAGENT_RELEASE_CHANNEL="$CHANNEL"
 
       - name: Resolve app version
         id: version
@@ -385,10 +769,15 @@ jobs:
             'Categories=Utility;' \
             > "$APPDIR/neoagent.desktop"
 
-          printf '#!/bin/sh\n' > "$APPDIR/AppRun"
-          printf 'HERE="$(dirname "$(readlink -f "$0")")"\n' >> "$APPDIR/AppRun"
-          printf 'export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\n' >> "$APPDIR/AppRun"
-          printf 'exec "$HERE/usr/%s" "$@"\n' "$APP_BIN_NAME" >> "$APPDIR/AppRun"
+          {
+            printf '%s\n' '#!/bin/sh'
+            # shellcheck disable=SC2016
+            printf '%s\n' 'HERE="$(dirname "$(readlink -f "$0")")"'
+            # shellcheck disable=SC2016
+            printf '%s\n' 'export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
+            # shellcheck disable=SC2016
+            printf 'exec "$HERE/usr/%s" "$@"\n' "$APP_BIN_NAME"
+          } > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
 
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool"
@@ -407,6 +796,69 @@ jobs:
             dist/neoagent-linux-amd64-*.deb
             dist/neoagent-arch-x86_64-*.pkg.tar.zst
             dist/neoagent-linux-x86_64-*.AppImage
+          if-no-files-found: error
+
+      - name: Set up Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build bundled web client for Linux runtime
+        working-directory: ${{ github.workspace }}/flutter_app
+        run: |
+          BUILD_ID="$(node ../scripts/web_build_id.js)"
+          flutter build web \
+            --output ../server/public \
+            --dart-define=NEOAGENT_BACKEND_URL= \
+            --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"
+
+      - name: Install Linux backend dependencies
+        working-directory: ${{ github.workspace }}
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --no-audit --no-fund
+
+      - name: Build standalone Linux CLI
+        if: inputs.release_tag != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCH="$(node -p process.arch)"
+          node scripts/build_cli_sea.js \
+            --output "dist/neoagent-cli-linux-$ARCH-$VERSION"
+
+      - name: Prune Linux runtime dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm prune --omit=dev --no-audit --no-fund
+
+      - name: Build Linux backend runtime
+        working-directory: ${{ github.workspace }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCH="$(node -p process.arch)"
+          STAGE="$RUNNER_TEMP/neoagent-runtime-linux-$ARCH"
+          ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-linux-$ARCH-$VERSION.zip"
+          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)"
+          (
+            cd "$STAGE"
+            zip -qry "$ASSET" .
+          )
+          node scripts/create_runtime_metadata.js \
+            --asset "$ASSET" \
+            --output "dist/neoagent-runtime-metadata-linux-$ARCH.json" \
+            --platform linux \
+            --architecture "$ARCH"
+
+      - name: Upload Linux runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-linux-runtime
+          path: |
+            dist/neoagent-cli-linux-*
+            dist/neoagent-runtime-linux-*.zip
+            dist/neoagent-runtime-metadata-linux-*.json
           if-no-files-found: error
 
   build-android-apks:

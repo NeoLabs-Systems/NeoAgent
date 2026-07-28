@@ -144,4 +144,12 @@ async function executeTool(toolName, args, credentials, options = {}) {
   return request(credentials, apiPath, options);
 }
 
-module.exports = { bootstrap, executeTool, normalizeBaseUrl, revoke, text, token };
+module.exports = {
+  authenticated,
+  bootstrap,
+  executeTool,
+  normalizeBaseUrl,
+  revoke,
+  text,
+  token,
+};

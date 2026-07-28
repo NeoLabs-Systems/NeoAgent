@@ -109,14 +109,10 @@ class DockerVMManager {
     this.memoryMb = options.memoryMb || 2048;
     this.cpus = options.cpus || 2;
     this.pidsLimit = Number(options.pidsLimit || process.env.NEOAGENT_VM_PIDS_LIMIT || 512);
-    // The guest agent authenticates every request with this token. Always have
-    // one — fall back to a per-process random secret if the operator didn't set
-    // NEOAGENT_VM_GUEST_TOKEN so the sandbox is never left unauthenticated.
-    this.guestToken = String(options.guestToken || process.env.NEOAGENT_VM_GUEST_TOKEN || '').trim()
-      || crypto.randomBytes(32).toString('hex');
     this.imageBuilder = options.imageBuilder || new GuestImageBuilder({ runtimeProfile: this.profile });
     this.bootTimeoutMs = Number(options.bootTimeoutMs || process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 120000);
     this.network = null;
+    this.networkSetupError = null;
     this.#cleanupOrphans();
     this.#setupNetwork();
   }
@@ -124,27 +120,43 @@ class DockerVMManager {
   // Put agent containers on a dedicated bridge network so their egress can be
   // firewalled away from cloud instance-metadata endpoints.
   #setupNetwork() {
-    if (String(process.env.NEOAGENT_VM_EGRESS_FIREWALL ?? '1') === '0') {
-      return;
-    }
-    const name = 'neoagent-agents';
+    const name = `neoagent-${sanitizeWorkspaceKey(this.profile)}-isolated`;
     try {
       let subnet = '';
       try {
         subnet = docker(['network', 'inspect', '--format', '{{range .IPAM.Config}}{{.Subnet}}{{end}}', name]);
       } catch {
-        docker(['network', 'create', name]);
+        docker([
+          'network',
+          'create',
+          '--opt',
+          'com.docker.network.bridge.enable_icc=false',
+          name,
+        ]);
         subnet = docker(['network', 'inspect', '--format', '{{range .IPAM.Config}}{{.Subnet}}{{end}}', name]);
       }
+      const interContainerCommunication = docker([
+        'network',
+        'inspect',
+        '--format',
+        '{{index .Options "com.docker.network.bridge.enable_icc"}}',
+        name,
+      ]);
+      if (interContainerCommunication !== 'false') {
+        throw new Error(`Docker network ${name} does not disable inter-container communication`);
+      }
       this.network = name;
-      if (subnet) {
+      this.networkSetupError = null;
+      if (
+        subnet
+        && String(process.env.NEOAGENT_VM_EGRESS_FIREWALL ?? '1') !== '0'
+      ) {
         this.#applyEgressFirewall(subnet.trim());
       }
     } catch (err) {
-      // Without the dedicated network we fall back to the default bridge; the
-      // dropped NET_RAW/NET_ADMIN capabilities still apply as defense in depth.
-      console.warn(`[DockerVM:${this.profile}] Could not set up isolated network — metadata egress not firewalled: ${err.message}`);
+      console.warn(`[DockerVM:${this.profile}] Could not set up isolated network: ${err.message}`);
       this.network = null;
+      this.networkSetupError = err;
     }
   }
 
@@ -162,7 +174,7 @@ class DockerVMManager {
     // cloud operators can set it to false to also cut off RFC-1918 ranges.
     const allowPrivate = String(process.env.NEOAGENT_HTTP_ALLOW_PRIVATE ?? 'true').toLowerCase() !== 'false';
     const blockedNets = allowPrivate ? [] : ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
-    const targets = [...blockedHosts, ...blockedNets];
+    const targets = [subnet, ...blockedHosts, ...blockedNets];
 
     let applied = 0;
     for (const dest of targets) {
@@ -222,8 +234,17 @@ class DockerVMManager {
   }
 
   async #startContainer(key) {
+    if (!this.network) {
+      this.#setupNetwork();
+    }
+    if (!this.network) {
+      throw new Error(
+        `Secure Docker network is unavailable: ${this.networkSetupError?.message || 'unknown error'}`,
+      );
+    }
     const image = await this.imageBuilder.ensure();
     const port = await findAvailablePort();
+    const guestToken = crypto.randomBytes(32).toString('hex');
     console.log(`[DockerVM:${this.profile}] Starting container for user ${key} on port ${port}`);
 
     // Bind-mount the user's host workspace so shell and file tools share one place.
@@ -241,7 +262,7 @@ class DockerVMManager {
       '-e', `NEOAGENT_GUEST_AGENT_PORT=${port}`,
       '-e', `HOME=${GUEST_WORKSPACE}`,
       '-e', `NEOAGENT_HOME=${GUEST_RUNTIME_HOME}`,
-      '-e', `NEOAGENT_VM_GUEST_TOKEN=${this.guestToken}`,
+      '-e', `NEOAGENT_VM_GUEST_TOKEN=${guestToken}`,
       '--shm-size=2g',
       '--security-opt', 'no-new-privileges',
       // Strip capabilities the sandbox never needs. Dropping NET_RAW/NET_ADMIN
@@ -262,7 +283,7 @@ class DockerVMManager {
 
     const session = {
       baseUrl: `http://localhost:${port}`,
-      guestToken: this.guestToken || null,
+      guestToken,
       process: { pid: process.pid }, // server PID — always alive while server runs
       getLastError: () => containerLogs(containerId) || null,
       containerId,

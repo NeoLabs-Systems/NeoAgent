@@ -84,7 +84,7 @@ test('provider wizard accepts unique comma-separated choices and rejects invalid
   );
 });
 
-test('bare CLI invocation shows status instead of reinstalling an existing instance', (t) => {
+test('bare CLI invocation diagnoses an incomplete existing instance without reinstalling', (t) => {
   const fixture = createFixture(t);
   fs.mkdirSync(path.dirname(fixture.databaseFile), { recursive: true });
   fs.writeFileSync(fixture.databaseFile, '');
@@ -104,6 +104,98 @@ test('bare CLI invocation shows status instead of reinstalling an existing insta
 
   assert.equal(result.status, 0, output);
   assert.match(output, /Existing NeoAgent installation found/);
-  assert.match(output, /NeoAgent Status/);
+  assert.match(output, /installation needs attention/i);
+  assert.match(output, /NeoAgent Doctor/);
   assert.doesNotMatch(output, /\nDependencies\n/);
+});
+
+test('status --json writes only versioned structured events', (t) => {
+  const fixture = createFixture(t);
+  const envFile = path.join(fixture.root, '.env');
+  fs.writeFileSync(envFile, 'PORT=65530\n');
+
+  const result = spawnSync(
+    process.execPath,
+    [path.resolve(__dirname, '../../../bin/neoagent.js'), 'status', '--json'],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NEOAGENT_HOME: fixture.root,
+        NEOAGENT_ENV_FILE: envFile,
+      },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  const events = result.stdout
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  assert.ok(events.length > 0);
+  assert.ok(events.every((event) => event.schemaVersion === 1));
+  const finalEvent = events.at(-1);
+  assert.equal(finalEvent.stage, 'status');
+  assert.equal(finalEvent.state, 'ready');
+  assert.equal(finalEvent.result.backendUrl, 'http://localhost:65530');
+  assert.equal(typeof finalEvent.result.running, 'boolean');
+});
+
+test('conflicting setup profiles fail before changes with a stable JSON error', (t) => {
+  const fixture = createFixture(t);
+  const envFile = path.join(fixture.root, '.env');
+  fs.writeFileSync(envFile, 'PORT=65530\n');
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.resolve(__dirname, '../../../bin/neoagent.js'),
+      'setup',
+      '--quick',
+      '--full',
+      '--json',
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NEOAGENT_HOME: fixture.root,
+        NEOAGENT_ENV_FILE: envFile,
+      },
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr, '');
+  const event = JSON.parse(result.stdout.trim());
+  assert.equal(event.state, 'failed');
+  assert.equal(event.error.code, 'SETUP_PROFILE_CONFLICT');
+  assert.equal(event.error.retryable, false);
+  assert.equal(fs.existsSync(path.join(fixture.root, 'setup-state.json')), false);
+});
+
+test('unattended full setup fails before changes when required values are absent', (t) => {
+  const fixture = createFixture(t);
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.resolve(__dirname, '../../../bin/neoagent.js'),
+      'setup',
+      '--full',
+      '--non-interactive',
+      '--json',
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NEOAGENT_HOME: fixture.root,
+        NEOAGENT_ENV_FILE: path.join(fixture.root, '.env'),
+      },
+    },
+  );
+  assert.equal(result.status, 1);
+  const event = JSON.parse(result.stdout.trim());
+  assert.equal(event.error.code, 'SETUP_REQUIRED_VALUE_MISSING');
+  assert.equal(event.error.action, 'fix-input');
+  assert.deepEqual(fs.readdirSync(fixture.root), []);
 });

@@ -272,8 +272,6 @@ class TaskRuntime {
       agentId: updates.agentId ?? updates.agent_id ?? existing.agent_id,
       taskType: updates.taskType ?? updates.task_type ?? existing.task_type,
       taskConfig: updates.taskConfig ?? updates.task_config ?? this._normalizeJson(existing.task_config),
-      callTo: updates.callTo,
-      callGreeting: updates.callGreeting,
     }, {
       existingTask: existing,
     });
@@ -624,9 +622,7 @@ class TaskRuntime {
       let notifyHint = '';
       const manualRun = executionMeta.manual === true;
 
-      if (normalizedConfig.callTo) {
-        notifyHint = `\n\nThis task is configured to notify the user by phone. Use the make_call tool to call "${normalizedConfig.callTo}" with an appropriate greeting based on your findings. The configured greeting hint is: "${normalizedConfig.callGreeting || 'Hello, this is your task reminder.'}"`;
-      } else if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
+      if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
         notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic scheduled run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
       }
 
@@ -890,8 +886,8 @@ class TaskRuntime {
     } else {
       taskConfig = { ...existingTaskConfig, ...taskConfig };
       if (input.prompt !== undefined) taskConfig.prompt = String(input.prompt || '').trim();
-      if (input.callTo !== undefined) taskConfig.callTo = input.callTo || null;
-      if (input.callGreeting !== undefined) taskConfig.callGreeting = input.callGreeting || null;
+      delete taskConfig.callTo;
+      delete taskConfig.callGreeting;
       if (input.model !== undefined) {
         if (String(input.model || '').trim()) taskConfig.model = String(input.model).trim();
         else delete taskConfig.model;
@@ -940,6 +936,8 @@ class TaskRuntime {
     const triggerType = String(row.trigger_type || 'schedule').trim() || 'schedule';
     const triggerConfig = this._normalizeJson(row.trigger_config);
     const taskConfig = this._normalizeJson(row.task_config);
+    delete taskConfig.callTo;
+    delete taskConfig.callGreeting;
     const agentId = row.agent_id || resolveAgentId(userId, null);
     const triggerSummary = this._summarizeTrigger(triggerType, triggerConfig);
     return {
@@ -1022,6 +1020,10 @@ class TaskRuntime {
 
   _ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId) {
     const normalized = { ...taskConfig };
+    const removedLegacyCallConfig = Object.prototype.hasOwnProperty.call(normalized, 'callTo')
+      || Object.prototype.hasOwnProperty.call(normalized, 'callGreeting');
+    delete normalized.callTo;
+    delete normalized.callGreeting;
     const existingTarget = normalizeNotifyTarget({
       platform: normalized.notifyPlatform,
       to: normalized.notifyTo,
@@ -1030,7 +1032,7 @@ class TaskRuntime {
       normalized.notifyPlatform = existingTarget.platform;
       normalized.notifyTo = existingTarget.to;
     }
-    if (!normalized.callTo && !existingTarget) {
+    if (!existingTarget) {
       const notifyTarget = this._buildNotifyTargets(userId, agentId, normalized)[0];
       if (notifyTarget) {
         normalized.notifyPlatform = notifyTarget.platform;
@@ -1040,6 +1042,7 @@ class TaskRuntime {
     if (
       normalized.notifyPlatform !== taskConfig.notifyPlatform
       || normalized.notifyTo !== taskConfig.notifyTo
+      || removedLegacyCallConfig
     ) {
       this.taskRepository.updateTaskConfig(taskId, userId, normalized);
     }
@@ -1079,7 +1082,7 @@ class TaskRuntime {
     allowPlainResultFallback = true,
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
-    if (deliveryState?.messagingSent || deliveryState?.noResponse || taskConfig.callTo) return null;
+    if (deliveryState?.messagingSent || deliveryState?.noResponse) return null;
     const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
     const resultText = stringifyTaskResult(result).trim();

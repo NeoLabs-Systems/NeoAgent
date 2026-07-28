@@ -6,6 +6,7 @@ Run service commands on the machine hosting NeoAgent.
 
 ```bash
 neoagent status
+neoagent doctor
 neoagent start
 neoagent stop
 neoagent restart
@@ -32,19 +33,25 @@ verifies the bundled client, and restarts the service.
 ## Recovery
 
 ```bash
-neoagent fix
+neoagent repair
 ```
 
-Use `fix` for a damaged installation or failed source update. It preserves
-runtime data, repairs application source and dependencies, and restarts the
-service. It is not a substitute for a backup.
+`doctor` is read-only. `repair` preserves configuration, identity, accounts,
+and user data, restores verified runtime files when the standalone distribution
+is used, registers the per-user service again, and restarts it. `fix` remains an
+alias. It is not a substitute for a backup.
 
 For configuration problems:
 
 ```bash
 neoagent setup
+neoagent setup --resume
 neoagent restart
 ```
+
+Interrupted setup progress contains no secrets. Resume continues the selected
+Quickstart or Full profile; secrets are saved only after their section
+validates.
 
 ## Backups
 

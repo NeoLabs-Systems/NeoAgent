@@ -11,7 +11,7 @@ const NOTION_APPS = [
   {
     id: 'notion',
     label: 'Notion',
-    description: 'Connect a Notion workspace or user account for future native docs and knowledge tools.',
+    description: 'Search, read, create, and update pages, databases, and blocks in a connected Notion workspace.',
   },
 ];
 
@@ -315,7 +315,7 @@ function createNotionProvider() {
     apps: NOTION_APPS,
     toolDefinitions: notionToolDefinitions,
     connectPrompt:
-      'This sets up the official Notion account layer only. Built-in Notion-native tools are not shipped yet in this run.',
+      'Connect Notion to search, read, create, and update workspace content.',
     getEnvStatus() {
       return describeEnvStatus(resolveNotionOAuthConfig(), {
         label: 'Notion',
@@ -388,6 +388,10 @@ function createNotionProvider() {
           avatarUrl: user?.avatar_url || null,
         },
       };
+    },
+    async testConnection(context) {
+      await notionRequest(context, { path: '/v1/users/me' });
+      return {};
     },
     executeTool: executeNotionTool,
   });

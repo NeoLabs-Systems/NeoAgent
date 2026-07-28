@@ -8,7 +8,6 @@ const { randomUUID } = require('crypto');
 const { AGENT_DATA_DIR, DATA_DIR } = require('../../../runtime/paths');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
-const { TelnyxVoicePlatform } = require('./telnyx');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
 const { MeshtasticPlatform } = require('./meshtastic');
@@ -44,6 +43,7 @@ const {
   throwIfAborted,
 } = require('../../utils/abort');
 const { waitForAbortableResult, waitForBoundedResult } = require('../network/http');
+const { resolveUserFileReference } = require('../files/user_file_access');
 const {
   claimInboundJob,
   enqueueInboundMessage,
@@ -83,7 +83,8 @@ class MessagingManager extends EventEmitter {
   constructor(io, options = {}) {
     super();
     this.io = io;
-    this.voiceRuntimeManager = options.voiceRuntimeManager || null;
+    this.artifactStore = options.artifactStore || null;
+    this.workspaceManager = options.workspaceManager || null;
     this.platforms = new Map();
     this.accessSuggestions = new Map();
     this.messageHandlers = [];
@@ -96,7 +97,6 @@ class MessagingManager extends EventEmitter {
     this.inboundJobsReconciled = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
-      telnyx:   TelnyxVoicePlatform,
       discord:  DiscordPlatform,
       telegram: TelegramPlatform,
       slack: SlackPlatform,
@@ -535,6 +535,9 @@ class MessagingManager extends EventEmitter {
     config.userId = userId;
     config.agentId = agentId;
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
+    if (platformName === 'whatsapp') {
+      config.artifactStore = this.artifactStore;
+    }
     const existingConnection = db
       .prepare('SELECT id, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
       .get(userId, agentId, platformName);
@@ -558,46 +561,6 @@ class MessagingManager extends EventEmitter {
       if (shouldMigrateLegacyAuth) {
         this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
       }
-    }
-
-    // For Telnyx, inject saved whitelist and voice secret into config before constructing
-    if (platformName === 'telnyx') {
-      const parseSetting = (row, fallback = null) => {
-        if (!row || typeof row.value !== 'string') return fallback;
-        try {
-          return JSON.parse(row.value);
-        } catch {
-          return row.value;
-        }
-      };
-
-      const secretRow = this._setting(userId, agentId, 'platform_voice_secret_telnyx');
-      if (secretRow) {
-        try { config.voiceSecret = JSON.parse(secretRow.value); } catch { config.voiceSecret = secretRow.value; }
-      }
-
-      const voiceSttProvider = parseSetting(this._setting(userId, agentId, 'voice_stt_provider'));
-      const voiceSttModel = parseSetting(this._setting(userId, agentId, 'voice_stt_model'));
-      const voiceTtsProvider = parseSetting(this._setting(userId, agentId, 'voice_tts_provider'));
-      const voiceTtsModel = parseSetting(this._setting(userId, agentId, 'voice_tts_model'));
-      const voiceTtsVoice = parseSetting(this._setting(userId, agentId, 'voice_tts_voice'));
-
-      if (typeof voiceSttProvider === 'string' && voiceSttProvider.trim()) {
-        config.sttProvider = voiceSttProvider.trim();
-      }
-      if (typeof voiceSttModel === 'string' && voiceSttModel.trim()) {
-        config.sttModel = voiceSttModel.trim();
-      }
-      if (typeof voiceTtsProvider === 'string' && voiceTtsProvider.trim()) {
-        config.ttsProvider = voiceTtsProvider.trim();
-      }
-      if (typeof voiceTtsModel === 'string' && voiceTtsModel.trim()) {
-        config.ttsModel = voiceTtsModel.trim();
-      }
-      if (typeof voiceTtsVoice === 'string' && voiceTtsVoice.trim()) {
-        config.ttsVoice = voiceTtsVoice.trim();
-      }
-      config.voiceRuntimeManager = this.voiceRuntimeManager || null;
     }
 
     const storedConfig = this._encodeStoredConfig(config);
@@ -652,19 +615,6 @@ class MessagingManager extends EventEmitter {
       db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('logged_out', userId, agentId, platformName);
       this.platforms.delete(key);
-    });
-
-    // Telnyx-specific: blocked inbound caller notification
-    platform.on('blocked_caller', (info) => {
-      this._rememberAccessSuggestions(userId, agentId, platformName, info?.suggestions || []);
-      this.io.to(`user:${userId}`).emit('messaging:blocked_sender', {
-        platform: platformName,
-        sender: info.caller,
-        chatId: info.ccId,
-        senderName: null,
-        meta: info.meta || '',
-        suggestions: info.suggestions || null,
-      });
     });
 
     // Adapter-level blocked sender notification with suggestions
@@ -740,7 +690,20 @@ class MessagingManager extends EventEmitter {
       mediaPathOrOptions && typeof mediaPathOrOptions === 'object' && !Array.isArray(mediaPathOrOptions)
         ? mediaPathOrOptions
         : { mediaPath: mediaPathOrOptions };
-    const mediaPath = sendOptions.mediaPath || null;
+    const mediaReference = sendOptions.mediaPath || null;
+    const mediaPath = mediaReference
+      ? resolveUserFileReference({
+          userId,
+          reference: mediaReference,
+          artifactStore: this.artifactStore,
+          workspaceManager: this.workspaceManager,
+          label: 'Message attachment',
+        })
+      : null;
+    const platformSendOptions = {
+      ...sendOptions,
+      mediaPath,
+    };
     const runId = sendOptions.runId || null;
     const persistConversation = sendOptions.persistConversation === true;
     const metadata = sendOptions.metadata && typeof sendOptions.metadata === 'object'
@@ -760,7 +723,7 @@ class MessagingManager extends EventEmitter {
     const result = await this._runOperation(
       sendOptions,
       `${platformName} message delivery`,
-      (signal) => platform.sendMessage(to, normalizedContent, { ...sendOptions, signal }),
+      (signal) => platform.sendMessage(to, normalizedContent, { ...platformSendOptions, signal }),
     );
     this._assertRunning();
     throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
@@ -773,7 +736,7 @@ class MessagingManager extends EventEmitter {
     }
 
     db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaPath, metadata ? JSON.stringify(metadata) : null);
+      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaReference, metadata ? JSON.stringify(metadata) : null);
 
     if (persistConversation) {
       const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
@@ -789,7 +752,7 @@ class MessagingManager extends EventEmitter {
       agentId,
       to,
       content: normalizedContent,
-      mediaPath,
+      mediaPath: mediaReference,
       runId,
       deliveryKind,
       metadata,
@@ -801,7 +764,7 @@ class MessagingManager extends EventEmitter {
       platform: platformName,
       to,
       content: normalizedContent,
-      mediaPath,
+      mediaPath: mediaReference,
       runId,
       deliveryKind,
       metadata,
@@ -838,6 +801,9 @@ class MessagingManager extends EventEmitter {
 
   getPlatformStatus(userId, platformName, options = {}) {
     const agentId = this._agentId(userId, options);
+    if (!this.platformTypes[platformName]) {
+      return { status: 'not_supported' };
+    }
     if (platformName === 'meshtastic' && !readMeshtasticEnabled()) {
       return {
         status: 'disabled',
@@ -875,6 +841,9 @@ class MessagingManager extends EventEmitter {
     }
 
     for (const conn of connections) {
+      if (!this.platformTypes[conn.platform]) {
+        continue;
+      }
       if (conn.platform === 'meshtastic' && !readMeshtasticEnabled()) {
         continue;
       }
@@ -931,6 +900,11 @@ class MessagingManager extends EventEmitter {
     ).all();
     for (const row of rows) {
       try {
+        if (!this.platformTypes[row.platform]) {
+          db.prepare("UPDATE platform_connections SET status = 'disabled' WHERE user_id = ? AND agent_id = ? AND platform = ?")
+            .run(row.user_id, row.agent_id, row.platform);
+          continue;
+        }
         if (row.platform === 'meshtastic' && !readMeshtasticEnabled()) {
           db.prepare("UPDATE platform_connections SET status = 'disabled' WHERE user_id = ? AND agent_id = ? AND platform = ?")
             .run(row.user_id, row.agent_id, row.platform);
@@ -1015,20 +989,6 @@ class MessagingManager extends EventEmitter {
     return this.shutdownPromise;
   }
 
-  async makeCall(userId, to, greeting, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
-    const platform = this.platforms.get(key);
-    if (!platform) throw new Error('Telnyx Voice is not connected');
-    if (!platform.initiateCall) throw new Error('Telnyx platform does not support outbound calls');
-    const result = await this._runOperation(
-      options,
-      'Telnyx outbound call',
-      (signal) => platform.initiateCall(to, greeting, { ...options, signal }),
-    );
-    this.io.to(`user:${userId}`).emit('messaging:call_initiated', { platform: 'telnyx', to, callControlId: result.callControlId });
-    return { success: true, ...result };
-  }
-
   async markRead(userId, platformName, chatId, messageId, options = {}) {
     this._assertRunning();
     const key = this._key(userId, this._agentId(userId, options), platformName);
@@ -1053,21 +1013,6 @@ class MessagingManager extends EventEmitter {
       (signal) => platform.sendTyping(chatId, isTyping, { ...options, signal }),
       15000,
     );
-  }
-
-  /**
-   * Route a raw Telnyx webhook event to the correct user's platform instance.
-   * We find the Telnyx platform instance that owns this call_control_id, or fall
-   * back to the first connected Telnyx instance.
-   */
-  async handleTelnyxWebhook(event) {
-    for (const [, platform] of this.platforms.entries()) {
-      if (platform.name === 'telnyx' && typeof platform.matchesWebhookEvent === 'function' && platform.matchesWebhookEvent(event)) {
-        await platform.handleWebhook(event);
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
@@ -1193,31 +1138,6 @@ class MessagingManager extends EventEmitter {
       policy: this._loadAccessPolicy(userId, agentId, platformName),
       summary: summarizeAccessPolicy(platformName, this._loadAccessPolicy(userId, agentId, platformName)),
     };
-  }
-
-  /**
-   * Update the allowed-numbers list on a live Telnyx platform instance.
-   */
-  updateTelnyxAllowedNumbers(userId, numbers, options = {}) {
-    const migrated = migrateLegacyWhitelist('telnyx', numbers);
-    return this.setAccessPolicy(userId, 'telnyx', migrated, options);
-  }
-
-  /**
-   * Update the voice secret code on a live Telnyx platform instance.
-   */
-  updateTelnyxVoiceSecret(userId, secret, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
-    const platform = this.platforms.get(key);
-    if (platform?.setVoiceSecret) platform.setVoiceSecret(secret);
-  }
-
-  updateVoiceSettings(userId, voiceSettings = {}, options = {}) {
-    const key = this._key(userId, this._agentId(userId, options), 'telnyx');
-    const platform = this.platforms.get(key);
-    if (platform?.setVoiceConfig) {
-      platform.setVoiceConfig(voiceSettings);
-    }
   }
 
   /**

@@ -38,8 +38,6 @@ const SHARED_RAW_ID_PLATFORMS = new Set([
   'webchat',
 ]);
 
-const DIRECT_ONLY_PHONE_PLATFORMS = new Set(['telnyx']);
-
 function capabilityTemplate(overrides = {}) {
   return Object.freeze({
     supportsDirectPolicy: true,
@@ -63,16 +61,6 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     sharedSpaceRuleScopes: Object.freeze(['group', 'chat']),
     sharedActorRuleScopes: Object.freeze(['phone_number', 'user']),
     manualEntryHint: 'Add a phone number or WhatsApp group id.',
-  }),
-  telnyx: capabilityTemplate({
-    supportsSharedPolicy: false,
-    supportsMentionGate: false,
-    supportsUntaggedGroupToggle: false,
-    supportsDiscovery: false,
-    directRuleScopes: Object.freeze(['phone_number']),
-    sharedSpaceRuleScopes: Object.freeze([]),
-    sharedActorRuleScopes: Object.freeze([]),
-    manualEntryHint: 'Add a caller phone number.',
   }),
   discord: capabilityTemplate({
     supportsMentionGate: true,
@@ -419,11 +407,6 @@ function migrateLegacyWhitelist(platform, entries) {
         addRule('directRules', normalizeRule({ scope: 'phone_number', value: directValue }, new Set(capabilities.directRuleScopes)), state);
         addRule('sharedActorRules', normalizeRule({ scope: 'phone_number', value: directValue }, new Set(capabilities.sharedActorRuleScopes)), state);
       }
-      continue;
-    }
-
-    if (DIRECT_ONLY_PHONE_PLATFORMS.has(platform)) {
-      addRule('directRules', normalizeRule({ scope: 'phone_number', value }, new Set(capabilities.directRuleScopes)), state);
       continue;
     }
 
@@ -858,7 +841,7 @@ function classifyRecentTarget(platform, row) {
       subtitle: 'Recent WhatsApp group',
     };
   }
-  if (DIRECT_ONLY_PHONE_PLATFORMS.has(platform) || platform === 'whatsapp') {
+  if (platform === 'whatsapp') {
     const value = normalizePhone(sender || chatId);
     if (!value) return null;
     return {
@@ -867,7 +850,7 @@ function classifyRecentTarget(platform, row) {
       scope: 'phone_number',
       value,
       label: senderName || value,
-      subtitle: 'Recent caller',
+      subtitle: 'Recent contact',
     };
   }
   if (isDirect && sender) {
