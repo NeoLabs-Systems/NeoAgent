@@ -1432,8 +1432,13 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _userHasCompletedOnboarding(Map<String, dynamic>? account) {
+    final raw = account?['hasCompletedOnboarding'];
+    return raw == true || raw == 1 || raw == '1' || raw == 'true';
+  }
+
   void _syncOnboardingFromAccount() {
-    final hasCompletedOnboarding = user?['hasCompletedOnboarding'] == true;
+    final hasCompletedOnboarding = _userHasCompletedOnboarding(user);
     if (hasCompletedOnboarding) {
       if (!_onboardingManuallyReopened) {
         showOnboarding = false;
@@ -1451,6 +1456,7 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    showOnboarding = false;
     _onboardingManuallyReopened = false;
     _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;

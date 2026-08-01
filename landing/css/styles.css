@@ -715,9 +715,20 @@ h1, h2, h3, h4 { margin: 0; text-wrap: balance; letter-spacing: -0.035em; font-w
 }
 
 .marquee-label {
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto 18px;
   text-align: center;
-  margin-bottom: 18px;
+}
+
+/* Higher specificity than bare .eyebrow so inline-flex can't left-align this label */
+.marquee-label.eyebrow {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-inline: auto;
 }
 
 .marquee-label.eyebrow::before { display: none; }

@@ -399,11 +399,13 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         _webAppUpdateMonitor,
       ]),
       builder: (context, _) {
+        // Do not include isRefreshing here — remounting MaterialApp on every
+        // refresh tears down onboarding (and other root surfaces) mid-login.
         final rootStateSignature =
             'boot:${_controller.isBooting}'
             '|backend:${_controller.requiresBackendUrlSetup}'
             '|auth:${_controller.isAuthenticated}'
-            '|refresh:${_controller.isRefreshing}'
+            '|onboarding:${_controller.showOnboarding}'
             '|section:${_controller.selectedSection.name}'
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'

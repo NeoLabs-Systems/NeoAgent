@@ -57,7 +57,11 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
   void _videoListener() {
     if (!mounted || _hasCompleted) return;
     if (_controller == null || !_controller!.value.isInitialized) return;
-    if (_controller!.value.position >= _controller!.value.duration) {
+    final duration = _controller!.value.duration;
+    final position = _controller!.value.position;
+    // Duration can be zero until metadata is ready; treating that as "ended"
+    // auto-skips the intro immediately after it appears.
+    if (duration > Duration.zero && position >= duration) {
       _hasCompleted = true;
       _controller!.removeListener(_videoListener);
       widget.onComplete();

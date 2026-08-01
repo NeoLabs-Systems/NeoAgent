@@ -357,7 +357,7 @@ function claimApprovedChallenge({ challengeId, pollToken }) {
   }
 
   const user = db.prepare(`
-    SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login
+    SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
     FROM users
     WHERE id = ?
   `).get(row.approved_by_user_id);
