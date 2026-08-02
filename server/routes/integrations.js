@@ -3,7 +3,6 @@ const QRCode = require('qrcode');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
-const { resolvePublicBaseUrl } = require('../services/integrations/env');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 
 const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
@@ -34,19 +33,66 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function getTrustedPostMessageOrigin(req) {
-  try {
-    return new URL(resolvePublicBaseUrl()).origin;
-  } catch {
-    return `${req.protocol}://${req.get('host')}`;
+/// Completes an OAuth popup: notify the opener (and same-browser tabs), then
+/// close. Origin mismatch between PUBLIC_URL and how the user opened NeoAgent
+/// used to drop the postMessage, so the UI never linked and the tab stayed open.
+function renderOAuthPopupResult({ success, payload, message }) {
+  const data = JSON.stringify(payload);
+  const body = escapeHtml(message);
+  const title = success ? 'Connected' : 'Connection failed';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;
+    background:#0e1511;color:#ecefe5;padding:24px;text-align:center}
+  p{line-height:1.5;color:#aeb7a6;max-width:28rem}
+  strong{color:#ecefe5}
+</style></head><body>
+<p><strong>${title}.</strong> ${body}</p>
+<script>
+(function () {
+  var payload = ${data};
+  function notify() {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var channel = new BroadcastChannel('neoagent_oauth');
+        channel.postMessage(payload);
+        channel.close();
+      }
+    } catch (e) {}
+    try {
+      if (window.opener && !window.opener.closed) {
+        // Prefer the opener's origin when known; fall back to wildcard so a
+        // localhost vs PUBLIC_URL mismatch cannot strand the flow.
+        var target = '*';
+        try {
+          if (window.opener.location && window.opener.location.origin) {
+            target = window.opener.location.origin;
+          }
+        } catch (e) {
+          // Cross-origin opener: location is not readable; '*' is required.
+          target = '*';
+        }
+        window.opener.postMessage(payload, target);
+      }
+    } catch (e) {}
   }
+  notify();
+  setTimeout(function () {
+    try { window.close(); } catch (e) {}
+  }, 120);
+  setTimeout(function () {
+    document.body.insertAdjacentHTML('beforeend',
+      '<p style="margin-top:16px;font-size:13px">You can close this window and return to NeoAgent.</p>');
+  }, 500);
+})();
+</script>
+</body></html>`;
 }
 
 router.get('/oauth/callback', async (req, res) => {
   const state = String(req.query.state || '');
   const code = String(req.query.code || '');
   const error = String(req.query.error || '');
-  const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
   const isAuthProviderState = state.startsWith('auth_');
 
   if (!state) return res.status(400).send('Missing state parameter');
@@ -63,18 +109,14 @@ router.get('/oauth/callback', async (req, res) => {
     if (isAuthProviderState) {
       getAuthProviderManager(req)?.failAuthorization(state, error);
     }
-    const safeError = escapeHtml(error);
-    return res.status(400).send(`
-      <html><body>
-      <script>
-        if (window.opener) {
-          window.opener.postMessage({ type: ${JSON.stringify(isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error')}, error: ${JSON.stringify(error)} }, ${trustedOrigin});
-          window.close();
-        }
-      </script>
-      <p>Authentication failed: ${safeError}</p>
-      </body></html>
-    `);
+    return res.status(400).type('html').send(renderOAuthPopupResult({
+      success: false,
+      payload: {
+        type: isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error',
+        error: String(error),
+      },
+      message: escapeHtml(error),
+    }));
   }
 
   try {
@@ -84,25 +126,16 @@ router.get('/oauth/callback', async (req, res) => {
         throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
       }
       const result = await authProviderManager.finishAuthorization(state, code);
-      const payload = JSON.stringify({
-        type: 'auth_oauth_success',
-        provider: result.provider,
-        mode: result.action,
-        email: result.email,
-      });
-      return res.send(`
-        <html><body>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage(${payload}, ${trustedOrigin});
-            window.close();
-          } else {
-            window.close();
-          }
-        </script>
-        <p>Authentication successful. You can close this window.</p>
-        </body></html>
-      `);
+      return res.type('html').send(renderOAuthPopupResult({
+        success: true,
+        payload: {
+          type: 'auth_oauth_success',
+          provider: result.provider,
+          mode: result.action,
+          email: result.email,
+        },
+        message: 'You can close this window and return to NeoAgent.',
+      }));
     }
 
     const manager = getIntegrationManager(req);
@@ -110,43 +143,30 @@ router.get('/oauth/callback', async (req, res) => {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
     const result = await manager.finishOAuth(state, code, { signal: req.signal });
-    const payload = JSON.stringify({
-      type: 'integration_oauth_success',
-      provider: result.provider,
-      appId: result.appId,
-      connectionId: result.connectionId,
-      accountEmail: result.accountEmail,
-    });
-    res.send(`
-      <html><body>
-      <script>
-        if (window.opener) {
-          window.opener.postMessage(${payload}, ${trustedOrigin});
-          window.close();
-        } else {
-          window.close();
-        }
-      </script>
-      <p>Authentication successful. You can close this window.</p>
-      </body></html>
-    `);
+    return res.type('html').send(renderOAuthPopupResult({
+      success: true,
+      payload: {
+        type: 'integration_oauth_success',
+        provider: result.provider,
+        appId: result.appId,
+        connectionId: result.connectionId,
+        accountEmail: result.accountEmail,
+      },
+      message: 'You can close this window and return to NeoAgent.',
+    }));
   } catch (err) {
     const message = sanitizeError(err);
-    const safeMessage = escapeHtml(message);
     if (isAuthProviderState) {
       getAuthProviderManager(req)?.failAuthorization(state, message);
     }
-    res.status(500).send(`
-      <html><body>
-      <script>
-        if (window.opener) {
-          window.opener.postMessage({ type: ${JSON.stringify(isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error')}, error: ${JSON.stringify(message)} }, ${trustedOrigin});
-          window.close();
-        }
-      </script>
-      <p>Authentication failed: ${safeMessage}</p>
-      </body></html>
-    `);
+    return res.status(500).type('html').send(renderOAuthPopupResult({
+      success: false,
+      payload: {
+        type: isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error',
+        error: message,
+      },
+      message,
+    }));
   }
 });
 

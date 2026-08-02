@@ -9,17 +9,18 @@
 /* ── Tokens (NeoAgent dark palette) ─────────────────────────────────────── */
 :root {
   --bg:            #0e1511;
-  --bg-sidebar:    #0a0f0c;
+  /* Match NeoRecall rail: card olive, not darker-than-page. */
+  --bg-sidebar:    #171f1a;
   --bg-card:       #171f1a;
-  --bg-secondary:  #252d28;
-  --bg-input:      #0a0f0c;
-  --border:        rgba(224, 240, 224, 0.10);
-  --border-light:  rgba(224, 240, 224, 0.17);
+  --bg-secondary:  #1c261f;
+  --bg-input:      #0e1511;
+  --border:        rgba(224, 240, 224, 0.08);
+  --border-light:  rgba(224, 240, 224, 0.14);
 
   --accent:        #e1b052;
   --accent-hover:  #eac272;
   --accent-alt:    #84ba87;
-  --accent-muted:  rgba(225, 176, 82, 0.16);
+  --accent-muted:  rgba(225, 176, 82, 0.14);
 
   --text:          #ecefe5;
   --text-secondary:#aeb7a6;
@@ -47,15 +48,15 @@
 /* ── Light theme override ───────────────────────────────────────────────── */
 [data-theme="light"] {
   --bg:            #f4f1e8;
-  --bg-sidebar:    #fdfcf8;
+  --bg-sidebar:    #ede9dc;
   --bg-card:       #fdfcf8;
-  --bg-secondary:  #ede9dc;
+  --bg-secondary:  #f1ede1;
   --bg-input:      #fdfcf8;
   --border:        rgba(28, 33, 23, 0.10);
   --border-light:  rgba(28, 33, 23, 0.16);
 
   --accent:        #b07d2b;
-  --accent-hover:  #8a5f1c;
+  --accent-hover:  #c8943f;
   --accent-alt:    #5e6b4c;
   --accent-muted:  rgba(176, 125, 43, 0.14);
 

@@ -4930,6 +4930,8 @@ class NeoAgentController extends ChangeNotifier {
       final launchResult = await _oauthLauncher.launch(
         url: url,
         provider: providerId,
+        // NeoRecall (and other providers) may require 2FA before consent.
+        timeout: const Duration(minutes: 5),
       );
       if (!launchResult.launched) {
         throw Exception(launchResult.error ?? 'Failed to launch OAuth flow.');

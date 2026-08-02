@@ -9,13 +9,16 @@ OAuthLauncher createPlatformOAuthLauncher() => _WebOAuthLauncher();
 
 class _WebOAuthLauncher extends OAuthLauncher {
   StreamSubscription<html.MessageEvent>? _messageSubscription;
+  StreamSubscription<html.MessageEvent>? _broadcastSubscription;
   Timer? _timeoutTimer;
+  html.BroadcastChannel? _channel;
 
   @override
   Future<OAuthLaunchResult> launch({
     required String url,
     required String provider,
-    Duration timeout = const Duration(minutes: 2),
+    // 2FA + consent can take longer than a bare password login.
+    Duration timeout = const Duration(minutes: 5),
   }) async {
     final expectedOrigin = _deriveExpectedOrigin(url);
     html.window.open(
@@ -32,19 +35,39 @@ class _WebOAuthLauncher extends OAuthLauncher {
       _timeoutTimer = null;
       _messageSubscription?.cancel();
       _messageSubscription = null;
+      _broadcastSubscription?.cancel();
+      _broadcastSubscription = null;
+      try {
+        _channel?.close();
+      } catch (_) {}
+      _channel = null;
       completer.complete(result);
     }
 
-    _messageSubscription = html.window.onMessage.listen((event) {
-      if (expectedOrigin != null && event.origin != expectedOrigin) return;
-      final data = event.data;
+    bool acceptOrigin(String origin) {
+      if (expectedOrigin == null || expectedOrigin.isEmpty) return true;
+      if (origin == expectedOrigin) return true;
+      // PUBLIC_URL may be https://host while the app is opened at
+      // http://localhost or 127.0.0.1 — still accept the live page origin.
+      try {
+        if (origin == html.window.location.origin) return true;
+      } catch (_) {}
+      return false;
+    }
+
+    void handlePayload(dynamic data) {
       if (data is! Map) return;
       final type = data['type']?.toString();
       final incomingProvider = data['provider']?.toString();
-      if (incomingProvider != null && incomingProvider != provider) return;
+      if (incomingProvider != null &&
+          incomingProvider.isNotEmpty &&
+          incomingProvider != provider) {
+        return;
+      }
       if (type == 'integration_oauth_success' || type == 'auth_oauth_success') {
         finish(const OAuthLaunchResult(launched: true, completed: true));
-      } else if (type == 'integration_oauth_error' || type == 'auth_oauth_error') {
+      } else if (type == 'integration_oauth_error' ||
+          type == 'auth_oauth_error') {
         finish(
           OAuthLaunchResult(
             launched: true,
@@ -53,7 +76,23 @@ class _WebOAuthLauncher extends OAuthLauncher {
           ),
         );
       }
+    }
+
+    _messageSubscription = html.window.onMessage.listen((event) {
+      if (!acceptOrigin(event.origin)) return;
+      handlePayload(event.data);
     });
+
+    // Callback pages also broadcast on this channel so completion works even
+    // when postMessage origin filtering is too strict (localhost vs PUBLIC_URL).
+    try {
+      _channel = html.BroadcastChannel('neoagent_oauth');
+      _broadcastSubscription = _channel!.onMessage.listen((event) {
+        handlePayload(event.data);
+      });
+    } catch (_) {
+      // BroadcastChannel is unavailable in some embedded WebViews.
+    }
 
     _timeoutTimer = Timer(timeout, () {
       finish(
@@ -88,6 +127,12 @@ class _WebOAuthLauncher extends OAuthLauncher {
     _timeoutTimer = null;
     _messageSubscription?.cancel();
     _messageSubscription = null;
+    _broadcastSubscription?.cancel();
+    _broadcastSubscription = null;
+    try {
+      _channel?.close();
+    } catch (_) {}
+    _channel = null;
   }
 
   String? _deriveExpectedOrigin(String url) {

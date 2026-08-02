@@ -81,10 +81,13 @@ class NeoAgentPalette {
 }
 
 /// Deep-olive night theme.
+///
+/// Sidebar/rail surfaces use [bgSecondary] = card olive (#171F1A), matching
+/// NeoRecall's control-surface rail rather than a darker-than-page well.
 const NeoAgentPalette darkPalette = NeoAgentPalette(
   bgPrimary: Color(0xFF0E1511),
-  bgSecondary: Color(0xFF0A0F0C),
-  bgTertiary: Color(0xFF252D28),
+  bgSecondary: Color(0xFF171F1A),
+  bgTertiary: Color(0xFF1C261F),
   bgCard: Color(0xFF171F1A),
   textPrimary: Color(0xFFECEFE5),
   textSecondary: Color(0xFFAEB7A6),
@@ -92,9 +95,9 @@ const NeoAgentPalette darkPalette = NeoAgentPalette(
   accent: Color(0xFFE1B052),
   accentHover: Color(0xFFEAC272),
   accentAlt: Color(0xFF84BA87),
-  accentMuted: Color(0x29E1B052),
-  border: Color(0x1AE0F0E0),
-  borderLight: Color(0x2BE0F0E0),
+  accentMuted: Color(0x24E1B052),
+  border: Color(0x14E0F0E0),
+  borderLight: Color(0x24E0F0E0),
   success: Color(0xFF74C07C),
   warning: Color(0xFFD9A24B),
   danger: Color(0xFFDE8A78),
@@ -111,13 +114,13 @@ const NeoAgentPalette lightPalette = NeoAgentPalette(
   textSecondary: Color(0xFF49503F),
   textMuted: Color(0xFF7E8470),
   accent: Color(0xFFB07D2B),
-  accentHover: Color(0xFF8A5F1C),
+  accentHover: Color(0xFFC8943F),
   accentAlt: Color(0xFF5E6B4C),
   accentMuted: Color(0x24B07D2B),
-  border: Color(0x171C2117),
+  border: Color(0x1A1C2117),
   borderLight: Color(0x291C2117),
   success: Color(0xFF527C4F),
-  warning: Color(0xFF9A7B33),
+  warning: Color(0xFF9A6B1E),
   danger: Color(0xFFAE473C),
   info: Color(0xFF2F7D6E),
 );
