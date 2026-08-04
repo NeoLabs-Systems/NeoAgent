@@ -1,0 +1,294 @@
+'use strict';
+
+const { randomUUID } = require('crypto');
+const db = require('../../../db/database');
+const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { DEFAULT_MAX_SILENCE_SECONDS } = require('./constants');
+
+function asArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function asObject(value, fallback = {}) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
+}
+
+function normalizeContract(raw = {}, defaults = {}) {
+  const source = asObject(raw, {});
+  const deliverables = asArray(source.deliverables).map((item, index) => {
+    if (typeof item === 'string') {
+      return { id: `d${index + 1}`, type: 'text', required: true, description: item };
+    }
+    return {
+      id: String(item.id || `d${index + 1}`),
+      type: String(item.type || 'text'),
+      required: item.required !== false,
+      description: item.description || item.goal || '',
+    };
+  });
+
+  return {
+    goal: String(source.goal || defaults.goal || '').trim(),
+    intent: String(source.intent || defaults.intent || 'execute').trim() || 'execute',
+    complexity: String(source.complexity || defaults.complexity || 'standard').trim() || 'standard',
+    deliverables,
+    constraints: asArray(source.constraints).map(String),
+    exclusions: asArray(source.exclusions).map(String),
+    evidence_requirements: asArray(source.evidence_requirements || source.evidenceRequirements).map(String),
+    success_criteria: asArray(source.success_criteria || source.successCriteria).map(String),
+    research_targets: asArray(source.research_targets || source.researchTargets).map(String),
+    research_depth: String(source.research_depth || source.researchDepth || 'none'),
+    freshness_required: source.freshness_required === true || source.freshnessRequired === true,
+    verification_required: source.verification_required !== false
+      && source.verificationRequired !== false
+      && (source.needs_verification === true
+        || source.needsVerification === true
+        || source.verification_required === true
+        || defaults.verification_required === true),
+    side_effect_policy: asObject(source.side_effect_policy || source.sideEffectPolicy, {
+      repository_write: 'ask',
+      push: 'ask',
+      external_message: 'ask',
+    }),
+    update_policy: asObject(source.update_policy || source.updatePolicy, {
+      acknowledge_immediately: defaults.acknowledge_immediately !== false,
+      max_silence_seconds: Number(
+        source.update_policy?.max_silence_seconds
+        || source.updatePolicy?.maxSilenceSeconds
+        || defaults.max_silence_seconds
+        || DEFAULT_MAX_SILENCE_SECONDS,
+      ) || DEFAULT_MAX_SILENCE_SECONDS,
+    }),
+    completion_policy: asObject(source.completion_policy || source.completionPolicy, {
+      required_confidence: Number(
+        source.completion_policy?.required_confidence
+        || source.completionPolicy?.requiredConfidence
+        || 0.7,
+      ) || 0.7,
+      verification_required: source.verification_required !== false,
+      partial_completion_allowed: source.partial_completion_allowed === true
+        || source.partialCompletionAllowed === true,
+    }),
+    classification_confidence: Number(
+      source.classification_confidence
+      ?? source.classificationConfidence
+      ?? defaults.classification_confidence
+      ?? 0.55,
+    ) || 0.55,
+    open_obligations: asArray(source.open_obligations || source.openObligations),
+    steering_history: asArray(source.steering_history || source.steeringHistory),
+    version: Number(source.version || 1) || 1,
+  };
+}
+
+function contractFromAnalysis(analysis = {}, userMessage = '') {
+  const mode = String(analysis.mode || 'execute');
+  const intent = mode === 'direct_answer' ? 'respond' : 'execute';
+  const success = asArray(analysis.success_criteria).map(String);
+  const researchTargets = asArray(analysis.research_targets).map(String);
+  const needsTools = mode !== 'direct_answer'
+    || researchTargets.length > 0
+    || asArray(analysis.suggested_tools).length > 0;
+
+  const open = [];
+  if (needsTools) open.push({ id: 'execution', type: 'execution', required: true });
+  if (analysis.needs_verification) open.push({ id: 'verification', type: 'verification', required: true });
+  if (researchTargets.length > 0 || ['light', 'deep'].includes(String(analysis.research_depth || ''))) {
+    open.push({ id: 'research', type: 'research', required: true, targets: researchTargets });
+  }
+  if (mode === 'plan_execute') {
+    open.push({ id: 'plan', type: 'plan', required: true });
+  }
+
+  return normalizeContract({
+    goal: analysis.goal || String(userMessage || '').trim().slice(0, 500),
+    intent,
+    complexity: analysis.complexity || 'standard',
+    deliverables: mode === 'direct_answer'
+      ? [{ id: 'reply', type: 'text', required: true, description: 'Final user-facing answer' }]
+      : [{ id: 'result', type: 'task_result', required: true, description: analysis.goal || 'Completed work' }],
+    success_criteria: success,
+    research_targets: researchTargets,
+    research_depth: analysis.research_depth || 'none',
+    evidence_requirements: success,
+    verification_required: analysis.needs_verification === true || mode === 'plan_execute',
+    classification_confidence: Number(analysis.confidence ?? analysis.classification_confidence ?? 0.55),
+    open_obligations: open,
+    update_policy: {
+      acknowledge_immediately: mode !== 'direct_answer',
+      max_silence_seconds: analysis.progress_update_policy === 'required' ? 60 : DEFAULT_MAX_SILENCE_SECONDS,
+    },
+    completion_policy: {
+      required_confidence: analysis.completion_confidence_required === 'high' ? 0.9 : 0.7,
+      verification_required: analysis.needs_verification === true,
+    },
+  });
+}
+
+/**
+ * Deterministic fast-path gate. Model may propose direct answer; runtime enforces.
+ */
+function evaluateFastPathEligibility(contract, {
+  draftReply = '',
+  analysis = null,
+} = {}) {
+  const c = normalizeContract(contract);
+  const reasons = [];
+
+  if (c.intent === 'execute' && c.open_obligations.some((o) => o.required !== false)) {
+    reasons.push('open_execution_obligations');
+  }
+  if (c.research_depth && c.research_depth !== 'none') {
+    reasons.push('research_depth_required');
+  }
+  if (asArray(c.research_targets).length > 0) {
+    reasons.push('research_targets_open');
+  }
+  if (c.freshness_required) reasons.push('freshness_required');
+  if (c.verification_required && c.intent !== 'respond') {
+    reasons.push('verification_required');
+  }
+  if (asArray(c.deliverables).some((d) => d.required && d.type !== 'text')) {
+    reasons.push('non_text_deliverable');
+  }
+  if (Number(c.classification_confidence) < 0.7) {
+    reasons.push('low_classification_confidence');
+  }
+  if (analysis?.draft_status && analysis.draft_status !== 'final') {
+    reasons.push('draft_not_final');
+  }
+  if (analysis?.mode && analysis.mode !== 'direct_answer') {
+    reasons.push('analysis_mode_not_direct');
+  }
+  if (!String(draftReply || analysis?.draft_reply || '').trim()) {
+    reasons.push('missing_draft_reply');
+  }
+
+  // Heuristic obligations from goal text.
+  const goal = `${c.goal} ${String(draftReply || '')}`.toLowerCase();
+  const needsInspection = /\b(file|repo|repository|url|http|https|device|android|browser|integration|database|schema|migrate|deploy|test|build|git|pr\b|pull request)\b/i
+    .test(goal);
+  if (needsInspection && c.intent !== 'respond') {
+    reasons.push('inspection_or_mutation_signal');
+  }
+
+  return {
+    eligible: reasons.length === 0,
+    reasons,
+    contract: c,
+  };
+}
+
+function evaluateOpenObligations(contract, {
+  completedNodeKeys = [],
+  evidence = [],
+  artifacts = [],
+  finalContent = '',
+} = {}) {
+  const c = normalizeContract(contract);
+  const completed = new Set(completedNodeKeys.map(String));
+  const open = [];
+
+  for (const obligation of asArray(c.open_obligations)) {
+    if (obligation.required === false) continue;
+    const id = String(obligation.id || obligation.type || '');
+    if (completed.has(id) || completed.has(String(obligation.type || ''))) continue;
+    if (obligation.type === 'research' && evidence.length > 0) continue;
+    if (obligation.type === 'verification' && evidence.some((e) => e.kind === 'verification')) continue;
+    open.push(obligation);
+  }
+
+  for (const deliverable of asArray(c.deliverables).filter((d) => d.required !== false)) {
+    if (deliverable.type === 'text' && String(finalContent || '').trim()) continue;
+    if (artifacts.some((a) => a.type === deliverable.type || a.id === deliverable.id)) continue;
+    if (completed.has(deliverable.id)) continue;
+    open.push({
+      id: deliverable.id,
+      type: 'deliverable',
+      required: true,
+      deliverable,
+    });
+  }
+
+  for (const criterion of asArray(c.evidence_requirements)) {
+    const matched = evidence.some((item) => {
+      const hay = `${item.summary || ''} ${item.criterion || ''} ${item.id || ''}`.toLowerCase();
+      return hay.includes(String(criterion).toLowerCase().slice(0, 40));
+    });
+    if (!matched) {
+      open.push({
+        id: `evidence:${criterion}`,
+        type: 'evidence',
+        required: true,
+        criterion,
+      });
+    }
+  }
+
+  return {
+    open,
+    satisfied: open.length === 0,
+    contract: c,
+  };
+}
+
+function saveContract(runId, contract, { eventBus = null, userId = null, agentId = null } = {}) {
+  const normalized = normalizeContract(contract);
+  const existing = db.prepare(
+    'SELECT COALESCE(MAX(version), 0) AS version FROM agent_task_contracts WHERE run_id = ?',
+  ).get(runId);
+  const version = Number(existing?.version || 0) + 1;
+  normalized.version = version;
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO agent_task_contracts (id, run_id, version, contract_json)
+     VALUES (?, ?, ?, ?)`,
+  ).run(id, runId, version, JSON.stringify(normalized));
+
+  if (eventBus && userId) {
+    eventBus.publish({
+      runId,
+      userId,
+      agentId,
+      eventType: version === 1 ? EVENT_TYPES.TASK_CONTRACT_CREATED : EVENT_TYPES.TASK_CONTRACT_REVISED,
+      payload: { contract_id: id, version, goal: normalized.goal, intent: normalized.intent },
+      visibility: VISIBILITY.OPERATOR,
+    });
+  }
+
+  return { id, version, contract: normalized };
+}
+
+function loadLatestContract(runId) {
+  const row = db.prepare(
+    `SELECT id, run_id, version, contract_json, created_at, updated_at
+     FROM agent_task_contracts
+     WHERE run_id = ?
+     ORDER BY version DESC
+     LIMIT 1`,
+  ).get(runId);
+  if (!row) return null;
+  let contract = {};
+  try {
+    contract = JSON.parse(row.contract_json || '{}');
+  } catch {
+    contract = {};
+  }
+  return {
+    id: row.id,
+    runId: row.run_id,
+    version: Number(row.version || 1),
+    contract: normalizeContract(contract),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+module.exports = {
+  normalizeContract,
+  contractFromAnalysis,
+  evaluateFastPathEligibility,
+  evaluateOpenObligations,
+  saveContract,
+  loadLatestContract,
+};

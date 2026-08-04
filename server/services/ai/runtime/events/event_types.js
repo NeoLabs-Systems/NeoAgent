@@ -1,0 +1,51 @@
+'use strict';
+
+const EVENT_TYPES = Object.freeze({
+  RUN_ACCEPTED: 'run.accepted',
+  RUN_STATE_CHANGED: 'run.state_changed',
+  TASK_CONTRACT_CREATED: 'task.contract_created',
+  TASK_CONTRACT_REVISED: 'task.contract_revised',
+  PLAN_CREATED: 'plan.created',
+  PLAN_REVISED: 'plan.revised',
+  NODE_READY: 'node.ready',
+  NODE_STARTED: 'node.started',
+  NODE_PROGRESS: 'node.progress',
+  NODE_COMPLETED: 'node.completed',
+  MODEL_STARTED: 'model.started',
+  MODEL_COMPLETED: 'model.completed',
+  TOOL_STARTED: 'tool.started',
+  TOOL_PROGRESS: 'tool.progress',
+  TOOL_COMPLETED: 'tool.completed',
+  TOOL_FAILED: 'tool.failed',
+  ARTIFACT_CREATED: 'artifact.created',
+  CHECKPOINT_SAVED: 'checkpoint.saved',
+  VERIFICATION_STARTED: 'verification.started',
+  VERIFICATION_FAILED: 'verification.failed',
+  REPAIR_STARTED: 'repair.started',
+  APPROVAL_REQUESTED: 'approval.requested',
+  RUN_BLOCKED: 'run.blocked',
+  RUN_PAUSED: 'run.paused',
+  RUN_RESUMED: 'run.resumed',
+  PROGRESS_USER_UPDATE: 'progress.user_update',
+  DELIVERY_COMMITTED: 'delivery.committed',
+  DELIVERY_CONFIRMED: 'delivery.confirmed',
+  RUN_COMPLETED: 'run.completed',
+  RUN_FAILED: 'run.failed',
+  RUN_CANCELLED: 'run.cancelled',
+  DECISION_PERSISTED: 'decision.persisted',
+  BUDGET_SOFT_LIMIT: 'budget.soft_limit',
+  BUDGET_HARD_LIMIT: 'budget.hard_limit',
+  MEMORY_CANDIDATE: 'memory.candidate',
+  MEMORY_COMMITTED: 'memory.committed',
+});
+
+const VISIBILITY = Object.freeze({
+  INTERNAL: 'internal',
+  OPERATOR: 'operator',
+  USER: 'user',
+});
+
+module.exports = {
+  EVENT_TYPES,
+  VISIBILITY,
+};
