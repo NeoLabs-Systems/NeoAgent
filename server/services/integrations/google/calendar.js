@@ -189,14 +189,18 @@ function summarizeListedEvents(items) {
 async function executeCalendarTool(toolName, args, auth) {
   const calendar = google.calendar({ version: 'v3', auth });
   const calendarId = String(args.calendar_id || 'primary').trim() || 'primary';
+  // Models sometimes emit camelCase timeMin/timeMax despite the snake_case
+  // schema; accept either so a misnamed arg doesn't silently drop the window.
+  const timeMin = args.time_min || args.timeMin || undefined;
+  const timeMax = args.time_max || args.timeMax || undefined;
 
   switch (toolName) {
     case 'google_workspace_calendar_list_events': {
       const response = await calendar.events.list({
         calendarId,
         q: String(args.query || '').trim() || undefined,
-        timeMin: args.time_min || undefined,
-        timeMax: args.time_max || undefined,
+        timeMin,
+        timeMax,
         singleEvents: true,
         orderBy: 'startTime',
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
@@ -280,8 +284,8 @@ async function executeCalendarTool(toolName, args, auth) {
       const calendarIds = coerceStringList(args.calendar_ids);
       const response = await calendar.freebusy.query({
         requestBody: {
-          timeMin: String(args.time_min || ''),
-          timeMax: String(args.time_max || ''),
+          timeMin: String(timeMin || ''),
+          timeMax: String(timeMax || ''),
           timeZone: args.timezone || undefined,
           items:
             calendarIds.length > 0

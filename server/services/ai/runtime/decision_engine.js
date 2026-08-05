@@ -54,12 +54,14 @@ function normalizeToolCalls(toolCalls) {
     const name = String(fn.name || call.name || priorFn?.name || '').trim();
     if (!name) return null;
     const id = String(call.id || priorRaw?.id || `call_${index + 1}`);
+    const thoughtSignature = fn.thought_signature || call.thought_signature || priorFn?.thought_signature;
     const wire = {
       id,
       type: 'function',
       function: {
         name,
         arguments: JSON.stringify(args),
+        ...(thoughtSignature ? { thought_signature: thoughtSignature } : {}),
       },
     };
     return {
