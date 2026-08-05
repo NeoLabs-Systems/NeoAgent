@@ -175,3 +175,170 @@ test('durable path creates task contract and work graph', async () => {
   ).get(result.runId);
   assert.ok(Number(events.n) >= 1);
 });
+
+test('schedule background run keeps tool_calls.function across turns', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Calendar reminder',
+    confidence: 0.8,
+  });
+
+  let modelTurns = 0;
+  const toolContexts = [];
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurns += 1;
+    // Second turn must still see OpenAI-shaped tool_calls from history.
+    if (modelTurns >= 2) {
+      const priorAssistant = [...messages].reverse().find(
+        (m) => m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length,
+      );
+      assert.ok(priorAssistant, 'expected prior assistant tool call history');
+      assert.ok(
+        priorAssistant.tool_calls.every((tc) => tc?.function?.name),
+        'tool_calls must keep function.name for provider conversion',
+      );
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'c2',
+            type: 'function',
+            function: {
+              name: 'task_complete',
+              arguments: JSON.stringify({ message: 'Reminder sent', confidence: 'high' }),
+            },
+          }],
+          usage: { total_tokens: 6 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'c1',
+          type: 'function',
+          function: {
+            name: 'send_message',
+            arguments: JSON.stringify({
+              platform: 'telegram',
+              to: '1',
+              content: 'Meeting in 1 hour',
+              purpose: 'final_result',
+            }),
+          },
+        }],
+        usage: { total_tokens: 8 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
+    { name: 'activate_tools', description: 'act', parameters: { type: 'object', properties: {} } },
+    { name: 'think', description: 'think', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.executeTool = async (name, args, context) => {
+    toolContexts.push({ name, args, context });
+    if (name === 'send_message' && context.stageProactiveMessages) {
+      context.deliveryState.proactiveMessageStaged = true;
+      context.deliveryState.stagedProactiveMessage = {
+        platform: args.platform,
+        to: args.to,
+        content: args.content,
+        purpose: args.purpose,
+      };
+      return { success: true, staged: true, content: args.content };
+    }
+    return { success: true, tool: name };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const deliveryState = {
+    messagingSent: false,
+    noResponse: false,
+    proactiveMessageStaged: false,
+    stagedProactiveMessage: null,
+    lastSentMessage: '',
+    sentMessages: [],
+  };
+
+  const result = await engine.run(userId, '[SYSTEM: Executing Background Task]\nTask Name: Kalender-Reminder', {
+    triggerType: 'schedule',
+    triggerSource: 'schedule',
+    stream: false,
+    skipTaskAnalysis: true,
+    skipGlobalRecall: true,
+    skipConversationHistory: true,
+    skipVerifier: true,
+    maxIterations: 4,
+    bypassUserRateLimits: true,
+    deliveryState,
+    stageProactiveMessages: true,
+    taskId: 'task-1',
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.ok(modelTurns >= 1, 'expected at least one model turn');
+  assert.ok(toolContexts.some((c) => c.name === 'send_message'));
+  const sendCtx = toolContexts.find((c) => c.name === 'send_message');
+  assert.equal(sendCtx.context.stageProactiveMessages, true);
+  assert.equal(sendCtx.context.taskId, 'task-1');
+  assert.equal(sendCtx.context.deliveryState, deliveryState);
+  assert.equal(deliveryState.proactiveMessageStaged, true);
+  assert.equal(deliveryState.stagedProactiveMessage.content, 'Meeting in 1 hour');
+  // Final content must use send_message `content` (not only message/text aliases).
+  assert.match(String(result.content || ''), /Meeting in 1 hour|Reminder sent/);
+  // Hard-coded ack must not be emitted for schedule automation.
+  const acks = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox
+     WHERE run_id = ? AND message_kind = 'ack'`,
+  ).get(result.runId);
+  assert.equal(Number(acks.n), 0);
+});
+
+test('task_complete message field becomes final content', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Say done',
+    confidence: 0.9,
+  });
+  engine.requestModelResponse = async () => ({
+    response: {
+      content: '',
+      toolCalls: [{
+        id: 'tc1',
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message: 'All calendar items reviewed.', confidence: 'high' }),
+        },
+      }],
+      usage: { total_tokens: 4 },
+    },
+    streamContent: '',
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Review calendar', {
+    triggerSource: 'web',
+    stream: false,
+    skipTaskAnalysis: true,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.match(String(result.content || ''), /All calendar items reviewed/);
+});

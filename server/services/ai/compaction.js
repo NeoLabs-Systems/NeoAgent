@@ -11,8 +11,11 @@ async function compact(messages, provider, model, contextWindow = null, options 
 
   const compactionText = toCompact.map((msg) => {
     if (msg.role === 'assistant' && msg.tool_calls) {
-      const tools = msg.tool_calls.map((tc) => tc.function.name).join(', ');
-      return `assistant(tools:${tools}) ${(msg.content || '').slice(0, 320)}`;
+      const tools = msg.tool_calls
+        .map((tc) => tc?.function?.name || tc?.name || '')
+        .filter(Boolean)
+        .join(', ');
+      return `assistant(tools:${tools || 'unknown'}) ${(msg.content || '').slice(0, 320)}`;
     }
     if (msg.role === 'tool') {
       return `tool:${msg.name || 'tool'} ${(msg.content || '').slice(0, 220)}`;

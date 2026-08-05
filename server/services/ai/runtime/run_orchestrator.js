@@ -94,6 +94,21 @@ function usageTokens(usage = {}) {
   };
 }
 
+/**
+ * Apply a state transition and surface illegal/failed transitions in logs.
+ * Callers may still continue when a transition is rejected (best-effort),
+ * but silent failures hide protocol bugs.
+ */
+function applyTransition(args) {
+  const result = stateMachine.transition(args);
+  if (!result?.ok) {
+    console.warn(
+      `[Runtime] Transition rejected run=${args.runId} ${args?.run?.runtimeState || '?'}->${args.toState} reason=${result?.reason || 'unknown'}`,
+    );
+  }
+  return result;
+}
+
 class DurableRunRuntime {
   constructor(engine) {
     this.engine = engine;
@@ -175,6 +190,19 @@ class DurableRunRuntime {
       }
 
       const abortController = new AbortController();
+      // Prefer the caller-owned deliveryState (background tasks share it with the
+      // task runtime for staged send_message + final delivery bookkeeping).
+      const deliveryState = options.deliveryState && typeof options.deliveryState === 'object'
+        ? options.deliveryState
+        : {
+          messagingSent: false,
+          noResponse: false,
+          proactiveMessageStaged: false,
+          stagedProactiveMessage: null,
+          lastSentMessage: '',
+          sentMessages: [],
+        };
+
       this.engine.activeRuns.set(runId, {
         userId,
         agentId,
@@ -186,6 +214,7 @@ class DurableRunRuntime {
         finalDeliverySent: false,
         lastSentMessage: '',
         sentMessages: [],
+        deliveryState,
         triggerType,
         triggerSource,
         startedAt: startedAtMs,
@@ -198,6 +227,13 @@ class DurableRunRuntime {
         steeringQueue: [],
         systemSteeringQueue: [],
         workerId,
+        messagingContext: triggerSource === 'messaging'
+          ? {
+            platform: options.source || null,
+            chatId: options.chatId || null,
+            behavior: options.context?.socialIntelligence || null,
+          }
+          : null,
       });
 
       if (options.signal) {
@@ -245,11 +281,62 @@ class DurableRunRuntime {
         runtimeKernel: 'v2',
       });
 
-      // Immediate acknowledgement for durable surfaces (messaging / long tasks).
-      // Fast path may skip this after triage.
+      // Immediate acknowledgement for durable user-facing surfaces.
+      // Wording is model-authored (strategy stays model-controlled); the runtime
+      // only decides whether an ack is required. Schedule/automation runs do not
+      // get a silent hard-coded "Accepted. Working on..." spam message.
       const maybeAck = async (force = false) => {
-        if (!force && triggerSource === 'web' && triggerType === 'user') return;
-        const ackText = `Accepted. Working on: ${runTitle}. I'll report concrete milestones and any blocker as the run progresses.`;
+        if (!force) return;
+        // Background schedule/task automation delivers via send_message only.
+        if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
+        if (triggerType === 'subagent') return;
+
+        let ackText = '';
+        try {
+          const ackResponse = await this.engine.requestModelResponse({
+            provider,
+            providerName,
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: [
+                  'Write a single short acknowledgement (1 sentence, max ~180 chars).',
+                  'Confirm you accepted the request and will report concrete milestones or blockers.',
+                  'Use only known facts from the user request. Do not invent progress or tools used.',
+                  'No greeting fluff, no markdown, no tool calls.',
+                ].join(' '),
+              },
+              {
+                role: 'user',
+                content: `User request to acknowledge:\n${String(userMessage || runTitle).slice(0, 1200)}`,
+              },
+            ],
+            tools: [],
+            options: {
+              ...options,
+              stream: false,
+              signal: abortController.signal,
+              runId,
+              userId,
+              agentId,
+            },
+            runId,
+            iteration: 0,
+          });
+          ackText = sanitizeModelOutput(
+            String(ackResponse?.response?.content || ackResponse?.streamContent || '').trim(),
+            { model },
+          );
+          // Strip accidental multi-paragraph model output to one line.
+          ackText = ackText.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
+          if (ackText.length > 220) ackText = `${ackText.slice(0, 217).trimEnd()}...`;
+        } catch (error) {
+          console.warn('[Runtime] Ack generation failed; continuing without hard-coded text:', error?.message || error);
+          ackText = '';
+        }
+        if (!ackText) return;
+
         await requestProgressDelivery({
           engine: this.engine,
           runId,
@@ -383,7 +470,7 @@ class DurableRunRuntime {
       }
 
       // ── Triage ─────────────────────────────────────────────────────────
-      stateMachine.transition({
+      applyTransition({
         runId,
         toState: RUNTIME_STATES.TRIAGING,
         reason: 'worker_started',
@@ -494,7 +581,7 @@ class DurableRunRuntime {
 
       if (fastGate.eligible && directEligible) {
         path = 'fast';
-        stateMachine.transition({
+        applyTransition({
           runId,
           toState: RUNTIME_STATES.RESPONDING,
           reason: 'no_execution_obligations',
@@ -551,7 +638,7 @@ class DurableRunRuntime {
 
         // Fast path rejected — fall through to durable execution.
         path = 'durable';
-        stateMachine.transition({
+        applyTransition({
           runId,
           toState: RUNTIME_STATES.PLANNING,
           reason: 'fast_path_rejected',
@@ -560,7 +647,7 @@ class DurableRunRuntime {
         });
       } else {
         await maybeAck(triggerSource === 'messaging' || analysis.progress_update_policy === 'required');
-        stateMachine.transition({
+        applyTransition({
           runId,
           toState: RUNTIME_STATES.PLANNING,
           reason: 'durable_work_required',
@@ -601,7 +688,7 @@ class DurableRunRuntime {
         }),
       });
 
-      stateMachine.transition({
+      applyTransition({
         runId,
         toState: RUNTIME_STATES.EXECUTING,
         reason: 'work_graph_ready',
@@ -720,7 +807,7 @@ class DurableRunRuntime {
                 evidence: [{ summary: 'Accepted with skipVerifier', kind: 'response' }],
               });
             }
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.DELIVERING,
               reason: 'skip_verifier',
@@ -768,7 +855,7 @@ class DurableRunRuntime {
           });
 
           if (verification.status === 'repair_required') {
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.REPAIRING,
               reason: 'verification_defects',
@@ -791,7 +878,7 @@ class DurableRunRuntime {
               finalContent = verification.final_reply;
               workingMemory.setDraftResponse(finalContent);
             }
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.EXECUTING,
               reason: 'repair_nodes_ready',
@@ -802,7 +889,7 @@ class DurableRunRuntime {
           }
 
           if (verification.status === 'blocked') {
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.BLOCKED,
               reason: 'verification_blocked',
@@ -837,7 +924,7 @@ class DurableRunRuntime {
           }
 
           finalContent = verification.final_reply || finalContent;
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.DELIVERING,
             reason: 'completion_verified',
@@ -876,7 +963,7 @@ class DurableRunRuntime {
         }
 
         if (run.runtimeState === RUNTIME_STATES.REPAIRING) {
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.EXECUTING,
             reason: 'repair_nodes_ready',
@@ -974,7 +1061,7 @@ class DurableRunRuntime {
               workingMemory,
               reason: continuation.reason,
             });
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.DELIVERING,
               reason: continuation.reason,
@@ -984,7 +1071,7 @@ class DurableRunRuntime {
             continue;
           }
           if (continuation.reason === 'no_open_obligations' || nextNodes.length === 0) {
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.VERIFYING,
               reason: 'no_ready_nodes',
@@ -1050,11 +1137,14 @@ class DurableRunRuntime {
             finalContent,
           }, { eventBus: this.eventBus, userId, agentId });
           try {
-            const compacted = await compact(turnMessages, {
+            // compact(messages, provider, model, contextWindow, options)
+            const compacted = await compact(
+              turnMessages,
               provider,
               model,
-              threshold: 0.85,
-            });
+              null,
+              { signal: getActiveSignal() },
+            );
             if (Array.isArray(compacted) && compacted.length) {
               messages = compacted;
             }
@@ -1174,7 +1264,7 @@ class DurableRunRuntime {
               workingMemory,
               reason: 'model_protocol_error',
             });
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.DELIVERING,
               reason: 'protocol_repair_exhausted',
@@ -1222,7 +1312,7 @@ class DurableRunRuntime {
                 });
               }
             }
-            stateMachine.transition({
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.VERIFYING,
               reason: canOnlyRespond
@@ -1251,7 +1341,18 @@ class DurableRunRuntime {
           );
           workingMemory.setDraftResponse(finalContent);
           messages.push({ role: 'assistant', content: finalContent });
-          stateMachine.transition({
+          // A completion claim asserts remaining required work is done; mark
+          // non-verification nodes complete so the gate can evaluate evidence.
+          for (const node of workGraph.requiredOpenNodes(runId)) {
+            if (node.kind === 'verification') continue;
+            workGraph.completeNode(node.id, {
+              evidence: [{
+                summary: finalContent.slice(0, 300) || 'Completed via task_complete claim',
+                kind: 'completion_claim',
+              }],
+            });
+          }
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.VERIFYING,
             reason: 'completion_claim',
@@ -1262,7 +1363,7 @@ class DurableRunRuntime {
         }
 
         if (decision.kind === DECISION_KINDS.BLOCK) {
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.BLOCKED,
             reason: decision.blocker?.code || 'blocked',
@@ -1275,7 +1376,7 @@ class DurableRunRuntime {
 
         if (decision.kind === DECISION_KINDS.REQUEST_INPUT) {
           finalContent = decision.question || decision.content || 'Need additional input to continue.';
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.BLOCKED,
             reason: 'request_input',
@@ -1286,7 +1387,7 @@ class DurableRunRuntime {
         }
 
         if (decision.kind === DECISION_KINDS.WAIT) {
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.WAITING,
             reason: decision.reason || 'wait',
@@ -1294,7 +1395,7 @@ class DurableRunRuntime {
             eventBus: this.eventBus,
           });
           // Immediate return to executing for in-process waits; durable waits would park.
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.EXECUTING,
             reason: 'wait_elapsed',
@@ -1327,7 +1428,7 @@ class DurableRunRuntime {
         }
 
         if (decision.kind === DECISION_KINDS.VERIFY) {
-          stateMachine.transition({
+          applyTransition({
             runId,
             toState: RUNTIME_STATES.VERIFYING,
             reason: 'model_requested_verify',
@@ -1338,47 +1439,65 @@ class DurableRunRuntime {
         }
 
         if (decision.kind === DECISION_KINDS.ACT) {
-          if (decision.content) {
+          // Continuation intent without tools ("I'll do X") is not completion
+          // and must not spin forever without a real action.
+          if (!decision.toolCalls.length) {
+            if (decision.content) {
+              messages.push({
+                role: 'assistant',
+                content: sanitizeModelOutput(decision.content, { model }),
+              });
+            }
             messages.push({
-              role: 'assistant',
-              content: sanitizeModelOutput(decision.content, { model }),
-              tool_calls: decision.toolCalls.map((call) => call.raw || {
-                id: call.id,
-                type: 'function',
-                function: {
-                  name: call.name,
-                  arguments: JSON.stringify(call.arguments || {}),
-                },
-              }),
+              role: 'system',
+              content: [
+                decision.protocolNote
+                  ? `Protocol note: ${decision.protocolNote}.`
+                  : 'An act decision was produced without tool calls.',
+                'Call the concrete tools needed next, or provide a final answer only if all required work is already evidenced.',
+                'Do not claim future work as completed.',
+              ].join(' '),
             });
-          } else {
-            messages.push({
-              role: 'assistant',
-              content: '',
-              tool_calls: decision.toolCalls.map((call) => call.raw || {
-                id: call.id,
-                type: 'function',
-                function: {
-                  name: call.name,
-                  arguments: JSON.stringify(call.arguments || {}),
-                },
-              }),
-            });
+            continue;
           }
+
+          // Always store OpenAI wire-format tool_calls so every provider can
+          // convert history on subsequent turns (never rely on raw alone).
+          const wireToolCalls = decision.toolCalls.map((call) => (
+            call.raw?.function?.name
+              ? call.raw
+              : {
+                id: call.id,
+                type: 'function',
+                function: {
+                  name: call.name,
+                  arguments: JSON.stringify(call.arguments || {}),
+                },
+              }
+          ));
+          messages.push({
+            role: 'assistant',
+            content: decision.content
+              ? sanitizeModelOutput(decision.content, { model })
+              : '',
+            tool_calls: wireToolCalls,
+          });
 
           const toolCalls = decision.toolCalls;
           const readOnlyCalls = [];
           const mutatingCalls = [];
           for (const call of toolCalls) {
-            const def = tools.find((tool) => tool.name === call.name) || null;
-            const callShape = call.raw || {
-              id: call.id,
-              type: 'function',
-              function: {
-                name: call.name,
-                arguments: JSON.stringify(call.arguments || {}),
-              },
-            };
+            const def = tools.find((tool) => tool?.name === call.name) || null;
+            const callShape = call.raw?.function?.name
+              ? call.raw
+              : {
+                id: call.id,
+                type: 'function',
+                function: {
+                  name: call.name,
+                  arguments: JSON.stringify(call.arguments || {}),
+                },
+              };
             if (this.engine.isReadOnlyToolCall?.(callShape, def)) {
               readOnlyCalls.push(call);
             } else {
@@ -1389,14 +1508,16 @@ class DurableRunRuntime {
           const executeOne = async (call) => {
             const stepId = randomUUID();
             const started = Date.now();
-            const callShape = call.raw || {
-              id: call.id,
-              type: 'function',
-              function: {
-                name: call.name,
-                arguments: JSON.stringify(call.arguments || {}),
-              },
-            };
+            const callShape = call.raw?.function?.name
+              ? call.raw
+              : {
+                id: call.id,
+                type: 'function',
+                function: {
+                  name: call.name,
+                  arguments: JSON.stringify(call.arguments || {}),
+                },
+              };
             this.eventBus.publish({
               runId,
               userId,
@@ -1428,6 +1549,8 @@ class DurableRunRuntime {
                 errorMessage = hookResult.reason || 'Blocked by policy hook';
                 result = { error: errorMessage, blocked: true };
               } else {
+                // Flatten run options the same way the legacy loop did so
+                // background staging, messaging origin, and delivery bookkeeping work.
                 result = await this.engine.executeTool(call.name, call.arguments, {
                   userId,
                   agentId,
@@ -1436,8 +1559,16 @@ class DurableRunRuntime {
                   triggerType,
                   triggerSource,
                   conversationId,
-                  options,
-                  signal: abortController.signal,
+                  source: options.source || null,
+                  chatId: options.chatId || null,
+                  taskId: options.taskId || null,
+                  widgetId: options.widgetId || null,
+                  deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
+                  stageProactiveMessages: options.stageProactiveMessages === true,
+                  allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
+                    || options.allow_multiple_messages === true,
+                  allowExternalSideEffects: options.allowExternalSideEffects === true,
+                  signal: getActiveSignal(),
                 });
               }
             } catch (error) {
@@ -1459,12 +1590,18 @@ class DurableRunRuntime {
             budget.recordToolRuntime(elapsed);
             const isReadOnly = this.engine.isReadOnlyToolCall?.(
               callShape,
-              tools.find((tool) => tool.name === call.name),
+              tools.find((tool) => tool?.name === call.name),
             );
             budget.recordReadOnly(Boolean(isReadOnly) && success);
             if (success) budget.recordToolFailure(false);
 
-            const compacted = compactToolResult(result, { toolName: call.name });
+            // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
+            const compacted = compactToolResult(
+              call.name,
+              call.arguments || {},
+              result,
+              {},
+            );
             evidencePacket = appendToolEvidence(evidencePacket, call.name, compacted, { success });
             workingMemory.addEvidence({
               id: stepId,
@@ -1506,6 +1643,7 @@ class DurableRunRuntime {
 
             messages.push({
               role: 'tool',
+              name: call.name,
               tool_call_id: call.id,
               content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
             });
@@ -1513,16 +1651,33 @@ class DurableRunRuntime {
             // task_complete / send_message special handling
             if (call.name === 'task_complete' && success) {
               finalContent = String(
-                call.arguments?.summary
+                call.arguments?.message
+                || call.arguments?.summary
                 || call.arguments?.result
+                || result?.message
                 || finalContent
                 || '',
               ).trim();
               workingMemory.setDraftResponse(finalContent);
             }
             if (call.name === 'send_message' && success) {
-              const sent = String(call.arguments?.message || call.arguments?.text || '').trim();
-              if (sent) {
+              // Tool schema uses `content`; models also emit message/text aliases.
+              // Staged proactive replies return content on the tool result.
+              const sent = String(
+                call.arguments?.content
+                || call.arguments?.message
+                || call.arguments?.text
+                || result?.content
+                || '',
+              ).trim();
+              const noResponse = sent === '[NO RESPONSE]'
+                || result?.reason === 'no_response'
+                || call.arguments?.purpose === 'no_response';
+              if (noResponse) {
+                const runMeta = this.engine.getRunMeta(runId);
+                if (runMeta) runMeta.noResponse = true;
+                if (runMeta?.deliveryState) runMeta.deliveryState.noResponse = true;
+              } else if (sent) {
                 // Visible interim/final channel messages still require outbox final authority.
                 // Treat tool-sent messages as interim unless completion gate accepts.
                 finalContent = sent;
@@ -1533,6 +1688,17 @@ class DurableRunRuntime {
                   runMeta.messagingSent = true;
                   if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
                   runMeta.sentMessages.push(sent);
+                  // Staged schedule messages count as proactive progress for the task runtime.
+                  if (result?.staged === true) {
+                    runMeta.proactiveMessageStaged = true;
+                    runMeta.stagedProactiveMessage = runMeta.deliveryState?.stagedProactiveMessage
+                      || {
+                        platform: call.arguments?.platform,
+                        to: call.arguments?.to,
+                        content: sent,
+                        purpose: call.arguments?.purpose,
+                      };
+                  }
                 }
               }
             }
@@ -1589,7 +1755,20 @@ class DurableRunRuntime {
 
           // If model included terminal complete with tools, check next loop.
           if (decision.terminalHint) {
-            stateMachine.transition({
+            // Ensure execute-class nodes are closed when a terminal send/complete
+            // decision was already produced with successful tools.
+            if (String(finalContent || '').trim() || decision.toolCalls.some((c) => c.name === 'task_complete')) {
+              for (const node of workGraph.requiredOpenNodes(runId)) {
+                if (node.kind === 'verification') continue;
+                workGraph.completeNode(node.id, {
+                  evidence: [{
+                    summary: String(finalContent || 'Terminal tool decision').slice(0, 300),
+                    kind: 'terminal_hint',
+                  }],
+                });
+              }
+            }
+            applyTransition({
               runId,
               toState: RUNTIME_STATES.VERIFYING,
               reason: 'terminal_hint_after_tools',
@@ -1648,7 +1827,7 @@ class DurableRunRuntime {
       if (runRecordCreated) {
         const runMeta = this.engine.getRunMeta(runId);
         const interrupted = isAbortError(error) || runMeta?.aborted;
-        stateMachine.transition({
+        applyTransition({
           runId,
           toState: interrupted ? RUNTIME_STATES.CANCELLED : RUNTIME_STATES.FAILED,
           reason: interrupted ? 'interrupted' : 'error',
@@ -1722,7 +1901,7 @@ class DurableRunRuntime {
     }
     if (!result.ok && result.reason === 'ambiguous') {
       // Do not retry blindly.
-      stateMachine.transition({
+      applyTransition({
         runId,
         toState: RUNTIME_STATES.FAILED,
         reason: 'delivery_ambiguous',
@@ -1739,7 +1918,7 @@ class DurableRunRuntime {
     if (!result.ok) {
       // For web channel, still complete with content even if emit path failed.
       if (channel === 'web') {
-        stateMachine.transition({
+        applyTransition({
           runId,
           toState: RUNTIME_STATES.COMPLETED,
           reason: 'local_final_without_external',
@@ -1752,7 +1931,7 @@ class DurableRunRuntime {
         });
         return { ok: true, content };
       }
-      stateMachine.transition({
+      applyTransition({
         runId,
         toState: RUNTIME_STATES.FAILED,
         reason: 'delivery_failed',
@@ -1938,7 +2117,7 @@ class DurableRunRuntime {
   #cancelledResult(runId, totalTokens, iterations) {
     const run = stateMachine.loadRun(runId);
     if (run && !stateMachine.isTerminal(run)) {
-      stateMachine.transition({
+      applyTransition({
         runId,
         toState: RUNTIME_STATES.CANCELLED,
         reason: 'cancelled',

@@ -194,12 +194,32 @@ function evaluateOpenObligations(contract, {
     const id = String(obligation.id || obligation.type || '');
     if (completed.has(id) || completed.has(String(obligation.type || ''))) continue;
     if (obligation.type === 'research' && evidence.length > 0) continue;
-    if (obligation.type === 'verification' && evidence.some((e) => e.kind === 'verification')) continue;
+    // Verification obligations are owned by the verification phase / completion
+    // gate itself — do not treat them as still-open execution work here.
+    if (obligation.type === 'verification' || id === 'verification') continue;
+    // Execution obligation is satisfied once the execute work node completed.
+    if (
+      (obligation.type === 'execution' || id === 'execution')
+      && (completed.has('execute') || completed.has('execute-main') || completed.has('execute_main'))
+    ) {
+      continue;
+    }
     open.push(obligation);
   }
 
   for (const deliverable of asArray(c.deliverables).filter((d) => d.required !== false)) {
-    if (deliverable.type === 'text' && String(finalContent || '').trim()) continue;
+    const hasFinalText = String(finalContent || '').trim().length > 0;
+    // User-facing text deliverables (including general task_result reports) are
+    // satisfied by a non-empty final reply. Binary artifacts still need evidence.
+    if (
+      hasFinalText
+      && (deliverable.type === 'text'
+        || deliverable.type === 'task_result'
+        || deliverable.type === 'message'
+        || deliverable.type === 'reply')
+    ) {
+      continue;
+    }
     if (artifacts.some((a) => a.type === deliverable.type || a.id === deliverable.id)) continue;
     if (completed.has(deliverable.id)) continue;
     open.push({

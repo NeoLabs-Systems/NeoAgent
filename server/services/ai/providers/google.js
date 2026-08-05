@@ -130,13 +130,14 @@ class GoogleProvider extends BaseProvider {
   }
 
   formatTools(tools) {
-    return [{
-      functionDeclarations: tools.map(tool => ({
-        name: tool.name,
+    const declarations = (Array.isArray(tools) ? tools : [])
+      .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())
+      .map((tool) => ({
+        name: String(tool.name).trim(),
         description: tool.description,
-        parametersJsonSchema: tool.parameters || { type: 'object', properties: {} }
-      }))
-    }];
+        parametersJsonSchema: tool.parameters || { type: 'object', properties: {} },
+      }));
+    return [{ functionDeclarations: declarations }];
   }
 
   buildGenerateConfig(systemInstruction, tools, options) {
@@ -178,14 +179,16 @@ class GoogleProvider extends BaseProvider {
         const parts = [];
         if (msg.content) parts.push({ text: msg.content });
         for (const tc of msg.tool_calls) {
+          const name = tc?.function?.name || tc?.name;
+          if (!name) continue;
           const functionCallPart = {
             functionCall: {
-              name: tc.function.name,
-              args: parseToolArguments(tc.function.arguments)
+              name,
+              args: parseToolArguments(tc?.function?.arguments ?? tc?.arguments)
             }
           };
           if (tc.id) functionCallPart.functionCall.id = tc.id;
-          if (tc.function.thought_signature) {
+          if (tc?.function?.thought_signature) {
             functionCallPart.thoughtSignature = tc.function.thought_signature;
           }
           parts.push(functionCallPart);

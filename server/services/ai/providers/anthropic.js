@@ -41,11 +41,13 @@ class AnthropicProvider extends BaseProvider {
   }
 
   formatTools(tools) {
-    return tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      input_schema: tool.parameters || { type: 'object', properties: {} }
-    }));
+    return (Array.isArray(tools) ? tools : [])
+      .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())
+      .map((tool) => ({
+        name: String(tool.name).trim(),
+        description: tool.description,
+        input_schema: tool.parameters || { type: 'object', properties: {} },
+      }));
   }
 
   normalizeContentBlocks(blocks = []) {
@@ -137,11 +139,20 @@ class AnthropicProvider extends BaseProvider {
         const content = [];
         if (msg.content) content.push({ type: 'text', text: msg.content });
         for (const tc of msg.tool_calls) {
+          const name = tc?.function?.name || tc?.name;
+          if (!name) continue;
+          let input = {};
+          const rawArgs = tc?.function?.arguments ?? tc?.arguments;
+          if (typeof rawArgs === 'string') {
+            try { input = JSON.parse(rawArgs || '{}'); } catch { input = {}; }
+          } else if (rawArgs && typeof rawArgs === 'object') {
+            input = rawArgs;
+          }
           content.push({
             type: 'tool_use',
             id: tc.id,
-            name: tc.function.name,
-            input: JSON.parse(tc.function.arguments || '{}')
+            name,
+            input,
           });
         }
         converted.push({ role: 'assistant', content });

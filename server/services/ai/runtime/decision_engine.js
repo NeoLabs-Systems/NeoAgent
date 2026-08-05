@@ -8,10 +8,39 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeConfidence(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.min(1, value));
+  }
+  const label = String(value || '').trim().toLowerCase();
+  if (label === 'high') return 0.9;
+  if (label === 'medium') return 0.75;
+  if (label === 'low') return 0.55;
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) return Math.max(0, Math.min(1, parsed));
+  return 0.7;
+}
+
+/**
+ * Normalize tool calls into a stable internal shape.
+ *
+ * Providers and intermediate passes often re-run this on already-normalized
+ * calls. Always re-emit an OpenAI wire-format `raw` with `.function.name` so
+ * assistant history can be converted by every provider on the next turn.
+ */
 function normalizeToolCalls(toolCalls) {
   return asArray(toolCalls).map((call, index) => {
-    const fn = call?.function || call || {};
-    let args = fn.arguments;
+    if (!call || typeof call !== 'object') return null;
+    // Prefer nested function, then flat name/arguments, then a nested raw
+    // left over from a prior normalizeToolCalls pass.
+    const priorRaw = call.raw && typeof call.raw === 'object' ? call.raw : null;
+    const priorFn = priorRaw?.function && typeof priorRaw.function === 'object'
+      ? priorRaw.function
+      : null;
+    const fn = (call.function && typeof call.function === 'object')
+      ? call.function
+      : (priorFn || call);
+    let args = fn.arguments !== undefined ? fn.arguments : call.arguments;
     if (typeof args === 'string') {
       try {
         args = JSON.parse(args || '{}');
@@ -19,13 +48,28 @@ function normalizeToolCalls(toolCalls) {
         args = { _raw: args };
       }
     }
-    return {
-      id: call.id || `call_${index + 1}`,
-      name: String(fn.name || call.name || '').trim(),
-      arguments: args && typeof args === 'object' ? args : {},
-      raw: call,
+    if (args == null || typeof args !== 'object' || Array.isArray(args)) {
+      args = {};
+    }
+    const name = String(fn.name || call.name || priorFn?.name || '').trim();
+    if (!name) return null;
+    const id = String(call.id || priorRaw?.id || `call_${index + 1}`);
+    const wire = {
+      id,
+      type: 'function',
+      function: {
+        name,
+        arguments: JSON.stringify(args),
+      },
     };
-  }).filter((call) => call.name);
+    return {
+      id,
+      name,
+      arguments: args,
+      // Always OpenAI wire shape so later model turns never hit missing .function.
+      raw: wire,
+    };
+  }).filter(Boolean);
 }
 
 /**
@@ -39,14 +83,23 @@ function decisionFromModelResponse(response = {}, context = {}) {
   if (toolCalls.length > 0) {
     const taskComplete = toolCalls.find((call) => call.name === 'task_complete');
     if (taskComplete && toolCalls.length === 1) {
+      const args = taskComplete.arguments || {};
+      // Tool schema uses `message`; models also emit summary/result aliases.
+      const summary = String(
+        args.message
+        || args.summary
+        || args.result
+        || content
+        || 'Task complete',
+      ).trim();
       return validateDecision({
         kind: DECISION_KINDS.COMPLETE,
         completionClaim: {
-          summary: taskComplete.arguments?.summary || content || 'Task complete',
-          confidence: Number(taskComplete.arguments?.confidence) || 0.7,
-          evidence_ids: asArray(taskComplete.arguments?.evidence_ids),
+          summary,
+          confidence: normalizeConfidence(args.confidence),
+          evidence_ids: asArray(args.evidence_ids || args.evidenceIds),
         },
-        content,
+        content: content || summary,
         toolCalls,
       });
     }
@@ -54,12 +107,22 @@ function decisionFromModelResponse(response = {}, context = {}) {
     const sendMessage = toolCalls.find((call) => call.name === 'send_message');
     if (sendMessage && toolCalls.every((call) => call.name === 'send_message' || call.name === 'task_complete')) {
       // Messaging delivery is still an act; finalization is owned by completion gate + outbox.
+      // For background runs, purpose=final_result|blocker|no_response is an explicit terminal intent.
+      const purpose = String(sendMessage.arguments?.purpose || '').trim().toLowerCase();
+      const terminalSend = purpose === 'final_result'
+        || purpose === 'blocker'
+        || purpose === 'no_response';
       return validateDecision({
         kind: DECISION_KINDS.ACT,
         nodeId: context.nodeId || null,
         toolCalls,
-        content,
-        terminalHint: Boolean(taskComplete),
+        content: content || String(
+          sendMessage.arguments?.content
+          || sendMessage.arguments?.message
+          || sendMessage.arguments?.text
+          || '',
+        ).trim(),
+        terminalHint: Boolean(taskComplete) || terminalSend,
       });
     }
 

@@ -109,14 +109,16 @@ class OllamaProvider extends BaseProvider {
   }
 
   formatToolsForOllama(tools) {
-    return tools.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters || { type: 'object', properties: {} }
-      }
-    }));
+    return (Array.isArray(tools) ? tools : [])
+      .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())
+      .map((tool) => ({
+        type: 'function',
+        function: {
+          name: String(tool.name).trim(),
+          description: tool.description,
+          parameters: tool.parameters || { type: 'object', properties: {} },
+        },
+      }));
   }
 
   buildChatBody(messages, tools, options, stream) {
@@ -129,15 +131,22 @@ class OllamaProvider extends BaseProvider {
           ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {})
         };
         if (m.tool_calls) {
-          msg.tool_calls = m.tool_calls.map(tc => ({
-            ...tc,
-            function: {
-              ...tc.function,
-              arguments: typeof tc.function.arguments === 'string'
-                ? (function() { try { return JSON.parse(tc.function.arguments || '{}'); } catch(e) { return {}; } })()
-                : tc.function.arguments
+          msg.tool_calls = m.tool_calls.map((tc) => {
+            const name = tc?.function?.name || tc?.name || '';
+            const rawArgs = tc?.function?.arguments ?? tc?.arguments;
+            let args = rawArgs;
+            if (typeof args === 'string') {
+              try { args = JSON.parse(args || '{}'); } catch { args = {}; }
             }
-          }));
+            if (args == null || typeof args !== 'object') args = {};
+            return {
+              ...tc,
+              function: {
+                name,
+                arguments: args,
+              },
+            };
+          }).filter((tc) => tc.function?.name);
         }
         return msg;
       }),

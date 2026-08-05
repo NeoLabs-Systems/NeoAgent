@@ -81,11 +81,15 @@ function getAllTools(manager, userId = null, options = {}) {
     if (userId != null && server.userId !== userId) continue;
     if (options.agentId && server.agentId && server.agentId !== options.agentId) continue;
     if (server.status !== 'running') continue;
-    for (const tool of server.tools) {
+    const listed = Array.isArray(server.tools) ? server.tools : [];
+    for (const tool of listed) {
+      if (!tool || typeof tool !== 'object') continue;
+      const originalName = String(tool.name || '').trim();
+      if (!originalName) continue;
       allTools.push({
         ...tool,
-        name: `mcp_${server.slug}_${tool.name}`,
-        originalName: tool.name,
+        name: `mcp_${server.slug}_${originalName}`,
+        originalName,
         parameters: tool.inputSchema || tool.parameters,
         serverId,
       });

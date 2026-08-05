@@ -240,6 +240,10 @@ test('typed decisions reject prose tool syntax without executable calls', () => 
   assert.equal(act.ok, true);
   assert.equal(act.decision.kind, 'act');
   assert.equal(act.decision.toolCalls[0].name, 'web_search');
+  // Wire-format raw must survive validateDecision re-normalization so the next
+  // provider turn can read tool_calls[].function.name.
+  assert.equal(act.decision.toolCalls[0].raw.function.name, 'web_search');
+  assert.equal(typeof act.decision.toolCalls[0].raw.function.arguments, 'string');
 
   const complete = runtime.decisionEngine.decisionFromModelResponse({
     content: '',
@@ -250,6 +254,67 @@ test('typed decisions reject prose tool syntax without executable calls', () => 
   });
   assert.equal(complete.ok, true);
   assert.equal(complete.decision.kind, 'complete');
+});
+
+test('normalizeToolCalls is idempotent and keeps function wire shape', () => {
+  const once = runtime.decisionEngine.normalizeToolCalls([{
+    id: 'c1',
+    type: 'function',
+    function: { name: 'send_message', arguments: '{"purpose":"final_result"}' },
+  }]);
+  assert.equal(once.length, 1);
+  assert.equal(once[0].name, 'send_message');
+  assert.equal(once[0].raw.function.name, 'send_message');
+
+  const twice = runtime.decisionEngine.normalizeToolCalls(once);
+  assert.equal(twice.length, 1);
+  assert.equal(twice[0].name, 'send_message');
+  assert.equal(twice[0].raw.function.name, 'send_message');
+  assert.equal(JSON.parse(twice[0].raw.function.arguments).purpose, 'final_result');
+});
+
+test('task_complete message alias and high confidence labels normalize', () => {
+  const complete = runtime.decisionEngine.decisionFromModelResponse({
+    content: '',
+    tool_calls: [{
+      id: '2',
+      function: {
+        name: 'task_complete',
+        arguments: JSON.stringify({ message: 'Done via message field', confidence: 'high' }),
+      },
+    }],
+  });
+  assert.equal(complete.ok, true);
+  assert.equal(complete.decision.kind, 'complete');
+  assert.equal(complete.decision.completionClaim.summary, 'Done via message field');
+  assert.equal(complete.decision.completionClaim.confidence, 0.9);
+});
+
+test('task_result deliverable is satisfied by final text content', () => {
+  const contract = runtime.taskContract.normalizeContract({
+    goal: 'Morning recap',
+    intent: 'execute',
+    deliverables: [{ id: 'result', type: 'task_result', required: true }],
+    open_obligations: [
+      { id: 'execution', type: 'execution', required: true },
+      { id: 'verification', type: 'verification', required: true },
+    ],
+    evidence_requirements: [],
+  });
+  const openWithoutContent = runtime.taskContract.evaluateOpenObligations(contract, {
+    completedNodeKeys: ['execute'],
+    evidence: [{ summary: 'looked up calendar', success: true }],
+    finalContent: '',
+  });
+  assert.ok(openWithoutContent.open.some((o) => o.type === 'deliverable'));
+
+  const openWithContent = runtime.taskContract.evaluateOpenObligations(contract, {
+    completedNodeKeys: ['execute'],
+    evidence: [{ summary: 'looked up calendar', success: true }],
+    finalContent: 'No meetings today.',
+  });
+  assert.equal(openWithContent.satisfied, true);
+  assert.equal(openWithContent.open.length, 0);
 });
 
 test('budget manager hard-stops on model turn ceiling', () => {

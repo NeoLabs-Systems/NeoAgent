@@ -16,14 +16,16 @@ class BaseProvider {
   }
 
   formatTools(tools) {
-    return tools.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters || { type: 'object', properties: {} }
-      }
-    }));
+    return (Array.isArray(tools) ? tools : [])
+      .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())
+      .map((tool) => ({
+        type: 'function',
+        function: {
+          name: String(tool.name).trim(),
+          description: tool.description,
+          parameters: tool.parameters || { type: 'object', properties: {} },
+        },
+      }));
   }
 
   async chat(messages, tools = [], options = {}) {

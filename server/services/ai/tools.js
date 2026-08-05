@@ -27,6 +27,9 @@ function compactText(text, maxChars = 120) {
 }
 
 function compactToolDefinition(tool, options = {}) {
+    if (!tool || typeof tool !== 'object' || !String(tool.name || '').trim()) {
+        return null;
+    }
     const compact = {
         name: tool.name,
         parameters: {
@@ -1632,7 +1635,9 @@ function getAvailableTools(app, options = {}) {
         }
     }
 
-    const compacted = visibleTools.map((tool) => compactToolDefinition(tool, options));
+    const compacted = visibleTools
+        .map((tool) => compactToolDefinition(tool, options))
+        .filter(Boolean);
     if (options.names && Array.isArray(options.names)) {
         const allow = new Set(options.names);
         return compacted.filter((tool) => allow.has(tool.name));
