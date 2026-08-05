@@ -86,7 +86,8 @@ function generateTitle(message) {
   return text.length > 80 ? `${text.slice(0, 77)}...` : text;
 }
 
-function usageTokens(usage = {}) {
+function usageTokens(usage) {
+  usage = usage || {};
   return {
     input: Number(usage.input_tokens || usage.prompt_tokens || usage.inputTokens || 0) || 0,
     output: Number(usage.output_tokens || usage.completion_tokens || usage.outputTokens || 0) || 0,
