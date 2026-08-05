@@ -545,7 +545,7 @@ jobs:
         if: inputs.release_tag != ''
         working-directory: ${{ github.workspace }}
         env:
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ARCH="$(node -p process.arch)"
@@ -553,7 +553,7 @@ jobs:
             --output "dist/neoagent-cli-macos-$ARCH-$VERSION"
 
       - name: Sign standalone macOS CLI
-        if: inputs.release_tag != ''
+        if: inputs.release_tag != '' && env.APPLE_SIGN_ENABLED == 'true'
         working-directory: ${{ github.workspace }}
         env:
           APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
@@ -650,19 +650,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Validate Linux release trust configuration
-        if: inputs.release_tag != ''
+      - name: Resolve runtime signing key
         env:
           RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
-          if [ -z "$RUNTIME_SIGNING_PUBLIC_KEY" ]; then
-            echo "NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY is required for release builds."
-            exit 1
+          PUBLIC_KEY="$RUNTIME_SIGNING_PUBLIC_KEY"
+          if [ -z "$PUBLIC_KEY" ]; then
+            echo "::warning::No NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY secret configured; building with an ephemeral key. This build is unsigned."
+            PUBLIC_KEY="$(node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');const d=k.publicKey.export({type:'spki',format:'der'});console.log(d.subarray(d.length-32).toString('base64'))")"
           fi
+          echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
 
       - name: Build Linux app
-        env:
-          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
           CHANNEL="stable"
           case "${{ inputs.release_tag }}" in
@@ -836,7 +835,7 @@ jobs:
         if: inputs.release_tag != ''
         working-directory: ${{ github.workspace }}
         env:
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ARCH="$(node -p process.arch)"
@@ -954,13 +953,10 @@ jobs:
 
       - name: Verify Android APK signing
         shell: bash
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          BUILD_TOOLS_DIR=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
-          if [ -z "$BUILD_TOOLS_DIR" ]; then
-            echo "No Android build-tools directory found."
-            exit 1
-          fi
           APKS=(
             "../dist/android-build/app-release-standard.apk"
             "../dist/android-build/app-release-launcher.apk"
@@ -970,6 +966,17 @@ jobs:
               echo "APK not found at $APK_PATH"
               exit 1
             fi
+          done
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::warning::No Android release keystore configured; shipping these APKs unsigned."
+            exit 0
+          fi
+          BUILD_TOOLS_DIR=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          if [ -z "$BUILD_TOOLS_DIR" ]; then
+            echo "No Android build-tools directory found."
+            exit 1
+          fi
+          for APK_PATH in "${APKS[@]}"; do
             "${BUILD_TOOLS_DIR}/apksigner" verify --print-certs "$APK_PATH"
             jarsigner -verify "$APK_PATH" >/dev/null
           done

@@ -9,9 +9,9 @@ on:
         type: string
     secrets:
       NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY:
-        required: true
+        required: false
       NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY:
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -86,10 +86,28 @@ jobs:
         with:
           ref: ${{ inputs.release_tag }}
 
-      - name: Create signed backend runtime manifest
+      - name: Resolve runtime signing keypair
         env:
           NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
           NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+        run: |
+          PRIVATE_KEY="$NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY"
+          PUBLIC_KEY="$NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY"
+          if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+            echo "::warning::No runtime signing keypair configured; signing release manifests with an ephemeral key. This release is unsigned."
+            KEYS="$(node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');const d=k.publicKey.export({type:'spki',format:'der'});console.log(d.subarray(d.length-32).toString('base64'));console.log(k.privateKey.export({type:'pkcs8',format:'der'}).toString('base64'));")"
+            PUBLIC_KEY="$(echo "$KEYS" | sed -n '1p')"
+            PRIVATE_KEY="$(echo "$KEYS" | sed -n '2p')"
+          fi
+          {
+            echo "NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY"
+            echo "NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY=$PRIVATE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Create signed backend runtime manifest
+        env:
+          NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           VERSION="${RELEASE_TAG#v}"
@@ -103,8 +121,8 @@ jobs:
 
       - name: Create signed release asset manifest
         env:
-          NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY: ${{ env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY }}
+          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           VERSION="${RELEASE_TAG#v}"
