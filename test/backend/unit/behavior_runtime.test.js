@@ -747,7 +747,7 @@ test('system prompt injects behavior notes once and excludes owner memory for sh
   }, memoryManager);
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.equal(prompt.match(/MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/g)?.length, 1);
+  assert.equal(prompt.match(/MESSAGING VOICE/g)?.length, 1);
   assert.equal(prompt.match(/Keep replies compact\./g)?.length, 1);
   assert.doesNotMatch(prompt, /private owner fact/);
   assert.doesNotMatch(prompt, /owner only/);
@@ -772,7 +772,7 @@ test('the persona module owns and can disable the legacy behavior prompt', async
   });
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.doesNotMatch(prompt, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
+  assert.doesNotMatch(prompt, /MESSAGING VOICE/);
 });
 
 test('system prompt caching keeps room-scoped behavior overrides isolated', async () => {
@@ -816,6 +816,6 @@ test('system prompt caching keeps room-scoped behavior overrides isolated', asyn
     memoryAudience: 'shared',
   }, memoryManager);
 
-  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
-  assert.match(`${normal.stable}\n${normal.dynamic}`, /MESSAGING VOICE — USER-FACING OUTPUT CONTRACT/);
+  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /MESSAGING VOICE/);
+  assert.match(`${normal.stable}\n${normal.dynamic}`, /MESSAGING VOICE/);
 });

@@ -467,6 +467,174 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
 });
 
+test('the opening line is written from the real conversation, and only for long work', async () => {
+  const longWork = {
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Recherchiere die Optionen',
+    confidence: 0.8,
+    complexity: 'complex',
+    autonomy_level: 'high',
+    progress_update_policy: 'required',
+    suggested_tools: ['web_search'],
+  };
+
+  function buildEngine(analysis) {
+    const engine = createEngine(analysis);
+    engine.buildSystemPrompt = async () => 'PERSONA_MARKER: you are Aurora';
+    engine.buildContextMessages = (sys) => [
+      { role: 'system', content: sys },
+      { role: 'user', content: 'earlier question' },
+      { role: 'assistant', content: 'PRIOR_ACK_MARKER' },
+    ];
+    engine.getAvailableTools = () => ([
+      { name: 'web_search', description: 'search', parameters: { type: 'object', properties: {} } },
+      { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+    ]);
+    engine.executeTool = async () => ({ success: true });
+    engine.isReadOnlyToolCall = () => true;
+    return engine;
+  }
+
+  // Long work: the acknowledgement call must carry persona + history, and must
+  // not carry the runtime's tool catalog scaffolding.
+  const engine = buildEngine(longWork);
+  let ackMessages = null;
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    if (!tools || tools.length === 0) {
+      ackMessages = messages;
+      return {
+        response: { content: 'Schaue ich mir an.', toolCalls: [], usage: {} },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+
+  const result = await engine.run(userId, 'Vergleich mal die Optionen für mich', {
+    triggerSource: 'messaging',
+    source: 'whatsapp',
+    chatId: 'chat-ack',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+  assert.equal(result.status, 'completed');
+
+  assert.ok(ackMessages, 'expected an acknowledgement model call');
+  const ackText = ackMessages.map((m) => String(m.content || '')).join('\n');
+  assert.match(ackText, /PERSONA_MARKER/, 'the opening line must inherit the run persona');
+  assert.match(ackText, /PRIOR_ACK_MARKER/, 'it must see prior turns so it can phrase this one differently');
+  assert.match(ackText, /Vergleich mal die Optionen/, 'it must see the message it is answering');
+  assert.doesNotMatch(ackText, /\[Available tool catalog\]/, 'runtime scaffolding must stay out of it');
+
+  const acks = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
+  ).get(result.runId);
+  assert.equal(Number(acks.n), 1);
+
+  // Ordinary durable work finishes fast enough that an opening line is noise.
+  const quick = buildEngine({ ...longWork, complexity: 'standard', autonomy_level: 'normal', progress_update_policy: 'optional' });
+  let quickAckCalls = 0;
+  quick.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      quickAckCalls += 1;
+      return { response: { content: 'x', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd2',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  const quickResult = await quick.run(userId, 'Kurze Frage', {
+    triggerSource: 'messaging',
+    source: 'whatsapp',
+    chatId: 'chat-ack',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+  assert.equal(quickAckCalls, 0, 'short durable work must not be acknowledged');
+  const quickAcks = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
+  ).get(quickResult.runId);
+  assert.equal(Number(quickAcks.n), 0);
+});
+
+test('a declined opening line is not replaced by canned text', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Do long work',
+    confidence: 0.8,
+    complexity: 'complex',
+    autonomy_level: 'high',
+    progress_update_policy: 'required',
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.requestModelResponse = async ({ tools }) => {
+    // The model judged there was nothing natural to say up front.
+    if (!tools || tools.length === 0) {
+      return { response: { content: '   ', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Done.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => true;
+
+  const result = await engine.run(userId, 'Start the long thing', {
+    triggerSource: 'messaging',
+    source: 'whatsapp',
+    chatId: 'chat-silent',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  const acks = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
+  ).get(result.runId);
+  assert.equal(Number(acks.n), 0, 'silence is the fallback, never a template');
+});
+
 test('a blank model turn is recovered instead of ending the run', async () => {
   const engine = createEngine({
     mode: 'execute',

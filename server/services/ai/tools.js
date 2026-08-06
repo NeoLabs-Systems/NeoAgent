@@ -897,7 +897,7 @@ function getAvailableTools(app, options = {}) {
             parameters: {
                 type: 'object',
                 properties: {
-                    key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: concise durable notes for how the agent should behave for this user' },
+                    key: { type: 'string', enum: ['user_profile', 'preferences', 'ai_personality'], description: 'user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: short freeform notes for how this agent should usually behave and write with this user (not scripts)' },
                     value: { type: 'string', description: 'Value to set. Keep it concise — this is injected into every single prompt.' }
                 },
                 required: ['key', 'value']

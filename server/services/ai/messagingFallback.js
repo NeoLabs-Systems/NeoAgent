@@ -66,6 +66,24 @@ function buildProgressUpdatePrompt() {
   ].join(' ');
 }
 
+function buildRunAcknowledgementPrompt() {
+  // Carries NO voice/formatting rules of its own: this prompt runs with the run's
+  // real system prompt and conversation history as context, so the line inherits
+  // the same voice as every other message and stays maintainable in one place.
+  // The history is also what keeps acknowledgements from converging on one
+  // phrasing — the model can see what it already said and move off it.
+  return [
+    'You just read the message above and are about to start working on it.',
+    'Reply with one short line so the user knows you picked it up.',
+    'React to what they actually said, the way you would in a real conversation.',
+    'When the request makes it obvious what you are about to do, name that specific thing instead of speaking generally.',
+    'Do not use a stock opener, do not repeat their request back to them, and do not promise status reports, progress updates, or milestones.',
+    'Do not claim anything is already done, started, checked, or found, and do not name tools.',
+    'Read your own recent messages above and phrase this one differently from them.',
+    'One sentence. If a natural reply would add nothing here, output an empty string instead.',
+  ].join(' ');
+}
+
 function buildMaxIterationWrapupPrompt(platform = null) {
   const formattingGuide = buildPlatformFormattingGuide(platform);
   return `You have reached the step limit for this run, so this is your final turn. Stop here and do NOT call any tools. Write the single best, most complete answer you can for the user from the work already done in this conversation: lead with the concrete results and what you accomplished, then clearly name anything you could not finish and the specific blocker. Do not invent entities, products, people, files, outcomes, or tool results that are not already supported by evidence in this conversation. Do not output a half-finished thought, a plan for what to do next, or a "let me…" fragment, this message is the final reply. Do not promise future work unless it already happened in this run.\n\n${formattingGuide}`;
@@ -260,6 +278,7 @@ module.exports = {
   normalizeInterimText,
   buildBlankMessagingReplyPrompt,
   buildMaxIterationWrapupPrompt,
+  buildRunAcknowledgementPrompt,
   buildProgressUpdatePrompt,
   parseToolExecutionSummary,
   toolWorkDescription,

@@ -44,6 +44,7 @@ const {
   buildDeterministicMessagingFallback,
   buildMaxIterationWrapupPrompt,
   buildProgressUpdatePrompt,
+  buildRunAcknowledgementPrompt,
   normalizeOutgoingMessage,
 } = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
@@ -151,6 +152,7 @@ class DurableRunRuntime {
     let modelSelectionId = null;
     let providerName = null;
     let messages = [];
+    let ackContextMessages = [];
     let tools = [];
     let systemPrompt = '';
     let analysis = null;
@@ -332,10 +334,10 @@ class DurableRunRuntime {
         runtimeKernel: 'v2',
       });
 
-      // Immediate acknowledgement for durable user-facing surfaces.
-      // Wording is model-authored (strategy stays model-controlled); the runtime
-      // only decides whether an ack is required. Schedule/automation runs do not
-      // get a silent hard-coded "Accepted. Working on..." spam message.
+      // Opening line for work that will keep the user waiting. The runtime only
+      // decides whether to speak; the model writes the line from the real
+      // conversation and may decline. Background automation reports through its
+      // own delivery target and never gets one.
       const maybeAck = async (force = false) => {
         if (!force) return;
         // Background schedule/task automation delivers via send_message only.
@@ -348,21 +350,14 @@ class DurableRunRuntime {
             provider,
             providerName,
             model,
-            messages: [
-              {
-                role: 'system',
-                content: [
-                  'Write a single short acknowledgement (1 sentence, max ~180 chars).',
-                  'Confirm you accepted the request and will report concrete milestones or blockers.',
-                  'Use only known facts from the user request. Do not invent progress or tools used.',
-                  'No greeting fluff, no markdown, no tool calls.',
-                ].join(' '),
-              },
-              {
-                role: 'user',
-                content: `User request to acknowledge:\n${String(userMessage || runTitle).slice(0, 1200)}`,
-              },
-            ],
+            // The real conversation, not a synthetic prompt: system persona,
+            // recalled memory, recent history, and the message being answered.
+            // Without it the line has no voice and no way to differ from the
+            // last one, which is what made acknowledgements read as canned.
+            messages: sanitizeConversationMessages([
+              ...ackContextMessages,
+              { role: 'system', content: buildRunAcknowledgementPrompt() },
+            ]),
             tools: [],
             options: {
               ...options,
@@ -386,7 +381,10 @@ class DurableRunRuntime {
           console.warn('[Runtime] Ack generation failed; continuing without hard-coded text:', error?.message || error);
           ackText = '';
         }
-        if (!ackText) return;
+        // An empty answer means the model had nothing worth saying yet. Staying
+        // quiet is the natural outcome; the progress heartbeat still covers a
+        // run that then goes long.
+        if (!normalizeOutgoingMessage(ackText, options.source || null)) return;
 
         await requestProgressDelivery({
           engine: this.engine,
@@ -503,6 +501,10 @@ class DurableRunRuntime {
       }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
+      // Snapshot before the tool catalog and execution guidance are appended:
+      // the acknowledgement should read the conversation, not the runtime's
+      // internal scaffolding.
+      ackContextMessages = [...messages];
 
       if (conversationId) {
         db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
@@ -698,7 +700,15 @@ class DurableRunRuntime {
           eventBus: this.eventBus,
         });
       } else {
-        await maybeAck(triggerSource === 'messaging' || analysis.progress_update_policy === 'required');
+        // Only work the model itself judged long-running gets an opening line.
+        // A durable task that finishes in seconds reads better as a single
+        // answer, and the progress heartbeat covers anything that unexpectedly
+        // runs long, so acknowledging every run only made them feel rote.
+        await maybeAck(
+          analysis.progress_update_policy === 'required'
+          || analysis.complexity === 'complex'
+          || analysis.autonomy_level === 'high',
+        );
         applyTransition({
           runId,
           toState: RUNTIME_STATES.PLANNING,

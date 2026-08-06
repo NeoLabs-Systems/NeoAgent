@@ -1831,6 +1831,7 @@ class MemoryManager {
       sourceLabel: options.conversationId ? 'Conversation memory' : 'Agent memory',
     });
     const metadata = parseJsonObject(options.metadata, {});
+    const styleNotes = [];
 
     for (const candidate of normalized) {
       const memoryId = await this.saveMemory(
@@ -1857,6 +1858,44 @@ class MemoryManager {
         },
       );
       if (memoryId) memoryIds.push(memoryId);
+
+      // Freeform style evolution — no enum knobs, just durable notes.
+      if (
+        candidate.category === 'assistant_self'
+        && scope.scopeType === 'agent'
+        && Number(candidate.confidence || 0) >= 0.55
+      ) {
+        try {
+          const { styleNoteFromFact } = require('../behavior/modules/voice_profile');
+          const note = styleNoteFromFact({
+            predicate: candidate.predicate,
+            object: candidate.object,
+            memory: candidate.memory,
+          });
+          if (note) styleNotes.push(note);
+        } catch (err) {
+          console.warn('[Memory] Style note merge skipped:', err.message);
+        }
+      }
+    }
+
+    if (styleNotes.length) {
+      try {
+        const { mergeStyleNotes } = require('../behavior/modules/voice_profile');
+        const current = this.getAssistantSelfState(userId, { agentId });
+        const existing = current.identity?.voice?.notes
+          || current.identity?.voice_profile?.notes
+          || [];
+        const notes = mergeStyleNotes(existing, styleNotes);
+        this.updateAssistantSelfState(userId, {
+          identity: {
+            ...current.identity,
+            voice: { notes },
+          },
+        }, { agentId });
+      } catch (err) {
+        console.warn('[Memory] Style note update failed:', err.message);
+      }
     }
 
     return memoryIds;

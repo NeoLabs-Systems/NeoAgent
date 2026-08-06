@@ -4,60 +4,105 @@ const { isModuleEnabled } = require('../config');
 const { requestStructuredJson } = require('../model_client');
 const { truncate } = require('../signals');
 const { BASELINE_PERSONA_PROMPT } = require('./persona_prompt');
+const {
+  collectStyleNotes,
+  formatStyleNotesForPrompt,
+} = require('./voice_profile');
 
 const INTERACTION_VOICE_RULES = `Mandatory interaction-voice editing rules:
-- Preserve every fact, number, name, date, URL, citation, command, result, uncertainty, warning, and user-relevant blocker. Never add a fact.
-- Preserve requested formatting and substantive detail. A detailed or multi-part deliverable may remain long.
-- Match the actual user's casing, punctuation, vocabulary, directness, and established emoji register.
-- Short social messages should usually become one original line.
-- Everyday advice should be direct and at most three short sentences unless nuance or safety requires more.
-- Straightforward factual answers should usually be one compact paragraph, not a headed article or exhaustive list.
-- Keep sensitive replies restrained. If a serious draft is already one or two attentive sentences with no advice menu, send it unchanged. Never add an offer to talk, vent, get support, or use distraction. Remove therapy language, support-option menus, unsolicited coping advice, and "I'm here if you want to talk" closers unless the user explicitly requested that support.
-- Remove canned praise, question-grading, repeated acknowledgements, preambles, postambles, automatic follow-up questions, generic offers, and service sign-offs.
-- If the user did not ask a question and the draft's question is only there to prolong the exchange, remove it.
-- Keep at most one contextual joke. Never make serious material witty.
-- A requested short draft should contain only the draft.
-- In a group, make one brief contribution and never dominate the room.`;
+- Keep every fact, number, name, URL, warning, and blocker intact. Never add a fact.
+- Keep long deliverables intact when detail was requested.
+- Sound like a real text, not a support bot: shorter if bloated, no corporate filler, no fake empathy menus, no automatic follow-up questions.
+- Match the user's register when obvious; honor living style notes when present.
+- Casual lowercase is fine when it fits; never force it.
+- At most a light touch of wit; never on serious topics.
+- In groups: one brief contribution.`;
 
-const INTERACTION_EDITOR_PROMPT = `You are the final Interaction Voice editor for a personal AI messaging thread.
-Return JSON with exactly these keys:
+const INTERACTION_EDITOR_PROMPT = `You are a light voice editor for a personal messaging agent.
+Return JSON with keys:
 action ("send" or "revise"),
 revisedContent (string; empty when action is send),
 reasonCodes (array of short strings),
 rationale (one short sentence).
 
-The draft may be factually correct but sound like a generic assistant. You are an editor, not a second conversational partner: make the smallest necessary edit and do not replace a good draft merely to write your own response.
+Make the smallest edit that removes botty habits. Do not rewrite a good draft into your own voice. Do not invent facts.
 
 ${INTERACTION_VOICE_RULES}
 
-If the draft already satisfies these rules, return action "send". Otherwise return action "revise" with the complete replacement. Do not explain the edit inside revisedContent.`;
+If the draft is already fine, action "send".`;
+
+function readAiPersonality(ctx) {
+  if (!ctx.memoryManager || ctx.userId == null || typeof ctx.memoryManager.getCoreMemory !== 'function') {
+    return null;
+  }
+  try {
+    const core = ctx.memoryManager.getCoreMemory(ctx.userId, { agentId: ctx.agentId }) || {};
+    return core.ai_personality ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveStyleBundle(ctx) {
+  const empty = { notes: [], behaviorNotes: '', identity: {}, focus: {} };
+  if (!ctx.memoryManager || ctx.userId == null) return empty;
+
+  const shared = ctx.audience === 'shared';
+  const behaviorNotes = ctx.memoryManager.getAssistantBehaviorNotes?.(
+    ctx.userId,
+    { agentId: ctx.agentId },
+  ) || '';
+  const selfState = ctx.memoryManager.getAssistantSelfState?.(
+    ctx.userId,
+    { agentId: ctx.agentId },
+  ) || { identity: {}, focus: {} };
+
+  const notes = collectStyleNotes({
+    selfStateIdentity: shared ? {} : (selfState.identity || {}),
+    aiPersonality: shared ? null : readAiPersonality(ctx),
+    // Behavior notes still guide shared-room texture without private core memory.
+    behaviorNotes: shared ? behaviorNotes : behaviorNotes,
+  });
+
+  return {
+    notes,
+    behaviorNotes: String(behaviorNotes || ''),
+    identity: selfState.identity || {},
+    focus: shared ? {} : (selfState.focus || {}),
+  };
+}
 
 function buildSystemPromptContribution(ctx) {
   if (!isModuleEnabled(ctx.config, 'persona')) {
     return null;
   }
   const dynamic = [];
-  const behaviorNotes = ctx.memoryManager && ctx.userId != null
-    ? ctx.memoryManager.getAssistantBehaviorNotes(
-      ctx.userId,
-      { agentId: ctx.agentId },
-    )
-    : '';
-  if (behaviorNotes) {
+  const bundle = resolveStyleBundle(ctx);
+
+  if (bundle.behaviorNotes) {
     dynamic.push([
       '## Assistant Behavior Notes',
-      'These are durable preferences for how the agent should usually behave. System rules and the current request take priority.',
-      behaviorNotes,
+      'Durable preferences for this agent/user. Interpret as guidance, not a script.',
+      'System rules and the current request take priority.',
+      bundle.behaviorNotes,
     ].join('\n'));
   }
-  const selfState = ctx.memoryManager && ctx.userId != null
-    ? ctx.memoryManager.getAssistantSelfState(
-      ctx.userId,
-      { agentId: ctx.agentId },
-    )
-    : null;
-  const identity = selfState?.identity || {};
-  const focus = ctx.audience === 'shared' ? {} : (selfState?.focus || {});
+
+  const styleBlock = formatStyleNotesForPrompt(bundle.notes);
+  // Avoid duplicating the same prose if behavior notes were the only source.
+  if (styleBlock && !bundle.behaviorNotes) {
+    dynamic.push(styleBlock);
+  } else if (styleBlock && bundle.behaviorNotes) {
+    // Only inject living notes that aren't already the full behavior notes blob.
+    const extra = bundle.notes.filter((note) => note !== bundle.behaviorNotes.trim());
+    const extraBlock = formatStyleNotesForPrompt(extra);
+    if (extraBlock) dynamic.push(extraBlock);
+  }
+
+  const identity = { ...(bundle.identity || {}) };
+  delete identity.voice;
+  delete identity.voice_profile;
+  const focus = bundle.focus || {};
   if (Object.keys(identity).length || Object.keys(focus).length) {
     dynamic.push([
       '## Assistant Self State',
@@ -65,6 +110,7 @@ function buildSystemPromptContribution(ctx) {
       Object.keys(focus).length ? `Focus: ${JSON.stringify(focus)}` : '',
     ].filter(Boolean).join('\n'));
   }
+
   return {
     stable: [BASELINE_PERSONA_PROMPT],
     dynamic,
@@ -94,8 +140,6 @@ async function refineDraft(ctx) {
     };
   }
 
-  // Large deliverables need their full information and structure preserved. The
-  // main prompt owns their voice; the lightweight interaction pass owns messages.
   if (content.length > 2800) {
     return {
       action: 'send',
@@ -107,6 +151,7 @@ async function refineDraft(ctx) {
   const runModelId = runId
     ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
     : null;
+  const bundle = resolveStyleBundle(ctx);
 
   try {
     const result = await requestStructuredJson({
@@ -123,6 +168,7 @@ async function refineDraft(ctx) {
         },
         inbound: truncate(msg.content, 900),
         draft: content,
+        styleNotes: bundle.notes.slice(0, 8),
       }),
       signal,
       maxTokens: 1200,

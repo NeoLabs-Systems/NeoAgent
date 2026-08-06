@@ -101,6 +101,7 @@ function buildMemoryConsolidationInstructions(currentDateTime) {
     'Use relation="derives" only for a strongly supported inference and lower its confidence.',
     'Use is_static=true only for stable identity or durable preference facts.',
     'Use category="procedural" only for reusable workflows or repeatable tool-use procedures, not one-off task status.',
+    'Use category="assistant_self" when the user clearly trains how the assistant should write or behave with them (tone, length, language mix, humor, casing preferences, etc.). Prefer freeform memory text over rigid labels. Only store this when explicit or repeatedly reinforced — not from one joke.',
     'Set valid_from, valid_to, or forget_after as ISO-8601 timestamps when the thread provides temporal boundaries.',
     'Return an empty memory_candidates array when nothing is worth retaining.',
   ].join(' ');
