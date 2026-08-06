@@ -342,3 +342,474 @@ test('task_complete message field becomes final content', async () => {
   assert.equal(result.status, 'completed');
   assert.match(String(result.content || ''), /All calendar items reviewed/);
 });
+
+test('a satisfied durable run completes without burning the budget on repairs', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Check the calendar and report the next appointment',
+    confidence: 0.85,
+    complexity: 'standard',
+    // Free-text criteria must not become obligations the runtime can never close.
+    success_criteria: ['Next appointment identified from the calendar', 'User informed'],
+    needs_verification: false,
+    research_depth: 'none',
+    suggested_tools: ['calendar_list'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'calendar_list', description: 'list', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    modelTurns += 1;
+    if (modelTurns === 1) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'c1',
+            type: 'function',
+            function: { name: 'calendar_list', arguments: '{}' },
+          }],
+          usage: { total_tokens: 3 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'c2',
+          type: 'function',
+          function: {
+            name: 'task_complete',
+            arguments: JSON.stringify({ message: 'Next appointment is at 17:00.', confidence: 'high' }),
+          },
+        }],
+        usage: { total_tokens: 3 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ count: 1, events: [{ summary: 'Zahnarzt', start: '17:00' }] });
+  engine.isReadOnlyToolCall = () => true;
+
+  const result = await engine.run(userId, 'Was steht als nächstes an?', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 12,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.content, 'Next appointment is at 17:00.');
+  assert.ok(result.iterations <= 4, `expected a short run, got ${result.iterations} iterations`);
+  assert.doesNotMatch(String(result.content), /Status: partial/);
+});
+
+test('a budget-exhausted run delivers a model-authored wrap-up, not a canned status', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Build the report',
+    confidence: 0.8,
+    complexity: 'standard',
+    success_criteria: ['Report written'],
+    needs_verification: false,
+    suggested_tools: ['make_report'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.requestModelResponse = async ({ tools }) => {
+    // The tool-less call is the forced wrap-up turn.
+    if (!tools || tools.length === 0) {
+      return {
+        response: { content: 'Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.', toolCalls: [], usage: {} },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: `t${Math.random()}`,
+          type: 'function',
+          function: { name: 'make_report', arguments: '{}' },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  let call = 0;
+  engine.executeTool = async () => {
+    call += 1;
+    return { section: call };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Schreib mir den Bericht', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 2,
+  });
+
+  assert.equal(result.content, 'Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.');
+  assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
+});
+
+test('a blank model turn is recovered instead of ending the run', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Look something up',
+    confidence: 0.8,
+    suggested_tools: ['lookup'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'lookup', description: 'look up', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    modelTurns += 1;
+    // A provider hiccup: no content and no tool call.
+    if (modelTurns === 1) {
+      return { response: { content: '', toolCalls: [], usage: { total_tokens: 1 } }, streamContent: '' };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Found it.' }) },
+        }],
+        usage: { total_tokens: 3 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => true;
+
+  const result = await engine.run(userId, 'Look it up', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 6,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.content, 'Found it.');
+  assert.ok(modelTurns >= 2, 'the run must continue past the blank turn');
+
+  const row = ctx.db.prepare('SELECT runtime_state FROM agent_runs WHERE id = ?').get(result.runId);
+  assert.equal(row.runtime_state, 'completed');
+});
+
+test('background run discovers a catalog tool and activates it into the next turn', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Kalender-Reminder',
+    confidence: 0.8,
+  });
+
+  // Only the always-active built-ins get a schema on turn one. The calendar tool
+  // is reachable through the catalog + activate_tools, never as a hidden schema.
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+    { name: 'activate_tools', description: 'activate', parameters: { type: 'object', properties: {} } },
+    { name: 'think', description: 'think', parameters: { type: 'object', properties: {} } },
+    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
+    { name: 'send_interim_update', description: 'interim', parameters: { type: 'object', properties: {} } },
+    {
+      name: 'google_workspace_calendar_list_events',
+      description: 'List Google Calendar events in a time window',
+      parameters: { type: 'object', properties: { time_min: { type: 'string' } } },
+    },
+  ]);
+
+  const turnToolNames = [];
+  let catalogMessage = '';
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    modelTurns += 1;
+    turnToolNames.push((tools || []).map((tool) => tool.name));
+    if (modelTurns === 1) {
+      catalogMessage = messages
+        .filter((msg) => msg.role === 'system')
+        .map((msg) => String(msg.content || ''))
+        .find((content) => content.includes('[Available tool catalog]')) || '';
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'act1',
+            type: 'function',
+            function: {
+              name: 'activate_tools',
+              arguments: JSON.stringify({ names: ['google_workspace_calendar_list_events'] }),
+            },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    if (modelTurns === 2) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'cal1',
+            type: 'function',
+            function: {
+              name: 'google_workspace_calendar_list_events',
+              arguments: JSON.stringify({ time_min: '2026-08-05T12:00:00Z' }),
+            },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'done1',
+          type: 'function',
+          function: {
+            name: 'task_complete',
+            arguments: JSON.stringify({ message: 'Termin um 17:00 Uhr erinnert.' }),
+          },
+        }],
+        usage: { total_tokens: 5 },
+      },
+      streamContent: '',
+    };
+  };
+
+  const executed = [];
+  engine.executeTool = async (name, args, context) => {
+    executed.push(name);
+    if (name === 'activate_tools') {
+      return engine.activateToolsForRun(context.runId, args.names || []);
+    }
+    if (name === 'google_workspace_calendar_list_events') {
+      return { count: 1, events: [{ summary: 'Zahnarzt', start: '2026-08-05T17:00:00Z' }] };
+    }
+    return { success: true };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, '[SYSTEM: Executing Background Task]\nTask Name: Kalender-Reminder', {
+    triggerType: 'schedule',
+    triggerSource: 'schedule',
+    stream: false,
+    skipTaskAnalysis: true,
+    skipGlobalRecall: true,
+    skipConversationHistory: true,
+    skipVerifier: true,
+    maxIterations: 5,
+    bypassUserRateLimits: true,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.match(catalogMessage, /google_workspace_calendar_list_events/);
+  assert.ok(
+    !turnToolNames[0].includes('google_workspace_calendar_list_events'),
+    'catalog tool must not start active',
+  );
+  assert.ok(
+    turnToolNames[1].includes('google_workspace_calendar_list_events'),
+    'activate_tools must put the schema into the next model turn',
+  );
+  assert.ok(executed.includes('google_workspace_calendar_list_events'));
+});
+
+test('execution turns keep the agent system prompt and persist tool steps', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Read a file and report',
+    confidence: 0.8,
+  });
+  engine.buildSystemPrompt = async () => 'AGENT_SYSTEM_PROMPT_MARKER';
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+    { name: 'read_file', description: 'read', parameters: { type: 'object', properties: {} } },
+  ]);
+
+  const sawSystemPrompt = [];
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurns += 1;
+    sawSystemPrompt.push(
+      messages.some((msg) => String(msg.content || '').includes('AGENT_SYSTEM_PROMPT_MARKER')),
+    );
+    if (modelTurns === 1) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'r1',
+            type: 'function',
+            function: { name: 'read_file', arguments: JSON.stringify({ path: 'a.txt' }) },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'File read.' }) },
+        }],
+        usage: { total_tokens: 5 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ content: 'hello' });
+  engine.isReadOnlyToolCall = () => true;
+
+  const result = await engine.run(userId, 'Read a.txt', {
+    triggerSource: 'web',
+    stream: false,
+    skipTaskAnalysis: true,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 4,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.ok(sawSystemPrompt.length >= 2);
+  assert.ok(sawSystemPrompt.every(Boolean), 'every execution turn must carry the system prompt');
+
+  // task_complete is a completion claim handled by the gate, not a dispatched tool.
+  const steps = ctx.db.prepare(
+    'SELECT tool_name, status, tool_input FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC',
+  ).all(result.runId);
+  assert.deepEqual(steps.map((step) => step.tool_name), ['read_file']);
+  assert.equal(steps[0].status, 'completed');
+  assert.match(steps[0].tool_input, /a\.txt/);
+});
+
+test('messaging final is not transmitted twice after send_message delivered it', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Reply on WhatsApp',
+    confidence: 0.8,
+  });
+  const sends = [];
+  engine.messagingManager = {
+    sendMessage: async (uid, platform, chatId, content) => {
+      sends.push({ platform, chatId, content });
+      return { success: true };
+    },
+    sendTyping: async () => {},
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    // The acknowledgement request runs without tools; it is not an execution turn.
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    modelTurns += 1;
+    if (modelTurns === 1) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 's1',
+            type: 'function',
+            function: {
+              name: 'send_message',
+              arguments: JSON.stringify({
+                platform: 'whatsapp',
+                to: 'chat-1',
+                content: 'Alles erledigt.',
+                purpose: 'final_result',
+              }),
+            },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Alles erledigt.' }) },
+        }],
+        usage: { total_tokens: 5 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async (name, args, context) => {
+    if (name === 'send_message') {
+      const delivery = await engine.messagingManager.sendMessage(
+        context.userId,
+        args.platform,
+        args.to,
+        args.content,
+      );
+      return delivery;
+    }
+    return { success: true };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Sag mir Bescheid wenn fertig', {
+    triggerSource: 'messaging',
+    source: 'whatsapp',
+    chatId: 'chat-1',
+    stream: false,
+    skipTaskAnalysis: true,
+    skipGlobalRecall: true,
+    skipConversationHistory: true,
+    skipVerifier: true,
+    maxIterations: 4,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(sends.length, 1, 'the final result must reach the chat exactly once');
+
+  const finals = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'final'`,
+  ).get(result.runId);
+  assert.equal(Number(finals.n), 1, 'the final delivery is still committed exactly once');
+});

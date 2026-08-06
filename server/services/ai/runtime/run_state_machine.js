@@ -252,32 +252,12 @@ function claimFinalDelivery({
   })();
 }
 
-function patchMetadata(runId, patch = {}, { expectedVersion = null } = {}) {
-  return db.transaction(() => {
-    const current = loadRun(runId);
-    if (!current) return { ok: false, reason: 'not_found' };
-    if (expectedVersion != null && Number(expectedVersion) !== current.version) {
-      return { ok: false, reason: 'version_conflict', run: current };
-    }
-    const next = { ...current.metadata, ...patch };
-    const nextVersion = current.version + 1;
-    const result = db.prepare(
-      `UPDATE agent_runs
-       SET metadata_json = ?, version = ?, updated_at = datetime('now')
-       WHERE id = ? AND COALESCE(version, 0) = ?`,
-    ).run(JSON.stringify(next), nextVersion, runId, current.version);
-    if (result.changes === 0) return { ok: false, reason: 'cas_failed', run: loadRun(runId) };
-    return { ok: true, run: loadRun(runId) };
-  })();
-}
 
 module.exports = {
   loadRun,
   isTerminal,
-  canTransition,
   transition,
   claimFinalDelivery,
-  patchMetadata,
   RUNTIME_STATES,
   TERMINAL_RUNTIME_STATES,
 };

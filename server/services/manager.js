@@ -333,6 +333,14 @@ function createAgentEngine(
       skillRunner,
     }),
   );
+  // Close out runs that a previous process left mid-flight before anything can
+  // observe them as still running.
+  try {
+    const { recoverOrphanedRuns } = require('./ai/runtime/recovery_startup');
+    recoverOrphanedRuns();
+  } catch (err) {
+    console.error('[Runtime] Orphaned run recovery failed:', getErrorMessage(err));
+  }
   logServiceReady('Agent engine ready');
   return agentEngine;
 }

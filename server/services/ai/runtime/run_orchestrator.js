@@ -10,9 +10,11 @@ const {
 } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
+  buildToolCatalog,
   selectInitialTools,
   selectToolsForTask,
 } = require('../toolSelector');
+const { resolveToolResultLimits } = require('../loopPolicy');
 const { compactToolResult } = require('../toolResult');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
@@ -25,15 +27,25 @@ const {
   normalizeVerificationResult,
 } = require('../taskAnalysis');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilityHealth');
+const {
+  classifyToolExecution,
+  gatheredNewEvidence,
+  summarizeProgressToolExecutions,
+} = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
-const { shortenRunId } = require('../logFormat');
+const { shortenRunId, summarizeForLog } = require('../logFormat');
 const {
   recordModelFailure,
   recordModelSuccess,
 } = require('../model_failure_cache');
 const { getProviderForUser } = require('../provider_selector');
-const { normalizeOutgoingMessage } = require('../messagingFallback');
+const {
+  buildDeterministicMessagingFallback,
+  buildMaxIterationWrapupPrompt,
+  buildProgressUpdatePrompt,
+  normalizeOutgoingMessage,
+} = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
 const {
   isAbortError,
@@ -75,6 +87,7 @@ const {
 const { createWorkingMemory } = require('./memory/working_memory');
 const memoryWritePipeline = require('./memory/memory_write_pipeline');
 const { getFailureFallbackModelId } = require('./model_fallback');
+const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
 
 function isoNow() {
   return new Date().toISOString();
@@ -131,6 +144,7 @@ class DurableRunRuntime {
     const runTitle = generateTitle(userMessage);
     let totalTokens = 0;
     let iterations = 0;
+    let stepIndex = 0;
     let detachExternalAbort = null;
     let provider = null;
     let model = null;
@@ -138,7 +152,11 @@ class DurableRunRuntime {
     let providerName = null;
     let messages = [];
     let tools = [];
+    let systemPrompt = '';
     let analysis = null;
+    // Canonical tool-execution records (shared shape with the evidence helpers)
+    // used for progress narration and the no-progress guard.
+    const toolExecutions = [];
     let contract = null;
     let finalContent = '';
     let path = 'durable';
@@ -253,8 +271,40 @@ class DurableRunRuntime {
         engine: this.engine,
         runId,
         userId,
+        agentId,
         eventBus: this.eventBus,
+        channel: triggerSource === 'messaging' ? 'messaging' : 'web',
+        recipient: options.chatId || null,
         maxSilenceSeconds: Number(options.maxSilenceSeconds) || 90,
+        collectDelta: () => this.#collectProgressDelta(runId, toolExecutions),
+        // A run that already delivered, was cancelled, or decided to stay silent
+        // must never emit another visible update.
+        isSuppressed: () => {
+          const meta = this.engine.getRunMeta(runId);
+          if (!meta || meta.aborted || meta.status === 'paused') return true;
+          // terminalInterim means the agent asked the user something and is
+          // waiting; anything after that would talk over the question.
+          if (meta.finalDeliverySent || meta.noResponse || meta.terminalInterim) return true;
+          return meta.deliveryState?.finalContentDelivered === true
+            || meta.deliveryState?.noResponse === true;
+        },
+        getLastVisibleAt: () => Date.parse(
+          this.engine.getRunMeta(runId)?.progressLedger?.lastUserVisibleUpdateAt || '',
+        ) || 0,
+        narrator: async ({ delta, liveness }) => this.#narrateProgress({
+          provider,
+          providerName,
+          model,
+          systemPrompt,
+          delta,
+          liveness,
+          userMessage,
+          options,
+          runId,
+          userId,
+          agentId,
+          signal: abortController.signal,
+        }),
       });
       progressBroker.markAccepted();
 
@@ -390,7 +440,7 @@ class DurableRunRuntime {
         1,
         Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
       );
-      const systemPrompt = await this.engine.buildSystemPrompt(userId, {
+      systemPrompt = await this.engine.buildSystemPrompt(userId, {
         ...(options.context || {}),
         userMessage,
         agentId,
@@ -415,17 +465,6 @@ class DurableRunRuntime {
       );
       const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options)
         .filter((tool) => !disallowedToolNames.has(tool?.name));
-      tools = selectInitialTools(allTools, [], {
-        widgetId: options.widgetId || null,
-        triggerSource,
-        triggerType,
-      });
-      if (!tools.length) {
-        tools = allTools.slice(0, 24);
-      }
-      this.engine.initializeToolRuntime?.(runId, allTools, tools, {
-        widgetId: options.widgetId || null,
-      });
 
       const { MemoryManager } = require('../../memory/manager');
       const memoryManager = this.engine.memoryManager || new MemoryManager();
@@ -499,7 +538,7 @@ class DurableRunRuntime {
         try {
           const analysisPrompt = buildAnalysisPrompt({
             capabilityHealth: capabilitySummary,
-            tools: allTools.slice(0, 40),
+            tools: allTools,
             forceMode: options.forceMode || null,
           });
           const analysisResponse = await this.engine.requestStructuredJson({
@@ -539,21 +578,33 @@ class DurableRunRuntime {
         }
       }
 
-      // Re-select tools using analysis hints once triage completes.
-      {
-        const suggested = Array.isArray(analysis?.suggested_tools) ? analysis.suggested_tools : [];
-        const reselected = selectInitialTools(allTools, suggested, {
-          widgetId: options.widgetId || null,
-          triggerSource,
-          triggerType,
-        });
-        if (reselected.length) {
-          tools = reselected;
-          this.engine.initializeToolRuntime?.(runId, allTools, tools, {
-            widgetId: options.widgetId || null,
-          });
-        }
-      }
+      // Tool schemas are capped per model turn, so only a slice of the catalog is
+      // active at a time. The full catalog must still be visible in context or the
+      // model cannot know a capability exists — it then reports the tool as
+      // unavailable instead of activating it.
+      const toolSelectionOptions = {
+        widgetId: options.widgetId || null,
+        triggerSource,
+        triggerType,
+        includeCoreFileTools: analysis.mode === 'execute' || analysis.mode === 'plan_execute',
+      };
+      tools = selectInitialTools(allTools, analysis.suggested_tools, toolSelectionOptions);
+      this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
+      messages.push({
+        role: 'system',
+        content: [
+          '[Available tool catalog]',
+          buildToolCatalog(allTools),
+          '',
+          `Active tools: ${tools.map((tool) => tool.name).join(', ')}`,
+          'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
+          'Use activate_tools with exact catalog names when another schema is required.',
+        ].join('\n'),
+      });
+      this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
+        activeToolNames: tools.map((tool) => tool.name),
+        catalogSize: allTools.length,
+      }, { agentId });
 
       contract = contractFromAnalysis(analysis, userMessage);
       const savedContract = saveContract(runId, contract, {
@@ -698,8 +749,19 @@ class DurableRunRuntime {
       });
 
       // ── Execution loop ─────────────────────────────────────────────────
+      // The heartbeat runs only while the run is executing: it keeps a run that
+      // sits inside a long tool or model call from going silent, and must never
+      // race verification or final delivery. Background automation reports
+      // through its own delivery target, so it stays off there.
+      const heartbeatWanted = triggerSource !== 'schedule'
+        && triggerSource !== 'tasks'
+        && triggerType !== 'subagent';
       let consecutiveProtocolRepairs = 0;
       const maxProtocolRepairs = 3;
+      let verificationRepairs = 0;
+      const maxVerificationRepairs = 3;
+      let blankOutputRecoveries = 0;
+      const maxBlankOutputRecoveries = 2;
       const getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
       );
@@ -735,6 +797,12 @@ class DurableRunRuntime {
             status: run?.status || 'completed',
             path,
           };
+        }
+
+        if (heartbeatWanted && run.runtimeState === RUNTIME_STATES.EXECUTING) {
+          progressBroker.start();
+        } else {
+          progressBroker.stop();
         }
 
         // Handle pause / stop controls through the engine lifecycle fence so
@@ -856,6 +924,46 @@ class DurableRunRuntime {
           });
 
           if (verification.status === 'repair_required') {
+            verificationRepairs += 1;
+            // Repair is bounded per run: a defect the model cannot close would
+            // otherwise reopen the same nodes until the whole budget is spent,
+            // and the user would still get a partial answer at the end.
+            if (verificationRepairs > maxVerificationRepairs) {
+              this.eventBus.publish({
+                runId,
+                userId,
+                agentId,
+                eventType: EVENT_TYPES.VERIFICATION_FAILED,
+                payload: {
+                  reason: 'repair_budget_exhausted',
+                  attempts: verificationRepairs,
+                  defects: verification.defects || [],
+                },
+                visibility: VISIBILITY.OPERATOR,
+              });
+              finalContent = await this.#partialDeliveryText({
+                runId,
+                contract,
+                workingMemory,
+                reason: 'verification_repair_budget_exhausted',
+                provider,
+                providerName,
+                model,
+                messages,
+                options,
+                signal: getActiveSignal(),
+                userId,
+                agentId,
+              });
+              applyTransition({
+                runId,
+                toState: RUNTIME_STATES.DELIVERING,
+                reason: 'repair_budget_exhausted',
+                workerId,
+                eventBus: this.eventBus,
+              });
+              continue;
+            }
             applyTransition({
               runId,
               toState: RUNTIME_STATES.REPAIRING,
@@ -898,10 +1006,19 @@ class DurableRunRuntime {
               eventBus: this.eventBus,
               patch: { error: 'Verification blocked without safe repair path' },
             });
-            finalContent = this.#partialDeliveryText({
+            finalContent = await this.#partialDeliveryText({
+              runId,
               contract,
               workingMemory,
               reason: 'Verification could not be completed safely',
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: getActiveSignal(),
+              userId,
+              agentId,
             });
             await this.#deliverFinal({
               runId,
@@ -1009,10 +1126,19 @@ class DurableRunRuntime {
         if (run.runtimeState !== RUNTIME_STATES.EXECUTING) {
           // waiting/blocked handling
           if (run.runtimeState === RUNTIME_STATES.BLOCKED) {
-            finalContent = this.#partialDeliveryText({
+            finalContent = await this.#partialDeliveryText({
+              runId,
               contract,
               workingMemory,
               reason: run.error || 'Run blocked',
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: getActiveSignal(),
+              userId,
+              agentId,
             });
             await this.#deliverFinal({
               runId,
@@ -1053,14 +1179,22 @@ class DurableRunRuntime {
         const continuation = budget.shouldContinue({
           openObligations: obligations.open.length ? obligations.open : openNodes,
           hasNextAction: nextNodes.length > 0 || obligations.open.length > 0,
-          progressDelta: budget.usage.consecutiveReadOnly === 0,
         });
         if (!continuation.continue) {
           if (continuation.reason === 'hard_budget' || continuation.reason === 'no_progress_delta') {
-            finalContent = this.#partialDeliveryText({
+            finalContent = await this.#partialDeliveryText({
+              runId,
               contract,
               workingMemory,
               reason: continuation.reason,
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: getActiveSignal(),
+              userId,
+              agentId,
             });
             applyTransition({
               runId,
@@ -1115,22 +1249,8 @@ class DurableRunRuntime {
           });
         }
 
-        const contextView = buildContextView({
-          runId,
-          systemPrompt: '',
-          messages,
-          evidencePacket,
-          activeNodeIds: activeNode ? [activeNode.id] : [],
-          budgetSnapshot: budget.snapshot(),
-        });
-        // Keep user/tool history; prepend graph/contract system notes once per turn.
-        const turnMessages = sanitizeConversationMessages([
-          ...contextView.messages.filter((m) => m.role === 'system'),
-          ...messages.filter((m) => m.role !== 'system' || /steering|follow-up|Repair|Verification|Budget/i.test(m.content || '')),
-        ]);
-
-        // Compaction invariant: persist working state first.
-        if (turnMessages.length > 48) {
+        // Compaction invariant: persist working state before shrinking history.
+        if (messages.length > 48) {
           saveCheckpoint(runId, 'pre_compaction', {
             workingMemory: workingMemory.snapshot(),
             contractVersion: contract.version,
@@ -1140,7 +1260,7 @@ class DurableRunRuntime {
           try {
             // compact(messages, provider, model, contextWindow, options)
             const compacted = await compact(
-              turnMessages,
+              messages,
               provider,
               model,
               null,
@@ -1153,6 +1273,22 @@ class DurableRunRuntime {
             // Compaction failure is non-fatal.
           }
         }
+
+        // Durable-state notes are rebuilt every turn and appended to the live
+        // transcript. They must never replace it: `messages` carries the agent
+        // system prompt, memory recall, tool catalog, and tool-call/result pairs.
+        const contextView = buildContextView({
+          runId,
+          systemPrompt: '',
+          messages: [],
+          evidencePacket,
+          activeNodeIds: activeNode ? [activeNode.id] : [],
+          budgetSnapshot: budget.snapshot(),
+        });
+        const turnMessages = sanitizeConversationMessages([
+          ...messages,
+          ...contextView.messages,
+        ]);
 
         iterations += 1;
         progressBroker.noteActivity('model_started', { iteration: iterations });
@@ -1260,10 +1396,19 @@ class DurableRunRuntime {
               role: 'system',
               content: 'Repeated invalid model protocol. Provide a final partial answer with evidence only.',
             });
-            finalContent = this.#partialDeliveryText({
+            finalContent = await this.#partialDeliveryText({
+              runId,
               contract,
               workingMemory,
               reason: 'model_protocol_error',
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: getActiveSignal(),
+              userId,
+              agentId,
             });
             applyTransition({
               runId,
@@ -1364,6 +1509,43 @@ class DurableRunRuntime {
         }
 
         if (decision.kind === DECISION_KINDS.BLOCK) {
+          // A blank turn is a provider hiccup, not a blocker. Terminating on it
+          // would end healthy runs on one empty Gemini/OpenAI response, so it is
+          // recovered like any other protocol fault: nudge, then switch model.
+          if (decision.blocker?.code === 'blank_model_output') {
+            blankOutputRecoveries += 1;
+            if (blankOutputRecoveries <= maxBlankOutputRecoveries) {
+              const fallbackId = await getFailureFallbackModelId(
+                userId,
+                agentId,
+                modelSelectionId,
+                aiSettings.fallback_model_id,
+                new Error('Model returned no content and no tool calls'),
+                getActiveSignal(),
+                [modelSelectionId],
+              );
+              if (fallbackId) {
+                const fallback = await getProviderForUser(
+                  userId,
+                  userMessage,
+                  triggerType === 'subagent',
+                  fallbackId,
+                  { ...providerStatusConfig, signal: getActiveSignal() },
+                );
+                provider = fallback.provider;
+                model = fallback.model;
+                modelSelectionId = fallback.modelSelectionId;
+                providerName = fallback.providerName;
+                db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
+                  .run(modelSelectionId, runId);
+              }
+              messages.push({
+                role: 'system',
+                content: buildBlankOutputGuidance(toolExecutions),
+              });
+              continue;
+            }
+          }
           applyTransition({
             runId,
             toState: RUNTIME_STATES.BLOCKED,
@@ -1371,70 +1553,6 @@ class DurableRunRuntime {
             workerId,
             eventBus: this.eventBus,
             patch: { error: decision.blocker?.message || 'Blocked' },
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.REQUEST_INPUT) {
-          finalContent = decision.question || decision.content || 'Need additional input to continue.';
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.BLOCKED,
-            reason: 'request_input',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.WAIT) {
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.WAITING,
-            reason: decision.reason || 'wait',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          // Immediate return to executing for in-process waits; durable waits would park.
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.EXECUTING,
-            reason: 'wait_elapsed',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.CHECKPOINT) {
-          saveCheckpoint(runId, decision.reason || 'model_checkpoint', {
-            workingMemory: workingMemory.snapshot(),
-            iterations,
-            finalContent,
-          }, { eventBus: this.eventBus, userId, agentId });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.REVISE_PLAN) {
-          const revised = workGraph.graphFromContract({
-            ...contract,
-            ...(decision.patch || {}),
-          });
-          workGraph.createGraph(runId, revised, {
-            eventBus: this.eventBus,
-            userId,
-            agentId,
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.VERIFY) {
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.VERIFYING,
-            reason: 'model_requested_verify',
-            workerId,
-            eventBus: this.eventBus,
           });
           continue;
         }
@@ -1484,11 +1602,10 @@ class DurableRunRuntime {
             tool_calls: wireToolCalls,
           });
 
-          const toolCalls = decision.toolCalls;
-          const readOnlyCalls = [];
-          const mutatingCalls = [];
-          for (const call of toolCalls) {
-            const def = tools.find((tool) => tool?.name === call.name) || null;
+          // Classify once: the split into parallel reads vs serialized mutations
+          // and the per-call bookkeeping both need the same verdict.
+          const plannedCalls = decision.toolCalls.map((call) => {
+            const definition = tools.find((tool) => tool?.name === call.name) || null;
             const callShape = call.raw?.function?.name
               ? call.raw
               : {
@@ -1499,26 +1616,34 @@ class DurableRunRuntime {
                   arguments: JSON.stringify(call.arguments || {}),
                 },
               };
-            if (this.engine.isReadOnlyToolCall?.(callShape, def)) {
-              readOnlyCalls.push(call);
-            } else {
-              mutatingCalls.push(call);
-            }
-          }
+            return {
+              call,
+              definition,
+              isReadOnly: Boolean(this.engine.isReadOnlyToolCall?.(callShape, definition)),
+            };
+          });
+          const readOnlyCalls = plannedCalls.filter((planned) => planned.isReadOnly);
+          const mutatingCalls = plannedCalls.filter((planned) => !planned.isReadOnly);
 
-          const executeOne = async (call) => {
+          const executeOne = async ({ call, definition, isReadOnly }) => {
             const stepId = randomUUID();
             const started = Date.now();
-            const callShape = call.raw?.function?.name
-              ? call.raw
-              : {
-                id: call.id,
-                type: 'function',
-                function: {
-                  name: call.name,
-                  arguments: JSON.stringify(call.arguments || {}),
-                },
-              };
+            stepIndex += 1;
+            const currentStepIndex = stepIndex;
+            const stepType = this.engine.getStepType?.(call.name) || 'tool';
+            db.prepare(
+              `INSERT INTO agent_steps (
+                id, run_id, step_index, type, description, status, tool_name, tool_input, started_at
+              ) VALUES (?, ?, ?, ?, ?, 'running', ?, ?, datetime('now'))`,
+            ).run(
+              stepId,
+              runId,
+              currentStepIndex,
+              stepType,
+              `${call.name}: ${JSON.stringify(call.arguments || {}).slice(0, 200)}`,
+              call.name,
+              JSON.stringify(call.arguments || {}),
+            );
             this.eventBus.publish({
               runId,
               userId,
@@ -1528,15 +1653,26 @@ class DurableRunRuntime {
               payload: { tool: call.name, node_id: activeNode?.id || null },
               visibility: VISIBILITY.OPERATOR,
             });
+            this.engine.recordRunEvent?.(userId, runId, 'tool_started', {
+              stepIndex: currentStepIndex,
+              toolName: call.name,
+              toolArgs: call.arguments || {},
+              type: stepType,
+            }, { agentId, stepId });
             this.engine.emit(userId, 'run:tool_start', {
               runId,
               stepId,
+              stepIndex: currentStepIndex,
               toolName: call.name,
+              toolArgs: call.arguments || {},
+              type: stepType,
             });
+            progressBroker.noteToolStarted(call.name);
 
             let result;
             let success = true;
             let errorMessage = null;
+            const repetitionGuard = this.engine.getRunMeta(runId)?.repetitionGuard;
             try {
               const hookResult = await globalHooks.run('before_tool_call', {
                 runId,
@@ -1549,6 +1685,10 @@ class DurableRunRuntime {
                 success = false;
                 errorMessage = hookResult.reason || 'Blocked by policy hook';
                 result = { error: errorMessage, blocked: true };
+              } else if (isReadOnly && repetitionGuard?.shouldBlock(call.name, call.arguments)) {
+                success = false;
+                errorMessage = 'The same read-only call already returned an unchanged result twice.';
+                result = { status: 'blocked', reason: errorMessage };
               } else {
                 // Flatten run options the same way the legacy loop did so
                 // background staging, messaging origin, and delivery bookkeeping work.
@@ -1589,11 +1729,22 @@ class DurableRunRuntime {
 
             const elapsed = Date.now() - started;
             budget.recordToolRuntime(elapsed);
-            const isReadOnly = this.engine.isReadOnlyToolCall?.(
-              callShape,
-              tools.find((tool) => tool?.name === call.name),
+
+            const execution = classifyToolExecution(
+              call.name,
+              call.arguments || {},
+              result,
+              errorMessage,
+              definition,
             );
-            budget.recordReadOnly(Boolean(isReadOnly) && success);
+            toolExecutions.push(execution);
+            const observed = repetitionGuard?.observe(call.name, call.arguments, result);
+            // "No progress" means the turn changed no state and surfaced no new
+            // evidence. Reads that pull in new information are progress, so a long
+            // research run is never mistaken for churn.
+            budget.recordNoProgressTurn(
+              !execution.stateChanged && !gatheredNewEvidence(execution, observed),
+            );
             if (success) budget.recordToolFailure(false);
 
             // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
@@ -1601,16 +1752,16 @@ class DurableRunRuntime {
               call.name,
               call.arguments || {},
               result,
-              {},
+              resolveToolResultLimits(call.name, budget.loopPolicy),
             );
             evidencePacket = appendToolEvidence(evidencePacket, call.name, compacted, { success });
             workingMemory.addEvidence({
               id: stepId,
               tool: call.name,
-              summary: typeof compacted === 'string' ? compacted.slice(0, 500) : JSON.stringify(compacted).slice(0, 500),
+              summary: execution.summary,
               success,
             });
-            if (!isReadOnly) {
+            if (execution.stateChanged) {
               budget.recordSideEffect(1);
               workingMemory.addSideEffect({
                 id: stepId,
@@ -1619,6 +1770,17 @@ class DurableRunRuntime {
               });
             }
 
+            db.prepare(
+              `UPDATE agent_steps
+               SET status = ?, result = ?, error = ?, screenshot_path = ?, completed_at = datetime('now')
+               WHERE id = ?`,
+            ).run(
+              success ? 'completed' : 'failed',
+              JSON.stringify(result ?? null).slice(0, 20000),
+              errorMessage,
+              result?.screenshotPath || null,
+              stepId,
+            );
             this.eventBus.publish({
               runId,
               userId,
@@ -1633,6 +1795,13 @@ class DurableRunRuntime {
               },
               visibility: VISIBILITY.OPERATOR,
             });
+            this.engine.recordRunEvent?.(userId, runId, success ? 'tool_completed' : 'tool_failed', {
+              toolName: call.name,
+              status: success ? 'completed' : 'failed',
+              durationMs: elapsed,
+              error: errorMessage,
+              resultPreview: summarizeForLog(compacted),
+            }, { agentId, stepId });
             this.engine.emit(userId, 'run:tool_end', {
               runId,
               stepId,
@@ -1641,6 +1810,7 @@ class DurableRunRuntime {
               status: success ? 'completed' : 'failed',
               error: errorMessage,
             });
+            progressBroker.noteToolFinished(call.name);
 
             messages.push({
               role: 'tool',
@@ -1648,6 +1818,13 @@ class DurableRunRuntime {
               tool_call_id: call.id,
               content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
             });
+
+            // Newly activated schemas only reach the model if the active set is
+            // re-read; otherwise activate_tools silently does nothing.
+            if (call.name === 'activate_tools' && success) {
+              const activeTools = this.engine.getActiveTools?.(runId);
+              if (Array.isArray(activeTools) && activeTools.length) tools = activeTools;
+            }
 
             // task_complete / send_message special handling
             if (call.name === 'task_complete' && success) {
@@ -1709,12 +1886,12 @@ class DurableRunRuntime {
 
           // Parallel read-only, sequential mutating.
           if (readOnlyCalls.length > 1) {
-            await Promise.all(readOnlyCalls.map((call) => executeOne(call)));
+            await Promise.all(readOnlyCalls.map((planned) => executeOne(planned)));
           } else if (readOnlyCalls.length === 1) {
             await executeOne(readOnlyCalls[0]);
           }
-          for (const call of mutatingCalls) {
-            await executeOne(call);
+          for (const planned of mutatingCalls) {
+            await executeOne(planned);
           }
 
           // Mark active node progress
@@ -1739,19 +1916,7 @@ class DurableRunRuntime {
           }
 
           await progressBroker.maybePublish({
-            delta: progressBroker.buildDelta({
-              completed: workGraph.listNodes(runId)
-                .filter((n) => n.status === 'completed')
-                .map((n) => n.nodeKey)
-                .slice(-5),
-              running: workGraph.listNodes(runId)
-                .filter((n) => n.status === 'running' || n.status === 'ready')
-                .map((n) => n.nodeKey)
-                .slice(0, 5),
-              nextMilestone: workGraph.nextActionableNodes(runId)[0]?.objective || null,
-            }),
-            channel: triggerSource === 'messaging' ? 'messaging' : 'web',
-            recipient: options.chatId || null,
+            delta: this.#collectProgressDelta(runId, toolExecutions),
           });
 
           // If model included terminal complete with tools, check next loop.
@@ -1789,10 +1954,19 @@ class DurableRunRuntime {
 
       // Fallback exit
       if (!finalContent) {
-        finalContent = this.#partialDeliveryText({
+        finalContent = await this.#partialDeliveryText({
+          runId,
           contract,
           workingMemory,
           reason: 'run_exited_without_final',
+          provider,
+          providerName,
+          model,
+          messages,
+          options,
+          signal: getActiveSignal(),
+          userId,
+          agentId,
         });
       }
       const delivery = await this.#deliverFinal({
@@ -1857,6 +2031,7 @@ class DurableRunRuntime {
       }
       throw error;
     } finally {
+      progressBroker?.stop();
       try {
         leases.release(runId, workerId);
       } catch {
@@ -2028,28 +2203,183 @@ class DurableRunRuntime {
     );
   }
 
-  #partialDeliveryText({ contract, workingMemory, reason }) {
+  /**
+   * Honest partial result for a run that cannot complete.
+   *
+   * The wording is the model's: it writes the wrap-up from the evidence already
+   * in this conversation, in the user's language. Only when the model returns
+   * nothing usable does the runtime fall back to a description derived from the
+   * observed tool executions — never to a canned status message.
+   */
+  async #partialDeliveryText({
+    runId,
+    contract,
+    workingMemory,
+    reason,
+    provider,
+    providerName,
+    model,
+    messages,
+    options,
+    signal,
+    userId,
+    agentId,
+  }) {
     const snap = workingMemory.snapshot();
-    const completedEvidence = (snap.evidence || []).filter((e) => e.success !== false).slice(-5);
     const open = evaluateOpenObligations(contract, {
+      completedNodeKeys: workGraph.listNodes(runId)
+        .filter((node) => node.status === 'completed')
+        .map((node) => node.nodeKey),
       evidence: snap.evidence,
       artifacts: snap.artifacts,
       finalContent: snap.draftResponse,
     }).open;
-    const lines = [
-      snap.draftResponse || 'I could not fully complete the request.',
-      '',
-      `Status: partial (${reason})`,
-      contract?.goal ? `Goal: ${contract.goal}` : null,
-      completedEvidence.length
-        ? `Evidence gathered:\n${completedEvidence.map((e) => `- ${e.tool || 'item'}: ${e.summary}`).join('\n')}`
-        : 'Evidence gathered: none yet',
-      open.length
-        ? `Still open:\n${open.map((o) => `- ${o.id || o.type}`).join('\n')}`
-        : null,
-      'This is not a claim that the full task is done.',
-    ].filter(Boolean);
-    return lines.join('\n');
+
+    if (provider && model) {
+      try {
+        const wrapUp = await this.engine.requestModelResponse({
+          provider,
+          providerName,
+          model,
+          messages: sanitizeConversationMessages([
+            ...(Array.isArray(messages) ? messages.slice(-24) : []),
+            {
+              role: 'system',
+              content: [
+                buildMaxIterationWrapupPrompt(options?.source || null),
+                `Runtime stop reason: ${reason}.`,
+                open.length
+                  ? `Obligations still open: ${open.map((item) => item.id || item.type).join(', ')}.`
+                  : 'No required obligation is recorded as open.',
+              ].join('\n\n'),
+            },
+          ]),
+          tools: [],
+          options: {
+            ...options,
+            stream: false,
+            signal,
+            runId,
+            userId,
+            agentId,
+          },
+          runId,
+          iteration: 0,
+        });
+        const text = sanitizeModelOutput(
+          String(wrapUp?.response?.content || wrapUp?.streamContent || '').trim(),
+          { model },
+        );
+        if (normalizeOutgoingMessage(text, options?.source || null)) return text;
+      } catch (error) {
+        console.warn('[Runtime] Partial wrap-up generation failed:', error?.message || error);
+      }
+    }
+
+    if (snap.draftResponse) return snap.draftResponse;
+    return buildDeterministicMessagingFallback({
+      failedStepCount: (snap.evidence || []).filter((item) => item.success === false).length,
+      stepIndex: (snap.evidence || []).length,
+      toolExecutions: (snap.evidence || []).map((item) => ({
+        toolName: item.tool,
+        summary: item.summary,
+      })),
+    });
+  }
+
+  /**
+   * Deterministic view of what actually changed. The narrator may only phrase
+   * these facts, so a progress update can never claim work the runtime did not
+   * observe.
+   */
+  #collectProgressDelta(runId, toolExecutions = []) {
+    const nodes = workGraph.listNodes(runId);
+    return {
+      completed_since_last_update: nodes
+        .filter((node) => node.status === 'completed')
+        .map((node) => node.nodeKey)
+        .slice(-5),
+      currently_running: nodes
+        .filter((node) => node.status === 'running' || node.status === 'ready')
+        .map((node) => node.nodeKey)
+        .slice(0, 5),
+      new_artifacts: [],
+      blockers: nodes.flatMap((node) => node.blockers || []).slice(0, 5),
+      plan_changes: [],
+      next_milestone: workGraph.nextActionableNodes(runId)[0]?.objective || null,
+      evidence: summarizeProgressToolExecutions(toolExecutions, 5),
+    };
+  }
+
+  /**
+   * Phrase an observed progress delta. The run's own system prompt supplies the
+   * voice and formatting rules, so an update reads like every other message; the
+   * delta is the only permitted source of facts, and an empty answer means "no
+   * useful update", not "send something generic".
+   */
+  async #narrateProgress({
+    provider,
+    providerName,
+    model,
+    systemPrompt,
+    delta,
+    liveness,
+    userMessage,
+    options,
+    runId,
+    userId,
+    agentId,
+    signal,
+  }) {
+    if (!provider || !model) return '';
+    const stable = systemPrompt && typeof systemPrompt === 'object'
+      ? [systemPrompt.stable, systemPrompt.dynamic].filter(Boolean).join('\n\n')
+      : String(systemPrompt || '');
+    const response = await this.engine.requestModelResponse({
+      provider,
+      providerName,
+      model,
+      messages: [
+        ...(stable ? [{ role: 'system', content: stable }] : []),
+        {
+          role: 'system',
+          content: [
+            buildProgressUpdatePrompt(),
+            liveness?.status === 'stalled'
+              ? 'No verified activity has been recorded for the stall threshold. State that plainly if it matters; do not reassure or imply activity beyond the evidence.'
+              : '',
+          ].filter(Boolean).join(' '),
+        },
+        {
+          role: 'user',
+          content: [
+            `Original request: ${String(userMessage || '').slice(0, 320)}`,
+            delta?.evidence
+              ? `Actual recent tool activity (newest last) — describe ONLY this:\n${delta.evidence}`
+              : '',
+            delta?.currently_running?.length ? `Working on: ${delta.currently_running.join(', ')}` : '',
+            delta?.next_milestone ? `Next milestone: ${delta.next_milestone}` : '',
+          ].filter(Boolean).join('\n\n'),
+        },
+      ],
+      tools: [],
+      options: {
+        ...options,
+        stream: false,
+        signal,
+        runId,
+        userId,
+        agentId,
+      },
+      runId,
+      iteration: 0,
+    });
+    const text = sanitizeModelOutput(
+      String(response?.response?.content || response?.streamContent || '').trim(),
+      { model },
+    );
+    if (!normalizeOutgoingMessage(text, options?.source || null)) return '';
+    return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).join(' ').slice(0, 400);
   }
 
   async #semanticVerify({

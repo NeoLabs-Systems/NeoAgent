@@ -117,15 +117,11 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   [RUNTIME_STATES.FAILED]: [],
 });
 
+// The kinds the decision engine can actually derive from a model turn. Anything
+// else fails closed in validateDecision rather than silently executing.
 const DECISION_KINDS = Object.freeze({
   RESPOND: 'respond',
   ACT: 'act',
-  DELEGATE: 'delegate',
-  REVISE_PLAN: 'revise_plan',
-  WAIT: 'wait',
-  REQUEST_INPUT: 'request_input',
-  VERIFY: 'verify',
-  CHECKPOINT: 'checkpoint',
   COMPLETE: 'complete',
   BLOCK: 'block',
 });
@@ -140,7 +136,6 @@ const MESSAGE_KINDS = Object.freeze({
 });
 
 const DEFAULT_LEASE_MS = 60_000;
-const DEFAULT_LEASE_HEARTBEAT_MS = 15_000;
 const DEFAULT_MAX_SILENCE_SECONDS = 90;
 
 module.exports = {
@@ -151,6 +146,5 @@ module.exports = {
   DECISION_KINDS,
   MESSAGE_KINDS,
   DEFAULT_LEASE_MS,
-  DEFAULT_LEASE_HEARTBEAT_MS,
   DEFAULT_MAX_SILENCE_SECONDS,
 };

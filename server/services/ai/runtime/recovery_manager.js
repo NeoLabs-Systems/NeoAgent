@@ -108,8 +108,6 @@ function planRecovery(error, context = {}) {
 }
 
 module.exports = {
-  ERROR_CLASSES,
   classifyError,
-  defaultResponseForClass,
   planRecovery,
 };

@@ -405,10 +405,12 @@ test('memory write pipeline deduplicates exact candidates', () => {
 
 test('progress broker does not invent progress without deltas', async () => {
   insertRun('progress-run');
+  let narratorCalls = 0;
   const broker = runtime.createProgressBroker({
     engine: { emit() {}, markRunVisibleProgress() {} },
     runId: 'progress-run',
     userId,
+    narrator: async () => { narratorCalls += 1; return 'should never be asked'; },
     maxSilenceSeconds: 1,
     firstUpdateSeconds: 0,
     repeatUpdateSeconds: 0,
@@ -418,8 +420,123 @@ test('progress broker does not invent progress without deltas', async () => {
     delta: broker.buildDelta({}),
     force: true,
   });
-  // No completed/running/blocker content => no fabricated milestone text except stall path.
+  // No observed delta => the narrator is never even consulted, and there is no
+  // canned status line to fall back to.
   assert.equal(empty.sent, false);
+  assert.equal(empty.reason, 'no_real_delta');
+  assert.equal(narratorCalls, 0);
+});
+
+test('progress broker publishes model-authored text and dedupes unchanged state', async () => {
+  insertRun('progress-narrated');
+  const sent = [];
+  const broker = runtime.createProgressBroker({
+    engine: {
+      emit() {},
+      markRunVisibleProgress() {},
+    },
+    runId: 'progress-narrated',
+    userId,
+    narrator: async ({ delta }) => `working on ${delta.currently_running.join(',')}`,
+    firstUpdateSeconds: 0,
+    repeatUpdateSeconds: 0,
+  });
+  broker.markAccepted();
+
+  const first = await broker.maybePublish({
+    delta: broker.buildDelta({ running: ['execute'], nextMilestone: 'finish' }),
+  });
+  assert.equal(first.sent, true);
+  assert.equal(first.text, 'working on execute');
+  sent.push(first.text);
+
+  const repeat = await broker.maybePublish({
+    delta: broker.buildDelta({ running: ['execute'], nextMilestone: 'finish' }),
+  });
+  assert.equal(repeat.sent, false);
+  assert.equal(repeat.reason, 'unchanged');
+
+  const moved = await broker.maybePublish({
+    delta: broker.buildDelta({ running: ['verify'], nextMilestone: 'finish' }),
+  });
+  assert.equal(moved.sent, true);
+  assert.equal(moved.text, 'working on verify');
+});
+
+test('progress broker stays silent once the run delivered or was suppressed', async () => {
+  insertRun('progress-suppressed');
+  let suppressed = false;
+  const broker = runtime.createProgressBroker({
+    engine: { emit() {}, markRunVisibleProgress() {} },
+    runId: 'progress-suppressed',
+    userId,
+    narrator: async () => 'still working',
+    isSuppressed: () => suppressed,
+    firstUpdateSeconds: 0,
+    repeatUpdateSeconds: 0,
+  });
+  broker.markAccepted();
+
+  assert.equal(
+    (await broker.maybePublish({ delta: broker.buildDelta({ running: ['execute'] }) })).sent,
+    true,
+  );
+  suppressed = true;
+  const afterFinal = await broker.maybePublish({
+    delta: broker.buildDelta({ running: ['verify'] }),
+  });
+  assert.equal(afterFinal.sent, false);
+  assert.equal(afterFinal.reason, 'suppressed');
+});
+
+test('a long-running tool is live, not stalled', async () => {
+  insertRun('progress-liveness');
+  const broker = runtime.createProgressBroker({
+    engine: { emit() {} },
+    runId: 'progress-liveness',
+    userId,
+    maxSilenceSeconds: 0,
+  });
+  broker.markAccepted();
+  await new Promise((resolve) => { setTimeout(resolve, 5); });
+
+  // Nothing happening for longer than the silence threshold.
+  assert.equal(broker.evaluateLiveness().status, 'stalled');
+
+  // A tool that is still executing is real work, however long it takes.
+  broker.noteToolStarted('execute_command');
+  const working = broker.evaluateLiveness();
+  assert.equal(working.status, 'working');
+  assert.equal(working.runningTools, 1);
+
+  broker.noteToolFinished('execute_command');
+  assert.equal(broker.evaluateLiveness().runningTools, 0);
+});
+
+test('crash recovery closes runs a dead process left non-terminal', () => {
+  insertRun('orphan-run', { runtimeState: 'executing', status: 'running' });
+  ctx.db.prepare(
+    `UPDATE agent_runs SET lease_owner = ?, lease_expires_at = datetime('now', '-5 minutes'),
+      heartbeat_at = datetime('now', '-5 minutes') WHERE id = ?`,
+  ).run('worker_dead', 'orphan-run');
+  insertRun('paused-run', { runtimeState: 'paused', status: 'paused' });
+
+  const result = runtime.recoverOrphanedRuns();
+  assert.ok(result.recovered.includes('orphan-run'));
+
+  const orphan = ctx.db.prepare(
+    'SELECT status, runtime_state, error, completed_at FROM agent_runs WHERE id = ?',
+  ).get('orphan-run');
+  assert.equal(orphan.status, 'failed');
+  assert.equal(orphan.runtime_state, 'failed');
+  assert.ok(orphan.error);
+  assert.ok(orphan.completed_at);
+
+  // A paused run is resumable by design and must survive a restart untouched.
+  const paused = ctx.db.prepare(
+    'SELECT status, runtime_state FROM agent_runs WHERE id = ?',
+  ).get('paused-run');
+  assert.equal(paused.runtime_state, 'paused');
 });
 
 test('event store sequences are monotonic per run', () => {

@@ -13,7 +13,6 @@ function createWorkingMemory(seed = {}) {
     sideEffects: Array.isArray(seed.sideEffects) ? [...seed.sideEffects] : [],
     decisions: Array.isArray(seed.decisions) ? [...seed.decisions] : [],
     draftResponse: seed.draftResponse || '',
-    notes: Array.isArray(seed.notes) ? [...seed.notes] : [],
   };
 
   return {
@@ -29,9 +28,6 @@ function createWorkingMemory(seed = {}) {
         ...item,
         at: item.at || new Date().toISOString(),
       });
-    },
-    addArtifact(item) {
-      state.artifacts.push(item);
     },
     addDefect(item) {
       state.defects.push(item);
@@ -49,10 +45,6 @@ function createWorkingMemory(seed = {}) {
     },
     setDraftResponse(text) {
       state.draftResponse = String(text || '');
-    },
-    addNote(note) {
-      state.notes.push(String(note || '').slice(0, 500));
-      if (state.notes.length > 30) state.notes.shift();
     },
     clearDefects() {
       state.defects = [];

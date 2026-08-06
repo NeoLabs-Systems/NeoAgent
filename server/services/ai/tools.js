@@ -2455,9 +2455,6 @@ async function executeTool(toolName, args, context, engine) {
                 };
             }
 
-            if (triggerSource === 'messaging' && originDelivery) {
-                await engine?.stopMessagingProgressSupervisor?.(runId);
-            }
             const behavior = runState?.messagingContext?.behavior;
             const behaviorPipeline = app?.locals?.behaviorPipeline;
             let deliveredContent = normalizedMessage;

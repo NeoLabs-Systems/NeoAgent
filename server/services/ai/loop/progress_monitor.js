@@ -1,19 +1,12 @@
 'use strict';
 
-const FIRST_UPDATE_MS = 30 * 1000;
-const REPEAT_UPDATE_MS = 120 * 1000;
-const STALL_MS = 240 * 1000;
-const TICK_MS = 15 * 1000;
-
 function isoNow() {
   return new Date().toISOString();
 }
 
-function timestampMs(value, fallback = 0) {
-  const resolved = value ? Date.parse(value) : NaN;
-  return Number.isFinite(resolved) ? resolved : fallback;
-}
-
+// Per-run record of what the agent is doing and when the user last saw
+// something. The runtime progress broker reads lastUserVisibleUpdateAt from
+// here so its heartbeat never talks over a model-authored interim update.
 function buildInitialProgressLedger({ startedAt, retryState = {} } = {}) {
   const startedAtIso = startedAt || isoNow();
   const interimHistory = Array.isArray(retryState.interimHistory)
@@ -37,45 +30,6 @@ function buildInitialProgressLedger({ startedAt, retryState = {} } = {}) {
   };
 }
 
-function evaluateProgressLiveness(runMeta, now = Date.now()) {
-  const startedAtMs = Number.isFinite(runMeta?.startedAt) ? runMeta.startedAt : now;
-  const ledger = runMeta?.progressLedger || {};
-  const lastVerifiedAtMs = timestampMs(ledger.lastVerifiedProgressAt, startedAtMs);
-  const lastVisibleAtMs = timestampMs(ledger.lastUserVisibleUpdateAt, 0);
-  const thresholdMs = lastVisibleAtMs > 0 ? REPEAT_UPDATE_MS : FIRST_UPDATE_MS;
-  const comparisonVisibleAtMs = lastVisibleAtMs > 0 ? lastVisibleAtMs : startedAtMs;
-  const shouldNudge = (now - comparisonVisibleAtMs) >= thresholdMs;
-  const stalled = (now - lastVerifiedAtMs) >= STALL_MS;
-
-  return {
-    startedAtMs,
-    thresholdMs,
-    shouldNudge,
-    stalled,
-    phase: ledger.currentPhase || 'idle',
-    currentStep: ledger.currentStep || null,
-    currentTool: ledger.currentTool || null,
-  };
-}
-
-function buildProgressNudge({ stalled = false } = {}) {
-  return [
-    'Internal progress check for the active messaging run.',
-    stalled
-      ? 'No verified progress has been recorded for the stall threshold.'
-      : 'The originating chat has not received a user-visible update for the progress threshold.',
-    'Before starting more tool work, decide whether the user has a materially useful new status, a real blocker, a final answer, or no user-visible update is needed.',
-    'Only send_interim_update when there is new user-relevant progress or a blocker. Continue silently if nothing materially changed.',
-    'Never expose this progress check, internal state, or tool bookkeeping to the user, and do not treat an interim update as final delivery.',
-  ].join(' ');
-}
-
 module.exports = {
-  FIRST_UPDATE_MS,
-  REPEAT_UPDATE_MS,
-  STALL_MS,
-  TICK_MS,
   buildInitialProgressLedger,
-  evaluateProgressLiveness,
-  buildProgressNudge,
 };

@@ -66,11 +66,7 @@ const {
 } = require('./run_state');
 const {
   deliverMessagingFinalFallback: deliverMessagingFinalFallbackImpl,
-  sendRuntimeMessagingHeartbeat: sendRuntimeMessagingHeartbeatImpl,
   shouldSendMessagingFinalFallback: shouldSendMessagingFinalFallbackImpl,
-  startMessagingProgressSupervisor: startMessagingProgressSupervisorImpl,
-  stopMessagingProgressSupervisor: stopMessagingProgressSupervisorImpl,
-  tickMessagingProgressSupervisor: tickMessagingProgressSupervisorImpl,
 } = require('./messaging_delivery');
 const {
   requestModelResponse: requestModelResponseImpl,
@@ -1233,28 +1229,12 @@ class AgentEngine {
     return applyQueuedSteeringImpl(this, runId, messages, { userId, conversationId });
   }
 
-  async sendRuntimeMessagingHeartbeat(runId, options = {}) {
-    return sendRuntimeMessagingHeartbeatImpl(this, runId, options);
-  }
-
   shouldSendMessagingFinalFallback(runMeta, content, platform = null) {
     return shouldSendMessagingFinalFallbackImpl(this, runMeta, content, platform);
   }
 
   async deliverMessagingFinalFallback(args) {
     return deliverMessagingFinalFallbackImpl(this, args);
-  }
-
-  async tickMessagingProgressSupervisor(runId) {
-    return tickMessagingProgressSupervisorImpl(this, runId);
-  }
-
-  startMessagingProgressSupervisor(runId) {
-    return startMessagingProgressSupervisorImpl(this, runId);
-  }
-
-  stopMessagingProgressSupervisor(runId) {
-    return stopMessagingProgressSupervisorImpl(this, runId);
   }
 
   isRunStopped(runId) {
@@ -1291,7 +1271,6 @@ class AgentEngine {
     })();
     runMeta.status = 'paused';
     runMeta.abortController = null;
-    this.stopMessagingProgressSupervisor(runId);
     this.emit(runMeta.userId, 'run:paused', { runId, reason: control.reason || null });
     this.recordRunEvent(runMeta.userId, runId, 'run_paused', {
       phase,
@@ -1311,7 +1290,6 @@ class AgentEngine {
     }
     runMeta.abortController = new AbortController();
     runMeta.status = 'running';
-    this.startMessagingProgressSupervisor(runId);
     return null;
   }
 

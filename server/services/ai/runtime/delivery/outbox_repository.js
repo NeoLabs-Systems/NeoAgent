@@ -110,32 +110,6 @@ function enqueue({
   return serialize(db.prepare('SELECT * FROM agent_outbox WHERE id = ?').get(id));
 }
 
-function leasePending({ workerId, limit = 20, leaseMs = 30_000 } = {}) {
-  if (!workerId) return [];
-  const expiresAt = new Date(Date.now() + leaseMs).toISOString();
-  return db.transaction(() => {
-    const rows = db.prepare(
-      `SELECT * FROM agent_outbox
-       WHERE status = 'pending'
-          OR (status = 'leased' AND (lease_expires_at IS NULL OR lease_expires_at < datetime('now')))
-       ORDER BY created_at ASC
-       LIMIT ?`,
-    ).all(Math.max(1, Math.min(Number(limit) || 20, 100)));
-
-    const leased = [];
-    for (const row of rows) {
-      const result = db.prepare(
-        `UPDATE agent_outbox
-         SET status = 'leased', lease_owner = ?, lease_expires_at = ?
-         WHERE id = ? AND (status = 'pending' OR status = 'leased')`,
-      ).run(workerId, expiresAt, row.id);
-      if (result.changes > 0) {
-        leased.push(serialize(db.prepare('SELECT * FROM agent_outbox WHERE id = ?').get(row.id)));
-      }
-    }
-    return leased;
-  })();
-}
 
 function markDelivered(outboxId, { platformMessageId = null } = {}) {
   db.prepare(
@@ -219,19 +193,13 @@ function countFinalDeliveries(runId) {
   );
 }
 
-function getById(id) {
-  return serialize(db.prepare('SELECT * FROM agent_outbox WHERE id = ?').get(id));
-}
 
 module.exports = {
-  semanticHash,
   enqueue,
-  leasePending,
   markDelivered,
   markFailed,
   recordAttempt,
   listForRun,
   countFinalDeliveries,
-  getById,
   MESSAGE_KINDS,
 };

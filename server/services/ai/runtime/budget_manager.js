@@ -38,7 +38,7 @@ function createBudgetManager({
     sideEffectBudget: Number(options.maxSideEffects) || DEFAULTS.sideEffectBudget,
     subagentCount: Number(aiSettings.subagent_max_children_per_run) || DEFAULTS.subagentCount,
     subagentTurns: Number(aiSettings.subagent_max_turns) || DEFAULTS.subagentTurns,
-    consecutiveReadOnly: loopPolicy.maxConsecutiveReadOnlyIterations || 8,
+    consecutiveNoProgress: loopPolicy.maxConsecutiveReadOnlyIterations || 8,
     consecutiveToolFailures: loopPolicy.maxConsecutiveToolFailures || 5,
   };
 
@@ -53,7 +53,7 @@ function createBudgetManager({
     sideEffects: 0,
     subagentCount: 0,
     subagentTurns: 0,
-    consecutiveReadOnly: 0,
+    consecutiveNoProgress: 0,
     consecutiveToolFailures: 0,
     failuresByClass: Object.create(null),
     retriesByNode: Object.create(null),
@@ -78,9 +78,12 @@ function createBudgetManager({
     usage.sideEffects += Math.max(0, Number(count) || 0);
   }
 
-  function recordReadOnly(isReadOnly) {
-    if (isReadOnly) usage.consecutiveReadOnly += 1;
-    else usage.consecutiveReadOnly = 0;
+  // Counts consecutive tool turns that changed no state and produced no new
+  // evidence. Reads that pull in new information are progress, so a long
+  // research run never trips this; genuine spinning does.
+  function recordNoProgressTurn(madeNoProgress) {
+    if (madeNoProgress) usage.consecutiveNoProgress += 1;
+    else usage.consecutiveNoProgress = 0;
   }
 
   function recordToolFailure(isFailure, errorClass = 'logic_failure') {
@@ -121,7 +124,7 @@ function createBudgetManager({
       evidenceBudget: dimensionStatus(usage.evidenceItems, limits.evidenceBudget),
       sideEffectBudget: dimensionStatus(usage.sideEffects, limits.sideEffectBudget),
       subagentCount: dimensionStatus(usage.subagentCount, limits.subagentCount),
-      consecutiveReadOnly: dimensionStatus(usage.consecutiveReadOnly, limits.consecutiveReadOnly),
+      consecutiveNoProgress: dimensionStatus(usage.consecutiveNoProgress, limits.consecutiveNoProgress),
       consecutiveToolFailures: dimensionStatus(
         usage.consecutiveToolFailures,
         limits.consecutiveToolFailures,
@@ -146,7 +149,6 @@ function createBudgetManager({
   function shouldContinue({
     openObligations = [],
     hasNextAction = false,
-    progressDelta = true,
   } = {}) {
     const snap = snapshot();
     if (snap.hardLimitReached) {
@@ -170,7 +172,7 @@ function createBudgetManager({
         snapshot: snap,
       };
     }
-    if (!progressDelta && usage.consecutiveReadOnly >= Math.max(2, Math.floor(limits.consecutiveReadOnly / 2))) {
+    if (usage.consecutiveNoProgress >= limits.consecutiveNoProgress) {
       return {
         continue: false,
         reason: 'no_progress_delta',
@@ -187,12 +189,13 @@ function createBudgetManager({
 
   return {
     limits,
+    loopPolicy,
     usage,
     recordModelTurn,
     recordToolRuntime,
     recordEvidence,
     recordSideEffect,
-    recordReadOnly,
+    recordNoProgressTurn,
     recordToolFailure,
     recordNodeRetry,
     snapshot,

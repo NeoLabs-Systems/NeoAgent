@@ -180,7 +180,6 @@ async function flushQueue({
 
 module.exports = {
   WRITE_CLASSES,
-  buildIdempotencyKey,
   enqueueCandidate,
   flushQueue,
 };

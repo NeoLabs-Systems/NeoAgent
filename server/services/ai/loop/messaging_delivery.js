@@ -13,13 +13,6 @@ const {
   getHttpStatus,
 } = require('../../../utils/retry');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
-const {
-  TICK_MS,
-  REPEAT_UPDATE_MS,
-  buildInitialProgressLedger,
-  buildProgressNudge,
-  evaluateProgressLiveness,
-} = require('./progress_monitor');
 
 const SAFE_PRE_DELIVERY_NETWORK_CODES = new Set([
   'EAI_AGAIN',
@@ -29,15 +22,6 @@ const SAFE_PRE_DELIVERY_NETWORK_CODES = new Set([
   'EHOSTUNREACH',
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
-
-function isoNow() {
-  return new Date().toISOString();
-}
-
-function timestampMs(value, fallback = 0) {
-  const resolved = value ? Date.parse(value) : NaN;
-  return Number.isFinite(resolved) ? resolved : fallback;
-}
 
 function requireSuccessfulMessagingDelivery(result, label = 'Messaging delivery') {
   if (result?.success === true && result?.suppressed !== true) {
@@ -73,99 +57,6 @@ function isSafeMessagingDeliveryRetry(error) {
   return SAFE_PRE_DELIVERY_NETWORK_CODES.has(String(getErrorCode(error) || ''));
 }
 
-// Harness-driven progress: the originating chat must see autonomous updates during
-// long runs even when a weak model never calls send_interim_update itself. The
-// supervisor paces this call (FIRST/REPEAT thresholds + a repeat guard). The update
-// text is always authored by the run's own agent loop (composeProgressUpdate); we
-// never emit a hard-coded status line. If the loop can't compose one this tick, we
-// skip the visible send and only nudge the model, then try again next tick.
-async function sendRuntimeMessagingHeartbeat(engine, runId, options = {}) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta || runMeta.aborted) return { sent: false, skipped: true };
-  if (runMeta.triggerSource !== 'messaging') {
-    return { sent: false, skipped: true };
-  }
-  if (runMeta.messagingContext?.behavior?.isGroup === true) {
-    return { sent: false, skipped: true, reason: 'group_progress_suppressed' };
-  }
-  const createdAt = isoNow();
-  const heartbeatCount = Number(runMeta.progressLedger?.heartbeatCount || 0) + 1;
-  runMeta.lastSupervisorNudgeAt = createdAt;
-  engine.updateRunProgress(runId, { heartbeatCount });
-
-  const ledger = runMeta.progressLedger || {};
-  const { platform, chatId } = runMeta.messagingContext || {};
-
-  if (engine.messagingManager && !runMeta.terminalInterim && platform && chatId
-    && typeof runMeta.composeProgressUpdate === 'function') {
-    let statusMsg = '';
-    try {
-      const composed = await runMeta.composeProgressUpdate({
-        stalled: options.stalled === true,
-        signal: runMeta.messagingProgressSupervisor?.abortController?.signal || null,
-      });
-      if (normalizeOutgoingMessage(composed, platform)) statusMsg = String(composed).trim();
-    } catch { /* no dynamic update available this tick */ }
-    const currentRunMeta = engine.getRunMeta(runId);
-    if (
-      currentRunMeta !== runMeta
-      || runMeta.aborted
-      || runMeta.status !== 'running'
-      || runMeta.terminalInterim
-      || runMeta.finalDeliverySent
-      || runMeta.deliveryState?.finalContentDelivered === true
-    ) {
-      return { sent: false, skipped: true, terminal: true };
-    }
-    if (statusMsg) try {
-      const delivery = await engine.messagingManager.sendMessage(runMeta.userId, platform, chatId, statusMsg, {
-        runId,
-        agentId: runMeta.agentId,
-        signal: runMeta.messagingProgressSupervisor?.abortController?.signal
-          || runMeta.abortController?.signal
-          || null,
-      });
-      if (delivery?.success === true && delivery?.suppressed !== true) {
-        const nowIso = isoNow();
-        runMeta.progressLedger = { ...ledger, lastUserVisibleUpdateAt: nowIso };
-        runMeta.lastInterimMessage = statusMsg;
-        engine.updateRunProgress(runId, { lastUserVisibleUpdateAt: nowIso });
-        engine.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
-          stalled: options.stalled === true,
-          currentTool: ledger.currentTool || null,
-          currentStep: ledger.currentStep || null,
-          phase: ledger.currentPhase || 'idle',
-          userVisible: true,
-          createdAt,
-        }, { agentId: runMeta.agentId });
-        // Still nudge the model so its next turn can deliver a richer, real update.
-        engine.enqueueSystemSteering(
-          runId,
-          buildProgressNudge({ stalled: options.stalled === true }),
-          { reason: options.stalled === true ? 'stalled_progress_check' : 'progress_check' },
-        );
-        return { sent: true, heartbeat: true };
-      }
-    } catch (err) {
-      console.warn('[Engine] Progress heartbeat send failed:', err?.message || err);
-    }
-  }
-
-  engine.recordRunEvent(runMeta.userId, runId, 'progress_heartbeat_sent', {
-    stalled: options.stalled === true,
-    currentTool: ledger.currentTool || null,
-    currentStep: ledger.currentStep || null,
-    phase: ledger.currentPhase || 'idle',
-    userVisible: false,
-    createdAt,
-  }, { agentId: runMeta.agentId });
-  engine.enqueueSystemSteering(
-    runId,
-    buildProgressNudge({ stalled: options.stalled === true }),
-    { reason: options.stalled === true ? 'stalled_progress_check' : 'progress_check' },
-  );
-  return { sent: false, heartbeat: true, queued: true };
-}
 
 function shouldSendMessagingFinalFallback(_engine, runMeta, content, platform = null) {
   const cleanedContent = normalizeOutgoingMessage(content || '', platform, {
@@ -296,120 +187,8 @@ async function deliverMessagingFinalFallback(engine, {
   return { sent: true, chunks: deliveredChunks };
 }
 
-async function tickMessagingProgressSupervisor(engine, runId) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta || runMeta.aborted || runMeta.triggerSource !== 'messaging') {
-    return { sent: false, skipped: true };
-  }
-  if (runMeta.terminalInterim) {
-    return { sent: false, skipped: true };
-  }
-  if (runMeta.progressSupervisorTickInFlight === true) {
-    return { sent: false, skipped: true, inFlight: true };
-  }
-  runMeta.progressSupervisorTickInFlight = true;
-  let settleTick;
-  const tickPromise = new Promise((resolve) => { settleTick = resolve; });
-  runMeta.progressSupervisorTickPromise = tickPromise;
-
-  try {
-    const ledger = runMeta.progressLedger || buildInitialProgressLedger({
-      startedAt: runMeta.startedAtIso || isoNow(),
-    });
-    runMeta.progressLedger = ledger;
-    const liveness = evaluateProgressLiveness(runMeta);
-    const stalled = liveness.stalled;
-
-    if (stalled && !ledger.stallNotifiedAt) {
-      engine.updateRunProgress(runId, {
-        stallNotifiedAt: isoNow(),
-        progressState: 'stalled',
-      });
-      engine.recordRunEvent(runMeta.userId, runId, 'progress_stalled', {
-        currentTool: ledger.currentTool || null,
-        currentStep: ledger.currentStep || null,
-        phase: ledger.currentPhase || 'idle',
-      }, { agentId: runMeta.agentId });
-    }
-
-    if (!liveness.shouldNudge) {
-      return { sent: false, skipped: true };
-    }
-
-    const lastSupervisorNudgeAtMs = timestampMs(runMeta.lastSupervisorNudgeAt, 0);
-    if (lastSupervisorNudgeAtMs > 0 && (Date.now() - lastSupervisorNudgeAtMs) < REPEAT_UPDATE_MS) {
-      return { sent: false, skipped: true };
-    }
-
-    if (ledger.currentPhase === 'tool' || ledger.currentPhase === 'model') {
-      return await sendRuntimeMessagingHeartbeat(engine, runId, { stalled });
-    }
-
-    if (ledger.currentPhase !== 'idle') {
-      return { sent: false, skipped: true };
-    }
-
-    const queued = engine.enqueueSystemSteering(runId, buildProgressNudge({ stalled }), {
-      reason: stalled ? 'stalled_progress_check' : 'progress_check',
-    });
-    if (!queued) {
-      return { sent: false, skipped: true };
-    }
-    runMeta.lastSupervisorNudgeAt = isoNow();
-    engine.updateRunProgress(runId, {
-      lastUserVisibleUpdateAt: ledger.lastUserVisibleUpdateAt || null,
-    });
-    return { sent: false, queued: true };
-  } finally {
-    settleTick();
-    if (engine.getRunMeta(runId) === runMeta) {
-      runMeta.progressSupervisorTickInFlight = false;
-      if (runMeta.progressSupervisorTickPromise === tickPromise) {
-        runMeta.progressSupervisorTickPromise = null;
-      }
-    }
-  }
-}
-
-function startMessagingProgressSupervisor(engine, runId) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta || runMeta.triggerSource !== 'messaging' || !runMeta.messagingContext?.platform || !runMeta.messagingContext?.chatId) {
-    return false;
-  }
-  if (runMeta.messagingProgressSupervisor?.timer) {
-    return true;
-  }
-  const abortController = new AbortController();
-  const timer = setInterval(() => {
-    tickMessagingProgressSupervisor(engine, runId).catch((error) => {
-      console.warn('[Engine] Messaging progress supervisor failed:', error?.message || error);
-    });
-  }, TICK_MS);
-  timer.unref?.();
-  runMeta.messagingProgressSupervisor = { timer, abortController };
-  return true;
-}
-
-function stopMessagingProgressSupervisor(engine, runId) {
-  const runMeta = engine.getRunMeta(runId);
-  const inFlight = runMeta?.progressSupervisorTickPromise || null;
-  const timer = runMeta?.messagingProgressSupervisor?.timer || null;
-  if (timer) {
-    clearInterval(timer);
-  }
-  runMeta?.messagingProgressSupervisor?.abortController?.abort('Progress supervisor stopped.');
-  if (runMeta?.messagingProgressSupervisor) {
-    runMeta.messagingProgressSupervisor = null;
-  }
-  return inFlight || Promise.resolve();
-}
-
 module.exports = {
   deliverMessagingFinalFallback,
   requireSuccessfulMessagingDelivery,
-  sendRuntimeMessagingHeartbeat,
   shouldSendMessagingFinalFallback,
-  startMessagingProgressSupervisor,
-  stopMessagingProgressSupervisor,
-  tickMessagingProgressSupervisor,
 };

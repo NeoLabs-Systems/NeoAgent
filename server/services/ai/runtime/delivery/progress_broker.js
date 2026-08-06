@@ -5,18 +5,33 @@ const { EVENT_TYPES, VISIBILITY } = require('../events/event_types');
 const { requestProgressDelivery } = require('./delivery_worker');
 const { MESSAGE_KINDS } = require('../constants');
 
+const DEFAULT_TICK_MS = 15_000;
+
 function hashProgress(delta) {
   return createHash('sha256').update(JSON.stringify(delta || {})).digest('hex');
 }
 
 /**
- * Liveness is deterministic; narration may only summarize real deltas.
+ * Liveness is deterministic and derived only from observed runtime activity.
+ * Narration is optional and may only phrase a delta the runtime already saw —
+ * it can never introduce a fact, and there is no canned status text.
+ *
+ * The broker owns the heartbeat for every channel, so a run that spends minutes
+ * inside a single tool or model call still reports in.
  */
 function createProgressBroker({
   engine,
   runId,
   userId,
+  agentId = null,
   eventBus = null,
+  narrator = null,
+  collectDelta = null,
+  isSuppressed = null,
+  getLastVisibleAt = null,
+  channel = 'web',
+  recipient = null,
+  tickMs = DEFAULT_TICK_MS,
   maxSilenceSeconds = 90,
   firstUpdateSeconds = 25,
   repeatUpdateSeconds = 90,
@@ -25,13 +40,19 @@ function createProgressBroker({
   let lastProgressHash = null;
   let lastActivityAt = Date.now();
   let acceptedAt = Date.now();
+  let currentPhase = 'idle';
+  let runningTools = 0;
+  let timer = null;
+  let tickInFlight = false;
 
   function noteActivity(kind = 'activity', details = {}) {
     lastActivityAt = Date.now();
+    currentPhase = kind;
     if (eventBus) {
       eventBus.publish({
         runId,
         userId,
+        agentId,
         eventType: EVENT_TYPES.NODE_PROGRESS,
         payload: { kind, ...details },
         visibility: VISIBILITY.INTERNAL,
@@ -39,23 +60,29 @@ function createProgressBroker({
     }
   }
 
-  function evaluateLiveness({ state = 'executing', waiting = false, blocked = false } = {}) {
+  // A tool that is still executing is real work, however long it takes. Without
+  // this the stall threshold would misreport a 20-minute build as a dead run.
+  function noteToolStarted(toolName) {
+    runningTools += 1;
+    noteActivity('tool_started', { tool: toolName });
+  }
+
+  function noteToolFinished(toolName) {
+    runningTools = Math.max(0, runningTools - 1);
+    noteActivity('tool_completed', { tool: toolName });
+  }
+
+  function evaluateLiveness({ waiting = false, blocked = false } = {}) {
     const now = Date.now();
     const silentForMs = now - lastActivityAt;
     const sinceAcceptedMs = now - acceptedAt;
-    if (blocked) {
-      return { status: 'blocked', silentForMs, sinceAcceptedMs };
-    }
-    if (waiting) {
-      return { status: 'waiting', silentForMs, sinceAcceptedMs };
-    }
-    if (silentForMs > maxSilenceSeconds * 1000) {
-      return { status: 'stalled', silentForMs, sinceAcceptedMs };
-    }
-    if (silentForMs > (maxSilenceSeconds * 1000) / 2) {
-      return { status: 'quiet', silentForMs, sinceAcceptedMs };
-    }
-    return { status: 'alive', silentForMs, sinceAcceptedMs, state };
+    const base = { silentForMs, sinceAcceptedMs, phase: currentPhase, runningTools };
+    if (blocked) return { ...base, status: 'blocked' };
+    if (waiting) return { ...base, status: 'waiting' };
+    if (runningTools > 0) return { ...base, status: 'working' };
+    if (silentForMs > maxSilenceSeconds * 1000) return { ...base, status: 'stalled' };
+    if (silentForMs > (maxSilenceSeconds * 1000) / 2) return { ...base, status: 'quiet' };
+    return { ...base, status: 'alive' };
   }
 
   function buildDelta({
@@ -65,6 +92,7 @@ function createProgressBroker({
     blockers = [],
     planChanges = [],
     nextMilestone = null,
+    evidence = [],
   } = {}) {
     return {
       completed_since_last_update: completed,
@@ -73,71 +101,88 @@ function createProgressBroker({
       blockers,
       plan_changes: planChanges,
       next_milestone: nextMilestone,
+      evidence,
     };
   }
 
-  function narrate(delta, liveness) {
-    const parts = [];
-    if (delta.completed_since_last_update?.length) {
-      parts.push(`Completed: ${delta.completed_since_last_update.join(', ')}`);
-    }
-    if (delta.currently_running?.length) {
-      parts.push(`In progress: ${delta.currently_running.join(', ')}`);
-    }
-    if (delta.new_artifacts?.length) {
-      parts.push(`Artifacts: ${delta.new_artifacts.join(', ')}`);
-    }
-    if (delta.blockers?.length) {
-      parts.push(`Blocked: ${delta.blockers.join(', ')}`);
-    }
-    if (delta.next_milestone) {
-      parts.push(`Next: ${delta.next_milestone}`);
-    }
-    if (parts.length === 0) {
-      if (liveness.status === 'stalled') {
-        return 'Still working; no new milestones since the last update. Investigating the delay.';
-      }
-      if (liveness.status === 'waiting') {
-        return 'Waiting on an external dependency or approval.';
-      }
+  function hasRealDelta(delta) {
+    return Boolean(
+      delta?.completed_since_last_update?.length
+      || delta?.currently_running?.length
+      || delta?.new_artifacts?.length
+      || delta?.blockers?.length
+      || delta?.plan_changes?.length
+      || delta?.evidence?.length
+      || delta?.next_milestone,
+    );
+  }
+
+  async function narrate(delta, liveness) {
+    if (typeof narrator !== 'function' || !hasRealDelta(delta)) return null;
+    try {
+      const text = await narrator({ delta, liveness });
+      return String(text || '').trim() || null;
+    } catch {
       return null;
     }
-    return parts.join('. ') + '.';
   }
 
   async function maybePublish({
     delta,
-    channel = 'web',
-    recipient = null,
+    channel: overrideChannel = null,
+    recipient: overrideRecipient = null,
     force = false,
   } = {}) {
+    if (typeof isSuppressed === 'function' && isSuppressed()) {
+      return { sent: false, reason: 'suppressed' };
+    }
+
     const liveness = evaluateLiveness({
       blocked: (delta?.blockers || []).length > 0,
       waiting: Boolean(delta?.waiting),
     });
     const now = Date.now();
-    const hash = hashProgress(delta);
-    const sinceLast = now - lastUserUpdateAt;
-    const firstDue = lastUserUpdateAt === 0 && (now - acceptedAt) >= firstUpdateSeconds * 1000;
-    const repeatDue = lastUserUpdateAt > 0 && sinceLast >= repeatUpdateSeconds * 1000;
-    const stalled = liveness.status === 'stalled' || liveness.status === 'blocked';
+    // The hash covers only the observable milestone state, never the raw
+    // evidence text, so re-reading the same node does not re-notify.
+    const hash = hashProgress({
+      completed: delta?.completed_since_last_update,
+      running: delta?.currently_running,
+      artifacts: delta?.new_artifacts,
+      blockers: delta?.blockers,
+      plan: delta?.plan_changes,
+      next: delta?.next_milestone,
+    });
+    // The model can publish its own interim update through send_interim_update.
+    // Cadence is measured from whichever visible update happened last, so the
+    // heartbeat never talks over the agent.
+    const externalVisibleAt = typeof getLastVisibleAt === 'function'
+      ? Number(getLastVisibleAt()) || 0
+      : 0;
+    const lastVisibleAt = Math.max(lastUserUpdateAt, externalVisibleAt);
+    const firstDue = lastVisibleAt === 0 && (now - acceptedAt) >= firstUpdateSeconds * 1000;
+    const repeatDue = lastVisibleAt > 0 && (now - lastVisibleAt) >= repeatUpdateSeconds * 1000;
 
-    if (!force && !firstDue && !repeatDue && !stalled) {
+    if (!force && !firstDue && !repeatDue) {
       return { sent: false, reason: 'not_due', liveness };
     }
-    if (!force && hash === lastProgressHash && !stalled) {
+    if (!force && hash === lastProgressHash) {
       return { sent: false, reason: 'unchanged', liveness };
     }
 
-    const text = narrate(delta || buildDelta(), liveness);
+    const text = await narrate(delta || buildDelta(), liveness);
     if (!text) {
       return { sent: false, reason: 'no_real_delta', liveness };
+    }
+    // The run may have finished while narration was in flight.
+    if (typeof isSuppressed === 'function' && isSuppressed()) {
+      return { sent: false, reason: 'suppressed', liveness };
     }
 
     if (eventBus) {
       eventBus.publish({
         runId,
         userId,
+        agentId,
         eventType: EVENT_TYPES.PROGRESS_USER_UPDATE,
         payload: { text, delta, liveness },
         visibility: VISIBILITY.USER,
@@ -148,8 +193,8 @@ function createProgressBroker({
       engine,
       runId,
       content: text,
-      channel,
-      recipient,
+      channel: overrideChannel || channel,
+      recipient: overrideRecipient || recipient,
       messageKind: MESSAGE_KINDS.PROGRESS,
       metadata: {
         idempotencyKey: `${runId}:progress:${hash}`,
@@ -164,6 +209,35 @@ function createProgressBroker({
     return { sent: result.ok === true, result, text, liveness };
   }
 
+  async function tick() {
+    if (tickInFlight) return { sent: false, reason: 'tick_in_flight' };
+    tickInFlight = true;
+    try {
+      const delta = typeof collectDelta === 'function' ? collectDelta() : null;
+      if (!delta) return { sent: false, reason: 'no_delta_source' };
+      return await maybePublish({ delta });
+    } catch (error) {
+      console.warn('[Runtime] Progress tick failed:', error?.message || error);
+      return { sent: false, reason: 'tick_failed' };
+    } finally {
+      tickInFlight = false;
+    }
+  }
+
+  function start() {
+    if (timer) return false;
+    timer = setInterval(() => { tick(); }, Math.max(1000, Number(tickMs) || DEFAULT_TICK_MS));
+    timer.unref?.();
+    return true;
+  }
+
+  function stop() {
+    if (!timer) return false;
+    clearInterval(timer);
+    timer = null;
+    return true;
+  }
+
   function markAccepted() {
     acceptedAt = Date.now();
     lastActivityAt = acceptedAt;
@@ -171,15 +245,18 @@ function createProgressBroker({
 
   return {
     noteActivity,
+    noteToolStarted,
+    noteToolFinished,
     evaluateLiveness,
     buildDelta,
-    narrate,
     maybePublish,
     markAccepted,
+    tick,
+    start,
+    stop,
   };
 }
 
 module.exports = {
   createProgressBroker,
-  hashProgress,
 };

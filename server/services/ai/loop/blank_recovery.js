@@ -64,8 +64,20 @@ function buildRecoverableToolFailureGuidance(toolExecutions = []) {
   ].join(' ');
 }
 
+// A turn that returned neither text nor a tool call. When a failed tool caused
+// it, the failure itself is the most useful context; otherwise the model just
+// needs to be told the turn was empty and that the task is not finished.
+function buildBlankOutputGuidance(toolExecutions = []) {
+  return buildBlankAfterToolFailureGuidance(toolExecutions) || [
+    'The latest assistant turn returned no user-facing answer and no tool call, so the task is not terminal.',
+    'Take the next concrete action now: call the tool you need, or give a complete final answer if the work is already evidenced.',
+    'Do not repeat an empty turn and do not claim a result you have not produced.',
+  ].join(' ');
+}
+
 module.exports = {
   buildBlankAfterToolFailureGuidance,
+  buildBlankOutputGuidance,
   buildRecoverableToolFailureGuidance,
   isRecoverableInternalToolFailure,
   latestFailedToolExecution,

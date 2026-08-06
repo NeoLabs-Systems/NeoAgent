@@ -198,6 +198,29 @@ async function transmit(engine, entry, run) {
       }
       const platform = entry.payload?.metadata?.platform || channel;
       const chatId = recipient || entry.payload?.metadata?.chatId;
+
+      // A final result the model already published through send_message must not
+      // be transmitted a second time. deliverMessagingFinalFallback owns that
+      // guard plus platform chunking, the behavior pipeline, and safe retries;
+      // when it skips, the content is already visible and the outbox entry only
+      // records the commit.
+      if (entry.messageKind === MESSAGE_KINDS.FINAL
+        && typeof engine.deliverMessagingFinalFallback === 'function') {
+        const fallback = await engine.deliverMessagingFinalFallback({
+          runId: run.id,
+          userId: run.userId,
+          agentId: run.agentId,
+          platform,
+          chatId,
+          content,
+        });
+        return {
+          ok: true,
+          skippedTransmission: fallback?.sent !== true,
+          platformMessageId: fallback?.sent === true ? `messaging:${entry.id}` : null,
+        };
+      }
+
       const result = await manager.sendMessage(
         run.userId,
         platform,
@@ -241,34 +264,9 @@ async function transmit(engine, entry, run) {
   }
 }
 
-async function processPending(engine, { workerId = null, limit = 20 } = {}) {
-  const owner = workerId || `delivery_${randomUUID()}`;
-  const pending = outbox.leasePending({ workerId: owner, limit });
-  const results = [];
-  for (const entry of pending) {
-    const run = loadRun(entry.runId);
-    if (!run) {
-      outbox.markFailed(entry.id, { error: 'run_missing' });
-      continue;
-    }
-    const delivery = await transmit(engine, entry, run);
-    if (delivery.ok) {
-      outbox.markDelivered(entry.id, { platformMessageId: delivery.platformMessageId || null });
-      results.push({ id: entry.id, status: 'delivered' });
-    } else if (delivery.ambiguous) {
-      outbox.markFailed(entry.id, { ambiguous: true, error: delivery.error });
-      results.push({ id: entry.id, status: 'ambiguous' });
-    } else {
-      outbox.markFailed(entry.id, { error: delivery.error });
-      results.push({ id: entry.id, status: 'failed' });
-    }
-  }
-  return results;
-}
 
 module.exports = {
   requestFinalDelivery,
   requestProgressDelivery,
-  processPending,
   transmit,
 };

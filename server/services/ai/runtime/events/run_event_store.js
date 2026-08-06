@@ -112,17 +112,8 @@ function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
   }));
 }
 
-function getLatestSequence(runId) {
-  if (!runId) return 0;
-  return Number(
-    db.prepare(
-      'SELECT COALESCE(MAX(sequence_index), 0) AS max_sequence FROM agent_run_events WHERE run_id = ?',
-    ).get(runId)?.max_sequence || 0,
-  );
-}
 
 module.exports = {
   appendEvent,
   listEvents,
-  getLatestSequence,
 };

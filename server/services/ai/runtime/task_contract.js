@@ -230,19 +230,18 @@ function evaluateOpenObligations(contract, {
     });
   }
 
-  for (const criterion of asArray(c.evidence_requirements)) {
-    const matched = evidence.some((item) => {
-      const hay = `${item.summary || ''} ${item.criterion || ''} ${item.id || ''}`.toLowerCase();
-      return hay.includes(String(criterion).toLowerCase().slice(0, 40));
+  // Whether free-text criteria are actually met is a semantic judgement and
+  // belongs to the verifier. The deterministic gate can only check that the run
+  // produced evidence at all — matching criterion prose against tool output
+  // never succeeds and would keep every run reopening until its budget is gone.
+  const evidenceRequirements = asArray(c.evidence_requirements);
+  if (evidenceRequirements.length > 0 && evidence.length === 0 && artifacts.length === 0) {
+    open.push({
+      id: 'evidence',
+      type: 'evidence',
+      required: true,
+      criteria: evidenceRequirements,
     });
-    if (!matched) {
-      open.push({
-        id: `evidence:${criterion}`,
-        type: 'evidence',
-        required: true,
-        criterion,
-      });
-    }
   }
 
   return {

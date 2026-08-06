@@ -204,20 +204,26 @@ class AnthropicProvider extends BaseProvider {
       }
     }
 
+    // A truncated or error-shaped response can omit usage entirely; a missing
+    // token count must not abort the run.
+    const usage = response.usage || {};
+    const inputTokens = Number(usage.input_tokens || 0);
+    const outputTokens = Number(usage.output_tokens || 0);
+
     return {
       content,
       toolCalls,
       providerContentBlocks,
       finishReason: response.stop_reason === 'tool_use' ? 'tool_calls' : 'stop',
       usage: {
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
+        inputTokens,
+        outputTokens,
         reasoningTokens: 0,
-        cachedReadTokens: response.usage.cache_read_input_tokens || 0,
-        cacheWriteTokens: response.usage.cache_creation_input_tokens || 0,
-        promptTokens: response.usage.input_tokens,
-        completionTokens: response.usage.output_tokens,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens
+        cachedReadTokens: usage.cache_read_input_tokens || 0,
+        cacheWriteTokens: usage.cache_creation_input_tokens || 0,
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens
       },
       model: response.model
     };

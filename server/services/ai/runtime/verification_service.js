@@ -168,5 +168,4 @@ function suggestActions(failure) {
 
 module.exports = {
   verifyRun,
-  suggestActions,
 };

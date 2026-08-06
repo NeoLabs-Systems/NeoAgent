@@ -264,44 +264,6 @@ function requiredOpenNodes(runId) {
   ));
 }
 
-function graphFromPlan(plan = {}, analysis = {}) {
-  const steps = Array.isArray(plan.steps) ? plan.steps : [];
-  if (steps.length === 0) {
-    return [
-      {
-        id: 'execute-main',
-        kind: 'execute',
-        objective: analysis.goal || 'Complete the user request',
-        success_criteria: analysis.success_criteria || plan.success_criteria || [],
-        dependencies: [],
-      },
-      {
-        id: 'verify-main',
-        kind: 'verification',
-        objective: 'Verify completion against success criteria',
-        success_criteria: plan.verification_focus || analysis.success_criteria || [],
-        dependencies: ['execute-main'],
-      },
-    ];
-  }
-
-  const nodes = steps.map((step, index) => ({
-    id: step.id || `step-${index + 1}`,
-    kind: step.kind || 'execute',
-    objective: step.objective || step.title || `Step ${index + 1}`,
-    success_criteria: step.success_criteria || [],
-    allowed_tools: step.suggested_tools || [],
-    dependencies: index === 0 ? [] : [steps[index - 1].id || `step-${index}`],
-  }));
-  nodes.push({
-    id: 'verify-final',
-    kind: 'verification',
-    objective: 'Verify final deliverable',
-    success_criteria: plan.verification_focus || plan.success_criteria || [],
-    dependencies: [nodes[nodes.length - 1].id],
-  });
-  return nodes;
-}
 
 function graphFromContract(contract = {}) {
   const nodes = [];
@@ -346,16 +308,12 @@ function graphFromContract(contract = {}) {
 }
 
 module.exports = {
-  NODE_STATUSES,
   listNodes,
-  listDependencies,
   createGraph,
   nextActionableNodes,
   updateNode,
   completeNode,
   reopenNodes,
   requiredOpenNodes,
-  graphFromPlan,
   graphFromContract,
-  refreshReadyStates,
 };

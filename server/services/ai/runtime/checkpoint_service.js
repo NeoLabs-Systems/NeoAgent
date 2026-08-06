@@ -77,33 +77,8 @@ function loadLatestCheckpoint(runId) {
   };
 }
 
-function listCheckpoints(runId, { limit = 20 } = {}) {
-  return db.prepare(
-    `SELECT id, run_id, version, phase, state_json, created_at
-     FROM agent_runtime_checkpoints
-     WHERE run_id = ?
-     ORDER BY version DESC
-     LIMIT ?`,
-  ).all(runId, Math.max(1, Math.min(Number(limit) || 20, 100))).map((row) => {
-    let state = {};
-    try {
-      state = JSON.parse(row.state_json || '{}');
-    } catch {
-      state = {};
-    }
-    return {
-      id: row.id,
-      runId: row.run_id,
-      version: Number(row.version || 1),
-      phase: row.phase,
-      state,
-      createdAt: row.created_at,
-    };
-  });
-}
 
 module.exports = {
   saveCheckpoint,
   loadLatestCheckpoint,
-  listCheckpoints,
 };
