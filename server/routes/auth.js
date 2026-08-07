@@ -29,11 +29,6 @@ const {
   createChallenge,
   getChallengeStatusForPoll,
 } = require('../services/account/qr_login');
-const {
-  consumeSetupClaim,
-  isSetupClaimRequired,
-  isSetupClaimSessionValid,
-} = require('../services/setup/onboarding');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -263,17 +258,10 @@ router.get('/api/auth/status', (req, res) => {
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
   const currentUser = readAuthenticatedUser(req);
-  const setupClaimRequired = count.count === 0 && isSetupClaimRequired();
-  const setupClaimReady = setupClaimRequired
-    && isSetupClaimSessionValid(req.session?.setupClaimId);
   if (!currentUser) {
     return res.json({
       hasUser: count.count > 0,
       registrationOpen: policy.registrationOpen || count.count === 0,
-      setup: {
-        claimRequired: setupClaimRequired,
-        claimReady: setupClaimReady,
-      },
       deploymentProfile: policy.profile,
       authenticated: false,
       user: null,
@@ -288,10 +276,6 @@ router.get('/api/auth/status', (req, res) => {
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
-    setup: {
-      claimRequired: false,
-      claimReady: false,
-    },
     deploymentProfile: policy.profile,
     authenticated: Boolean(currentUser),
     user: currentUser ? toUserPayload(currentUser) : null,
@@ -396,19 +380,8 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const setupClaimId = req.session?.setupClaimId || null;
     const createUser = db.transaction(() => {
       const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-      const isFirstUser = userCount.count === 0;
-      if (
-        isFirstUser
-        && isSetupClaimRequired()
-        && !isSetupClaimSessionValid(setupClaimId)
-      ) {
-        const error = new Error('Complete the secure setup claim before creating the first account.');
-        error.code = 'SETUP_CLAIM_REQUIRED';
-        throw error;
-      }
       if (userCount.count > 0 && !policy.registrationOpen) {
         const error = new Error('Registration is closed');
         error.code = 'REGISTRATION_CLOSED';
@@ -420,19 +393,12 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
         error.code = 'EMAIL_TAKEN';
         throw error;
       }
-      const insertResult = db.prepare(`
+      return db.prepare(`
         INSERT INTO users (username, email, email_verified_at, password, password_login_enabled)
         VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?, 1)
       `).run(username, email, confirmationRequired ? 1 : 0, hash);
-      if (isFirstUser && isSetupClaimRequired()) {
-        consumeSetupClaim(setupClaimId);
-      }
-      return insertResult;
     });
     const result = createUser();
-    if (req.session) {
-      delete req.session.setupClaimId;
-    }
 
     if (confirmationRequired) {
       const user = { id: result.lastInsertRowid, username, email };
@@ -470,17 +436,6 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     }
     if (err?.code === 'REGISTRATION_CLOSED') {
       return res.status(403).json({ error: 'Registration is closed' });
-    }
-    if (err?.code === 'SETUP_CLAIM_REQUIRED') {
-      return res.status(403).type('application/problem+json').json({
-        type: 'https://neoagent.ai/problems/setup-claim-required',
-        title: 'Secure setup authorization required',
-        status: 403,
-        detail: err.message,
-        error: err.message,
-        code: err.code,
-        retryable: false,
-      });
     }
     if (err?.code === 'EMAIL_TAKEN') {
       return res.status(409).json({ error: 'Email is already in use' });

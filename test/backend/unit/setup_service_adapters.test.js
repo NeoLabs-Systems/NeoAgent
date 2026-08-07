@@ -24,18 +24,22 @@ test('launch agent rendering escapes user-controlled paths', () => {
   assert.doesNotMatch(rendered, /__[A-Z_]+__/);
 });
 
-test('systemd rendering quotes executable, data, and log paths', () => {
+test('systemd rendering quotes only the ExecStart argument list', () => {
+  // WorkingDirectory=, EnvironmentFile=, StandardOutput=, and StandardError= take the
+  // rest of the line verbatim in systemd unit syntax — wrapping them in literal quote
+  // characters makes the quotes part of the value (e.g. a non-absolute WorkingDirectory).
+  // Only ExecStart= is parsed as a command/argument list, where quoting matters.
   const rendered = renderSystemdUnit({
     appDir: '/opt/Neo Agent',
     envFile: '/home/neo/Neo Agent/.env',
     logDir: '/home/neo/Neo Agent/logs',
     nodeBin: '/opt/Node Runtime/node',
   });
-  assert.match(rendered, /WorkingDirectory="\/opt\/Neo Agent"/);
+  assert.match(rendered, /^WorkingDirectory=\/opt\/Neo Agent$/m);
   assert.match(
     rendered,
     /ExecStart="\/opt\/Node Runtime\/node" "\/opt\/Neo Agent\/server\/index\.js"/,
   );
-  assert.match(rendered, /EnvironmentFile=-"\/home\/neo\/Neo Agent\/\.env"/);
-  assert.match(rendered, /StandardError="append:\/home\/neo\/Neo Agent\/logs\//);
+  assert.match(rendered, /^EnvironmentFile=-\/home\/neo\/Neo Agent\/\.env$/m);
+  assert.match(rendered, /^StandardError=append:\/home\/neo\/Neo Agent\/logs\//m);
 });

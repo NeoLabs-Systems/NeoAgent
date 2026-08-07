@@ -726,7 +726,7 @@ jobs:
             'Section: utils' \
             'Priority: optional' \
             'Architecture: amd64' \
-            'Maintainer: NeoAgent <support@neoagent.ai>' \
+            'Maintainer: NeoAgent <https://github.com/NeoLabs-Systems/NeoAgent>' \
             'Description: NeoAgent Flutter desktop app' \
             > "$PKG_ROOT/DEBIAN/control"
           printf '%s\n' \
@@ -755,7 +755,7 @@ jobs:
             -v "${{ steps.version.outputs.deb_version }}" \
             --iteration 1 \
             --architecture x86_64 \
-            --maintainer "NeoAgent <support@neoagent.ai>" \
+            --maintainer "NeoAgent <https://github.com/NeoLabs-Systems/NeoAgent>" \
             --description "NeoAgent Flutter desktop app" \
             -C "$ARCH_ROOT" \
             --package "$DIST_DIR/neoagent-arch-x86_64-${{ steps.version.outputs.deb_version }}-1.pkg.tar.zst" \
