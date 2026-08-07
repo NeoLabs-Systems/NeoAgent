@@ -39,24 +39,6 @@ neoagent
 The first CLI run detects an existing, incomplete, or damaged installation and
 offers the appropriate status, resume, or repair action.
 
-### Docker Compose
-
-Servers that already run Docker can install NeoAgent without Node.js on the
-host:
-
-```bash
-git clone https://github.com/NeoLabs-Systems/NeoAgent.git
-cd NeoAgent
-docker compose up -d
-docker compose logs -f neoagent
-```
-
-The first start builds the image, creates the data volume, and prints the
-address and the one-time setup code. The `neoagent` CLI is available inside the
-container with `docker compose exec neoagent neoagent <command>`. The
-[Docker guide](docker.md) covers ports, configuration, backups, updates, and
-the optional isolated browser and CLI runtime.
-
 ## Choose a setup mode
 
 - **Quickstart** is selected by default. It chooses a private data directory,

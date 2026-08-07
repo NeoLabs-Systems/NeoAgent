@@ -65,22 +65,10 @@ npm install -g neoagent
 neoagent setup --quick
 ```
 
-On a server with Docker, one command installs and starts everything:
-
-```bash
-git clone https://github.com/NeoLabs-Systems/NeoAgent.git && cd NeoAgent
-docker compose up -d
-```
-
-`docker compose logs -f neoagent` prints the address and the one-time setup
-code, and `docker compose exec neoagent neoagent <command>` runs the same CLI
-inside the container. See the [Docker guide](docs/docker.md).
-
 The first account is protected by a short-lived one-time setup claim. The app
 connects to the actual selected port automatically; nearby NeoAgent servers are
-discovered and verified on the local network. For desktop, CLI, and npm
-installs Docker stays optional and is only needed for isolated browser and
-terminal capabilities.
+discovered and verified on the local network. Docker is optional and only
+needed for isolated browser and terminal capabilities.
 
 Read the [installation guide](docs/getting-started.md) before exposing the
 service to a network.

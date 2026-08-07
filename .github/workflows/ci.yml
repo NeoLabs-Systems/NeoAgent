@@ -67,48 +67,6 @@ jobs:
       - name: Run Flutter unit and widget tests
         run: npm run flutter:test
 
-  docker-image:
-    name: Docker Compose smoke test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: neoagent:local
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Start the stack
-        run: docker compose up -d
-
-      - name: Wait for the setup handshake
-        run: |
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:3333/api/setup/handshake | grep -q '"product":"NeoAgent"'; then
-              exit 0
-            fi
-            sleep 5
-          done
-          docker compose logs neoagent
-          exit 1
-
-      - name: Verify the first-run setup code and CLI
-        run: |
-          docker compose logs neoagent | grep -q 'one-time setup code'
-          docker compose exec -T neoagent neoagent status
-
-      - name: Stop the stack
-        if: always()
-        run: docker compose down -v
-
   load-test:
     name: Load smoke tests
     runs-on: ubuntu-latest

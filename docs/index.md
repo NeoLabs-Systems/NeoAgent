@@ -38,7 +38,6 @@ Continue with:
 | Guide | Use it for |
 |---|---|
 | [Installation](getting-started.md) | Host requirements, installation, first run |
-| [Docker](docker.md) | Docker Compose install, configuration, and backups |
 | [Models](models.md) | Local, API-key, and account-backed model providers |
 | [Agents and users](agents-and-users.md) | Specialist agents and multi-user administration |
 | [Automation](automation.md) | Schedules, event triggers, delivery, and run history |

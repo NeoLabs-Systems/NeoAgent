@@ -8,7 +8,6 @@ const sidebars = {
       collapsed: false,
       items: [
         'getting-started',
-        'docker',
         'models',
         'agents-and-users',
         'automation',
