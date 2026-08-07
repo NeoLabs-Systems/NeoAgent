@@ -198,9 +198,16 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? ((typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '') || definition.defaultBaseUrl || '')
         : '';
 
+    // With no userId, this is the global admin catalog rather than a specific
+    // user's settings -- there's no per-user "enabled" toggle to read, so
+    // don't gate on `defaultEnabled` (an onboarding default, not a signal
+    // that credentials exist). Every provider with credentials should be
+    // fetched; `config.enabled` only applies once a real user is involved.
+    const enabled = userId ? config.enabled !== false : true;
+
     return {
         ...definition,
-        enabled: config.enabled !== false,
+        enabled,
         apiKey: scopedApiKey || envApiKey,
         credentialConfigured: Boolean(scopedApiKey || envApiKey),
         baseUrl
