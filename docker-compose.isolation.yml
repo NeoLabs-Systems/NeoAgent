@@ -1,0 +1,29 @@
+# Optional overlay that enables the isolated browser and CLI runtime.
+#
+#   sudo install -d -o 1000 -g 1000 -m 700 /var/lib/neoagent/agent-data
+#   docker compose -f docker-compose.yml -f docker-compose.isolation.yml up -d
+#
+# NeoAgent runs each user's browser/shell session in its own container. Those
+# containers are started through the host Docker daemon, so this overlay mounts
+# the daemon socket — which grants root-equivalent access to the host. Only use
+# it on a machine where that trade-off is acceptable.
+#
+# The agent data directory is moved to an identical path inside and outside the
+# container because the daemon resolves the per-user workspace bind mount
+# (server/services/runtime/docker-vm-manager.js) against the host filesystem.
+#
+# The sandbox egress firewall NeoAgent normally installs with iptables cannot be
+# applied from inside a container. Keep the host firewalled accordingly, or set
+# NEOAGENT_VM_EGRESS_FIREWALL=0 to skip the attempt once host rules are in place.
+
+services:
+  neoagent:
+    environment:
+      NEOAGENT_AGENT_DATA_DIR: /var/lib/neoagent/agent-data
+    # The socket is owned by the host `docker` group. Override the id when it is
+    # not 999: NEOAGENT_DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+    group_add:
+      - "${NEOAGENT_DOCKER_GID:-999}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/neoagent/agent-data:/var/lib/neoagent/agent-data

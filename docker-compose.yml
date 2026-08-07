@@ -1,0 +1,43 @@
+name: neoagent
+
+# NeoAgent in one command:
+#
+#   docker compose up -d && docker compose logs -f neoagent
+#
+# The first start prints the URL and the one-time setup code used to create the
+# owner account. Everything else — secrets, database, migrations — is created by
+# the server inside the neoagent-home volume.
+#
+# Optional settings below are read from a .env file next to this compose file,
+# or from the shell environment. Provider API keys are configured in the app
+# (Settings → AI Providers) or with:
+#
+#   docker compose exec neoagent neoagent env set OPENAI_API_KEY sk-...
+
+services:
+  neoagent:
+    build: .
+    image: neoagent:local
+    container_name: neoagent
+    restart: unless-stopped
+    init: true
+    # Messaging bridges and running tasks are closed on SIGTERM before exit.
+    stop_grace_period: 30s
+    ports:
+      - "${NEOAGENT_PORT:-3333}:3333"
+    environment:
+      # The published port above is what changes; the server always listens on
+      # 3333 inside the container.
+      PORT: 3333
+      # Public base URL for OAuth callbacks and external links, e.g.
+      # https://agent.example.com when running behind a reverse proxy.
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      SECURE_COOKIES: ${SECURE_COOKIES:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - neoagent-home:/home/node/.neoagent
+
+volumes:
+  neoagent-home:
