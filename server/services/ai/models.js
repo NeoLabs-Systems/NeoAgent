@@ -27,6 +27,7 @@ const {
     refreshOllamaModels,
     refreshProviderModelList,
 } = require('./model_discovery');
+const { getDisabledModelIds } = require('./model_visibility');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
@@ -366,8 +367,8 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         }
     }
 
-    const globalDisabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
-    const globalDisabledSet = globalDisabledStr ? new Set(globalDisabledStr.split(',').map(s => s.trim()).filter(Boolean)) : null;
+    const globalDisabledIds = getDisabledModelIds();
+    const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
 
     // Plan-based model allowlist (billing optional feature).
     let planAllowedModels = null;

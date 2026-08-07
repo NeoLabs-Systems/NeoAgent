@@ -1036,10 +1036,12 @@ router.put('/api/config/rate-limits', requireAdminAuth, express.json(), (req, re
 
 router.get('/api/models', requireAdminAuth, async (req, res) => {
   const { getSupportedModels } = require('../services/ai/models');
+  const { reconcileModelVisibility } = require('../services/ai/model_visibility');
   try {
     const models = await getSupportedModels(null, null, { signal: req.signal });
-    const disabledStr = process.env.NEOAGENT_DISABLED_MODELS || '';
-    const disabledModels = disabledStr ? disabledStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+    // Syncs newly-discovered / retired models into the tracked list and
+    // applies the default enable/disable policy for anything new.
+    const disabledModels = reconcileModelVisibility(models.map((m) => m.id));
     res.json({ models, disabledModels });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
@@ -1047,12 +1049,11 @@ router.get('/api/models', requireAdminAuth, async (req, res) => {
 });
 
 router.put('/api/models/config', requireAdminAuth, express.json(), (req, res) => {
+  const { setDisabledModelIds } = require('../services/ai/model_visibility');
   const { disabledModels } = req.body || {};
   if (!Array.isArray(disabledModels)) return res.status(400).json({ error: 'disabledModels must be an array' });
-  const value = disabledModels.join(',');
-  upsertEnvValue(ENV_FILE, 'NEOAGENT_DISABLED_MODELS', value);
-  process.env.NEOAGENT_DISABLED_MODELS = value;
-  res.json({ ok: true });
+  const saved = setDisabledModelIds(disabledModels);
+  res.json({ ok: true, disabledModels: saved });
 });
 
 router.get('/api/users/:id/rate-limits', requireAdminAuth, (req, res) => {
