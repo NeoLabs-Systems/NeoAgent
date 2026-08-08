@@ -30,14 +30,3 @@ eventListener = (message) => {
 addEventListener("message", eventListener);
 `],{type:"application/javascript"}))}return url},mainScriptUrlOrBlob:a})};var b=class{async loadEntrypoint(e){let{serviceWorker:r,...t}=e||{},n=new g,s=new h;s.setTrustedTypesPolicy(n.policy),await s.loadServiceWorker(r).catch(o=>{console.warn("Exception while loading service worker:",o)});let a=new v;return a.setTrustedTypesPolicy(n.policy),this.didCreateEngineInitializer=a.didCreateEngineInitializer.bind(a),a.loadEntrypoint(t)}async load({serviceWorkerSettings:e,onEntrypointLoaded:r,nonce:t,config:n}={}){n??={};let s=_flutter.buildConfig;if(!s)throw"FlutterLoader.load requires _flutter.buildConfig to be set";let a=n.wasmAllowList?.[w.browserEngine]??C[w.browserEngine],o=d=>{switch(d){case"skwasm":return w.supportsWasmGC&&a;default:return!0}},u=(d,S)=>d.renderer==S,m=d=>d.compileTarget==="dart2wasm"&&!w.supportsWasmGC||n.renderer&&!u(d,n.renderer)?!1:o(d.renderer),p=s.builds.find(m);if(!p)throw"FlutterLoader could not find a build compatible with configuration and environment.";let l={};l.flutterTT=new g,e&&(l.serviceWorkerLoader=new h,l.serviceWorkerLoader.setTrustedTypesPolicy(l.flutterTT.policy),await l.serviceWorkerLoader.loadServiceWorker(e).catch(d=>{console.warn("Exception while loading service worker:",d)}));let y=U(n,s);p.renderer==="canvaskit"?l.canvasKit=W(l,n,w,y):p.renderer==="skwasm"&&(l.skwasm=P(l,n,w,y));let f=new v;return f.setTrustedTypesPolicy(l.flutterTT.policy),this.didCreateEngineInitializer=f.didCreateEngineInitializer.bind(f),f.load(p,l,n,t,r)}};window._flutter||(window._flutter={});window._flutter.loader||(window._flutter.loader=new b);})();
 //# sourceMappingURL=flutter.js.map
-
-if (!window._flutter) {
-  window._flutter = {};
-}
-_flutter.buildConfig = {"engineRevision":"d2913632a4578ee4d0b8b1c4a69888c8a0672c4b","builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"},{}]};
-
-_flutter.loader.load({
-  serviceWorkerSettings: {
-    serviceWorkerVersion: "3392853851"
-  }
-});
