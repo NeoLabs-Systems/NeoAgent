@@ -1,0 +1,79 @@
+name: Build Web Client
+
+# server/public (the bundled Flutter web client) is generated output and is not
+# committed by hand. This workflow rebuilds it on every push that could change it
+# and commits the result back to the branch, so `git clone` + `git pull` deploys
+# always have a working web client without needing Flutter installed wherever the
+# app is deployed. Guarded against github-actions[bot] pushes to avoid retriggering
+# itself in a loop.
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+    paths:
+      - 'flutter_app/**'
+      - 'scripts/web_build_id.js'
+      - '.github/workflows/build-web-client.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-web-client-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and commit bundled web client
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build bundled web client
+        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
+
+      - name: Verify production web bundle
+        run: |
+          if rg -n "http://localhost:3333|127\\.0\\.0\\.1:3333" server/public/main.dart.js; then
+            echo "Bundled web client still points at localhost."
+            exit 1
+          fi
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push web bundle
+        run: |
+          git add -f server/public
+          if git diff --cached --quiet; then
+            echo "Web bundle unchanged, nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(web-client): rebuild bundled web client [skip ci]"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
