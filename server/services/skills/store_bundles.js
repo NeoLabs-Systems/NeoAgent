@@ -63,7 +63,8 @@ function stripQuotes(value) {
 }
 
 function readFrontmatter(filePath) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  // Normalize CRLF so Windows-checked-out skill files parse the same as LF.
+  const content = fs.readFileSync(filePath, 'utf-8').replace(/\r\n/g, '\n');
   const match = content.match(/^---\n([\s\S]*?)\n---\n?/);
   if (!match) {
     throw new Error(`Bundled skill is missing frontmatter: ${filePath}`);

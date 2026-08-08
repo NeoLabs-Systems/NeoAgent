@@ -23,17 +23,61 @@ function abortedResult(command, cwd, startedAt = Date.now()) {
   };
 }
 
+function windowsShellCandidates() {
+  if (process.platform !== 'win32') return [];
+  const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  return [
+    process.env.SHELL,
+    `${programFiles}\\Git\\bin\\bash.exe`,
+    `${programFiles}\\Git\\usr\\bin\\bash.exe`,
+    `${programFilesX86}\\Git\\bin\\bash.exe`,
+    `${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
+    `${systemRoot}\\System32\\cmd.exe`,
+    'bash.exe',
+    'powershell.exe',
+    'cmd.exe',
+  ].filter(Boolean);
+}
+
+function isWindowsCmd(shellPath) {
+  return /(?:^|[\\/])cmd(?:\.exe)?$/i.test(String(shellPath || ''));
+}
+
+function isWindowsPowerShell(shellPath) {
+  return /(?:^|[\\/])powershell(?:\.exe)?$/i.test(String(shellPath || ''));
+}
+
+function isPosixShell(shellPath) {
+  return !isWindowsCmd(shellPath) && !isWindowsPowerShell(shellPath);
+}
+
+function shellProbeArgs(shellPath) {
+  if (isWindowsCmd(shellPath)) return ['/d', '/s', '/c', 'echo ok'];
+  if (isWindowsPowerShell(shellPath)) return ['-NoProfile', '-Command', "Write-Output 'ok'"];
+  return ['-lc', 'printf ok'];
+}
+
+function shellExecArgs(shellPath, command) {
+  if (isWindowsCmd(shellPath)) return ['/d', '/s', '/c', command];
+  if (isWindowsPowerShell(shellPath)) return ['-NoProfile', '-Command', command];
+  // Git Bash and other POSIX shells on Windows also accept -lc.
+  return ['-l', '-c', command];
+}
+
 function resolveDefaultShell() {
   const candidates = [
     process.env.SHELL,
     '/bin/zsh',
     '/bin/bash',
     '/bin/sh',
+    ...windowsShellCandidates(),
   ].filter(Boolean);
 
   for (const candidate of candidates) {
     try {
-      execFileSync(candidate, ['-lc', 'printf ok'], {
+      execFileSync(candidate, shellProbeArgs(candidate), {
         timeout: 3000,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -42,17 +86,8 @@ function resolveDefaultShell() {
     } catch {}
   }
 
-  try {
-    execFileSync('/bin/sh', ['-lc', 'printf ok'], {
-      timeout: 3000,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return '/bin/sh';
-  } catch (error) {
-    console.warn('[CLI] No usable shell found for executor:', error?.message || error);
-    return null;
-  }
+  console.warn('[CLI] No usable shell found for executor');
+  return null;
 }
 
 function clampTimeout(value, fallback) {
@@ -119,23 +154,32 @@ class CLIExecutor {
   _getLoginPath() {
     if (_cachedLoginPath) return _cachedLoginPath;
     try {
-      const raw = execFileSync(this.defaultShell, ['-l', '-c', 'echo $PATH'], {
+      const pathCommand = isPosixShell(this.defaultShell)
+        ? 'echo $PATH'
+        : isWindowsPowerShell(this.defaultShell)
+          ? 'Write-Output $env:PATH'
+          : 'echo %PATH%';
+      const raw = execFileSync(this.defaultShell, shellExecArgs(this.defaultShell, pathCommand), {
         timeout: 5000,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
       });
       _cachedLoginPath = raw.trim();
     } catch {
-      _cachedLoginPath = process.env.PATH || '/usr/local/bin:/usr/bin:/bin';
+      _cachedLoginPath = process.env.PATH
+        || (process.platform === 'win32'
+          ? `${process.env.SystemRoot || 'C:\\Windows'}\\System32`
+          : '/usr/local/bin:/usr/bin:/bin');
     }
     return _cachedLoginPath;
   }
 
   _buildEnv(extra = {}) {
     const loginPath = this._getLoginPath();
-    const current = (process.env.PATH || '').split(':');
-    const login = loginPath.split(':');
-    const merged = [...new Set([...login, ...current])].join(':');
+    const delimiter = process.platform === 'win32' ? ';' : ':';
+    const current = (process.env.PATH || '').split(delimiter);
+    const login = loginPath.split(delimiter);
+    const merged = [...new Set([...login, ...current].filter(Boolean))].join(delimiter);
     return { ...process.env, PATH: merged, ...extra };
   }
 
@@ -153,8 +197,8 @@ class CLIExecutor {
       const startedAt = Date.now();
       const wrappedCommand = wrapCommandForShell(command, this.defaultShell);
 
-      const proc = spawn(this.defaultShell, ['-l', '-c', wrappedCommand], {
-        cwd,
+      const proc = spawn(this.defaultShell, shellExecArgs(this.defaultShell, wrappedCommand), {
+        cwd: cwd || process.cwd(),
         detached: process.platform !== 'win32',
         env: this._buildEnv(options.env),
         stdio: ['pipe', 'pipe', 'pipe']
@@ -264,11 +308,11 @@ class CLIExecutor {
         return this.execute(command, { ...options, stdinInput: inputs.join('\n') + '\n' }).then(resolve);
       }
 
-      const proc = pty.spawn(this.defaultShell, ['-l', '-c', wrappedCommand], {
+      const proc = pty.spawn(this.defaultShell, shellExecArgs(this.defaultShell, wrappedCommand), {
         name: 'xterm-256color',
         cols: 120,
         rows: 30,
-        cwd,
+        cwd: cwd || process.cwd(),
         env: { ...this._buildEnv(), TERM: 'xterm-256color' }
       });
 
