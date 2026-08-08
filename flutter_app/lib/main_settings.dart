@@ -301,9 +301,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   void _hydrate() {
     final controller = widget.controller;
-    final knownModels = controller.supportedModels
-        .map((model) => model.id)
-        .toSet();
     final availableModels = controller.supportedModels
         .where((model) => model.available)
         .map((model) => model.id)
@@ -315,8 +312,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _cliBackend = _normalizeCliBackend(controller.cliBackend);
     _cliDesktopDeviceId = controller.cliDesktopDeviceId;
     _smarterSelector = controller.smarterSelector;
+    // Only keep ids that are still available -- a model the admin has since
+    // disabled (or whose provider lost its credentials) must not survive
+    // hydration, or saving would silently re-persist it into the pool.
     _enabledModels = controller.enabledModelIds
-        .where((id) => knownModels.contains(id))
+        .where((id) => availableModels.contains(id))
         .toSet();
     if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
       _enabledModels = availableModels;

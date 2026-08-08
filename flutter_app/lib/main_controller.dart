@@ -1619,6 +1619,9 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.billing) {
       unawaited(refreshBilling());
     }
+    if (section == AppSection.settings) {
+      unawaited(refreshAiCatalog());
+    }
     notifyListeners();
   }
 
@@ -4385,6 +4388,36 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshAiCatalog() async {
+    if (!isAuthenticated) return;
+    try {
+      final agentId = _scopedAgentId;
+      final modelsResponse = await _backendClient.fetchSupportedModels(
+        backendUrl,
+        agentId: agentId,
+      );
+      final providersResponse = await _backendClient.fetchAiProviders(
+        backendUrl,
+        agentId: agentId,
+      );
+      supportedModels = _decodeModelList(
+        'supported_models',
+        modelsResponse['models'],
+        ModelMeta.fromJson,
+        fallbackToMapValues: true,
+      );
+      aiProviders = _decodeModelList(
+        'ai_providers',
+        providersResponse['providers'],
+        AiProviderMeta.fromJson,
+        fallbackToMapValues: true,
+      );
+      notifyListeners();
+    } catch (_) {
+      // Keep whatever catalog is already in memory rather than clearing it.
+    }
+  }
+
   Future<void> refreshAccountSettings() async {
     if (!isAuthenticated) return;
     isLoadingAccountSettings = true;
@@ -6206,7 +6239,9 @@ class NeoAgentController extends ChangeNotifier {
       final filtered = <String>[];
       for (final item in raw) {
         final model = _modelForValue(item.toString(), supportedModels);
-        if (model != null && !filtered.contains(model.id)) {
+        // Skip models the admin has since disabled or whose provider lost
+        // its credentials -- a stale saved pool must not resurrect them.
+        if (model != null && model.available && !filtered.contains(model.id)) {
           filtered.add(model.id);
         }
       }

@@ -198,16 +198,9 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? ((typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '') || definition.defaultBaseUrl || '')
         : '';
 
-    // With no userId, this is the global admin catalog rather than a specific
-    // user's settings -- there's no per-user "enabled" toggle to read, so
-    // don't gate on `defaultEnabled` (an onboarding default, not a signal
-    // that credentials exist). Every provider with credentials should be
-    // fetched; `config.enabled` only applies once a real user is involved.
-    const enabled = userId ? config.enabled !== false : true;
-
     return {
         ...definition,
-        enabled,
+        enabled: config.enabled !== false,
         apiKey: scopedApiKey || envApiKey,
         credentialConfigured: Boolean(scopedApiKey || envApiKey),
         baseUrl
@@ -217,17 +210,19 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
 function getProviderCatalog(userId, agentId = null) {
     return Object.values(AI_PROVIDER_DEFINITIONS).map((definition) => {
         const runtime = getProviderRuntimeConfig(userId, definition.id, agentId);
-        const available = runtime.enabled && (!definition.supportsApiKey || Boolean(runtime.apiKey));
+        // Availability is purely "can we call this provider" -- it has
+        // credentials, or needs none (local Ollama). It intentionally ignores
+        // `runtime.enabled`: that flag has no working UI to set on purpose,
+        // it only ever comes from a hardcoded per-provider onboarding default
+        // (see AI_PROVIDER_DEFINITIONS.defaultEnabled), and gating on it made
+        // providers with valid, configured credentials silently unusable.
+        const available = !definition.supportsApiKey || Boolean(runtime.apiKey);
 
         let status = 'ready';
         let statusLabel = 'Ready';
         let availabilityReason = 'Provider is available.';
 
-        if (!runtime.enabled) {
-            status = 'disabled';
-            statusLabel = 'Disabled';
-            availabilityReason = 'Enable this provider to make its models selectable.';
-        } else if (definition.supportsApiKey && !runtime.apiKey) {
+        if (definition.supportsApiKey && !runtime.apiKey) {
             status = 'needs_setup';
             statusLabel = 'Setup Needed';
             availabilityReason = 'Credentials for this provider are not available on this deployment yet.';
