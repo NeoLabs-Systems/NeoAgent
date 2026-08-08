@@ -145,20 +145,13 @@ agent-data/
 flutter_app/neoagent_flutter.iml
 flutter_app/.idea/
 
-# The Flutter web bundle under server/public is a checked-in release artifact.
-# Keep generated runtime data ignored, but do not ignore the shipped client bundle.
-server/public/.last_build_id
-server/public/assets/assets/branding/app_icon_1024.png
-server/public/assets/assets/branding/app_icon_512.png
-server/public/assets/assets/branding/app_icon_light_1024.png
-server/public/assets/assets/branding/app_icon_light_256.png
-server/public/assets/assets/branding/app_icon_light_512.png
-server/public/assets/assets/branding/tray_icon_light_template.png
-server/public/assets/shaders/stretch_effect.frag
-server/public/icons/Icon-192-light.png
-server/public/icons/Icon-512-light.png
-server/public/icons/Icon-maskable-192-light.png
-server/public/icons/Icon-maskable-512-light.png
+# The Flutter web bundle under server/public is generated build output
+# (`flutter build web`, run automatically by `neoagent install`/`neoagent update`,
+# or baked into the npm package by the release pipeline before publish). It is
+# never committed — a partial ignore list here previously let some new asset
+# files silently fall out of commits while main.dart.js still referenced them,
+# breaking the app logo. Ignore the whole directory instead.
+server/public/
 
 # ESP-IDF firmware generated artifacts
 firmware/**/build/
@@ -169,7 +162,6 @@ firmware/**/dependencies.lock
 server/db/database.sqlite
 deu.traineddata
 eng.traineddata
-server/public/assets/fonts/MaterialIcons-Regular.otf
 .env.backup
 /artifacts
 /server/services/social_video/__tests__

@@ -220,6 +220,9 @@ class NeoAgentController extends ChangeNotifier {
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
   String streamingAssistant = '';
+  // Which model turn the live bubble belongs to, so a new turn replaces it
+  // rather than appearing to edit the previous one.
+  int _streamingIteration = 0;
   bool _isStartingLiveVoice = false;
   bool _isStoppingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
@@ -6802,6 +6805,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       toolEvents = const <ToolEventItem>[];
       streamingAssistant = '';
+      _streamingIteration = 0;
       isSendingMessage = true;
       notifyListeners();
     });
@@ -6923,6 +6927,14 @@ class NeoAgentController extends ChangeNotifier {
         ...toolEvents.where((event) => event.id != item.id),
         item,
       ]);
+      // Text streamed before a tool call was the agent thinking out loud, not
+      // its answer. Keep it in the activity timeline and take it out of the live
+      // bubble so it cannot be mistaken for a reply that later changed.
+      final preamble = streamingAssistant.trim();
+      if (preamble.isNotEmpty) {
+        _appendToolNote(preamble, toolName: 'reasoning');
+        streamingAssistant = '';
+      }
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Running tool');
       }
@@ -7161,6 +7173,15 @@ class NeoAgentController extends ChangeNotifier {
       }
       if (_backgroundRunIds.contains(runId)) {
         return;
+      }
+      // Each model turn restarts its stream from empty, so the payload is the
+      // text of that turn alone. Without tracking the turn, a later turn's text
+      // overwrote the live bubble in place and the answer appeared to rewrite
+      // itself; a new turn now starts a new bubble instead.
+      final iteration = _asInt(payload['iteration']);
+      if (iteration != _streamingIteration) {
+        _streamingIteration = iteration;
+        streamingAssistant = '';
       }
       streamingAssistant = payload['content']?.toString() ?? '';
       if (activeRun?.runId == runId) {

@@ -243,14 +243,28 @@ async function transmit(engine, entry, run) {
       return { ok: false, error: result?.error || result?.reason || 'send failed' };
     }
 
-    // Web / API / CLI: emit final content; persistence is the delivery record.
+    // Web / API / CLI: emit the content; persistence is the delivery record.
+    // An acknowledgement or progress line is a real message to the user, so it
+    // goes out on the assistant-interim channel rather than run:interim, which
+    // carries short runtime status notes under a different field name and would
+    // have silently dropped this text.
     if (engine && typeof engine.emit === 'function') {
-      engine.emit(run.userId, entry.messageKind === MESSAGE_KINDS.FINAL ? 'run:complete' : 'run:interim', {
-        runId: run.id,
-        content,
-        messageKind: entry.messageKind,
-        outboxId: entry.id,
-      });
+      if (entry.messageKind === MESSAGE_KINDS.FINAL) {
+        engine.emit(run.userId, 'run:complete', {
+          runId: run.id,
+          content,
+          messageKind: entry.messageKind,
+          outboxId: entry.id,
+        });
+      } else {
+        engine.emit(run.userId, 'run:assistant_interim', {
+          runId: run.id,
+          content,
+          kind: entry.messageKind,
+          platform: 'web',
+          outboxId: entry.id,
+        });
+      }
     }
     return { ok: true, platformMessageId: `local:${entry.id}` };
   } catch (error) {

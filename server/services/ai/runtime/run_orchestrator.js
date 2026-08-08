@@ -2115,6 +2115,9 @@ class DurableRunRuntime {
             totalTokens,
           },
         });
+        // The delivery worker normally emits this; it did not get that far, and
+        // the client still needs exactly one run:complete to close the run out.
+        this.engine.emit(userId, 'run:complete', { runId, content, totalTokens });
         return { ok: true, content };
       }
       applyTransition({
@@ -2173,12 +2176,11 @@ class DurableRunRuntime {
       visibility: VISIBILITY.USER,
     });
 
-    this.engine.emit(userId, 'run:complete', {
-      runId,
-      content,
-      totalTokens,
-      iterations,
-    });
+    // No run:complete here: the delivery worker already emitted it as part of
+    // committing the final message. Emitting again made clients see the same
+    // answer arrive twice — harmless for a foreground chat that dedupes on the
+    // previous bubble, but background runs consume the first event and then
+    // render the second one into the chat they were never meant to touch.
 
     // Episodic memory candidate (not semantic fact dump of run state).
     if (memoryManager) {

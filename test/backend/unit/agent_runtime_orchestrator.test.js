@@ -635,6 +635,143 @@ test('a declined opening line is not replaced by canned text', async () => {
   assert.equal(Number(acks.n), 0, 'silence is the fallback, never a template');
 });
 
+test('one run does the work once and reports its answer to the client once', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Check something and answer',
+    confidence: 0.8,
+    suggested_tools: ['lookup'],
+  });
+
+  const emitted = [];
+  engine.emit = (_userId, event, payload) => {
+    emitted.push({ event, content: payload?.content });
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'lookup', description: 'look up', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+
+  let modelCalls = 0;
+  let toolCalls = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    modelCalls += 1;
+    if (modelCalls === 1) {
+      return {
+        response: {
+          content: 'Let me look that up.',
+          toolCalls: [{
+            id: 'l1',
+            type: 'function',
+            function: { name: 'lookup', arguments: '{}' },
+          }],
+          usage: { total_tokens: 4 },
+        },
+        streamContent: '',
+      };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Here is the answer.' }) },
+        }],
+        usage: { total_tokens: 4 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => { toolCalls += 1; return { value: 42 }; };
+  engine.isReadOnlyToolCall = () => true;
+
+  const result = await engine.run(userId, 'Check something', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 6,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.content, 'Here is the answer.');
+
+  // The run is not repeated: two model turns and one tool call is the whole cost.
+  assert.equal(modelCalls, 2);
+  assert.equal(toolCalls, 1);
+
+  // And the answer reaches the client exactly once. A second run:complete used
+  // to render the same reply again in clients that consume the first one.
+  const completes = emitted.filter((entry) => entry.event === 'run:complete');
+  assert.equal(completes.length, 1, `expected one run:complete, got ${completes.length}`);
+  assert.equal(completes[0].content, 'Here is the answer.');
+
+  const finals = ctx.db.prepare(
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'final'`,
+  ).get(result.runId);
+  assert.equal(Number(finals.n), 1);
+});
+
+test('an acknowledgement reaches a web client as a visible message', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Long job',
+    confidence: 0.8,
+    complexity: 'complex',
+    autonomy_level: 'high',
+    progress_update_policy: 'required',
+  });
+  const emitted = [];
+  engine.emit = (_userId, event, payload) => {
+    emitted.push({ event, content: payload?.content, kind: payload?.kind });
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: 'Bin dran.', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'd1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => true;
+
+  await engine.run(userId, 'Mach das lange Ding', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  // run:interim carries short status notes under `message`; user-facing interim
+  // text must not be sent there or the client silently drops it.
+  const interim = emitted.find((entry) => entry.event === 'run:assistant_interim');
+  assert.ok(interim, 'the acknowledgement never reached the client');
+  assert.equal(interim.content, 'Bin dran.');
+  assert.equal(interim.kind, 'ack');
+});
+
 test('a blank model turn is recovered instead of ending the run', async () => {
   const engine = createEngine({
     mode: 'execute',
