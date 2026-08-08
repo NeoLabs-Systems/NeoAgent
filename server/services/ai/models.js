@@ -267,15 +267,15 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
         let statusLabel = provider.statusLabel;
         let availabilityReason = provider.availabilityReason;
 
-        if (provider.id === 'ollama' && provider.enabled && options.probeLocal !== false) {
+        if (provider.id === 'ollama' && options.probeLocal !== false) {
             const probe = await probeOllama(
                 provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
                 1500,
                 options.signal,
             );
             connected = probe.healthy;
-            healthy = provider.enabled && probe.healthy;
-            degraded = provider.enabled && !probe.healthy;
+            healthy = probe.healthy;
+            degraded = !probe.healthy;
             if (!probe.healthy) {
                 status = 'offline';
                 statusLabel = 'Offline';
@@ -303,7 +303,7 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
             ...provider,
             available: healthy,
             connected,
-            configured: provider.enabled && (!provider.supportsApiKey || provider.credentialConfigured || provider.id === 'ollama'),
+            configured: !provider.supportsApiKey || provider.credentialConfigured || provider.id === 'ollama',
             healthy,
             degraded,
             status,
@@ -429,9 +429,10 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
     const { agentId = null, ...providerOverrides } = configOverrides || {};
     const runtime = getProviderRuntimeConfig(userId, providerStr, agentId);
 
-    if (!runtime.enabled) {
-        throw new Error(`Provider '${providerStr}' is disabled in settings.`);
-    }
+    // Mirrors getProviderCatalog()'s availability check: a provider is usable
+    // whenever it has credentials (or needs none). `runtime.enabled` has no
+    // working UI to set on purpose and must not gate this -- see the note in
+    // getProviderCatalog().
     if (runtime.supportsApiKey && !runtime.apiKey) {
         throw new Error(`Provider '${providerStr}' is not configured on this deployment.`);
     }
