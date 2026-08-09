@@ -1,56 +1,38 @@
 'use strict';
 
-const { getProviderRuntimeConfig } = require('../ai/models');
 const { resolveSttModel, transcribeVoiceInput } = require('./providers');
 const { writeTempAudioFile, removeTempFile } = require('./liveAudio');
-const { createAbortError } = require('../../utils/abort');
-
-const DEFAULT_PARTIAL_DEBOUNCE_MS = 700;
-const DEFAULT_MIN_PARTIAL_BYTES = 8000;
 
 class BufferedLiveRelayAdapter {
-  constructor({
-    provider,
-    partialDebounceMs = DEFAULT_PARTIAL_DEBOUNCE_MS,
-    minPartialBytes = DEFAULT_MIN_PARTIAL_BYTES,
-  }) {
+  constructor({ provider }) {
     this.provider = provider;
-    this.partialDebounceMs = partialDebounceMs;
-    this.minPartialBytes = minPartialBytes;
-    this._partialTimers = new Map();
-    this._partialInFlight = new Set();
-    this._closed = false;
+    this.sessionId = null;
   }
 
-  async open() {
-    this._closed = false;
+  async open(session) {
+    if (!session?.id) throw new Error('Buffered voice adapter requires a session.');
+    this.sessionId = session.id;
   }
 
-  async close(sessionId = null) {
-    this._closed = true;
-    if (sessionId) {
-      this._clearPartialTimer(sessionId);
-      this._partialInFlight.delete(sessionId);
-    }
+  async close() {
+    this.sessionId = null;
   }
 
   async onInputStart(session, options = {}) {
+    if (this.sessionId !== session.id) {
+      throw new Error('Buffered voice adapter is not bound to this session.');
+    }
     session.startTurn(options.turnId, options.mimeType);
-    this._clearPartialTimer(session.id);
-    this._partialInFlight.delete(session.id);
   }
 
   async appendAudioChunk(session, audioBytes, options = {}) {
-    const appendResult = session.appendInputChunk(audioBytes, options.mimeType, {
+    return session.appendInputChunk(audioBytes, options.mimeType, {
       turnId: options.turnId,
       sequence: options.sequence,
     });
-    this._schedulePartialTranscript(session);
-    return appendResult;
   }
 
   async commitInput(session, options = {}) {
-    this._clearPartialTimer(session.id);
     const commitState = session.markCommitPending(options.turnId, options.finalSequence);
     if (!commitState.ready) {
       throw new Error(
@@ -65,9 +47,11 @@ class BufferedLiveRelayAdapter {
     }
     try {
       return await this._transcribeAudioSnapshot(audioBytes, session.inputMimeType, {
-        model: session.voiceSettings?.liveSttModel,
+        model: session.voiceSettings?.sttModel,
         userId: session.userId,
         agentId: session.agentId,
+        apiKey: session.voiceSettings?.sttApiKey,
+        baseUrl: session.voiceSettings?.sttBaseUrl,
         timeoutMs: 20000,
         signal: session.signal,
       });
@@ -78,118 +62,26 @@ class BufferedLiveRelayAdapter {
     }
   }
 
-  _schedulePartialTranscript(session) {
-    if (session.inputBytes < this.minPartialBytes) {
-      return;
-    }
-    this._clearPartialTimer(session.id);
-    const timer = setTimeout(async () => {
-      this._partialTimers.delete(session.id);
-      if (this._closed || session.closed || this._partialInFlight.has(session.id)) {
-        return;
-      }
-      this._partialInFlight.add(session.id);
-      try {
-        const snapshot = session.getInputAudioBuffer({
-          contiguousOnly: true,
-        });
-        if (!snapshot.length) {
-          return;
-        }
-        const transcript = await this._transcribeAudioSnapshot(snapshot, session.inputMimeType, {
-          model: session.voiceSettings?.liveSttModel,
-          userId: session.userId,
-          agentId: session.agentId,
-          timeoutMs: 6000,
-          signal: session.signal,
-        });
-        if (transcript) {
-          await session.publishTranscriptPartial(transcript);
-        }
-      } catch {
-        // Partial guidance is best-effort only.
-      } finally {
-        this._partialInFlight.delete(session.id);
-      }
-    }, this.partialDebounceMs);
-    timer.unref?.();
-    this._partialTimers.set(session.id, timer);
-  }
-
-  _clearPartialTimer(sessionId) {
-    const timer = this._partialTimers.get(sessionId);
-    if (timer) {
-      clearTimeout(timer);
-      this._partialTimers.delete(sessionId);
-    }
-  }
-
   async _transcribeAudioSnapshot(audioBytes, mimeType, options = {}) {
     const { filePath, mimeType: fileMimeType } = await writeTempAudioFile(audioBytes, mimeType);
     try {
-      let lastError = null;
-      for (const attempt of this._buildSttAttempts(options)) {
-        try {
-          const transcript = await transcribeVoiceInput(filePath, {
-            provider: attempt.provider,
-            model: attempt.model,
-            mimeType: fileMimeType,
-            userId: options.userId,
-            agentId: options.agentId,
-            apiKey: attempt.apiKey,
-            baseUrl: attempt.baseUrl,
-            timeoutMs: options.timeoutMs,
-            signal: options.signal,
-          });
-          return String(transcript || '').trim();
-        } catch (error) {
-          if (options.signal?.aborted) throw createAbortError(options.signal);
-          lastError = error;
-        }
-      }
-      throw lastError || new Error('Voice transcription failed.');
+      const transcript = await transcribeVoiceInput(filePath, {
+        provider: this.provider,
+        model: resolveSttModel(this.provider, options.model),
+        mimeType: fileMimeType,
+        userId: options.userId,
+        agentId: options.agentId,
+        apiKey: options.apiKey,
+        baseUrl: options.baseUrl,
+        timeoutMs: options.timeoutMs,
+        signal: options.signal,
+      });
+      return String(transcript || '').trim();
     } finally {
       await removeTempFile(filePath);
     }
   }
 
-  _buildSttAttempts(options = {}) {
-    const attempts = [];
-    const providers = [
-      this.provider,
-      ...['openai', 'deepgram', 'gemini'].filter((provider) => provider !== this.provider),
-    ];
-    for (const provider of providers) {
-      const runtime = this._resolveProviderRuntime(provider, options.userId, options.agentId);
-      attempts.push({
-        provider,
-        model: resolveSttModel(provider, provider === this.provider ? options.model : ''),
-        apiKey: runtime.apiKey,
-        baseUrl: runtime.baseUrl,
-      });
-    }
-    return attempts;
-  }
-
-  _resolveProviderRuntime(provider, userId, agentId) {
-    const normalizedProvider = String(provider || '').trim().toLowerCase();
-    if (!normalizedProvider || normalizedProvider === 'deepgram') {
-      return { apiKey: '', baseUrl: '' };
-    }
-    try {
-      const runtime = getProviderRuntimeConfig(
-        userId,
-        normalizedProvider === 'gemini' ? 'google' : normalizedProvider,
-        agentId,
-      );
-      return {
-        apiKey: typeof runtime.apiKey === 'string' ? runtime.apiKey.trim() : '',
-        baseUrl: typeof runtime.baseUrl === 'string' ? runtime.baseUrl.trim() : '',
-      };
-    } catch {
-      return { apiKey: '', baseUrl: '' };
-    }
-  }
 }
 
 module.exports = {

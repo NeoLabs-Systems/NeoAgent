@@ -38,6 +38,28 @@ test('voice provider entry points preserve a pre-aborted caller reason', async (
   );
 });
 
+test('a selected voice provider failure is surfaced without cross-provider fallback', async () => {
+  const previousFetch = global.fetch;
+  const failure = new Error('selected Gemini endpoint is unavailable');
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    throw failure;
+  };
+  try {
+    await assert.rejects(
+      synthesizeVoiceReply('hello', {
+        provider: 'gemini',
+        apiKey: 'test-key',
+      }),
+      (error) => error === failure,
+    );
+    assert.equal(calls, 1);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test('abort timeout rejects even when an SDK ignores its signal', async () => {
   let operationSignal = null;
   await assert.rejects(
@@ -156,6 +178,74 @@ test('voice runtime mutations require the owning user id', async () => {
     await manager.closeSession(session.id, 'client_closed', 7);
     assert.equal(manager.getSession(session.id), null);
   } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
+test('barge-in stops voice media without aborting the active NeoAgent run', async () => {
+  const ctx = createTestRuntime();
+  const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');
+  const abortedRuns = [];
+  const manager = new VoiceRuntimeManager({
+    io: null,
+    agentEngine: {
+      abort(runId) { abortedRuns.push(runId); },
+    },
+    memoryManager: null,
+  });
+  let mediaInterrupts = 0;
+  const session = {
+    id: 'barge-session',
+    userId: 7,
+    currentRunId: 'durable-run',
+    inputBytes: 0,
+    async interruptOutput() { mediaInterrupts += 1; },
+    resetTurnState() {},
+    async setState() {},
+    adapter: {
+      async onInputStart() {},
+      async close() {},
+    },
+  };
+  manager.sessions.set(session.id, session);
+
+  try {
+    await manager.beginInput(session.id, { turnId: 'turn-2' }, 7);
+    assert.equal(mediaInterrupts, 1);
+    assert.deepEqual(abortedRuns, []);
+    assert.equal(session.currentRunId, 'durable-run');
+  } finally {
+    await manager.shutdown();
+    teardownTestRuntime(ctx);
+  }
+});
+
+test('transport detach preserves a durable run for reconnect', async () => {
+  const ctx = createTestRuntime();
+  const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');
+  const manager = new VoiceRuntimeManager({
+    io: null,
+    agentEngine: { abort() {} },
+    memoryManager: null,
+  });
+  let detached = false;
+  const session = {
+    id: 'reconnect-session',
+    userId: 7,
+    currentRunId: 'durable-run',
+    state: 'working',
+    detachSink() { detached = true; },
+    adapter: { async close() {} },
+  };
+  manager.sessions.set(session.id, session);
+
+  try {
+    await manager.detachSession(session.id, 'socket_disconnected', 7);
+    assert.equal(detached, true);
+    assert.equal(session.state, 'reconnecting');
+    assert.equal(manager.getSession(session.id), session);
+  } finally {
+    await manager.shutdown();
     teardownTestRuntime(ctx);
   }
 });

@@ -44,6 +44,8 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 |---|---|
 | `ANTHROPIC_API_KEY` | Anthropic |
 | `OPENAI_API_KEY` | OpenAI and supported embedding/transcription paths |
+| `OPENAI_COMPATIBLE_API_KEY` | Custom OpenAI-compatible provider token |
+| `OPENAI_COMPATIBLE_BASE_URL` | Custom OpenAI-compatible provider base URL (required with its token) |
 | `GOOGLE_AI_KEY` | Google Gemini and supported embeddings |
 | `XAI_API_KEY` | xAI |
 | `MINIMAX_API_KEY` | MiniMax |

@@ -12,6 +12,19 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: true,
     defaultBaseUrl: ''
   },
+  'openai-compatible': {
+    id: 'openai-compatible',
+    label: 'Custom OpenAI-compatible',
+    description: 'Models exposed by a custom OpenAI-compatible Chat Completions endpoint.',
+    envKey: 'OPENAI_COMPATIBLE_API_KEY',
+    baseUrlEnvKey: 'OPENAI_COMPATIBLE_BASE_URL',
+    authentication: 'api_key',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    requiresBaseUrl: true,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
   anthropic: {
     id: 'anthropic',
     label: 'Anthropic',

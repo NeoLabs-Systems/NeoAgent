@@ -21,6 +21,11 @@ NVIDIA NIM, OpenRouter, and OpenAI-compatible endpoints. Available models are
 loaded through the configured provider rather than maintained as a fixed list
 in the documentation.
 
+Configure a custom endpoint with both `OPENAI_COMPATIBLE_BASE_URL` and
+`OPENAI_COMPATIBLE_API_KEY`, either in the environment or on the admin
+dashboard's **AI Providers** page. The endpoint must implement the OpenAI
+Chat Completions and model-listing APIs.
+
 ### Account-backed providers
 
 The CLI can authenticate supported developer subscriptions:

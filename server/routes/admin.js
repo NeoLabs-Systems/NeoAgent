@@ -267,6 +267,9 @@ router.get('/api/health', requireAdminAuth, async (req, res) => {
   const configuredProviders = [];
   if (process.env.ANTHROPIC_API_KEY) configuredProviders.push('Anthropic');
   if (process.env.OPENAI_API_KEY) configuredProviders.push('OpenAI');
+  if (process.env.OPENAI_COMPATIBLE_API_KEY && process.env.OPENAI_COMPATIBLE_BASE_URL) {
+    configuredProviders.push('Custom OpenAI-compatible');
+  }
   if (process.env.XAI_API_KEY) configuredProviders.push('xAI');
   if (process.env.GOOGLE_AI_KEY) configuredProviders.push('Google');
   if (process.env.OPENROUTER_API_KEY) configuredProviders.push('OpenRouter');
@@ -662,6 +665,16 @@ router.post('/api/sql', requireAdminAuth, sqlLimiter, express.json(), (req, res)
 const PROVIDERS = [
   { key: 'ANTHROPIC_API_KEY',           label: 'Anthropic (Claude)',          type: 'key' },
   { key: 'OPENAI_API_KEY',              label: 'OpenAI',                      type: 'key' },
+  {
+    key: 'OPENAI_COMPATIBLE_API_KEY',
+    label: 'Custom OpenAI-compatible token',
+    type: 'key',
+  },
+  {
+    key: 'OPENAI_COMPATIBLE_BASE_URL',
+    label: 'Custom OpenAI-compatible base URL',
+    type: 'url',
+  },
   { key: 'XAI_API_KEY',                 label: 'xAI (Grok)',                  type: 'key' },
   { key: 'GOOGLE_AI_KEY',               label: 'Google (Gemini)',              type: 'key' },
   { key: 'MINIMAX_API_KEY',             label: 'MiniMax',                     type: 'key' },
@@ -678,6 +691,7 @@ const PROVIDERS = [
 ];
 
 const ALLOWED_PROVIDER_KEYS = new Set(PROVIDERS.map((p) => p.key));
+const PROVIDER_BY_KEY = new Map(PROVIDERS.map((provider) => [provider.key, provider]));
 
 router.get('/api/providers', requireAdminAuth, (req, res) => {
   const result = PROVIDERS.map(({ key, label, type }) => {
@@ -697,10 +711,24 @@ router.get('/api/providers', requireAdminAuth, (req, res) => {
 
 router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
   const { key, value } = req.body || {};
-  if (!ALLOWED_PROVIDER_KEYS.has(key)) {
+  const provider = PROVIDER_BY_KEY.get(key);
+  if (!ALLOWED_PROVIDER_KEYS.has(key) || !provider) {
     return res.status(400).json({ error: 'Unknown provider key' });
   }
   const trimmed = String(value || '').trim().replace(/[\r\n]/g, '');
+  if (provider.type === 'url' && trimmed) {
+    try {
+      const url = new URL(trimmed);
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+        return res.status(400).json({ error: 'Provider URL must use HTTP or HTTPS' });
+      }
+      if (url.username || url.password) {
+        return res.status(400).json({ error: 'Provider URL must not contain embedded credentials' });
+      }
+    } catch {
+      return res.status(400).json({ error: 'Provider URL must be a valid HTTP or HTTPS URL' });
+    }
+  }
   upsertEnvValue(ENV_FILE, key, trimmed);
   if (trimmed) {
     process.env[key] = trimmed;

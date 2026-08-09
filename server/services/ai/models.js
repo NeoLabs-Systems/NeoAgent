@@ -5,6 +5,7 @@ const { GoogleProvider } = require('./providers/google');
 const { GrokProvider } = require('./providers/grok');
 const { OllamaProvider } = require('./providers/ollama');
 const { OpenAIProvider } = require('./providers/openai');
+const { CustomOpenAIProvider } = require('./providers/openai_compatible_custom');
 const { GithubCopilotProvider } = require('./providers/githubCopilot');
 const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
@@ -134,6 +135,7 @@ const STATIC_MODELS = [
 const PROVIDER_FACTORIES = Object.freeze({
     grok: { Provider: GrokProvider, apiKey: true, baseUrl: true },
     openai: { Provider: OpenAIProvider, apiKey: true, baseUrl: true },
+    'openai-compatible': { Provider: CustomOpenAIProvider, apiKey: true, baseUrl: true },
     anthropic: { Provider: AnthropicProvider, apiKey: true, baseUrl: true },
     google: { Provider: GoogleProvider, apiKey: true, baseUrl: false },
     minimax: { Provider: AnthropicProvider, apiKey: true, baseUrl: true },
@@ -148,7 +150,28 @@ const PROVIDER_FACTORIES = Object.freeze({
 
 // Providers whose full model list is fetched from their API at runtime.
 // grok-oauth inherits listModels() from GrokProvider and uses the same xAI endpoint.
-const DYNAMIC_PROVIDERS = ['openai', 'anthropic', 'google', 'nvidia', 'grok', 'grok-oauth', 'openrouter'];
+const DYNAMIC_PROVIDERS = [
+    'openai',
+    'openai-compatible',
+    'anthropic',
+    'google',
+    'nvidia',
+    'grok',
+    'grok-oauth',
+    'openrouter',
+];
+
+function isValidHttpUrl(value) {
+    try {
+        const url = new URL(value);
+        return (url.protocol === 'http:' || url.protocol === 'https:')
+            && Boolean(url.hostname)
+            && !url.username
+            && !url.password;
+    } catch {
+        return false;
+    }
+}
 
 async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
     try {
@@ -193,9 +216,17 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
     const secrets = getProviderSecrets(userId, agentId);
     const config = configs[providerId] || {};
     const envApiKey = definition.envKey ? (process.env[definition.envKey] || '').trim() : '';
+    const envBaseUrl = definition.baseUrlEnvKey
+        ? (process.env[definition.baseUrlEnvKey] || '').trim()
+        : '';
     const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
     const baseUrl = definition.supportsBaseUrl
-        ? ((typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '') || definition.defaultBaseUrl || '')
+        ? (
+            (typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '')
+            || envBaseUrl
+            || definition.defaultBaseUrl
+            || ''
+        )
         : '';
 
     return {
@@ -203,7 +234,9 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         enabled: config.enabled !== false,
         apiKey: scopedApiKey || envApiKey,
         credentialConfigured: Boolean(scopedApiKey || envApiKey),
-        baseUrl
+        baseUrl,
+        baseUrlConfigured: Boolean(baseUrl),
+        baseUrlValid: !baseUrl || isValidHttpUrl(baseUrl),
     };
 }
 
@@ -216,7 +249,10 @@ function getProviderCatalog(userId, agentId = null) {
         // it only ever comes from a hardcoded per-provider onboarding default
         // (see AI_PROVIDER_DEFINITIONS.defaultEnabled), and gating on it made
         // providers with valid, configured credentials silently unusable.
-        const available = !definition.supportsApiKey || Boolean(runtime.apiKey);
+        const hasCredential = !definition.supportsApiKey || Boolean(runtime.apiKey);
+        const hasRequiredBaseUrl = !definition.requiresBaseUrl
+            || (runtime.baseUrlConfigured && runtime.baseUrlValid);
+        const available = hasCredential && hasRequiredBaseUrl;
 
         let status = 'ready';
         let statusLabel = 'Ready';
@@ -226,6 +262,14 @@ function getProviderCatalog(userId, agentId = null) {
             status = 'needs_setup';
             statusLabel = 'Setup Needed';
             availabilityReason = 'Credentials for this provider are not available on this deployment yet.';
+        } else if (definition.requiresBaseUrl && !runtime.baseUrlConfigured) {
+            status = 'needs_setup';
+            statusLabel = 'Setup Needed';
+            availabilityReason = 'A base URL is required for this provider.';
+        } else if (definition.requiresBaseUrl && !runtime.baseUrlValid) {
+            status = 'needs_setup';
+            statusLabel = 'Setup Needed';
+            availabilityReason = 'The configured base URL must be an HTTP or HTTPS URL without embedded credentials.';
         } else if (definition.id === 'ollama') {
             status = 'local';
             statusLabel = 'Local';
@@ -246,6 +290,7 @@ function getProviderCatalog(userId, agentId = null) {
             enabled: runtime.enabled,
             available,
             credentialConfigured: runtime.credentialConfigured,
+            baseUrlConfigured: runtime.baseUrlConfigured,
             baseUrl: runtime.baseUrl,
             status,
             statusLabel,
@@ -303,7 +348,7 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
             ...provider,
             available: healthy,
             connected,
-            configured: !provider.supportsApiKey || provider.credentialConfigured || provider.id === 'ollama',
+            configured: provider.id === 'ollama' || provider.available,
             healthy,
             degraded,
             status,
@@ -435,6 +480,12 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
     // getProviderCatalog().
     if (runtime.supportsApiKey && !runtime.apiKey) {
         throw new Error(`Provider '${providerStr}' is not configured on this deployment.`);
+    }
+    if (runtime.requiresBaseUrl && !runtime.baseUrl) {
+        throw new Error(`Provider '${providerStr}' requires a base URL.`);
+    }
+    if (runtime.requiresBaseUrl && !runtime.baseUrlValid) {
+        throw new Error(`Provider '${providerStr}' requires a valid HTTP or HTTPS base URL.`);
     }
 
     const config = {};

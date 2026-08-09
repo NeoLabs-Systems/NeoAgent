@@ -4,13 +4,18 @@ const db = require('../db/database');
 const { getRuntimeValidation } = require('./runtime/validation');
 
 function hasAnyAiProviderEnv() {
-  return [
+  const hasStandardProvider = [
     'OPENAI_API_KEY',
     'ANTHROPIC_API_KEY',
     'GOOGLE_API_KEY',
     'GEMINI_API_KEY',
     'OPENROUTER_API_KEY',
   ].some((name) => Boolean(String(process.env[name] || '').trim()));
+  const hasCustomOpenAIProvider = Boolean(
+    String(process.env.OPENAI_COMPATIBLE_API_KEY || '').trim()
+    && String(process.env.OPENAI_COMPATIBLE_BASE_URL || '').trim(),
+  );
+  return hasStandardProvider || hasCustomOpenAIProvider;
 }
 
 function component(group, name, status, description) {

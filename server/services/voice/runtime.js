@@ -3,7 +3,6 @@
 const { buildPlatformFormattingGuide } = require('../messaging/formatting_guides');
 const { getAiSettings } = require('../ai/settings');
 
-const VOICE_HISTORY_WINDOW = 4;
 const VOICE_REASONING_EFFORT = 'low';
 const VOICE_LATENCY_PROFILE = 'voice';
 
@@ -88,34 +87,8 @@ function buildVoiceMessagingRunOptions({
       voiceMode: true,
     },
     latencyProfile: VOICE_LATENCY_PROFILE,
+    latencyPriority: 'interactive',
     reasoningEffort: VOICE_REASONING_EFFORT,
-    skipTaskAnalysis: true,
-    skipGlobalRecall: true,
-    historyWindow: VOICE_HISTORY_WINDOW,
-    forceMode: 'execute',
-  };
-}
-
-function buildDirectVoiceRunOptions({
-  userId,
-  agentId = null,
-  conversationId,
-  platform = 'voice_assistant',
-}) {
-  const aiSettings = getAiSettings(userId, agentId);
-  const speechModel = String(aiSettings.default_speech_model || 'auto').trim();
-  return {
-    agentId,
-    model: speechModel !== 'auto' ? speechModel : null,
-    conversationId,
-    triggerSource: platform,
-    skipConversationHistory: true,
-    skipTaskAnalysis: true,
-    skipGlobalRecall: true,
-    latencyProfile: VOICE_LATENCY_PROFILE,
-    reasoningEffort: VOICE_REASONING_EFFORT,
-    historyWindow: VOICE_HISTORY_WINDOW,
-    forceMode: 'execute',
   };
 }
 
@@ -141,10 +114,8 @@ function buildSenderIdentityBlock(msg = {}) {
 }
 
 module.exports = {
-  VOICE_HISTORY_WINDOW,
   VOICE_LATENCY_PROFILE,
   VOICE_REASONING_EFFORT,
-  buildDirectVoiceRunOptions,
   buildVoiceMessagingPrompt,
   buildVoiceMessagingRunOptions,
   isVoiceLikeMessage,

@@ -1,5 +1,7 @@
 'use strict';
 
+const MAX_INPUT_BYTES = 25 * 1024 * 1024;
+
 function voiceAbortError(message, code) {
   const error = new Error(message);
   error.name = 'AbortError';
@@ -16,6 +18,7 @@ class VoiceLiveSession {
     sink,
     voiceSettings,
     outputMode = 'audio_and_text',
+    runtimeManager = null,
   }) {
     this.id = String(id || '').trim();
     this.userId = userId;
@@ -24,13 +27,16 @@ class VoiceLiveSession {
     this.sink = sink;
     this.voiceSettings = voiceSettings || {};
     this.outputMode = outputMode;
+    this.runtimeManager = runtimeManager;
     this.state = 'idle';
     this.currentRunId = null;
+    this.lastRunId = null;
     this.interrupted = false;
     this.inputMimeType = 'audio/pcm;rate=16000;channels=1';
     this.inputChunks = new Map();
     this.inputBytes = 0;
     this.activeTurnId = '';
+    this.currentTurnId = '';
     this.highestContiguousSequence = -1;
     this.highestReceivedSequence = -1;
     this.finalSequence = null;
@@ -39,6 +45,7 @@ class VoiceLiveSession {
     this.lastAssistantText = '';
     this.assistantMessageCount = 0;
     this.closed = false;
+    this.attached = true;
     this.turnAbortController = new AbortController();
   }
 
@@ -75,6 +82,7 @@ class VoiceLiveSession {
   startTurn(turnId, mimeType = null) {
     this.resetInput(mimeType || this.inputMimeType);
     this.activeTurnId = String(turnId || '').trim();
+    this.currentTurnId = this.activeTurnId;
   }
 
   appendInputChunk(chunk, mimeType = null, options = {}) {
@@ -106,6 +114,11 @@ class VoiceLiveSession {
         receivedThrough: this.highestContiguousSequence,
         highestReceived: this.highestReceivedSequence,
       };
+    }
+    if (this.inputBytes + payload.length > MAX_INPUT_BYTES) {
+      const error = new Error('Voice input exceeds the 25 MB session limit.');
+      error.code = 'VOICE_INPUT_TOO_LARGE';
+      throw error;
     }
     this.inputChunks.set(sequence, payload);
     this.inputBytes += payload.length;
@@ -193,21 +206,22 @@ class VoiceLiveSession {
     }
   }
 
-  async publishTranscriptPartial(text) {
+  async publishTranscriptPartial(text, metadata = {}) {
     const normalized = String(text || '').trim();
     if (!normalized || normalized === this.lastPartialTranscript) return;
     this.lastPartialTranscript = normalized;
     if (typeof this.sink?.publishTranscriptPartial === 'function') {
-      await this.sink.publishTranscriptPartial(this, normalized);
+      await this.sink.publishTranscriptPartial(this, normalized, metadata);
     }
   }
 
-  async publishTranscriptFinal(text) {
+  async publishTranscriptFinal(text, metadata = {}) {
     const normalized = String(text || '').trim();
+    if (!normalized || normalized === this.lastFinalTranscript) return;
     this.lastFinalTranscript = normalized;
     this.lastPartialTranscript = normalized;
     if (typeof this.sink?.publishTranscriptFinal === 'function') {
-      await this.sink.publishTranscriptFinal(this, normalized);
+      await this.sink.publishTranscriptFinal(this, normalized, metadata);
     }
   }
 
@@ -221,17 +235,48 @@ class VoiceLiveSession {
     }
   }
 
-  async interruptOutput() {
+  async publishAssistantText(content, options = {}) {
+    await this.publishAssistantOutput(content, { ...options, textOnly: true });
+  }
+
+  async publishAudioChunk(audioBytes, options = {}) {
+    if (typeof this.sink?.publishAudioChunk === 'function') {
+      await this.sink.publishAudioChunk(this, audioBytes, options);
+    }
+  }
+
+  async publishAudioDone(options = {}) {
+    if (typeof this.sink?.publishAudioDone === 'function') {
+      await this.sink.publishAudioDone(this, options);
+    }
+  }
+
+  async interruptPlayback() {
     this.interrupted = true;
+    if (typeof this.sink?.interruptOutput === 'function') {
+      await this.sink.interruptOutput(this);
+    }
+    await this.adapter?.interruptOutput?.(this);
+  }
+
+  async interruptOutput() {
+    await this.interruptPlayback();
     if (!this.turnAbortController.signal.aborted) {
       this.turnAbortController.abort(voiceAbortError(
         'Voice output was interrupted.',
         'VOICE_INTERRUPTED',
       ));
     }
-    if (typeof this.sink?.interruptOutput === 'function') {
-      await this.sink.interruptOutput(this);
-    }
+  }
+
+  detachSink() {
+    this.attached = false;
+    this.sink = null;
+  }
+
+  attachSink(sink) {
+    this.sink = sink;
+    this.attached = true;
   }
 
   async publishError(message, extra = {}) {

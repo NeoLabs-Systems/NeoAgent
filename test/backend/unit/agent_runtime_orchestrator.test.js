@@ -117,6 +117,70 @@ test('fast path completes ordinary chat without planning ceremony', async () => 
   assert.equal(Number(finals.n), 1);
 });
 
+test('voice fast path uses one canonical run and the voice outbox adapter', async () => {
+  const engine = createEngine({
+    mode: 'direct_answer',
+    draft_reply: 'The shared runtime handled this.',
+    draft_status: 'final',
+    goal: 'Answer the caller',
+    confidence: 0.98,
+    complexity: 'simple',
+    autonomy_level: 'minimal',
+    progress_update_policy: 'none',
+    research_depth: 'none',
+    needs_verification: false,
+    success_criteria: ['Accurate answer'],
+    suggested_tools: [],
+  });
+  const deliveries = [];
+  engine.voiceRuntimeManager = {
+    async presentDelivery(entry) {
+      deliveries.push(entry);
+      return { delivered: true };
+    },
+  };
+
+  const result = await engine.run(userId, 'Give me the quick answer.', {
+    triggerSource: 'voice_live',
+    source: 'voice_live',
+    chatId: 'voice-session-fast',
+    voiceSessionId: 'voice-session-fast',
+    sessionBinding: { sessionId: 'voice-session-fast', turnId: 'turn-fast' },
+    latencyPriority: 'interactive',
+    stream: false,
+    skipGlobalRecall: true,
+  });
+
+  assert.equal(result.path, 'fast');
+  assert.equal(result.content, 'The shared runtime handled this.');
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0].channel, 'voice_live');
+  assert.equal(deliveries[0].recipient, 'voice-session-fast');
+  assert.equal(deliveries[0].messageKind, 'final');
+
+  const finals = ctx.db.prepare(
+    `SELECT channel, recipient, status, COUNT(*) AS n
+     FROM agent_outbox
+     WHERE run_id = ? AND message_kind = 'final'`,
+  ).get(result.runId);
+  assert.equal(finals.channel, 'voice_live');
+  assert.equal(finals.recipient, 'voice-session-fast');
+  assert.equal(finals.status, 'delivered');
+  assert.equal(Number(finals.n), 1);
+
+  const run = ctx.db.prepare(
+    'SELECT metadata_json FROM agent_runs WHERE id = ?',
+  ).get(result.runId);
+  const metadata = JSON.parse(run.metadata_json);
+  assert.deepEqual(metadata.sessionBinding, {
+    sessionId: 'voice-session-fast',
+    turnId: 'turn-fast',
+  });
+  assert.equal(metadata.latencyPriority, 'interactive');
+  assert.equal(metadata.provider, undefined);
+  assert.equal(metadata.mediaMode, undefined);
+});
+
 test('durable path creates task contract and work graph', async () => {
   const engine = createEngine({
     mode: 'execute',

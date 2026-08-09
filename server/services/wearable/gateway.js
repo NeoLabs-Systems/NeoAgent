@@ -84,7 +84,7 @@ function toBoundedInt(value, fallback, min, max) {
   return Math.min(max, Math.max(min, Math.floor(parsed)));
 }
 
-function createWearableVoiceSink(ws, voiceRuntimeManager) {
+function createWearableVoiceSink(ws) {
   return {
     publishReady: async (session, extra = {}) => {
       sendJson(ws, {
@@ -116,7 +116,27 @@ function createWearableVoiceSink(ws, voiceRuntimeManager) {
       });
     },
     publishAssistantOutput: async (session, content, options = {}) => {
-      await voiceRuntimeManager.deliverWearableAssistantOutput(ws, session.id, content, options);
+      sendJson(ws, {
+        type: 'voice:assistant_text',
+        sessionId: session.id,
+        content,
+        ...options,
+      });
+    },
+    publishAudioChunk: async (session, audioBytes, options = {}) => {
+      sendJson(ws, {
+        type: 'voice:audio_chunk',
+        sessionId: session.id,
+        ...options,
+        audioBase64: Buffer.from(audioBytes).toString('base64'),
+      });
+    },
+    publishAudioDone: async (session, options = {}) => {
+      sendJson(ws, {
+        type: 'voice:audio_done',
+        sessionId: session.id,
+        ...options,
+      });
     },
     interruptOutput: async (session) => {
       sendJson(ws, {
@@ -256,7 +276,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                   userId: req.session.userId,
                   agentId: payload.agentId || payload.agent_id || null,
                   sessionId: resolvedSessionId,
-                  sink: createWearableVoiceSink(ws, voiceRuntimeManager),
+                  sink: createWearableVoiceSink(ws),
                 });
                 activeSessionIds.add(session.id);
                 break;

@@ -23,6 +23,7 @@ function inferModelPurpose(id) {
 
 const PROVIDER_LABELS = Object.freeze({
   openai: (model) => `${model.id} (OpenAI)`,
+  'openai-compatible': (model) => `${model.name || model.id} (Custom OpenAI-compatible)`,
   anthropic: (model) => `${model.name || model.id} (Anthropic)`,
   google: (model) => `${model.name || model.id} (Google)`,
   nvidia: (model) => `${model.id} (NVIDIA NIM)`,

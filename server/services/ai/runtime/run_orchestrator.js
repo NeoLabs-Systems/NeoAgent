@@ -20,6 +20,7 @@ const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
   buildAnalysisPrompt,
   buildExecutionGuidance,
+  buildInteractiveExecutionGuidance,
   isDirectAnswerEligibleAnalysis,
   normalizeTaskAnalysis,
   shouldRunVerifier,
@@ -80,6 +81,10 @@ const {
   requestFinalDelivery,
   requestProgressDelivery,
 } = require('./delivery/delivery_worker');
+const {
+  resolveDeliveryChannel,
+  resolveDeliveryRecipient,
+} = require('./delivery/delivery_channel');
 const { buildContextView } = require('./context/context_view_builder');
 const {
   buildEvidencePacket,
@@ -141,6 +146,8 @@ class DurableRunRuntime {
     const conversationId = options.conversationId;
     const app = options.app || this.engine.app;
     const triggerSource = options.triggerSource || 'web';
+    const deliveryChannel = resolveDeliveryChannel(triggerSource);
+    const deliveryRecipient = resolveDeliveryRecipient(triggerSource, options);
     const workerId = `worker_${randomUUID()}`;
     const runTitle = generateTitle(userMessage);
     let totalTokens = 0;
@@ -192,6 +199,8 @@ class DurableRunRuntime {
           String(modelOverride || aiSettings.default_chat_model || 'auto'),
           JSON.stringify({
             ...(options.taskId ? { taskId: options.taskId } : {}),
+            ...(options.sessionBinding ? { sessionBinding: options.sessionBinding } : {}),
+            ...(options.latencyPriority ? { latencyPriority: options.latencyPriority } : {}),
             runtimeKernel: 'v2',
           }),
         );
@@ -238,6 +247,9 @@ class DurableRunRuntime {
         deliveryState,
         triggerType,
         triggerSource,
+        voiceSessionId: options.voiceSessionId || options.sessionBinding?.sessionId || null,
+        sessionBinding: options.sessionBinding || null,
+        latencyPriority: options.latencyPriority || null,
         startedAt: startedAtMs,
         startedAtIso: isoNow(),
         abortController,
@@ -275,9 +287,13 @@ class DurableRunRuntime {
         userId,
         agentId,
         eventBus: this.eventBus,
-        channel: triggerSource === 'messaging' ? 'messaging' : 'web',
-        recipient: options.chatId || null,
-        maxSilenceSeconds: Number(options.maxSilenceSeconds) || 90,
+        channel: deliveryChannel,
+        recipient: deliveryRecipient,
+        deliveryMetadata: options.sessionBinding || null,
+        maxSilenceSeconds: Number(options.maxSilenceSeconds)
+          || (options.latencyPriority === 'interactive' ? 45 : 90),
+        firstUpdateSeconds: options.latencyPriority === 'interactive' ? 15 : 25,
+        repeatUpdateSeconds: options.latencyPriority === 'interactive' ? 45 : 90,
         collectDelta: () => this.#collectProgressDelta(runId, toolExecutions),
         // A run that already delivered, was cancelled, or decided to stay silent
         // must never emit another visible update.
@@ -338,15 +354,18 @@ class DurableRunRuntime {
       // decides whether to speak; the model writes the line from the real
       // conversation and may decline. Background automation reports through its
       // own delivery target and never gets one.
-      const maybeAck = async (force = false) => {
+      const maybeAck = async (force = false, analysisAck = '') => {
         if (!force) return;
         // Background schedule/task automation delivers via send_message only.
         if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
         if (triggerType === 'subagent') return;
 
-        let ackText = '';
+        let ackText = options.latencyPriority === 'interactive'
+          ? String(analysisAck || '').trim()
+          : '';
         try {
-          const ackResponse = await this.engine.requestModelResponse({
+          if (!ackText) {
+            const ackResponse = await this.engine.requestModelResponse({
             provider,
             providerName,
             model,
@@ -370,13 +389,14 @@ class DurableRunRuntime {
             runId,
             iteration: 0,
           });
-          ackText = sanitizeModelOutput(
-            String(ackResponse?.response?.content || ackResponse?.streamContent || '').trim(),
-            { model },
-          );
-          // Strip accidental multi-paragraph model output to one line.
-          ackText = ackText.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
-          if (ackText.length > 220) ackText = `${ackText.slice(0, 217).trimEnd()}...`;
+            ackText = sanitizeModelOutput(
+              String(ackResponse?.response?.content || ackResponse?.streamContent || '').trim(),
+              { model },
+            );
+            // Strip accidental multi-paragraph model output to one line.
+            ackText = ackText.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
+            if (ackText.length > 220) ackText = `${ackText.slice(0, 217).trimEnd()}...`;
+          }
         } catch (error) {
           console.warn('[Runtime] Ack generation failed; continuing without hard-coded text:', error?.message || error);
           ackText = '';
@@ -390,12 +410,13 @@ class DurableRunRuntime {
           engine: this.engine,
           runId,
           content: ackText,
-          channel: triggerSource === 'messaging' ? 'messaging' : 'web',
-          recipient: options.chatId || null,
+          channel: deliveryChannel,
+          recipient: deliveryRecipient,
           messageKind: MESSAGE_KINDS.ACK,
           metadata: {
             platform: options.source || null,
             chatId: options.chatId || null,
+            ...(options.sessionBinding || {}),
             idempotencyKey: `${runId}:ack:1`,
           },
         });
@@ -706,6 +727,7 @@ class DurableRunRuntime {
           analysis.progress_update_policy === 'required'
           || analysis.complexity === 'complex'
           || analysis.autonomy_level === 'high',
+          analysis.acknowledgement,
         );
         applyTransition({
           runId,
@@ -747,6 +769,12 @@ class DurableRunRuntime {
           capabilityHealth: capabilitySummary,
         }),
       });
+      if (options.latencyPriority === 'interactive') {
+        messages.push({
+          role: 'system',
+          content: buildInteractiveExecutionGuidance(),
+        });
+      }
 
       applyTransition({
         runId,
@@ -2061,18 +2089,20 @@ class DurableRunRuntime {
     totalTokens,
     asError = false,
   }) {
-    const channel = triggerSource === 'messaging' ? 'messaging' : 'web';
+    const channel = resolveDeliveryChannel(triggerSource);
+    const recipient = resolveDeliveryRecipient(triggerSource, options);
     const result = await requestFinalDelivery({
       engine: this.engine,
       runId,
       content,
       channel,
-      recipient: options.chatId || null,
+      recipient,
       workerId,
       eventBus: this.eventBus,
       metadata: {
         platform: options.source || null,
         chatId: options.chatId || null,
+        ...(options.sessionBinding || {}),
         totalTokens,
         asError,
         agentId,

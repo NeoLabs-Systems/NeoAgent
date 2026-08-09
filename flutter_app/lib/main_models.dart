@@ -1324,39 +1324,85 @@ class LiveVoiceBufferedChunk {
   bool sent;
 }
 
+class VoiceTimelineItem {
+  const VoiceTimelineItem({
+    required this.id,
+    required this.sessionId,
+    required this.turnId,
+    required this.role,
+    required this.kind,
+    required this.content,
+    required this.isFinal,
+    required this.createdAt,
+    this.runId = '',
+    this.messageId = '',
+  });
+
+  final String id;
+  final String sessionId;
+  final String turnId;
+  final String runId;
+  final String messageId;
+  final String role;
+  final String kind;
+  final String content;
+  final bool isFinal;
+  final DateTime createdAt;
+
+  VoiceTimelineItem copyWith({
+    String? runId,
+    String? messageId,
+    String? kind,
+    String? content,
+    bool? isFinal,
+  }) {
+    return VoiceTimelineItem(
+      id: id,
+      sessionId: sessionId,
+      turnId: turnId,
+      runId: runId ?? this.runId,
+      messageId: messageId ?? this.messageId,
+      role: role,
+      kind: kind ?? this.kind,
+      content: content ?? this.content,
+      isFinal: isFinal ?? this.isFinal,
+      createdAt: createdAt,
+    );
+  }
+}
+
 class VoiceAssistantLiveState {
   VoiceAssistantLiveState({
     this.sessionId = '',
-    this.runtimeMode = 'legacy',
-    this.provider = 'openai',
+    this.mediaMode = 'composed',
+    this.inputMode = 'ptt',
+    this.inputSampleRate = 24000,
+    this.provider = '',
     this.model = '',
     this.voice = '',
+    this.activeRunId = '',
     this.transportState = 'connected',
     this.state = 'idle',
-    this.partialTranscript = '',
-    this.finalTranscript = '',
-    this.interimAssistantText = '',
-    this.finalAssistantText = '',
-    this.assistantText = '',
+    List<VoiceTimelineItem>? timeline,
     this.audioMimeType = 'audio/mpeg',
     List<Uint8List>? audioQueue,
     this.audioStreamDone = false,
     this.recoverableUntil,
     this.error,
-  }) : audioQueue = audioQueue ?? const <Uint8List>[];
+  }) : timeline = timeline ?? const <VoiceTimelineItem>[],
+       audioQueue = audioQueue ?? const <Uint8List>[];
 
   final String sessionId;
-  final String runtimeMode;
+  final String mediaMode;
+  final String inputMode;
+  final int inputSampleRate;
   final String provider;
   final String model;
   final String voice;
+  final String activeRunId;
   final String transportState;
   final String state;
-  final String partialTranscript;
-  final String finalTranscript;
-  final String interimAssistantText;
-  final String finalAssistantText;
-  final String assistantText;
+  final List<VoiceTimelineItem> timeline;
   final String audioMimeType;
   final List<Uint8List> audioQueue;
   final bool audioStreamDone;
@@ -1364,26 +1410,49 @@ class VoiceAssistantLiveState {
   final String? error;
 
   bool get hasActiveSession => sessionId.trim().isNotEmpty;
-  bool get isLive => runtimeMode == 'live';
+  bool get isLive => mediaMode == 'duplex';
   bool get isListening => state == 'listening';
-  bool get isBusy =>
-      state == 'transcribing' || state == 'thinking' || state == 'speaking';
+  bool get isBusy => <String>{
+    'transcribing',
+    'triaging',
+    'working',
+    'waiting',
+    'blocked',
+    'speaking',
+  }.contains(state);
   bool get isRecoverable =>
       recoverableUntil != null && recoverableUntil!.isAfter(DateTime.now());
 
+  String _latest(String role, {bool? finalOnly}) {
+    for (final item in timeline.reversed) {
+      if (item.role != role) continue;
+      if (finalOnly != null && item.isFinal != finalOnly) continue;
+      if (item.content.trim().isNotEmpty) return item.content;
+    }
+    return '';
+  }
+
+  String get partialTranscript => _latest('user');
+  String get finalTranscript => _latest('user', finalOnly: true);
+  String get interimAssistantText => timeline.reversed
+      .where((item) => item.role == 'assistant' && !item.isFinal)
+      .map((item) => item.content)
+      .firstWhere((content) => content.trim().isNotEmpty, orElse: () => '');
+  String get finalAssistantText => _latest('assistant', finalOnly: true);
+  String get assistantText => _latest('assistant');
+
   VoiceAssistantLiveState copyWith({
     String? sessionId,
-    String? runtimeMode,
+    String? mediaMode,
+    String? inputMode,
+    int? inputSampleRate,
     String? provider,
     String? model,
     String? voice,
+    String? activeRunId,
     String? transportState,
     String? state,
-    String? partialTranscript,
-    String? finalTranscript,
-    String? interimAssistantText,
-    String? finalAssistantText,
-    String? assistantText,
+    List<VoiceTimelineItem>? timeline,
     String? audioMimeType,
     List<Uint8List>? audioQueue,
     bool? audioStreamDone,
@@ -1391,21 +1460,23 @@ class VoiceAssistantLiveState {
     String? error,
     bool clearError = false,
     bool clearAudio = false,
+    bool clearTimeline = false,
     bool clearRecoverableUntil = false,
   }) {
     return VoiceAssistantLiveState(
       sessionId: sessionId ?? this.sessionId,
-      runtimeMode: runtimeMode ?? this.runtimeMode,
+      mediaMode: mediaMode ?? this.mediaMode,
+      inputMode: inputMode ?? this.inputMode,
+      inputSampleRate: inputSampleRate ?? this.inputSampleRate,
       provider: provider ?? this.provider,
       model: model ?? this.model,
       voice: voice ?? this.voice,
+      activeRunId: activeRunId ?? this.activeRunId,
       transportState: transportState ?? this.transportState,
       state: state ?? this.state,
-      partialTranscript: partialTranscript ?? this.partialTranscript,
-      finalTranscript: finalTranscript ?? this.finalTranscript,
-      interimAssistantText: interimAssistantText ?? this.interimAssistantText,
-      finalAssistantText: finalAssistantText ?? this.finalAssistantText,
-      assistantText: assistantText ?? this.assistantText,
+      timeline: clearTimeline
+          ? const <VoiceTimelineItem>[]
+          : (timeline ?? this.timeline),
       audioMimeType: audioMimeType ?? this.audioMimeType,
       audioQueue: clearAudio
           ? const <Uint8List>[]

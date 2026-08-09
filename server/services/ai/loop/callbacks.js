@@ -8,6 +8,8 @@ const {
 } = require('../interim');
 const { normalizeInterimText } = require('../messagingFallback');
 const { requireSuccessfulMessagingDelivery } = require('./messaging_delivery');
+const { requestProgressDelivery } = require('../runtime/delivery/delivery_worker');
+const { MESSAGE_KINDS } = require('../runtime/constants');
 
 async function publishInterimUpdate(engine, {
   userId,
@@ -70,17 +72,29 @@ async function publishInterimUpdate(engine, {
     requireSuccessfulMessagingDelivery(deliveryResult, 'Interim messaging delivery');
   } else if (triggerSource === 'voice_live') {
     const voiceSessionId = runMeta.voiceSessionId || null;
-    const manager = engine.voiceRuntimeManager || engine.app?.locals?.voiceRuntimeManager || null;
-    if (!voiceSessionId || !manager || typeof manager.publishInterimUpdate !== 'function') {
+    if (!voiceSessionId) {
       return { sent: false, skipped: true, reason: 'Voice session context is not available.' };
     }
-    await manager.publishInterimUpdate({
-      sessionId: voiceSessionId,
+    const delivery = await requestProgressDelivery({
+      engine,
+      runId,
       content: normalizedContent,
-      kind: normalizedKind,
-      expectsReply,
-      deferFollowUp,
+      channel: 'voice_live',
+      recipient: voiceSessionId,
+      messageKind: MESSAGE_KINDS.INTERIM,
+      metadata: {
+        kind: normalizedKind,
+        expectsReply: expectsReply === true,
+        ...(runMeta.sessionBinding || {}),
+        idempotencyKey: `${runId}:interim:${buildInterimSignature({
+          content: normalizedContent,
+          kind: normalizedKind,
+          expectsReply,
+          platform: 'voice_live',
+        })}`,
+      },
     });
+    if (!delivery.ok) return { sent: false, skipped: true, reason: delivery.reason };
   } else {
     db.prepare(
       'INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)'
@@ -105,15 +119,17 @@ async function publishInterimUpdate(engine, {
   runMeta.lastInterimMessage = normalizedContent;
   engine.markRunVisibleProgress(runId, createdAt);
 
-  engine.emit(userId, 'run:assistant_interim', {
-    runId,
-    content: normalizedContent,
-    kind: normalizedKind,
-    expectsReply: expectsReply === true,
-    deferFollowUp: deferFollowUp === true,
-    triggerSource,
-    platform: triggerSource === 'messaging' ? platform : 'web',
-  });
+  if (triggerSource !== 'voice_live') {
+    engine.emit(userId, 'run:assistant_interim', {
+      runId,
+      content: normalizedContent,
+      kind: normalizedKind,
+      expectsReply: expectsReply === true,
+      deferFollowUp: deferFollowUp === true,
+      triggerSource,
+      platform: triggerSource === 'messaging' ? platform : 'web',
+    });
+  }
 
   const terminalInterim = expectsReply === true;
   if (terminalInterim) {

@@ -11,19 +11,15 @@ class VoiceAssistantPanel extends StatefulWidget {
 
 class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   late final AudioPlayer _assistantPlayer;
-  late final AudioPlayer _thinkingPlayer;
   Timer? _elapsedTimer;
   bool _elapsedTickerActive = false;
   bool _pttPressed = false;
   bool _isAssistantPlaying = false;
-  bool _isThinkingAudioPlaying = false;
-  String _assistantReply = '';
-  String _assistantTranscript = '';
+  bool _isMuted = false;
   String? _voiceError;
   String? _assistantAudioMimeType;
   String? _lastLiveError;
   final List<Uint8List> _audioQueue = <Uint8List>[];
-  late final Uint8List _thinkingAudioLoopBytes;
   bool _isDraining = false;
   bool _audioInterrupted = false;
   int _audioQueueConsumedCount = 0;
@@ -34,12 +30,22 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         return 'Listening';
       case 'transcribing':
         return 'Transcribing';
-      case 'thinking':
-        return 'Thinking';
+      case 'triaging':
+        return 'Triaging';
+      case 'working':
+        return 'Working';
+      case 'waiting':
+        return 'Waiting';
+      case 'blocked':
+        return 'Blocked';
       case 'speaking':
         return 'Speaking';
       case 'interrupted':
         return 'Interrupted';
+      case 'reconnecting':
+        return 'Reconnecting';
+      case 'connected':
+        return 'Connected';
       case 'error':
         return 'Error';
       default:
@@ -64,10 +70,18 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     switch (liveState.state.trim().toLowerCase()) {
       case 'transcribing':
         return 'Transcribing your speech...';
-      case 'thinking':
-        return 'Thinking...';
+      case 'triaging':
+        return 'Choosing the quickest safe path...';
+      case 'working':
+        return 'NeoAgent is working on your request...';
+      case 'waiting':
+        return 'Waiting for the current operation...';
+      case 'blocked':
+        return 'NeoAgent needs approval or input to continue.';
       case 'speaking':
         return 'Playing the reply...';
+      case 'reconnecting':
+        return 'Reconnecting without stopping the task...';
       case 'interrupted':
         return 'Reply interrupted.';
       case 'error':
@@ -81,8 +95,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   void initState() {
     super.initState();
     _assistantPlayer = AudioPlayer();
-    _thinkingPlayer = AudioPlayer();
-    _thinkingAudioLoopBytes = _buildThinkingLoopWav();
     widget.controller.addListener(_handleControllerChanged);
     _assistantPlayer.onPlayerComplete.listen((_) {
       if (!mounted) {
@@ -91,7 +103,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       setState(() {
         _isAssistantPlaying = false;
       });
-      unawaited(_syncThinkingAudio());
     });
     _syncElapsedTicker();
   }
@@ -101,14 +112,12 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     widget.controller.removeListener(_handleControllerChanged);
     _elapsedTimer?.cancel();
     unawaited(_assistantPlayer.dispose());
-    unawaited(_thinkingPlayer.dispose());
     super.dispose();
   }
 
   void _handleControllerChanged() {
     _syncElapsedTicker();
     _syncLiveVoiceState();
-    unawaited(_syncThinkingAudio());
   }
 
   void _syncElapsedTicker() {
@@ -135,12 +144,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
   void _syncLiveVoiceState() {
     final liveState = widget.controller.voiceAssistantLiveState;
-    _assistantReply = liveState.finalAssistantText.ifEmpty(
-      liveState.interimAssistantText,
-    );
-    _assistantTranscript = liveState.finalTranscript.ifEmpty(
-      liveState.partialTranscript,
-    );
     _assistantAudioMimeType = liveState.audioMimeType;
     _voiceError = liveState.error;
 
@@ -171,41 +174,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       }
       unawaited(_drainAudioQueue());
     }
-  }
-
-  Future<void> _syncThinkingAudio() async {
-    final state = widget.controller.voiceAssistantLiveState.state.trim();
-    final shouldPlay = state == 'thinking' && !_isAssistantPlaying;
-    if (shouldPlay == _isThinkingAudioPlaying) {
-      return;
-    }
-    if (shouldPlay) {
-      try {
-        await _thinkingPlayer.setReleaseMode(ReleaseMode.loop);
-        await _thinkingPlayer.setVolume(0.08);
-        await _thinkingPlayer.play(
-          BytesSource(_thinkingAudioLoopBytes, mimeType: 'audio/wav'),
-        );
-        _isThinkingAudioPlaying = true;
-      } catch (error, stackTrace) {
-        AppDiagnostics.log(
-          'voice.assistant.ui',
-          'thinking_audio.start_failed',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-      return;
-    }
-    await _stopThinkingAudio();
-  }
-
-  Future<void> _stopThinkingAudio() async {
-    if (!_isThinkingAudioPlaying) {
-      return;
-    }
-    await _thinkingPlayer.stop();
-    _isThinkingAudioPlaying = false;
   }
 
   bool _hasActivePttCapture() {
@@ -286,7 +254,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           sub.cancel();
           completer.complete();
         });
-        await _stopThinkingAudio();
+        await _assistantPlayer.setVolume(_isMuted ? 0 : 1);
         await _assistantPlayer.play(BytesSource(chunk, mimeType: mimeType));
         if (!mounted || _audioInterrupted) {
           sub.cancel();
@@ -306,16 +274,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     }
   }
 
-  Future<void> _playAssistantAudio() async {
-    // Legacy path — not used for live streaming but kept for any non-streaming callers.
-    _audioInterrupted = false;
-    unawaited(_drainAudioQueue());
-  }
-
   Future<void> _stopAssistantAudio() async {
     _audioInterrupted = true;
     _audioQueue.clear();
-    await _stopThinkingAudio();
     await _assistantPlayer.stop();
     if (!mounted) {
       return;
@@ -323,63 +284,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     setState(() {
       _isAssistantPlaying = false;
     });
-  }
-
-  Uint8List _buildThinkingLoopWav() {
-    const sampleRate = 24000;
-    const durationMs = 2400;
-    const channelCount = 1;
-    const bitsPerSample = 16;
-    final sampleCount = (sampleRate * durationMs) ~/ 1000;
-    final dataLength = sampleCount * 2;
-    final bytes = ByteData(44 + dataLength);
-
-    void writeString(int offset, String value) {
-      for (var i = 0; i < value.length; i += 1) {
-        bytes.setUint8(offset + i, value.codeUnitAt(i));
-      }
-    }
-
-    writeString(0, 'RIFF');
-    bytes.setUint32(4, 36 + dataLength, Endian.little);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    bytes.setUint32(16, 16, Endian.little);
-    bytes.setUint16(20, 1, Endian.little);
-    bytes.setUint16(22, channelCount, Endian.little);
-    bytes.setUint32(24, sampleRate, Endian.little);
-    bytes.setUint32(
-      28,
-      sampleRate * channelCount * (bitsPerSample ~/ 8),
-      Endian.little,
-    );
-    bytes.setUint16(32, channelCount * (bitsPerSample ~/ 8), Endian.little);
-    bytes.setUint16(34, bitsPerSample, Endian.little);
-    writeString(36, 'data');
-    bytes.setUint32(40, dataLength, Endian.little);
-
-    final twoPi = math.pi * 2;
-    for (var i = 0; i < sampleCount; i += 1) {
-      final time = i / sampleRate;
-      final progress = i / sampleCount;
-      final eased = math.sin(progress * math.pi);
-      final pad =
-          math.sin(twoPi * 196 * time) * 0.35 +
-          math.sin(twoPi * 246.94 * time) * 0.2 +
-          math.sin(twoPi * 293.66 * time) * 0.12;
-      final shimmer =
-          math.sin(twoPi * 523.25 * time + math.sin(twoPi * 0.23 * time)) *
-          0.05;
-      final tremolo = 0.58 + 0.42 * math.sin(twoPi * 0.45 * time);
-      final envelope = math.pow(eased, 1.6).toDouble() * tremolo;
-      final sample = ((pad + shimmer) * envelope * 1400).round().clamp(
-        -32768,
-        32767,
-      );
-      bytes.setInt16(44 + (i * 2), sample, Endian.little);
-    }
-
-    return bytes.buffer.asUint8List();
   }
 
   String _activeCallElapsedLabel(NeoAgentController controller) {
@@ -398,11 +302,148 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _toggleMute() async {
+    final muted = !_isMuted;
+    await _assistantPlayer.setVolume(muted ? 0 : 1);
+    if (!mounted) return;
+    setState(() => _isMuted = muted);
+  }
+
+  Future<void> _stopSpeaking(NeoAgentController controller) async {
+    await _stopAssistantAudio();
+    await controller.stopLiveVoicePlayback();
+  }
+
+  Future<void> _endSession(NeoAgentController controller) async {
+    final hasActiveTask = controller.voiceAssistantLiveState.activeRunId
+        .trim()
+        .isNotEmpty;
+    if (!hasActiveTask) {
+      await controller.closeLiveVoiceSession();
+      return;
+    }
+    final cancelTask = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('End voice session?'),
+        content: const Text(
+          'NeoAgent is still working. You can end the voice session and keep the chat task running, or cancel the task too.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Continue session'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep task running'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel task'),
+          ),
+        ],
+      ),
+    );
+    if (cancelTask == null || !mounted) return;
+    await controller.closeLiveVoiceSession(cancelTask: cancelTask);
+  }
+
+  String _timelineKindLabel(VoiceTimelineItem item) {
+    switch (item.kind) {
+      case 'acknowledgement':
+        return 'Acknowledgement';
+      case 'progress':
+        return 'Progress';
+      case 'status':
+        return 'Status';
+      case 'error':
+        return 'Error';
+      case 'transcript_partial':
+        return 'Listening';
+      default:
+        return item.role == 'user' ? 'You' : 'NeoAgent';
+    }
+  }
+
+  Widget _buildTimeline(VoiceAssistantLiveState liveState) {
+    if (liveState.timeline.isEmpty) {
+      return Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 96),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _bgSecondary,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border),
+        ),
+        child: Text(
+          'Transcripts, grounded progress, and NeoAgent replies appear here in order.',
+          style: TextStyle(color: _textMuted, height: 1.45),
+        ),
+      );
+    }
+    return Column(
+      children: liveState.timeline
+          .map((item) {
+            final assistant = item.role == 'assistant';
+            return Container(
+              key: ValueKey<String>(item.id),
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: assistant
+                    ? _accent.withValues(alpha: 0.08)
+                    : _bgSecondary,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: assistant ? _accentMuted : _border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        assistant
+                            ? Icons.auto_awesome_outlined
+                            : Icons.person_outline,
+                        size: 16,
+                        color: assistant ? _accent : _textSecondary,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        _timelineKindLabel(item),
+                        style: TextStyle(
+                          color: assistant ? _accent : _textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (!item.isFinal) ...<Widget>[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Live',
+                          style: TextStyle(color: _textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    item.content,
+                    style: TextStyle(color: _textPrimary, height: 1.45),
+                  ),
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
   Widget _buildLiveSessionCard(NeoAgentController controller) {
     final liveState = controller.voiceAssistantLiveState;
-    final preview = liveState.finalTranscript.ifEmpty(
-      liveState.partialTranscript,
-    );
     final statusLabel = controller.isLiveVoiceCaptureStarting
         ? 'Starting'
         : liveState.hasActiveSession
@@ -413,7 +454,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
         ? 'Reconnecting'
         : 'Idle';
     final helperText = liveState.hasActiveSession
-        ? '${liveState.provider.toUpperCase()} • ${liveState.model}'
+        ? '${liveState.mediaMode.toUpperCase()} • ${liveState.provider.toUpperCase()} • ${liveState.model}'
         : liveState.isRecoverable
         ? 'Reconnecting the live turn.'
         : 'Open a push-to-talk session to start.';
@@ -457,39 +498,23 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   color: _accent,
                 ),
                 _StatusPill(label: liveState.model, color: _textSecondary),
+                _StatusPill(
+                  label: liveState.inputMode == 'hands_free'
+                      ? 'HANDS-FREE'
+                      : 'PUSH-TO-TALK',
+                  color: _textSecondary,
+                ),
               ],
             ),
             const SizedBox(height: 14),
           ],
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 96, maxHeight: 180),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _bgSecondary,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border),
-            ),
-            child: SingleChildScrollView(
-              child: SelectableText(
-                preview.trim().isEmpty
-                    ? 'Transcript appears while you speak and final text fills in as soon as transcription completes.'
-                    : preview,
-                style: TextStyle(
-                  color: preview.trim().isEmpty ? _textMuted : _textPrimary,
-                  height: 1.45,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: <Widget>[
               OutlinedButton.icon(
                 onPressed: controller.voiceAssistantLiveState.hasActiveSession
-                    ? controller.interruptLiveVoiceAssistant
+                    ? () => _stopSpeaking(controller)
                     : controller.ensureLiveVoiceSession,
                 icon: Icon(
                   controller.voiceAssistantLiveState.hasActiveSession
@@ -499,16 +524,26 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                 ),
                 label: Text(
                   controller.voiceAssistantLiveState.hasActiveSession
-                      ? 'Interrupt output'
+                      ? 'Stop speaking'
                       : 'Open live session',
                 ),
               ),
               OutlinedButton.icon(
+                onPressed:
+                    controller.voiceAssistantLiveState.activeRunId
+                        .trim()
+                        .isNotEmpty
+                    ? controller.cancelLiveVoiceTask
+                    : null,
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: const Text('Cancel task'),
+              ),
+              OutlinedButton.icon(
                 onPressed: controller.voiceAssistantLiveState.hasActiveSession
-                    ? controller.closeLiveVoiceSession
+                    ? () => _endSession(controller)
                     : null,
                 icon: const Icon(Icons.close, size: 18),
-                label: const Text('Close session'),
+                label: const Text('End session'),
               ),
             ],
           ),
@@ -534,7 +569,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final canStart = !isBusy;
     final canStop = liveCaptureEngaged;
     final hasAssistantAudio = _isAssistantPlaying || _audioQueue.isNotEmpty;
-    final useDesktopToggleCapture = assistantUi.useToggleCapture;
+    final useDesktopToggleCapture =
+        liveState.inputMode == 'hands_free' || assistantUi.useToggleCapture;
     final heroHint = _heroHintForState(
       liveState,
       liveCaptureStarting,
@@ -680,16 +716,15 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   alignment: WrapAlignment.center,
                   children: <Widget>[
                     _VoiceAssistantActionButton(
-                      icon: _isAssistantPlaying
-                          ? Icons.stop_circle_outlined
-                          : Icons.play_arrow,
-                      label: _isAssistantPlaying
-                          ? 'Stop playback'
-                          : 'Play reply',
+                      icon: _isMuted ? Icons.volume_off : Icons.volume_up,
+                      label: _isMuted ? 'Unmute' : 'Mute',
+                      onTap: liveState.hasActiveSession ? _toggleMute : null,
+                    ),
+                    _VoiceAssistantActionButton(
+                      icon: Icons.stop_circle_outlined,
+                      label: 'Stop speaking',
                       onTap: hasAssistantAudio
-                          ? (_isAssistantPlaying
-                                ? _stopAssistantAudio
-                                : _playAssistantAudio)
+                          ? () => _stopSpeaking(controller)
                           : null,
                     ),
                     _VoiceAssistantActionButton(
@@ -700,85 +735,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 820;
-                    final liveSessionCard = _buildLiveSessionCard(controller);
-                    final assistantReplyCard = _VoiceAssistantSectionCard(
-                      icon: Icons.record_voice_over_outlined,
-                      title: 'Assistant Reply',
-                      subtitle: hasAssistantAudio
-                          ? 'Audio reply ready for playback.'
-                          : 'Text reply and speech status.',
-                      child: Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(minHeight: 96),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _bgSecondary,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: _border),
-                        ),
-                        child: SelectableText(
-                          _assistantReply.trim().isEmpty
-                              ? 'No assistant reply yet.'
-                              : _assistantReply,
-                          style: TextStyle(
-                            color: _assistantReply.trim().isEmpty
-                                ? _textMuted
-                                : _textPrimary,
-                            height: 1.45,
-                          ),
-                        ),
-                      ),
-                    );
-                    if (wide) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(child: liveSessionCard),
-                          const SizedBox(width: 18),
-                          Expanded(child: assistantReplyCard),
-                        ],
-                      );
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        liveSessionCard,
-                        const SizedBox(height: 18),
-                        assistantReplyCard,
-                      ],
-                    );
-                  },
-                ),
+                _buildLiveSessionCard(controller),
                 const SizedBox(height: 18),
                 _VoiceAssistantSectionCard(
-                  icon: Icons.subject_outlined,
-                  title: 'Transcript',
+                  icon: Icons.forum_outlined,
+                  title: 'Conversation',
                   subtitle:
-                      'Speech-to-text updates as soon as they are available.',
-                  child: Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(minHeight: 96),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: _border),
-                    ),
-                    child: SelectableText(
-                      _assistantTranscript.trim().isEmpty
-                          ? 'Transcript will appear here.'
-                          : _assistantTranscript,
-                      style: TextStyle(
-                        color: _assistantTranscript.trim().isEmpty
-                            ? _textMuted
-                            : _textPrimary,
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
+                      'One ordered timeline shared with the NeoAgent chat task.',
+                  child: _buildTimeline(liveState),
                 ),
               ],
             ),

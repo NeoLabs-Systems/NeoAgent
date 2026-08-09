@@ -225,6 +225,7 @@ class NeoAgentController extends ChangeNotifier {
   String? _liveVoiceTurnId;
   final List<LiveVoiceBufferedChunk> _liveVoiceBufferedChunks =
       <LiveVoiceBufferedChunk>[];
+  final Set<String> _liveVoiceAudioKeys = <String>{};
   int _liveVoiceAckThrough = -1;
   int _liveVoiceFinalSequence = -1;
   bool _liveVoiceCommitPending = false;
@@ -3626,7 +3627,8 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> ensureLiveVoiceSession() async {
-    if (voiceAssistantLiveState.hasActiveSession) {
+    if (voiceAssistantLiveState.hasActiveSession &&
+        voiceAssistantLiveState.transportState == 'connected') {
       return;
     }
     if (_liveVoiceSessionOpenCompleter != null) {
@@ -3640,6 +3642,8 @@ class NeoAgentController extends ChangeNotifier {
     _liveVoiceSessionOpenCompleter = completer;
     _socket!.emit('voice:session_open', <String, dynamic>{
       'agentId': _scopedAgentId,
+      if (voiceAssistantLiveState.sessionId.trim().isNotEmpty)
+        'sessionId': voiceAssistantLiveState.sessionId.trim(),
     });
     try {
       await completer.future.timeout(
@@ -3735,11 +3739,11 @@ class NeoAgentController extends ChangeNotifier {
     if (socket == null) {
       return;
     }
-    socket.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
     socket.emit('voice:input_start', <String, dynamic>{
       'sessionId': sessionId,
       'turnId': turnId,
-      'mimeType': 'audio/pcm;rate=16000;channels=1',
+      'mimeType':
+          'audio/pcm;rate=${voiceAssistantLiveState.inputSampleRate};channels=1',
     });
   }
 
@@ -3761,7 +3765,8 @@ class NeoAgentController extends ChangeNotifier {
         'sessionId': sessionId,
         'turnId': turnId,
         'sequence': chunk.sequence,
-        'mimeType': 'audio/pcm;rate=16000;channels=1',
+        'mimeType':
+            'audio/pcm;rate=${voiceAssistantLiveState.inputSampleRate};channels=1',
         'audioBase64': base64Encode(chunk.bytes),
       });
       chunk.sent = true;
@@ -3845,17 +3850,13 @@ class NeoAgentController extends ChangeNotifier {
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         transportState: 'connected',
         state: 'listening',
-        partialTranscript: '',
-        finalTranscript: '',
-        interimAssistantText: '',
-        finalAssistantText: '',
-        assistantText: '',
         clearAudio: true,
         clearError: true,
       );
       notifyListeners();
       _sendLiveVoiceInputStart(sessionId: sessionId, turnId: turnId);
       await _liveVoiceCapture.start(
+        sampleRate: voiceAssistantLiveState.inputSampleRate,
         onChunk: (Uint8List chunk) {
           final sequence = _liveVoiceBufferedChunks.length;
           _liveVoiceBufferedChunks.add(
@@ -4013,13 +4014,35 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> closeLiveVoiceSession() async {
+  Future<void> stopLiveVoicePlayback() async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (sessionId.isEmpty || _socket == null) return;
+    _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+      state: voiceAssistantLiveState.activeRunId.trim().isNotEmpty
+          ? 'working'
+          : 'idle',
+      clearAudio: true,
+    );
+    notifyListeners();
+  }
+
+  Future<void> cancelLiveVoiceTask() async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (sessionId.isEmpty || _socket == null) return;
+    _socket!.emit('voice:cancel_task', <String, dynamic>{
+      'sessionId': sessionId,
+    });
+  }
+
+  Future<void> closeLiveVoiceSession({bool cancelTask = false}) async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (sessionId.isEmpty || _socket == null) {
       return;
     }
     _socket!.emit('voice:session_close', <String, dynamic>{
       'sessionId': sessionId,
+      'cancelTask': cancelTask,
     });
     _liveVoiceCaptureActive = false;
     _liveVoiceCaptureStartedAt = null;
@@ -4039,6 +4062,65 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     }
     return payloadSessionId == activeSessionId;
+  }
+
+  void _upsertVoiceTimelineItem({
+    required Map<String, dynamic> payload,
+    required String role,
+    required String kind,
+    required String content,
+    required bool isFinal,
+  }) {
+    final sessionId = payload['sessionId']?.toString().trim().isNotEmpty == true
+        ? payload['sessionId'].toString()
+        : voiceAssistantLiveState.sessionId;
+    final turnId = payload['turnId']?.toString().trim().isNotEmpty == true
+        ? payload['turnId'].toString()
+        : (_liveVoiceTurnId ?? '');
+    final runId = payload['runId']?.toString() ?? '';
+    final messageId =
+        payload['messageId']?.toString() ??
+        payload['outboxId']?.toString() ??
+        '';
+    final id = role == 'user' && turnId.isNotEmpty
+        ? '$sessionId:$turnId:user'
+        : messageId.isNotEmpty
+        ? messageId
+        : '$sessionId:$turnId:$role:$kind:${content.hashCode}';
+    final timeline = voiceAssistantLiveState.timeline.toList(growable: true);
+    final index = timeline.indexWhere((item) => item.id == id);
+    if (index >= 0) {
+      timeline[index] = timeline[index].copyWith(
+        runId: runId,
+        messageId: messageId,
+        kind: kind,
+        content: content,
+        isFinal: isFinal,
+      );
+    } else {
+      timeline.add(
+        VoiceTimelineItem(
+          id: id,
+          sessionId: sessionId,
+          turnId: turnId,
+          runId: runId,
+          messageId: messageId,
+          role: role,
+          kind: kind,
+          content: content,
+          isFinal: isFinal,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+      timeline: timeline.length > 100
+          ? timeline.sublist(timeline.length - 100)
+          : timeline,
+      activeRunId: runId.isNotEmpty
+          ? runId
+          : voiceAssistantLiveState.activeRunId,
+    );
   }
 
   void _appendAssistantChatMessage(
@@ -4238,10 +4320,8 @@ class NeoAgentController extends ChangeNotifier {
     required String voiceTtsProvider,
     required String voiceTtsModel,
     required String voiceTtsVoice,
-    required String voiceRuntimeMode,
-    required String voiceLiveProvider,
-    required String voiceLiveModel,
-    required String voiceLiveVoice,
+    required String voiceMediaMode,
+    required String voiceInputMode,
     required Map<String, dynamic> aiProviderConfigs,
   }) async {
     isSavingSettings = true;
@@ -4267,10 +4347,8 @@ class NeoAgentController extends ChangeNotifier {
       'voice_tts_provider': voiceTtsProvider,
       'voice_tts_model': voiceTtsModel,
       'voice_tts_voice': voiceTtsVoice,
-      'voice_runtime_mode': voiceRuntimeMode,
-      'voice_live_provider': voiceLiveProvider,
-      'voice_live_model': voiceLiveModel,
-      'voice_live_voice': voiceLiveVoice,
+      'voice_media_mode': voiceMediaMode,
+      'voice_input_mode': voiceInputMode,
       'ai_provider_configs': aiProviderConfigs,
     };
 
@@ -6138,37 +6216,25 @@ class NeoAgentController extends ChangeNotifier {
   );
 
   String get voiceSttProvider =>
-      _settingString('voice_stt_provider', 'openai', lowercase: true);
+      _settingString('voice_stt_provider', '', lowercase: true);
 
-  String get voiceSttModel =>
-      _settingString('voice_stt_model', 'gpt-4o-transcribe');
+  String get voiceSttModel => _settingString('voice_stt_model', '');
 
   String get voiceTtsProvider =>
-      _settingString('voice_tts_provider', 'openai', lowercase: true);
+      _settingString('voice_tts_provider', '', lowercase: true);
 
-  String get voiceTtsModel =>
-      _settingString('voice_tts_model', 'gpt-4o-mini-tts');
+  String get voiceTtsModel => _settingString('voice_tts_model', '');
 
-  String get voiceTtsVoice => _settingString('voice_tts_voice', 'alloy');
+  String get voiceTtsVoice => _settingString('voice_tts_voice', '');
 
-  String get voiceRuntimeMode => 'live';
+  String get voiceMediaMode =>
+      _settingString('voice_media_mode', 'auto', lowercase: true);
 
-  String get voiceLiveProvider =>
-      _settingString('voice_live_provider', 'openai', lowercase: true);
+  String get voiceInputMode =>
+      _settingString('voice_input_mode', 'ptt', lowercase: true);
 
-  String get voiceLiveModel => _settingString(
-    'voice_live_model',
-    (_voiceLiveModelsByProvider[voiceLiveProvider] ??
-            _voiceLiveModelsByProvider['openai']!)
-        .first,
-  );
-
-  String get voiceLiveVoice => _settingString(
-    'voice_live_voice',
-    (_voiceLiveVoicesByProvider[voiceLiveProvider] ??
-            _voiceLiveVoicesByProvider['openai']!)
-        .first,
-  );
+  Map<String, dynamic> get voiceCapabilities =>
+      _jsonMap(settings['voice_capabilities']);
 
   bool get isLiveVoiceCaptureStarting => _isStartingLiveVoice;
 
@@ -6294,11 +6360,14 @@ class NeoAgentController extends ChangeNotifier {
         unawaited(refresh());
       }
       _socketHasConnectedOnce = true;
+      final shouldRebindVoiceSession =
+          voiceAssistantLiveState.hasActiveSession ||
+          _hasRecoverableLiveVoiceTurn();
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        transportState: 'connected',
+        transportState: shouldRebindVoiceSession ? 'reconnecting' : 'connected',
         clearError: _hasRecoverableLiveVoiceTurn(),
       );
-      if (_hasRecoverableLiveVoiceTurn()) {
+      if (shouldRebindVoiceSession) {
         unawaited(
           ensureLiveVoiceSession().catchError((Object error) {
             voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
@@ -6321,16 +6390,16 @@ class NeoAgentController extends ChangeNotifier {
           pendingSteeringCount: 0,
         );
       }
+      final hasVoiceSession = voiceAssistantLiveState.hasActiveSession;
       if (_hasRecoverableLiveVoiceTurn()) {
         _setLiveVoiceRecoveryWindow();
+      }
+      if (hasVoiceSession) {
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          sessionId: '',
           transportState: hasNetworkConnection
               ? 'reconnecting'
               : 'disconnected',
-          state: _liveVoiceCaptureActive
-              ? 'listening'
-              : voiceAssistantLiveState.state,
+          state: _liveVoiceCaptureActive ? 'listening' : 'reconnecting',
         );
       } else {
         _liveVoiceCaptureActive = false;
@@ -6345,7 +6414,8 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.onConnectError((dynamic _) {
       socketConnected = false;
-      if (_hasRecoverableLiveVoiceTurn()) {
+      if (voiceAssistantLiveState.hasActiveSession ||
+          _hasRecoverableLiveVoiceTurn()) {
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
           transportState: 'reconnecting',
         );
@@ -6438,17 +6508,22 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         sessionId: payload['sessionId']?.toString() ?? '',
-        runtimeMode:
-            payload['runtimeMode']?.toString().ifEmpty('live') ?? 'live',
+        mediaMode:
+            payload['mediaMode']?.toString().ifEmpty('composed') ?? 'composed',
+        inputMode: payload['inputMode']?.toString().ifEmpty('ptt') ?? 'ptt',
+        inputSampleRate: _asInt(payload['inputSampleRate']) >= 8000
+            ? _asInt(payload['inputSampleRate'])
+            : 24000,
         provider:
-            payload['provider']?.toString().ifEmpty(voiceLiveProvider) ??
-            voiceLiveProvider,
+            payload['provider']?.toString().ifEmpty(voiceSttProvider) ??
+            voiceSttProvider,
         model:
-            payload['model']?.toString().ifEmpty(voiceLiveModel) ??
-            voiceLiveModel,
+            payload['model']?.toString().ifEmpty(voiceSttModel) ??
+            voiceSttModel,
         voice:
-            payload['voice']?.toString().ifEmpty(voiceLiveVoice) ??
-            voiceLiveVoice,
+            payload['voice']?.toString().ifEmpty(voiceTtsVoice) ??
+            voiceTtsVoice,
+        activeRunId: payload['activeRunId']?.toString() ?? '',
         transportState: 'connected',
         state: 'idle',
         clearError: true,
@@ -6469,6 +6544,24 @@ class NeoAgentController extends ChangeNotifier {
       }
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         state: payload['state']?.toString().ifEmpty('idle') ?? 'idle',
+        activeRunId: payload['runId']?.toString().trim().isNotEmpty == true
+            ? payload['runId'].toString()
+            : voiceAssistantLiveState.activeRunId,
+      );
+      notifyListeners();
+    });
+    socket.on('voice:task_cancelled', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) {
+        return;
+      }
+      final runId = payload['runId']?.toString() ?? '';
+      if (runId.isNotEmpty) {
+        _voiceRunIds.remove(runId);
+      }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        activeRunId: '',
+        state: 'idle',
       );
       notifyListeners();
     });
@@ -6497,8 +6590,13 @@ class NeoAgentController extends ChangeNotifier {
       if (!_matchesLiveVoiceSessionPayload(payload)) {
         return;
       }
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        partialTranscript: payload['content']?.toString() ?? '',
+      final content = payload['content']?.toString() ?? '';
+      _upsertVoiceTimelineItem(
+        payload: payload,
+        role: 'user',
+        kind: 'transcript_partial',
+        content: content,
+        isFinal: false,
       );
       notifyListeners();
     });
@@ -6508,9 +6606,12 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       final content = payload['content']?.toString() ?? '';
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        partialTranscript: content,
-        finalTranscript: content,
+      _upsertVoiceTimelineItem(
+        payload: payload,
+        role: 'user',
+        kind: 'transcript_final',
+        content: content,
+        isFinal: true,
       );
       if (content.trim().isNotEmpty) {
         _appendUserChatMessage(content, platform: 'voice_live');
@@ -6527,14 +6628,12 @@ class NeoAgentController extends ChangeNotifier {
       if (content.trim().isEmpty) {
         return;
       }
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        interimAssistantText: kind == 'final'
-            ? voiceAssistantLiveState.interimAssistantText
-            : content,
-        finalAssistantText: kind == 'final'
-            ? content
-            : voiceAssistantLiveState.finalAssistantText,
-        assistantText: content,
+      _upsertVoiceTimelineItem(
+        payload: payload,
+        role: 'assistant',
+        kind: kind,
+        content: content,
+        isFinal: kind == 'final',
       );
       if (kind == 'final' && content.trim().isNotEmpty) {
         _resetLiveVoiceTurnBuffer();
@@ -6549,6 +6648,16 @@ class NeoAgentController extends ChangeNotifier {
       }
       final audioBase64 = payload['audioBase64']?.toString() ?? '';
       if (audioBase64.trim().isEmpty) return;
+      final sequence = _asInt(payload['sequence']);
+      final messageId = payload['messageId']?.toString() ?? '';
+      final runId = payload['runId']?.toString() ?? '';
+      final turnId = payload['turnId']?.toString() ?? '';
+      final kind = payload['kind']?.toString() ?? 'audio';
+      final audioKey = '$messageId:$runId:$turnId:$kind:$sequence';
+      if (!_liveVoiceAudioKeys.add(audioKey)) return;
+      if (_liveVoiceAudioKeys.length > 512) {
+        _liveVoiceAudioKeys.remove(_liveVoiceAudioKeys.first);
+      }
       final chunk = base64Decode(audioBase64);
       if (chunk.isEmpty) return;
       final mimeType = payload['mimeType']?.toString() ?? 'audio/mpeg';
@@ -6600,6 +6709,11 @@ class NeoAgentController extends ChangeNotifier {
           payload['agentId']?.toString() ?? payload['agent_id']?.toString();
       if (triggerSource == 'voice_live') {
         _voiceRunIds.add(runId);
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          activeRunId: runId,
+          state: 'working',
+        );
+        notifyListeners();
         return;
       }
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
@@ -7016,7 +7130,14 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.remove(runId)) {
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          activeRunId: '',
+          state: voiceAssistantLiveState.state == 'speaking'
+              ? 'speaking'
+              : 'idle',
+        );
         unawaited(refreshRateLimitUsage());
+        notifyListeners();
         return;
       }
       if (_backgroundRunIds.remove(runId)) {

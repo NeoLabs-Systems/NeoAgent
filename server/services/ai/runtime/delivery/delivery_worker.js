@@ -191,6 +191,18 @@ async function transmit(engine, entry, run) {
   const recipient = entry.recipient;
 
   try {
+    if (channel === 'voice_live') {
+      const manager = engine?.voiceRuntimeManager || engine?.app?.locals?.voiceRuntimeManager;
+      if (!manager || typeof manager.presentDelivery !== 'function') {
+        return { ok: false, error: 'voice_runtime_unavailable' };
+      }
+      const result = await manager.presentDelivery(entry);
+      return {
+        ok: result?.delivered !== false,
+        platformMessageId: `voice:${entry.id}`,
+      };
+    }
+
     if (channel === 'messaging' || channel === 'telegram' || channel === 'discord' || channel === 'whatsapp') {
       const manager = engine?.messagingManager;
       if (!manager || typeof manager.sendMessage !== 'function') {

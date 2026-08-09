@@ -82,6 +82,7 @@ String _providerPickerLabel(String id) {
   const Map<String, String> labels = <String, String>{
     'anthropic': 'Anthropic',
     'openai': 'OpenAI',
+    'openai-compatible': 'Custom OpenAI-compatible',
     'google': 'Google',
     'gemini': 'Google',
     'meta': 'Meta',

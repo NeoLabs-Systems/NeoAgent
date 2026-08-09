@@ -16,66 +16,6 @@ class SettingsPanel extends StatefulWidget {
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-const Map<String, List<String>> _voiceLiveModelsByProvider =
-    <String, List<String>>{
-      'openai': <String>[
-        'gpt-4o-realtime-preview',
-        'gpt-4o-mini-realtime-preview',
-      ],
-      'gemini': <String>['gemini-3.1-flash-live-preview'],
-    };
-
-const Map<String, List<String>> _voiceLiveVoicesByProvider =
-    <String, List<String>>{
-      'openai': <String>[
-        'alloy',
-        'ash',
-        'ballad',
-        'coral',
-        'echo',
-        'fable',
-        'nova',
-        'onyx',
-        'sage',
-        'shimmer',
-        'verse',
-        'marin',
-        'cedar',
-      ],
-      'gemini': <String>[
-        'Kore',
-        'Puck',
-        'Charon',
-        'Zephyr',
-        'Leda',
-        'Aoede',
-        'Fenrir',
-        'Orus',
-        'Achernar',
-        'Achird',
-        'Algenib',
-        'Algieba',
-        'Alnilam',
-        'Autonoe',
-        'Callirrhoe',
-        'Despina',
-        'Enceladus',
-        'Erinome',
-        'Gacrux',
-        'Iocaste',
-        'Isonoe',
-        'Laomedeia',
-        'Larissa',
-        'Lysithea',
-        'Megaclite',
-        'Mimosa',
-        'Pulcherrima',
-        'Rasalgethi',
-        'Sadachbia',
-        'Sulafat',
-      ],
-    };
-
 class _SettingsSection {
   const _SettingsSection(
     this.title,
@@ -235,9 +175,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late String _defaultSubagentModel;
   late String _fallbackModel;
   late String _defaultSpeechModel;
-  late String _voiceLiveProvider;
-  late String _voiceLiveModel;
-  late String _voiceLiveVoice;
+  late String _voiceSttProvider;
+  late String _voiceSttModel;
+  late String _voiceTtsProvider;
+  late String _voiceTtsModel;
+  late String _voiceTtsVoice;
+  late String _voiceMediaMode;
+  late String _voiceInputMode;
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
@@ -325,9 +269,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _defaultSubagentModel = controller.defaultSubagentModel;
     _fallbackModel = controller.fallbackModel;
     _defaultSpeechModel = controller.defaultSpeechModel;
-    _voiceLiveProvider = controller.voiceLiveProvider;
-    _voiceLiveModel = controller.voiceLiveModel;
-    _voiceLiveVoice = controller.voiceLiveVoice;
+    _voiceSttProvider = controller.voiceSttProvider;
+    _voiceSttModel = controller.voiceSttModel;
+    _voiceTtsProvider = controller.voiceTtsProvider;
+    _voiceTtsModel = controller.voiceTtsModel;
+    _voiceTtsVoice = controller.voiceTtsVoice;
+    _voiceMediaMode = controller.voiceMediaMode;
+    _voiceInputMode = controller.voiceInputMode;
     final behavior = controller.behaviorConfig;
     final modules = behavior['modules'] is Map
         ? Map<String, dynamic>.from(behavior['modules'] as Map)
@@ -367,22 +315,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (_behaviorNotesController.text != behaviorNotes) {
       _behaviorNotesController.text = behaviorNotes;
     }
-    if (!_voiceLiveModelsByProvider.containsKey(_voiceLiveProvider)) {
-      _voiceLiveProvider = 'openai';
-    }
-    if (!(_voiceLiveModelsByProvider[_voiceLiveProvider]?.contains(
-          _voiceLiveModel,
-        ) ??
-        false)) {
-      _voiceLiveModel = _voiceLiveModelsByProvider[_voiceLiveProvider]!.first;
-    }
-    final liveVoiceOptions =
-        _voiceLiveVoicesByProvider[_voiceLiveProvider] ?? const <String>[];
-    if (liveVoiceOptions.isNotEmpty &&
-        !liveVoiceOptions.contains(_voiceLiveVoice)) {
-      _voiceLiveVoice = liveVoiceOptions.first;
-    }
-
     final providerConfigs = controller.aiProviderConfigs;
     final providerIds = <String>{
       ...providerConfigs.keys,
@@ -700,15 +632,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
       defaultSubagentModel: _defaultSubagentModel,
       fallbackModel: _fallbackModel,
       defaultSpeechModel: _defaultSpeechModel,
-      voiceSttProvider: controller.voiceSttProvider,
-      voiceSttModel: controller.voiceSttModel,
-      voiceTtsProvider: controller.voiceTtsProvider,
-      voiceTtsModel: controller.voiceTtsModel,
-      voiceTtsVoice: controller.voiceTtsVoice,
-      voiceRuntimeMode: 'live',
-      voiceLiveProvider: _voiceLiveProvider,
-      voiceLiveModel: _voiceLiveModel,
-      voiceLiveVoice: _voiceLiveVoice,
+      voiceSttProvider: _voiceSttProvider,
+      voiceSttModel: _voiceSttModel,
+      voiceTtsProvider: _voiceTtsProvider,
+      voiceTtsModel: _voiceTtsModel,
+      voiceTtsVoice: _voiceTtsVoice,
+      voiceMediaMode: _voiceMediaMode,
+      voiceInputMode: _voiceInputMode,
       aiProviderConfigs: _buildProviderPayload(),
     );
     if (controller.errorMessage != null) return;
@@ -1876,8 +1806,30 @@ class _SettingsPanelState extends State<SettingsPanel> {
     required List<_ModelPickerOption> modelChoices,
     required List<ModelMeta> routingModels,
   }) {
-    final liveVoiceOptions =
-        _voiceLiveVoicesByProvider[_voiceLiveProvider] ?? const <String>[];
+    final capabilityProviders = _jsonList(
+      controller.voiceCapabilities['providers'],
+    ).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    final sttProviders = capabilityProviders
+        .where((item) => item['boundedStt'] is Map)
+        .map((item) => item['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    final ttsProviders = capabilityProviders
+        .where((item) => item['streamingTts'] is Map)
+        .map((item) => item['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    Map<String, dynamic> capabilityFor(String id) =>
+        capabilityProviders.firstWhere(
+          (item) => item['id']?.toString() == id,
+          orElse: () => <String, dynamic>{},
+        );
+    final mediaModes = _jsonStringList(
+      controller.voiceCapabilities['mediaModes'],
+    );
+    final inputModes = _jsonStringList(
+      controller.voiceCapabilities['inputModes'],
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1941,7 +1893,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const Divider(height: 32),
             Text(
-              'Live Voice',
+              'Voice Media',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -1953,7 +1905,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 final compact = constraints.maxWidth < 940;
                 final cardWidth = compact
                     ? constraints.maxWidth
-                    : (constraints.maxWidth - 24) / 3;
+                    : (constraints.maxWidth - 12) / 2;
                 return Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -1961,31 +1913,32 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     SizedBox(
                       width: cardWidth,
                       child: _RoutingSelectCard(
-                        label: 'Live Provider',
-                        icon: Icons.call_outlined,
-                        value: _voiceLiveProvider,
-                        options: _simplePickerOptions(const <String>[
-                          'openai',
-                          'gemini',
-                        ]),
+                        label: 'Speech-to-text provider',
+                        icon: Icons.hearing_outlined,
+                        value: _voiceSttProvider,
+                        options: _simplePickerOptions(
+                          sttProviders.isEmpty
+                              ? <String>[_voiceSttProvider]
+                              : sttProviders,
+                        ),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() {
-                            _voiceLiveProvider = value;
-                            final modelOptions =
-                                _voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                                const <String>[];
-                            if (!modelOptions.contains(_voiceLiveModel) &&
-                                modelOptions.isNotEmpty) {
-                              _voiceLiveModel = modelOptions.first;
-                            }
-                            final voiceOptions =
-                                _voiceLiveVoicesByProvider[_voiceLiveProvider] ??
-                                const <String>[];
-                            if (voiceOptions.isNotEmpty &&
-                                !voiceOptions.contains(_voiceLiveVoice)) {
-                              _voiceLiveVoice = voiceOptions.first;
-                            }
+                            _voiceSttProvider = value;
+                            final capability = capabilityFor(value);
+                            final streaming = _jsonMap(
+                              capability['streamingStt'],
+                            );
+                            final bounded = _jsonMap(capability['boundedStt']);
+                            _voiceSttModel =
+                                streaming['model']
+                                        ?.toString()
+                                        .trim()
+                                        .isNotEmpty ==
+                                    true
+                                ? streaming['model'].toString()
+                                : bounded['model']?.toString() ??
+                                      _voiceSttModel;
                             _hasUnsavedChanges = true;
                           });
                         },
@@ -1994,44 +1947,83 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     SizedBox(
                       width: cardWidth,
                       child: _RoutingSelectCard(
-                        label: 'Live Model',
-                        icon: Icons.speed_outlined,
-                        value: _voiceLiveModel,
+                        label: 'Text-to-speech provider',
+                        icon: Icons.record_voice_over_outlined,
+                        value: _voiceTtsProvider,
                         options: _simplePickerOptions(
-                          _voiceLiveModelsByProvider[_voiceLiveProvider] ??
-                              const <String>[],
+                          ttsProviders.isEmpty
+                              ? <String>[_voiceTtsProvider]
+                              : ttsProviders,
                         ),
                         onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _voiceLiveModel = value;
-                              _hasUnsavedChanges = true;
-                            });
-                          }
+                          if (value == null) return;
+                          setState(() {
+                            _voiceTtsProvider = value;
+                            final tts = _jsonMap(
+                              capabilityFor(value)['streamingTts'],
+                            );
+                            _voiceTtsModel =
+                                tts['model']?.toString() ?? _voiceTtsModel;
+                            _voiceTtsVoice =
+                                tts['voice']?.toString() ?? _voiceTtsVoice;
+                            _hasUnsavedChanges = true;
+                          });
                         },
                       ),
                     ),
-                    if (liveVoiceOptions.isNotEmpty)
-                      SizedBox(
-                        width: cardWidth,
-                        child: _RoutingSelectCard(
-                          label: 'Live Voice',
-                          icon: Icons.graphic_eq_outlined,
-                          value: _voiceLiveVoice,
-                          options: _simplePickerOptions(liveVoiceOptions),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _voiceLiveVoice = value;
-                                _hasUnsavedChanges = true;
-                              });
-                            }
-                          },
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Media mode',
+                        icon: Icons.call_outlined,
+                        value: _voiceMediaMode,
+                        options: _simplePickerOptions(
+                          mediaModes.isEmpty
+                              ? <String>[_voiceMediaMode]
+                              : mediaModes,
                         ),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _voiceMediaMode = value;
+                            _hasUnsavedChanges = true;
+                          });
+                        },
                       ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _RoutingSelectCard(
+                        label: 'Input mode',
+                        icon: Icons.mic_outlined,
+                        value: _voiceInputMode,
+                        options: _simplePickerOptions(
+                          inputModes.isEmpty
+                              ? <String>[_voiceInputMode]
+                              : inputModes,
+                        ),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _voiceInputMode = value;
+                            _hasUnsavedChanges = true;
+                          });
+                        },
+                      ),
+                    ),
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Auto uses a provider-native realtime shell only when the selected speech providers match and advertise duplex support. Every task still runs through the normal NeoAgent chat runtime. Composed always uses streaming transcription followed by the selected streaming voice.',
+              style: TextStyle(color: _textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'STT: $_voiceSttModel · TTS: $_voiceTtsModel${_voiceTtsVoice.isEmpty ? '' : ' · $_voiceTtsVoice'}',
+              style: TextStyle(color: _textMuted, height: 1.4),
             ),
           ],
         ),

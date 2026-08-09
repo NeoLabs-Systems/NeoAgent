@@ -50,6 +50,8 @@ function createTestRuntime() {
     'SECURE_COOKIES',
     'TRUST_PROXY',
     'OPENAI_API_KEY',
+    'OPENAI_COMPATIBLE_API_KEY',
+    'OPENAI_COMPATIBLE_BASE_URL',
     'GOOGLE_AI_KEY',
     'NEOAGENT_RATE_LIMIT_4H',
     'NEOAGENT_RATE_LIMIT_WEEKLY',
@@ -72,6 +74,8 @@ function createTestRuntime() {
     SECURE_COOKIES: 'false',
     TRUST_PROXY: 'true',
     OPENAI_API_KEY: '',
+    OPENAI_COMPATIBLE_API_KEY: '',
+    OPENAI_COMPATIBLE_BASE_URL: '',
     GOOGLE_AI_KEY: '',
   });
   fs.mkdirSync(dataDir, { recursive: true });

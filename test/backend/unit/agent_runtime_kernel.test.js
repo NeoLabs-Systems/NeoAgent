@@ -463,6 +463,35 @@ test('progress broker publishes model-authored text and dedupes unchanged state'
   assert.equal(moved.text, 'working on verify');
 });
 
+test('progress broker permits a grounded repeat heartbeat for a still-running tool', async () => {
+  insertRun('progress-tool-heartbeat');
+  let narratorCalls = 0;
+  const broker = runtime.createProgressBroker({
+    engine: { emit() {}, markRunVisibleProgress() {} },
+    runId: 'progress-tool-heartbeat',
+    userId,
+    narrator: async () => {
+      narratorCalls += 1;
+      return `tool heartbeat ${narratorCalls}`;
+    },
+    firstUpdateSeconds: 0,
+    repeatUpdateSeconds: 0,
+  });
+  broker.markAccepted();
+  broker.noteToolStarted('execute_command');
+  const delta = broker.buildDelta({
+    running: ['execute_command'],
+    nextMilestone: 'command completes',
+  });
+
+  const first = await broker.maybePublish({ delta });
+  const heartbeat = await broker.maybePublish({ delta });
+
+  assert.equal(first.sent, true);
+  assert.equal(heartbeat.sent, true);
+  assert.equal(narratorCalls, 2);
+});
+
 test('progress broker stays silent once the run delivered or was suppressed', async () => {
   insertRun('progress-suppressed');
   let suppressed = false;

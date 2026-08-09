@@ -31,6 +31,7 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'messaging:status': { windowMs: 10 * 1000, max: 40 },
   'voice:session_open': { windowMs: 10 * 1000, max: 10 },
   'voice:input_start': { windowMs: 10 * 1000, max: 20 },
+  'voice:cancel_task': { windowMs: 10 * 1000, max: 10 },
   'voice:audio_chunk': { windowMs: 1000, max: 40 },
   'voice:input_commit': { windowMs: 10 * 1000, max: 10 },
   'voice:interrupt': { windowMs: 10 * 1000, max: 20 },
@@ -716,6 +717,24 @@ function setupWebSocket(io, services) {
       }
     });
 
+    socket.on('voice:cancel_task', async (raw) => {
+      const limit = allowEvent('voice:cancel_task');
+      if (!limit.allowed) {
+        return socket.emit('voice:error', {
+          error: `Rate limit exceeded for voice:cancel_task. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+        });
+      }
+      try {
+        const data = asObject(raw);
+        const sessionId = toOptionalString(data?.sessionId, 128);
+        if (!sessionId) return socket.emit('voice:error', { error: 'sessionId is required' });
+        const result = await voiceRuntimeManager.cancelTask(sessionId, userId);
+        socket.emit('voice:task_cancelled', { sessionId, ...result });
+      } catch (err) {
+        socket.emit('voice:error', { error: sanitizeError(err) });
+      }
+    });
+
     socket.on('voice:session_close', async (raw) => {
       const limit = allowEvent('voice:session_close');
       if (!limit.allowed) {
@@ -730,7 +749,9 @@ function setupWebSocket(io, services) {
         if (!sessionId) {
           return socket.emit('voice:error', { error: 'sessionId is required' });
         }
-        await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId);
+        await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId, {
+          cancelTask: data?.cancelTask === true,
+        });
         socket.data.voiceSessionIds?.delete(sessionId);
       } catch (err) {
         console.error(`[WS] voice:session_close failed for user ${userId}:`, err);
@@ -935,15 +956,15 @@ function setupWebSocket(io, services) {
           console.error(`[WS] Failed to unsubscribe streams for socket ${socket.id}:`, err);
         });
       }
-      if (!voiceRuntimeManager || typeof voiceRuntimeManager.closeSession !== 'function') {
+      if (!voiceRuntimeManager || typeof voiceRuntimeManager.detachSession !== 'function') {
         socket.data.voiceSessionIds?.clear?.();
         console.log(`[WS] User ${userId} disconnected (${socket.id})`);
         return;
       }
       const activeVoiceSessionIds = Array.from(socket.data.voiceSessionIds || []);
       for (const sessionId of activeVoiceSessionIds) {
-        void voiceRuntimeManager.closeSession(sessionId, 'socket_disconnected', userId).catch((err) => {
-          console.error(`[WS] Failed to close voice session ${sessionId} after socket disconnect:`, err);
+        void voiceRuntimeManager.detachSession(sessionId, 'socket_disconnected', userId).catch((err) => {
+          console.error(`[WS] Failed to detach voice session ${sessionId} after socket disconnect:`, err);
         });
       }
       socket.data.voiceSessionIds?.clear?.();

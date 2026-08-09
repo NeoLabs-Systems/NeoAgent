@@ -546,11 +546,11 @@ async function loadProviders() {
         </div>
         <div class="provider-controls">
           <input
-            type="${p.type === 'url' ? 'text' : 'password'}"
-            placeholder="${p.type === 'url' ? 'http://localhost:11434' : 'Paste new key…'}"
+            type="${p.type === 'url' ? 'url' : 'password'}"
+            placeholder="${p.type === 'url' ? '' : 'Paste new key…'}"
             autocomplete="off"
             spellcheck="false"
-            aria-label="${esc(p.label)} API key"
+            aria-label="${esc(p.label)}"
           >
           <button class="btn btn-ghost provider-save-btn" onclick="saveProvider('${esc(p.key)}', this)">Save</button>
           ${p.configured ? `<button class="btn btn-danger provider-save-btn" onclick="clearProvider('${esc(p.key)}', this)" title="Remove key">✕</button>` : ''}
@@ -568,6 +568,7 @@ async function saveProvider(key, btn) {
   const input = row?.querySelector('input');
   const value = input?.value?.trim() || '';
   if (!value) { input?.focus(); return; }
+  if (input && !input.reportValidity()) return;
   btn.disabled = true;
   const original = btn.textContent;
   btn.textContent = 'Saving…';

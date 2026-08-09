@@ -23,6 +23,7 @@ const ANALYSIS_SCHEMA_EXAMPLE = {
   needs_verification: true,
   draft_reply: '',
   draft_status: 'needs_execution',
+  acknowledgement: '',
   goal: 'Answer the user accurately.',
   success_criteria: ['Final reply is correct and specific.'],
   research_targets: [],
@@ -61,6 +62,7 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Set complexity from the actual work shape, not from keywords: simple, standard, or complex.',
   'Set autonomy_level="high" when the agent should decide sequencing, retries, evidence gathering, and verification without asking the user unless blocked.',
   'Set progress_update_policy="required" for long, slow, voice, messaging, or externally visible work where silence would be confusing.',
+  'When a spoken or interactive request needs durable work, acknowledgement may contain one short request-specific spoken sentence. It must not claim completion. Otherwise use an empty string.',
   'Do not suggest create_task, update_task, delete_task, or list_tasks for ordinary immediate work. Use task tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
   'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
   'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
@@ -110,6 +112,14 @@ const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.',
   'When completion_confidence_required is high, do not call task_complete with low confidence. Verify, inspect, or revise until confidence is at least medium and preferably high.',
 ];
+
+const INTERACTIVE_EXECUTION_GUIDANCE = [
+  'Interactive latency priority is active.',
+  'Take the next blocking action immediately.',
+  'Parallelize independent work that can safely run at the same time.',
+  'Avoid optional detours, repeated inspection, and redundant model or tool turns.',
+  'Do not trade away required safety, approvals, evidence, or verification for speed.',
+].join(' ');
 
 function buildVerifierSchemaExample(finalReply) {
   return {
@@ -355,6 +365,13 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
   );
 
   const draftReply = resolveAliasedText(raw, fallback, 'draft_reply', 'draftReply', '');
+  const acknowledgement = resolveAliasedText(
+    raw,
+    fallback,
+    'acknowledgement',
+    'acknowledgement',
+    '',
+  ).split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
   const draftStatus = pickEnum(
     resolveAliasedValue(raw, fallback, 'draft_status', 'draftStatus', ''),
     DRAFT_STATUSES,
@@ -477,6 +494,7 @@ function normalizeTaskAnalysis(raw = {}, fallback = {}) {
     needs_verification: effectiveVerificationNeed !== 'none',
     draft_reply: draftReply,
     draft_status: draftStatus,
+    acknowledgement: acknowledgement.slice(0, 220),
     goal: resolveAliasedText(raw, fallback, 'goal', 'goal', ''),
     success_criteria: successCriteria,
     research_targets: researchTargets,
@@ -675,6 +693,10 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
   return lines.filter(Boolean).join('\n\n');
 }
 
+function buildInteractiveExecutionGuidance() {
+  return INTERACTIVE_EXECUTION_GUIDANCE;
+}
+
 function buildVerifierPrompt({ analysis, tools = [], toolExecutionSummary, evidenceSources, finalReply }) {
   const toolNames = summarizeTools(tools).join(', ');
   return composeJsonPrompt([
@@ -695,6 +717,7 @@ module.exports = {
   ANALYSIS_MODES,
   buildAnalysisPrompt,
   buildExecutionGuidance,
+  buildInteractiveExecutionGuidance,
   buildPlanPrompt,
   buildVerifierPrompt,
   isDirectAnswerEligibleAnalysis,

@@ -31,6 +31,7 @@ function createProgressBroker({
   getLastVisibleAt = null,
   channel = 'web',
   recipient = null,
+  deliveryMetadata = null,
   tickMs = DEFAULT_TICK_MS,
   maxSilenceSeconds = 90,
   firstUpdateSeconds = 25,
@@ -165,7 +166,8 @@ function createProgressBroker({
     if (!force && !firstDue && !repeatDue) {
       return { sent: false, reason: 'not_due', liveness };
     }
-    if (!force && hash === lastProgressHash) {
+    const groundedToolHeartbeat = repeatDue && Number(liveness.runningTools) > 0;
+    if (!force && hash === lastProgressHash && !groundedToolHeartbeat) {
       return { sent: false, reason: 'unchanged', liveness };
     }
 
@@ -197,8 +199,14 @@ function createProgressBroker({
       recipient: overrideRecipient || recipient,
       messageKind: MESSAGE_KINDS.PROGRESS,
       metadata: {
-        idempotencyKey: `${runId}:progress:${hash}`,
+        ...(deliveryMetadata && typeof deliveryMetadata === 'object'
+          ? deliveryMetadata
+          : {}),
+        idempotencyKey: groundedToolHeartbeat
+          ? `${runId}:progress:${hash}:heartbeat:${Math.floor(now / (Math.max(1, repeatUpdateSeconds) * 1000))}`
+          : `${runId}:progress:${hash}`,
         progressHash: hash,
+        liveness,
       },
     });
 
