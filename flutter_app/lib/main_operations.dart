@@ -4471,6 +4471,7 @@ class _TasksPanelState extends State<TasksPanel> {
       task?.model ?? 'auto',
       controller.supportedModels,
       allowAuto: true,
+      preserveUnknown: true,
     );
     var selectedAgentId =
         task?.agentId ?? defaultAgentId ?? controller.selectedAgentId;

@@ -1681,6 +1681,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             _defaultChatModel,
                             routingModels,
                             allowAuto: true,
+                            preserveUnknown: true,
                           ),
                           options: modelChoices,
                           onChanged: (value) {
@@ -1702,6 +1703,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             _defaultSubagentModel,
                             routingModels,
                             allowAuto: true,
+                            preserveUnknown: true,
                           ),
                           options: modelChoices,
                           onChanged: (value) {
@@ -1870,6 +1872,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           _defaultSpeechModel,
                           routingModels,
                           allowAuto: true,
+                          preserveUnknown: true,
                         ),
                         options: modelChoices,
                         onChanged: (value) {

@@ -2938,12 +2938,17 @@ String _ensureModelValue(
   String value,
   List<ModelMeta> models, {
   required bool allowAuto,
+  bool preserveUnknown = false,
 }) {
   if (allowAuto && value == 'auto') {
     return 'auto';
   }
   final model = _modelForValue(value, models);
   if (model != null) return model.id;
+  final normalized = value.trim();
+  if (preserveUnknown && normalized.isNotEmpty) {
+    return normalized;
+  }
   if (allowAuto) {
     return 'auto';
   }

@@ -6194,18 +6194,21 @@ class NeoAgentController extends ChangeNotifier {
     settings['default_chat_model']?.toString() ?? 'auto',
     supportedModels,
     allowAuto: true,
+    preserveUnknown: true,
   );
 
   String get defaultSubagentModel => _ensureModelValue(
     settings['default_subagent_model']?.toString() ?? 'auto',
     supportedModels,
     allowAuto: true,
+    preserveUnknown: true,
   );
 
   String get defaultSpeechModel => _ensureModelValue(
     settings['default_speech_model']?.toString() ?? 'auto',
     supportedModels,
     allowAuto: true,
+    preserveUnknown: true,
   );
 
   String get fallbackModel => _ensureModelValue(
