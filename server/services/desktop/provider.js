@@ -178,11 +178,14 @@ class DesktopProvider {
   executeCommand(command, options = {}) {
     return this._dispatch(DESKTOP_COMMANDS.EXECUTE_COMMAND, {
       command,
+      deviceId: options.deviceId || null,
       cwd: options.cwd || null,
       timeout: options.timeout || null,
       stdin_input: options.stdinInput || null,
       pty: options.pty === true,
       inputs: options.inputs || [],
+      runId: options.runId || null,
+      stepId: options.stepId || null,
       signal: options.signal,
     }, {
       signal: options.signal,

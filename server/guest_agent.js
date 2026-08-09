@@ -191,6 +191,14 @@ app.post('/files/read', async (req, res) => {
       return { error: 'path is outside guest-agent readable roots' };
     }
     const data = fs.readFileSync(realTarget);
+    const deleteAfterRead = req.body?.delete_after_read === true
+      && realTarget.startsWith(`${path.resolve(os.tmpdir())}${path.sep}`);
+    if (deleteAfterRead) {
+      try {
+        fs.unlinkSync(realTarget);
+        fs.rmdirSync(path.dirname(realTarget));
+      } catch {}
+    }
     return {
       path: realTarget,
       encoding,

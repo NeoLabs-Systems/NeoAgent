@@ -18,6 +18,7 @@ const ALWAYS_INCLUDE_BUILT_INS = [
 const CORE_FILE_TOOLS = [
   'read_file',
   'read_files',
+  'read_artifact',
   'list_directory',
   'search_files',
   'edit_file',

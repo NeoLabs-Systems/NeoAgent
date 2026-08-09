@@ -524,7 +524,7 @@ class LocalVmExecutionBackend {
     const transportTimeout = requestedCommandTimeout > 0
       ? Math.min(30 * 60 * 1000, requestedCommandTimeout + 30_000)
       : 16 * 60 * 1000;
-    return client.request('POST', '/exec', {
+    const result = await client.request('POST', '/exec', {
       command,
       cwd: options.cwd,
       timeout: options.timeout,
@@ -536,6 +536,66 @@ class LocalVmExecutionBackend {
       retryCount: 0,
       signal: options.signal,
     });
+    return this.#materializeCommandOutput(client, userId, result, options);
+  }
+
+  async #materializeCommandOutput(client, userId, result, options = {}) {
+    const outputPath = String(result?.outputFilePath || '').trim();
+    if (!outputPath) return result;
+
+    const sanitized = { ...result };
+    delete sanitized.outputFilePath;
+    delete sanitized.outputFileByteSize;
+    delete sanitized.outputFileComplete;
+    if (!this.artifactStore) {
+      return { ...sanitized, artifactError: 'Artifact store is unavailable.' };
+    }
+
+    try {
+      const file = await client.request('POST', '/files/read', {
+        path: outputPath,
+        encoding: 'base64',
+        delete_after_read: true,
+      }, {
+        timeoutMs: 30_000,
+        maxResponseBytes: 24 * 1024 * 1024,
+        retryCount: 0,
+        signal: options.signal,
+      });
+      const content = Buffer.from(String(file?.content || ''), 'base64');
+      if (!content.length) throw new Error('Guest command output artifact was empty.');
+      const artifact = await this.artifactStore.createBufferArtifact(userId, {
+        kind: 'command-output',
+        backend: 'vm',
+        extension: 'log',
+        contentType: 'text/plain; charset=utf-8',
+        filenameBase: 'command-output',
+        content,
+        signal: options.signal,
+        metadata: {
+          runId: options.runId || null,
+          stepId: options.stepId || null,
+          stdoutBytes: Number(result.stdoutBytes || 0),
+          stderrBytes: Number(result.stderrBytes || 0),
+          complete: result.outputFileComplete !== false,
+        },
+      });
+      return {
+        ...sanitized,
+        outputArtifact: {
+          artifactId: artifact.artifactId,
+          url: artifact.url,
+          byteSize: artifact.byteSize,
+          complete: result.outputFileComplete !== false,
+        },
+      };
+    } catch (error) {
+      if (options.signal?.aborted) throw abortError(options.signal);
+      return {
+        ...sanitized,
+        artifactError: String(error?.message || error),
+      };
+    }
   }
 
   async killCommand(userId, pid, reason = 'aborted') {

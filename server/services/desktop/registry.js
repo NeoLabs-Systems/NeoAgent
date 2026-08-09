@@ -336,6 +336,33 @@ class DesktopCompanionRegistry {
     return null;
   }
 
+  claimPendingCommandOutput(userId, deviceId, commandId) {
+    const connection = this.getConnection(userId, deviceId);
+    if (!connection?.isOpen()) return null;
+    const pending = connection.pending.get(String(commandId || '').trim());
+    if (
+      !pending
+      || pending.command !== DESKTOP_COMMANDS.EXECUTE_COMMAND
+      || pending.outputUploadState
+    ) return null;
+    pending.outputUploadState = 'uploading';
+    return {
+      commandId: String(commandId),
+      deviceId: connection.deviceId,
+      sessionId: connection.sessionId,
+      runId: pending.payload?.runId || null,
+      stepId: pending.payload?.stepId || null,
+    };
+  }
+
+  finishPendingCommandOutput(userId, deviceId, commandId, { success = false } = {}) {
+    const connection = this.getConnection(userId, deviceId);
+    const pending = connection?.pending.get(String(commandId || '').trim());
+    if (!pending || pending.outputUploadState !== 'uploading') return false;
+    pending.outputUploadState = success ? 'completed' : null;
+    return true;
+  }
+
   listDevices(userId) {
     const rows = this.db.prepare(
       `SELECT * FROM desktop_companion_devices
@@ -687,7 +714,15 @@ class DesktopCompanionConnection {
         return;
       }
       signal?.addEventListener('abort', onAbort, { once: true });
-      this.pending.set(id, { resolve, reject, timer, command, signal, onAbort });
+      this.pending.set(id, {
+        resolve,
+        reject,
+        timer,
+        command,
+        payload,
+        signal,
+        onAbort,
+      });
       try {
         this.ws.send(JSON.stringify(message));
       } catch (error) {

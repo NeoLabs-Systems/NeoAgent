@@ -24,7 +24,7 @@ const EVIDENCE_SOURCE_RULES = [
   { source: 'memory', match: (name) => name.startsWith('memory_') || name === 'session_search' },
   { source: 'search', match: (name) => name === 'web_search' },
   { source: 'http', match: (name) => name === 'http_request' },
-  { source: 'files', match: (name) => ['read_file', 'read_files', 'search_files', 'list_directory', 'write_file', 'edit_file', 'replace_file_range', 'code_navigate', 'query_structured_data'].includes(name) },
+  { source: 'files', match: (name) => ['read_file', 'read_files', 'read_artifact', 'search_files', 'list_directory', 'write_file', 'edit_file', 'replace_file_range', 'code_navigate', 'query_structured_data'].includes(name) },
   { source: 'command', match: (name) => name === 'execute_command' },
   { source: 'skills', match: (name) => name.includes('skill') },
   { source: 'tasks', match: (name) => name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' },

@@ -145,6 +145,60 @@ class ArtifactStore {
     }
   }
 
+  deleteArtifact(userId, artifactId) {
+    const artifact = this.getArtifactForUser(userId, artifactId);
+    if (!artifact) return false;
+    try {
+      fs.unlinkSync(this.#assertInsideRoot(artifact.storage_path));
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    db.prepare('DELETE FROM artifacts WHERE id = ? AND user_id = ?')
+      .run(artifactId, userId);
+    return true;
+  }
+
+  readTextArtifact(userId, artifactId, options = {}) {
+    const artifact = this.getArtifactForUser(userId, artifactId);
+    if (!artifact) return { error: 'Artifact not found.' };
+    const contentType = String(artifact.content_type || '').toLowerCase();
+    const textLike = contentType.startsWith('text/')
+      || /json|xml|javascript|yaml/.test(contentType);
+    if (!textLike) {
+      return {
+        artifactId: artifact.id,
+        contentType: artifact.content_type,
+        byteSize: Number(artifact.byte_size || 0),
+        binary: true,
+        url: artifact.url,
+      };
+    }
+    if (Number(artifact.byte_size || 0) > 16 * 1024 * 1024) {
+      return { error: 'Text artifact exceeds the readable 16 MiB limit.' };
+    }
+    const content = fs.readFileSync(
+      this.#assertInsideRoot(artifact.storage_path),
+      'utf8',
+    );
+    const lines = content.split(/\r?\n/);
+    const startLine = Math.min(
+      lines.length,
+      Math.max(1, Math.floor(Number(options.startLine) || 1)),
+    );
+    const requestedEnd = Math.floor(Number(options.endLine) || (startLine + 199));
+    const endLine = Math.min(lines.length, Math.max(startLine, requestedEnd), startLine + 499);
+    return {
+      artifactId: artifact.id,
+      contentType: artifact.content_type,
+      byteSize: Number(artifact.byte_size || 0),
+      content: lines.slice(startLine - 1, endLine).join('\n'),
+      rangeShown: { startLine, endLine },
+      totalLines: lines.length,
+      truncated: endLine < lines.length,
+      url: artifact.url,
+    };
+  }
+
   getArtifactForUser(userId, artifactId) {
     const row = db.prepare(`
       SELECT id, user_id, kind, backend, content_type, storage_path, original_filename, byte_size, metadata_json, created_at

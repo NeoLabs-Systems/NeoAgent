@@ -1,8 +1,9 @@
 'use strict';
 
 const { evaluateCompletionClaim } = require('./completion_gate');
-const { reopenNodes, requiredOpenNodes } = require('./work_graph');
+const { listNodes, reopenNodes, requiredOpenNodes } = require('./work_graph');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { buildVerificationFingerprint } = require('./verification_fingerprint');
 
 /**
  * Layered verification. Failed checks produce repair results, not terminal failure.
@@ -10,6 +11,7 @@ const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 async function verifyRun({
   runId,
   contract,
+  contractVersion = 0,
   claim = {},
   evidence = [],
   artifacts = [],
@@ -18,6 +20,7 @@ async function verifyRun({
   sideEffects = [],
   path = 'durable',
   semanticVerifier = null,
+  previousSemanticFailure = null,
   eventBus = null,
   userId = null,
   agentId = null,
@@ -88,6 +91,39 @@ async function verifyRun({
   }
 
   if (typeof semanticVerifier === 'function') {
+    const fingerprint = buildVerificationFingerprint({
+      contractVersion: contractVersion || contract?.version || contract?.contract_version || 0,
+      finalContent: gate.claim.summary || finalContent,
+      nodes: listNodes(runId),
+      evidence,
+      artifacts,
+      sideEffects,
+    });
+    if (previousSemanticFailure?.fingerprint === fingerprint) {
+      if (eventBus && userId) {
+        eventBus.publish({
+          runId,
+          userId,
+          agentId,
+          eventType: EVENT_TYPES.VERIFICATION_UNCHANGED,
+          payload: {
+            fingerprint,
+            defects: previousSemanticFailure.defects || [],
+          },
+          visibility: VISIBILITY.OPERATOR,
+        });
+      }
+      return {
+        status: 'repair_required',
+        gate,
+        defects: previousSemanticFailure.defects || [],
+        reopen_nodes: previousSemanticFailure.reopen_nodes || [],
+        final_reply: previousSemanticFailure.final_reply || finalContent,
+        fingerprint,
+        unchanged: true,
+        semanticFailure: previousSemanticFailure,
+      };
+    }
     try {
       const semantic = await semanticVerifier({
         finalContent: gate.claim.summary || finalContent,
@@ -113,12 +149,20 @@ async function verifyRun({
             visibility: VISIBILITY.OPERATOR,
           });
         }
+        const semanticFailure = {
+          fingerprint,
+          defects,
+          reopen_nodes: reopen,
+          final_reply: semantic.final_reply || finalContent,
+        };
         return {
           status: 'repair_required',
           gate,
           defects,
           reopen_nodes: reopen,
           final_reply: semantic.final_reply || finalContent,
+          fingerprint,
+          semanticFailure,
         };
       }
       if (semantic?.final_reply) {
@@ -127,6 +171,7 @@ async function verifyRun({
           gate,
           defects: [],
           final_reply: semantic.final_reply,
+          fingerprint,
         };
       }
     } catch (error) {
@@ -137,6 +182,7 @@ async function verifyRun({
         defects: [],
         final_reply: finalContent,
         semanticError: error?.message || String(error),
+        fingerprint,
       };
     }
   }

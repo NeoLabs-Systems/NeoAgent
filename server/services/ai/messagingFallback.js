@@ -102,7 +102,7 @@ function parseToolExecutionSummary(item) {
 function toolWorkDescription(toolName) {
   const name = String(toolName || '');
   if (name === 'execute_command') return 'ran shell commands';
-  if (name === 'read_file' || name === 'read_files' || name === 'search_files' || name === 'list_directory') return 'checked files';
+  if (name === 'read_file' || name === 'read_files' || name === 'read_artifact' || name === 'search_files' || name === 'list_directory') return 'checked files';
   if (name === 'web_search' || name === 'http_request') return 'looked up supporting information';
   if (name.startsWith('browser_')) return 'checked the browser state';
   if (name.startsWith('android_')) return 'checked the Android state';

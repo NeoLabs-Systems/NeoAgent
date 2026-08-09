@@ -230,12 +230,13 @@ function updateNode(nodeId, patch = {}) {
   return serializeNode(db.prepare('SELECT * FROM agent_work_nodes WHERE id = ?').get(nodeId));
 }
 
-function completeNode(nodeId, { evidence = [], artifactIds = [] } = {}) {
-  const node = updateNode(nodeId, {
+function completeNode(nodeId, { evidence = [], artifactIds } = {}) {
+  const patch = {
     status: NODE_STATUSES.COMPLETED,
     evidence,
-    artifactIds,
-  });
+  };
+  if (artifactIds !== undefined) patch.artifactIds = artifactIds;
+  const node = updateNode(nodeId, patch);
   if (node) refreshReadyStates(node.runId);
   return node;
 }

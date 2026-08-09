@@ -1,17 +1,19 @@
 const { spawn, execFileSync } = require('child_process');
+const { CommandOutputAccumulator } = require('./output_accumulator');
 
 let _cachedLoginPath = null;
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_INTERACTIVE_TIMEOUT_MS = 20 * 60 * 1000;
 const FORCE_KILL_GRACE_MS = 5000;
-const MAX_STDOUT_CHARS = 50000;
-const MAX_STDERR_CHARS = 10000;
 
 function abortedResult(command, cwd, startedAt = Date.now()) {
   return {
     exitCode: null,
     stdout: '',
     stderr: 'Command aborted before it started.',
+    stdoutBytes: 0,
+    stderrBytes: Buffer.byteLength('Command aborted before it started.'),
+    truncated: false,
     killed: true,
     timedOut: false,
     aborted: true,
@@ -94,11 +96,6 @@ function clampTimeout(value, fallback) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.floor(parsed);
-}
-
-function truncateOutput(str, max) {
-  if (str.length > max) return str.slice(0, max) + `\n...[truncated, ${str.length} total chars]`;
-  return str;
 }
 
 function terminateProcess(proc, signal = 'SIGTERM') {
@@ -190,8 +187,7 @@ class CLIExecutor {
     if (options.signal?.aborted) return abortedResult(command, cwd);
 
     return new Promise((resolve) => {
-      let stdout = '';
-      let stderr = '';
+      const output = new CommandOutputAccumulator();
       let killed = false;
       let timedOut = false;
       const startedAt = Date.now();
@@ -217,17 +213,11 @@ class CLIExecutor {
       options.signal?.addEventListener('abort', onAbort, { once: true });
 
       proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-        if (stdout.length > 500000) {
-          stdout = stdout.slice(-250000);
-        }
+        output.append('stdout', data);
       });
 
       proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-        if (stderr.length > 100000) {
-          stderr = stderr.slice(-50000);
-        }
+        output.append('stderr', data);
       });
 
       if (stdinInput) {
@@ -251,10 +241,10 @@ class CLIExecutor {
         this.activeProcesses.delete(pid);
         const durationMs = Date.now() - startedAt;
 
+        const outputResult = output.finalize();
         resolve({
           exitCode: typeof code === 'number' ? code : null,
-          stdout: truncateOutput(stdout.trim(), MAX_STDOUT_CHARS),
-          stderr: truncateOutput(stderr.trim(), MAX_STDERR_CHARS),
+          ...outputResult,
           killed: killed || proc.__neoagentKilled === true,
           timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
           aborted: proc.__neoagentKillReason === 'aborted',
@@ -271,10 +261,14 @@ class CLIExecutor {
         clearForceKill(proc);
         options.signal?.removeEventListener('abort', onAbort);
         this.activeProcesses.delete(pid);
+        output.discard();
         resolve({
           exitCode: -1,
           stdout: '',
           stderr: err.message,
+          stdoutBytes: 0,
+          stderrBytes: Buffer.byteLength(err.message),
+          truncated: false,
           killed: false,
           timedOut: false,
           signal: null,
@@ -294,7 +288,8 @@ class CLIExecutor {
     if (options.signal?.aborted) return abortedResult(command, cwd);
 
     return new Promise((resolve) => {
-      let output = '';
+      const output = new CommandOutputAccumulator({ stderrPreviewBytes: 50_000 });
+      let inputWindow = '';
       let inputIndex = 0;
       let killed = false;
       let timedOut = false;
@@ -305,16 +300,38 @@ class CLIExecutor {
       try {
         pty = require('node-pty');
       } catch {
+        output.discard();
         return this.execute(command, { ...options, stdinInput: inputs.join('\n') + '\n' }).then(resolve);
       }
 
-      const proc = pty.spawn(this.defaultShell, shellExecArgs(this.defaultShell, wrappedCommand), {
-        name: 'xterm-256color',
-        cols: 120,
-        rows: 30,
-        cwd: cwd || process.cwd(),
-        env: { ...this._buildEnv(), TERM: 'xterm-256color' }
-      });
+      let proc;
+      try {
+        proc = pty.spawn(this.defaultShell, shellExecArgs(this.defaultShell, wrappedCommand), {
+          name: 'xterm-256color',
+          cols: 120,
+          rows: 30,
+          cwd: cwd || process.cwd(),
+          env: { ...this._buildEnv(), TERM: 'xterm-256color' }
+        });
+      } catch (error) {
+        output.discard();
+        resolve({
+          exitCode: -1,
+          stdout: '',
+          stderr: error.message,
+          stdoutBytes: 0,
+          stderrBytes: Buffer.byteLength(error.message),
+          truncated: false,
+          killed: false,
+          timedOut: false,
+          durationMs: Date.now() - startedAt,
+          command,
+          cwd,
+          interactive: true,
+          error: error.message,
+        });
+        return;
+      }
 
       const pid = proc.pid;
       this.activeProcesses.set(pid, proc);
@@ -328,12 +345,13 @@ class CLIExecutor {
       options.signal?.addEventListener('abort', onAbort, { once: true });
 
       proc.onData((data) => {
-        output += data;
+        output.append('stdout', Buffer.from(data, 'utf8'));
+        inputWindow = `${inputWindow}${data}`.slice(-20_000);
 
         if (inputIndex < inputs.length) {
           const inputItem = inputs[inputIndex];
           if (typeof inputItem === 'object' && inputItem.waitFor) {
-            if (output.includes(inputItem.waitFor)) {
+            if (inputWindow.includes(inputItem.waitFor)) {
               proc.write(inputItem.input + '\r');
               inputIndex++;
             }
@@ -361,11 +379,11 @@ class CLIExecutor {
         options.signal?.removeEventListener('abort', onAbort);
         this.activeProcesses.delete(pid);
 
-        const cleanOutput = output.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
+        const outputResult = output.finalize();
         resolve({
           exitCode,
-          stdout: truncateOutput(cleanOutput, MAX_STDOUT_CHARS),
-          stderr: '',
+          ...outputResult,
+          stdout: outputResult.stdout.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim(),
           killed: killed || proc.__neoagentKilled === true,
           timedOut: timedOut || proc.__neoagentKillReason === 'timeout',
           aborted: proc.__neoagentKillReason === 'aborted',

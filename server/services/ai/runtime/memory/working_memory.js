@@ -29,6 +29,13 @@ function createWorkingMemory(seed = {}) {
         at: item.at || new Date().toISOString(),
       });
     },
+    addArtifact(item) {
+      const artifactId = String(item?.artifactId || item?.id || '').trim();
+      if (!artifactId || state.artifacts.some((artifact) => artifact.artifactId === artifactId)) {
+        return;
+      }
+      state.artifacts.push({ ...item, artifactId });
+    },
     addDefect(item) {
       state.defects.push(item);
     },

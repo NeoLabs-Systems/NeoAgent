@@ -222,6 +222,30 @@ test('completion gate rejects open required work nodes', () => {
   assert.equal(accepted.accepted, true);
 });
 
+test('command artifact references survive working-memory and node completion', () => {
+  insertRun('artifact-node-run');
+  runtime.workGraph.createGraph('artifact-node-run', [{
+    id: 'execute',
+    kind: 'execute',
+    objective: 'Run verification command',
+    dependencies: [],
+  }]);
+  const memory = runtime.createWorkingMemory();
+  memory.addArtifact({ artifactId: 'command-artifact', kind: 'command-output' });
+  memory.addArtifact({ artifactId: 'command-artifact', kind: 'command-output' });
+  assert.deepEqual(memory.snapshot().artifacts, [{
+    artifactId: 'command-artifact',
+    kind: 'command-output',
+  }]);
+
+  const node = runtime.workGraph.listNodes('artifact-node-run')[0];
+  runtime.workGraph.updateNode(node.id, { artifactIds: ['command-artifact'] });
+  runtime.workGraph.completeNode(node.id, { evidence: [{ summary: 'Command finished' }] });
+  assert.deepEqual(runtime.workGraph.listNodes('artifact-node-run')[0].artifactIds, [
+    'command-artifact',
+  ]);
+});
+
 test('typed decisions reject prose tool syntax without executable calls', () => {
   const invalid = runtime.decisionEngine.decisionFromModelResponse({
     content: 'call tool web_search with query=foo',
@@ -368,6 +392,113 @@ test('verification reopens nodes instead of terminal failure', async () => {
     reopened.some((n) => n.status === 'reopened' || n.status === 'ready' || n.status === 'pending'),
     `expected a reopened node, got ${reopened.map((n) => `${n.nodeKey}:${n.status}`).join(',')}`,
   );
+});
+
+test('unchanged failed semantic verification is reused until evidence changes', async () => {
+  insertRun('verify-fingerprint-run');
+  runtime.workGraph.createGraph('verify-fingerprint-run', [{
+    id: 'verify',
+    kind: 'verification',
+    objective: 'Verify the response',
+    dependencies: [],
+  }]);
+  const base = {
+    runId: 'verify-fingerprint-run',
+    contract: {
+      version: 3,
+      goal: 'Answer with evidence',
+      open_obligations: [],
+      deliverables: [{ id: 'reply', type: 'text', required: true }],
+      evidence_requirements: [],
+      verification_required: true,
+    },
+    contractVersion: 3,
+    claim: { summary: 'Answer', confidence: 0.9 },
+    finalContent: 'Answer',
+    path: 'durable',
+    evidence: [
+      { id: 'e1', summary: 'Observed A', success: true },
+      { id: 'e-order', summary: 'Observed ordering marker', success: true },
+    ],
+    artifacts: [],
+    sideEffects: [{ id: 's1', status: 'confirmed' }],
+  };
+  let calls = 0;
+  const semanticVerifier = async () => {
+    calls += 1;
+    return {
+      status: 'needs_revision',
+      defects: [{ severity: 'major', criterion: 'proof', evidence: 'Need stronger proof' }],
+      reopen_nodes: [],
+    };
+  };
+
+  const first = await runtime.verifyRun({ ...base, semanticVerifier });
+  assert.equal(first.status, 'repair_required');
+  assert.equal(calls, 1);
+
+  const unchanged = await runtime.verifyRun({
+    ...base,
+    evidence: [...base.evidence].reverse(),
+    semanticVerifier,
+    previousSemanticFailure: first.semanticFailure,
+  });
+  assert.equal(unchanged.unchanged, true);
+  assert.deepEqual(unchanged.defects, first.defects);
+  assert.equal(calls, 1);
+
+  const changedEvidence = await runtime.verifyRun({
+    ...base,
+    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
+    semanticVerifier,
+    previousSemanticFailure: unchanged.semanticFailure,
+  });
+  assert.equal(calls, 2);
+
+  const changedArtifact = await runtime.verifyRun({
+    ...base,
+    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
+    artifacts: [{ artifactId: 'artifact-1', complete: true }],
+    semanticVerifier,
+    previousSemanticFailure: changedEvidence.semanticFailure,
+  });
+  assert.equal(calls, 3);
+
+  const changedSideEffect = await runtime.verifyRun({
+    ...base,
+    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
+    artifacts: [{ artifactId: 'artifact-1', complete: true }],
+    sideEffects: [{ id: 's1', status: 'failed' }],
+    semanticVerifier,
+    previousSemanticFailure: changedArtifact.semanticFailure,
+  });
+  assert.equal(calls, 4);
+
+  const changedFinal = await runtime.verifyRun({
+    ...base,
+    claim: { summary: 'Revised answer', confidence: 0.9 },
+    finalContent: 'Revised answer',
+    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
+    artifacts: [{ artifactId: 'artifact-1', complete: true }],
+    sideEffects: [{ id: 's1', status: 'failed' }],
+    semanticVerifier,
+    previousSemanticFailure: changedSideEffect.semanticFailure,
+  });
+  assert.equal(calls, 5);
+
+  const verifyNode = runtime.workGraph.listNodes('verify-fingerprint-run')[0];
+  runtime.workGraph.updateNode(verifyNode.id, { status: 'completed' });
+  await runtime.verifyRun({
+    ...base,
+    claim: { summary: 'Revised answer', confidence: 0.9 },
+    finalContent: 'Revised answer',
+    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
+    artifacts: [{ artifactId: 'artifact-1', complete: true }],
+    sideEffects: [{ id: 's1', status: 'failed' }],
+    semanticVerifier,
+    previousSemanticFailure: changedFinal.semanticFailure,
+  });
+  assert.equal(calls, 6);
 });
 
 test('memory write pipeline deduplicates exact candidates', () => {

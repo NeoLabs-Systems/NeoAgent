@@ -218,6 +218,7 @@ function compactPayloadForModel(toolName, result) {
     case 'web_search':
       return compactSearchResult(result);
     case 'read_file':
+    case 'read_artifact':
       return compactReadFileResult(result);
     case 'read_files':
       return compactReadFilesResult(result);

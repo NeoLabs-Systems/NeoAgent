@@ -37,6 +37,7 @@ function isReadOnlyToolCall(toolCall, toolDefinition = null) {
   const readOnly = new Set([
     'read_file',
     'read_files',
+    'read_artifact',
     'list_directory',
     'search_files',
     'code_navigate',

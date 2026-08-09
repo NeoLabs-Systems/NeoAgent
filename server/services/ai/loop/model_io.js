@@ -123,6 +123,7 @@ async function requestModelResponse(engine, {
   else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   const callOptions = {
     model,
+    maxTokens: options.maxTokens,
     reasoningEffort: engine.getReasoningEffort(providerName, options),
     signal: modelAbortController.signal,
   };

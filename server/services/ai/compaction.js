@@ -1,86 +1,165 @@
-async function compact(messages, provider, model, contextWindow = null, options = {}) {
-  const systemMsg = messages.find(m => m.role === 'system');
-  const nonSystem = messages.filter(m => m.role !== 'system');
-  const beforeTokens = estimateTokenCount(messages);
+'use strict';
 
-  if (nonSystem.length < 24) return messages;
+const SUMMARY_PREFIX = '[Previous conversation summary]';
 
-  const keepRecent = 24;
-  const toCompact = nonSystem.slice(0, -keepRecent);
-  const recent = nonSystem.slice(-keepRecent);
+function textContent(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map((part) => {
+      if (typeof part === 'string') return part;
+      return part?.text || part?.content || JSON.stringify(part || {});
+    }).join('\n');
+  }
+  return value == null ? '' : JSON.stringify(value);
+}
 
-  const compactionText = toCompact.map((msg) => {
-    if (msg.role === 'assistant' && msg.tool_calls) {
-      const tools = msg.tool_calls
-        .map((tc) => tc?.function?.name || tc?.name || '')
-        .filter(Boolean)
+function estimateValueTokens(value) {
+  if (value == null) return 0;
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+  return Math.ceil(Buffer.byteLength(serialized, 'utf8') / 4);
+}
+
+function estimateMessageTokens(message = {}) {
+  return 4
+    + estimateValueTokens(message.role)
+    + estimateValueTokens(message.name)
+    + estimateValueTokens(message.content)
+    + estimateValueTokens(message.tool_calls)
+    + estimateValueTokens(message.tool_call_id);
+}
+
+function estimateTokenCount(messages = [], tools = []) {
+  const messageTokens = (Array.isArray(messages) ? messages : [])
+    .reduce((total, message) => total + estimateMessageTokens(message), 0);
+  return messageTokens + estimateValueTokens(tools);
+}
+
+function isSummaryMessage(message) {
+  return message?.role === 'system'
+    && String(message.content || '').startsWith(SUMMARY_PREFIX);
+}
+
+function splitLeadingSystemMessages(messages = []) {
+  const leading = [];
+  let index = 0;
+  while (index < messages.length && messages[index]?.role === 'system') {
+    if (!isSummaryMessage(messages[index])) leading.push(messages[index]);
+    index += 1;
+  }
+  const previousSummary = messages.find(isSummaryMessage);
+  return {
+    leading,
+    body: messages.slice(index).filter((message) => !isSummaryMessage(message)),
+    previousSummary: previousSummary
+      ? String(previousSummary.content || '').slice(SUMMARY_PREFIX.length).trim()
+      : '',
+  };
+}
+
+function findUserTurnStarts(messages = []) {
+  const starts = [];
+  for (let index = 0; index < messages.length; index += 1) {
+    if (messages[index]?.role === 'user') starts.push(index);
+  }
+  return starts;
+}
+
+function selectTurnSafeCut({
+  messages,
+  fixedMessages = [],
+  tools = [],
+  targetTokens,
+  summaryReserveTokens = 1800,
+} = {}) {
+  const { leading, body, previousSummary } = splitLeadingSystemMessages(messages);
+  const turnStarts = findUserTurnStarts(body);
+  if (turnStarts.length < 3) {
+    return { compactable: false, reason: 'no_complete_historical_turn' };
+  }
+
+  const fixedTokens = estimateTokenCount([...leading, ...fixedMessages], tools);
+  for (let turnIndex = 1; turnIndex < turnStarts.length - 1; turnIndex += 1) {
+    const cutIndex = turnStarts[turnIndex];
+    const retained = body.slice(cutIndex);
+    const projected = fixedTokens
+      + estimateTokenCount(retained)
+      + summaryReserveTokens;
+    if (projected <= targetTokens) {
+      return {
+        compactable: true,
+        leading,
+        previousSummary,
+        compacted: body.slice(0, cutIndex),
+        retained,
+        projectedTokens: projected,
+      };
+    }
+  }
+  return { compactable: false, reason: 'no_safe_cut_point' };
+}
+
+function serializeForSummary(messages = []) {
+  return messages.map((message) => {
+    const role = String(message.role || 'unknown');
+    if (role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length) {
+      const names = message.tool_calls
+        .map((call) => call?.function?.name || call?.name || 'tool')
         .join(', ');
-      return `assistant(tools:${tools || 'unknown'}) ${(msg.content || '').slice(0, 320)}`;
+      return `assistant [tool calls: ${names}]\n${textContent(message.content)}`;
     }
-    if (msg.role === 'tool') {
-      return `tool:${msg.name || 'tool'} ${(msg.content || '').slice(0, 220)}`;
+    if (role === 'tool') {
+      return `tool ${message.name || message.tool_call_id || ''}\n${textContent(message.content)}`;
     }
-    return `${msg.role}: ${(msg.content || '').slice(0, 360)}`;
-  }).join('\n');
+    return `${role}\n${textContent(message.content)}`;
+  }).join('\n\n');
+}
 
-  const summaryPrompt = [
-    { role: 'system', content: 'Compress this conversation into a dense context block. Preserve: active goals and constraints, decisions made, promised actions (sent/created/changed/deleted), tool outcomes and errors, unresolved blockers, task configs, and concrete facts (names, IDs, dates, statuses, file paths). Omit greetings, filler, and tool-call narration. Write in past tense. Be specific — "email sent to alice@example.com at 3pm" beats "a message was sent".' },
-    { role: 'user', content: `Summarize this conversation:\n\n${compactionText}` }
+function buildSummaryMessagesFromSource({ previousSummary = '', source = '' } = {}) {
+  return [
+    {
+      role: 'system',
+      content: [
+        'Compress older conversation turns into one dense factual context block.',
+        'Preserve user intent, constraints, corrections, decisions, promised or completed actions, tool outcomes and errors, unresolved blockers, identifiers, dates, file paths, and evidence references.',
+        'Do not invent facts, repeat tool narration, or include greetings and filler.',
+      ].join(' '),
+    },
+    {
+      role: 'user',
+      content: [
+        previousSummary ? `Existing summary:\n${previousSummary}` : '',
+        `Turns to merge:\n${source}`,
+      ].filter(Boolean).join('\n\n'),
+    },
   ];
+}
 
-  try {
-    const response = await provider.chat(summaryPrompt, [], {
-      model,
-      maxTokens: 1600,
-      signal: options.signal,
-    });
-    const summary = response.content || 'Previous conversation context (summary unavailable).';
+function buildSummaryMessages({ previousSummary = '', messages = [] } = {}) {
+  return buildSummaryMessagesFromSource({
+    previousSummary,
+    source: serializeForSummary(messages),
+  });
+}
 
-    const compactedMessages = [];
-    if (systemMsg) compactedMessages.push(systemMsg);
-    compactedMessages.push({
+function applyCompaction(cut, summary) {
+  return [
+    ...cut.leading,
+    {
       role: 'system',
-      content: `[Previous conversation summary]\n${summary}`
-    });
-    compactedMessages.push(...recent);
-
-    const afterTokens = estimateTokenCount(compactedMessages);
-    console.info(`[AI] Compaction complete pre=${beforeTokens} post=${afterTokens} contextWindow=${contextWindow || 'unknown'}`);
-    if (contextWindow && afterTokens > contextWindow * 0.7) {
-      console.warn(`[AI] Compacted prompt still large post=${afterTokens} contextWindow=${contextWindow}`);
-    }
-    return compactedMessages;
-  } catch (err) {
-    if (options.signal?.aborted) throw err;
-    console.error('Compaction failed:', err.message);
-    const trimmed = [];
-    if (systemMsg) trimmed.push(systemMsg);
-    trimmed.push({
-      role: 'system',
-      content: '[Earlier conversation context was trimmed due to length]'
-    });
-    trimmed.push(...recent);
-    const afterTokens = estimateTokenCount(trimmed);
-    console.info(`[AI] Compaction fallback pre=${beforeTokens} post=${afterTokens} contextWindow=${contextWindow || 'unknown'}`);
-    if (contextWindow && afterTokens > contextWindow * 0.7) {
-      console.warn(`[AI] Trimmed prompt still large post=${afterTokens} contextWindow=${contextWindow}`);
-    }
-    return trimmed;
-  }
+      content: `${SUMMARY_PREFIX}\n${String(summary || '').trim()}`,
+    },
+    ...cut.retained,
+  ];
 }
 
-function estimateTokenCount(messages) {
-  let count = 0;
-  for (const msg of messages) {
-    if (msg.content) count += Math.ceil(msg.content.length / 4);
-    if (msg.tool_calls) count += Math.ceil(JSON.stringify(msg.tool_calls).length / 4);
-  }
-  return count;
-}
-
-function shouldCompact(messages, contextWindow) {
-  const used = estimateTokenCount(messages);
-  return used > contextWindow * 0.92;
-}
-
-module.exports = { compact, estimateTokenCount, shouldCompact };
+module.exports = {
+  SUMMARY_PREFIX,
+  applyCompaction,
+  buildSummaryMessages,
+  buildSummaryMessagesFromSource,
+  estimateMessageTokens,
+  estimateTokenCount,
+  selectTurnSafeCut,
+  serializeForSummary,
+  splitLeadingSystemMessages,
+};

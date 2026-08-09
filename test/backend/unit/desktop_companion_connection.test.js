@@ -102,6 +102,31 @@ test('a completed desktop command removes its abort listener', async () => {
   assert.equal(connection.pending.size, 0);
 });
 
+test('desktop command payload carries run and step correlation for artifact upload', async () => {
+  let dispatched = null;
+  const provider = new DesktopProvider({
+    userId: 'user-1',
+    registry: {
+      async dispatch(userId, deviceId, command, payload) {
+        dispatched = { userId, deviceId, command, payload };
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    },
+  });
+
+  await provider.executeCommand('echo ready', {
+    deviceId: 'device-1',
+    runId: 'run-1',
+    stepId: 'step-1',
+  });
+
+  assert.equal(dispatched.userId, 'user-1');
+  assert.equal(dispatched.deviceId, 'device-1');
+  assert.equal(dispatched.command, 'executeCommand');
+  assert.equal(dispatched.payload.runId, 'run-1');
+  assert.equal(dispatched.payload.stepId, 'step-1');
+});
+
 test('desktop provider derives screenshot type from bytes instead of companion metadata', async () => {
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

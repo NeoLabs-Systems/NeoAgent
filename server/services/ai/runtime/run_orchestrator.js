@@ -2,7 +2,6 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
-const { compact } = require('../compaction');
 const {
   getConversationContext,
   buildSummaryCarrier,
@@ -86,6 +85,10 @@ const {
   resolveDeliveryRecipient,
 } = require('./delivery/delivery_channel');
 const { buildContextView } = require('./context/context_view_builder');
+const {
+  createContextPressureController,
+  isContextOverflowError,
+} = require('./context/context_pressure');
 const {
   buildEvidencePacket,
   appendToolEvidence,
@@ -174,6 +177,7 @@ class DurableRunRuntime {
     const startedAtMs = Date.now();
     let budget = null;
     let progressBroker = null;
+    let contextPressure = null;
     let runRecordCreated = false;
 
     const { releaseReservation } = enforceRateLimits(userId, {
@@ -452,6 +456,56 @@ class DurableRunRuntime {
         model,
         modelSelectionId,
         providerName,
+      });
+      contextPressure = createContextPressureController({
+        summarize: async (summaryMessages) => {
+          const result = await this.engine.requestModelResponse({
+            provider,
+            providerName,
+            model,
+            messages: summaryMessages,
+            tools: [],
+            options: {
+              ...options,
+              stream: false,
+              maxTokens: 1600,
+              phase: 'context_compaction',
+              signal: this.engine.getRunMeta(runId)?.abortController?.signal
+                || abortController.signal,
+              runId,
+              userId,
+              agentId,
+            },
+            runId,
+            iteration: Math.max(1, iterations),
+          });
+          const summary = String(
+            result?.response?.content || result?.streamContent || '',
+          ).trim();
+          if (!summary) throw new Error('Context compaction returned an empty summary.');
+          return summary;
+        },
+        onEvent: (kind, payload) => {
+          const eventType = kind === 'compacted'
+            ? EVENT_TYPES.CONTEXT_COMPACTED
+            : EVENT_TYPES.CONTEXT_PRESSURE;
+          if (kind === 'pressure') {
+            saveCheckpoint(runId, 'pre_compaction', {
+              workingMemory: workingMemory.snapshot(),
+              contractVersion: contract?.version || 0,
+              iterations,
+              finalContent,
+            }, { eventBus: this.eventBus, userId, agentId });
+          }
+          this.eventBus.publish({
+            runId,
+            userId,
+            agentId,
+            eventType,
+            payload,
+            visibility: VISIBILITY.OPERATOR,
+          });
+        },
       });
 
       // ── Context assembly ───────────────────────────────────────────────
@@ -795,6 +849,7 @@ class DurableRunRuntime {
       let consecutiveProtocolRepairs = 0;
       const maxProtocolRepairs = 3;
       let verificationRepairs = 0;
+      let lastSemanticVerificationFailure = null;
       const maxVerificationRepairs = 3;
       let blankOutputRecoveries = 0;
       const maxBlankOutputRecoveries = 2;
@@ -925,6 +980,7 @@ class DurableRunRuntime {
           const verification = await verifyRun({
             runId,
             contract: loadLatestContract(runId)?.contract || contract,
+            contractVersion: workingMemory.snapshot().contractVersion,
             claim: {
               summary: finalContent,
               confidence: 0.75,
@@ -954,12 +1010,16 @@ class DurableRunRuntime {
                 options: { ...options, signal: getActiveSignal(), runId, userId, agentId },
               })
               : null,
+            previousSemanticFailure: lastSemanticVerificationFailure,
             eventBus: this.eventBus,
             userId,
             agentId,
           });
 
           if (verification.status === 'repair_required') {
+            if (verification.semanticFailure) {
+              lastSemanticVerificationFailure = verification.semanticFailure;
+            }
             verificationRepairs += 1;
             // Repair is bounded per run: a defect the model cannot close would
             // otherwise reopen the same nodes until the whole budget is spent,
@@ -1016,8 +1076,11 @@ class DurableRunRuntime {
               content: [
                 'Verification found defects. Repair the reopened work nodes.',
                 `Defects: ${JSON.stringify(verification.defects || []).slice(0, 3000)}`,
+                verification.unchanged
+                  ? 'The verification fingerprint is unchanged. Change the final response, evidence, artifact set, work-node state, or side-effect status before requesting verification again.'
+                  : '',
                 'Do not claim completion until defects are resolved with evidence.',
-              ].join('\n'),
+              ].filter(Boolean).join('\n'),
             });
             if (verification.final_reply) {
               finalContent = verification.final_reply;
@@ -1032,6 +1095,8 @@ class DurableRunRuntime {
             });
             continue;
           }
+
+          lastSemanticVerificationFailure = null;
 
           if (verification.status === 'blocked') {
             applyTransition({
@@ -1285,31 +1350,6 @@ class DurableRunRuntime {
           });
         }
 
-        // Compaction invariant: persist working state before shrinking history.
-        if (messages.length > 48) {
-          saveCheckpoint(runId, 'pre_compaction', {
-            workingMemory: workingMemory.snapshot(),
-            contractVersion: contract.version,
-            iterations,
-            finalContent,
-          }, { eventBus: this.eventBus, userId, agentId });
-          try {
-            // compact(messages, provider, model, contextWindow, options)
-            const compacted = await compact(
-              messages,
-              provider,
-              model,
-              null,
-              { signal: getActiveSignal() },
-            );
-            if (Array.isArray(compacted) && compacted.length) {
-              messages = compacted;
-            }
-          } catch {
-            // Compaction failure is non-fatal.
-          }
-        }
-
         // Durable-state notes are rebuilt every turn and appended to the live
         // transcript. They must never replace it: `messages` carries the agent
         // system prompt, memory recall, tool catalog, and tool-call/result pairs.
@@ -1321,7 +1361,21 @@ class DurableRunRuntime {
           activeNodeIds: activeNode ? [activeNode.id] : [],
           budgetSnapshot: budget.snapshot(),
         });
-        const turnMessages = sanitizeConversationMessages([
+        try {
+          const pressure = await contextPressure.prepare({
+            provider,
+            model,
+            messages,
+            fixedMessages: contextView.messages,
+            tools,
+            maxOutputTokens: options.maxTokens,
+          });
+          if (pressure.changed) messages = pressure.messages;
+        } catch (error) {
+          if (isAbortError(error, getActiveSignal())) throw error;
+          console.warn('[Runtime] Proactive context compaction failed:', error?.message || error);
+        }
+        let turnMessages = sanitizeConversationMessages([
           ...messages,
           ...contextView.messages,
         ]);
@@ -1340,22 +1394,78 @@ class DurableRunRuntime {
         let modelTurn;
         try {
           const signal = getActiveSignal();
-          modelTurn = await this.engine.requestModelResponse({
-            provider,
-            providerName,
-            model,
-            messages: turnMessages.length ? turnMessages : messages,
-            tools,
-            options: {
-              ...options,
-              signal,
-              runId,
-              userId,
-              agentId,
-            },
-            runId,
-            iteration: iterations,
-          });
+          let overflowRetried = false;
+          while (true) {
+            try {
+              modelTurn = await this.engine.requestModelResponse({
+                provider,
+                providerName,
+                model,
+                messages: turnMessages.length ? turnMessages : messages,
+                tools,
+                options: {
+                  ...options,
+                  signal,
+                  runId,
+                  userId,
+                  agentId,
+                },
+                runId,
+                iteration: iterations,
+              });
+              break;
+            } catch (error) {
+              const canRecover = isContextOverflowError(error)
+                && !overflowRetried
+                && contextPressure.claimOverflowRecovery();
+              if (!canRecover) {
+                if (isContextOverflowError(error)) error.contextPressureExhausted = true;
+                throw error;
+              }
+
+              let recovered;
+              try {
+                recovered = await contextPressure.prepare({
+                  provider,
+                  model,
+                  messages,
+                  fixedMessages: contextView.messages,
+                  tools,
+                  maxOutputTokens: options.maxTokens,
+                  force: true,
+                  reason: 'provider_overflow',
+                });
+              } catch (compactionError) {
+                if (isAbortError(compactionError, signal)) throw compactionError;
+                error.contextPressureExhausted = true;
+                error.compactionError = compactionError?.message || String(compactionError);
+                throw error;
+              }
+              if (!recovered.changed) {
+                error.contextPressureExhausted = true;
+                error.compactionError = recovered.reason || 'irreducible_context';
+                throw error;
+              }
+              messages = recovered.messages;
+              turnMessages = sanitizeConversationMessages([
+                ...messages,
+                ...contextView.messages,
+              ]);
+              overflowRetried = true;
+              this.eventBus.publish({
+                runId,
+                userId,
+                agentId,
+                eventType: EVENT_TYPES.CONTEXT_OVERFLOW_RECOVERED,
+                payload: {
+                  recovery_count: contextPressure.overflowRecoveries,
+                  before_tokens: recovered.beforeTokens,
+                  after_tokens: recovered.afterTokens,
+                },
+                visibility: VISIBILITY.OPERATOR,
+              });
+            }
+          }
           recordModelSuccess(userId, agentId, modelSelectionId);
         } catch (error) {
           if (isAbortError(error, getActiveSignal())) {
@@ -1369,6 +1479,42 @@ class DurableRunRuntime {
               return this.#cancelledResult(runId, totalTokens, iterations);
             }
             // Pause completed and run resumed — retry the model turn.
+            continue;
+          }
+          if (error.contextPressureExhausted === true) {
+            budget.recordToolFailure(true, 'context_overflow');
+            this.eventBus.publish({
+              runId,
+              userId,
+              agentId,
+              eventType: EVENT_TYPES.CONTEXT_OVERFLOW_EXHAUSTED,
+              payload: {
+                recovery_count: contextPressure.overflowRecoveries,
+                reason: error.compactionError || error.message,
+              },
+              visibility: VISIBILITY.OPERATOR,
+            });
+            finalContent = await this.#partialDeliveryText({
+              runId,
+              contract,
+              workingMemory,
+              reason: 'context_overflow',
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: getActiveSignal(),
+              userId,
+              agentId,
+            });
+            applyTransition({
+              runId,
+              toState: RUNTIME_STATES.DELIVERING,
+              reason: 'context_overflow_exhausted',
+              workerId,
+              eventBus: this.eventBus,
+            });
             continue;
           }
           const recovery = planRecovery(error, {
@@ -1660,6 +1806,7 @@ class DurableRunRuntime {
           });
           const readOnlyCalls = plannedCalls.filter((planned) => planned.isReadOnly);
           const mutatingCalls = plannedCalls.filter((planned) => !planned.isReadOnly);
+          const turnArtifactIds = [];
 
           const executeOne = async ({ call, definition, isReadOnly }) => {
             const stepId = randomUUID();
@@ -1732,6 +1879,7 @@ class DurableRunRuntime {
                   userId,
                   agentId,
                   runId,
+                  stepId,
                   app,
                   triggerType,
                   triggerSource,
@@ -1789,12 +1937,37 @@ class DurableRunRuntime {
               result,
               resolveToolResultLimits(call.name, budget.loopPolicy),
             );
+            const commandArtifact = result?.outputArtifact;
+            if (commandArtifact?.artifactId) {
+              turnArtifactIds.push(commandArtifact.artifactId);
+              workingMemory.addArtifact({
+                ...commandArtifact,
+                kind: 'command-output',
+                stepId,
+                runId,
+              });
+              this.eventBus.publish({
+                runId,
+                userId,
+                agentId,
+                eventType: EVENT_TYPES.ARTIFACT_CREATED,
+                stepId,
+                payload: {
+                  artifact_id: commandArtifact.artifactId,
+                  kind: 'command-output',
+                  byte_size: commandArtifact.byteSize,
+                  complete: commandArtifact.complete !== false,
+                },
+                visibility: VISIBILITY.OPERATOR,
+              });
+            }
             evidencePacket = appendToolEvidence(evidencePacket, call.name, compacted, { success });
             workingMemory.addEvidence({
               id: stepId,
               tool: call.name,
               summary: execution.summary,
               success,
+              artifactIds: commandArtifact?.artifactId ? [commandArtifact.artifactId] : [],
             });
             if (execution.stateChanged) {
               budget.recordSideEffect(1);
@@ -1811,7 +1984,7 @@ class DurableRunRuntime {
                WHERE id = ?`,
             ).run(
               success ? 'completed' : 'failed',
-              JSON.stringify(result ?? null).slice(0, 20000),
+              JSON.stringify(call.name === 'execute_command' ? compacted : (result ?? null)).slice(0, 20000),
               errorMessage,
               result?.screenshotPath || null,
               stepId,
@@ -1932,13 +2105,21 @@ class DurableRunRuntime {
           // Mark active node progress
           if (activeNode) {
             const nodeEvidence = workingMemory.snapshot().evidence.slice(-5);
+            const nodeArtifactIds = [...new Set([
+              ...(activeNode.artifactIds || []),
+              ...turnArtifactIds,
+            ])];
             workGraph.updateNode(activeNode.id, {
               status: 'ready',
               evidence: nodeEvidence,
+              artifactIds: nodeArtifactIds,
             });
             // Complete simple nodes when tools succeeded and no defects
             if (budget.usage.consecutiveToolFailures === 0 && nodeEvidence.some((e) => e.success !== false)) {
-              workGraph.completeNode(activeNode.id, { evidence: nodeEvidence });
+              workGraph.completeNode(activeNode.id, {
+                evidence: nodeEvidence,
+                artifactIds: nodeArtifactIds,
+              });
               this.eventBus.publish({
                 runId,
                 userId,

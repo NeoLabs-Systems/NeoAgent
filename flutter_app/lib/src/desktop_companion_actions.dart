@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'desktop_command_output.dart';
 import 'desktop_native_bridge.dart';
 import 'desktop_screen_capture.dart';
 
@@ -540,12 +541,20 @@ class DesktopCompanionActions {
         : Platform.environment['HOME'];
     final startedAt = DateTime.now();
 
-    final process = await Process.start(
-      shell,
-      args,
-      workingDirectory: workingDir,
-      runInShell: false,
-    );
+    final output = DesktopCommandOutputAccumulator();
+    await output.initialize();
+    late final Process process;
+    try {
+      process = await Process.start(
+        shell,
+        args,
+        workingDirectory: workingDir,
+        runInShell: false,
+      );
+    } catch (_) {
+      await output.discard();
+      rethrow;
+    }
     if (commandId.isNotEmpty) {
       _shellProcesses[commandId] = process;
     }
@@ -563,44 +572,19 @@ class DesktopCompanionActions {
       unawaited(process.stdin.close());
     }
 
-    const maxChars = 50000;
-    final stdoutBuf = StringBuffer();
-    final stderrBuf = StringBuffer();
-    var stdoutChars = 0;
-    var stderrChars = 0;
     final stdoutDone = Completer<void>();
     final stderrDone = Completer<void>();
 
-    final stdoutSub = process.stdout
-        .transform(utf8.decoder)
-        .listen(
-          (data) {
-            stdoutChars += data.length;
-            final remaining = maxChars - stdoutBuf.length;
-            if (remaining > 0) {
-              stdoutBuf.write(
-                data.substring(0, data.length.clamp(0, remaining)),
-              );
-            }
-          },
-          onError: stdoutDone.completeError,
-          onDone: stdoutDone.complete,
-        );
-    final stderrSub = process.stderr
-        .transform(utf8.decoder)
-        .listen(
-          (data) {
-            stderrChars += data.length;
-            final remaining = maxChars - stderrBuf.length;
-            if (remaining > 0) {
-              stderrBuf.write(
-                data.substring(0, data.length.clamp(0, remaining)),
-              );
-            }
-          },
-          onError: stderrDone.completeError,
-          onDone: stderrDone.complete,
-        );
+    final stdoutSub = process.stdout.listen(
+      (data) => output.add('stdout', data),
+      onError: stdoutDone.completeError,
+      onDone: stdoutDone.complete,
+    );
+    final stderrSub = process.stderr.listen(
+      (data) => output.add('stderr', data),
+      onError: stderrDone.completeError,
+      onDone: stderrDone.complete,
+    );
 
     final effectiveTimeout = Duration(
       milliseconds: (timeoutMs != null && timeoutMs > 0)
@@ -634,17 +618,17 @@ class DesktopCompanionActions {
       await stderrSub.cancel();
     }
 
-    String trimOutput(StringBuffer buf, int totalChars) {
-      final s = buf.toString().trim();
-      return totalChars > maxChars
-          ? '$s\n...[truncated, $totalChars total chars]'
-          : s;
+    late final Map<String, Object?> outputResult;
+    try {
+      outputResult = await output.finalize();
+    } catch (_) {
+      await output.discard();
+      rethrow;
     }
 
     return <String, Object?>{
       'exitCode': exitCode,
-      'stdout': trimOutput(stdoutBuf, stdoutChars),
-      'stderr': trimOutput(stderrBuf, stderrChars),
+      ...outputResult,
       'timedOut': timedOut,
       'killed': timedOut || externallyCancelled,
       'cancelled': externallyCancelled,

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/src/desktop_companion_actions.dart';
+import 'package:neoagent_flutter/src/desktop_command_output.dart';
 import 'package:neoagent_flutter/src/desktop_screen_capture.dart';
 
 class _UnsupportedScreenCapture implements DesktopScreenCapture {
@@ -78,5 +79,31 @@ void main() {
     expect(cancellation['cancelled'], isTrue);
     expect(result['cancelled'], isTrue);
     expect(result['killed'], isTrue);
+  });
+
+  test('desktop command output uses bounded head and tail evidence', () async {
+    final output = DesktopCommandOutputAccumulator(
+      maxArtifactBytes: 128,
+      stdoutPreviewBytes: 20,
+    );
+    await output.initialize();
+    output.add('stdout', <int>[
+      ...'HEAD-'.codeUnits,
+      ...List<int>.filled(300, 'x'.codeUnitAt(0)),
+      ...'-TAIL'.codeUnits,
+    ]);
+    final result = await output.finalize();
+    final file = File(result['_outputFilePath']! as String);
+    try {
+      expect(result['truncated'], isTrue);
+      expect(result['_outputFileComplete'], isFalse);
+      expect(await file.length(), lessThanOrEqualTo(128));
+      final content = await file.readAsString();
+      expect(content, startsWith('[stdout]\nHEAD-'));
+      expect(content, contains('artifact bounded'));
+      expect(content, endsWith('-TAIL'));
+    } finally {
+      await file.parent.delete(recursive: true);
+    }
   });
 }

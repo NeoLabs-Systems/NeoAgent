@@ -240,6 +240,135 @@ test('durable path creates task contract and work graph', async () => {
   assert.ok(Number(events.n) >= 1);
 });
 
+function contextRecoveryAnalysis() {
+  return {
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Finish after recovering context pressure',
+    confidence: 0.9,
+    complexity: 'standard',
+    autonomy_level: 'normal',
+    progress_update_policy: 'none',
+    research_depth: 'none',
+    needs_verification: false,
+    verification_need: 'none',
+    success_criteria: ['Return the grounded result'],
+    suggested_tools: [],
+  };
+}
+
+function installPriorTurns(engine) {
+  engine.buildContextMessages = (system, summary, history, recall) => [
+    { role: 'system', content: system },
+    summary,
+    ...(history || []),
+    recall,
+  ].filter(Boolean);
+  return [
+    { role: 'user', content: `Old oversized turn ${'x'.repeat(20_000)}` },
+    { role: 'assistant', content: 'Old turn answer.' },
+    { role: 'user', content: 'Newest completed turn.' },
+    { role: 'assistant', content: 'Newest completed answer.' },
+  ];
+}
+
+test('provider context overflow compacts and retries the same model call once', async () => {
+  const engine = createEngine(contextRecoveryAnalysis());
+  const priorMessages = installPriorTurns(engine);
+  let normalCalls = 0;
+  let compactionCalls = 0;
+  let recoveredMessages = [];
+  engine.requestModelResponse = async ({ messages, options, iteration }) => {
+    if (options.phase === 'context_compaction') {
+      compactionCalls += 1;
+      return {
+        response: { content: 'Older context summarized.', toolCalls: [], usage: { total_tokens: 3 } },
+        streamContent: 'Older context summarized.',
+      };
+    }
+    if (iteration === 0) {
+      return {
+        response: { content: 'Partial result.', toolCalls: [], usage: { total_tokens: 3 } },
+        streamContent: 'Partial result.',
+      };
+    }
+    normalCalls += 1;
+    if (normalCalls === 1) {
+      const error = new Error('maximum context length exceeded');
+      error.code = 'context_length_exceeded';
+      throw error;
+    }
+    recoveredMessages = messages;
+    return {
+      response: { content: 'Recovered final answer.', toolCalls: [], usage: { total_tokens: 4 } },
+      streamContent: 'Recovered final answer.',
+    };
+  };
+
+  const result = await engine.run(userId, 'Current unfinished turn.', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    priorMessages,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.ok(normalCalls >= 2);
+  assert.ok(compactionCalls >= 1);
+  assert.ok(recoveredMessages.some((message) => (
+    message.role === 'system'
+    && String(message.content).startsWith('[Previous conversation summary]')
+  )));
+  const recoveryEvents = ctx.db.prepare(
+    `SELECT COUNT(*) AS count FROM agent_run_events
+     WHERE run_id = ? AND event_type = 'context.overflow_recovered'`,
+  ).get(result.runId);
+  assert.equal(Number(recoveryEvents.count), 1);
+});
+
+test('repeated overflow returns an honest partial result without provider fallback', async () => {
+  const engine = createEngine(contextRecoveryAnalysis());
+  const priorMessages = installPriorTurns(engine);
+  let normalCalls = 0;
+  engine.requestModelResponse = async ({ options, iteration }) => {
+    if (options.phase === 'context_compaction') {
+      return {
+        response: { content: 'Older context summarized.', toolCalls: [], usage: { total_tokens: 3 } },
+        streamContent: 'Older context summarized.',
+      };
+    }
+    if (iteration === 0) {
+      return {
+        response: { content: 'I could not safely fit more context; this is a partial result.', toolCalls: [], usage: { total_tokens: 3 } },
+        streamContent: 'I could not safely fit more context; this is a partial result.',
+      };
+    }
+    normalCalls += 1;
+    const error = new Error('prompt is too long for this context window');
+    error.code = 'context_overflow';
+    throw error;
+  };
+
+  const result = await engine.run(userId, 'Current unfinished turn.', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    priorMessages,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(normalCalls, 2);
+  assert.match(result.content, /partial result/i);
+  const exhaustedEvents = ctx.db.prepare(
+    `SELECT COUNT(*) AS count FROM agent_run_events
+     WHERE run_id = ? AND event_type = 'context.overflow_exhausted'`,
+  ).get(result.runId);
+  assert.equal(Number(exhaustedEvents.count), 1);
+});
+
 test('schedule background run keeps tool_calls.function across turns', async () => {
   const engine = createEngine({
     mode: 'execute',

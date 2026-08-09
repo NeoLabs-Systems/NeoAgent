@@ -69,6 +69,11 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         timedOut: toolResult?.timedOut || false,
         signal: toolResult?.signal,
         durationMs: toolResult?.durationMs,
+        stdoutBytes: toolResult?.stdoutBytes,
+        stderrBytes: toolResult?.stderrBytes,
+        truncated: toolResult?.truncated === true,
+        outputArtifact: toolResult?.outputArtifact,
+        artifactError: toolResult?.artifactError,
         note: toolResult?.timedOut
           ? 'Command timed out. Treat the output as partial.'
           : toolResult?.killed
@@ -78,6 +83,21 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
               : '',
         stdout: lineExcerpt(toolResult?.stdout, 12, Math.floor(softLimit * 0.45)),
         stderr: lineExcerpt(toolResult?.stderr, 10, Math.floor(softLimit * 0.35))
+      });
+      break;
+
+    case 'read_artifact':
+      envelope = trimObject({
+        tool: toolName,
+        artifactId: toolResult?.artifactId || toolArgs.artifact_id,
+        contentType: toolResult?.contentType,
+        byteSize: toolResult?.byteSize,
+        binary: toolResult?.binary === true,
+        rangeShown: toolResult?.rangeShown,
+        totalLines: toolResult?.totalLines,
+        truncated: toolResult?.truncated === true,
+        content: lineExcerpt(toolResult?.content || '', 30, Math.floor(softLimit * 0.72)),
+        error: toolResult?.error,
       });
       break;
 

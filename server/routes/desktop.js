@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { uploadDesktopCommandOutput } = require('../services/desktop/command_output_upload');
 
 router.use(requireAuth);
 
@@ -256,6 +257,33 @@ router.post('/pause-device', (req, res) =>
     parseOptionalBoolean(request.body?.paused, true),
     { signal: request.signal },
   )));
+
+router.post('/command-output', async (req, res) => {
+  try {
+    if (!String(req.get('content-type') || '').toLowerCase().startsWith('application/octet-stream')) {
+      throw badRequest('Content-Type must be application/octet-stream.');
+    }
+    const artifact = await uploadDesktopCommandOutput({
+      userId: req.session.userId,
+      deviceId: parseRequiredString(req.get('x-neoagent-device-id'), 'deviceId', 256),
+      commandId: parseRequiredString(req.get('x-neoagent-command-id'), 'commandId', 256),
+      contentLength: req.get('content-length'),
+      checksum: req.get('x-neoagent-output-sha256'),
+      complete: req.get('x-neoagent-output-complete') !== 'false',
+      stdoutBytes: parseOptionalQueryNumber(req.get('x-neoagent-stdout-bytes')) || 0,
+      stderrBytes: parseOptionalQueryNumber(req.get('x-neoagent-stderr-bytes')) || 0,
+      stream: req,
+      registry: req.app?.locals?.desktopCompanionRegistry,
+      artifactStore: req.app?.locals?.artifactStore,
+    });
+    res.status(201).json({ outputArtifact: artifact });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      error: sanitizeError(err),
+      code: err.code || null,
+    });
+  }
+});
 
 router.post('/tree', (req, res) =>
   handleDesktopAction(req, res, (provider, request) => provider.getAccessibilityTree({

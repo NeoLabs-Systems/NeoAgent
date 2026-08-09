@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +44,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   final Set<String> _pendingCommandIds = <String>{};
   final Set<String> _pendingShellCommandIds = <String>{};
   final Set<String> _cancelledCommandIds = <String>{};
+  final Map<String, HttpClientRequest> _outputUploadRequests =
+      <String, HttpClientRequest>{};
   int _connectionGeneration = 0;
   int _reconnectAttempt = 0;
   bool _disposed = false;
@@ -443,7 +446,21 @@ class DesktopCompanionManager extends ChangeNotifier {
         });
         return;
       }
-      final response = await _dispatchCommand(command, payload, commandId: id);
+      var response = await _dispatchCommand(command, payload, commandId: id);
+      if (command != 'cancelCommand' && _cancelledCommandIds.contains(id)) {
+        await _discardCommandOutput(response);
+        _sendCommandResult(source, generation, <String, Object?>{
+          'type': 'result',
+          'id': id,
+          'ok': false,
+          'code': 'COMMAND_CANCELLED',
+          'error': 'Desktop companion command was cancelled.',
+        });
+        return;
+      }
+      if (command == 'executeCommand') {
+        response = await _uploadCommandOutput(id, response);
+      }
       if (command != 'cancelCommand' && _cancelledCommandIds.contains(id)) {
         _sendCommandResult(source, generation, <String, Object?>{
           'type': 'result',
@@ -503,6 +520,94 @@ class DesktopCompanionManager extends ChangeNotifier {
       _errorMessage = 'Desktop companion response failed: $error';
       _handleSocketClosed(source, generation);
     }
+  }
+
+  Future<Map<String, Object?>> _uploadCommandOutput(
+    String commandId,
+    Map<String, Object?> response,
+  ) async {
+    final path = response['_outputFilePath']?.toString() ?? '';
+    final sanitized = <String, Object?>{...response}
+      ..remove('_outputFilePath')
+      ..remove('_outputFileByteSize')
+      ..remove('_outputFileComplete');
+    if (path.isEmpty) return sanitized;
+
+    final file = File(path);
+    final client = HttpClient();
+    try {
+      final byteSize = await file.length();
+      final checksum = await sha256.bind(file.openRead()).first;
+      final request = await client.postUrl(
+        _desktopCommandOutputUri(_backendUrl),
+      );
+      _outputUploadRequests[commandId] = request;
+      request.headers
+        ..set(HttpHeaders.cookieHeader, _sessionCookie)
+        ..set(HttpHeaders.contentTypeHeader, 'application/octet-stream')
+        ..set('x-neoagent-device-id', _deviceId)
+        ..set('x-neoagent-command-id', commandId)
+        ..set('x-neoagent-output-sha256', checksum.toString())
+        ..set(
+          'x-neoagent-output-complete',
+          response['_outputFileComplete'] == false ? 'false' : 'true',
+        )
+        ..set('x-neoagent-stdout-bytes', '${response['stdoutBytes'] ?? 0}')
+        ..set('x-neoagent-stderr-bytes', '${response['stderrBytes'] ?? 0}');
+      request.contentLength = byteSize;
+      await request.addStream(file.openRead());
+      final uploadResponse = await request.close();
+      final responseText = await utf8.decoder.bind(uploadResponse).join();
+      if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+        throw HttpException(
+          'Command output upload failed (${uploadResponse.statusCode}): $responseText',
+        );
+      }
+      final decoded = jsonDecode(responseText);
+      final outputArtifact = decoded is Map ? decoded['outputArtifact'] : null;
+      if (outputArtifact is! Map) {
+        throw const FormatException(
+          'Command output upload omitted artifact metadata.',
+        );
+      }
+      return <String, Object?>{
+        ...sanitized,
+        'outputArtifact': outputArtifact.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+      };
+    } catch (error) {
+      return <String, Object?>{...sanitized, 'artifactError': '$error'};
+    } finally {
+      _outputUploadRequests.remove(commandId);
+      client.close(force: true);
+      await _discardCommandOutput(response);
+    }
+  }
+
+  Future<void> _discardCommandOutput(Map<String, Object?> response) async {
+    final path = response['_outputFilePath']?.toString() ?? '';
+    if (path.isEmpty) return;
+    final directory = File(path).parent;
+    final tempRoot = Directory.systemTemp.absolute.path;
+    if (!directory.absolute.path.startsWith(
+          '$tempRoot${Platform.pathSeparator}',
+        ) ||
+        !directory.path
+            .split(Platform.pathSeparator)
+            .last
+            .startsWith('neoagent-command-output-')) {
+      return;
+    }
+    try {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    } catch (_) {}
+  }
+
+  void _abortOutputUpload(String commandId) {
+    _outputUploadRequests[commandId]?.abort(
+      const HttpException('Desktop command output upload cancelled.'),
+    );
   }
 
   Future<Map<String, Object?>> _dispatchCommand(
@@ -624,6 +729,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           _cancelledCommandIds.add(targetId);
         }
         if (_pendingShellCommandIds.contains(targetId)) {
+          _abortOutputUpload(targetId);
           return _actions.cancelShellCommand(targetId);
         }
         return <String, Object?>{
@@ -665,6 +771,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     for (final commandId in _pendingCommandIds.toList(growable: false)) {
       _cancelledCommandIds.add(commandId);
       if (_pendingShellCommandIds.contains(commandId)) {
+        _abortOutputUpload(commandId);
         unawaited(_actions.cancelShellCommand(commandId));
       }
     }
@@ -902,6 +1009,16 @@ Uri _desktopWsUri(String backendUrl) {
   return base.replace(
     scheme: scheme,
     path: '$basePath/api/desktop/ws',
+    query: '',
+    fragment: '',
+  );
+}
+
+Uri _desktopCommandOutputUri(String backendUrl) {
+  final base = Uri.parse(backendUrl);
+  final basePath = base.path.replaceFirst(RegExp(r'/+$'), '');
+  return base.replace(
+    path: '$basePath/api/desktop/command-output',
     query: '',
     fragment: '',
   );

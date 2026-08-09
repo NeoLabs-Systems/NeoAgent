@@ -999,6 +999,19 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'read_artifact',
+            description: 'Read an owned text artifact by stable artifact ID. Use this for ranged inspection of command-output logs without rerunning the command. Binary artifacts return metadata only.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    artifact_id: { type: 'string', description: 'Owned artifact ID returned by a previous tool result' },
+                    start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
+                    end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive; at most 500 lines)' }
+                },
+                required: ['artifact_id']
+            }
+        },
+        {
             name: 'write_file',
             description: 'Write or append content to a file. Creates parent directories if they do not exist. IMPORTANT: When writing markdown or code, ensure proper formatting and avoid truncating or overly summarizing content. Write complete, well-formatted, detailed files.',
             parameters: {
@@ -1606,6 +1619,7 @@ async function executeTool(toolName, args, context, engine) {
         userId,
         agentId,
         runId,
+        stepId,
         app,
         triggerSource,
         taskId,
@@ -1712,6 +1726,8 @@ async function executeTool(toolName, args, context, engine) {
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
                 inputs: Array.isArray(args.inputs) ? args.inputs : [],
+                runId,
+                stepId,
                 signal,
             };
             if (typeof runtimeManager.executeCliCommand === 'function') {
@@ -2505,6 +2521,18 @@ async function executeTool(toolName, args, context, engine) {
                     truncated: entries.length > maxFiles,
                     results,
                 };
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'read_artifact': {
+            try {
+                if (!artifactStore) return { error: 'Artifact store is unavailable.' };
+                return artifactStore.readTextArtifact(userId, args.artifact_id, {
+                    startLine: args.start_line,
+                    endLine: args.end_line,
+                });
             } catch (err) {
                 return { error: err.message };
             }
