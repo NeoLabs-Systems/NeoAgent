@@ -34161,10 +34161,12 @@ case"thinking":return"Thinking"
 case"speaking":return"Speaking"
 case"listening":return"Listening"
 case"idle":default:return"Ready"}},
-w9(a,b,c){var s
+w9(a,b,c,d){var s,r
 if(c&&a==="auto")return"auto"
 s=A.bkr(a,b)
 if(s!=null)return s.a
+r=B.b.t(a)
+if(d&&r.length!==0)return r
 if(c)return"auto"
 return b.length!==0?B.e.gZ(b).a:a},
 bkr(a,b){var s,r,q
@@ -130457,7 +130459,7 @@ return r},
 gyQ(){var s=this.cH.h(0,"default_chat_model")
 s=s==null?null:J.q(s)
 if(s==null)s="auto"
-return A.w9(s,this.cz,!0)},
+return A.w9(s,this.cz,!0,!0)},
 gWl(){var s,r=null,q=this.bc
 if(q==null)s=r
 else{q=q.h(0,"display_name")
@@ -137660,7 +137662,7 @@ a2.c=J.e(a3?null:a7.f.h(0,"unreadOnly"),!0)
 a2.d=J.e(a3?null:a7.f.h(0,"ignoreGroups"),!0)
 a0=a3?null:a7.z
 if(a0==null)a0="auto"
-a2.e=A.w9(a0,q.a.c.cz,!0)
+a2.e=A.w9(a0,q.a.c.cz,!0,!0)
 a3=a3?null:a7.b
 a1=a3==null?a6:a3
 if(a1==null)a1=q.a.c.bg
@@ -138333,7 +138335,7 @@ if(r){r=s.d
 r===$&&A.b()
 p.push(A.je(q,A.jg(!1,new A.a4(B.wc,A.cP(new A.cE(B.ke,new A.aaB(r,q),q),q,q),q),!1,B.I,!0),q,q,0,0,0,q))}if(!s.ax){r=s.e
 r===$&&A.b()
-r=B.b.t("msm9qyj3-a70a69d").length!==0&&r.b}else r=!1
+r=B.b.t("msma6pis-4893937").length!==0&&r.b}else r=!1
 if(r){r=s.d
 r===$&&A.b()
 r=r.af&&!r.ag?84:0
@@ -138788,15 +138790,15 @@ j.Q=f.gyQ()
 e=f.cH.h(0,"default_subagent_model")
 e=e==null?i:J.q(e)
 if(e==null)e=h
-j.as=A.w9(e,f.cz,!0)
+j.as=A.w9(e,f.cz,!0,!0)
 e=f.cH.h(0,"fallback_model_id")
 e=e==null?i:J.q(e)
 if(e==null)e=A.bTW(f.cz)
-j.at=A.w9(e,f.cz,!1)
+j.at=A.w9(e,f.cz,!1,!1)
 e=f.cH.h(0,"default_speech_model")
 e=e==null?i:J.q(e)
 if(e==null)e=h
-j.ax=A.w9(e,f.cz,!0)
+j.ax=A.w9(e,f.cz,!0,!0)
 j.ay=f.us("voice_stt_provider","",!0)
 j.ch=f.ur("voice_stt_model","")
 j.CW=f.us("voice_tts_provider","",!0)
@@ -139875,13 +139877,13 @@ r=s.Q
 r===$&&A.b()
 q=this.b
 p=this.c
-r=A.bc(new A.o8("Chat",B.iO,A.w9(r,q,!0),p,new A.baf(s),n),n,m)
+r=A.bc(new A.o8("Chat",B.iO,A.w9(r,q,!0,!0),p,new A.baf(s),n),n,m)
 o=s.as
 o===$&&A.b()
-p=A.bc(new A.o8("Sub-agent",B.pm,A.w9(o,q,!0),p,new A.bag(s),n),n,m)
+p=A.bc(new A.o8("Sub-agent",B.pm,A.w9(o,q,!0,!0),p,new A.bag(s),n),n,m)
 o=s.at
 o===$&&A.b()
-return A.bN(B.K,A.a([r,p,A.bc(new A.o8("Fallback",B.ps,A.w9(o,q,!1),A.bsJ(q,!1),new A.bah(s),n),n,m)],t.p),B.a3,12,12)},
+return A.bN(B.K,A.a([r,p,A.bc(new A.o8("Fallback",B.ps,A.w9(o,q,!1,!1),A.bsJ(q,!1),new A.bah(s),n),n,m)],t.p),B.a3,12,12)},
 $S:209}
 A.baf.prototype={
 $1(a){var s=this.a
@@ -139979,7 +139981,7 @@ q=q<940?q:(q-12)/2
 s=this.a
 r=s.ax
 r===$&&A.b()
-return A.bN(B.K,A.a([A.bc(new A.o8("Speech Model",B.xp,A.w9(r,this.b,!0),this.c,new A.baQ(s),null),null,q)],t.p),B.a3,12,12)},
+return A.bN(B.K,A.a([A.bc(new A.o8("Speech Model",B.xp,A.w9(r,this.b,!0,!0),this.c,new A.baQ(s),null),null,q)],t.p),B.a3,12,12)},
 $S:209}
 A.baQ.prototype={
 $1(a){var s=this.a
@@ -144831,7 +144833,7 @@ $S:0}
 A.a1s.prototype={}
 A.UY.prototype={
 qC(a){var s=this
-if(B.b.t("msm9qyj3-a70a69d").length===0||s.a!=null)return
+if(B.b.t("msma6pis-4893937").length===0||s.a!=null)return
 s.Bv()
 s.a=A.mt(B.X0,new A.biG(s))},
 Bv(){var s=0,r=A.l(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f
@@ -144849,7 +144851,7 @@ if(!t.f.b(k)){s=1
 break}i=J.T(k,"buildId")
 h=i==null?null:B.b.t(J.q(i))
 j=h==null?"":h
-if(J.bn(j)===0||J.e(j,"msm9qyj3-a70a69d")){s=1
+if(J.bn(j)===0||J.e(j,"msma6pis-4893937")){s=1
 break}n.b=!0
 n.H()
 p=2
@@ -144866,7 +144868,7 @@ case 2:return A.i(o.at(-1),r)}})
 return A.k($async$Bv,r)},
 w9(){var s=0,r=A.l(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
 var $async$w9=A.h(function(a2,a3){if(a2===1){o.push(a3)
-s=p}while(true)switch(s){case 0:if(B.b.t("msm9qyj3-a70a69d").length===0||n.c){s=1
+s=p}while(true)switch(s){case 0:if(B.b.t("msma6pis-4893937").length===0||n.c){s=1
 break}n.c=!0
 n.H()
 p=4
