@@ -12,7 +12,10 @@ const DEFAULT_STT_MODELS = Object.freeze({
 const DEFAULT_TTS_MODELS = Object.freeze({
   openai: 'gpt-4o-mini-tts',
   deepgram: 'aura-2-thalia-en',
-  gemini: 'gemini-2.5-flash-preview-tts',
+  gemini: 'gemini-3.1-flash-tts-preview',
+});
+const RETIRED_DEFAULT_TTS_MODELS = Object.freeze({
+  gemini: Object.freeze(['gemini-2.5-flash-preview-tts']),
 });
 const DEFAULT_TTS_VOICES = Object.freeze({
   openai: 'marin',
@@ -41,7 +44,11 @@ function resolveSttModel(provider, requestedModel) {
 
 function resolveTtsModel(provider, requestedModel) {
   const id = normalizeTtsProvider(provider);
-  return String(requestedModel || '').trim() || DEFAULT_TTS_MODELS[id];
+  const requested = String(requestedModel || '').trim();
+  if (!requested || RETIRED_DEFAULT_TTS_MODELS[id]?.includes(requested)) {
+    return DEFAULT_TTS_MODELS[id];
+  }
+  return requested;
 }
 
 function resolveTtsVoice(provider, requestedVoice) {

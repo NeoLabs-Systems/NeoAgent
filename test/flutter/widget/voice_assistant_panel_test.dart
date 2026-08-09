@@ -67,6 +67,15 @@ void main() {
       expect(find.text('Cancel task'), findsOneWidget);
       expect(find.text('End session'), findsOneWidget);
       expect(find.text('Working'), findsAtLeastNWidgets(1));
+
+      const voiceError = 'Gemini could not synthesize this reply.';
+      controller.errorMessage = voiceError;
+      controller.voiceAssistantLiveState = controller.voiceAssistantLiveState
+          .copyWith(error: voiceError, state: 'degraded');
+      controller.notifyListeners();
+      await tester.pump();
+
+      expect(find.text(voiceError), findsOneWidget);
     },
   );
 }

@@ -76,6 +76,10 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  int _activeSettingsSaves = 0;
+  int _pendingSettingsWrites = 0;
+  int _settingsMutationId = 0;
+  Future<void> _settingsWriteTail = Future<void>.value();
   bool isSavingBackendUrl = false;
   bool isLoadingAccountSettings = false;
   bool isSavingAccountSettings = false;
@@ -2036,10 +2040,12 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchAiProviders(backendUrl, agentId: agentId),
         const <String, dynamic>{'providers': <dynamic>[]},
       );
+      final settingsMutationId = _settingsMutationId;
+      final settingsWriteWasPending = _pendingSettingsWrites > 0;
       final settingsFuture = _softRefreshLoad<Map<String, dynamic>>(
         'settings',
         _backendClient.fetchSettings(backendUrl, agentId: agentId),
-        const <String, dynamic>{},
+        Map<String, dynamic>.from(settings),
       );
       final behaviorFuture = _softRefreshLoad<Map<String, dynamic>>(
         'behavior_config',
@@ -2225,7 +2231,11 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
 
-      settings = Map<String, dynamic>.from(settingsResponse);
+      if (!settingsWriteWasPending &&
+          settingsMutationId == _settingsMutationId &&
+          agentId == _scopedAgentId) {
+        settings = Map<String, dynamic>.from(settingsResponse);
+      }
       behaviorConfig = behaviorResponse['config'] is Map
           ? Map<String, dynamic>.from(behaviorResponse['config'] as Map)
           : const <String, dynamic>{};
@@ -4324,9 +4334,7 @@ class NeoAgentController extends ChangeNotifier {
     required String voiceInputMode,
     required Map<String, dynamic> aiProviderConfigs,
   }) async {
-    isSavingSettings = true;
-    errorMessage = null;
-    notifyListeners();
+    _beginSettingsSave();
 
     final payload = <String, dynamic>{
       'headless_browser': true,
@@ -4352,25 +4360,22 @@ class NeoAgentController extends ChangeNotifier {
       'ai_provider_configs': aiProviderConfigs,
     };
 
+    final agentId = _scopedAgentId;
+    final mutationId = ++_settingsMutationId;
     try {
-      await _backendClient.saveSettings(
-        backendUrl,
-        payload,
-        agentId: _scopedAgentId,
-      );
-      settings = <String, dynamic>{...settings, ...payload};
+      await _queueSettingsWrite(payload, agentId: agentId);
+      if (mutationId == _settingsMutationId && agentId == _scopedAgentId) {
+        settings = <String, dynamic>{...settings, ...payload};
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      isSavingSettings = false;
-      notifyListeners();
+      _finishSettingsSave();
     }
   }
 
   Future<void> saveBehaviorConfig(Map<String, dynamic> config) async {
-    isSavingSettings = true;
-    errorMessage = null;
-    notifyListeners();
+    _beginSettingsSave();
     try {
       final response = await _backendClient.saveBehaviorConfig(
         backendUrl,
@@ -4383,8 +4388,7 @@ class NeoAgentController extends ChangeNotifier {
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      isSavingSettings = false;
-      notifyListeners();
+      _finishSettingsSave();
     }
   }
 
@@ -5335,12 +5339,7 @@ class NeoAgentController extends ChangeNotifier {
     Map<String, dynamic>? configSnapshot,
   }) async {
     if (configSnapshot != null) {
-      await _backendClient.saveSettings(
-        backendUrl,
-        configSnapshot,
-        agentId: _scopedAgentId,
-      );
-      settings = <String, dynamic>{...settings, ...configSnapshot};
+      await saveSettingsPayload(configSnapshot);
     }
     await _backendClient.connectMessagingPlatform(
       backendUrl,
@@ -5352,26 +5351,58 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveSettingsPayload(Map<String, dynamic> payload) async {
-    if (isSavingSettings) {
-      return;
-    }
-    isSavingSettings = true;
-    errorMessage = null;
-    notifyListeners();
+    final agentId = _scopedAgentId;
+    final previousSettings = settings;
+    final mutationId = ++_settingsMutationId;
+    settings = <String, dynamic>{...settings, ...payload};
+    _beginSettingsSave();
     try {
-      await _backendClient.saveSettings(
-        backendUrl,
-        payload,
-        agentId: _scopedAgentId,
-      );
-      settings = <String, dynamic>{...settings, ...payload};
+      await _queueSettingsWrite(payload, agentId: agentId);
     } catch (error) {
+      if (mutationId == _settingsMutationId && agentId == _scopedAgentId) {
+        settings = previousSettings;
+      }
       errorMessage = _friendlyErrorMessage(error);
       rethrow;
     } finally {
-      isSavingSettings = false;
-      notifyListeners();
+      _finishSettingsSave();
     }
+  }
+
+  void _beginSettingsSave() {
+    _activeSettingsSaves += 1;
+    isSavingSettings = true;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void _finishSettingsSave() {
+    _activeSettingsSaves = math.max(0, _activeSettingsSaves - 1);
+    isSavingSettings = _activeSettingsSaves > 0;
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> _queueSettingsWrite(
+    Map<String, dynamic> payload, {
+    required String? agentId,
+  }) {
+    final settingsBackendUrl = backendUrl;
+    _pendingSettingsWrites += 1;
+    final request = _settingsWriteTail.then(
+      (_) => _backendClient.saveSettings(
+        settingsBackendUrl,
+        payload,
+        agentId: agentId,
+      ),
+    );
+    final write = request.whenComplete(() {
+      _pendingSettingsWrites = math.max(0, _pendingSettingsWrites - 1);
+    });
+    _settingsWriteTail = write.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return write;
   }
 
   Future<Map<String, dynamic>> refreshSocialReachStatus() async {
@@ -5557,19 +5588,18 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> updateAssistantBehaviorNotes(String content) async {
-    isSavingSettings = true;
-    errorMessage = null;
-    notifyListeners();
+    final agentId = _scopedAgentId;
+    _settingsMutationId += 1;
+    _beginSettingsSave();
     try {
-      await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+      await _queueSettingsWrite(<String, dynamic>{
         'assistant_behavior_notes': content,
-      }, agentId: _scopedAgentId);
+      }, agentId: agentId);
       await refreshMemory();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
-      isSavingSettings = false;
-      notifyListeners();
+      _finishSettingsSave();
     }
   }
 

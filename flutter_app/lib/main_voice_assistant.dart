@@ -116,8 +116,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   }
 
   void _handleControllerChanged() {
+    if (!mounted) return;
     _syncElapsedTicker();
     _syncLiveVoiceState();
+    setState(() {});
   }
 
   void _syncElapsedTicker() {
@@ -564,6 +566,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final assistantUi = _DesktopAssistantControlState.fromController(
       controller,
     );
+    final globalError = controller.errorMessage?.trim();
+    final voiceError = _voiceError?.trim();
     final liveCaptureEngaged = assistantUi.isCapturing;
     final isBusy = _pttPressed || liveCaptureEngaged;
     final canStart = !isBusy;
@@ -683,15 +687,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                                   ),
                                 ),
                               ],
-                              if (controller.errorMessage?.trim().isNotEmpty ??
-                                  false) ...<Widget>[
+                              if ((globalError?.isNotEmpty ?? false) &&
+                                  globalError != voiceError) ...<Widget>[
                                 const SizedBox(height: 16),
-                                _InlineError(message: controller.errorMessage!),
+                                _InlineError(message: globalError!),
                               ],
-                              if (_voiceError?.trim().isNotEmpty ??
-                                  false) ...<Widget>[
+                              if (voiceError?.isNotEmpty ?? false) ...<Widget>[
                                 const SizedBox(height: 10),
-                                _InlineError(message: _voiceError!),
+                                _InlineError(message: voiceError!),
                               ],
                             ],
                           ),

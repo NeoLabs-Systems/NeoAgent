@@ -2,6 +2,14 @@
 
 const { BufferedLiveRelayAdapter } = require('./bufferedLiveRelayAdapter');
 const { OpenAiRealtimeShell } = require('./providers/openai_realtime_shell');
+const {
+  DEFAULT_STT_MODELS,
+  DEFAULT_TTS_MODELS,
+  DEFAULT_TTS_VOICES,
+  resolveSttModel,
+  resolveTtsModel,
+  resolveTtsVoice,
+} = require('./providers/provider_defaults');
 const { StreamingSttAdapter } = require('./streaming_stt_adapter');
 const { normalizeInputMode, normalizeMediaMode } = require('./voice_config');
 
@@ -9,25 +17,34 @@ const PROVIDERS = Object.freeze({
   openai: Object.freeze({
     id: 'openai',
     label: 'OpenAI',
-    streamingStt: Object.freeze({ model: 'gpt-live-transcribe', sampleRate: 24000 }),
+    streamingStt: Object.freeze({ model: DEFAULT_STT_MODELS.openai, sampleRate: 24000 }),
     boundedStt: Object.freeze({ model: 'gpt-transcribe' }),
-    streamingTts: Object.freeze({ model: 'gpt-4o-mini-tts', voice: 'marin' }),
+    streamingTts: Object.freeze({
+      model: DEFAULT_TTS_MODELS.openai,
+      voice: DEFAULT_TTS_VOICES.openai,
+    }),
     duplexShell: Object.freeze({ model: 'gpt-realtime-2.1', voice: 'marin' }),
   }),
   deepgram: Object.freeze({
     id: 'deepgram',
     label: 'Deepgram',
-    streamingStt: Object.freeze({ model: 'nova-3', sampleRate: 24000 }),
-    boundedStt: Object.freeze({ model: 'nova-3' }),
-    streamingTts: Object.freeze({ model: 'aura-2-thalia-en', voice: '' }),
+    streamingStt: Object.freeze({ model: DEFAULT_STT_MODELS.deepgram, sampleRate: 24000 }),
+    boundedStt: Object.freeze({ model: DEFAULT_STT_MODELS.deepgram }),
+    streamingTts: Object.freeze({
+      model: DEFAULT_TTS_MODELS.deepgram,
+      voice: DEFAULT_TTS_VOICES.deepgram,
+    }),
     duplexShell: null,
   }),
   gemini: Object.freeze({
     id: 'gemini',
     label: 'Gemini',
     streamingStt: null,
-    boundedStt: Object.freeze({ model: 'gemini-3-flash-preview' }),
-    streamingTts: Object.freeze({ model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' }),
+    boundedStt: Object.freeze({ model: DEFAULT_STT_MODELS.gemini }),
+    streamingTts: Object.freeze({
+      model: DEFAULT_TTS_MODELS.gemini,
+      voice: DEFAULT_TTS_VOICES.gemini,
+    }),
     duplexShell: null,
   }),
 });
@@ -63,14 +80,12 @@ class VoiceProviderRegistry {
       requestedMode,
       inputMode: normalizeInputMode(settings.inputMode),
       sttProvider,
-      sttModel: String(settings.sttModel || '').trim()
+      sttModel: resolveSttModel(sttProvider, settings.sttModel)
         || provider.streamingStt?.model
         || provider.boundedStt.model,
       ttsProvider,
-      ttsModel: String(settings.ttsModel || '').trim()
-        || PROVIDERS[ttsProvider].streamingTts.model,
-      ttsVoice: String(settings.ttsVoice || '').trim()
-        || PROVIDERS[ttsProvider].streamingTts.voice,
+      ttsModel: resolveTtsModel(ttsProvider, settings.ttsModel),
+      ttsVoice: resolveTtsVoice(ttsProvider, settings.ttsVoice),
       duplexProvider: duplex ? sttProvider : null,
       duplexModel: duplex ? PROVIDERS[sttProvider].duplexShell.model : null,
       duplexVoice: duplex

@@ -99,7 +99,7 @@ class VoiceDeliveryPresenter {
     } catch (error) {
       if (session.signal.aborted) return;
       logger.warn(`${session.voiceSettings.ttsProvider} TTS failed`, error?.message || error);
-      await session.publishError(error?.message || 'Voice playback failed.', {
+      await session.publishError('Voice playback failed. The text reply is still available.', {
         ...metadata,
         recoverable: true,
         phase: 'tts',
