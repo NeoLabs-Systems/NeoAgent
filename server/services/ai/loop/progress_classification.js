@@ -158,7 +158,7 @@ function isClearlyReadOnlyShellCommand(command = '') {
 function isProgressToolCall(toolName, toolArgs = {}) {
   const name = String(toolName || '');
   if (!name) return false;
-  if (name === 'activate_tools' || name === 'save_widget_snapshot') return false;
+  if (name === 'activate_tools') return false;
   if (name === 'send_interim_update') return false;
   if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(name)) {
     return false;

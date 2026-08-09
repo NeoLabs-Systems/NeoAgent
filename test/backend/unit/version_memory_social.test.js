@@ -43,7 +43,6 @@ test('memory ingestion writes typed documents and materialized views', async () 
   const { resolveAgentId } = require('../../../server/services/agents/manager');
   const { MemoryManager } = require('../../../server/services/memory/manager');
   const { MemoryIngestionService, sourceTypesForConnection } = require('../../../server/services/memory/ingestion');
-  const { buildAssistantFocusSnapshot } = require('../../../server/services/widgets/focus_widget');
   const user = await createTestUser(ctx.db, { username: 'memory_user' });
   const agentId = resolveAgentId(user.userId, null);
   const memoryManager = new MemoryManager();
@@ -73,7 +72,6 @@ test('memory ingestion writes typed documents and materialized views', async () 
   assert.ok(memoryManager.getMemoryStats(user.userId, { agentId }).facts > 0);
   assert.ok(memoryManager.listEntities(user.userId, { agentId }).some((entity) => entity.name.includes('Alice')));
   assert.ok(memoryManager.listKnowledgeViews(user.userId, { agentId }).length > 0);
-  assert.ok(buildAssistantFocusSnapshot(memoryManager, user.userId, agentId).recentKnowledgeChanges.length > 0);
   assert.deepEqual(sourceTypesForConnection('google_workspace', 'gmail'), ['email']);
 });
 

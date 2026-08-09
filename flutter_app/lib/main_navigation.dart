@@ -26,7 +26,6 @@ enum AppSection {
   integrations,
   memory,
   tasks,
-  widgets,
   mcp,
   health,
   server,
@@ -92,8 +91,6 @@ extension AppSectionX on AppSection {
         return 'Memory';
       case AppSection.tasks:
         return 'Tasks';
-      case AppSection.widgets:
-        return 'Widgets';
       case AppSection.mcp:
         return 'MCP';
       case AppSection.health:
@@ -133,8 +130,6 @@ extension AppSectionX on AppSection {
         return Icons.psychology_outlined;
       case AppSection.tasks:
         return Icons.schedule_outlined;
-      case AppSection.widgets:
-        return Icons.dashboard_customize_outlined;
       case AppSection.mcp:
         return Icons.hub_outlined;
       case AppSection.health:
@@ -158,7 +153,6 @@ extension AppSectionX on AppSection {
       case AppSection.integrations:
       case AppSection.memory:
       case AppSection.tasks:
-      case AppSection.widgets:
       case AppSection.mcp:
       case AppSection.health:
         return SidebarGroup.automation;

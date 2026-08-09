@@ -24,9 +24,6 @@ const TOOL_CATEGORIES = {
     'create_skill',
     'update_skill',
     'delete_skill',
-    'create_ai_widget',
-    'update_ai_widget',
-    'delete_ai_widget',
   ],
   external: [],
 };
@@ -38,7 +35,6 @@ const SAFE_TOOLS = new Set([
   'send_interim_update',
   'activate_tools',
   'notify_user',
-  'save_widget_snapshot',
   'memory_recall',
   'memory_read',
   'memory_save',
@@ -144,10 +140,6 @@ const BUILT_IN_TOOLS = new Set([
   'list_tasks',
   'delete_task',
   'update_task',
-  'create_ai_widget',
-  'list_ai_widgets',
-  'update_ai_widget',
-  'delete_ai_widget',
   'mcp_add_server',
   'mcp_list_servers',
   'mcp_remove_server',
@@ -160,7 +152,6 @@ const BUILT_IN_TOOLS = new Set([
   'social_video_extract',
   'task_complete',
   'send_interim_update',
-  'save_widget_snapshot',
 ]);
 
 // category → policy for users with no DB row yet

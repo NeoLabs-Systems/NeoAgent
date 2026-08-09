@@ -436,7 +436,6 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.timeline,
     AppSection.devices,
     AppSection.tasks,
-    AppSection.widgets,
     AppSection.integrations,
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,

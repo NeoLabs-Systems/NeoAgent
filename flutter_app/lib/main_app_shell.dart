@@ -2226,8 +2226,6 @@ class _SectionBody extends StatelessWidget {
         return MemoryPanel(controller: controller);
       case AppSection.tasks:
         return TasksPanel(controller: controller);
-      case AppSection.widgets:
-        return WidgetsPanel(controller: controller);
       case AppSection.mcp:
         return ToolsPanel(controller: controller);
       case AppSection.health:

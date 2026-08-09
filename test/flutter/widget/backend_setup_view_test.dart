@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
-import 'package:neoagent_flutter/src/widget_bridge.dart';
 
 void main() {
   testWidgets(
@@ -19,7 +18,6 @@ void main() {
       final controller = NeoAgentController(
         backendClient: BackendClient(),
         healthBridge: HealthBridge(),
-        widgetBridge: WidgetBridge(),
       );
       addTearDown(controller.dispose);
       await tester.pumpWidget(

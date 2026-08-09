@@ -1203,7 +1203,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
 // Prevents unregistered /api/* routes (e.g. billing when disabled) from
 // falling through to the HTML catch-all and returning a false 200.
 
-router.all('/api/*', (req, res) => {
+router.all('/api/*path', (req, res) => {
   res.status(404).json({ error: 'Not found.' });
 });
 
@@ -1211,7 +1211,7 @@ router.all('/api/*', (req, res) => {
 
 router.use(express.static(ADMIN_DIR));
 
-router.get('*', requireAdminAuth, (req, res) => {
+router.get('{*path}', requireAdminAuth, (req, res) => {
   res.sendFile(path.join(ADMIN_DIR, 'index.html'));
 });
 

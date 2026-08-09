@@ -72,7 +72,7 @@ describe('API response contracts', () => {
     assert.equal(typeof runs.body.offset, 'number');
   });
 
-  test('runtime, settings, memory, MCP, tasks, widgets, and integrations contracts are stable', async () => {
+  test('runtime, settings, memory, MCP, tasks, and integrations contracts are stable', async () => {
     const runtime = await request(app).get('/api/runtime/config').expect(200);
     assert.equal(typeof runtime.body.analytics, 'object');
     const health = await client.get('/api/health').expect(200);
@@ -84,7 +84,6 @@ describe('API response contracts', () => {
     assert.equal(typeof (await client.get('/api/memory').expect(200)).body.agentId, 'string');
     assert.ok(Array.isArray((await client.get('/api/mcp').expect(200)).body));
     assert.ok(Array.isArray((await client.get('/api/tasks').expect(200)).body));
-    assert.ok(Array.isArray((await client.get('/api/widgets').expect(200)).body));
     assert.ok(Array.isArray((await client.get('/api/integrations').expect(200)).body));
   });
 });

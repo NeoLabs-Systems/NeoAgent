@@ -1,7 +1,7 @@
 # Agent run lifecycle
 
 An agent run is the durable execution record for a chat request, scheduled
-task, integration event, messaging event, widget refresh, or delegated job.
+task, integration event, messaging event, or delegated job.
 
 ## 1. Resolve context
 

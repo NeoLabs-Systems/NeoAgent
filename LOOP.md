@@ -1,7 +1,7 @@
 # NeoAgent Loop Operations
 
 NeoAgent uses agent loops for chat, scheduled tasks, integration events,
-messaging triggers, widget refreshes, and delegated work. The product should
+messaging triggers, and delegated work. The product should
 keep the agent autonomous by default while enforcing runtime guardrails for
 cost, repeated failure, and risky side effects.
 

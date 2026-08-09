@@ -177,12 +177,6 @@ const SURFACES = [
     triggerSource: 'agent',
     disallowedToolNames: ['spawn_subagent'],
   }],
-  ['widget refresh', {
-    triggerType: 'schedule',
-    triggerSource: 'schedule',
-    widgetId: 'widget-1',
-    skipTaskAnalysis: true,
-  }],
 ];
 
 for (const [label, runOptions] of SURFACES) {

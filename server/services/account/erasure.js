@@ -59,7 +59,6 @@ function deleteChildRows(uid) {
   const childDeletes = [
     'DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)',
     'DELETE FROM agent_steps WHERE run_id IN (SELECT id FROM agent_runs WHERE user_id = ?)',
-    'DELETE FROM ai_widget_snapshots WHERE widget_id IN (SELECT id FROM ai_widgets WHERE user_id = ?)',
     'DELETE FROM memory_source_links WHERE memory_id IN (SELECT id FROM memories WHERE user_id = ?)',
   ];
   for (const sql of childDeletes) {

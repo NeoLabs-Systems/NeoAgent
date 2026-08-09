@@ -15,7 +15,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
   StreamSubscription<AppLaunchRequest>? _appLaunchSubscription;
-  StreamSubscription<String>? _widgetOpenSubscription;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
   Menu? _trayMenu;
@@ -43,15 +42,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       appMode: widget.mode,
       backendClient: backendClient,
       healthBridge: HealthBridge(),
-      widgetBridge: WidgetBridge(),
     )..bootstrap();
     _webAppUpdateMonitor = createWebAppUpdateMonitor()..start();
     _controller.addListener(_handleControllerChanged);
     _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
       _handleAppLaunchRequest,
-    );
-    _widgetOpenSubscription = _controller.widgetOpenRequests.listen(
-      _controller.openWidgetSurface,
     );
     if (_supportsDesktopShell) {
       unawaited(_initializeDesktopShell());
@@ -61,7 +56,6 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   @override
   void dispose() {
     _appLaunchSubscription?.cancel();
-    _widgetOpenSubscription?.cancel();
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
       trayManager.removeListener(this);

@@ -9,7 +9,6 @@ const { SkillRunner } = require('./ai/toolRunner');
 const { CommandRouter } = require('./commands/router');
 const { MessagingManager } = require('./messaging/manager');
 const { TaskRuntime } = require('./tasks/runtime');
-const { WidgetService } = require('./widgets/service');
 const { setupWebSocket } = require('./websocket');
 const { registerMessagingAutomation } = require('./messaging/automation');
 const { SocialVideoService } = require('./social_video');
@@ -420,16 +419,6 @@ function createSocialReachService(app) {
   return socialReachService;
 }
 
-function createWidgetService(app) {
-  const widgetService = registerLocal(
-    app,
-    'widgetService',
-    new WidgetService({ app }),
-  );
-  logServiceReady('Widget service ready');
-  return widgetService;
-}
-
 function createWearableService(app) {
   const wearableService = registerLocal(
     app,
@@ -535,7 +524,6 @@ async function startServices(app, io) {
     const messagingManager = createMessagingManager(app, io, agentEngine);
     createSocialVideoService(app);
     createSocialReachService(app);
-    createWidgetService(app);
     createWearableService(app);
 
     restoreMessagingConnections(messagingManager);
@@ -801,25 +789,6 @@ async function stopServices(app) {
         console.error('[Bitwarden] Shutdown error:', getErrorMessage(err));
       }),
     );
-  }
-
-  if (app.locals.widgetService) {
-    const widgetService = app.locals.widgetService;
-    const cleanupMethod = ['shutdown', 'close', 'stop', 'dispose'].find(
-      (method) => typeof widgetService[method] === 'function',
-    );
-    if (cleanupMethod) {
-      tasks.push(
-        Promise.resolve()
-          .then(() => widgetService[cleanupMethod]())
-          .then(() => {
-            logServiceReady(`Widget service ${cleanupMethod} completed`);
-          })
-          .catch((err) => {
-            console.error('[Widget] Shutdown error:', getErrorMessage(err));
-          }),
-      );
-    }
   }
 
   if (app.locals.browserExtensionRegistry) {

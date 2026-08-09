@@ -8,7 +8,7 @@ implemented through bridge classes and native host code.
 
 The standard mode provides the full NeoAgent client. The launcher mode uses a
 separate Android application ID and enables the home-screen launcher activity,
-hardware-button events, device settings, pairing, and launcher widgets.
+hardware-button events, device settings, and pairing.
 
 Build mode is selected at compile time. Release artifacts distinguish standard
 and launcher APKs.
@@ -22,7 +22,7 @@ updates into `MainController`, which notifies the relevant UI.
 ## Android bridges
 
 Native Kotlin code handles Health Connect, notifications, launcher functions,
-telecom integration, and Android home widgets. Flutter bridges normalize
+and telecom integration. Flutter bridges normalize
 permission and lifecycle behavior before updating application state.
 
 ## Desktop and Chrome pairing

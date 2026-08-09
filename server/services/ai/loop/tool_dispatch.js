@@ -177,7 +177,6 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
         source: options.source || null,
         chatId: options.chatId || null,
         taskId: options.taskId || null,
-        widgetId: options.widgetId || null,
         deliveryState: options.deliveryState || null,
         allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
         allowExternalSideEffects: false,

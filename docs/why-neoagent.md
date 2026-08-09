@@ -46,7 +46,4 @@ the current NeoAgent source.
 - Built-in Markdown memory or one of its external memory providers is already
   part of your setup.
 
-NeoAgent's memory architecture is documented in [Memory](memory.md). The
-project does not claim superior recall without a reproducible, published
-benchmark that records the dataset, models, retrieval settings, judge, token
-budget, latency, and run artifacts.
+NeoAgent's memory architecture is documented in [Memory](memory.md).

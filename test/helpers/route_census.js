@@ -32,7 +32,6 @@ const ROUTE_BASES = {
   triggers: '/api/triggers',
   voice_assistant: '/api/voice-assistant',
   wearable: '/api/wearable',
-  widgets: '/api/widgets',
 };
 
 const EXTRA_ROUTES = [

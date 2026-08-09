@@ -232,7 +232,6 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     context.source || 'none',
     context.chatId || 'none',
     context.latencyProfile || 'default',
-    context.widgetId || 'none',
   ].join(':');
   const now = Date.now();
   const cached = promptCache.get(cacheKey);

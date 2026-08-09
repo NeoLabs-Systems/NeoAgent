@@ -255,12 +255,9 @@ class TaskRuntime {
     return this._serializeTask(this.taskRepository.getTaskById(taskId, userId), userId);
   }
 
-  async updateTask(taskId, userId, updates, options = {}) {
+  async updateTask(taskId, userId, updates) {
     const existing = this.taskRepository.getTaskById(taskId, userId);
     if (!existing) throw new Error('Task not found');
-    if (existing.task_type === 'widget_refresh' && options.allowManaged !== true) {
-      throw new Error('Managed widget tasks must be updated via widgets.');
-    }
     const normalized = await this._normalizeTaskInput(userId, {
       id: taskId,
       name: updates.name ?? existing.name,
@@ -284,12 +281,9 @@ class TaskRuntime {
     return this._serializeTask(this.taskRepository.getTaskById(taskId, userId), userId);
   }
 
-  deleteTask(taskId, userId, options = {}) {
+  deleteTask(taskId, userId) {
     const existing = this.taskRepository.getTaskById(taskId, userId);
     if (!existing) throw new Error('Task not found');
-    if (existing.task_type === 'widget_refresh' && options.allowManaged !== true) {
-      throw new Error('Managed widget tasks must be deleted via widgets.');
-    }
     this._unregisterTask(taskId);
     this.taskRepository.deleteTask(taskId, userId);
     return { deleted: true };
@@ -590,33 +584,6 @@ class TaskRuntime {
     };
     let completedRunId = null;
     try {
-      if (task.task_type === 'widget_refresh') {
-        const widgetService = this.app?.locals?.widgetService;
-        if (!widgetService || !taskConfig.widgetId) {
-          throw new Error('Widget refresh task is missing widget context.');
-        }
-        const result = await widgetService.refreshWidget(userId, taskConfig.widgetId, {
-          taskId,
-          manual: executionMeta.manual === true,
-          scheduledAt: executionMeta.scheduledAt || null,
-          signal,
-        });
-        if (this.stopping || signal.aborted) {
-          return { skipped: true, reason: 'runtime_stopping' };
-        }
-        this.io.to(`user:${userId}`).emit('tasks:task_complete', { taskId, result });
-        this._recordTaskLifecycle({
-          userId,
-          taskId,
-          taskName,
-          agentId,
-          eventKind: 'task_completed',
-          triggerType: executionMeta.triggerType || null,
-          triggerSource: executionMeta.triggerSource || null,
-        });
-        return result;
-      }
-
       normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
@@ -879,22 +846,16 @@ class TaskRuntime {
       ? this._normalizeJson(input.taskConfig ?? input.task_config)
       : existingTaskConfig;
 
-    if (taskType === 'widget_refresh') {
-      if (!taskConfig.widgetId) {
-        throw new Error('widget_refresh tasks require widgetId.');
-      }
-    } else {
-      taskConfig = { ...existingTaskConfig, ...taskConfig };
-      if (input.prompt !== undefined) taskConfig.prompt = String(input.prompt || '').trim();
-      delete taskConfig.callTo;
-      delete taskConfig.callGreeting;
-      if (input.model !== undefined) {
-        if (String(input.model || '').trim()) taskConfig.model = String(input.model).trim();
-        else delete taskConfig.model;
-      }
-      if (!String(taskConfig.prompt || '').trim()) {
-        throw new Error('Task prompt is required.');
-      }
+    taskConfig = { ...existingTaskConfig, ...taskConfig };
+    if (input.prompt !== undefined) taskConfig.prompt = String(input.prompt || '').trim();
+    delete taskConfig.callTo;
+    delete taskConfig.callGreeting;
+    if (input.model !== undefined) {
+      if (String(input.model || '').trim()) taskConfig.model = String(input.model).trim();
+      else delete taskConfig.model;
+    }
+    if (!String(taskConfig.prompt || '').trim()) {
+      throw new Error('Task prompt is required.');
     }
 
     const rawTriggerConfig = input.triggerConfig ?? input.trigger_config ?? (
@@ -959,7 +920,6 @@ class TaskRuntime {
       prompt: taskConfig.prompt || '',
       model: taskConfig.model || null,
       agentId,
-      widgetId: taskConfig.widgetId || null,
       connectionLabel: triggerConfig.accountEmail || null,
     };
   }

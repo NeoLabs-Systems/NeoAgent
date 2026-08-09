@@ -109,11 +109,6 @@ changes and rough edges. Review the
 [security boundaries](docs/security-boundaries.md) before connecting sensitive
 accounts or giving the agent access to a personal workstation.
 
-## 📊 Benchmarks
-
-![NeoAgent benchmark dashboard](static/benchmarks/latest-dashboard.png)
-See [Benchmarking](docs/benchmarking.md) for the reproducibility details and suite coverage.
-
 Start with the [documentation](https://neolabs-systems.github.io/NeoAgent/docs/).
 Use [GitHub Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions)
 for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)

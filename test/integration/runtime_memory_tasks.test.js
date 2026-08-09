@@ -7,7 +7,7 @@ const { createTestRuntime, createTestUser, teardownTestRuntime } = require('../h
 const { createTestApp, loginAs } = require('../helpers/app');
 const { agent } = require('../helpers/supertest');
 
-describe('runtime, settings, memory, tasks, widgets, and messaging routes', () => {
+describe('runtime, settings, memory, tasks, and messaging routes', () => {
   let ctx;
   let app;
   let client;
@@ -68,18 +68,12 @@ describe('runtime, settings, memory, tasks, widgets, and messaging routes', () =
     await client.delete('/api/memory/memories/999999').expect(404);
   });
 
-  test('tasks and widgets use fake services but real auth/routing', async () => {
+  test('tasks use fake services but real auth/routing', async () => {
     const task = await client.post('/api/tasks').send({ name: 'Daily review' }).expect(201);
     assert.equal(task.body.name, 'Daily review');
     const tasks = await client.get('/api/tasks').expect(200);
     assert.equal(tasks.body.some((item) => item.id === task.body.id), true);
     await client.post(`/api/tasks/${task.body.id}/run`).expect(200);
-
-    const widget = await client.post('/api/widgets').send({ name: 'Focus' }).expect(201);
-    assert.equal(widget.body.name, 'Focus');
-    const widgets = await client.get('/api/widgets').expect(200);
-    assert.equal(widgets.body.some((item) => item.id === widget.body.id), true);
-    await client.post(`/api/widgets/${widget.body.id}/refresh`).expect(200);
   });
 
   test('messaging, desktop, browser, android, and social routes are reachable with fakes', async () => {

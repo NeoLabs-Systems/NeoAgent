@@ -156,7 +156,6 @@ function initializeToolRuntime(engine, runId, allTools, initialTools, options = 
   runMeta.toolCatalog = Array.isArray(allTools) ? allTools : [];
   runMeta.activeTools = Array.isArray(initialTools) ? initialTools : [];
   runMeta.toolSelectionOptions = {
-    widgetId: options.widgetId || null,
     includeCoreFileTools: options.includeCoreFileTools === true,
   };
 }

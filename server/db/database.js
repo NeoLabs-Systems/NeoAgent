@@ -518,44 +518,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_user ON scheduled_tasks(user_id);
 
-  CREATE TABLE IF NOT EXISTS ai_widgets (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    agent_id TEXT,
-    name TEXT NOT NULL,
-    widget_kind TEXT DEFAULT 'custom',
-    system_key TEXT,
-    is_system INTEGER DEFAULT 0,
-    template TEXT NOT NULL,
-    layout_variant TEXT NOT NULL,
-    definition_json TEXT DEFAULT '{}',
-    refresh_cron TEXT NOT NULL,
-    enabled INTEGER DEFAULT 1,
-    scheduled_task_id INTEGER,
-    last_snapshot_at TEXT,
-    last_error TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
-    FOREIGN KEY (scheduled_task_id) REFERENCES scheduled_tasks(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS ai_widget_snapshots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    widget_id TEXT NOT NULL,
-    payload_json TEXT DEFAULT '{}',
-    generated_at TEXT DEFAULT (datetime('now')),
-    source_run_id TEXT,
-    status TEXT DEFAULT 'ready',
-    FOREIGN KEY (widget_id) REFERENCES ai_widgets(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_run_id) REFERENCES agent_runs(id) ON DELETE SET NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_ai_widgets_user ON ai_widgets(user_id, updated_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_ai_widgets_agent ON ai_widgets(user_id, agent_id, updated_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_ai_widget_snapshots_widget ON ai_widget_snapshots(widget_id, id DESC);
-
   CREATE TABLE IF NOT EXISTS conversation_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -1195,9 +1157,6 @@ for (const col of [
   "ALTER TABLE conversation_history ADD COLUMN agent_id TEXT",
   "ALTER TABLE memories ADD COLUMN agent_id TEXT",
   "ALTER TABLE core_memory ADD COLUMN agent_id TEXT",
-  "ALTER TABLE ai_widgets ADD COLUMN widget_kind TEXT DEFAULT 'custom'",
-  "ALTER TABLE ai_widgets ADD COLUMN system_key TEXT",
-  "ALTER TABLE ai_widgets ADD COLUMN is_system INTEGER DEFAULT 0",
   "ALTER TABLE memories ADD COLUMN scope_type TEXT DEFAULT 'agent'",
   "ALTER TABLE memories ADD COLUMN scope_id TEXT",
   "ALTER TABLE memories ADD COLUMN source_type TEXT",
@@ -1294,7 +1253,6 @@ function createAgentScopedIndexes() {
     ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(user_id, agent_id, scope_type, scope_id, archived, updated_at DESC)'],
     ['memories', 'CREATE INDEX IF NOT EXISTS idx_memories_hash ON memories(user_id, agent_id, memory_hash, archived)'],
     ['core_memory', 'CREATE INDEX IF NOT EXISTS idx_core_memory_agent ON core_memory(user_id, agent_id, key)'],
-    ['ai_widgets', 'CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_widgets_system_key ON ai_widgets(user_id, agent_id, system_key) WHERE system_key IS NOT NULL'],
   ];
   for (const [table, statement] of statements) {
     if (!tableHasColumn(table, 'agent_id')) continue;

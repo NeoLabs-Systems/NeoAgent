@@ -969,12 +969,11 @@ describe('scheduled task result delivery', () => {
     assert.equal(listedTask.lastRun, '2026-06-06 10:00:00');
   });
 
-  test('builds task and widget linkage metadata at run creation', () => {
+  test('builds task linkage metadata at run creation', () => {
     const { buildInitialRunMetadata } = require('../../../server/services/ai/engine');
 
-    assert.deepEqual(buildInitialRunMetadata({ taskId: 12, widgetId: 'weather' }), {
+    assert.deepEqual(buildInitialRunMetadata({ taskId: 12 }), {
       taskId: 12,
-      widgetId: 'weather',
     });
     assert.deepEqual(buildInitialRunMetadata({}), {});
   });

@@ -4,9 +4,6 @@ const { isModuleEnabled } = require('../config');
 
 function buildSystemPromptContribution(ctx) {
   if (!isModuleEnabled(ctx.config, 'channel_style')) return '';
-  if (ctx.widgetId) {
-    return 'CHANNEL: widget output should be structured snapshot data, not chat filler.';
-  }
   if (ctx.triggerSource === 'voice_live' || ctx.latencyProfile === 'voice') {
     return 'CHANNEL: speak in one or two short sentences unless detail is necessary.';
   }

@@ -91,7 +91,6 @@ describe('messaging progress supervisor', () => {
       finalDeliverySent: false,
       lastSentMessage: '',
       sentMessages: [],
-      widgetSnapshotSaved: false,
       triggerType: 'user',
       triggerSource: 'messaging',
       startedAt,

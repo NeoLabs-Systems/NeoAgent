@@ -452,7 +452,6 @@ class DurableRunRuntime {
         agentId,
         triggerType,
         triggerSource,
-        widgetId: options.widgetId || null,
       });
       const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.engine.mcpManager;
       const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
@@ -585,7 +584,6 @@ class DurableRunRuntime {
       // model cannot know a capability exists — it then reports the tool as
       // unavailable instead of activating it.
       const toolSelectionOptions = {
-        widgetId: options.widgetId || null,
         triggerSource,
         triggerType,
         includeCoreFileTools: analysis.mode === 'execute' || analysis.mode === 'plan_execute',
@@ -1713,7 +1711,6 @@ class DurableRunRuntime {
                   source: options.source || null,
                   chatId: options.chatId || null,
                   taskId: options.taskId || null,
-                  widgetId: options.widgetId || null,
                   deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
                   stageProactiveMessages: options.stageProactiveMessages === true,
                   allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true

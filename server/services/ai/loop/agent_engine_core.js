@@ -115,9 +115,6 @@ function buildInitialRunMetadata(options = {}) {
   if (options.taskId != null && String(options.taskId).trim()) {
     metadata.taskId = options.taskId;
   }
-  if (options.widgetId != null && String(options.widgetId).trim()) {
-    metadata.widgetId = options.widgetId;
-  }
   if (options.messagingInboundJobId != null && String(options.messagingInboundJobId).trim()) {
     metadata.messagingInboundJobId = String(options.messagingInboundJobId).trim();
   }
@@ -2078,7 +2075,7 @@ class AgentEngine {
     if (toolName === 'send_interim_update') return 'note';
     if (toolName === 'send_message') return 'messaging';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
-    if (toolName === 'create_task' || toolName === 'update_task' || toolName === 'delete_task' || toolName === 'list_tasks' || toolName.includes('widget')) return 'tasks';
+    if (toolName === 'create_task' || toolName === 'update_task' || toolName === 'delete_task' || toolName === 'list_tasks') return 'tasks';
     if (toolName.includes('subagent')) return 'subagent';
     if (toolName === 'think') return 'thinking';
     return 'tool';

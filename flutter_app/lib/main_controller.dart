@@ -5,11 +5,9 @@ class NeoAgentController extends ChangeNotifier {
     this.appMode = NeoAgentAppMode.standard,
     required BackendClient backendClient,
     required HealthBridge healthBridge,
-    required WidgetBridge widgetBridge,
     OAuthLauncher? oauthLauncher,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
-       _widgetBridge = widgetBridge,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
     _desktopCompanion.addListener(notifyListeners);
 
@@ -28,7 +26,6 @@ class NeoAgentController extends ChangeNotifier {
   final NeoAgentAppMode appMode;
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
-  final WidgetBridge _widgetBridge;
   final OAuthLauncher _oauthLauncher;
   final BackendDiscoveryService _backendDiscoveryService =
       BackendDiscoveryService();
@@ -63,9 +60,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
-  static const Duration _homeWidgetSyncCooldown = Duration(seconds: 5);
   static const int _chatHistoryPageSize = 20;
-  DateTime? _lastHomeWidgetSyncAt;
   int _authCycle = 0;
   bool _isPollingQrLogin = false;
   bool _socketHasConnectedOnce = false;
@@ -179,7 +174,6 @@ class NeoAgentController extends ChangeNotifier {
   List<MemoryItem> memoryRecallResults = const <MemoryItem>[];
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
   List<TaskItem> taskItems = const <TaskItem>[];
-  List<AiWidgetItem> widgets = const <AiWidgetItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
   Map<String, dynamic> browserRuntime = const <String, dynamic>{};
   Map<String, dynamic> socialReachStatus = const <String, dynamic>{};
@@ -208,7 +202,6 @@ class NeoAgentController extends ChangeNotifier {
   List<Map<String, dynamic>> workspaceEntries = const <Map<String, dynamic>>[];
   final Map<String, RunDetailSnapshot> _runDetailsCache =
       <String, RunDetailSnapshot>{};
-  String? _selectedWidgetId;
   String? _pendingChatDraft;
   List<SharedChatAttachment> _pendingSharedChatAttachments =
       const <SharedChatAttachment>[];
@@ -1502,7 +1495,6 @@ class NeoAgentController extends ChangeNotifier {
     memoryRecallResults = const <MemoryItem>[];
     memoryConversations = const <ConversationItem>[];
     taskItems = const <TaskItem>[];
-    widgets = const <AiWidgetItem>[];
     mcpServers = const <McpServerItem>[];
     browserRuntime = const <String, dynamic>{};
     browserExtensionStatus = const <String, dynamic>{};
@@ -1532,18 +1524,10 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(
       _prefs?.setString(_selectedSectionPrefsKey, AppSection.chat.name),
     );
-    _selectedWidgetId = null;
     _pendingChatDraft = null;
     _runDetailsCache.clear();
     unawaited(
       _healthBridge.configureBackgroundSync(
-        enabled: false,
-        backendUrl: backendUrl,
-        sessionCookie: '',
-      ),
-    );
-    unawaited(
-      _widgetBridge.configureHomeWidgets(
         enabled: false,
         backendUrl: backendUrl,
         sessionCookie: '',
@@ -1573,7 +1557,6 @@ class NeoAgentController extends ChangeNotifier {
       }
       await _prefs?.setString(_sessionCookieBackendPrefsKey, backendUrl);
       await _syncDesktopCompanionSession();
-      unawaited(_syncHomeWidgetConfig());
       return;
     }
     await _prefs?.remove(_sessionCookiePrefsKey);
@@ -1582,7 +1565,6 @@ class NeoAgentController extends ChangeNotifier {
       await _secureStorage.delete(key: _sessionCookieSecureStorageKey);
     } catch (_) {}
     await _syncDesktopCompanionSession();
-    unawaited(_syncHomeWidgetConfig());
   }
 
   void _restoreSelectedSectionFromPrefs() {
@@ -2150,11 +2132,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchTasks(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
-      final widgetsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
-        'widgets',
-        _backendClient.fetchWidgets(backendUrl, agentId: agentId),
-        const <Map<String, dynamic>>[],
-      );
       final mcpFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
         'mcp_servers',
         _backendClient.fetchMcpServers(backendUrl, agentId: agentId),
@@ -2220,7 +2197,6 @@ class NeoAgentController extends ChangeNotifier {
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
       final tasksResponse = await tasksFuture;
-      final widgetsResponse = await widgetsFuture;
       final mcpResponse = await mcpFuture;
       final browserResponse = await browserFuture;
       final socialReachResponse = await socialReachFuture;
@@ -2313,15 +2289,6 @@ class NeoAgentController extends ChangeNotifier {
         ConversationItem.fromJson,
       );
       taskItems = _decodeModelList('tasks', tasksResponse, TaskItem.fromJson);
-      widgets = _decodeModelList(
-        'widgets',
-        widgetsResponse,
-        AiWidgetItem.fromJson,
-      );
-      _selectedWidgetId =
-          widgets.any((widget) => widget.id == _selectedWidgetId)
-          ? _selectedWidgetId
-          : (widgets.isEmpty ? null : widgets.first.id);
       mcpServers = _decodeModelList(
         'mcp_servers',
         mcpResponse,
@@ -2354,10 +2321,6 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       await _syncBackgroundHealthConfig();
-      if (!_isCurrentAuthCycle(authCycle)) {
-        return;
-      }
-      await _syncHomeWidgetConfig();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -2668,25 +2631,6 @@ class NeoAgentController extends ChangeNotifier {
         .map(TaskDeliveryTarget.fromJson)
         .where((target) => target.platform.isNotEmpty && target.to.isNotEmpty)
         .toList(growable: false);
-  }
-
-  Future<void> refreshWidgets({bool all = false}) async {
-    widgets = _decodeModelList(
-      'widgets',
-      await _backendClient.fetchWidgets(
-        backendUrl,
-        agentId: all ? null : _scopedAgentId,
-        all: all,
-      ),
-      AiWidgetItem.fromJson,
-    );
-    _selectedWidgetId = widgets.any((widget) => widget.id == _selectedWidgetId)
-        ? _selectedWidgetId
-        : (widgets.isEmpty ? null : widgets.first.id);
-    if (isAuthenticated) {
-      unawaited(_maybeSyncHomeWidgets());
-    }
-    notifyListeners();
   }
 
   Future<void> refreshMcp() async {
@@ -5642,64 +5586,6 @@ class NeoAgentController extends ChangeNotifier {
   int taskRunCooldownSeconds(int id) =>
       _manualRunCooldownSeconds('task', '$id');
 
-  bool canRefreshWidgetNow(String id) =>
-      _manualRunCooldownSeconds('widget', id) == 0;
-
-  int widgetRunCooldownSeconds(String id) =>
-      _manualRunCooldownSeconds('widget', id);
-
-  Future<void> toggleWidgetEnabled(AiWidgetItem item) async {
-    await _backendClient.saveWidget(
-      backendUrl,
-      id: item.id,
-      payload: <String, dynamic>{
-        'name': item.name,
-        'template': item.template,
-        'layoutVariant': item.layoutVariant,
-        'refreshCron': item.refreshCron,
-        'definition': item.definition,
-        'enabled': !item.enabled,
-        'agentId': item.agentId ?? _scopedAgentId,
-      },
-    );
-    await refreshWidgets();
-    await refreshTasks();
-  }
-
-  Future<void> refreshWidgetNow(String id) async {
-    if (!canRefreshWidgetNow(id)) {
-      notifyListeners();
-      return;
-    }
-    _startManualRunCooldown('widget', id);
-    await _backendClient.refreshWidget(backendUrl, id);
-    await refreshWidgets();
-    await refreshTasks();
-    await refreshRunsOnly();
-  }
-
-  Future<void> deleteWidget(String id) async {
-    await _backendClient.deleteWidget(backendUrl, id);
-    widgets = widgets.where((widget) => widget.id != id).toList();
-    _selectedWidgetId = widgets.any((widget) => widget.id == _selectedWidgetId)
-        ? _selectedWidgetId
-        : (widgets.isEmpty ? null : widgets.first.id);
-    notifyListeners();
-    await refreshTasks();
-  }
-
-  void openWidgetCreateFlow() {
-    queueChatDraft(
-      'Create a new AI widget for the current agent. Choose the best template and approved layout variant, set a refresh cadence of at least 1 hour, create it, and run an initial refresh if appropriate.',
-    );
-  }
-
-  void openWidgetEditFlow(AiWidgetItem item) {
-    queueChatDraft(
-      'Update the AI widget "${item.name}" (ID: ${item.id}) for the current agent. Keep the cadence at 1 hour or longer. Change the layout variant only if the edit explicitly requires it.\n\nCurrent template: ${item.template}\nCurrent layout variant: ${item.layoutVariant}\nCurrent refresh cron: ${item.refreshCron}\nCurrent definition prompt:\n${item.prompt}',
-    );
-  }
-
   void queueChatDraft(String text) {
     final normalized = text.trim();
     if (normalized.isEmpty) {
@@ -5787,40 +5673,8 @@ class NeoAgentController extends ChangeNotifier {
     return '$base\n\n$attachmentBlock';
   }
 
-  void selectWidget(String? widgetId) {
-    if (widgetId != null && !widgets.any((widget) => widget.id == widgetId)) {
-      return;
-    }
-    _selectedWidgetId = widgetId;
-    notifyListeners();
-  }
-
-  void openWidgetSurface(String widgetId) {
-    final normalized = widgetId.trim();
-    setSelectedSection(AppSection.widgets);
-    if (normalized.isNotEmpty) {
-      _selectedWidgetId = normalized;
-      unawaited(refreshWidgets(all: true));
-    }
-  }
-
   void openVoiceAssistantSurface() {
     setSelectedSection(AppSection.voiceAssistant);
-  }
-
-  String? get selectedWidgetId => _selectedWidgetId;
-
-  AiWidgetItem? get selectedWidget {
-    final widgetId = _selectedWidgetId;
-    if (widgetId == null) {
-      return widgets.isEmpty ? null : widgets.first;
-    }
-    for (final item in widgets) {
-      if (item.id == widgetId) {
-        return item;
-      }
-    }
-    return widgets.isEmpty ? null : widgets.first;
   }
 
   Future<void> toggleTask(TaskItem task) async {
@@ -6354,41 +6208,6 @@ class NeoAgentController extends ChangeNotifier {
       sessionCookie: cookie,
     );
   }
-
-  Future<void> _syncHomeWidgetConfig() async {
-    final cookie = _backendClient.sessionCookie ?? '';
-    final enabled =
-        isAuthenticated &&
-        !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android;
-    await _widgetBridge.configureHomeWidgets(
-      enabled: enabled,
-      backendUrl: backendUrl,
-      sessionCookie: cookie,
-    );
-    if (enabled) {
-      await _maybeSyncHomeWidgets();
-    }
-  }
-
-  Future<void> _maybeSyncHomeWidgets({bool force = false}) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    if (!isAuthenticated) {
-      return;
-    }
-    final now = DateTime.now();
-    if (!force &&
-        _lastHomeWidgetSyncAt != null &&
-        now.difference(_lastHomeWidgetSyncAt!) < _homeWidgetSyncCooldown) {
-      return;
-    }
-    _lastHomeWidgetSyncAt = now;
-    await _widgetBridge.syncNow();
-  }
-
-  Stream<String> get widgetOpenRequests => _widgetBridge.openWidgetRequests;
 
   List<ChatEntry> get visibleChatMessages {
     final entries = <ChatEntry>[...chatMessages];

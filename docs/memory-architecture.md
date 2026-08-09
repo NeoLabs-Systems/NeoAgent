@@ -85,6 +85,5 @@ Memory remains in NeoAgent storage, but hosted models and embedding providers
 receive the text sent to them. External source content is marked as untrusted
 data in recalled context.
 
-Memory quality claims require reproducible evaluation. The repository includes
-retrieval evaluation and benchmark tooling, but the documentation does not
-claim parity or superiority based on architecture alone.
+The documentation does not claim memory parity or superiority based on
+architecture alone.

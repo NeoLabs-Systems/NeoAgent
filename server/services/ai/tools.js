@@ -1319,60 +1319,6 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
-            name: 'create_ai_widget',
-            description: 'Create an AI widget with a fixed template, approved layout variant, refresh cadence, and definition prompt. Cadence must be at least 1 hour.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    name: { type: 'string', description: 'Short widget name.' },
-                    template: { type: 'string', enum: ['stat', 'summary', 'list'], description: 'Widget template family.' },
-                    layout_variant: { type: 'string', description: 'Approved layout variant for the chosen template.' },
-                    refresh_cron: { type: 'string', description: '5-field cron cadence. Never set faster than hourly.' },
-                    prompt: { type: 'string', description: 'Self-contained definition of what the widget should track and how it should summarize it.' },
-                    description: { type: 'string', description: 'Optional short operator-facing description.' },
-                    system_hint: { type: 'string', description: 'Optional extra guidance for future refresh runs.' },
-                    enabled: { type: 'boolean', description: 'Whether the widget should start enabled immediately.' },
-                    run_initial_refresh: { type: 'boolean', description: 'When true, immediately run the first refresh after creation. Defaults to true.' }
-                },
-                required: ['name', 'template', 'layout_variant', 'refresh_cron', 'prompt']
-            }
-        },
-        {
-            name: 'list_ai_widgets',
-            description: 'List AI widgets for the current agent.',
-            parameters: { type: 'object', properties: {} }
-        },
-        {
-            name: 'update_ai_widget',
-            description: 'Update an existing AI widget. Use this when the user explicitly wants to change the widget definition, layout variant, cadence, or enabled state.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    widget_id: { type: 'string', description: 'Widget ID from list_ai_widgets.' },
-                    name: { type: 'string', description: 'Updated widget name.' },
-                    template: { type: 'string', enum: ['stat', 'summary', 'list'], description: 'Updated widget template.' },
-                    layout_variant: { type: 'string', description: 'Approved layout variant for the chosen template.' },
-                    refresh_cron: { type: 'string', description: 'Updated 5-field cron cadence. Never faster than hourly.' },
-                    prompt: { type: 'string', description: 'Updated widget definition prompt.' },
-                    description: { type: 'string', description: 'Optional updated operator-facing description.' },
-                    system_hint: { type: 'string', description: 'Optional updated extra guidance for refresh runs.' },
-                    enabled: { type: 'boolean', description: 'Enable or disable the widget.' }
-                },
-                required: ['widget_id']
-            }
-        },
-        {
-            name: 'delete_ai_widget',
-            description: 'Delete an AI widget by its ID.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    widget_id: { type: 'string', description: 'Widget ID from list_ai_widgets.' }
-                },
-                required: ['widget_id']
-            }
-        },
-        {
             name: 'mcp_add_server',
             description: 'Register and optionally start a new MCP (Model Context Protocol) server connection. Use this when the user asks to connect a new MCP server or when you discover a useful one. The server will appear in the MCP Servers page and its tools will be available to you immediately if auto_start is true.',
             parameters: {
@@ -1602,23 +1548,6 @@ function getAvailableTools(app, options = {}) {
         tools.push(...integrationTools);
     }
 
-    if ((options.triggerSource === 'schedule' || options.triggerSource === 'tasks') && options.widgetId) {
-        tools.push({
-            name: 'save_widget_snapshot',
-            description: 'Save the refreshed structured snapshot for the widget that is currently being updated. Call this exactly once per widget refresh run.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    snapshot: {
-                        type: 'object',
-                        description: 'Structured widget snapshot payload containing a strong title, optional kicker/subtitle/body, primary and supporting metrics, optional progress, rows, chips, icon/accent/background tokens, optional surfaceColor, updatedAt, and deepLink.'
-                    }
-                },
-                required: ['snapshot']
-            }
-        });
-    }
-
     let visibleTools = tools;
     if (options.userId != null) {
         try {
@@ -1680,7 +1609,6 @@ async function executeTool(toolName, args, context, engine) {
         app,
         triggerSource,
         taskId,
-        widgetId,
         deliveryState = null,
         allowMultipleProactiveMessages = false,
         signal = null,
@@ -1721,7 +1649,6 @@ async function executeTool(toolName, args, context, engine) {
     const taskRuntime = () => app?.locals?.taskRuntime || engine.taskRuntime;
     const socialVideo = () => app?.locals?.socialVideoService || null;
     const socialReach = () => app?.locals?.socialReachService || null;
-    const widgets = () => app?.locals?.widgetService || null;
     const credentials = () => app?.locals?.credentialBroker || null;
     const artifactStore = app?.locals?.artifactStore || null;
 
@@ -2941,125 +2868,6 @@ async function executeTool(toolName, args, context, engine) {
                 if (args.model !== undefined) updates.model = args.model || null;
                 const updated = await s.updateTask(args.task_id, userId, updates);
                 return { success: true, task: updated };
-            } catch (err) {
-                return { error: err.message };
-            }
-        }
-
-        case 'create_ai_widget': {
-            const widgetService = widgets();
-            if (!widgetService) return { error: 'Widget service not available' };
-            try {
-                const widget = await widgetService.createWidget(userId, {
-                    name: args.name,
-                    template: args.template,
-                    layoutVariant: args.layout_variant,
-                    refreshCron: args.refresh_cron,
-                    prompt: args.prompt,
-                    description: args.description,
-                    definition: {
-                        prompt: args.prompt,
-                        description: args.description,
-                        systemHint: args.system_hint,
-                    },
-                    enabled: args.enabled !== false,
-                    agentId,
-                });
-                let initialRefresh = null;
-                if (args.run_initial_refresh !== false) {
-                    try {
-                        initialRefresh = await widgetService.refreshWidget(userId, widget.id, {
-                            taskId: widget.scheduledTaskId || null,
-                        });
-                    } catch (refreshErr) {
-                        initialRefresh = { error: refreshErr.message };
-                    }
-                }
-                return {
-                    success: true,
-                    widget,
-                    initialRefresh,
-                    message: `AI widget "${widget.name}" created.`,
-                };
-            } catch (err) {
-                return { error: err.message };
-            }
-        }
-
-        case 'list_ai_widgets': {
-            const widgetService = widgets();
-            if (!widgetService) return { error: 'Widget service not available' };
-            const items = widgetService.listWidgets(userId, { agentId });
-            return { widgets: items, count: items.length };
-        }
-
-        case 'update_ai_widget': {
-            const widgetService = widgets();
-            if (!widgetService) return { error: 'Widget service not available' };
-            try {
-                const existing = widgetService.getWidget(userId, args.widget_id);
-                if (!existing || existing.agentId !== agentId) {
-                    return { error: 'Widget not found for this agent.' };
-                }
-                const widget = await widgetService.updateWidget(userId, args.widget_id, {
-                    name: args.name,
-                    template: args.template,
-                    layoutVariant: args.layout_variant,
-                    refreshCron: args.refresh_cron,
-                    prompt: args.prompt,
-                    description: args.description,
-                    definition: args.prompt !== undefined || args.description !== undefined || args.system_hint !== undefined
-                        ? {
-                            ...(existing.definition || {}),
-                            ...(args.prompt !== undefined ? { prompt: args.prompt } : {}),
-                            ...(args.description !== undefined ? { description: args.description } : {}),
-                            ...(args.system_hint !== undefined ? { systemHint: args.system_hint } : {}),
-                        }
-                        : undefined,
-                    enabled: args.enabled,
-                    agentId,
-                });
-                return { success: true, widget };
-            } catch (err) {
-                return { error: err.message };
-            }
-        }
-
-        case 'delete_ai_widget': {
-            const widgetService = widgets();
-            if (!widgetService) return { error: 'Widget service not available' };
-            try {
-                const existing = widgetService.getWidget(userId, args.widget_id);
-                if (!existing || existing.agentId !== agentId) {
-                    return { error: 'Widget not found for this agent.' };
-                }
-                const deleted = widgetService.deleteWidget(userId, args.widget_id);
-                return { success: true, ...deleted };
-            } catch (err) {
-                return { error: err.message };
-            }
-        }
-
-        case 'save_widget_snapshot': {
-            const widgetService = widgets();
-            if (!widgetService) return { error: 'Widget service not available' };
-            if (!widgetId) return { error: 'save_widget_snapshot is only available during widget refresh runs.' };
-            try {
-                const snapshotPayload = (
-                    args
-                    && typeof args === 'object'
-                    && !Array.isArray(args)
-                    && args.snapshot
-                    && typeof args.snapshot === 'object'
-                    && !Array.isArray(args.snapshot)
-                )
-                    ? args.snapshot
-                    : args;
-                const snapshot = widgetService.saveSnapshot(userId, widgetId, snapshotPayload, {
-                    sourceRunId: runId,
-                    status: 'ready',
-                });
-                return { success: true, snapshot };
             } catch (err) {
                 return { error: err.message };
             }

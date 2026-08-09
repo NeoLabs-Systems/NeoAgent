@@ -167,8 +167,6 @@ eng.traineddata
 /server/services/social_video/__tests__
 /server/services/social_video/__fixtures__
 /product_video
-/benchmark/results
-/benchmark/workdir
 /marketing/remotion
 flutter_app/android/key.properties
 flutter_app/android/*.keystore

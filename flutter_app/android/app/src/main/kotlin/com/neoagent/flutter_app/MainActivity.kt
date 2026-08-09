@@ -16,10 +16,6 @@ import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import com.neoagent.flutter_app.health.HealthConnectGateway
 import com.neoagent.flutter_app.health.HealthSyncScheduler
-import com.neoagent.flutter_app.widgets.AiHomeWidgetProvider
-import com.neoagent.flutter_app.widgets.AiWidgetStore
-import com.neoagent.flutter_app.widgets.VoiceLaunchWidgetProvider
-import com.neoagent.flutter_app.widgets.WidgetSyncScheduler
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -41,13 +37,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     private lateinit var healthGateway: HealthConnectGateway
     private lateinit var healthSyncScheduler: HealthSyncScheduler
-    private lateinit var widgetSyncScheduler: WidgetSyncScheduler
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var launcherButtonSink: EventChannel.EventSink? = null
-    private var widgetEventSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
-    private var pendingAppLaunchAction: String? = null
     private var pendingSharePayload: Map<String, Any?>? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -57,7 +50,6 @@ class MainActivity : FlutterFragmentActivity() {
 
         healthGateway = HealthConnectGateway(this)
         healthSyncScheduler = HealthSyncScheduler(this)
-        widgetSyncScheduler = WidgetSyncScheduler(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
@@ -434,30 +426,6 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "neoagent/widgets",
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "configureHomeWidgets" -> {
-                    val args = call.arguments as? Map<*, *>
-                    widgetSyncScheduler.configure(
-                        enabled = args?.get("enabled") == true,
-                        backendUrl = args?.get("backendUrl")?.toString().orEmpty(),
-                        sessionCookie = args?.get("sessionCookie")?.toString().orEmpty(),
-                    )
-                    result.success(null)
-                }
-
-                "syncHomeWidgetsNow" -> {
-                    widgetSyncScheduler.syncNow()
-                    result.success(null)
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
         EventChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "neoagent/launcher_buttons",
@@ -469,22 +437,6 @@ class MainActivity : FlutterFragmentActivity() {
 
                 override fun onCancel(arguments: Any?) {
                     launcherButtonSink = null
-                }
-            },
-        )
-
-        EventChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "neoagent/widgets/events",
-        ).setStreamHandler(
-            object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    widgetEventSink = events
-                    emitPendingWidgetIntent()
-                }
-
-                override fun onCancel(arguments: Any?) {
-                    widgetEventSink = null
                 }
             },
         )
@@ -505,16 +457,12 @@ class MainActivity : FlutterFragmentActivity() {
             },
         )
 
-        captureWidgetIntent(intent)
-        captureAppLaunchIntent(intent)
         captureShareIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        captureWidgetIntent(intent)
-        captureAppLaunchIntent(intent)
         captureShareIntent(intent)
     }
 
@@ -600,33 +548,6 @@ class MainActivity : FlutterFragmentActivity() {
         )
     }
 
-    private fun captureWidgetIntent(intent: Intent?) {
-        if (intent?.action != AiHomeWidgetProvider.ACTION_OPEN_WIDGET) {
-            return
-        }
-        val widgetId =
-            intent.getStringExtra(AiHomeWidgetProvider.EXTRA_WIDGET_ID)?.trim().orEmpty()
-        if (widgetId.isBlank()) {
-            return
-        }
-        AiWidgetStore(this).setPendingOpenWidgetId(widgetId)
-        emitPendingWidgetIntent()
-    }
-
-    private fun emitPendingWidgetIntent() {
-        val sink = widgetEventSink ?: return
-        val widgetId = AiWidgetStore(this).consumePendingOpenWidgetId() ?: return
-        sink.success(mapOf("widgetId" to widgetId))
-    }
-
-    private fun captureAppLaunchIntent(intent: Intent?) {
-        if (intent?.action != VoiceLaunchWidgetProvider.ACTION_OPEN_VOICE_ASSISTANT) {
-            return
-        }
-        pendingAppLaunchAction = VoiceLaunchWidgetProvider.OPEN_TARGET_VOICE_ASSISTANT
-        emitPendingAppLaunchIntent()
-    }
-
     private fun emitPendingAppLaunchIntent() {
         val sink = appLaunchEventSink ?: return
         val sharePayload = pendingSharePayload
@@ -635,9 +556,6 @@ class MainActivity : FlutterFragmentActivity() {
             sink.success(sharePayload)
             return
         }
-        val action = pendingAppLaunchAction ?: return
-        pendingAppLaunchAction = null
-        sink.success(mapOf("action" to action))
     }
 
     private fun captureShareIntent(intent: Intent?) {

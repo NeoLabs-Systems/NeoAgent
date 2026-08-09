@@ -96,9 +96,6 @@ class WearableService {
         qrLoginResolvePath: '/api/account/qr-login/resolve',
         qrLoginApprovePath: '/api/account/qr-login/approve',
       },
-      widgets: {
-        snapshotsPath: '/api/widgets/snapshots',
-      },
       voice: {
         websocketPath: WEARABLE_WS_PATH,
         supportsAudioStreaming: true,
@@ -121,7 +118,6 @@ class WearableService {
       },
       features: {
         qrPairing: true,
-        widgets: true,
         voice: true,
         otaManifest: true,
       },

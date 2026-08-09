@@ -101,53 +101,6 @@ function createFakeTaskRuntime() {
   };
 }
 
-function createFakeWidgetService() {
-  const byUser = new Map();
-  let nextId = 1;
-  function list(userId) {
-    const key = String(userId);
-    if (!byUser.has(key)) byUser.set(key, []);
-    return byUser.get(key);
-  }
-  return {
-    listLatestSnapshots() {
-      return [];
-    },
-    listWidgets(userId) {
-      return list(userId);
-    },
-    async createWidget(userId, input = {}) {
-      const widget = {
-        id: String(nextId++),
-        name: input.name || 'Test widget',
-        type: input.type || 'note',
-        agentId: input.agentId || null,
-      };
-      list(userId).push(widget);
-      return widget;
-    },
-    async updateWidget(userId, id, input = {}) {
-      const widget = this.getWidget(userId, id);
-      if (!widget) throw new Error('Widget not found');
-      Object.assign(widget, input);
-      return widget;
-    },
-    deleteWidget(userId, id) {
-      const widgets = list(userId);
-      const index = widgets.findIndex((item) => item.id === String(id));
-      if (index === -1) throw new Error('Widget not found');
-      widgets.splice(index, 1);
-      return { success: true };
-    },
-    getWidget(userId, id) {
-      return list(userId).find((item) => item.id === String(id)) || null;
-    },
-    async refreshWidget(userId, id) {
-      return this.getWidget(userId, id);
-    },
-  };
-}
-
 function createFakeDesktopRegistry() {
   return {
     getStatus() {
@@ -207,7 +160,6 @@ function createFakeAppLocals() {
     runtimeManager,
     mcpClient: createFakeMcpClient(),
     taskRuntime: createFakeTaskRuntime(),
-    widgetService: createFakeWidgetService(),
     memoryIngestionService: createFakeMemoryIngestionService(),
     browserExtensionRegistry: {
       getStatus: () => ({ connected: false, onlineCount: 0, devices: [] }),
@@ -302,5 +254,4 @@ module.exports = {
   createFakeMcpClient,
   createFakeRuntimeManager,
   createFakeTaskRuntime,
-  createFakeWidgetService,
 };

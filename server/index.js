@@ -15,8 +15,8 @@ applySecureUmask();
 migrateLegacyRuntime();
 ensureRuntimeDirs();
 ensureSecureRuntimeEnv({ logger: console });
-dotenv.config({ path: LEGACY_ENV_FILE });
-dotenv.config({ path: ENV_FILE, override: true });
+dotenv.config({ path: LEGACY_ENV_FILE, quiet: true });
+dotenv.config({ path: ENV_FILE, override: true, quiet: true });
 
 const express = require('express');
 const { createServer } = require('http');

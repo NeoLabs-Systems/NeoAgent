@@ -27,7 +27,6 @@ const CORE_FILE_TOOLS = [
 
 function requiredToolNames(options = {}) {
   const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
-  if (options.widgetId) requiredNames.push('save_widget_snapshot');
   if (options.includeCoreFileTools) requiredNames.push(...CORE_FILE_TOOLS);
   return requiredNames;
 }

@@ -105,8 +105,8 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     riskLevel: 'medium',
   ),
   'skill_mutation': _CategoryInfo(
-    label: 'Skill & Widget Changes',
-    subtitle: 'Create, update, or delete skills and widgets.',
+    label: 'Skill Changes',
+    subtitle: 'Create, update, or delete skills.',
     icon: Icons.extension_rounded,
     color: Color(0xFFFB8C00),
     riskLevel: 'medium',

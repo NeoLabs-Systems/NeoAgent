@@ -46,7 +46,6 @@ import 'src/setup_diagnostics_service.dart';
 import 'src/stream_renderer.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
-import 'src/widget_bridge.dart';
 import 'src/android_auto_bridge.dart';
 
 import 'features/location/location_service.dart';

@@ -9,7 +9,6 @@
 // runaway and never guillotine a long, legitimately-progressing complex task.
 const DEFAULT_MAX_ITERATIONS = 250;
 const DEFAULT_SIMPLE_MAX_ITERATIONS = 16;
-const DEFAULT_WIDGET_MAX_ITERATIONS = 150;
 const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 250;
 // Less aggressive than 0.60 so the model retains file contents it already read for
 // longer, instead of losing them to compaction and re-reading the same files.
@@ -54,8 +53,6 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     rawIterations = Number(options.maxIterations);
   } else if (aiSettings.max_iterations != null) {
     rawIterations = Number(aiSettings.max_iterations);
-  } else if (options.widgetId) {
-    rawIterations = DEFAULT_WIDGET_MAX_ITERATIONS;
   } else if (analysisMode === 'plan_execute') {
     rawIterations = DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS;
   } else if (complexity === 'complex' || autonomyLevel === 'high') {

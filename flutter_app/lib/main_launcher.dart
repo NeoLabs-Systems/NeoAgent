@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-enum _LauncherPage { assistant, widgets, settings }
+enum _LauncherPage { assistant, settings }
 
 class LauncherHomeView extends StatefulWidget {
   const LauncherHomeView({super.key, required this.controller});
@@ -258,38 +258,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
 
   Widget _buildAssistantPage() {
     return VoiceAssistantPanel(controller: widget.controller);
-  }
-
-  Widget _buildWidgetsPage() {
-    final controller = widget.controller;
-    return ListView(
-      padding: _pagePadding(context),
-      children: <Widget>[
-        _PageTitle(
-          title: 'Widgets',
-          subtitle:
-              'Pinned AI widgets refreshed by the server and rendered here at a glance.',
-        ),
-        if (controller.widgets.isEmpty)
-          const _EmptyCard(
-            title: 'No widgets yet',
-            subtitle: 'Create one in chat and it will show up here.',
-          )
-        else
-          ...controller.widgets.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _AiWidgetCard(
-                item: item,
-                controller: controller,
-                compact: true,
-                active: controller.selectedWidgetId == item.id,
-                onSelect: () => controller.selectWidget(item.id),
-              ),
-            ),
-          ),
-      ],
-    );
   }
 
   Widget _buildSettingsPage() {
@@ -705,7 +673,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                   builder: (context, _) {
                     final pages = <Widget>[
                       _buildAssistantPage(),
-                      _buildWidgetsPage(),
                       _buildSettingsPage(),
                     ];
                     return IndexedStack(
@@ -727,10 +694,6 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             NavigationDestination(
               icon: Icon(Icons.keyboard_voice_outlined),
               label: 'Assistant',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_customize_outlined),
-              label: 'Widgets',
             ),
             NavigationDestination(
               icon: Icon(Icons.tune_outlined),

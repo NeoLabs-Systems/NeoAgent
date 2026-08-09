@@ -24,7 +24,6 @@ import androidx.car.app.validation.HostValidator
 import androidx.core.graphics.drawable.IconCompat
 import com.neoagent.flutter_app.MainActivity
 import com.neoagent.flutter_app.R
-import com.neoagent.flutter_app.widgets.VoiceLaunchWidgetProvider
 import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 
 class NeoAgentCarAppService : CarAppService() {

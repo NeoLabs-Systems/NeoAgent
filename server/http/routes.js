@@ -24,7 +24,6 @@ const routeRegistry = [
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/tasks', modulePath: '../routes/tasks' },
   { basePath: '/api/task-webhooks', modulePath: '../routes/task_webhooks' },
-  { basePath: '/api/widgets', modulePath: '../routes/widgets' },
   { basePath: '/api/browser', modulePath: '../routes/browser' },
   { basePath: '/api/browser-extension', modulePath: '../routes/browser_extension' },
   { basePath: '/api/android', modulePath: '../routes/android' },

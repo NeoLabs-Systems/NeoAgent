@@ -9,7 +9,7 @@ must come from server-enforced boundaries and operator choices.
 
 Sensitive tools are grouped into categories for shell commands, file writes,
 privileged Android actions, desktop control, browser evaluation, network
-writes, and skill or widget mutation.
+writes, and skill mutation.
 
 Each category can be:
 
@@ -20,7 +20,7 @@ Each category can be:
 | Allow | The tool runs for the current session |
 | Always allow | The stored policy permits future runs |
 
-The default is approval for sensitive categories. Skill and widget mutation is
+The default is approval for sensitive categories. Skill mutation is
 denied by default. Users can also select a global default, always-ask, or
 allow-all mode.
 

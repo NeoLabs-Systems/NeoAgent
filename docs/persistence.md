@@ -10,7 +10,7 @@ The database owns:
 
 - Users, sessions, agents, and settings
 - Conversations, messages, runs, steps, events, and model usage
-- Tasks, triggers, webhook deliveries, and widgets
+- Tasks, triggers, and webhook deliveries
 - Integration connections and encrypted credentials
 - Memory, facts, entities, source documents, and retrieval telemetry
 - Health records and device registrations

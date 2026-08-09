@@ -24,7 +24,7 @@ controls over ADB.
 ## Launcher mode
 
 NeoAgent also has an Android launcher build. It provides an integrated home
-experience, pairing, device controls, AI widgets, and hardware-button
+experience, pairing, device controls, and hardware-button
 integration. Launcher releases use a separate application package from the
 standard Android client.
 
