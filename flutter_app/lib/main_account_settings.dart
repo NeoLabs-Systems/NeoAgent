@@ -95,9 +95,15 @@ class _PasswordStrengthIndicator extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Text(
-              'Password strength: ${info.label}',
-              style: TextStyle(color: info.color, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                'Password strength: ${info.label}',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: info.color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1162,21 +1168,20 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             'This device cannot register security keys. Open NeoAgent in a browser over HTTPS to add one.',
             style: TextStyle(color: _textSecondary, height: 1.4),
           )
-        else ...<Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: TextField(
-                  controller: _securityKeyLabelController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name (optional)',
-                    hintText: 'YubiKey, MacBook Touch ID, …',
-                  ),
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final nameField = TextField(
+                controller: _securityKeyLabelController,
+                decoration: const InputDecoration(
+                  labelText: 'Name (optional)',
+                  hintText: 'YubiKey, MacBook Touch ID, …',
                 ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
+              );
+              // Side by side the button leaves the name field unusably narrow
+              // below this width, so the two stack instead.
+              final stacked = constraints.maxWidth < 520;
+              final addButton = FilledButton.icon(
                 onPressed: controller.isConfiguringTwoFactor
                     ? null
                     : _addSecurityKey,
@@ -1188,12 +1193,34 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     : const Icon(Icons.key),
                 label: const Text('Add security key'),
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  // Size.fromHeight also pins the width to infinity, which is
+                  // what a full-width stacked button wants and what would
+                  // starve the name field beside it in a row.
+                  minimumSize: stacked
+                      ? const Size.fromHeight(56)
+                      : const Size(0, 56),
                 ),
-              ),
-            ],
+              );
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    nameField,
+                    const SizedBox(height: 12),
+                    addButton,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(child: nameField),
+                  const SizedBox(width: 12),
+                  addButton,
+                ],
+              );
+            },
           ),
-        ],
       ],
     );
   }

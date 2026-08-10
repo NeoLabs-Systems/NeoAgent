@@ -12,7 +12,8 @@ WebAuthnClient createPlatformWebAuthnClient() => _BrowserWebAuthnClient();
 class _BrowserWebAuthnClient implements WebAuthnClient {
   @override
   bool get isSupported {
-    if (!html.window.isSecureContext!) {
+    // Browsers only expose the authenticator API over HTTPS (or on localhost).
+    if (html.window.isSecureContext != true) {
       return false;
     }
     return js_util.hasProperty(html.window, 'PublicKeyCredential') &&

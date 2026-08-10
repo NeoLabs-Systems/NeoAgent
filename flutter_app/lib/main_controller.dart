@@ -6,9 +6,11 @@ class NeoAgentController extends ChangeNotifier {
     required BackendClient backendClient,
     required HealthBridge healthBridge,
     OAuthLauncher? oauthLauncher,
+    WebAuthnClient? webAuthnClient,
   }) : _backendClient = backendClient,
        _healthBridge = healthBridge,
-       _oauthLauncher = oauthLauncher ?? createOAuthLauncher() {
+       _oauthLauncher = oauthLauncher ?? createOAuthLauncher(),
+       _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
     _desktopCompanion.addListener(notifyListeners);
 
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
@@ -27,7 +29,7 @@ class NeoAgentController extends ChangeNotifier {
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final OAuthLauncher _oauthLauncher;
-  final WebAuthnClient _webAuthnClient = createWebAuthnClient();
+  final WebAuthnClient _webAuthnClient;
   final BackendDiscoveryService _backendDiscoveryService =
       BackendDiscoveryService();
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
