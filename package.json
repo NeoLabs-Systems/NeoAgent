@@ -70,6 +70,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@remotion/cli": "^4.0.507",
     "@slidev/cli": "^52.19.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@slidev/theme-default": "^0.25.0",
     "baileys": "^6.7.24",
     "bcrypt": "^6.0.0",

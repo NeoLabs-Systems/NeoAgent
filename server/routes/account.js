@@ -38,6 +38,13 @@ const {
   approveChallenge,
   resolveChallengeForApproval,
 } = require('../services/account/qr_login');
+const {
+  beginRegistration: beginWebAuthnRegistration,
+  completeRegistration: completeWebAuthnRegistration,
+  deleteCredential: deleteWebAuthnCredential,
+  listCredentials: listWebAuthnCredentials,
+  renameCredential: renameWebAuthnCredential,
+} = require('../services/account/webauthn');
 const { getRateLimitSnapshot } = require('../services/ai/rate_limits');
 
 const accountLimiter = rateLimit({
@@ -78,6 +85,7 @@ function accountPayload(req) {
         }
       : null,
     twoFactor: getTwoFactorStatus(req.session.userId),
+    securityKeys: listWebAuthnCredentials(req.session.userId),
     authProviders: authProviderManager
       ? authProviderManager.listUserProviders(req.session.userId)
       : [],
@@ -255,6 +263,64 @@ router.post('/2fa/recovery-codes', accountLimiter, async (req, res) => {
       currentPassword: req.body?.currentPassword,
       code: req.body?.code,
     }));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.get('/security-keys', (req, res) => {
+  try {
+    res.json({ securityKeys: listWebAuthnCredentials(req.session.userId) });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.post('/security-keys/register/options', accountLimiter, async (req, res) => {
+  try {
+    const { options, challenge } = await beginWebAuthnRegistration({
+      req,
+      userId: req.session.userId,
+    });
+    req.session.pendingWebAuthnRegistration = challenge;
+    req.session.save((saveError) => {
+      if (saveError) {
+        return sendRouteError(res, saveError);
+      }
+      res.json({ options });
+    });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.post('/security-keys/register/verify', accountLimiter, async (req, res) => {
+  try {
+    const result = await completeWebAuthnRegistration({
+      req,
+      userId: req.session.userId,
+      response: req.body?.response,
+      label: req.body?.label,
+      pending: req.session?.pendingWebAuthnRegistration,
+    });
+    delete req.session.pendingWebAuthnRegistration;
+    res.json(result);
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.put('/security-keys/:id', accountLimiter, (req, res) => {
+  try {
+    res.json(renameWebAuthnCredential(req.session.userId, Number(req.params.id), req.body?.label));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.delete('/security-keys/:id', accountLimiter, (req, res) => {
+  try {
+    res.json(deleteWebAuthnCredential(req.session.userId, Number(req.params.id)));
   } catch (err) {
     sendRouteError(res, err);
   }

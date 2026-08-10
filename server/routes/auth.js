@@ -29,6 +29,10 @@ const {
   createChallenge,
   getChallengeStatusForPoll,
 } = require('../services/account/qr_login');
+const {
+  beginLogin: beginWebAuthnLogin,
+  completeLogin: completeWebAuthnLogin,
+} = require('../services/account/webauthn');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -58,6 +62,14 @@ const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 8,
   message: { error: 'Too many password reset attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const webauthnLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { error: 'Too many security key attempts, try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -250,6 +262,15 @@ function updateLastLogin(userId) {
   } catch (updateError) {
     console.warn('Login last_login update failed:', updateError);
   }
+}
+
+function sendWebAuthnError(res, err, fallbackMessage) {
+  const statusCode = Number(err?.statusCode || 500);
+  if (statusCode >= 500) {
+    console.error('WebAuthn error:', err);
+    return res.status(500).json({ error: fallbackMessage });
+  }
+  res.status(statusCode).json({ error: err.message || fallbackMessage });
 }
 
 router.get('/api/auth/status', (req, res) => {
@@ -531,6 +552,65 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
   } catch (err) {
     console.error('2FA login error:', err);
     res.status(500).json({ error: 'Two-factor login failed' });
+  }
+});
+
+router.post('/api/auth/webauthn/login/options', webauthnLimiter, async (req, res) => {
+  try {
+    const { options, challenge } = await beginWebAuthnLogin({
+      req,
+      username: req.body?.username,
+    });
+    req.session.pendingWebAuthnLogin = challenge;
+    req.session.save((saveError) => {
+      if (saveError) {
+        console.error('WebAuthn login challenge save error:', saveError);
+        return res.status(500).json({ error: 'Session save error' });
+      }
+      res.json({ options });
+    });
+  } catch (err) {
+    sendWebAuthnError(res, err, 'Security key sign-in could not be started.');
+  }
+});
+
+router.post('/api/auth/webauthn/login/verify', webauthnLimiter, async (req, res) => {
+  try {
+    const pending = req.session?.pendingWebAuthnLogin;
+    const result = await completeWebAuthnLogin({
+      req,
+      response: req.body?.response,
+      pending,
+    });
+    delete req.session.pendingWebAuthnLogin;
+
+    const user = db.prepare(
+      `SELECT id, username, display_name, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
+       FROM users
+       WHERE id = ?`,
+    ).get(result.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+      return res.status(403).json({
+        error: 'Email confirmation required before sign in',
+        requiresEmailConfirmation: true,
+      });
+    }
+
+    // A user-verified security key already proves possession plus a PIN or
+    // biometric, so it stands in for the second factor. A key that only
+    // confirmed presence still needs the authenticator app code.
+    if (!result.userVerified && getTwoFactorStatus(user.id).enabled) {
+      return establishPendingTwoFactorSession(req, res, user);
+    }
+
+    updateLastLogin(user.id);
+    establishSession(req, res, user);
+  } catch (err) {
+    sendWebAuthnError(res, err, 'Security key sign-in failed.');
   }
 });
 

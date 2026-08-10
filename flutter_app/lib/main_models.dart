@@ -3639,6 +3639,37 @@ class AuthProviderCatalogItem {
   final String summary;
 }
 
+class SecurityKeyItem {
+  const SecurityKeyItem({
+    required this.id,
+    required this.label,
+    required this.createdAt,
+    required this.lastUsedAt,
+    required this.backedUp,
+  });
+
+  factory SecurityKeyItem.fromJson(Map<dynamic, dynamic> json) {
+    return SecurityKeyItem(
+      id: _asInt(json['id']),
+      label: json['label']?.toString() ?? 'Security key',
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+      lastUsedAt: _parseOptionalTimestamp(json['lastUsedAt']?.toString()),
+      backedUp: json['backedUp'] == true,
+    );
+  }
+
+  final int id;
+  final String label;
+  final DateTime? createdAt;
+  final DateTime? lastUsedAt;
+  final bool backedUp;
+
+  String get addedLabel =>
+      createdAt == null ? 'Not recorded' : _formatTimestamp(createdAt!);
+  String get lastUsedLabel =>
+      lastUsedAt == null ? 'Never used' : _formatTimestamp(lastUsedAt!);
+}
+
 class LinkedAuthProviderItem {
   const LinkedAuthProviderItem({
     required this.id,

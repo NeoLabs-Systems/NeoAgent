@@ -172,6 +172,71 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> beginSecurityKeyLogin({
+    required String baseUrl,
+    String? username,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/auth/webauthn/login/options',
+      <String, dynamic>{
+        if (username != null && username.isNotEmpty) 'username': username,
+      },
+      allowUnauthorized: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> completeSecurityKeyLogin({
+    required String baseUrl,
+    required Map<String, dynamic> response,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/auth/webauthn/login/verify',
+      <String, dynamic>{'response': response},
+      allowUnauthorized: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> beginSecurityKeyRegistration(
+    String baseUrl,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/account/security-keys/register/options',
+      const <String, dynamic>{},
+    );
+  }
+
+  Future<Map<String, dynamic>> completeSecurityKeyRegistration({
+    required String baseUrl,
+    required Map<String, dynamic> response,
+    required String label,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/account/security-keys/register/verify',
+      <String, dynamic>{'response': response, 'label': label},
+    );
+  }
+
+  Future<Map<String, dynamic>> renameSecurityKey({
+    required String baseUrl,
+    required int id,
+    required String label,
+  }) async {
+    return putMap(baseUrl, '/api/account/security-keys/$id', <String, dynamic>{
+      'label': label,
+    });
+  }
+
+  Future<Map<String, dynamic>> deleteSecurityKey({
+    required String baseUrl,
+    required int id,
+  }) async {
+    return deleteMap(baseUrl, '/api/account/security-keys/$id');
+  }
+
   Future<Map<String, dynamic>> requestPasswordReset({
     required String baseUrl,
     required String account,

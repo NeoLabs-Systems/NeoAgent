@@ -27,6 +27,7 @@ class NeoAgentController extends ChangeNotifier {
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   final OAuthLauncher _oauthLauncher;
+  final WebAuthnClient _webAuthnClient = createWebAuthnClient();
   final BackendDiscoveryService _backendDiscoveryService =
       BackendDiscoveryService();
   final app_release_updater.AppReleaseUpdater _appReleaseUpdater =
@@ -84,6 +85,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isLoadingAccountSettings = false;
   bool isSavingAccountSettings = false;
   bool isConfiguringTwoFactor = false;
+  bool isUsingSecurityKey = false;
   bool isRevokingSession = false;
   bool isTriggeringUpdate = false;
   bool isSavingReleaseChannel = false;
@@ -138,6 +140,7 @@ class NeoAgentController extends ChangeNotifier {
       const <AuthProviderCatalogItem>[];
   List<LinkedAuthProviderItem> linkedAuthProviders =
       const <LinkedAuthProviderItem>[];
+  List<SecurityKeyItem> accountSecurityKeys = const <SecurityKeyItem>[];
   QrLoginChallenge? qrLoginChallenge;
   Map<String, dynamic> settings = const <String, dynamic>{};
   Map<String, dynamic> behaviorConfig = const <String, dynamic>{};
@@ -1469,6 +1472,7 @@ class NeoAgentController extends ChangeNotifier {
     accountSessions = const <AccountSessionItem>[];
     usageAndLimits = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
+    accountSecurityKeys = const <SecurityKeyItem>[];
     settings = const <String, dynamic>{};
     behaviorConfig = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
@@ -4408,6 +4412,13 @@ class NeoAgentController extends ChangeNotifier {
           .map(AccountSessionItem.fromJson)
           .toList();
     }
+    final securityKeyRows = response['securityKeys'] ?? response['credentials'];
+    if (securityKeyRows is List) {
+      accountSecurityKeys = securityKeyRows
+          .whereType<Map<dynamic, dynamic>>()
+          .map(SecurityKeyItem.fromJson)
+          .toList();
+    }
     final authProviderRows = response['authProviders'];
     if (authProviderRows is List) {
       linkedAuthProviders = authProviderRows
@@ -4689,6 +4700,135 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
       isSavingAccountSettings = false;
+      notifyListeners();
+    }
+  }
+
+  bool get supportsSecurityKeys => _webAuthnClient.isSupported;
+
+  Map<String, dynamic> _asJsonMap(Object? value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return const <String, dynamic>{};
+  }
+
+  Future<void> registerSecurityKey({required String label}) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final begin = await _backendClient.beginSecurityKeyRegistration(
+        backendUrl,
+      );
+      final options = _asJsonMap(begin['options']);
+      if (options.isEmpty) {
+        throw Exception('The security key registration could not be started.');
+      }
+      final attestation = await _webAuthnClient.createCredential(options);
+      _applyAccountResponse(
+        await _backendClient.completeSecurityKeyRegistration(
+          baseUrl: backendUrl,
+          response: attestation,
+          label: label.trim(),
+        ),
+      );
+    } on WebAuthnException catch (error) {
+      if (!error.cancelled) {
+        errorMessage = error.message;
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> renameSecurityKey({
+    required int id,
+    required String label,
+  }) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.renameSecurityKey(
+          baseUrl: backendUrl,
+          id: id,
+          label: label.trim(),
+        ),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeSecurityKey(int id) async {
+    isConfiguringTwoFactor = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.deleteSecurityKey(baseUrl: backendUrl, id: id),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isConfiguringTwoFactor = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> signInWithSecurityKey({String? username}) async {
+    isUsingSecurityKey = true;
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+
+    try {
+      final begin = await _backendClient.beginSecurityKeyLogin(
+        baseUrl: backendUrl,
+        username: username?.trim(),
+      );
+      final options = _asJsonMap(begin['options']);
+      if (options.isEmpty) {
+        throw Exception('Security key sign-in could not be started.');
+      }
+      final assertion = await _webAuthnClient.getAssertion(options);
+      final response = await _backendClient.completeSecurityKeyLogin(
+        baseUrl: backendUrl,
+        response: assertion,
+      );
+      if (response['requiresTwoFactor'] == true) {
+        final responseUser = _asJsonMap(response['user']);
+        pendingTwoFactorUsername = responseUser['username']?.toString() ?? '';
+        isAwaitingTwoFactor = true;
+        isAuthenticated = false;
+        await _persistCredentials();
+        return;
+      }
+      await _completeAuthenticatedResponse(
+        response,
+        fallbackUsername: username,
+        authMethod: 'security_key',
+        retentionErrorMessage:
+            'Security key sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
+      );
+    } on WebAuthnException catch (error) {
+      if (!error.cancelled) {
+        errorMessage = error.message;
+      }
+      isAuthenticated = false;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      isAuthenticated = false;
+    } finally {
+      isUsingSecurityKey = false;
+      isAuthenticating = false;
       notifyListeners();
     }
   }

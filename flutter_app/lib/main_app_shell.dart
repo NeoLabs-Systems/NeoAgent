@@ -424,6 +424,22 @@ class _AuthViewState extends State<AuthView> {
             child: const Text('Back to sign in'),
           ),
         ] else ...<Widget>[
+          if (!_registerMode && controller.supportsSecurityKeys) ...<Widget>[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: controller.isAuthenticating
+                  ? null
+                  : () => controller.signInWithSecurityKey(
+                      username: _usernameController.text,
+                    ),
+              icon: const Icon(Icons.key),
+              label: const Text('Sign in with a security key'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+                backgroundColor: _bgPrimary.withValues(alpha: 0.18),
+              ),
+            ),
+          ],
           if (availableProviders.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
             Row(

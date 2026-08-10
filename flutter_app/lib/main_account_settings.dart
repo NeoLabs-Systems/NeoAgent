@@ -153,6 +153,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _currentPasswordController;
   late final TextEditingController _newPasswordController;
   late final TextEditingController _confirmNewPasswordController;
+  late final TextEditingController _securityKeyLabelController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
   String? _displayNameSuccessMessage;
@@ -182,6 +183,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     _currentPasswordController = TextEditingController();
     _newPasswordController = TextEditingController();
     _confirmNewPasswordController = TextEditingController();
+    _securityKeyLabelController = TextEditingController();
     unawaited(widget.controller.refreshAccountSettings());
   }
 
@@ -215,6 +217,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmNewPasswordController.dispose();
+    _securityKeyLabelController.dispose();
     super.dispose();
   }
 
@@ -1046,6 +1049,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           _RecoveryCodesCard(codes: _recoveryCodes),
         ],
         const SizedBox(height: 24),
+        _buildSecurityKeysPanel(),
+        const SizedBox(height: 24),
         Row(
           children: <Widget>[
             Expanded(child: _SectionTitle('Active sessions')),
@@ -1071,6 +1076,124 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   : () => controller.revokeAccountSession(session.id),
             ),
           ),
+      ],
+    );
+  }
+
+  Future<void> _addSecurityKey() async {
+    final controller = widget.controller;
+    final label = _securityKeyLabelController.text.trim();
+    await controller.registerSecurityKey(
+      label: label.isEmpty
+          ? 'Security key ${controller.accountSecurityKeys.length + 1}'
+          : label,
+    );
+    if (!mounted) return;
+    _securityKeyLabelController.clear();
+    setState(() {});
+  }
+
+  Future<void> _renameSecurityKey(SecurityKeyItem key) async {
+    final renameController = TextEditingController(text: key.label);
+    final nextLabel = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename security key'),
+        content: TextField(
+          controller: renameController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(renameController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    renameController.dispose();
+    if (nextLabel == null || nextLabel.isEmpty) return;
+    await widget.controller.renameSecurityKey(id: key.id, label: nextLabel);
+  }
+
+  Widget _buildSecurityKeysPanel() {
+    final controller = widget.controller;
+    final keys = controller.accountSecurityKeys;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(child: _SectionTitle('Security keys')),
+            _StatusPill(
+              label: keys.isEmpty ? 'None' : '${keys.length} registered',
+              color: keys.isEmpty ? _warning : _success,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Sign in with a hardware key or passkey instead of your password. '
+          'A key that asks for a PIN or fingerprint also replaces your two-factor code.',
+          style: TextStyle(color: _textSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 14),
+        if (keys.isNotEmpty) ...<Widget>[
+          ...keys.map(
+            (key) => _SecurityKeyCard(
+              securityKey: key,
+              busy: controller.isConfiguringTwoFactor,
+              onRename: () => _renameSecurityKey(key),
+              onRemove: () => controller.removeSecurityKey(key.id),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        // Keys registered elsewhere stay manageable here; only adding one needs
+        // an authenticator this device can actually talk to.
+        if (!controller.supportsSecurityKeys)
+          Text(
+            'This device cannot register security keys. Open NeoAgent in a browser over HTTPS to add one.',
+            style: TextStyle(color: _textSecondary, height: 1.4),
+          )
+        else ...<Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _securityKeyLabelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (optional)',
+                    hintText: 'YubiKey, MacBook Touch ID, …',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: controller.isConfiguringTwoFactor
+                    ? null
+                    : _addSecurityKey,
+                icon: controller.isConfiguringTwoFactor
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.key),
+                label: const Text('Add security key'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1467,6 +1590,69 @@ class _AccountSessionCard extends StatelessWidget {
               onPressed: busy ? null : onRevoke,
               child: Text('Revoke'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityKeyCard extends StatelessWidget {
+  const _SecurityKeyCard({
+    required this.securityKey,
+    required this.busy,
+    required this.onRename,
+    required this.onRemove,
+  });
+
+  final SecurityKeyItem securityKey;
+  final bool busy;
+  final VoidCallback onRename;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            securityKey.backedUp ? Icons.cloud_sync : Icons.key,
+            color: _textSecondary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  securityKey.label,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Added ${securityKey.addedLabel} · Last used ${securityKey.lastUsedLabel}',
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            enabled: !busy,
+            icon: Icon(Icons.more_horiz, color: _textSecondary),
+            onSelected: (action) =>
+                action == 'rename' ? onRename() : onRemove(),
+            itemBuilder: (context) => const <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(value: 'rename', child: Text('Rename')),
+              PopupMenuItem<String>(value: 'remove', child: Text('Remove')),
+            ],
+          ),
         ],
       ),
     );
