@@ -209,6 +209,19 @@ async function beginLogin({ req, username }) {
   const { rpId } = resolveRelyingParty(req);
   const account = String(username || '').trim();
 
+  // With nothing registered anywhere the browser would sit on its key prompt
+  // until the ceremony times out. This count covers the whole relying party,
+  // so refusing early says nothing about any particular account.
+  const registered = db
+    .prepare('SELECT COUNT(*) AS count FROM user_webauthn_credentials WHERE rp_id = ?')
+    .get(rpId).count;
+  if (registered === 0) {
+    throw httpError(
+      'No security keys are registered for this server yet. Add one under Account settings first.',
+      409,
+    );
+  }
+
   // Without a username the browser picks a discoverable credential itself, so
   // the allow-list stays empty and no account existence is leaked.
   let allowCredentials = [];

@@ -1774,7 +1774,7 @@ class _ChatBubble extends StatelessWidget {
                     ],
                     if (!isUser &&
                         entry.runId?.trim().isNotEmpty == true) ...<Widget>[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       _MessageRunPreview(
                         runId: entry.runId!.trim(),
                         onLoadRunDetail: onLoadRunDetail,
@@ -1886,129 +1886,222 @@ class _MessageRunPreview extends StatefulWidget {
 }
 
 class _MessageRunPreviewState extends State<_MessageRunPreview> {
-  late Future<RunDetailSnapshot>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = widget.onLoadRunDetail?.call(widget.runId);
-  }
+  bool _expanded = false;
+  bool _loading = false;
+  bool _failed = false;
+  RunDetailSnapshot? _detail;
 
   @override
   void didUpdateWidget(covariant _MessageRunPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.runId != widget.runId ||
         oldWidget.onLoadRunDetail != widget.onLoadRunDetail) {
-      _future = widget.onLoadRunDetail?.call(widget.runId);
+      _detail = null;
+      _failed = false;
+      if (_expanded) {
+        unawaited(_loadDetail());
+      }
+    }
+  }
+
+  // Details are fetched the first time the disclosure is opened, so a freshly
+  // loaded thread issues no run requests at all.
+  Future<void> _loadDetail() async {
+    final load = widget.onLoadRunDetail;
+    if (load == null || _loading) return;
+    setState(() => _loading = true);
+    try {
+      final detail = await load(widget.runId);
+      if (!mounted) return;
+      setState(() {
+        _detail = detail;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _failed = true;
+        _loading = false;
+      });
+    }
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded && _detail == null && !_failed) {
+      unawaited(_loadDetail());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_future == null) {
+    if (widget.onLoadRunDetail == null) {
       return const SizedBox.shrink();
     }
-    return FutureBuilder<RunDetailSnapshot>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _MessageRunCardShell(
-            child: Row(
-              children: <Widget>[
-                SizedBox.square(
-                  dimension: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Loading execution details...',
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-        final detail = snapshot.data!;
-        final previewSteps = detail.steps.take(4).toList();
-        return _MessageRunCardShell(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
+    final detail = _detail;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _MessageRunDisclosureHeader(expanded: _expanded, onTap: _toggle),
+        if (_expanded) ...<Widget>[
+          const SizedBox(height: 8),
+          if (detail != null)
+            _MessageRunDetailCard(detail: detail)
+          else if (_loading)
+            _MessageRunCardShell(
+              child: Row(
                 children: <Widget>[
+                  const SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      detail.run.title.ifEmpty('Execution'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: _textPrimary,
-                      ),
+                      'Loading execution details...',
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
-                  ),
-                  _StatusPill(
-                    label: detail.run.statusLabel,
-                    color: detail.run.statusColor,
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _MetaPill(
-                    label: '${detail.steps.length} steps',
-                    icon: Icons.timeline_outlined,
-                  ),
-                  if (detail.webStepCount > 0)
-                    _MetaPill(
-                      label: '${detail.webStepCount} web',
-                      icon: Icons.language_outlined,
-                    ),
-                  if (detail.helperCount > 0)
-                    _MetaPill(
-                      label: '${detail.helperCount} helpers',
-                      icon: Icons.account_tree_outlined,
-                    ),
-                  if (detail.planningStepCount > 0)
-                    _MetaPill(
-                      label: '${detail.planningStepCount} planning',
-                      icon: Icons.route_outlined,
-                    ),
-                ],
+            )
+          else
+            _MessageRunCardShell(
+              child: Text(
+                'Execution details are unavailable for this run.',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
               ),
-              const SizedBox(height: 12),
-              ...previewSteps.asMap().entries.map(
-                (entry) => Padding(
-                  padding: EdgeInsets.only(
-                    bottom: entry.key == previewSteps.length - 1 ? 0 : 10,
-                  ),
-                  child: _MessageRunStepRow(
-                    step: entry.value,
-                    isLast: entry.key == previewSteps.length - 1,
-                  ),
-                ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MessageRunDisclosureHeader extends StatelessWidget {
+  const _MessageRunDisclosureHeader({
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            AnimatedRotation(
+              turns: expanded ? 0.25 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: _textSecondary,
               ),
-              if (detail.steps.length > previewSteps.length) ...<Widget>[
-                const SizedBox(height: 10),
-                Text(
-                  '${detail.steps.length - previewSteps.length} more steps in run history',
+            ),
+            const SizedBox(width: 4),
+            Text(
+              expanded ? 'Hide steps' : 'Steps',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageRunDetailCard extends StatelessWidget {
+  const _MessageRunDetailCard({required this.detail});
+
+  final RunDetailSnapshot detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewSteps = detail.steps.take(4).toList();
+    return _MessageRunCardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  detail.run.title.ifEmpty('Execution'),
                   style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
                   ),
                 ),
-              ],
+              ),
+              _StatusPill(
+                label: detail.run.statusLabel,
+                color: detail.run.statusColor,
+              ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _MetaPill(
+                label: '${detail.steps.length} steps',
+                icon: Icons.timeline_outlined,
+              ),
+              if (detail.webStepCount > 0)
+                _MetaPill(
+                  label: '${detail.webStepCount} web',
+                  icon: Icons.language_outlined,
+                ),
+              if (detail.helperCount > 0)
+                _MetaPill(
+                  label: '${detail.helperCount} helpers',
+                  icon: Icons.account_tree_outlined,
+                ),
+              if (detail.planningStepCount > 0)
+                _MetaPill(
+                  label: '${detail.planningStepCount} planning',
+                  icon: Icons.route_outlined,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...previewSteps.asMap().entries.map(
+            (entry) => Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.key == previewSteps.length - 1 ? 0 : 10,
+              ),
+              child: _MessageRunStepRow(
+                step: entry.value,
+                isLast: entry.key == previewSteps.length - 1,
+              ),
+            ),
+          ),
+          if (detail.steps.length > previewSteps.length) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              '${detail.steps.length - previewSteps.length} more steps in run history',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

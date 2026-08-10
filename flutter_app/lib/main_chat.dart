@@ -12,7 +12,7 @@ class ChatPanel extends StatefulWidget {
 class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   static const double _autoScrollBottomThreshold = 120;
   static const double _olderHistoryLoadThreshold = 180;
-  static const int _autoScrollSettlePasses = 4;
+  static const int _initialSettleFrameBudget = 120;
 
   late final TextEditingController _composerController;
   final ScrollController _scrollController = ScrollController();
@@ -294,6 +294,30 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     }
   }
 
+  // Re-pin to the bottom whenever the content grows underneath us (late
+  // markdown layout, images, expanding step boxes, streaming chunks). Growth
+  // only moves maxScrollExtent, never pixels, so the scroll-position listener
+  // alone never sees it.
+  bool _handleScrollMetrics(ScrollMetricsNotification notification) {
+    if (!_stickToBottom || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    _pinToBottom();
+    return false;
+  }
+
+  void _pinToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_stickToBottom || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (!position.hasContentDimensions) return;
+      if ((position.pixels - position.maxScrollExtent).abs() <= 0.5) return;
+      _ignoreScrollUpdates = true;
+      _scrollController.jumpTo(position.maxScrollExtent);
+      _ignoreScrollUpdates = false;
+    });
+  }
+
   bool get _isNearBottom {
     if (!_scrollController.hasClients) return true;
     final pos = _scrollController.position;
@@ -431,8 +455,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
 
     if (_awaitingInitialScrollSettle) {
       // Frame-by-frame stability detection: keep jumping and checking until
-      // maxScrollExtent is the same two frames in a row, then reveal.
-      // Falls back to revealing after 120 frames (~2 s) to avoid infinite wait.
+      // maxScrollExtent is the same two frames in a row, then reveal. Each pass
+      // requests the next frame itself, otherwise a batch that lays out in one
+      // go would leave the thread hidden with no further frame to wake it.
       double? prevExtent;
       void settleInitial(int framesLeft) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -464,41 +489,17 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
           }
           settleInitial(framesLeft - 1);
         });
+        WidgetsBinding.instance.scheduleFrame();
       }
 
-      settleInitial(120);
+      settleInitial(_initialSettleFrameBudget);
       return;
     }
 
-    // Regular settle (content already visible): fixed passes with short delay.
-    void settle(int remainingPasses) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted ||
-            generation != _scrollGeneration ||
-            !_scrollController.hasClients) {
-          return;
-        }
-        final pos = _scrollController.position;
-        if (pos.hasContentDimensions) {
-          final target = pos.maxScrollExtent;
-          if ((pos.pixels - target).abs() > 0.5) {
-            _ignoreScrollUpdates = true;
-            _scrollController.jumpTo(target);
-            _ignoreScrollUpdates = false;
-          }
-        }
-        _stickToBottom = true;
-        if (remainingPasses > 0) {
-          Timer(const Duration(milliseconds: 24), () {
-            if (mounted && generation == _scrollGeneration) {
-              settle(remainingPasses - 1);
-            }
-          });
-        }
-      });
-    }
-
-    settle(_autoScrollSettlePasses);
+    // Content is already visible: a single jump is enough here, because any
+    // later growth re-pins through the scroll metrics listener.
+    _stickToBottom = true;
+    _pinToBottom();
   }
 
   void _maybeFollowChatContent(
@@ -622,25 +623,28 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               Opacity(
                 opacity: _awaitingInitialScrollSettle ? 0.0 : 1.0,
                 child: SelectionArea(
-                  child: ListView(
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      sidePadding,
-                      30,
-                      sidePadding,
-                      18,
-                    ),
-                    children: <Widget>[
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 860),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: threadChildren,
+                  child: NotificationListener<ScrollMetricsNotification>(
+                    onNotification: _handleScrollMetrics,
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        sidePadding,
+                        30,
+                        sidePadding,
+                        18,
+                      ),
+                      children: <Widget>[
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 860),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: threadChildren,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

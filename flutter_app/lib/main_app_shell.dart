@@ -291,6 +291,8 @@ class _AuthViewState extends State<AuthView> {
     required String title,
     required String subtitle,
   }) {
+    final showSecurityKeySignIn =
+        !_registerMode && controller.supportsSecurityKeys;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -424,23 +426,8 @@ class _AuthViewState extends State<AuthView> {
             child: const Text('Back to sign in'),
           ),
         ] else ...<Widget>[
-          if (!_registerMode && controller.supportsSecurityKeys) ...<Widget>[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: controller.isAuthenticating
-                  ? null
-                  : () => controller.signInWithSecurityKey(
-                      username: _usernameController.text,
-                    ),
-              icon: const Icon(Icons.key),
-              label: const Text('Sign in with a security key'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-                backgroundColor: _bgPrimary.withValues(alpha: 0.18),
-              ),
-            ),
-          ],
-          if (availableProviders.isNotEmpty) ...<Widget>[
+          if (availableProviders.isNotEmpty ||
+              showSecurityKeySignIn) ...<Widget>[
             const SizedBox(height: 16),
             Row(
               children: <Widget>[
@@ -490,6 +477,23 @@ class _AuthViewState extends State<AuthView> {
                 ),
               ),
             ),
+            if (showSecurityKeySignIn)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton.icon(
+                  onPressed: controller.isAuthenticating
+                      ? null
+                      : () => controller.signInWithSecurityKey(
+                          username: _usernameController.text,
+                        ),
+                  icon: const Icon(Icons.key),
+                  label: const Text('Sign in with a security key'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(54),
+                    backgroundColor: _bgPrimary.withValues(alpha: 0.18),
+                  ),
+                ),
+              ),
           ],
           if (!_registerMode && controller.serviceEmailConfigured) ...<Widget>[
             const SizedBox(height: 12),

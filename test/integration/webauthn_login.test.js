@@ -62,6 +62,28 @@ describe('security key (WebAuthn) sign-in', () => {
       .send({ response: assertion });
   }
 
+  test('sign-in refuses immediately when nothing is registered', async () => {
+    // Runs before any key exists so the browser is never sent to a key prompt
+    // that cannot be satisfied.
+    const empty = await request(app)
+      .post('/api/auth/webauthn/login/options')
+      .set('Origin', ORIGIN)
+      .send({})
+      .expect(409);
+    assert.match(empty.body.error, /No security keys are registered/);
+
+    const user = await createTestUser(ctx.db, { username: 'webauthn_first_key' });
+    const client = agent(app);
+    await loginAs(client, user);
+    await registerSecurityKey(client, createVirtualAuthenticator(), 'First key');
+
+    await request(app)
+      .post('/api/auth/webauthn/login/options')
+      .set('Origin', ORIGIN)
+      .send({})
+      .expect(200);
+  });
+
   test('registers a key, signs in without a password, and manages the key', async () => {
     const user = await createTestUser(ctx.db, { username: 'webauthn_primary' });
     const authenticator = createVirtualAuthenticator();
