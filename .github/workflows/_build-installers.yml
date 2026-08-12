@@ -73,12 +73,17 @@ jobs:
           # SDK below so Flutter detects and builds for the native architecture.
           architecture: x64
           cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-${{ matrix.architecture }}-:hash:"
+          pub-cache-key: "flutter-pub-:os:-:channel:-:version:-${{ matrix.architecture }}-:hash:"
 
       - name: Bootstrap Flutter for Windows ARM64
         if: matrix.architecture == 'arm64'
         shell: pwsh
         run: |
-          $flutterRoot = "${{ steps.flutter.outputs.cache-path }}"
+          $flutterRoot = $env:FLUTTER_ROOT
+          if ([string]::IsNullOrWhiteSpace($flutterRoot)) {
+            throw "FLUTTER_ROOT was not set by the Flutter setup action."
+          }
           Remove-Item "$flutterRoot\bin\cache\engine-dart-sdk.stamp" -Force -ErrorAction SilentlyContinue
           & "$flutterRoot\bin\internal\update_dart_sdk.ps1"
 
