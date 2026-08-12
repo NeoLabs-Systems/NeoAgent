@@ -143,9 +143,11 @@ Color _riskColor(String level) {
 
 // ── Notification service ──────────────────────────────────────────────────────
 
-class _SecurityNotificationService {
+class _AppNotificationService {
   static const _channelId = 'tool_approval';
   static const _channelName = 'Tool Approval';
+  static const _messagingChannelId = 'messaging_connection';
+  static const _messagingChannelName = 'Messaging Connections';
   static const _approveActionId = 'approve';
   static const _denyActionId = 'deny';
 
@@ -266,6 +268,39 @@ class _SecurityNotificationService {
         macOS: darwinDetails,
       ),
       payload: req.approvalId,
+    );
+  }
+
+  static Future<void> showMessagingConnectionNotification(
+    String platform,
+  ) async {
+    await requestPermission();
+    final plugin = await _getPlugin();
+    if (plugin == null) return;
+
+    final descriptor = _messagingPlatformById(platform);
+    final label = descriptor?.label ?? platform;
+    const androidDetails = AndroidNotificationDetails(
+      _messagingChannelId,
+      _messagingChannelName,
+      channelDescription:
+          'Alerts when a messaging connection needs user attention',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'Messaging connection needs attention',
+    );
+    const darwinDetails = DarwinNotificationDetails();
+
+    await plugin.show(
+      100000 + (platform.hashCode.abs() % 100000),
+      '$label needs attention',
+      'Open NeoAgent and reconnect $label to restore messaging.',
+      const NotificationDetails(
+        android: androidDetails,
+        iOS: darwinDetails,
+        macOS: darwinDetails,
+      ),
+      payload: 'messaging:$platform',
     );
   }
 
@@ -830,7 +865,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     });
 
     // Cancel the notification now that the sheet is showing
-    _SecurityNotificationService.cancelApprovalNotification(
+    _AppNotificationService.cancelApprovalNotification(
       widget.request.approvalId,
     );
   }

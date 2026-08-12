@@ -603,6 +603,13 @@ class MessagingManager extends EventEmitter {
     platform.on('disconnected', (info) => {
       if (!currentPlatform()) return;
       this.io.to(`user:${userId}`).emit('messaging:disconnected', { agentId, platform: platformName, ...info });
+      if (!this.isShuttingDown && info?.requiresUserAction === true) {
+        this.io.to(`user:${userId}`).emit('messaging:attention_required', {
+          agentId,
+          platform: platformName,
+          reason: info.reason || 'reconnect_required',
+        });
+      }
       if (!this.isShuttingDown) {
         db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
           .run('disconnected', userId, agentId, platformName);
@@ -612,9 +619,25 @@ class MessagingManager extends EventEmitter {
     platform.on('logged_out', () => {
       if (!currentPlatform() || this.isShuttingDown) return;
       this.io.to(`user:${userId}`).emit('messaging:logged_out', { agentId, platform: platformName });
+      this.io.to(`user:${userId}`).emit('messaging:attention_required', {
+        agentId,
+        platform: platformName,
+        reason: 'authentication_required',
+      });
       db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('logged_out', userId, agentId, platformName);
       this.platforms.delete(key);
+    });
+
+    platform.on('error', (info) => {
+      if (!currentPlatform() || this.isShuttingDown || info?.requiresUserAction !== true) return;
+      this.io.to(`user:${userId}`).emit('messaging:attention_required', {
+        agentId,
+        platform: platformName,
+        reason: info.reason || 'reconnect_required',
+      });
+      db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+        .run('error', userId, agentId, platformName);
     });
 
     // Adapter-level blocked sender notification with suggestions

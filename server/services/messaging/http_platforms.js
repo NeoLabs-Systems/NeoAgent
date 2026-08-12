@@ -905,6 +905,7 @@ class IrcPlatform extends BasePlatform {
     this.channels = String(config.channels || config.channel || '').split(',').map((item) => item.trim()).filter(Boolean);
     this._socket = null;
     this._buffer = '';
+    this._manualDisconnect = false;
     if (Array.isArray(config.allowedIds || config.allowedEntries)) {
       this.setAllowedEntries(config.allowedIds || config.allowedEntries);
     }
@@ -913,6 +914,7 @@ class IrcPlatform extends BasePlatform {
   async connect() {
     requireText(this.server, `${this.name} server`);
     requireText(this.nick, `${this.name} nickname`);
+    this._manualDisconnect = false;
     return new Promise((resolve, reject) => {
       const socketFactory = this.tls ? tls.connect : net.connect;
       let settled = false;
@@ -950,12 +952,18 @@ class IrcPlatform extends BasePlatform {
       socket.on('data', (chunk) => this.#handleData(chunk));
       socket.on('close', () => {
         this.status = 'disconnected';
-        this.emit('disconnected', { manual: false });
+        if (this._manualDisconnect) return;
+        this.emit('disconnected', {
+          manual: false,
+          requiresUserAction: true,
+          reason: 'connection_lost',
+        });
       });
     });
   }
 
   async disconnect() {
+    this._manualDisconnect = true;
     if (this._socket) {
       try { this.#write('QUIT :NeoAgent disconnecting'); } catch {}
       this._socket.destroy();

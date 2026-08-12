@@ -42,9 +42,13 @@ class TelegramPlatform extends BasePlatform {
     });
     this._bot.catch((err) => {
       console.error('[Telegram] Polling error:', err.message);
-      if (err.message && err.message.includes('401')) {
+      if (err.response?.error_code === 401 || err.code === 401) {
         this.status = 'error';
-        this.emit('error', { message: 'Invalid bot token' });
+        this.emit('error', {
+          message: 'Invalid bot token',
+          requiresUserAction: true,
+          reason: 'authentication_required',
+        });
       }
     });
 
@@ -69,7 +73,10 @@ class TelegramPlatform extends BasePlatform {
       this.emit('connected');
       this._bot.launch({ dropPendingUpdates: false }).catch((err) => {
         this.status = 'error';
-        this.emit('error', { message: err.message || 'Telegram polling failed' });
+        this.emit('error', {
+          message: err.message || 'Telegram polling failed',
+          requiresUserAction: false,
+        });
         console.error('[Telegram] Launch failed:', err.message);
       });
       return { status: 'connected' };

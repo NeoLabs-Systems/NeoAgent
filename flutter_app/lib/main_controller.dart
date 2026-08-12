@@ -401,7 +401,7 @@ class NeoAgentController extends ChangeNotifier {
 
   void clearPendingApprovalForRun(String runId) {
     if (pendingApproval?.runId != runId) return;
-    _SecurityNotificationService.cancelApprovalNotification(
+    _AppNotificationService.cancelApprovalNotification(
       pendingApproval?.approvalId ?? '',
     );
     pendingApproval = null;
@@ -6617,6 +6617,16 @@ class NeoAgentController extends ChangeNotifier {
       pendingMessagingQr = null;
       unawaited(refreshMessaging());
     });
+    socket.on('messaging:attention_required', (dynamic data) {
+      final payload = _jsonMap(data);
+      final platform = payload['platform']?.toString() ?? '';
+      if (platform.isEmpty) return;
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        unawaited(
+          _AppNotificationService.showMessagingConnectionNotification(platform),
+        );
+      }
+    });
     socket.on('integrations:status', (dynamic data) {
       officialIntegrations = _decodeModelList(
         'official_integrations.socket',
@@ -7173,14 +7183,14 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
       // Show interactive push notification when app is backgrounded
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        _SecurityNotificationService.showApprovalNotification(req);
+        _AppNotificationService.showApprovalNotification(req);
       }
     });
     socket.on('tool:approval_resolved', (dynamic data) {
       final payload = _jsonMap(data);
       final resolvedId = payload['approvalId']?.toString() ?? '';
       if (pendingApproval?.approvalId == resolvedId) {
-        _SecurityNotificationService.cancelApprovalNotification(resolvedId);
+        _AppNotificationService.cancelApprovalNotification(resolvedId);
         pendingApproval = null;
         notifyListeners();
       }

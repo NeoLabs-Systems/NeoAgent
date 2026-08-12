@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const EventEmitter = require('node:events');
 const { afterEach, beforeEach, test } = require('node:test');
 
 const {
@@ -130,5 +131,111 @@ test('messaging manager shutdown aborts active delivery and refuses new work', a
   await assert.rejects(
     manager.sendMessage(user.userId, 'whatsapp', 'chat-1', 'Too late.', { agentId }),
     (error) => error.code === 'MESSAGING_SHUTTING_DOWN',
+  );
+});
+
+test('messaging manager emits attention alerts only for disconnects that need user action', async () => {
+  class TestPlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const emitted = [];
+  const manager = new MessagingManager({
+    to(room) {
+      return {
+        emit(event, payload) {
+          emitted.push({ room, event, payload });
+        },
+      };
+    },
+  });
+  manager.platformTypes.test_platform = TestPlatform;
+
+  await manager.connectPlatform(user.userId, 'test_platform');
+  const agentId = manager._agentId(user.userId, {});
+  const platform = manager.platforms.get(
+    manager._key(user.userId, agentId, 'test_platform'),
+  );
+
+  platform.emit('disconnected', { manual: false, requiresUserAction: false });
+  assert.equal(
+    emitted.filter((item) => item.event === 'messaging:attention_required').length,
+    0,
+  );
+
+  platform.emit('disconnected', {
+    manual: false,
+    requiresUserAction: true,
+    reason: 'reconnect_exhausted',
+  });
+  assert.deepEqual(
+    emitted.find((item) => item.event === 'messaging:attention_required'),
+    {
+      room: `user:${user.userId}`,
+      event: 'messaging:attention_required',
+      payload: {
+        agentId,
+        platform: 'test_platform',
+        reason: 'reconnect_exhausted',
+      },
+    },
+  );
+});
+
+test('messaging manager requests user attention when a platform logs out', async () => {
+  class TestPlatform extends EventEmitter {
+    async connect() {
+      this.emit('connected');
+    }
+
+    async disconnect() {}
+
+    getStatus() {
+      return 'connected';
+    }
+  }
+
+  const emitted = [];
+  const manager = new MessagingManager({
+    to() {
+      return {
+        emit(event, payload) {
+          emitted.push({ event, payload });
+        },
+      };
+    },
+  });
+  manager.platformTypes.test_platform = TestPlatform;
+
+  await manager.connectPlatform(user.userId, 'test_platform');
+  const agentId = manager._agentId(user.userId, {});
+  manager.platforms
+    .get(manager._key(user.userId, agentId, 'test_platform'))
+    .emit('logged_out');
+
+  assert.deepEqual(
+    emitted.find((item) => item.event === 'messaging:attention_required')?.payload,
+    {
+      agentId,
+      platform: 'test_platform',
+      reason: 'authentication_required',
+    },
   );
 });

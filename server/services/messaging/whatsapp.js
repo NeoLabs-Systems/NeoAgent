@@ -136,9 +136,16 @@ class WhatsAppPlatform extends BasePlatform {
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
+        const reconnectExhausted = shouldReconnect && this.reconnectAttempts >= this.maxReconnect;
 
         this.status = 'disconnected';
-        this.emit('disconnected', { statusCode, shouldReconnect, manual: this._manualDisconnect });
+        this.emit('disconnected', {
+          statusCode,
+          shouldReconnect,
+          manual: this._manualDisconnect,
+          requiresUserAction: reconnectExhausted,
+          reason: reconnectExhausted ? 'reconnect_exhausted' : null,
+        });
 
         if (shouldReconnect && this.reconnectAttempts < this.maxReconnect) {
           this.reconnectAttempts++;
