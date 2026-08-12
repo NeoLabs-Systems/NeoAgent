@@ -21,6 +21,11 @@ jobs:
     name: Attach Installers to Release
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
       - name: Download Windows artifact
         uses: actions/download-artifact@v4.2.0
         with:
@@ -80,11 +85,6 @@ jobs:
           path: dist
           name: neoagent-wearable-firmware
           merge-multiple: true
-
-      - name: Checkout release tooling
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.release_tag }}
 
       - name: Resolve runtime signing keypair
         env:

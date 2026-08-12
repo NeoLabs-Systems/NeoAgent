@@ -85,25 +85,21 @@ Open **Runs** to inspect the trigger, tool calls, approvals, output, and error
 for each execution. Delivery requires a configured messaging destination; a
 completed run can still have a delivery error.
 
-## Loop budgets
+## Pausing task loops
 
-Scheduled and event-triggered tasks run autonomously under a per-task loop
-budget. By default, a task can run 24 times or spend 250k model tokens per day.
-At the cap, or when paused, the task is skipped before a model call.
-
-Advanced task configs can override the defaults:
+Scheduled and event-triggered tasks have no per-day run or token hard limit.
+They continue to follow their configured trigger until the task is disabled or
+its loop is explicitly paused.
 
 ```json
 {
-  "loopBudget": {
-    "maxRunsPerDay": 12,
-    "maxTokensPerDay": 150000,
-    "paused": false
-  }
+  "loopPaused": true
 }
 ```
 
-Set `loopBudget.paused` or `loopPaused` to `true` as a per-task kill switch.
+Set `loopPaused` to `true` as a per-task kill switch. Existing tasks using
+`loopBudget.paused` remain compatible, but the old run/token limit fields are
+ignored.
 
 ## Safety
 

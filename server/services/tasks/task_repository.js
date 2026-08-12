@@ -144,19 +144,6 @@ class TaskRepository {
     db.prepare('UPDATE scheduled_tasks SET last_run = datetime(\'now\') WHERE id = ? AND user_id = ?').run(taskId, userId);
   }
 
-  getTaskLoopUsageToday(taskId, userId) {
-    return db.prepare(
-      `SELECT
-         COUNT(*) AS runCount,
-         COALESCE(SUM(total_tokens), 0) AS totalTokens
-       FROM agent_runs
-       WHERE user_id = ?
-         AND json_valid(metadata_json)
-         AND CAST(json_extract(metadata_json, '$.taskId') AS TEXT) = CAST(? AS TEXT)
-         AND date(created_at) = date('now')`
-    ).get(userId, String(taskId)) || { runCount: 0, totalTokens: 0 };
-  }
-
   markAgentRunFailed(runId, userId, error) {
     db.prepare(
       `UPDATE agent_runs

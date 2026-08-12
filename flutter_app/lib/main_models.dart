@@ -3256,7 +3256,7 @@ class TaskItem {
     required this.triggerSummary,
     required this.triggerConfig,
     required this.taskConfig,
-    required this.loopBudget,
+    required this.loopPaused,
     required this.nextRun,
     required this.prompt,
     required this.model,
@@ -3286,11 +3286,9 @@ class TaskItem {
           : const <String, dynamic>{}),
     };
     final triggerSummary = json['triggerSummary']?.toString() ?? '';
-    final loopBudgetJson = json['loopBudget'] is Map
-        ? Map<String, dynamic>.from(json['loopBudget'] as Map)
-        : (taskConfig['loopBudget'] is Map
-              ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
-              : const <String, dynamic>{});
+    final legacyLoopBudget = taskConfig['loopBudget'] is Map
+        ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
+        : const <String, dynamic>{};
     return TaskItem(
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
@@ -3301,7 +3299,12 @@ class TaskItem {
           : triggerSummary,
       triggerConfig: triggerConfig,
       taskConfig: taskConfig,
-      loopBudget: TaskLoopBudget.fromJson(loopBudgetJson),
+      loopPaused:
+          json['loopPaused'] == true ||
+          taskConfig['loopPaused'] == true ||
+          taskConfig['loop_paused'] == true ||
+          legacyLoopBudget['paused'] == true ||
+          legacyLoopBudget['pause'] == true,
       nextRun: _parseOptionalTimestamp(json['nextRun']?.toString()),
       prompt:
           json['prompt']?.toString().ifEmpty(
@@ -3328,7 +3331,7 @@ class TaskItem {
   final String triggerSummary;
   final Map<String, dynamic> triggerConfig;
   final Map<String, dynamic> taskConfig;
-  final TaskLoopBudget loopBudget;
+  final bool loopPaused;
   final DateTime? nextRun;
   final String prompt;
   final String model;
@@ -3347,47 +3350,6 @@ class TaskItem {
   bool get lastRunFailed =>
       lastRunStatus == 'failed' || lastRunStatus == 'error';
   bool get hasModelOverride => model.trim().isNotEmpty;
-}
-
-class TaskLoopBudget {
-  const TaskLoopBudget({
-    required this.enabled,
-    required this.paused,
-    required this.maxRunsPerDay,
-    required this.maxTokensPerDay,
-  });
-
-  factory TaskLoopBudget.fromJson(Map<String, dynamic> json) {
-    final maxRuns = _asInt(json['maxRunsPerDay'] ?? json['max_runs_per_day']);
-    final maxTokens = _asInt(
-      json['maxTokensPerDay'] ?? json['max_tokens_per_day'],
-    );
-    final enabled = json['enabled'] == false || json['enabled'] == 'false'
-        ? false
-        : true;
-    return TaskLoopBudget(
-      enabled: enabled,
-      paused:
-          json['paused'] == true ||
-          json['pause'] == true ||
-          json['paused'] == 'true' ||
-          json['pause'] == 'true',
-      maxRunsPerDay: maxRuns > 0 ? maxRuns : 24,
-      maxTokensPerDay: maxTokens > 0 ? maxTokens : 250000,
-    );
-  }
-
-  final bool enabled;
-  final bool paused;
-  final int maxRunsPerDay;
-  final int maxTokensPerDay;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'enabled': enabled,
-    'paused': paused,
-    'maxRunsPerDay': maxRunsPerDay,
-    'maxTokensPerDay': maxTokensPerDay,
-  };
 }
 
 class McpServerItem {

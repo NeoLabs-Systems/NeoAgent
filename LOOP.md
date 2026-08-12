@@ -1,18 +1,17 @@
 # NeoAgent Loop Operations
 
 NeoAgent uses agent loops for chat, scheduled tasks, integration events,
-messaging triggers, and delegated work. The product should
-keep the agent autonomous by default while enforcing runtime guardrails for
-cost, repeated failure, and risky side effects.
+messaging triggers, and delegated work. The product keeps the agent autonomous
+by default while enforcing guardrails for repeated failure and risky side
+effects.
 
 ## Active Loops
 
 ### Product Automation Runtime
 - Cadence: user-defined schedules, integration polls, webhooks, and messaging events.
 - State: SQLite `agent_runs`, task lifecycle events, and `STATE.md`.
-- Budget: per-task `taskConfig.loopBudget` plus defaults in `loop-budget.md`.
-- Phase: autonomous until the task budget is exhausted or paused.
-- Handoff: exhausted budget, paused task loop, repeated failures, delivery errors, or approval-required tools.
+- Phase: autonomous until completed, disabled, or explicitly paused.
+- Handoff: paused task loop, repeated failures, delivery errors, or approval-required tools.
 
 ### NeoAgent Maintenance Triage
 - Cadence: manual or daily during active development.
@@ -22,8 +21,8 @@ cost, repeated failure, and risky side effects.
 
 ## Safety Gates
 
-- Keep scheduled/event tasks autonomous under budget.
-- At 100% budget or a pause flag, skip the task before calling the model.
+- Keep scheduled/event tasks autonomous until completion or an explicit pause.
+- On a pause flag, skip the task before calling the model.
 - Require verification for risky autonomous work such as code edits, shell/device actions, external writes, and repeated failed attempts.
 - Keep write, shell, Android, desktop, and high-impact integration actions on approval unless the task is explicitly trusted.
 - Prefer isolated worktrees or disposable checkouts for unattended source changes.
@@ -34,13 +33,13 @@ NeoAgent supports official integrations and MCP tools. Start unattended loops
 with read-only scopes where possible; only expand connector permissions after
 the loop has stable logs and clear escalation behavior.
 
-## Budget And Observability
+## Control And Observability
 
-- Runtime task budget defaults: `loop-budget.md`.
 - Operator state: `STATE.md`.
 - Repository run log: `loop-run-log.md`.
 - Product run history: SQLite `agent_runs`, `agent_steps`, `agent_model_usage`, and task lifecycle events.
-- Kill switch: set `taskConfig.loopBudget.paused = true` or `taskConfig.loopPaused = true` for a task.
+- Kill switch: set `taskConfig.loopPaused = true` for a task. The legacy
+  `taskConfig.loopBudget.paused` form is still recognized.
 
 ## Worktrees
 

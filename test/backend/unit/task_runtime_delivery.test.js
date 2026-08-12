@@ -187,12 +187,12 @@ describe('scheduled task result delivery', () => {
     assert.equal(optionsSeen[0].triggerSource, 'manual');
   });
 
-  test('skips automatic task execution when the task loop budget is exhausted', async () => {
+  test('does not enforce legacy per-day task loop limits', async () => {
     let callCount = 0;
     runtime = new TaskRuntime(createIoRecorder(), {
       async runWithModel() {
         callCount += 1;
-        return { content: 'should not run' };
+        return { content: 'task ran without a daily hard limit' };
       },
     });
     const task = await runtime.createTask(user.userId, {
@@ -231,23 +231,19 @@ describe('scheduled task result delivery', () => {
       scheduledAt: new Date().toISOString(),
     });
 
-    assert.equal(callCount, 0);
-    assert.equal(result.skipped, true);
-    assert.equal(result.reason, 'loop_budget_exhausted');
-    assert.equal(result.budget.runCount, 1);
+    assert.equal(callCount, 1);
+    assert.equal(result.content, 'task ran without a daily hard limit');
   });
 
-  test('serializes normalized loop budget configuration for tasks', async () => {
+  test('serializes task loop pause state without a budget', async () => {
     const task = await createScheduledTask({
       async runWithModel() {
         return { content: 'unused' };
       },
     }, createMessagingManager());
 
-    assert.equal(task.loopBudget.enabled, true);
-    assert.equal(task.loopBudget.paused, false);
-    assert.equal(task.loopBudget.maxRunsPerDay, 24);
-    assert.equal(task.loopBudget.maxTokensPerDay, 250000);
+    assert.equal(task.loopPaused, false);
+    assert.equal(task.loopBudget, undefined);
   });
 
   test('skips task execution when the task loop budget is paused', async () => {
@@ -282,7 +278,7 @@ describe('scheduled task result delivery', () => {
 
     assert.equal(callCount, 0);
     assert.equal(result.skipped, true);
-    assert.equal(result.reason, 'loop_budget_paused');
+    assert.equal(result.reason, 'loop_paused');
   });
 
   test('automatic scheduled runs deliver staged proactive replies after verification', async () => {
