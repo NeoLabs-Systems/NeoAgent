@@ -68,10 +68,10 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # subosito/flutter-action can't resolve "any" stable version for the
-          # windows-11-arm architecture; pin to the version the other
-          # platforms resolve to on their own.
-          flutter-version: 3.44.8
+          # Flutter publishes an x64 SDK executable for Windows. On the native
+          # ARM runner it executes under emulation while Flutter targets the
+          # runner architecture for the desktop build.
+          architecture: x64
           cache: true
 
       - name: Enable desktop platforms
@@ -256,12 +256,10 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}/flutter_app
         run: |
-          # impellerc does not create its output directory tree on Windows, so
-          # pre-create it or the shader compile step fails with
-          # "Could not write file to ...assets\shaders\*.frag".
-          New-Item -ItemType Directory -Force -Path ../server/public/assets/shaders | Out-Null
+          $webOutput = Join-Path $env:GITHUB_WORKSPACE "server/public"
+          New-Item -ItemType Directory -Force -Path (Join-Path $webOutput "assets/shaders") | Out-Null
           $buildId = node ../scripts/web_build_id.js
-          flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
+          flutter build web --output $webOutput --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
 
       - name: Install Windows backend dependencies
         shell: pwsh

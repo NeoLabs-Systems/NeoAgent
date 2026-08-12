@@ -179,6 +179,7 @@ class DurableRunRuntime {
     let progressBroker = null;
     let contextPressure = null;
     let runRecordCreated = false;
+    let runSignal = null;
 
     const { releaseReservation } = enforceRateLimits(userId, {
       bypass: options.bypassUserRateLimits === true,
@@ -224,6 +225,7 @@ class DurableRunRuntime {
       }
 
       const abortController = new AbortController();
+      runSignal = abortController.signal;
       // Prefer the caller-owned deliveryState (background tasks share it with the
       // task runtime for staged send_message + final delivery bookkeeping).
       const deliveryState = options.deliveryState && typeof options.deliveryState === 'object'
@@ -2217,8 +2219,9 @@ class DurableRunRuntime {
     } catch (error) {
       if (runRecordCreated) {
         const runMeta = this.engine.getRunMeta(runId);
-        const interrupted = isAbortError(error) || runMeta?.aborted;
-        applyTransition({
+        const interrupted = isAbortError(error, runSignal) || runMeta?.aborted;
+        const interruptedByCaller = runMeta?.status === 'interrupted';
+        const terminalTransition = applyTransition({
           runId,
           toState: interrupted ? RUNTIME_STATES.CANCELLED : RUNTIME_STATES.FAILED,
           reason: interrupted ? 'interrupted' : 'error',
@@ -2229,6 +2232,11 @@ class DurableRunRuntime {
             totalTokens,
           },
         });
+        if (interruptedByCaller && terminalTransition?.ok) {
+          db.prepare(
+            "UPDATE agent_runs SET status = 'interrupted' WHERE id = ? AND runtime_state = ?",
+          ).run(runId, RUNTIME_STATES.CANCELLED);
+        }
         this.eventBus.publish({
           runId,
           userId,
@@ -2237,13 +2245,18 @@ class DurableRunRuntime {
           payload: { error: error?.message || String(error) },
           visibility: VISIBILITY.USER,
         });
-        this.engine.emit(userId, interrupted ? 'run:stopped' : 'run:error', {
+        this.engine.emit(userId, interrupted
+          ? (interruptedByCaller ? 'run:interrupted' : 'run:stopped')
+          : 'run:error', {
           runId,
           error: error?.message || String(error),
         });
       }
-      if (isAbortError(error)) {
-        return { runId, content: '', totalTokens, iterations, status: 'stopped' };
+      if (isAbortError(error, runSignal)) {
+        const status = this.engine.getRunMeta(runId)?.status === 'interrupted'
+          ? 'interrupted'
+          : 'stopped';
+        return { runId, content: '', totalTokens, iterations, status };
       }
       throw error;
     } finally {

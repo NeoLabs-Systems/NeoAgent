@@ -299,16 +299,36 @@ function normalizeAccessPolicy(platform, value) {
     ? raw.sharedParticipationRules
     : [];
   let rawSharedPolicy = raw.sharedPolicy;
-  const isLegacyParticipationPolicy = Number(raw.schemaVersion || 0) < 3;
+  const schemaVersion = Number(raw.schemaVersion || 0);
+  const isLegacyParticipationPolicy = schemaVersion < 3;
 
   if (
-    Number(raw.schemaVersion || 0) < 2
+    schemaVersion < 2
     && rawSharedMemberRules.length === 0
     && rawSharedActorRules.length > 0
     && normalizeMode(rawSharedPolicy, defaults.sharedPolicy) === 'open'
   ) {
     rawSharedPolicy = 'allowlist';
     rawSharedSpaceRules = [];
+  }
+
+  if (
+    schemaVersion < 2
+    && rawSharedMemberRules.length === 0
+    && rawSharedActorRules.length > 0
+    && rawSharedSpaceRules.length > 0
+    && normalizeMode(rawSharedPolicy, defaults.sharedPolicy) === 'allowlist'
+  ) {
+    rawSharedMemberRules = rawSharedSpaceRules.flatMap((spaceRule) => (
+      rawSharedActorRules.map((actorRule) => ({
+        ...actorRule,
+        spaceScope: spaceRule?.scope,
+        spaceValue: spaceRule?.value,
+        spaceLabel: spaceRule?.label,
+      }))
+    ));
+    rawSharedSpaceRules = [];
+    rawSharedActorRules = [];
   }
 
   const normalized = {
