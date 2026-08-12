@@ -168,6 +168,7 @@ jobs:
             echo "The required wearable firmware checksum is missing."
             exit 1
           fi
+          mapfile -t files < <(printf '%s\n' "${files[@]}" | sort -u)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No release artifacts were downloaded."
             exit 1
