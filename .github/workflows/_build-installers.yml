@@ -983,8 +983,6 @@ jobs:
 
       - name: Verify Android APK signing
         shell: bash
-        env:
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
           APKS=(
@@ -997,10 +995,6 @@ jobs:
               exit 1
             fi
           done
-          if [ -z "$ANDROID_KEY_ALIAS" ]; then
-            echo "::warning::No Android release keystore configured; shipping these APKs unsigned."
-            exit 0
-          fi
           BUILD_TOOLS_DIR=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           if [ -z "$BUILD_TOOLS_DIR" ]; then
             echo "No Android build-tools directory found."

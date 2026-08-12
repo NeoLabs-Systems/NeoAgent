@@ -171,3 +171,4 @@ eng.traineddata
 flutter_app/android/key.properties
 flutter_app/android/*.keystore
 flutter_app/android/*.jks
+!flutter_app/android/ci-release.keystore

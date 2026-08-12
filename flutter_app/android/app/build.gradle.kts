@@ -5,6 +5,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim().orEmpty()
+val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim().orEmpty()
+val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")?.trim().orEmpty()
+val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.trim().orEmpty()
+val bundledCiKeystorePath = "${rootProject.projectDir}/ci-release.keystore"
+val hasReleaseSigning =
+    releaseKeystorePath.isNotEmpty() &&
+        releaseKeystorePassword.isNotEmpty() &&
+        releaseKeyAlias.isNotEmpty() &&
+        releaseKeyPassword.isNotEmpty()
+val hasBundledCiSigning = file(bundledCiKeystorePath).exists()
+
 val launcherBuild =
     System.getenv("NEOAGENT_ANDROID_LAUNCHER_MODE")
         ?.trim()
@@ -40,6 +52,29 @@ android {
         manifestPlaceholders["neoagentAppMode"] = androidAppModeValue
         manifestPlaceholders["neoagentLauncherHomeEnabled"] =
             launcherHomeEnabledValue
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            } else {
+                check(hasBundledCiSigning) { "Android release signing keystore is unavailable." }
+                storeFile = file(bundledCiKeystorePath)
+                storePassword = "neoagent-ci"
+                keyAlias = "neoagent-ci"
+                keyPassword = "neoagent-ci"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 }
 
