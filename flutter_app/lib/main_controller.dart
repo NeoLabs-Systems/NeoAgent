@@ -242,8 +242,10 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic>? _liveVoicePendingCommitPayload;
   DateTime? _liveVoiceRecoverableUntil;
   Timer? _liveVoiceRecoveryTimer;
+  Timer? _incomingCallExpiryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
+  IncomingAgentCall? incomingAgentCall;
   bool _desktopAskOnClose = true;
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAssistantHotkeyEnabled = true;
@@ -372,6 +374,7 @@ class NeoAgentController extends ChangeNotifier {
     _qrLoginPollTimer?.cancel();
     _manualRunCooldownTimer?.cancel();
     _liveVoiceRecoveryTimer?.cancel();
+    _incomingCallExpiryTimer?.cancel();
     _socket?.dispose();
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
@@ -3675,6 +3678,41 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  void acceptIncomingAgentCall() {
+    final call = incomingAgentCall;
+    if (call == null || call.accepting || _socket == null) return;
+    incomingAgentCall = call.copyWith(accepting: true);
+    unawaited(
+      _AppNotificationService.cancelIncomingCallNotification(call.callId),
+    );
+    _socket!.emit('voice:call_accept', <String, dynamic>{
+      'callId': call.callId,
+    });
+    notifyListeners();
+  }
+
+  void declineIncomingAgentCall() {
+    final call = incomingAgentCall;
+    if (call == null) return;
+    _socket?.emit('voice:call_decline', <String, dynamic>{
+      'callId': call.callId,
+    });
+    _clearIncomingAgentCall(call.callId);
+    notifyListeners();
+  }
+
+  void _clearIncomingAgentCall([String? callId]) {
+    final current = incomingAgentCall;
+    if (current == null || (callId != null && current.callId != callId)) return;
+    _incomingCallExpiryTimer?.cancel();
+    _incomingCallExpiryTimer = null;
+    incomingAgentCall = null;
+    cancelIncomingCallBrowserAlert(current.callId);
+    unawaited(
+      _AppNotificationService.cancelIncomingCallNotification(current.callId),
+    );
+  }
+
   String _createLiveVoiceTurnId() {
     _liveVoiceTurnCounter += 1;
     return 'live_${DateTime.now().millisecondsSinceEpoch}_$_liveVoiceTurnCounter';
@@ -6558,6 +6596,7 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.onDisconnect((_) {
       socketConnected = false;
+      _clearIncomingAgentCall();
       if (isSendingMessage && activeRun != null) {
         isSendingMessage = false;
         activeRun = activeRun!.copyWith(
@@ -6689,8 +6728,55 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('timeline:updated', (dynamic _) {
       unawaited(refreshTimeline());
     });
+    socket.on('voice:incoming_call', (dynamic data) {
+      final call = IncomingAgentCall.fromJson(_jsonMap(data));
+      if (call.callId.isEmpty) return;
+      if (voiceAssistantLiveState.hasActiveSession) {
+        socket.emit('voice:call_decline', <String, dynamic>{
+          'callId': call.callId,
+        });
+        return;
+      }
+      incomingAgentCall = call;
+      _incomingCallExpiryTimer?.cancel();
+      final delay = call.expiresAt.difference(DateTime.now());
+      _incomingCallExpiryTimer = Timer(
+        delay.isNegative ? Duration.zero : delay,
+        () {
+          _clearIncomingAgentCall(call.callId);
+          notifyListeners();
+        },
+      );
+      unawaited(_AppNotificationService.showIncomingCallNotification(call));
+      showIncomingCallBrowserAlert(call.callId, call.agentName);
+      if (_supportsDesktopShell) {
+        unawaited(windowManager.show());
+        unawaited(windowManager.focus());
+      }
+      notifyListeners();
+    });
+    socket.on('voice:call_cancelled', (dynamic data) {
+      _clearIncomingAgentCall(_jsonMap(data)['callId']?.toString());
+      notifyListeners();
+    });
+    socket.on('voice:call_ended', (dynamic data) {
+      _clearIncomingAgentCall(_jsonMap(data)['callId']?.toString());
+      notifyListeners();
+    });
     socket.on('voice:session_ready', (dynamic data) {
       final payload = _jsonMap(data);
+      final acceptedCall = incomingAgentCall;
+      final acceptedCallId = acceptedCall?.callId;
+      if (acceptedCallId != null &&
+          payload['sessionId']?.toString() == acceptedCallId) {
+        if (acceptedCall!.agentId.isNotEmpty &&
+            agentProfiles.any((agent) => agent.id == acceptedCall.agentId)) {
+          selectedAgentId = acceptedCall.agentId;
+          unawaited(_persistSelectedAgentId(acceptedCall.agentId));
+        }
+        _clearIncomingAgentCall(acceptedCallId);
+        setSelectedSection(AppSection.voiceAssistant);
+      }
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         sessionId: payload['sessionId']?.toString() ?? '',
         mediaMode:
@@ -6729,7 +6815,9 @@ class NeoAgentController extends ChangeNotifier {
       }
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         state: payload['state']?.toString().ifEmpty('idle') ?? 'idle',
-        activeRunId: payload['runId']?.toString().trim().isNotEmpty == true
+        activeRunId: payload['clearRunId'] == true
+            ? ''
+            : payload['runId']?.toString().trim().isNotEmpty == true
             ? payload['runId'].toString()
             : voiceAssistantLiveState.activeRunId,
       );
@@ -6810,6 +6898,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       final content = payload['content']?.toString() ?? '';
       final kind = payload['kind']?.toString() ?? 'final';
+      final isFinal = kind == 'final' || kind == 'opening';
       if (content.trim().isEmpty) {
         return;
       }
@@ -6818,9 +6907,9 @@ class NeoAgentController extends ChangeNotifier {
         role: 'assistant',
         kind: kind,
         content: content,
-        isFinal: kind == 'final',
+        isFinal: isFinal,
       );
-      if (kind == 'final' && content.trim().isNotEmpty) {
+      if (isFinal && content.trim().isNotEmpty) {
         _resetLiveVoiceTurnBuffer();
         _appendAssistantChatMessage(content, platform: 'voice_live');
       }

@@ -14,6 +14,7 @@ const { registerMessagingAutomation } = require('./messaging/automation');
 const { SocialVideoService } = require('./social_video');
 const { SocialReachService } = require('./social_reach');
 const { VoiceRuntimeManager } = require('./voice/runtimeManager');
+const { AgentCallCoordinator } = require('./voice/agent_call_coordinator');
 const { AuthProviderManager } = require('./account/auth_provider_manager');
 const { IntegrationManager } = require('./integrations/manager');
 const { MemoryIngestionService } = require('./memory/ingestion');
@@ -393,6 +394,17 @@ function createVoiceRuntimeManager(app, io, { agentEngine, memoryManager }) {
   return voiceRuntimeManager;
 }
 
+function createAgentCallCoordinator(app, io, { agentEngine, voiceRuntimeManager }) {
+  const coordinator = registerLocal(
+    app,
+    'agentCallCoordinator',
+    new AgentCallCoordinator({ io, agentEngine, voiceRuntimeManager }),
+  );
+  voiceRuntimeManager.agentCallCoordinator = coordinator;
+  logServiceReady('Agent call coordinator ready');
+  return coordinator;
+}
+
 function createSocialVideoService(app) {
   const socialVideoService = registerLocal(
     app,
@@ -520,6 +532,10 @@ async function startServices(app, io) {
       agentEngine,
       memoryManager,
     });
+    const agentCallCoordinator = createAgentCallCoordinator(app, io, {
+      agentEngine,
+      voiceRuntimeManager,
+    });
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
     createSocialVideoService(app);
@@ -547,6 +563,7 @@ async function startServices(app, io) {
       taskRuntime,
       memoryManager,
       voiceRuntimeManager,
+      agentCallCoordinator,
       streamHub: app.locals.streamHub || null,
     });
     registerLocal(
@@ -756,6 +773,13 @@ async function stopServices(app) {
         console.error('[Messaging] Shutdown error:', getErrorMessage(err));
       }),
     );
+  }
+
+  if (
+    app.locals.agentCallCoordinator
+    && typeof app.locals.agentCallCoordinator.shutdown === 'function'
+  ) {
+    app.locals.agentCallCoordinator.shutdown();
   }
 
   if (

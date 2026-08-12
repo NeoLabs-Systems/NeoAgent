@@ -19,6 +19,9 @@ class VoiceLiveSession {
     voiceSettings,
     outputMode = 'audio_and_text',
     runtimeManager = null,
+    originRunId = null,
+    originConversationId = null,
+    agentInitiated = false,
   }) {
     this.id = String(id || '').trim();
     this.userId = userId;
@@ -29,7 +32,10 @@ class VoiceLiveSession {
     this.outputMode = outputMode;
     this.runtimeManager = runtimeManager;
     this.state = 'idle';
-    this.currentRunId = null;
+    this.originRunId = String(originRunId || '').trim() || null;
+    this.originConversationId = String(originConversationId || '').trim() || null;
+    this.agentInitiated = agentInitiated === true;
+    this.currentRunId = this.originRunId;
     this.lastRunId = null;
     this.interrupted = false;
     this.inputMimeType = 'audio/pcm;rate=16000;channels=1';

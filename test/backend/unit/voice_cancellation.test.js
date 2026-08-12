@@ -250,6 +250,43 @@ test('transport detach preserves a durable run for reconnect', async () => {
   }
 });
 
+test('terminal origin runs release their agent-initiated voice session binding', async () => {
+  const ctx = createTestRuntime();
+  const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');
+  const manager = new VoiceRuntimeManager({
+    io: null,
+    agentEngine: { abort() {} },
+    memoryManager: null,
+  });
+  const stateUpdates = [];
+  const session = {
+    id: 'agent-call-session',
+    userId: 7,
+    currentRunId: 'origin-run',
+    state: 'working',
+    attached: true,
+    closed: false,
+    async setState(state, metadata) {
+      this.state = state;
+      stateUpdates.push({ state, metadata });
+    },
+  };
+  manager.sessions.set(session.id, session);
+
+  try {
+    manager.handleRunTerminal('origin-run');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(session.currentRunId, null);
+    assert.deepEqual(stateUpdates, [{
+      state: 'idle',
+      metadata: { runId: '', clearRunId: true },
+    }]);
+  } finally {
+    manager.sessions.clear();
+    teardownTestRuntime(ctx);
+  }
+});
+
 test('voice runtime shutdown closes sessions, aborts runs, and refuses new sessions', async () => {
   const ctx = createTestRuntime();
   const { VoiceRuntimeManager } = require('../../../server/services/voice/runtimeManager');

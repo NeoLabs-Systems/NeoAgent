@@ -8,7 +8,7 @@ const { io: createClient } = require('socket.io-client');
 const { createTestApp } = require('./app');
 const { createFakeAppLocals } = require('./fakes');
 
-async function createSocketFixture() {
+async function createSocketFixture(serviceOverrides = {}) {
   const { app, sessionMiddleware } = createTestApp();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -19,6 +19,7 @@ async function createSocketFixture() {
   bindSocketSessions(io, sessionMiddleware);
   setupWebSocket(io, {
     ...createFakeAppLocals(),
+    ...serviceOverrides,
     app,
   });
   httpServer.listen(0, '127.0.0.1');

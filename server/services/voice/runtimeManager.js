@@ -52,6 +52,9 @@ class VoiceSessionCoordinator {
     platform = 'voice_live',
     sink,
     outputMode = 'audio_and_text',
+    originRunId = null,
+    originConversationId = null,
+    agentInitiated = false,
   } = {}) {
     if (this.shuttingDown) throw runtimeStoppedError();
     if (!sink) throw new Error('A voice session sink is required.');
@@ -84,6 +87,9 @@ class VoiceSessionCoordinator {
       sink,
       outputMode,
       runtimeManager: this,
+      originRunId,
+      originConversationId,
+      agentInitiated,
       voiceSettings: {
         ...resolved,
         sttApiKey: runtimes.stt.apiKey,
@@ -106,7 +112,15 @@ class VoiceSessionCoordinator {
     }
   }
 
-  openFlutterSession({ userId, agentId = null, socket, sessionId = null } = {}) {
+  openFlutterSession({
+    userId,
+    agentId = null,
+    socket,
+    sessionId = null,
+    originRunId = null,
+    originConversationId = null,
+    agentInitiated = false,
+  } = {}) {
     if (!socket) throw new Error('Socket is required to open a Flutter voice session.');
     return this.openSession({
       userId,
@@ -114,7 +128,16 @@ class VoiceSessionCoordinator {
       sessionId,
       platform: 'voice_live',
       sink: new SocketVoiceTransport(socket, () => this.getCapabilities()),
+      originRunId,
+      originConversationId,
+      agentInitiated,
     });
+  }
+
+  hasActiveSessionForUser(userId) {
+    return Array.from(this.sessions.values()).some((session) => (
+      String(session.userId) === String(userId) && !session.closed && session.attached
+    ));
   }
 
   openWearableSession({ userId, agentId = null, sessionId = null, sink } = {}) {
@@ -198,11 +221,13 @@ class VoiceSessionCoordinator {
     }
     if (session.currentRunId && options.cancelTask !== true) {
       await this.detachSession(sessionId, reason, userId);
+      this.agentCallCoordinator?.notifySessionClosed(session, reason);
       return;
     }
     this.sessions.delete(session.id);
     await session.adapter?.close?.().catch(() => {});
     await session.close(reason);
+    this.agentCallCoordinator?.notifySessionClosed(session, reason);
   }
 
   async presentDelivery(entry) {
@@ -226,6 +251,19 @@ class VoiceSessionCoordinator {
     if (!session) return { sent: false, skipped: true };
     await this.presentControlReply(session, content, { kind, runId: session.currentRunId });
     return { sent: true };
+  }
+
+  handleRunTerminal(runId) {
+    const normalizedRunId = String(runId || '').trim();
+    if (!normalizedRunId) return;
+    for (const session of this.sessions.values()) {
+      if (session.currentRunId !== normalizedRunId) continue;
+      session.currentRunId = null;
+      if (!['listening', 'transcribing', 'speaking'].includes(session.state)) {
+        void session.setState('idle', { runId: '', clearRunId: true });
+      }
+      this.releaseDetachedSession(session);
+    }
   }
 
   releaseDetachedSession(session) {

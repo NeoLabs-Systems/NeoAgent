@@ -1022,6 +1022,18 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
+  Widget _withIncomingCall(Widget child) {
+    final call = widget.controller.incomingAgentCall;
+    if (call == null) return child;
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        child,
+        IncomingAgentCallOverlay(call: call, controller: widget.controller),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
@@ -1066,40 +1078,111 @@ class _HomeViewState extends State<HomeView> {
     final wide = MediaQuery.sizeOf(context).width >= 1080;
 
     if (wide) {
-      return _ControlSurfaceBackdrop(
+      return _withIncomingCall(
+        _ControlSurfaceBackdrop(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Row(
+              children: <Widget>[
+                _Sidebar(
+                  controller: controller,
+                  expandedGroup: _expandedSidebarGroup,
+                  onToggleGroup: _toggleSidebarGroup,
+                ),
+                Expanded(
+                  child: ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        final offset = Tween<Offset>(
+                          begin: const Offset(0.018, 0.026),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        final scale = Tween<double>(
+                          begin: 0.992,
+                          end: 1,
+                        ).animate(animation);
+                        return ScaleTransition(
+                          scale: scale,
+                          alignment: Alignment.topCenter,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<AppSection>(controller.selectedSection),
+                        child: _SectionBody(
+                          controller: controller,
+                          devicesPanelKey: _devicesPanelKey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return _withIncomingCall(
+      _AmbientBackdrop(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: Row(
-            children: <Widget>[
-              _Sidebar(
-                controller: controller,
-                expandedGroup: _expandedSidebarGroup,
-                onToggleGroup: _toggleSidebarGroup,
-              ),
-              Expanded(
-                child: ClipRect(
+          drawer: _MobileDrawer(
+            controller: controller,
+            expandedGroup: _expandedSidebarGroup,
+            onToggleGroup: _toggleSidebarGroup,
+          ),
+          appBar: AppBar(
+            toolbarHeight: 48,
+            titleSpacing: 0,
+            leadingWidth: 44,
+            centerTitle: false,
+            title: Text(
+              controller.selectedSection.navigationTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            titleTextStyle: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            elevation: 0,
+          ),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _bgPrimary,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: _border),
+                  boxShadow: _softPanelShadow,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
+                    duration: const Duration(milliseconds: 280),
                     switchInCurve: Curves.easeOutBack,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) {
-                      final offset = Tween<Offset>(
-                        begin: const Offset(0.018, 0.026),
-                        end: Offset.zero,
-                      ).animate(animation);
-                      final scale = Tween<double>(
-                        begin: 0.992,
-                        end: 1,
-                      ).animate(animation);
-                      return ScaleTransition(
-                        scale: scale,
-                        alignment: Alignment.topCenter,
-                        child: FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: offset,
-                            child: child,
-                          ),
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.018),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
                         ),
                       );
                     },
@@ -1109,73 +1192,6 @@ class _HomeViewState extends State<HomeView> {
                         controller: controller,
                         devicesPanelKey: _devicesPanelKey,
                       ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return _AmbientBackdrop(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        drawer: _MobileDrawer(
-          controller: controller,
-          expandedGroup: _expandedSidebarGroup,
-          onToggleGroup: _toggleSidebarGroup,
-        ),
-        appBar: AppBar(
-          toolbarHeight: 48,
-          titleSpacing: 0,
-          leadingWidth: 44,
-          centerTitle: false,
-          title: Text(
-            controller.selectedSection.navigationTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          titleTextStyle: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          elevation: 0,
-        ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: _bgPrimary,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: _border),
-                boxShadow: _softPanelShadow,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.018),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: KeyedSubtree(
-                    key: ValueKey<AppSection>(controller.selectedSection),
-                    child: _SectionBody(
-                      controller: controller,
-                      devicesPanelKey: _devicesPanelKey,
                     ),
                   ),
                 ),

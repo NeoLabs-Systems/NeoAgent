@@ -133,10 +133,11 @@ class ChatTurnGateway {
       agentId: session.agentId,
       task: content,
     });
-    const conversationId = this.memoryManager.getDefaultWebConversationId(
-      session.userId,
-      { agentId: session.agentId },
-    );
+    const conversationId = session.originConversationId
+      || this.memoryManager.getDefaultWebConversationId(
+        session.userId,
+        { agentId: session.agentId },
+      );
 
     try {
       const result = await this.agentEngine.run(session.userId, content, {

@@ -36,6 +36,8 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'voice:input_commit': { windowMs: 10 * 1000, max: 10 },
   'voice:interrupt': { windowMs: 10 * 1000, max: 20 },
   'voice:session_close': { windowMs: 10 * 1000, max: 20 },
+  'voice:call_accept': { windowMs: 10 * 1000, max: 10 },
+  'voice:call_decline': { windowMs: 10 * 1000, max: 20 },
   'mcp:status': { windowMs: 10 * 1000, max: 20 },
   'mcp:tools': { windowMs: 10 * 1000, max: 20 },
   'integrations:status': { windowMs: 10 * 1000, max: 20 },
@@ -181,7 +183,17 @@ function recordRateLimitHit(observer, userId, socketId, eventName, retryAfterMs)
 }
 
 function setupWebSocket(io, services) {
-  const { agentEngine, messagingManager, mcpClient, taskRuntime, memoryManager, voiceRuntimeManager } = services;
+  const {
+    agentEngine,
+    messagingManager,
+    mcpClient,
+    taskRuntime,
+    memoryManager,
+    voiceRuntimeManager,
+  } = services;
+  const agentCallCoordinator = services.agentCallCoordinator
+    || services.app?.locals?.agentCallCoordinator
+    || null;
   const rateLimitObserver = createRateLimitObserver();
   const integrationManager =
     services.integrationManager || services.app?.locals?.integrationManager || null;
@@ -510,6 +522,43 @@ function setupWebSocket(io, services) {
     });
 
     // ── Live Voice ──
+
+    socket.on('voice:call_accept', async (raw) => {
+      const limit = allowEvent('voice:call_accept');
+      if (!limit.allowed) {
+        return socket.emit('voice:error', {
+          error: `Rate limit exceeded for voice:call_accept. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+        });
+      }
+      try {
+        const callId = toOptionalString(asObject(raw)?.callId, 128);
+        if (!callId) return socket.emit('voice:error', { error: 'callId is required' });
+        if (!agentCallCoordinator) return socket.emit('voice:error', { error: 'Agent calls are unavailable.' });
+        const result = await agentCallCoordinator.accept(callId, userId, socket);
+        if (!result.accepted) {
+          socket.emit('voice:call_ended', { callId, reason: result.status });
+        }
+      } catch (err) {
+        socket.emit('voice:error', { error: sanitizeError(err) });
+      }
+    });
+
+    socket.on('voice:call_decline', (raw) => {
+      const limit = allowEvent('voice:call_decline');
+      if (!limit.allowed) {
+        return socket.emit('voice:error', {
+          error: `Rate limit exceeded for voice:call_decline. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+        });
+      }
+      try {
+        const callId = toOptionalString(asObject(raw)?.callId, 128);
+        if (!callId) return socket.emit('voice:error', { error: 'callId is required' });
+        if (!agentCallCoordinator) return socket.emit('voice:error', { error: 'Agent calls are unavailable.' });
+        agentCallCoordinator.decline(callId, userId, socket);
+      } catch (err) {
+        socket.emit('voice:error', { error: sanitizeError(err) });
+      }
+    });
 
     socket.on('voice:session_open', async (raw) => {
       const limit = allowEvent('voice:session_open');
@@ -942,6 +991,7 @@ function setupWebSocket(io, services) {
     // ── Disconnect ──
 
     socket.on('disconnect', () => {
+      agentCallCoordinator?.handleDisconnect(socket.id, userId);
       const remaining = (userSocketCounts.get(userId) || 1) - 1;
       if (remaining <= 0) {
         userSocketCounts.delete(userId);

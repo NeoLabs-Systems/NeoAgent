@@ -944,6 +944,17 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'call_user',
+            description: 'Start an in-app voice call to the user when spoken interaction is materially useful. After the user approves and answers, opening_message is spoken first and the call continues with the originating conversation context. This does not dial a phone number.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    opening_message: { type: 'string', description: 'The complete natural opening statement to speak immediately after the user answers.' }
+                },
+                required: ['opening_message']
+            }
+        },
+        {
             name: 'read_file',
             description: 'Read one workspace file. Supports line ranges for large files. Use workspace file tools for code inspection whenever the files are in the shared workspace.',
             parameters: {
@@ -1665,6 +1676,7 @@ async function executeTool(toolName, args, context, engine) {
     const socialReach = () => app?.locals?.socialReachService || null;
     const credentials = () => app?.locals?.credentialBroker || null;
     const artifactStore = app?.locals?.artifactStore || null;
+    const agentCalls = () => app?.locals?.agentCallCoordinator || null;
 
     const integrationManager = integrations();
     if (integrationManager) {
@@ -2463,6 +2475,26 @@ async function executeTool(toolName, args, context, engine) {
                 }
             }
             return sendResult;
+        }
+
+        case 'call_user': {
+            const coordinator = agentCalls();
+            if (!coordinator) return { status: 'unavailable' };
+            const openingMessage = typeof args.opening_message === 'string'
+                ? args.opening_message.trim()
+                : '';
+            if (!openingMessage) return { error: 'opening_message is required' };
+            if (openingMessage.length > 4000) {
+                return { error: 'opening_message must be 4000 characters or fewer' };
+            }
+            return coordinator.callUser({
+                userId,
+                agentId,
+                runId,
+                conversationId: context.conversationId || null,
+                openingMessage,
+                signal,
+            });
         }
 
         case 'read_file': {

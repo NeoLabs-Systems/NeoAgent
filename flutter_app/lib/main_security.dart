@@ -104,6 +104,13 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     color: Color(0xFF00897B),
     riskLevel: 'medium',
   ),
+  'user_contact': _CategoryInfo(
+    label: 'Call User',
+    subtitle: 'Allow the agent to start an in-app voice call with you.',
+    icon: Icons.phone_in_talk_rounded,
+    color: Color(0xFF2E7D32),
+    riskLevel: 'medium',
+  ),
   'skill_mutation': _CategoryInfo(
     label: 'Skill Changes',
     subtitle: 'Create, update, or delete skills.',
@@ -148,6 +155,8 @@ class _AppNotificationService {
   static const _channelName = 'Tool Approval';
   static const _messagingChannelId = 'messaging_connection';
   static const _messagingChannelName = 'Messaging Connections';
+  static const _incomingCallChannelId = 'agent_calls';
+  static const _incomingCallChannelName = 'Agent Calls';
   static const _approveActionId = 'approve';
   static const _denyActionId = 'deny';
 
@@ -307,6 +316,52 @@ class _AppNotificationService {
   static Future<void> cancelApprovalNotification(String approvalId) async {
     final plugin = await _getPlugin();
     await plugin?.cancel(approvalId.hashCode.abs() % 100000);
+  }
+
+  static Future<void> showIncomingCallNotification(
+    IncomingAgentCall call,
+  ) async {
+    await requestPermission();
+    final plugin = await _getPlugin();
+    if (plugin == null) return;
+    await plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestFullScreenIntentPermission();
+    const androidDetails = AndroidNotificationDetails(
+      _incomingCallChannelId,
+      _incomingCallChannelName,
+      channelDescription: 'Incoming in-app voice calls from NeoAgent',
+      importance: Importance.max,
+      priority: Priority.max,
+      category: AndroidNotificationCategory.call,
+      fullScreenIntent: true,
+      ongoing: true,
+      autoCancel: false,
+      ticker: 'Incoming NeoAgent call',
+    );
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+    await plugin.show(
+      call.callId.hashCode.abs() % 100000,
+      'Incoming NeoAgent call',
+      '${call.agentName} wants to talk with you.',
+      const NotificationDetails(
+        android: androidDetails,
+        iOS: darwinDetails,
+        macOS: darwinDetails,
+      ),
+      payload: 'agent-call:${call.callId}',
+    );
+  }
+
+  static Future<void> cancelIncomingCallNotification(String callId) async {
+    final plugin = await _getPlugin();
+    await plugin?.cancel(callId.hashCode.abs() % 100000);
   }
 }
 

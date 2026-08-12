@@ -20,6 +20,7 @@ const TOOL_CATEGORIES = {
   browser_privileged: ['browser_evaluate'],
   credential_use: ['credential_fill_browser', 'credential_http_request'],
   network_write: ['http_request'],
+  user_contact: ['call_user'],
   skill_mutation: [
     'create_skill',
     'update_skill',
@@ -114,6 +115,7 @@ const BUILT_IN_TOOLS = new Set([
   'memory_write',
   'memory_read',
   'send_message',
+  'call_user',
   'read_file',
   'read_files',
   'write_file',
@@ -163,6 +165,7 @@ const DEFAULT_POLICY = {
   browser_privileged: 'require_approval',
   credential_use: 'require_approval',
   network_write: 'require_approval',
+  user_contact: 'require_approval',
   skill_mutation: 'deny',
   external: 'require_approval',
 };

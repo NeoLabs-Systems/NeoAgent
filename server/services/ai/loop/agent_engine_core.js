@@ -2074,6 +2074,7 @@ class AgentEngine {
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_interim_update') return 'note';
     if (toolName === 'send_message') return 'messaging';
+    if (toolName === 'call_user') return 'voice';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
     if (toolName === 'create_task' || toolName === 'update_task' || toolName === 'delete_task' || toolName === 'list_tasks') return 'tasks';
     if (toolName.includes('subagent')) return 'subagent';
@@ -2082,6 +2083,12 @@ class AgentEngine {
   }
 
   emit(userId, event, data) {
+    if (
+      ['run:complete', 'run:error', 'run:stopped', 'run:interrupted'].includes(event)
+      && data?.runId
+    ) {
+      this.voiceRuntimeManager?.handleRunTerminal?.(data.runId);
+    }
     if (this.io) {
       this.io.to(`user:${userId}`).emit(event, data);
     }

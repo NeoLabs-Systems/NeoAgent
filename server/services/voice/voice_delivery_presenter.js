@@ -28,6 +28,7 @@ class VoiceDeliveryPresenter {
       turnId,
       presentationState,
     };
+    const completesSpeechTurn = kind === 'final' || kind === 'opening';
 
     if (!session.attached || !session.sink) {
       session.pendingDeliveries = [
@@ -52,7 +53,7 @@ class VoiceDeliveryPresenter {
       await session.adapter.presentDelivery(content, metadata);
       return { presented: true, native: true };
     }
-    await this.#speakComposed(session, content, metadata);
+    await this.#speakComposed(session, content, { ...metadata, completesSpeechTurn });
     return { presented: true, native: false };
   }
 
@@ -68,7 +69,7 @@ class VoiceDeliveryPresenter {
     const spoken = sanitizeSpeechText(content);
     if (!spoken) return;
     await session.setState(
-      metadata.kind === 'final' ? 'speaking' : metadata.presentationState,
+      metadata.completesSpeechTurn ? 'speaking' : metadata.presentationState,
       metadata,
     );
     let sequence = 0;
@@ -95,7 +96,7 @@ class VoiceDeliveryPresenter {
         },
       );
       await session.publishAudioDone({ ...metadata, totalChunks: sequence });
-      if (metadata.kind === 'final') await session.setState('idle', metadata);
+      if (metadata.completesSpeechTurn) await session.setState('idle', metadata);
     } catch (error) {
       if (session.signal.aborted) return;
       logger.warn(`${session.voiceSettings.ttsProvider} TTS failed`, error?.message || error);
