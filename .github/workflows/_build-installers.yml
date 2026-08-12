@@ -65,14 +65,33 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up Flutter
+        id: flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # Flutter publishes an x64 SDK executable for Windows. On the native
-          # ARM runner it executes under emulation while Flutter targets the
-          # runner architecture for the desktop build.
+          # Flutter's Windows archive is x64. The ARM runner replaces its Dart
+          # SDK below so Flutter detects and builds for the native architecture.
           architecture: x64
           cache: true
+
+      - name: Bootstrap Flutter for Windows ARM64
+        if: matrix.architecture == 'arm64'
+        shell: pwsh
+        run: |
+          $flutterRoot = "${{ steps.flutter.outputs.cache-path }}"
+          Remove-Item "$flutterRoot\bin\cache\engine-dart-sdk.stamp" -Force -ErrorAction SilentlyContinue
+          & "$flutterRoot\bin\internal\update_dart_sdk.ps1"
+
+          $dartVersion = & "$flutterRoot\bin\dart.bat" --version 2>&1 | Out-String
+          Write-Host $dartVersion
+          if ($dartVersion -notmatch "windows_arm64") {
+            throw "Flutter did not install the Windows ARM64 Dart SDK."
+          }
+
+          & "$flutterRoot\bin\flutter.bat" precache --windows
+          if (-not (Test-Path "$flutterRoot\bin\cache\artifacts\engine\windows-arm64-release")) {
+            throw "Flutter did not install the Windows ARM64 release engine."
+          }
 
       - name: Enable desktop platforms
         shell: pwsh
@@ -250,7 +269,7 @@ jobs:
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Build bundled web client for Windows runtime
         shell: pwsh
@@ -530,7 +549,7 @@ jobs:
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Build bundled web client for macOS runtime
         working-directory: ${{ github.workspace }}/flutter_app
@@ -820,7 +839,7 @@ jobs:
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Build bundled web client for Linux runtime
         working-directory: ${{ github.workspace }}/flutter_app
