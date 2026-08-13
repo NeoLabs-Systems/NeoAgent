@@ -10,6 +10,7 @@ const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
+const { guestDesktopRepairCommand } = require('./guest_desktop');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -234,7 +235,15 @@ class RuntimeManager {
             timeoutMs: 45000,
           });
         } catch (error) {
-          logger.warn(`Desktop bring-up failed for user ${String(userId)}: ${error.message}`);
+          logger.warn(`Desktop ensure endpoint failed for user ${String(userId)}: ${error.message}`);
+          try {
+            await backend.executeCommand(userId, guestDesktopRepairCommand(), {
+              ...options,
+              timeout: 45000,
+            });
+          } catch (repairError) {
+            logger.warn(`Desktop repair command failed for user ${String(userId)}: ${repairError.message}`);
+          }
         }
         const session = backend.vmManager.instances.get(String(userId || '').trim());
         if (session) {

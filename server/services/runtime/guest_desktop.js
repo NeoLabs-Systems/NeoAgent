@@ -18,6 +18,47 @@ function getGuestDesktopSkelFiles() {
   }));
 }
 
+function guestFbdevXorgConfig() {
+  return `Section "Device"
+    Identifier "NeoAgentGPU"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb0"
+EndSection
+Section "Screen"
+    Identifier "NeoAgentScreen"
+    Device "NeoAgentGPU"
+    DefaultDepth 16
+    SubSection "Display"
+        Depth 16
+    EndSubSection
+EndSection
+`;
+}
+
+function guestDesktopRepairCommand() {
+  const lightdm = Buffer.from(guestLightDmConfig()).toString('base64');
+  const fbdev = Buffer.from(guestFbdevXorgConfig()).toString('base64');
+  const script = [
+    'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d',
+    'rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf',
+    `echo ${lightdm} | base64 -d > /etc/lightdm/lightdm.conf.d/50-neoagent.conf`,
+    'if [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ]; then'
+      + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf; fi`,
+    'systemctl set-default graphical.target || true',
+    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
+    'systemctl restart lightdm.service || true',
+    'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do'
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 7 || true; exit 0; fi; sleep 1; done',
+    'if [ -e /dev/fb0 ]; then'
+      + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf;`
+      + ' systemctl restart lightdm.service || true;'
+      + ' for i in 1 2 3 4 5 6 7 8; do'
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 7 || true; exit 0; fi; sleep 1; done; fi',
+    'exit 1',
+  ].join(' ; ');
+  return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;
+}
+
 function guestLightDmConfig() {
   return `[LightDM]
 start-default-seat=true
@@ -58,22 +99,39 @@ exit 0
 virtio-gpu
 `),
     fileEntry('/usr/local/bin/neoagent-ensure-desktop', `#!/bin/sh
-modprobe virtio_gpu >/dev/null 2>&1 || modprobe virtio-gpu >/dev/null 2>&1 || true
-install -d -m 0755 /etc/lightdm/lightdm.conf.d
+install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d
 rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
 cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
 ${guestLightDmConfig().replace(/\n$/, '')}
 LIGHTDM
+if [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ]; then
+cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
+${guestFbdevXorgConfig().replace(/\n$/, '')}
+FBDEV
+fi
 systemctl set-default graphical.target >/dev/null 2>&1 || true
 systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
 systemctl restart lightdm.service >/dev/null 2>&1 || true
-for _ in 1 2 3 4 5 6 7 8 9 10; do
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
     chvt 7 >/dev/null 2>&1 || true
     exit 0
   fi
   sleep 1
 done
+if [ -e /dev/fb0 ]; then
+cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
+${guestFbdevXorgConfig().replace(/\n$/, '')}
+FBDEV
+  systemctl restart lightdm.service >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8; do
+    if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+      chvt 7 >/dev/null 2>&1 || true
+      exit 0
+    fi
+    sleep 1
+  done
+fi
 exit 1
 `, '0755'),
     fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', guestLightDmConfig()),
@@ -504,6 +562,8 @@ module.exports = {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
+  guestDesktopRepairCommand,
+  guestFbdevXorgConfig,
   guestLightDmConfig,
   renderDesktopCloudInitWriteFiles,
   renderDesktopFileCommands,

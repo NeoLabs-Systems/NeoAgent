@@ -351,7 +351,7 @@ function buildQemuArgs({
     args.push(
       '-drive', `if=pflash,unit=0,format=raw,readonly=on,file=${drivePath(firmwareCode)}`,
       '-drive', `if=pflash,unit=1,format=qcow2,file=${drivePath(armFirmwareVariables)}`,
-      '-device', `virtio-gpu-pci,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`,
+      '-device', 'ramfb',
     );
   } else {
     args.push(
@@ -373,8 +373,8 @@ function buildQemuArgs({
       '-kernel', kernelImage,
       '-initrd', initrdImage,
       '-append', architecture === 'arm64'
-        ? 'root=/dev/vda1 ro rootwait console=ttyAMA0'
-        : 'root=/dev/vda1 ro rootwait console=ttyS0',
+        ? 'root=/dev/vda1 ro rootwait console=tty0 console=ttyAMA0'
+        : 'root=/dev/vda1 ro rootwait console=tty0 console=ttyS0',
     );
   }
   args.push(

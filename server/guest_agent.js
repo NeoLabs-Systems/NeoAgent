@@ -570,7 +570,6 @@ app.get('/desktop/status', async (_req, res) => {
 
 app.post('/desktop/ensure', async (_req, res) => {
   await handle(res, async () => {
-    runSudo(['/bin/sh', '-c', 'modprobe virtio_gpu >/dev/null 2>&1 || modprobe virtio-gpu >/dev/null 2>&1 || true']);
     runSudo(['rm', '-f', '/etc/X11/xorg.conf.d/10-neoagent-display.conf']);
     writePrivilegedFile(
       '/etc/lightdm/lightdm.conf.d/50-neoagent.conf',
@@ -589,6 +588,28 @@ app.post('/desktop/ensure', async (_req, res) => {
         '',
       ].join('\n'),
     );
+    const framebufferOnly = fs.existsSync('/dev/fb0') && !fs.existsSync('/dev/dri/card0');
+    if (framebufferOnly) {
+      writePrivilegedFile(
+        '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
+        [
+          'Section "Device"',
+          '    Identifier "NeoAgentGPU"',
+          '    Driver "fbdev"',
+          '    Option "fbdev" "/dev/fb0"',
+          'EndSection',
+          'Section "Screen"',
+          '    Identifier "NeoAgentScreen"',
+          '    Device "NeoAgentGPU"',
+          '    DefaultDepth 16',
+          '    SubSection "Display"',
+          '        Depth 16',
+          '    EndSubSection',
+          'EndSection',
+          '',
+        ].join('\n'),
+      );
+    }
     runSudo(['systemctl', 'set-default', 'graphical.target']);
     runSudo(['systemctl', 'enable', 'lightdm.service', 'neoagent-desktop-seat.service']);
     const restart = runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
@@ -597,7 +618,7 @@ app.post('/desktop/ensure', async (_req, res) => {
     }
     if (await waitForDisplay(12000)) {
       runSudo(['chvt', '7']);
-      return { available: true, display: ':0', fallback: null };
+      return { available: true, display: ':0', fallback: framebufferOnly ? 'fbdev' : null };
     }
 
     writePrivilegedFile(

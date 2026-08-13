@@ -13,6 +13,7 @@ const {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
+  guestDesktopRepairCommand,
   guestLightDmConfig,
   renderDesktopFileCommands,
 } = require('../../../server/services/runtime/guest_desktop');
@@ -63,6 +64,9 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(setup, /1280x720/);
   assert.match(ensure, /rm -f \/etc\/X11\/xorg\.conf\.d\/10-neoagent-display\.conf/);
   assert.match(ensure, /xdpyinfo/);
+  assert.match(ensure, /Driver "fbdev"/);
+  assert.match(guestDesktopRepairCommand(), /xdpyinfo/);
+  assert.match(guestDesktopRepairCommand(), /\/dev\/fb0/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),
