@@ -60,14 +60,15 @@ function runtimeOptions(req, extra = {}) {
 
 function requireUserControl(req, manager) {
   const ownerId = `session:${req.sessionID}`;
-  const lease = manager.getControlLease(req.session.userId);
+  const options = runtimeOptions(req);
+  const lease = manager.getControlLease(req.session.userId, options);
   if (!lease || lease.ownerType !== 'user' || lease.ownerId !== ownerId) {
     const error = new Error('Take control of the computer before sending input.');
     error.code = 'COMPUTER_USER_CONTROL_REQUIRED';
     error.status = 409;
     throw error;
   }
-  manager.acquireControl(req.session.userId, 'user', ownerId);
+  manager.acquireControl(req.session.userId, 'user', ownerId, options);
 }
 
 function sendError(res, error) {
@@ -140,29 +141,46 @@ router.get('/display/:token', (req, res) => {
 });
 
 router.post('/control/acquire', route((req, manager) => {
-  const existing = manager.getControlLease(req.session.userId);
+  const options = runtimeOptions(req);
+  const existing = manager.getControlLease(req.session.userId, options);
   if (existing?.ownerType === 'agent') {
-    const paused = req.app?.locals?.agentEngine?.pauseRun?.(existing.ownerId, {
-      userId: req.session.userId,
-      reason: 'User took control of the cloud computer.',
-    });
-    if (!paused) {
-      const error = new Error('The active agent cannot be paused at this moment.');
-      error.code = 'COMPUTER_AGENT_NOT_PAUSABLE';
-      error.status = 409;
-      throw error;
+    const ownerIds = existing.ownerIds instanceof Set
+      ? [...existing.ownerIds]
+      : (Array.isArray(existing.ownerIds) ? existing.ownerIds : [existing.ownerId]);
+    const engine = req.app?.locals?.agentEngine;
+    for (const ownerId of ownerIds) {
+      const run = engine?.getRunMeta?.(ownerId) || engine?.activeRuns?.get?.(ownerId);
+      if (run && run.status === 'running') {
+        const paused = engine.pauseRun?.(ownerId, {
+          userId: req.session.userId,
+          reason: `User took control of the ${existing.provider === 'local' ? 'local' : 'cloud'} computer.`,
+        });
+        if (!paused) {
+          const error = new Error('The active agent cannot be paused at this moment.');
+          error.code = 'COMPUTER_AGENT_NOT_PAUSABLE';
+          error.status = 409;
+          throw error;
+        }
+      } else {
+        manager.releaseControl(req.session.userId, ownerId, options);
+      }
     }
-    manager.releaseControl(req.session.userId, existing.ownerId);
+    manager.releaseControl(req.session.userId, null, options);
   }
   return manager.acquireControl(
     req.session.userId,
     'user',
     `session:${req.sessionID}`,
+    options,
   );
 }));
 
 router.post('/control/release', route((req, manager) => ({
-  released: manager.releaseControl(req.session.userId, `session:${req.sessionID}`),
+  released: manager.releaseControl(
+    req.session.userId,
+    `session:${req.sessionID}`,
+    runtimeOptions(req),
+  ),
 })));
 
 router.get('/teach/status', (req, res) => {
@@ -182,8 +200,8 @@ router.post('/teach/start', route(async (req, manager) => {
     throw error;
   }
   await manager.startComputer(req.session.userId, { signal: req.signal });
-  const lease = manager.getControlLease(req.session.userId);
-  if (lease?.ownerType === 'user') manager.releaseControl(req.session.userId, lease.ownerId);
+  const lease = manager.getControlLease(req.session.userId, { provider: 'cloud' });
+  if (lease?.ownerType === 'user') manager.releaseControl(req.session.userId, lease.ownerId, { provider: 'cloud' });
   return teach(req).start(req.session.userId, {
     goal: req.body?.goal,
     agentId: req.body?.agentId || req.body?.agent_id,

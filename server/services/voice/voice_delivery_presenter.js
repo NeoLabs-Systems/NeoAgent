@@ -29,18 +29,21 @@ class VoiceDeliveryPresenter {
       presentationState,
     };
     const completesSpeechTurn = kind === 'final' || kind === 'opening';
+    const preparedChunks = Array.isArray(entry.audioChunks)
+      ? entry.audioChunks.filter((chunk) => chunk?.audioBytes?.length)
+      : [];
 
     if (!session.attached || !session.sink) {
       session.pendingDeliveries = [
         ...(session.pendingDeliveries || []).filter((item) => item.kind === 'final'),
-        { content, ...metadata },
+        { content, audioChunks: preparedChunks, ...metadata },
       ].slice(-4);
       return { presented: false, queued: true };
     }
     if (session.state === 'listening' || session.state === 'transcribing') {
       session.pendingDeliveries = [
         ...(session.pendingDeliveries || []).filter((item) => item.kind === 'final'),
-        { content, ...metadata },
+        { content, audioChunks: preparedChunks, ...metadata },
       ].slice(-4);
       return { presented: false, queued: true };
     }
@@ -53,6 +56,10 @@ class VoiceDeliveryPresenter {
       await session.adapter.presentDelivery(content, metadata);
       return { presented: true, native: true };
     }
+    if (preparedChunks.length > 0) {
+      await this.#speakPrepared(session, preparedChunks, { ...metadata, completesSpeechTurn });
+      return { presented: true, prepared: true };
+    }
     await this.#speakComposed(session, content, { ...metadata, completesSpeechTurn });
     return { presented: true, native: false };
   }
@@ -63,6 +70,24 @@ class VoiceDeliveryPresenter {
     for (const delivery of deliveries) {
       await this.present(session, delivery);
     }
+  }
+
+  async #speakPrepared(session, chunks, metadata) {
+    await session.setState(
+      metadata.completesSpeechTurn ? 'speaking' : metadata.presentationState,
+      metadata,
+    );
+    let sequence = 0;
+    for (const chunk of chunks) {
+      await session.publishAudioChunk(chunk.audioBytes, {
+        ...metadata,
+        mimeType: chunk.mimeType || 'audio/mpeg',
+        sequence,
+      });
+      sequence += 1;
+    }
+    await session.publishAudioDone({ ...metadata, totalChunks: sequence });
+    if (metadata.completesSpeechTurn) await session.setState('idle', metadata);
   }
 
   async #speakComposed(session, content, metadata) {

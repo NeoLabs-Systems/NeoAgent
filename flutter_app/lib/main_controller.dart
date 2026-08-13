@@ -3398,7 +3398,10 @@ class NeoAgentController extends ChangeNotifier {
         ),
       );
       if ((deviceTarget ?? computerProvider) == 'cloud') {
-        await _backendClient.acquireComputerControl(backendUrl);
+        await _backendClient.acquireComputerControl(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        );
         final display = await _backendClient.createComputerDisplaySession(
           backendUrl,
           deviceTarget: deviceTarget,
@@ -3452,7 +3455,10 @@ class NeoAgentController extends ChangeNotifier {
         await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
         return;
       }
-      await _backendClient.acquireComputerControl(backendUrl);
+      await _backendClient.acquireComputerControl(
+        backendUrl,
+        deviceTarget: deviceTarget,
+      );
       final display = await _backendClient.createComputerDisplaySession(
         backendUrl,
         deviceTarget: deviceTarget,
@@ -4039,12 +4045,18 @@ class NeoAgentController extends ChangeNotifier {
     String? deviceTarget,
   }) async {
     if ((deviceTarget ?? computerProvider) != 'local') return action();
-    await _backendClient.acquireComputerControl(backendUrl);
+    await _backendClient.acquireComputerControl(
+      backendUrl,
+      deviceTarget: deviceTarget ?? 'local',
+    );
     try {
       return await action();
     } finally {
       try {
-        await _backendClient.releaseComputerControl(backendUrl);
+        await _backendClient.releaseComputerControl(
+          backendUrl,
+          deviceTarget: deviceTarget ?? 'local',
+        );
       } catch (_) {}
     }
   }
@@ -7012,6 +7024,7 @@ class NeoAgentController extends ChangeNotifier {
     final socket = io.io(origin, options);
     socket.onConnect((_) {
       socketConnected = true;
+      unawaited(_AppNotificationService.requestIncomingCallPermission());
       socket.emit('integrations:status');
       if (_socketHasConnectedOnce && isAuthenticated) {
         unawaited(refresh());
@@ -7040,7 +7053,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.onDisconnect((_) {
       socketConnected = false;
-      _clearIncomingAgentCall();
       if (isSendingMessage && activeRun != null) {
         isSendingMessage = false;
         activeRun = activeRun!.copyWith(
@@ -7183,12 +7195,6 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('voice:incoming_call', (dynamic data) {
       final call = IncomingAgentCall.fromJson(_jsonMap(data));
       if (call.callId.isEmpty) return;
-      if (voiceAssistantLiveState.hasActiveSession) {
-        socket.emit('voice:call_decline', <String, dynamic>{
-          'callId': call.callId,
-        });
-        return;
-      }
       incomingAgentCall = call;
       _incomingCallExpiryTimer?.cancel();
       final delay = call.expiresAt.difference(DateTime.now());

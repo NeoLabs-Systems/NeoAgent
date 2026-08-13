@@ -104,17 +104,55 @@ test('browser, desktop, shell, and files share one computer backend', async () =
 });
 
 test('computer control leases are exclusive and expire cleanly', () => {
-  const manager = Object.create(RuntimeManager.prototype);
-  manager.controlLeases = new Map();
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+    localComputerBackend: {
+      isConnected: () => true,
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+  });
+  manager.providerModes.set('7', 'cloud');
 
   const first = manager.acquireControl(7, 'agent', 'run-1');
   assert.equal(first.ownerType, 'agent');
+  const shared = manager.acquireControl(7, 'agent', 'run-2');
+  assert.equal(shared.ownerType, 'agent');
+  assert.deepEqual(shared.ownerIds.sort(), ['run-1', 'run-2']);
   assert.throws(
     () => manager.acquireControl(7, 'user', 'session-1'),
     (error) => error.code === 'COMPUTER_CONTROL_CONFLICT',
   );
   assert.equal(manager.releaseControl(7, 'run-1'), true);
+  assert.equal(manager.getControlLease(7).ownerType, 'agent');
+  assert.equal(manager.releaseControl(7, 'run-2'), true);
   assert.equal(manager.acquireControl(7, 'teach', 'teach-1').ownerType, 'teach');
+});
+
+test('local and cloud computer leases do not block each other', () => {
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+    localComputerBackend: {
+      isConnected: () => true,
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+  });
+  manager.providerModes.set('7', 'cloud');
+
+  const cloud = manager.acquireControl(7, 'agent', 'cowork-run', { provider: 'cloud' });
+  const local = manager.acquireControl(7, 'agent', 'local-run', { provider: 'local' });
+  assert.equal(cloud.provider, 'cloud');
+  assert.equal(local.provider, 'local');
+  assert.equal(manager.getControlLease(7, { provider: 'cloud' }).ownerId, 'cowork-run');
+  assert.equal(manager.getControlLease(7, { provider: 'local' }).ownerId, 'local-run');
+  assert.throws(
+    () => manager.acquireControl(7, 'user', 'session-1', { provider: 'local' }),
+    (error) => error.code === 'COMPUTER_CONTROL_CONFLICT'
+      && /Local computer is controlled by agent/.test(error.message),
+  );
 });
 
 test('display sessions come up even when browser launch and workspace import fail', async () => {

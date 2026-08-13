@@ -61,7 +61,7 @@ class RuntimeManager {
       vmManager,
       artifactStore: this.artifactStore,
     });
-    this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId));
+    this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId, { provider: 'cloud' }));
     this.localComputerBackend = options.localComputerBackend || null;
     this.createAndroidController = options.createAndroidController
       || ((userId) => new AndroidController({
@@ -124,9 +124,12 @@ class RuntimeManager {
       error.status = 503;
       throw error;
     }
-    const lease = this.getControlLease(userId);
-    if (lease && ['agent', 'teach'].includes(lease.ownerType)) {
-      const error = new Error(`Cannot switch computers while ${lease.ownerType} control is active.`);
+    const blocking = ['cloud', 'local']
+      .map((provider) => this.getControlLease(userId, { provider }))
+      .find((lease) => lease && ['agent', 'teach'].includes(lease.ownerType));
+    if (blocking) {
+      const label = this.#computerLabel(blocking.provider);
+      const error = new Error(`Cannot switch computers while ${blocking.ownerType} control is active on the ${label.toLowerCase()}.`);
       error.code = 'COMPUTER_PROVIDER_IN_USE';
       error.status = 409;
       throw error;
@@ -186,7 +189,7 @@ class RuntimeManager {
   getComputerStatus(userId, options = {}) {
     const provider = this.resolveComputerProvider(userId, options.deviceTarget);
     const status = this._computerBackendForUser(userId, provider).vmManager.getStatus(userId);
-    const lease = this.getControlLease(userId);
+    const lease = this.getControlLease(userId, { provider });
     const controlledState = status.state === 'ready' && lease
       ? lease.ownerType === 'teach'
         ? 'teaching'
@@ -207,7 +210,13 @@ class RuntimeManager {
       },
       state: controlledState,
       control: lease
-        ? { ownerType: lease.ownerType, ownerId: lease.ownerId, expiresAt: lease.expiresAt }
+        ? {
+          ownerType: lease.ownerType,
+          ownerId: lease.ownerId,
+          ownerIds: this.#leaseOwnerIds(lease),
+          provider: lease.provider,
+          expiresAt: lease.expiresAt,
+        }
         : null,
     };
   }
@@ -286,7 +295,7 @@ class RuntimeManager {
   }
 
   async stopComputer(userId, options = {}) {
-    this.releaseControl(userId);
+    this.releaseControl(userId, null, { deviceTarget: options.deviceTarget });
     this.revokeDisplaySessions(userId);
     await this._computerBackendForUser(userId, options.deviceTarget).vmManager.killVm(userId);
     const status = this.getComputerStatus(userId, options);
@@ -380,7 +389,7 @@ class RuntimeManager {
     this.#purgeExpiredDisplaySessions();
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = Date.now() + DISPLAY_SESSION_TTL_MS;
-    const lease = this.getControlLease(key);
+    const lease = this.getControlLease(key, { provider: 'cloud' });
     const viewOnly = !lease || lease.ownerType === 'agent';
     this.displaySessions.set(token, {
       userId: key,
@@ -409,10 +418,10 @@ class RuntimeManager {
     return current === session && current?.userId === String(userId || '').trim();
   }
 
-  touchComputerActivity(userId) {
+  touchComputerActivity(userId, options = {}) {
     const key = String(userId || '').trim();
-    this._computerBackendForUser(userId).touchActivity?.(key);
-    const lease = this.getControlLease(key);
+    this._computerBackendForUser(userId, options.deviceTarget).touchActivity?.(key);
+    const lease = this.getControlLease(key, options);
     if (lease) lease.expiresAt = Date.now() + CONTROL_LEASE_TTL_MS;
   }
 
@@ -431,54 +440,142 @@ class RuntimeManager {
     }
   }
 
-  acquireControl(userId, ownerType, ownerId) {
-    const key = String(userId || '').trim();
-    const existing = this.getControlLease(key);
+  acquireControl(userId, ownerType, ownerId, options = {}) {
+    const userKey = String(userId || '').trim();
+    const provider = this.#leaseProvider(userId, options);
+    const existing = this.getControlLease(userKey, { provider });
     const normalizedOwnerType = String(ownerType || '').trim();
     const normalizedOwnerId = String(ownerId || '').trim();
     if (!['agent', 'user', 'teach'].includes(normalizedOwnerType) || !normalizedOwnerId) {
       throw new Error('A valid computer control owner is required.');
     }
-    if (
-      existing
-      && (existing.ownerType !== normalizedOwnerType || existing.ownerId !== normalizedOwnerId)
-    ) {
-      const error = new Error(`Cloud computer is controlled by ${existing.ownerType}.`);
+    if (existing && existing.ownerType !== normalizedOwnerType) {
+      const error = new Error(`${this.#computerLabel(provider)} is controlled by ${existing.ownerType}.`);
       error.code = 'COMPUTER_CONTROL_CONFLICT';
       error.status = 409;
       throw error;
     }
+    if (
+      existing
+      && existing.ownerType !== 'agent'
+      && existing.ownerId !== normalizedOwnerId
+    ) {
+      const error = new Error(`${this.#computerLabel(provider)} is controlled by ${existing.ownerType}.`);
+      error.code = 'COMPUTER_CONTROL_CONFLICT';
+      error.status = 409;
+      throw error;
+    }
+    const ownerIds = new Set(existing ? this.#leaseOwnerIds(existing) : []);
+    ownerIds.add(normalizedOwnerId);
     const lease = {
       ownerType: normalizedOwnerType,
       ownerId: normalizedOwnerId,
+      ownerIds,
+      provider,
       expiresAt: Date.now() + CONTROL_LEASE_TTL_MS,
     };
-    if (!existing) this.revokeDisplaySessions(key);
-    this.controlLeases.set(key, lease);
-    this._emitStatus(key);
-    return { ...lease, expiresAt: new Date(lease.expiresAt).toISOString() };
+    if (!existing && provider === 'cloud') this.revokeDisplaySessions(userKey);
+    this.controlLeases.set(this.#controlKey(userKey, provider), lease);
+    this._emitStatus(userKey);
+    return {
+      ownerType: lease.ownerType,
+      ownerId: lease.ownerId,
+      ownerIds: [...ownerIds],
+      provider,
+      expiresAt: new Date(lease.expiresAt).toISOString(),
+    };
   }
 
-  getControlLease(userId) {
-    const key = String(userId || '').trim();
-    const lease = this.controlLeases.get(key);
+  getControlLease(userId, options = {}) {
+    const userKey = String(userId || '').trim();
+    const provider = this.#leaseProvider(userId, options);
+    const key = this.#controlKey(userKey, provider);
+    let lease = this.controlLeases.get(key);
+    if (!lease && !options.provider && !options.deviceTarget) {
+      lease = this.controlLeases.get(userKey) || null;
+    }
     if (!lease) return null;
     if (lease.expiresAt <= Date.now()) {
       this.controlLeases.delete(key);
-      this.revokeDisplaySessions(key);
+      this.controlLeases.delete(userKey);
+      if (provider === 'cloud') this.revokeDisplaySessions(userKey);
       return null;
+    }
+    if (!lease.provider) lease.provider = provider;
+    if (!(lease.ownerIds instanceof Set)) {
+      lease.ownerIds = new Set(lease.ownerId ? [lease.ownerId] : []);
     }
     return lease;
   }
 
-  releaseControl(userId, ownerId = null) {
-    const key = String(userId || '').trim();
-    const lease = this.controlLeases.get(key);
+  releaseControl(userId, ownerId = null, options = {}) {
+    const userKey = String(userId || '').trim();
+    const scoped = options.provider || options.deviceTarget;
+    const providers = scoped
+      ? [this.#leaseProvider(userId, options)]
+      : ['cloud', 'local'];
+    let released = false;
+    for (const provider of providers) {
+      if (this.#releaseProviderControl(userKey, provider, ownerId)) released = true;
+    }
+    if (!scoped && ownerId == null) {
+      const legacy = this.controlLeases.get(userKey);
+      if (legacy) {
+        this.controlLeases.delete(userKey);
+        this.revokeDisplaySessions(userKey);
+        released = true;
+      }
+    }
+    if (released) this._emitStatus(userKey);
+    return released;
+  }
+
+  #leaseProvider(userId, options = {}) {
+    if (options === 'local' || options === 'cloud') return options;
+    return this.resolveComputerProvider(
+      userId,
+      options.deviceTarget || options.provider || null,
+    );
+  }
+
+  #controlKey(userId, provider) {
+    return `${String(userId || '').trim()}:${provider}`;
+  }
+
+  #computerLabel(provider) {
+    return provider === 'local' ? 'Local computer' : 'Cloud computer';
+  }
+
+  #leaseOwnerIds(lease) {
+    if (lease?.ownerIds instanceof Set) return [...lease.ownerIds];
+    if (Array.isArray(lease?.ownerIds)) return lease.ownerIds.map(String);
+    return lease?.ownerId ? [String(lease.ownerId)] : [];
+  }
+
+  #releaseProviderControl(userId, provider, ownerId) {
+    const key = this.#controlKey(userId, provider);
+    const lease = this.controlLeases.get(key) || (
+      provider === this.getComputerProvider(userId) ? this.controlLeases.get(userId) : null
+    );
     if (!lease) return false;
-    if (ownerId != null && lease.ownerId !== String(ownerId)) return false;
-    this.controlLeases.delete(key);
-    this.revokeDisplaySessions(key);
-    this._emitStatus(key);
+    if (ownerId == null) {
+      this.controlLeases.delete(key);
+      this.controlLeases.delete(userId);
+      if (provider === 'cloud') this.revokeDisplaySessions(userId);
+      return true;
+    }
+    const ownerIds = new Set(this.#leaseOwnerIds(lease));
+    if (!ownerIds.has(String(ownerId))) return false;
+    ownerIds.delete(String(ownerId));
+    if (ownerIds.size === 0) {
+      this.controlLeases.delete(key);
+      this.controlLeases.delete(userId);
+      if (provider === 'cloud') this.revokeDisplaySessions(userId);
+      return true;
+    }
+    lease.ownerIds = ownerIds;
+    lease.ownerId = [...ownerIds][ownerIds.size - 1];
+    this.controlLeases.set(key, lease);
     return true;
   }
 

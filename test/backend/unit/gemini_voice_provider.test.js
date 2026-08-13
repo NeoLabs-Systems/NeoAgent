@@ -183,3 +183,50 @@ test('voice delivery keeps provider diagnostics out of the recoverable UI error'
     global.fetch = previousFetch;
   }
 });
+
+test('voice delivery plays pre-generated opening speech instead of synthesizing again', async () => {
+  const published = [];
+  const states = [];
+  const session = {
+    attached: true,
+    sink: {},
+    state: 'idle',
+    signal: new AbortController().signal,
+    currentTurnId: '',
+    platform: 'flutter',
+    voiceSettings: {
+      mediaMode: 'composed',
+      ttsProvider: 'openai',
+      ttsModel: 'gpt-4o-mini-tts',
+      ttsVoice: 'marin',
+    },
+    async setState(state) { states.push(state); },
+    async publishAssistantText(content) { published.push({ type: 'text', content }); },
+    async publishAudioChunk(bytes, options) {
+      published.push({ type: 'audio', bytes, mimeType: options.mimeType, sequence: options.sequence });
+    },
+    async publishAudioDone(options) { published.push({ type: 'done', totalChunks: options.totalChunks }); },
+    async publishError() { throw new Error('prepared speech should not fall back to live TTS'); },
+  };
+
+  const first = Buffer.from('one');
+  const second = Buffer.from('two');
+  const result = await new VoiceDeliveryPresenter().present(session, {
+    content: 'The build is green.',
+    kind: 'opening',
+    messageId: 'opening-1',
+    audioChunks: [
+      { audioBytes: first, mimeType: 'audio/wav' },
+      { audioBytes: second, mimeType: 'audio/wav' },
+    ],
+  });
+
+  assert.equal(result.presented, true);
+  assert.equal(result.prepared, true);
+  assert.deepEqual(published.map((item) => item.type), ['text', 'audio', 'audio', 'done']);
+  assert.equal(published[0].content, 'The build is green.');
+  assert.equal(published[1].bytes, first);
+  assert.equal(published[2].bytes, second);
+  assert.equal(published[3].totalChunks, 2);
+  assert.deepEqual(states, ['working', 'speaking', 'idle']);
+});

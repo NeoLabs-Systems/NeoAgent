@@ -1711,7 +1711,12 @@ async function executeTool(toolName, args, context, engine) {
     if (computerTool) {
         const manager = runtime();
         if (manager && typeof manager.acquireControl === 'function') {
-            manager.acquireControl(userId, 'agent', String(runId || stepId || agentId));
+            manager.acquireControl(
+                userId,
+                'agent',
+                String(runId || stepId || agentId),
+                { deviceTarget },
+            );
         }
     }
 

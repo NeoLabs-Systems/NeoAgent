@@ -246,6 +246,7 @@ function setupWebSocket(io, services) {
     const allowEvent = createSocketRateLimiter(userRateLimitStates.get(userId));
 
     console.log(`[WS] User ${userId} connected (${socket.id})`);
+    agentCallCoordinator?.offerPendingCall?.(socket, userId);
 
     // ── Agent Events ──
 

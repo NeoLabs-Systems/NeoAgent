@@ -864,12 +864,22 @@ class BackendClient {
     });
   }
 
-  Future<Map<String, dynamic>> acquireComputerControl(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/computer/control/acquire');
+  Future<Map<String, dynamic>> acquireComputerControl(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return postMap(baseUrl, '/api/computer/control/acquire', <String, dynamic>{
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
   }
 
-  Future<Map<String, dynamic>> releaseComputerControl(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/computer/control/release');
+  Future<Map<String, dynamic>> releaseComputerControl(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return postMap(baseUrl, '/api/computer/control/release', <String, dynamic>{
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
   }
 
   Future<Map<String, dynamic>> launchComputerApp(
