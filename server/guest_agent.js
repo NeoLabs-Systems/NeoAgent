@@ -583,7 +583,7 @@ app.post('/desktop/ensure', async (_req, res) => {
         'autologin-user-timeout=0',
         'autologin-session=openbox',
         'user-session=openbox',
-        'xserver-command=X -nolisten tcp vt7',
+        'xserver-command=X -nolisten tcp vt1',
         'display-setup-script=/usr/local/bin/neoagent-display-setup',
         '',
       ].join('\n'),
@@ -610,6 +610,8 @@ app.post('/desktop/ensure', async (_req, res) => {
         ].join('\n'),
       );
     }
+    runSudo(['systemctl', 'stop', 'getty@tty1.service']);
+    runSudo(['systemctl', 'mask', 'getty@tty1.service']);
     runSudo(['systemctl', 'set-default', 'graphical.target']);
     runSudo(['systemctl', 'enable', 'lightdm.service', 'neoagent-desktop-seat.service']);
     const restart = runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
@@ -617,7 +619,7 @@ app.post('/desktop/ensure', async (_req, res) => {
       throw new Error(String(restart.stderr || restart.stdout || 'LightDM failed to restart').trim());
     }
     if (await waitForDisplay(12000)) {
-      runSudo(['chvt', '7']);
+      runSudo(['chvt', '1']);
       return { available: true, display: ':0', fallback: framebufferOnly ? 'fbdev' : null };
     }
 
@@ -642,7 +644,7 @@ app.post('/desktop/ensure', async (_req, res) => {
     );
     runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
     if (await waitForDisplay(12000)) {
-      runSudo(['chvt', '7']);
+      runSudo(['chvt', '1']);
       return { available: true, display: ':0', fallback: 'fbdev' };
     }
 

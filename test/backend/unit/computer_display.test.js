@@ -52,7 +52,7 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.ok(paths.includes('/etc/lightdm/lightdm.conf.d/50-neoagent.conf'));
   assert.ok(paths.includes('/etc/systemd/system/neoagent-desktop-seat.service'));
   const lightdm = systemFiles.find((file) => file.path.endsWith('50-neoagent.conf')).content;
-  assert.match(lightdm, /xserver-command=X -nolisten tcp vt7/);
+  assert.match(lightdm, /xserver-command=X -nolisten tcp vt1/);
   assert.doesNotMatch(lightdm, /-core/);
   assert.match(lightdm, /autologin-session=openbox/);
   assert.equal(lightdm, guestLightDmConfig());
@@ -65,8 +65,12 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(ensure, /rm -f \/etc\/X11\/xorg\.conf\.d\/10-neoagent-display\.conf/);
   assert.match(ensure, /xdpyinfo/);
   assert.match(ensure, /Driver "fbdev"/);
+  assert.match(ensure, /getty@tty1/);
+  assert.match(ensure, /chvt 1/);
+  assert.doesNotMatch(ensure, /chvt 7/);
   assert.match(guestDesktopRepairCommand(), /xdpyinfo/);
   assert.match(guestDesktopRepairCommand(), /\/dev\/fb0/);
+  assert.match(guestDesktopRepairCommand(), /getty@tty1/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),

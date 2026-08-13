@@ -73,10 +73,11 @@ test('computer cloud-init starts one owned desktop after cloud-init without an o
   });
 
   assert.match(userData, /\[LightDM\]\s+start-default-seat=true\s+logind-check-graphical=false/);
-  assert.match(userData, /xserver-command=X -nolisten tcp vt7/);
+  assert.match(userData, /xserver-command=X -nolisten tcp vt1/);
   assert.doesNotMatch(userData, /xserver-command=X -core/);
   assert.match(userData, /systemctl set-default graphical\.target/);
-  assert.match(userData, /chvt 7/);
+  assert.match(userData, /chvt 1/);
+  assert.match(userData, /getty@tty1/);
   assert.match(userData, /1280x720/);
   assert.match(userData, /tint2 -c \/etc\/xdg\/tint2\/tint2rc/);
   assert.match(userData, /chown neo:neo \/home\/neo/);

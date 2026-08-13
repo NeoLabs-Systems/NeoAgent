@@ -47,13 +47,15 @@ function guestDesktopRepairCommand() {
     'systemctl set-default graphical.target || true',
     'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
     'systemctl restart lightdm.service || true',
+    'systemctl stop getty@tty1.service || true',
+    'systemctl mask getty@tty1.service || true',
     'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 7 || true; exit 0; fi; sleep 1; done',
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; exit 0; fi; sleep 1; done',
     'if [ -e /dev/fb0 ]; then'
       + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf;`
       + ' systemctl restart lightdm.service || true;'
       + ' for i in 1 2 3 4 5 6 7 8; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 7 || true; exit 0; fi; sleep 1; done; fi',
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; exit 0; fi; sleep 1; done; fi',
     'exit 1',
   ].join(' ; ');
   return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;
@@ -69,7 +71,7 @@ autologin-user=neo
 autologin-user-timeout=0
 autologin-session=openbox
 user-session=openbox
-xserver-command=X -nolisten tcp vt7
+xserver-command=X -nolisten tcp vt1
 display-setup-script=/usr/local/bin/neoagent-display-setup
 `;
 }
@@ -85,7 +87,7 @@ chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
     fileEntry('/usr/local/bin/neoagent-display-setup', `#!/bin/sh
-chvt 7 >/dev/null 2>&1 || true
+chvt 1 >/dev/null 2>&1 || true
 output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
 [ -n "$output" ] || exit 0
 if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
@@ -109,12 +111,14 @@ cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
 ${guestFbdevXorgConfig().replace(/\n$/, '')}
 FBDEV
 fi
+systemctl stop getty@tty1.service >/dev/null 2>&1 || true
+systemctl mask getty@tty1.service >/dev/null 2>&1 || true
 systemctl set-default graphical.target >/dev/null 2>&1 || true
 systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
 systemctl restart lightdm.service >/dev/null 2>&1 || true
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
-    chvt 7 >/dev/null 2>&1 || true
+    chvt 1 >/dev/null 2>&1 || true
     exit 0
   fi
   sleep 1
@@ -126,7 +130,7 @@ FBDEV
   systemctl restart lightdm.service >/dev/null 2>&1 || true
   for _ in 1 2 3 4 5 6 7 8; do
     if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
-      chvt 7 >/dev/null 2>&1 || true
+      chvt 1 >/dev/null 2>&1 || true
       exit 0
     fi
     sleep 1
@@ -142,7 +146,7 @@ Wants=lightdm.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/chvt 7
+ExecStart=/bin/chvt 1
 RemainAfterExit=yes
 
 [Install]
@@ -154,7 +158,7 @@ WantedBy=multi-user.target
     fileEntry('/etc/xdg/openbox/autostart', `xset -dpms
 xset s off
 xset s noblank
-chvt 7 >/dev/null 2>&1 || true
+chvt 1 >/dev/null 2>&1 || true
 /usr/local/bin/neoagent-display-setup || true
 pcmanfm --desktop --profile neoagent &
 tint2 -c /etc/xdg/tint2/tint2rc &
