@@ -56,70 +56,59 @@ class _DevicesPanelState extends State<DevicesPanel> {
         child: _buildComputer(context),
       );
     }
-    return DefaultTabController(
-      length: 2,
-      initialIndex: _device.index,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('Devices', style: theme.textTheme.titleLarge),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Use a full computer or Android device with NeoAgent.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('DEVICES', style: _sectionEyebrowStyle()),
+                    const SizedBox(height: 4),
+                    Text('Devices', style: _displayTitleStyle(26)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A private Linux computer or an Android device.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: _textSecondary,
+                        height: 1.4,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  tooltip: 'Refresh',
-                  onPressed: widget.controller.isRefreshingDevices
-                      ? null
-                      : () => widget.controller.refreshDevices(
-                          deviceTarget: widget.deviceTarget,
-                        ),
-                  icon: widget.controller.isRefreshingDevices
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
               ),
-              child: TabBar(
-                onTap: (index) =>
-                    setState(() => _device = _DeviceTab.values[index]),
-                tabs: const <Tab>[
-                  Tab(icon: Icon(Icons.computer_rounded), text: 'Computer'),
-                  Tab(icon: Icon(Icons.android_rounded), text: 'Android'),
-                ],
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: widget.controller.isRefreshingDevices
+                    ? null
+                    : () => widget.controller.refreshDevices(
+                        deviceTarget: widget.deviceTarget,
+                      ),
+                icon: widget.controller.isRefreshingDevices
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.refresh_rounded, color: _textSecondary),
               ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _device == _DeviceTab.computer
-                  ? _buildComputer(context)
-                  : _buildAndroid(context),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _DeviceSurfaceSwitch(
+            value: _device,
+            onChanged: (value) => setState(() => _device = value),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _device == _DeviceTab.computer
+                ? _buildComputer(context)
+                : _buildAndroid(context),
+          ),
+        ],
       ),
     );
   }
@@ -473,6 +462,94 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 }
 
+class _DeviceSurfaceSwitch extends StatelessWidget {
+  const _DeviceSurfaceSwitch({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final _DeviceTab value;
+  final ValueChanged<_DeviceTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassSurface(
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      blurSigma: 16,
+      fillColor: _bgSecondary.withValues(alpha: 0.78),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _DeviceSurfacePill(
+              selected: value == _DeviceTab.computer,
+              icon: Icons.computer_rounded,
+              label: 'Computer',
+              onTap: () => onChanged(_DeviceTab.computer),
+            ),
+          ),
+          Expanded(
+            child: _DeviceSurfacePill(
+              selected: value == _DeviceTab.android,
+              icon: Icons.android_rounded,
+              label: 'Android',
+              onTap: () => onChanged(_DeviceTab.android),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeviceSurfacePill extends StatelessWidget {
+  const _DeviceSurfacePill({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? _accent : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? _bgPrimary : _textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _bgPrimary : _textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ComputerToolbar extends StatelessWidget {
   const _ComputerToolbar({
     required this.provider,
@@ -546,28 +623,37 @@ class _ComputerToolbar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         if (showProviderPicker)
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: <ButtonSegment<String>>[
-              const ButtonSegment<String>(
-                value: 'cloud',
-                icon: Icon(Icons.cloud_rounded, size: 18),
-                label: Text('Cloud'),
-              ),
-              ButtonSegment<String>(
-                value: 'local',
-                enabled: localSupported,
-                icon: const Icon(Icons.laptop_rounded, size: 18),
-                label: const Text('This device'),
-                tooltip: localSupported
-                    ? 'Let NeoAgent work on this computer'
-                    : 'Available in the desktop app for macOS, Windows and Linux',
-              ),
-            ],
-            selected: <String>{provider},
-            onSelectionChanged: busy
-                ? null
-                : (selection) => onProviderChanged(selection.first),
+          _GlassSurface(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            fillColor: _bgSecondary.withValues(alpha: 0.86),
+            padding: const EdgeInsets.all(3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                _DeviceSurfacePill(
+                  selected: provider == 'cloud',
+                  icon: Icons.cloud_rounded,
+                  label: 'Cloud',
+                  onTap: busy ? null : () => onProviderChanged('cloud'),
+                ),
+                Tooltip(
+                  message: localSupported
+                      ? 'Let NeoAgent work on this computer'
+                      : 'Available in the desktop app for macOS, Windows and Linux',
+                  child: Opacity(
+                    opacity: localSupported ? 1 : 0.45,
+                    child: _DeviceSurfacePill(
+                      selected: provider == 'local',
+                      icon: Icons.laptop_rounded,
+                      label: 'This device',
+                      onTap: busy || !localSupported
+                          ? null
+                          : () => onProviderChanged('local'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         if (onTeach != null)
           OutlinedButton.icon(

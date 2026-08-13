@@ -26,9 +26,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(Tab), findsNWidgets(2));
-    expect(find.widgetWithText(Tab, 'Computer'), findsOneWidget);
-    expect(find.widgetWithText(Tab, 'Android'), findsOneWidget);
+    expect(find.text('Computer'), findsOneWidget);
+    expect(find.text('Android'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Browser'), findsNothing);
     expect(find.widgetWithText(Tab, 'Desktop'), findsNothing);
     expect(find.widgetWithText(Tab, 'Files'), findsNothing);
@@ -159,8 +158,8 @@ void main() {
     );
     expect(find.widgetWithText(OutlinedButton, 'Files'), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'Terminal'), findsNothing);
-    expect(find.widgetWithText(Tab, 'Computer'), findsOneWidget);
-    expect(find.widgetWithText(Tab, 'Android'), findsOneWidget);
+    expect(find.text('Computer'), findsOneWidget);
+    expect(find.text('Android'), findsOneWidget);
   });
 
   testWidgets('storage errors are not presented as a capacity queue', (

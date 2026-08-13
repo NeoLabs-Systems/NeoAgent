@@ -13,6 +13,7 @@ const {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
+  guestDesktopBringUpCommand,
   renderDesktopFileCommands,
 } = require('../../../server/services/runtime/guest_desktop');
 const { createCloudInitUserData } = require('../../../server/services/runtime/guest_bootstrap');
@@ -46,6 +47,7 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.ok(paths.includes('/etc/xdg/tint2/tint2rc'));
   assert.ok(paths.includes('/etc/xdg/openbox/rc.xml'));
   assert.ok(paths.includes('/usr/local/bin/neoagent-display-setup'));
+  assert.ok(paths.includes('/etc/X11/xorg.conf.d/10-neoagent-display.conf'));
   assert.ok(paths.includes('/etc/lightdm/lightdm.conf.d/50-neoagent.conf'));
   assert.ok(paths.includes('/etc/systemd/system/neoagent-desktop-seat.service'));
   const lightdm = systemFiles.find((file) => file.path.endsWith('50-neoagent.conf')).content;
@@ -55,7 +57,13 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(tint2, /panel_position = bottom center horizontal/);
   assert.match(tint2, /neoagent-chromium\.desktop/);
   const setup = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-display-setup').content;
+  const xorg = systemFiles.find((file) => file.path === '/etc/X11/xorg.conf.d/10-neoagent-display.conf').content;
   assert.match(setup, /1280x720/);
+  assert.match(xorg, /PreferredMode/);
+  assert.match(xorg, /1280x720/);
+  assert.match(xorg, /Driver "modesetting"/);
+  assert.match(guestDesktopBringUpCommand(), /base64 -d/);
+  assert.match(guestDesktopBringUpCommand(), /lightdm\.service/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),

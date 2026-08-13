@@ -279,7 +279,7 @@ function createCloudInitScript({
       ? [
         'echo "Configuring the lightweight Linux desktop..."',
         'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/chromium/policies/managed /etc/apt/apt.conf.d /etc/apt/preferences.d /etc/security/limits.d /etc/profile.d /etc/systemd/system/user-1000.slice.d',
-        'rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf',
+        'install -d -m 0755 /etc/X11/xorg.conf.d',
         'cat > /etc/chromium/policies/managed/neoagent.json <<\'EOF\'',
         '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
         'EOF',
