@@ -76,10 +76,9 @@ describe('runtime, settings, memory, tasks, and messaging routes', () => {
     await client.post(`/api/tasks/${task.body.id}/run`).expect(200);
   });
 
-  test('messaging, desktop, browser, android, and social routes are reachable with fakes', async () => {
+  test('messaging, computer, android, and social routes are reachable with fakes', async () => {
     await client.get('/api/messaging/status').expect(200);
-    await client.get('/api/desktop/status').expect(200);
-    await client.get('/api/browser/status').expect(200);
+    await client.get('/api/computer/status').expect(200);
     await client.get('/api/android/status').expect(200);
     await client.get('/api/social-video/health').expect(200);
   });

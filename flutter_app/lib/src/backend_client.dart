@@ -728,161 +728,98 @@ class BackendClient {
     return getMap(baseUrl, '/api/system/test/cli');
   }
 
-  Future<Map<String, dynamic>> testExtension(String baseUrl) async {
-    return getMap(baseUrl, '/api/system/test/extension');
+  Future<Map<String, dynamic>> testComputer(String baseUrl) async {
+    return getMap(baseUrl, '/api/system/test/computer');
   }
 
-  Future<Map<String, dynamic>> testDesktop(String baseUrl) async {
-    return getMap(baseUrl, '/api/system/test/desktop');
+  Future<Map<String, dynamic>> fetchComputerStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/computer/status');
   }
 
-  Future<Map<String, dynamic>> fetchBrowserStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/browser/status');
+  Future<Map<String, dynamic>> setComputerProvider(
+    String baseUrl,
+    String provider,
+  ) async {
+    return putMap(baseUrl, '/api/computer/provider', <String, dynamic>{
+      'provider': provider,
+    });
   }
 
-  Future<Map<String, dynamic>> fetchBrowserExtensionStatus(
+  Future<Map<String, dynamic>> startComputer(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/computer/start');
+  }
+
+  Future<Map<String, dynamic>> stopComputer(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/computer/stop');
+  }
+
+  Future<Map<String, dynamic>> createComputerDisplaySession(
     String baseUrl,
   ) async {
-    return getMap(baseUrl, '/api/browser-extension/status');
+    return _postEmpty(baseUrl, '/api/computer/display-session');
   }
 
-  Future<Map<String, dynamic>> selectBrowserExtensionToken(
+  Future<Map<String, dynamic>> acquireComputerControl(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/computer/control/acquire');
+  }
+
+  Future<Map<String, dynamic>> releaseComputerControl(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/computer/control/release');
+  }
+
+  Future<Map<String, dynamic>> launchComputerApp(
     String baseUrl, {
-    required String tokenId,
+    required String app,
   }) async {
-    return postMap(
+    return postMap(baseUrl, '/api/computer/desktop/launch', <String, dynamic>{
+      'app': app,
+    });
+  }
+
+  Future<Map<String, dynamic>> executeComputerCommand(
+    String baseUrl, {
+    required String command,
+    String? cwd,
+  }) async {
+    return postMap(baseUrl, '/api/computer/shell/execute', <String, dynamic>{
+      'command': command,
+      if (cwd?.trim().isNotEmpty == true) 'cwd': cwd!.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchTeachStatus(String baseUrl) async {
+    return getMap(baseUrl, '/api/computer/teach/status');
+  }
+
+  Future<Map<String, dynamic>> startTeach(
+    String baseUrl, {
+    required String goal,
+    String? agentId,
+  }) async {
+    return postMap(baseUrl, '/api/computer/teach/start', <String, dynamic>{
+      'goal': goal,
+      if (agentId?.trim().isNotEmpty == true) 'agentId': agentId!.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> stopTeach(
+    String baseUrl, {
+    required String sessionId,
+  }) async {
+    return _postEmpty(
       baseUrl,
-      '/api/browser-extension/select-token',
-      <String, dynamic>{'tokenId': tokenId},
+      '/api/computer/teach/${Uri.encodeComponent(sessionId)}/stop',
     );
   }
 
-  Future<Map<String, dynamic>> launchBrowser(
+  Future<Map<String, dynamic>> cancelTeach(
     String baseUrl, {
-    Map<String, dynamic>? payload,
+    required String sessionId,
   }) async {
-    return postMap(
+    return _postEmpty(
       baseUrl,
-      '/api/browser/launch',
-      payload ?? const <String, dynamic>{},
+      '/api/computer/teach/${Uri.encodeComponent(sessionId)}/cancel',
     );
-  }
-
-  Future<Map<String, dynamic>> navigateBrowser(
-    String baseUrl, {
-    required String url,
-    String? waitFor,
-  }) async {
-    return postMap(baseUrl, '/api/browser/navigate', <String, dynamic>{
-      'url': url,
-      if (waitFor != null && waitFor.isNotEmpty) 'waitFor': waitFor,
-    });
-  }
-
-  Future<Map<String, dynamic>> clickBrowser(
-    String baseUrl, {
-    String? selector,
-    String? text,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/click', <String, dynamic>{
-      if (selector != null && selector.isNotEmpty) 'selector': selector,
-      if (text != null && text.isNotEmpty) 'text': text,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> clickBrowserPoint(
-    String baseUrl, {
-    required int x,
-    required int y,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/click-point', <String, dynamic>{
-      'x': x,
-      'y': y,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> hoverBrowserPoint(
-    String baseUrl, {
-    required int x,
-    required int y,
-  }) async {
-    return postMap(baseUrl, '/api/browser/mouse-move', <String, dynamic>{
-      'x': x,
-      'y': y,
-    });
-  }
-
-  Future<Map<String, dynamic>> fillBrowser(
-    String baseUrl, {
-    required String selector,
-    required String value,
-    bool clear = true,
-    bool pressEnter = false,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/fill', <String, dynamic>{
-      'selector': selector,
-      'value': value,
-      'clear': clear,
-      'pressEnter': pressEnter,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> typeBrowserText(
-    String baseUrl, {
-    required String text,
-    bool pressEnter = false,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/type-text', <String, dynamic>{
-      'text': text,
-      'pressEnter': pressEnter,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> pressBrowserKey(
-    String baseUrl, {
-    required String key,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/press-key', <String, dynamic>{
-      'key': key,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> scrollBrowser(
-    String baseUrl, {
-    int deltaX = 0,
-    int deltaY = 0,
-    bool screenshot = true,
-  }) async {
-    return postMap(baseUrl, '/api/browser/scroll', <String, dynamic>{
-      'deltaX': deltaX,
-      'deltaY': deltaY,
-      'screenshot': screenshot,
-    });
-  }
-
-  Future<Map<String, dynamic>> screenshotBrowser(
-    String baseUrl, {
-    bool fullPage = false,
-    String? selector,
-  }) async {
-    return postMap(baseUrl, '/api/browser/screenshot', <String, dynamic>{
-      'fullPage': fullPage,
-      if (selector != null && selector.isNotEmpty) 'selector': selector,
-    });
-  }
-
-  Future<Map<String, dynamic>> closeBrowser(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/browser/close');
   }
 
   Future<Map<String, dynamic>> startStream(
@@ -933,16 +870,8 @@ class BackendClient {
     return getMap(baseUrl, '/api/android/status');
   }
 
-  Future<Map<String, dynamic>> fetchDesktopStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/desktop/status');
-  }
-
   Future<Map<String, dynamic>> fetchRateLimitDiagnostics(String baseUrl) async {
     return getMap(baseUrl, '/api/diagnostics/rate-limits');
-  }
-
-  Future<Map<String, dynamic>> fetchDesktopDevices(String baseUrl) async {
-    return getMap(baseUrl, '/api/desktop/devices');
   }
 
   Future<Map<String, dynamic>> fetchWorkspaceDirectory(
@@ -951,7 +880,7 @@ class BackendClient {
   }) async {
     return getMap(
       baseUrl,
-      '/api/workspace/files?path=${Uri.encodeQueryComponent(path)}',
+      '/api/computer/files?path=${Uri.encodeQueryComponent(path)}',
     );
   }
 
@@ -961,7 +890,7 @@ class BackendClient {
   }) async {
     return getMap(
       baseUrl,
-      '/api/workspace/files/content?path=${Uri.encodeQueryComponent(path)}',
+      '/api/computer/files/content?path=${Uri.encodeQueryComponent(path)}',
     );
   }
 
@@ -970,179 +899,14 @@ class BackendClient {
     required String path,
     required String content,
   }) async {
-    return putMap(baseUrl, '/api/workspace/files/content', <String, dynamic>{
+    return putMap(baseUrl, '/api/computer/files/content', <String, dynamic>{
       'path': path,
       'content': content,
     });
   }
 
   String workspaceDownloadPath(String path) {
-    return '/api/workspace/files/download?path=${Uri.encodeQueryComponent(path)}';
-  }
-
-  Future<Map<String, dynamic>> selectDesktopDevice(
-    String baseUrl, {
-    required String deviceId,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/select-device', <String, dynamic>{
-      'deviceId': deviceId,
-    });
-  }
-
-  Future<Map<String, dynamic>> screenshotDesktop(
-    String baseUrl, {
-    String? deviceId,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/screenshot', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-    });
-  }
-
-  Future<Map<String, dynamic>> observeDesktop(
-    String baseUrl, {
-    String? deviceId,
-    bool includeTree = false,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/observe', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'includeTree': includeTree,
-    });
-  }
-
-  Future<Map<String, dynamic>> clickDesktop(
-    String baseUrl, {
-    String? deviceId,
-    required int x,
-    required int y,
-    String? button,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/click', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'x': x,
-      'y': y,
-      if (button != null && button.isNotEmpty) 'button': button,
-    });
-  }
-
-  Future<Map<String, dynamic>> hoverDesktop(
-    String baseUrl, {
-    String? deviceId,
-    required int x,
-    required int y,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/mouse-move', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'x': x,
-      'y': y,
-    });
-  }
-
-  Future<Map<String, dynamic>> dragDesktop(
-    String baseUrl, {
-    String? deviceId,
-    required int x1,
-    required int y1,
-    required int x2,
-    required int y2,
-    int durationMs = 280,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/drag', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'x1': x1,
-      'y1': y1,
-      'x2': x2,
-      'y2': y2,
-      'durationMs': durationMs,
-    });
-  }
-
-  Future<Map<String, dynamic>> scrollDesktop(
-    String baseUrl, {
-    String? deviceId,
-    int deltaX = 0,
-    int deltaY = 0,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/scroll', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'deltaX': deltaX,
-      'deltaY': deltaY,
-    });
-  }
-
-  Future<Map<String, dynamic>> typeDesktopText(
-    String baseUrl, {
-    String? deviceId,
-    required String text,
-    bool pressEnter = false,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/type-text', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'text': text,
-      'pressEnter': pressEnter,
-    });
-  }
-
-  Future<Map<String, dynamic>> pressDesktopKey(
-    String baseUrl, {
-    String? deviceId,
-    required String key,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/press-key', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'key': key,
-    });
-  }
-
-  Future<Map<String, dynamic>> launchDesktopApp(
-    String baseUrl, {
-    String? deviceId,
-    required String app,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/launch-app', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'app': app,
-    });
-  }
-
-  Future<Map<String, dynamic>> fetchDesktopDisplays(
-    String baseUrl, {
-    String? deviceId,
-  }) async {
-    final query = deviceId != null && deviceId.isNotEmpty
-        ? '?deviceId=${Uri.encodeQueryComponent(deviceId)}'
-        : '';
-    return getMap(baseUrl, '/api/desktop/displays$query');
-  }
-
-  Future<Map<String, dynamic>> selectDesktopDisplay(
-    String baseUrl, {
-    String? deviceId,
-    required String displayId,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/select-display', <String, dynamic>{
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-      'displayId': displayId,
-    });
-  }
-
-  Future<Map<String, dynamic>> revokeDesktopDevice(
-    String baseUrl, {
-    required String deviceId,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/revoke-device', <String, dynamic>{
-      'deviceId': deviceId,
-    });
-  }
-
-  Future<Map<String, dynamic>> pauseDesktopDevice(
-    String baseUrl, {
-    required String deviceId,
-    bool paused = true,
-  }) async {
-    return postMap(baseUrl, '/api/desktop/pause-device', <String, dynamic>{
-      'deviceId': deviceId,
-      'paused': paused,
-    });
+    return '/api/computer/files/download?path=${Uri.encodeQueryComponent(path)}';
   }
 
   Future<Map<String, dynamic>> fetchAndroidApps(

@@ -14,7 +14,6 @@ const PUBLIC_ROUTES = new Set([
   'GET /api/auth/providers/complete',
   'GET /api/auth/email/confirm',
   'GET /api/auth/password/reset',
-  'GET /api/browser-extension/latest',
   'GET /api/public/status',
   'GET /api/runtime/config',
   'GET /api/settings/meta/models',
@@ -34,8 +33,6 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/register',
   'POST /api/auth/webauthn/login/options',
   'POST /api/auth/webauthn/login/verify',
-  'POST /api/browser-extension/pairing/request',
-  'POST /api/browser-extension/pairing/:pairingId/claim',
   'POST /api/messaging/webhook/:platform',
 ]);
 
@@ -59,8 +56,7 @@ function concrete(route) {
     .replace(/:sourceKey/g, 'mic')
     .replace(/:key/g, 'default_chat_model')
     .replace(/:service/g, 'openai')
-    .replace(/:name/g, 'missing-skill')
-    .replace(/:pairingId/g, 'missing-pairing');
+    .replace(/:name/g, 'missing-skill');
 }
 
 function classify(route) {

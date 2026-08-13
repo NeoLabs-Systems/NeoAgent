@@ -38,11 +38,11 @@ See [Configuration](configuration.md#service-email) for the server variables.
 ## Isolation model
 
 Application data is scoped by user and, where applicable, agent. The default
-browser and terminal runtime is created per user. Official integration
+Linux computer is created per user. Official integration
 credentials remain server-side and are assigned to a particular user and
 agent.
 
 This is application and runtime isolation, not a promise that every capability
-runs inside a VM. Android commands run through ADB on the NeoAgent host, and a
-paired desktop or Chrome profile grants access to that paired machine. Read
+runs inside a VM. Android commands run through ADB on the NeoAgent host, while
+the persistent Linux computer grants access to its guest data and sessions. Read
 [Security boundaries](security-boundaries.md) before hosting untrusted users.

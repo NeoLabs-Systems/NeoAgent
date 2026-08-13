@@ -1,52 +1,65 @@
 # Runtime and tool execution
 
-The runtime manager selects where browser, shell, desktop, and Android actions
-execute. Tool security is checked before dispatch, independent of the model
-that requested the action.
+Tool security is checked before dispatch, independent of the model that
+requested an action.
 
-## Browser and shell
+## Unified computer runtime
 
-The default browser and CLI backend is a per-user isolated runtime managed by
-the server. It exposes a guest agent authenticated with a generated token and
-stores artifacts through the server artifact service.
+Browser, desktop, shell, and workspace tools use one provider selected for the
+user's **Computer**: `CloudQemuComputerProvider` or the outbound authenticated
+desktop-app bridge. Provider selection happens once at the runtime boundary;
+the agent tools, control leases, file panels, shell, and browser/desktop loop
+do not maintain parallel implementations or silently fall back.
 
-Browser settings can select a paired Chrome extension. CLI settings can select
-a paired desktop companion. If the requested paired backend is unavailable,
-the effective backend falls back to the isolated runtime.
+The local provider supports macOS, Windows, and Linux desktop apps. Screen,
+input, workspace files, and shell/app access are independent capabilities.
+The desktop app can grant each capability once or persistently, deny it, or
+revoke it later. Files exposed through the file tools are scoped to
+`NeoAgent Workspace` in the local user's home directory. Shell commands run as
+that signed-in OS user and never as the NeoAgent server host when the server is
+remote.
 
-## Desktop companion
+Teach Mode remains cloud-only because its recorder depends on the guest's CDP,
+AT-SPI, shell, and file event collectors.
 
-Desktop control and selected CLI commands are sent through the authenticated
-desktop companion registry. Non-PTY desktop commands can run through an
-isolated worker process that has no imports from the main server process.
+## Cloud provider
 
-This process separation protects server memory; it does not restrict what the
-paired desktop account itself can access.
+The immutable Debian base image is paired with a persistent system overlay and
+a separate sparse data disk for home, workspace, browser sessions, packages,
+and Python environments. Temporary caches and logs may be cleaned. The guest
+agent is authenticated with a generated token; VNC, QMP, and guest-agent ports
+bind only to loopback and are exposed through authenticated same-origin
+proxies.
+
+The scheduler derives capacity from host RAM, logical CPUs, free storage, and
+the configured reserves. Hardware acceleration uses KVM, HVF, or WHPX; TCG is
+an explicit compatibility mode with reduced parallelism.
+
+After the first provisioned boot, the runtime checksum-caches the guest kernel
+and initramfs beside the per-user disks. Normal starts use verified direct boot
+while retaining UEFI as the provisioning and recovery path. This keeps a
+hardware-accelerated ready desktop within the ten-second startup budget on the
+supported baseline.
+
+## Control leases
+
+User, agent, and Teach Mode input is mutually exclusive. A user takeover asks
+the active run to pause and then grants user control. An active run keeps the
+computer awake; an idle computer is shut down without deleting its disks.
 
 ## Android
 
-The Android provider is created per user but executes through ADB on the
-NeoAgent host. Device selection, screenshots, UI observation, input, intents,
-application installation, and shell commands therefore operate outside the
-browser and CLI runtime.
-
-## Workspace files
-
-File tools use server-side path validation and the user's workspace boundary.
-They do not accept arbitrary paths merely because a model generated them.
+Android remains a separate per-user provider that executes through ADB on the
+NeoAgent host. Its device selection, screenshots, UI observation, input,
+intents, application installation, and shell commands do not use the Linux
+computer.
 
 ## Tool security hook
 
-`before_tool_call` runs before tool execution. The security hook maps sensitive
-tools to categories and applies the user's deny, approval, session allow, or
-persistent allow policy.
+`before_tool_call` runs before execution. Sensitive categories use the user's
+deny, approval, session-allow, or persistent-allow policy. Approval waits are
+delivered through Socket.IO, and denial or timeout is returned to the agent as
+a structured blocked result.
 
-Approval waits are delivered through Socket.IO. The model receives a structured
-blocked result for denial or timeout and should not treat the tool as executed.
-
-## Boundaries not provided
-
-The runtime does not provide destination-level network egress filtering.
-Read-only tools can execute without approval. Paired machines and ADB devices
-remain trusted operator resources. See [Security](security-boundaries.md) for
-deployment guidance.
+The runtime does not currently provide destination-level network egress
+filtering. See [Security](security-boundaries.md) for deployment guidance.

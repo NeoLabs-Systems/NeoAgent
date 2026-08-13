@@ -1,6 +1,5 @@
 'use strict';
 
-const { EXTENSION_COMMANDS } = require('../browser/extension/protocol');
 const { createChannels } = require('./channels');
 const { deleteCookieBundle, getCookieSummary, writeCookieBundle } = require('./store');
 const { domainsForPlatform, getPlatformDefinition, normalizePlatformId } = require('./platforms');
@@ -44,7 +43,7 @@ function sanitizeCookies(cookies = [], allowedDomains = []) {
 
 class SocialReachService {
   constructor(options = {}) {
-    this.browserExtensionRegistry = options.browserExtensionRegistry || null;
+    this.runtimeManager = options.runtimeManager || null;
     this.socialVideoService = options.socialVideoService || null;
     this.channels = createChannels({ socialVideoService: this.socialVideoService });
     this.channelById = new Map(this.channels.map((channel) => [channel.id, channel]));
@@ -113,7 +112,7 @@ class SocialReachService {
     return channel.search({ ...args, userId, signal: options.signal });
   }
 
-  async importCookiesFromExtension(userId, platform, options = {}) {
+  async importCookiesFromComputer(userId, platform, options = {}) {
     const id = normalizePlatformId(platform);
     const definition = getPlatformDefinition(id);
     if (!definition || !COOKIE_IMPORT_PLATFORMS.has(id)) {
@@ -121,24 +120,19 @@ class SocialReachService {
       error.status = 400;
       throw error;
     }
-    if (!this.browserExtensionRegistry || typeof this.browserExtensionRegistry.dispatch !== 'function') {
-      const error = new Error('Chrome extension registry is unavailable.');
+    if (!this.runtimeManager || typeof this.runtimeManager.getBrowserProviderForUser !== 'function') {
+      const error = new Error('Cloud computer browser is unavailable.');
       error.status = 503;
       throw error;
     }
     const domains = domainsForPlatform(id);
-    const response = await this.browserExtensionRegistry.dispatch(userId, EXTENSION_COMMANDS.GET_COOKIES, {
-      platform: id,
-      domains,
-      tokenId: options.tokenId || null,
-    }, {
-      tokenId: options.tokenId || null,
-      timeoutMs: 15000,
+    const browser = await this.runtimeManager.getBrowserProviderForUser(userId, {
       signal: options.signal,
     });
+    const response = await browser.getCookies({ signal: options.signal });
     const cookies = sanitizeCookies(response?.cookies || [], domains);
     if (cookies.length === 0) {
-      const error = new Error(`No ${definition.label} cookies were found in the connected Chrome profile. Log in first, then import again.`);
+      const error = new Error(`No ${definition.label} cookies were found in the cloud computer browser profile. Log in first, then import again.`);
       error.status = 422;
       throw error;
     }

@@ -12,7 +12,6 @@ class NeoAgentController extends ChangeNotifier {
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher(),
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
     _desktopCompanion.addListener(notifyListeners);
-
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
@@ -184,26 +183,18 @@ class NeoAgentController extends ChangeNotifier {
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
   List<TaskItem> taskItems = const <TaskItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
-  Map<String, dynamic> browserRuntime = const <String, dynamic>{};
+  Map<String, dynamic> computerRuntime = const <String, dynamic>{
+    'state': 'stopped',
+  };
+  Map<String, dynamic> teachRuntime = const <String, dynamic>{'status': 'idle'};
+  String? computerDisplayUrl;
+  String computerTerminalOutput = '';
   Map<String, dynamic> socialReachStatus = const <String, dynamic>{};
-  Map<String, dynamic> browserExtensionStatus = const <String, dynamic>{};
-  List<Map<String, dynamic>> browserExtensionTokens =
-      const <Map<String, dynamic>>[];
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
-  Map<String, dynamic> desktopRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
   List<Map<String, dynamic>> androidUiPreview = const <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> desktopDevices = const <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> desktopDisplays = const <Map<String, dynamic>>[];
-  Map<String, dynamic> desktopPermissions = const <String, dynamic>{};
-  String? selectedDesktopDeviceId;
-  String? selectedBrowserExtensionTokenId;
-  String? browserScreenshotPath;
   String? androidScreenshotPath;
-  String? desktopScreenshotPath;
-  String? browserLastResult;
   String? androidLastResult;
-  String? desktopLastResult;
   String? androidUiDumpPath;
   String workspaceCurrentPath = '';
   String? workspaceSelectedFilePath;
@@ -252,15 +243,20 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingTimeline = false;
   Set<String> selectedTimelineSources = <String>{'tasks', 'runs'};
 
-  bool get desktopCompanionEnabled => _desktopCompanion.enabled;
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
-  bool get desktopCompanionConnected => _desktopCompanion.connected;
-  bool get desktopCompanionConnecting => _desktopCompanion.connecting;
-  bool get desktopCompanionPaused => _desktopCompanion.paused;
-  String get desktopCompanionLabel => _desktopCompanion.label;
-  String? get desktopCompanionErrorMessage => _desktopCompanion.errorMessage;
+  bool get localComputerSupported => _desktopCompanion.supported;
+  bool get localComputerConnected => _desktopCompanion.connected;
+  bool get localComputerConnecting => _desktopCompanion.connecting;
+  bool get localComputerEnabled => _desktopCompanion.enabled;
+  String? get localComputerError => _desktopCompanion.errorMessage;
+  String? get localComputerPendingPermission =>
+      _desktopCompanion.pendingPermission;
+  Set<String> get localComputerPermissions =>
+      _desktopCompanion.grantedPermissions;
+  Map<String, Object?> get localComputerStatus => _desktopCompanion.status;
+  String get computerProvider =>
+      computerRuntime['provider']?.toString() == 'local' ? 'local' : 'cloud';
   String? get requestedRunFocusId => _requestedRunFocusId;
-  Map<String, Object?> get desktopCompanionStatus => _desktopCompanion.status;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -866,12 +862,6 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<Map<String, dynamic>> testCliRuntime() =>
       _backendClient.testCli(backendUrl);
-
-  Future<Map<String, dynamic>> testBrowserExtension() =>
-      _backendClient.testExtension(backendUrl);
-
-  Future<Map<String, dynamic>> testDesktopCompanion() =>
-      _backendClient.testDesktop(backendUrl);
 
   Future<void> openAppUpdate() async {
     final release = availableAppUpdate;
@@ -1510,24 +1500,11 @@ class NeoAgentController extends ChangeNotifier {
     memoryConversations = const <ConversationItem>[];
     taskItems = const <TaskItem>[];
     mcpServers = const <McpServerItem>[];
-    browserRuntime = const <String, dynamic>{};
-    browserExtensionStatus = const <String, dynamic>{};
-    browserExtensionTokens = const <Map<String, dynamic>>[];
     androidRuntime = const <String, dynamic>{};
-    desktopRuntime = const <String, dynamic>{};
     androidInstalledApps = const <String>[];
     androidUiPreview = const <Map<String, dynamic>>[];
-    desktopDevices = const <Map<String, dynamic>>[];
-    desktopDisplays = const <Map<String, dynamic>>[];
-    desktopPermissions = const <String, dynamic>{};
-    selectedDesktopDeviceId = null;
-    selectedBrowserExtensionTokenId = null;
-    browserScreenshotPath = null;
     androidScreenshotPath = null;
-    desktopScreenshotPath = null;
-    browserLastResult = null;
     androidLastResult = null;
-    desktopLastResult = null;
     androidUiDumpPath = null;
     versionInfo = null;
     backendHealthStatus = null;
@@ -1538,6 +1515,7 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(
       _prefs?.setString(_selectedSectionPrefsKey, AppSection.chat.name),
     );
+    unawaited(_syncDesktopCompanionSession());
     _pendingChatDraft = null;
     _runDetailsCache.clear();
     unawaited(
@@ -1547,7 +1525,6 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: '',
       ),
     );
-    unawaited(_syncDesktopCompanionSession());
   }
 
   Future<void> _persistCredentials() async {
@@ -1581,6 +1558,14 @@ class NeoAgentController extends ChangeNotifier {
     await _syncDesktopCompanionSession();
   }
 
+  Future<void> _syncDesktopCompanionSession() {
+    return _desktopCompanion.updateSession(
+      backendUrl: backendUrl,
+      sessionCookie: _backendClient.sessionCookie ?? '',
+      authenticated: isAuthenticated,
+    );
+  }
+
   void _restoreSelectedSectionFromPrefs() {
     final rawSection =
         _prefs?.getString(_selectedSectionPrefsKey)?.trim() ?? '';
@@ -1593,14 +1578,6 @@ class NeoAgentController extends ChangeNotifier {
       orElse: () => AppSection.chat,
     );
     selectedSection = restoredSection;
-  }
-
-  Future<void> _syncDesktopCompanionSession() {
-    return _desktopCompanion.updateSession(
-      backendUrl: backendUrl,
-      sessionCookie: _backendClient.sessionCookie ?? '',
-      authenticated: isAuthenticated,
-    );
   }
 
   void setSelectedSection(AppSection section) {
@@ -2154,20 +2131,17 @@ class NeoAgentController extends ChangeNotifier {
         const <Map<String, dynamic>>[],
       );
       unawaited(checkBillingEnabled());
-      final browserFuture = _backendClient
-          .fetchBrowserStatus(backendUrl)
+      final computerFuture = _backendClient
+          .fetchComputerStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
       final socialReachFuture = _backendClient
           .fetchSocialReachStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
-      final browserExtensionFuture = _backendClient
-          .fetchBrowserExtensionStatus(backendUrl)
-          .catchError((_) => const <String, dynamic>{});
       final androidFuture = _backendClient
           .fetchAndroidStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
-      final desktopFuture = _backendClient
-          .fetchDesktopStatus(backendUrl)
+      final teachFuture = _backendClient
+          .fetchTeachStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
 
       Map<String, dynamic>? healthResponse;
@@ -2214,11 +2188,10 @@ class NeoAgentController extends ChangeNotifier {
       final conversationsResponse = await conversationsFuture;
       final tasksResponse = await tasksFuture;
       final mcpResponse = await mcpFuture;
-      final browserResponse = await browserFuture;
+      final computerResponse = await computerFuture;
       final socialReachResponse = await socialReachFuture;
-      final browserExtensionResponse = await browserExtensionFuture;
       final androidResponse = await androidFuture;
-      final desktopResponse = await desktopFuture;
+      final teachResponse = await teachFuture;
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
@@ -2314,28 +2287,10 @@ class NeoAgentController extends ChangeNotifier {
         mcpResponse,
         McpServerItem.fromJson,
       );
-      browserRuntime = Map<String, dynamic>.from(browserResponse);
+      computerRuntime = Map<String, dynamic>.from(computerResponse);
+      teachRuntime = Map<String, dynamic>.from(teachResponse);
       socialReachStatus = Map<String, dynamic>.from(socialReachResponse);
-      browserExtensionStatus = Map<String, dynamic>.from(
-        browserExtensionResponse,
-      );
-      browserExtensionTokens = _jsonMapList(
-        browserExtensionStatus['tokens'],
-        fallbackToMapValues: true,
-      );
-      selectedBrowserExtensionTokenId = _optionalIdFrom(
-        browserExtensionStatus['selectedTokenId'],
-      );
       androidRuntime = Map<String, dynamic>.from(androidResponse);
-      desktopRuntime = Map<String, dynamic>.from(desktopResponse);
-      selectedDesktopDeviceId =
-          desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
-          ? null
-          : desktopRuntime['selectedDeviceId']?.toString();
-      desktopDevices = _jsonMapList(
-        desktopRuntime['devices'],
-        fallbackToMapValues: true,
-      );
       deviceHealthStatus = await _healthBridge.getStatus();
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
@@ -2345,9 +2300,7 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       await _syncDesktopCompanionSession();
-      if (!_isCurrentAuthCycle(authCycle)) {
-        return;
-      }
+      if (!_isCurrentAuthCycle(authCycle)) return;
       _ensureSocketConnected();
       _ensureUpdatePolling();
     } catch (error) {
@@ -2669,38 +2622,18 @@ class NeoAgentController extends ChangeNotifier {
     isRefreshingDevices = true;
     notifyListeners();
     try {
-      final browserResponse = await _backendClient.fetchBrowserStatus(
-        backendUrl,
-      );
-      final browserExtensionResponse = await _backendClient
-          .fetchBrowserExtensionStatus(backendUrl);
-      final androidResponse = await _backendClient.fetchAndroidStatus(
-        backendUrl,
-      );
-      final desktopResponse = await _backendClient.fetchDesktopStatus(
-        backendUrl,
-      );
-      browserRuntime = Map<String, dynamic>.from(browserResponse);
-      browserExtensionStatus = Map<String, dynamic>.from(
-        browserExtensionResponse,
-      );
-      browserExtensionTokens = _jsonMapList(
-        browserExtensionStatus['tokens'],
-        fallbackToMapValues: true,
-      );
-      selectedBrowserExtensionTokenId = _optionalIdFrom(
-        browserExtensionStatus['selectedTokenId'],
-      );
+      final responses = await Future.wait(<Future<Map<String, dynamic>>>[
+        _backendClient.fetchComputerStatus(backendUrl),
+        _backendClient.fetchAndroidStatus(backendUrl),
+        _backendClient.fetchTeachStatus(backendUrl),
+      ]);
+      computerRuntime = Map<String, dynamic>.from(responses[0]);
+      final androidResponse = responses[1];
+      teachRuntime = Map<String, dynamic>.from(responses[2]);
       androidRuntime = Map<String, dynamic>.from(androidResponse);
-      desktopRuntime = Map<String, dynamic>.from(desktopResponse);
-      selectedDesktopDeviceId =
-          desktopRuntime['selectedDeviceId']?.toString().trim().isEmpty ?? true
-          ? null
-          : desktopRuntime['selectedDeviceId']?.toString();
-      desktopDevices = _jsonMapList(
-        desktopRuntime['devices'],
-        fallbackToMapValues: true,
-      );
+      if (_desktopCompanion.enabled) {
+        await _desktopCompanion.refreshLocalStatus();
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -2709,37 +2642,281 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  String get browserExtensionDownloadUrl =>
-      '${_socketOrigin()}/api/browser-extension/download';
-
-  Future<void> refreshBrowserExtensionStatus() async {
-    try {
-      final response = await _backendClient.fetchBrowserExtensionStatus(
-        backendUrl,
-      );
-      browserExtensionStatus = Map<String, dynamic>.from(response);
-      browserExtensionTokens = _jsonMapList(
-        browserExtensionStatus['tokens'],
-        fallbackToMapValues: true,
-      );
-      selectedBrowserExtensionTokenId = _optionalIdFrom(
-        browserExtensionStatus['selectedTokenId'],
-      );
+  Future<void> selectComputerProvider(String provider) async {
+    final normalized = provider.trim().toLowerCase();
+    if (normalized == computerProvider || isRunningDeviceAction) return;
+    if (normalized == 'local' && !_desktopCompanion.supported) {
+      errorMessage =
+          'Local computer control is available in the NeoAgent desktop app on macOS, Windows and Linux.';
       notifyListeners();
+      return;
+    }
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      if (normalized == 'local') {
+        await _desktopCompanion.setEnabled(true, _prefs!);
+        await _syncDesktopCompanionSession();
+        await _desktopCompanion.refreshLocalStatus();
+      }
+      computerRuntime = Map<String, dynamic>.from(
+        await _backendClient.setComputerProvider(backendUrl, normalized),
+      );
+      computerDisplayUrl = null;
+      workspaceCurrentPath = '';
+      workspaceEntries = const <Map<String, dynamic>>[];
+      if (normalized == 'cloud' && _desktopCompanion.enabled) {
+        await _desktopCompanion.setEnabled(false, _prefs!);
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> grantLocalComputerPermission(
+    String capability, {
+    required bool remember,
+  }) async {
+    if (_prefs == null) return;
+    await _desktopCompanion.grantPermission(
+      capability,
+      _prefs!,
+      remember: remember,
+    );
+    await refreshComputerRuntime(silent: true);
+    notifyListeners();
+  }
+
+  Future<void> denyLocalComputerPermission(String capability) async {
+    await _desktopCompanion.denyPermission(capability);
+    await refreshComputerRuntime(silent: true);
+    notifyListeners();
+  }
+
+  Future<void> revokeLocalComputerPermission(String capability) async {
+    if (_prefs == null) return;
+    await _desktopCompanion.revokePermission(capability, _prefs!);
+    await refreshComputerRuntime(silent: true);
+    notifyListeners();
+  }
+
+  Future<void> openLocalComputerSystemPermission(String capability) async {
+    final key = capability == 'screen' ? 'screencapture' : 'inputcontrol';
+    try {
+      await _desktopCompanion.openPermissionSettings(key);
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
   }
 
-  Future<void> downloadBrowserExtension() async {
-    final result = await _oauthLauncher.openExternal(
-      url: browserExtensionDownloadUrl,
-      label: 'neoagent_browser_extension_download',
-    );
-    if (!result.launched) {
-      errorMessage =
-          result.error ?? 'Could not open browser extension download.';
+  Future<void> startComputerRuntime() async {
+    if (isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      computerRuntime = Map<String, dynamic>.from(
+        await _backendClient.startComputer(backendUrl),
+      );
+      if (computerProvider == 'cloud') {
+        await _backendClient.acquireComputerControl(backendUrl);
+        final display = await _backendClient.createComputerDisplaySession(
+          backendUrl,
+        );
+        final viewPath = display['viewUrl']?.toString().trim() ?? '';
+        if (viewPath.isNotEmpty) {
+          computerDisplayUrl = Uri.parse(
+            _socketOrigin(),
+          ).resolve(viewPath).toString();
+        }
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshComputerRuntime(silent: true);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshComputerRuntime({bool silent = false}) async {
+    try {
+      computerRuntime = Map<String, dynamic>.from(
+        await _backendClient.fetchComputerStatus(backendUrl),
+      );
+      teachRuntime = Map<String, dynamic>.from(
+        await _backendClient.fetchTeachStatus(backendUrl),
+      );
+      if (!silent) notifyListeners();
+    } catch (error) {
+      if (!silent) {
+        errorMessage = _friendlyErrorMessage(error);
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> openComputerDisplayRuntime() async {
+    if (isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      if (computerProvider == 'local') {
+        await refreshComputerRuntime(silent: true);
+        return;
+      }
+      await _backendClient.acquireComputerControl(backendUrl);
+      final display = await _backendClient.createComputerDisplaySession(
+        backendUrl,
+      );
+      computerRuntime = Map<String, dynamic>.from(
+        await _backendClient.fetchComputerStatus(backendUrl),
+      );
+      final viewPath = display['viewUrl']?.toString().trim() ?? '';
+      computerDisplayUrl = viewPath.isEmpty
+          ? null
+          : Uri.parse(_socketOrigin()).resolve(viewPath).toString();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopComputerRuntime() async {
+    if (isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      computerRuntime = Map<String, dynamic>.from(
+        await _backendClient.stopComputer(backendUrl),
+      );
+      computerDisplayUrl = null;
+      teachRuntime = const <String, dynamic>{'status': 'idle'};
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startTeachRuntime(String goal) async {
+    final normalizedGoal = goal.trim();
+    if (normalizedGoal.isEmpty || isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      teachRuntime = Map<String, dynamic>.from(
+        await _backendClient.startTeach(
+          backendUrl,
+          goal: normalizedGoal,
+          agentId: _scopedAgentId,
+        ),
+      );
+      final display = await _backendClient.createComputerDisplaySession(
+        backendUrl,
+      );
+      final viewPath = display['viewUrl']?.toString().trim() ?? '';
+      computerDisplayUrl = viewPath.isEmpty
+          ? null
+          : Uri.parse(_socketOrigin()).resolve(viewPath).toString();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopTeachRuntime() async {
+    final id = teachRuntime['id']?.toString().trim() ?? '';
+    if (id.isEmpty || isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _backendClient.stopTeach(backendUrl, sessionId: id);
+      teachRuntime = <String, dynamic>{'status': 'completed', ...result};
+      await refreshSkills();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      await refreshComputerRuntime(silent: true);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> cancelTeachRuntime() async {
+    final id = teachRuntime['id']?.toString().trim() ?? '';
+    if (id.isEmpty || isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    notifyListeners();
+    try {
+      await _backendClient.cancelTeach(backendUrl, sessionId: id);
+      teachRuntime = const <String, dynamic>{'status': 'idle'};
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> launchComputerAppRuntime(String app) async {
+    if (isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _withLocalUserControl(
+        () => _backendClient.launchComputerApp(backendUrl, app: app),
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> executeComputerCommandRuntime(String command) async {
+    final normalized = command.trim();
+    if (normalized.isEmpty || isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _withLocalUserControl(
+        () => _backendClient.executeComputerCommand(
+          backendUrl,
+          command: normalized,
+          cwd: '/home/neo/workspace',
+        ),
+      );
+      final stdout = result['stdout']?.toString() ?? '';
+      final stderr = result['stderr']?.toString() ?? '';
+      final exitCode = result['exitCode'];
+      computerTerminalOutput = <String>[
+        '\$ $normalized',
+        if (stdout.isNotEmpty) stdout.trimRight(),
+        if (stderr.isNotEmpty) stderr.trimRight(),
+        if (exitCode != null) '[exit $exitCode]',
+      ].join('\n');
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
       notifyListeners();
     }
   }
@@ -2772,7 +2949,6 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> _runDeviceAction(
     Future<Map<String, dynamic>> Function() action, {
-    required bool browser,
     bool refreshDevicesAfter = true,
     bool refreshAppsAfter = false,
   }) async {
@@ -2785,32 +2961,24 @@ class NeoAgentController extends ChangeNotifier {
     try {
       final result = await action();
       final pretty = const JsonEncoder.withIndent('  ').convert(result);
-      if (browser) {
-        browserLastResult = pretty;
-        final screenshot = result['screenshotPath']?.toString();
-        if (screenshot != null && screenshot.isNotEmpty) {
-          browserScreenshotPath = screenshot;
-        }
-      } else {
-        androidLastResult = pretty;
-        final screenshot = result['screenshotPath']?.toString();
-        if (screenshot != null && screenshot.isNotEmpty) {
-          androidScreenshotPath = screenshot;
-        }
-        final dumpPath = result['uiDumpPath']?.toString();
-        if (dumpPath != null && dumpPath.isNotEmpty) {
-          androidUiDumpPath = dumpPath;
-        }
-        final preview = result['preview'];
-        if (preview is List) {
-          androidUiPreview = preview
-              .whereType<Map<dynamic, dynamic>>()
-              .map(
-                (item) =>
-                    item.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList();
-        }
+      androidLastResult = pretty;
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        androidScreenshotPath = screenshot;
+      }
+      final dumpPath = result['uiDumpPath']?.toString();
+      if (dumpPath != null && dumpPath.isNotEmpty) {
+        androidUiDumpPath = dumpPath;
+      }
+      final preview = result['preview'];
+      if (preview is List) {
+        androidUiPreview = preview
+            .whereType<Map<dynamic, dynamic>>()
+            .map(
+              (item) =>
+                  item.map((key, value) => MapEntry(key.toString(), value)),
+            )
+            .toList();
       }
       if (refreshDevicesAfter) {
         await refreshDevices();
@@ -2826,140 +2994,9 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> launchBrowserRuntime() async {
-    await _runDeviceAction(
-      () => _backendClient.launchBrowser(backendUrl),
-      browser: true,
-    );
-    browserScreenshotPath = null;
-  }
-
-  Future<void> navigateBrowserRuntime({
-    required String url,
-    String? waitFor,
-  }) async {
-    await _runDeviceAction(
-      () => _backendClient.navigateBrowser(
-        backendUrl,
-        url: url,
-        waitFor: waitFor,
-      ),
-      browser: true,
-    );
-  }
-
-  Future<void> clickBrowserRuntime({String? selector, String? text}) async {
-    await _runDeviceAction(
-      () => _backendClient.clickBrowser(
-        backendUrl,
-        selector: selector,
-        text: text,
-      ),
-      browser: true,
-    );
-  }
-
-  Future<void> clickBrowserPointRuntime({
-    required int x,
-    required int y,
-  }) async {
-    await _runDeviceAction(
-      () => _backendClient.clickBrowserPoint(backendUrl, x: x, y: y),
-      browser: true,
-    );
-  }
-
-  Future<void> hoverBrowserPointRuntime({
-    required int x,
-    required int y,
-  }) async {
-    try {
-      await _backendClient.hoverBrowserPoint(backendUrl, x: x, y: y);
-    } catch (_) {}
-  }
-
-  Future<void> fillBrowserRuntime({
-    required String selector,
-    required String value,
-    bool pressEnter = false,
-  }) async {
-    await _runDeviceAction(
-      () => _backendClient.fillBrowser(
-        backendUrl,
-        selector: selector,
-        value: value,
-        pressEnter: pressEnter,
-      ),
-      browser: true,
-    );
-  }
-
-  Future<void> typeBrowserTextRuntime(
-    String text, {
-    bool pressEnter = false,
-  }) async {
-    await _runDeviceAction(
-      () => _backendClient.typeBrowserText(
-        backendUrl,
-        text: text,
-        pressEnter: pressEnter,
-      ),
-      browser: true,
-    );
-  }
-
-  Future<void> pressBrowserKeyRuntime(String key) async {
-    await _runDeviceAction(
-      () => _backendClient.pressBrowserKey(backendUrl, key: key),
-      browser: true,
-    );
-  }
-
-  Future<void> scrollBrowserRuntime({int deltaX = 0, int deltaY = 0}) async {
-    await _runDeviceAction(
-      () => _backendClient.scrollBrowser(
-        backendUrl,
-        deltaX: deltaX,
-        deltaY: deltaY,
-      ),
-      browser: true,
-    );
-  }
-
-  Future<void> screenshotBrowserRuntime() async {
-    await _runDeviceAction(
-      () => _backendClient.screenshotBrowser(backendUrl),
-      browser: true,
-    );
-  }
-
-  Future<void> refreshBrowserFrameRuntime() async {
-    if (isRunningDeviceAction || browserRuntime['launched'] != true) {
-      return;
-    }
-    try {
-      final result = await _backendClient.screenshotBrowser(backendUrl);
-      final screenshot = result['screenshotPath']?.toString();
-      if (screenshot != null && screenshot.isNotEmpty) {
-        browserScreenshotPath = screenshot;
-      }
-      notifyListeners();
-    } catch (_) {}
-  }
-
-  Future<void> closeBrowserRuntime() async {
-    await _runDeviceAction(
-      () => _backendClient.closeBrowser(backendUrl),
-      browser: true,
-    );
-    browserScreenshotPath = null;
-    notifyListeners();
-  }
-
   Future<void> startAndroidRuntime() async {
     await _runDeviceAction(
       () => _backendClient.startAndroidEmulator(backendUrl),
-      browser: false,
       refreshAppsAfter: false,
     );
   }
@@ -2967,14 +3004,12 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> stopAndroidRuntime() async {
     await _runDeviceAction(
       () => _backendClient.stopAndroidEmulator(backendUrl),
-      browser: false,
     );
   }
 
   Future<void> screenshotAndroidRuntime() async {
     await _runDeviceAction(
       () => _backendClient.screenshotAndroid(backendUrl),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3040,7 +3075,6 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> dumpAndroidUiRuntime() async {
     await _runDeviceAction(
       () => _backendClient.dumpAndroidUi(backendUrl),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3057,7 +3091,6 @@ class NeoAgentController extends ChangeNotifier {
         uiDump: false,
         includeNodes: false,
       ),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3078,7 +3111,6 @@ class NeoAgentController extends ChangeNotifier {
         uiDump: false,
         includeNodes: false,
       ),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3090,7 +3122,6 @@ class NeoAgentController extends ChangeNotifier {
         'uiDump': false,
         'includeNodes': false,
       }),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3102,7 +3133,6 @@ class NeoAgentController extends ChangeNotifier {
         'uiDump': false,
         'includeNodes': false,
       }),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3114,7 +3144,6 @@ class NeoAgentController extends ChangeNotifier {
         'uiDump': false,
         'includeNodes': false,
       }),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3127,7 +3156,6 @@ class NeoAgentController extends ChangeNotifier {
         uiDump: false,
         includeNodes: false,
       ),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3135,7 +3163,6 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> waitForAndroidRuntime(Map<String, dynamic> payload) async {
     await _runDeviceAction(
       () => _backendClient.waitForAndroid(backendUrl, payload),
-      browser: false,
       refreshDevicesAfter: false,
     );
   }
@@ -3150,270 +3177,7 @@ class NeoAgentController extends ChangeNotifier {
         filename: filename,
         bytes: bytes,
       ),
-      browser: false,
       refreshAppsAfter: true,
-    );
-  }
-
-  Future<void> _runDesktopDeviceAction(
-    Future<Map<String, dynamic>> Function() action, {
-    bool refreshDevicesAfter = true,
-  }) async {
-    if (isRunningDeviceAction) {
-      return;
-    }
-    isRunningDeviceAction = true;
-    errorMessage = null;
-    notifyListeners();
-    try {
-      final result = await action();
-      desktopLastResult = const JsonEncoder.withIndent('  ').convert(result);
-      final screenshot = result['screenshotPath']?.toString();
-      if (screenshot != null && screenshot.isNotEmpty) {
-        desktopScreenshotPath = screenshot;
-      }
-      final displays = _jsonMapList(
-        result['displays'],
-        fallbackToMapValues: true,
-      );
-      if (displays.isNotEmpty) {
-        desktopDisplays = displays;
-      }
-      final permissions = result['permissions'];
-      if (permissions is Map) {
-        desktopPermissions = permissions.map(
-          (key, value) => MapEntry(key.toString(), value),
-        );
-      }
-      if (refreshDevicesAfter) {
-        await refreshDevices();
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isRunningDeviceAction = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> selectDesktopDeviceRuntime(String deviceId) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.selectDesktopDevice(backendUrl, deviceId: deviceId),
-    );
-    desktopScreenshotPath = null;
-    await refreshDesktopFrameRuntime();
-  }
-
-  Future<void> selectBrowserExtensionRuntime(String tokenId) async {
-    isRunningDeviceAction = true;
-    errorMessage = null;
-    notifyListeners();
-    try {
-      final response = await _backendClient.selectBrowserExtensionToken(
-        backendUrl,
-        tokenId: tokenId,
-      );
-      final status = response['status'] is Map
-          ? Map<String, dynamic>.from(response['status'] as Map)
-          : await _backendClient.fetchBrowserExtensionStatus(backendUrl);
-      browserExtensionStatus = Map<String, dynamic>.from(status);
-      browserExtensionTokens = _jsonMapList(
-        browserExtensionStatus['tokens'],
-        fallbackToMapValues: true,
-      );
-      selectedBrowserExtensionTokenId = _optionalIdFrom(
-        browserExtensionStatus['selectedTokenId'],
-      );
-      if (selectedBrowserExtensionTokenId != null) {
-        settings = <String, dynamic>{
-          ...settings,
-          'browser_extension_token_id': selectedBrowserExtensionTokenId,
-          'selected_browser_extension_token_id':
-              selectedBrowserExtensionTokenId,
-        };
-      }
-      browserScreenshotPath = null;
-      await refreshBrowserFrameRuntime();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isRunningDeviceAction = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> openDesktopSelectionRuntime() async {
-    await refreshDevices();
-    errorMessage =
-        'Select a desktop companion from the Desktop device dropdown.';
-    notifyListeners();
-  }
-
-  Future<void> screenshotDesktopRuntime() async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.screenshotDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> observeDesktopRuntime() async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.observeDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        includeTree: true,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> refreshDesktopFrameRuntime() async {
-    if (isRunningDeviceAction) {
-      return;
-    }
-    final onlineDesktop = desktopDevices.firstWhere(
-      (device) => device['online'] == true,
-      orElse: () => const <String, dynamic>{},
-    );
-    if (onlineDesktop.isEmpty) {
-      return;
-    }
-    final selectedId = selectedDesktopDeviceId;
-    final selectedOnline = (selectedId ?? '').isNotEmpty
-        ? desktopDevices.any(
-            (device) =>
-                device['online'] == true &&
-                device['deviceId']?.toString() == selectedId,
-          )
-        : false;
-    final targetDeviceId = selectedOnline
-        ? selectedId
-        : onlineDesktop['deviceId']?.toString();
-    if ((targetDeviceId ?? '').isEmpty) {
-      return;
-    }
-    try {
-      final result = await _backendClient.screenshotDesktop(
-        backendUrl,
-        deviceId: targetDeviceId,
-      );
-      final screenshot = result['screenshotPath']?.toString();
-      if (screenshot != null && screenshot.isNotEmpty) {
-        desktopScreenshotPath = screenshot;
-        notifyListeners();
-      }
-    } catch (_) {}
-  }
-
-  Future<void> clickDesktopRuntime({required int x, required int y}) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.clickDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        x: x,
-        y: y,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> hoverDesktopRuntime({required int x, required int y}) async {
-    try {
-      await _backendClient.hoverDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        x: x,
-        y: y,
-      );
-    } catch (_) {}
-  }
-
-  Future<void> dragDesktopRuntime({
-    required int x1,
-    required int y1,
-    required int x2,
-    required int y2,
-  }) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.dragDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        x1: x1,
-        y1: y1,
-        x2: x2,
-        y2: y2,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> scrollDesktopRuntime({int deltaY = 0}) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.scrollDesktop(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        deltaY: deltaY,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> typeDesktopRuntime(
-    String text, {
-    bool pressEnter = false,
-  }) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.typeDesktopText(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        text: text,
-        pressEnter: pressEnter,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> pressDesktopKeyRuntime(String key) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.pressDesktopKey(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        key: key,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> launchDesktopAppRuntime(String app) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.launchDesktopApp(
-        backendUrl,
-        deviceId: selectedDesktopDeviceId,
-        app: app,
-      ),
-      refreshDevicesAfter: false,
-    );
-  }
-
-  Future<void> revokeDesktopDeviceRuntime(String deviceId) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.revokeDesktopDevice(backendUrl, deviceId: deviceId),
-    );
-  }
-
-  Future<void> pauseDesktopDeviceRuntime(
-    String deviceId, {
-    bool paused = true,
-  }) async {
-    await _runDesktopDeviceAction(
-      () => _backendClient.pauseDesktopDevice(
-        backendUrl,
-        deviceId: deviceId,
-        paused: paused,
-      ),
     );
   }
 
@@ -3483,10 +3247,12 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      await _backendClient.saveWorkspaceFile(
-        backendUrl,
-        path: path,
-        content: content,
+      await _withLocalUserControl(
+        () => _backendClient.saveWorkspaceFile(
+          backendUrl,
+          path: path,
+          content: content,
+        ),
       );
       workspaceEditorContent = content;
       await refreshWorkspaceFiles(path: workspaceCurrentPath);
@@ -3495,6 +3261,18 @@ class NeoAgentController extends ChangeNotifier {
     } finally {
       isSavingWorkspaceFile = false;
       notifyListeners();
+    }
+  }
+
+  Future<T> _withLocalUserControl<T>(Future<T> Function() action) async {
+    if (computerProvider != 'local') return action();
+    await _backendClient.acquireComputerControl(backendUrl);
+    try {
+      return await action();
+    } finally {
+      try {
+        await _backendClient.releaseComputerControl(backendUrl);
+      } catch (_) {}
     }
   }
 
@@ -3552,80 +3330,6 @@ class NeoAgentController extends ChangeNotifier {
     _desktopAssistantHotkeyEnabled = value;
     await _prefs?.setBool('desktop.assistantHotkeyEnabled', value);
     notifyListeners();
-  }
-
-  Future<void> setDesktopCompanionEnabled(bool value) async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-    try {
-      await _desktopCompanion.setEnabled(value, prefs);
-      await _syncDesktopCompanionSession();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> setDesktopCompanionLabel(String value) async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-    try {
-      await _desktopCompanion.setLabel(value, prefs);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> setDesktopCompanionPaused(bool value) async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-    try {
-      await _desktopCompanion.setPaused(value, prefs);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> rotateDesktopCompanionIdentity() async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-    try {
-      await _desktopCompanion.rotateIdentity(prefs);
-      await _syncDesktopCompanionSession();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> refreshDesktopCompanionStatus() async {
-    try {
-      await _desktopCompanion.refreshLocalStatus();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> openDesktopCompanionPermissionSettings(
-    String permissionKey,
-  ) async {
-    try {
-      await _desktopCompanion.openPermissionSettings(permissionKey);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
   }
 
   Future<bool> _ensureSocketReady({
@@ -4359,10 +4063,6 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> saveSettings({
-    required String browserBackend,
-    String? browserExtensionTokenId,
-    required String cliBackend,
-    String? cliDesktopDeviceId,
     required bool smarterSelector,
     required List<String> enabledModels,
     required String defaultChatModel,
@@ -4382,12 +4082,8 @@ class NeoAgentController extends ChangeNotifier {
 
     final payload = <String, dynamic>{
       'headless_browser': true,
-      'browser_backend': browserBackend,
-      if (browserExtensionTokenId != null)
-        'browser_extension_token_id': browserExtensionTokenId,
-      'cli_backend': cliBackend,
-      if (cliDesktopDeviceId != null)
-        'cli_desktop_device_id': cliDesktopDeviceId,
+      'runtime_profile': 'cloud-computer',
+      'runtime_backend': 'qemu',
       'smarter_model_selector': smarterSelector,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
@@ -5596,7 +5292,6 @@ class NeoAgentController extends ChangeNotifier {
     final response = await _backendClient.importSocialReachCookies(
       backendUrl,
       platform,
-      tokenId: selectedBrowserExtensionTokenId,
     );
     await refreshSocialReachStatus();
     return response;
@@ -6315,45 +6010,6 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get headlessBrowser => true;
 
-  String get browserBackend =>
-      settings['browser_backend']?.toString().trim().toLowerCase() ?? 'vm';
-
-  String get cliBackend =>
-      settings['cli_backend']?.toString().trim().toLowerCase() ?? 'vm';
-
-  String? get cliDesktopDeviceId {
-    final v = settings['cli_desktop_device_id']?.toString().trim();
-    return (v == null || v.isEmpty) ? null : v;
-  }
-
-  String get cloudBrowserBackend {
-    final browser = browserBackend;
-    final profile = settings['runtime_profile']
-        ?.toString()
-        .trim()
-        .toLowerCase();
-    final runtime = settings['runtime_backend']
-        ?.toString()
-        .trim()
-        .toLowerCase();
-    if (updateStatus.deploymentProfile.toLowerCase() == 'prod' ||
-        profile == 'secure-vm') {
-      return 'vm';
-    }
-    if (browser == 'extension') return 'vm';
-    if (browser == 'vm') return 'vm';
-    if (runtime == 'vm') return 'vm';
-    return 'vm';
-  }
-
-  bool get browserExtensionConnected =>
-      browserExtensionStatus['connected'] == true;
-
-  String? get browserExtensionTokenId {
-    final v = settings['browser_extension_token_id']?.toString().trim();
-    return (v == null || v.isEmpty || v == 'null') ? null : v;
-  }
-
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
   Map<String, AiProviderConfig> get aiProviderConfigs {
@@ -6634,6 +6290,14 @@ class NeoAgentController extends ChangeNotifier {
           transportState: 'reconnecting',
         );
       }
+      notifyListeners();
+    });
+    socket.on('computer:status', (dynamic data) {
+      computerRuntime = _jsonMap(data);
+      notifyListeners();
+    });
+    socket.on('teach:status', (dynamic data) {
+      teachRuntime = _jsonMap(data);
       notifyListeners();
     });
     socket.on('messaging:qr', (dynamic data) {
@@ -7252,14 +6916,15 @@ class NeoAgentController extends ChangeNotifier {
               ? (payload['result'] as Map)['screenshotPath']?.toString()
               : null);
       if (screenshotPath != null && screenshotPath.isNotEmpty) {
-        if (toolName.startsWith('browser_')) {
-          browserScreenshotPath = screenshotPath;
-        } else if (toolName.startsWith('android_')) {
+        if (toolName.startsWith('android_')) {
           androidScreenshotPath = screenshotPath;
         }
       }
-      if (toolName.startsWith('browser_')) {
-        unawaited(refreshDevices());
+      if (toolName.startsWith('browser_') ||
+          toolName.startsWith('desktop_') ||
+          toolName.startsWith('cli_') ||
+          toolName.startsWith('file_')) {
+        unawaited(refreshComputerRuntime());
       } else if (toolName.startsWith('android_')) {
         unawaited(refreshDevices());
       }

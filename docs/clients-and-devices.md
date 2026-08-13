@@ -25,15 +25,20 @@ Native Kotlin code handles Health Connect, notifications, launcher functions,
 and telecom integration. Flutter bridges normalize
 permission and lifecycle behavior before updating application state.
 
-## Desktop and Chrome pairing
+## Cloud computer display
 
-Desktop companions and browser extensions authenticate with the server and
-register under the owning user. The runtime manager chooses them only when the
-user has selected that backend and the registered device is online.
+All clients open the same authenticated Linux computer display through a
+short-lived same-origin session. Input follows the server-issued control lease;
+files and terminal panels address the same guest and persistent data disk.
 
-The Chrome extension uses the protocol in
-`extensions/chrome-browser/protocol.mjs`. Protocol changes require matching
-updates to the extension and backend gateway.
+## Local computer control
+
+The macOS, Windows, and Linux desktop builds can register **This device** over
+an outbound session-authenticated WebSocket. It implements the same Computer
+provider contract as the QEMU guest. The app reports OS capture/accessibility
+state and adds independent, revocable approvals for screen, input, files, and
+shell/app actions. Web and mobile clients can select or observe the cloud
+provider, but cannot volunteer their host as a local computer.
 
 ## ADB device control
 

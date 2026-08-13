@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -80,6 +81,36 @@ function stageGuestPayload(stagingRoot, runtimeProfile = 'browser_cli') {
   return stagingRoot;
 }
 
+function guestPayloadDigest(runtimeProfile = 'browser_cli') {
+  const hash = crypto.createHash('sha256');
+  const entries = GUEST_PAYLOAD_PROFILES[normalizeRuntimeProfile(runtimeProfile)]
+    .slice()
+    .sort((left, right) => left.target.localeCompare(right.target));
+  const pending = entries.map((entry) => ({
+    sourcePath: path.join(REPO_ROOT, entry.source),
+    targetPath: entry.target,
+  }));
+  while (pending.length > 0) {
+    const current = pending.shift();
+    const stats = fs.statSync(current.sourcePath);
+    if (stats.isDirectory()) {
+      const children = fs.readdirSync(current.sourcePath).sort();
+      for (const child of children) {
+        pending.push({
+          sourcePath: path.join(current.sourcePath, child),
+          targetPath: path.join(current.targetPath, child),
+        });
+      }
+      continue;
+    }
+    hash.update(current.targetPath.split(path.sep).join('/'));
+    hash.update('\0');
+    hash.update(fs.readFileSync(current.sourcePath));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 function createGuestPayloadArchive(seedDir, runtimeProfile = 'browser_cli') {
   const seedRoot = path.dirname(seedDir);
   const stagingRoot = path.join(seedRoot, 'guest-payload');
@@ -110,14 +141,44 @@ function createCloudInitScript({
   const normalizedProfile = normalizeRuntimeProfile(runtimeProfile);
   const includeBrowser = ['browser', 'browser_cli'].includes(normalizedProfile);
   const guestUtilityPackages = includeBrowser
-    ? 'curl ca-certificates gnupg git rsync unzip xvfb dbus-x11'
+    ? [
+      'at-spi2-core',
+      'ca-certificates',
+      'chromium',
+      'curl',
+      'dbus-x11',
+      'git',
+      'jq',
+      'lightdm',
+      'lxterminal',
+      'mousepad',
+      'openssh-client',
+      'openbox',
+      'pcmanfm',
+      'python3',
+      'python3-pip',
+      'python3-pyatspi',
+      'python3-venv',
+      'rsync',
+      'scrot',
+      'sudo',
+      'tint2',
+      'unzip',
+      'x11-xserver-utils',
+      'xdotool',
+      'xserver-xorg-core',
+      'xserver-xorg-input-libinput',
+      'xserver-xorg-video-fbdev',
+      'zip',
+      'zram-tools',
+      'wmctrl',
+    ].join(' ')
     : normalizedProfile === 'android'
       ? 'curl ca-certificates gnupg git rsync unzip dbus-x11 adb'
       : 'curl ca-certificates gnupg git rsync unzip';
   const guestTokenB64 = encodeGuestToken(guestToken);
   const envFile = '/etc/neoagent/neoagent.env';
   const appDir = '/opt/neoagent';
-  const playwrightBrowsersPath = `${appDir}/.playwright-browsers`;
   const bootstrapMarker = '/var/lib/neoagent/bootstrap-complete';
   const browserReadyMarker = '/var/lib/neoagent/browser-runtime-ready';
   const browserDepsMarker = '/var/lib/neoagent/browser-deps-installed';
@@ -129,7 +190,6 @@ function createCloudInitScript({
     '',
     'export DEBIAN_FRONTEND=noninteractive',
     `APP_DIR=${JSON.stringify(appDir)}`,
-    `PLAYWRIGHT_BROWSERS_PATH=${JSON.stringify(playwrightBrowsersPath)}`,
     `BOOTSTRAP_MARKER=${JSON.stringify(bootstrapMarker)}`,
     `BROWSER_READY_MARKER=${JSON.stringify(browserReadyMarker)}`,
     `BROWSER_DEPS_MARKER=${JSON.stringify(browserDepsMarker)}`,
@@ -137,6 +197,7 @@ function createCloudInitScript({
     `GUEST_PAYLOAD_PATH=${JSON.stringify(guestPayloadPath)}`,
     '',
     'mkdir -p /etc/neoagent /var/lib/neoagent "$APP_DIR"',
+    'if [ -f /home/neo/.neoagent/package-manifest.txt ]; then cp /home/neo/.neoagent/package-manifest.txt /tmp/neoagent-package-manifest.previous; fi',
     '',
     '# Redirect logs to a guest-local file and console',
     'LOG_FILE="/var/log/neoagent-bootstrap.log"',
@@ -184,7 +245,6 @@ function createCloudInitScript({
     '',
     'cd "$APP_DIR"',
     'export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1',
-    'export PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH"',
     'if [ ! -d node_modules ] || [ ! -f node_modules/.neoagent-bootstrap-stamp ] || [ package.json -nt node_modules/.neoagent-bootstrap-stamp ]; then',
     '  echo "Installing npm dependencies..."',
     '  retry_cmd npm install --omit=dev --ignore-scripts --prefer-offline --no-audit --no-fund || { echo "Error: npm install failed." >&2; exit 1; }',
@@ -196,25 +256,145 @@ function createCloudInitScript({
     'echo "Ensuring guest runtime utilities..."',
     'retry_cmd apt-get update || echo "Warning: apt-get update failed, proceeding with cached lists."',
     `retry_cmd apt-get install -y --no-install-recommends ${guestUtilityPackages} || { echo "Error: Failed to install required guest runtime utilities." >&2; exit 1; }`,
+    'apt-get clean',
+    'rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb',
+    'if [ -s /tmp/neoagent-package-manifest.previous ]; then',
+    '  retry_cmd apt-get update || true',
+    '  cut -f1 /tmp/neoagent-package-manifest.previous | grep -Ev "^(linux-image-|linux-headers-|grub-|shim-|systemd-boot|qemu-system-|libvirt-|ovmf)" | xargs -r apt-get install -y --no-install-recommends || echo "Warning: Some user packages were unavailable after the guest upgrade."',
+    '  rm -f /tmp/neoagent-package-manifest.previous',
+    '  apt-get clean',
+    '  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb',
+    'fi',
     '',
     'echo "NeoAgent guest runtime payload is ready."',
     '',
     ...(includeBrowser
       ? [
-        'echo "Continuing browser runtime provisioning..."',
-        'PLAYWRIGHT_BROWSERS_PATH="$APP_DIR/.playwright-browsers"',
-        'PLAYWRIGHT_STAMP="$PLAYWRIGHT_BROWSERS_PATH/.chromium-installed"',
-        'mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"',
-        'if [ ! -f "$BROWSER_DEPS_MARKER" ]; then',
-        '  echo "Installing Playwright browser dependencies..."',
-        '  PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" retry_cmd npx playwright install-deps chromium || { echo "Error: Playwright dependency install failed." >&2; exit 1; }',
-        '  touch "$BROWSER_DEPS_MARKER"',
+        'echo "Configuring the lightweight Linux desktop..."',
+        'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/chromium/policies/managed /etc/apt/apt.conf.d /etc/apt/preferences.d /etc/security/limits.d /etc/profile.d /etc/systemd/system/user-1000.slice.d',
+        'cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<\'EOF\'',
+        '[LightDM]',
+        'start-default-seat=true',
+        'logind-check-graphical=false',
+        '',
+        '[Seat:*]',
+        'autologin-user=neo',
+        'autologin-user-timeout=0',
+        'user-session=openbox',
+        'xserver-command=X -core -nolisten tcp',
+        'EOF',
+        'cat > /etc/chromium/policies/managed/neoagent.json <<\'EOF\'',
+        '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
+        'EOF',
+        'cat > /etc/apt/apt.conf.d/90neoagent-cleanup <<\'EOF\'',
+        'APT::Keep-Downloaded-Packages "false";',
+        'DPkg::Pre-Invoke { "test $(df -Pk / | awk \'NR==2 {print $4}\') -ge 262144 || { echo NeoAgent: system disk safety reserve reached >&2; exit 1; }"; };',
+        'DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb || true"; };',
+        'DPkg::Post-Invoke { "mkdir -p /home/neo/.neoagent; dpkg-query -W -f=\'${binary:Package}\\t${Version}\\n\' > /home/neo/.neoagent/package-manifest.txt; chown -R neo:neo /home/neo/.neoagent || true"; };',
+        'EOF',
+        'cat > /etc/apt/preferences.d/90neoagent-immutable-boot <<\'EOF\'',
+        'Package: linux-image-* linux-headers-* grub-* shim-* systemd-boot* qemu-system-* libvirt-* ovmf',
+        'Pin: release *',
+        'Pin-Priority: -1',
+        'EOF',
+        'cat > /etc/pip.conf <<\'EOF\'',
+        '[global]',
+        'no-cache-dir = true',
+        'disable-pip-version-check = true',
+        'EOF',
+        'cat > /etc/npmrc <<\'EOF\'',
+        'cache=/tmp/neoagent-npm-cache',
+        'audit=false',
+        'fund=false',
+        'EOF',
+        'cat > /etc/profile.d/neoagent-user-packages.sh <<\'EOF\'',
+        'export PIP_NO_CACHE_DIR=1',
+        'export NPM_CONFIG_CACHE=/tmp/neoagent-npm-cache',
+        'export NPM_CONFIG_PREFIX="$HOME/.local"',
+        'export PATH="$HOME/.local/bin:$PATH"',
+        'EOF',
+        'cat > /etc/default/zramswap <<\'EOF\'',
+        'ALGO=zstd',
+        'PERCENT=20',
+        'PRIORITY=100',
+        'EOF',
+        'printf "%s\n" "neo soft nproc 1024" "neo hard nproc 1536" > /etc/security/limits.d/90-neoagent.conf',
+        'cat > /etc/systemd/system/user-1000.slice.d/90-neoagent-resources.conf <<\'EOF\'',
+        '[Slice]',
+        'TasksMax=1024',
+        'MemoryHigh=85%',
+        'MemoryMax=95%',
+        'CPUQuota=180%',
+        'EOF',
+        'cat > /usr/local/bin/neoagent-shell-audit <<\'PYEOF\'',
+        '#!/usr/bin/env python3',
+        'import json, os, shlex, sys, time',
+        'try:',
+        '    parts = shlex.split(sys.argv[2])',
+        'except Exception:',
+        '    parts = []',
+        'if not parts:',
+        '    raise SystemExit(0)',
+        'root = os.path.expanduser("~/.neoagent")',
+        'os.makedirs(root, mode=0o700, exist_ok=True)',
+        'def safe_argument(value):',
+        '    suffix = os.path.splitext(value)[1].lower()',
+        '    return value[:300] if value.startswith("-") or "/" in value or suffix in {".py", ".js", ".json", ".csv", ".txt", ".md", ".sh"} else "[argument]"',
+        'event = {"at": int(time.time() * 1000), "executable": os.path.basename(parts[0]), "arguments": [safe_argument(value) for value in parts[1:20]], "exitCode": int(sys.argv[1])}',
+        'with open(os.path.join(root, "teach-shell-events.jsonl"), "a", encoding="utf-8") as handle:',
+        '    handle.write(json.dumps(event, separators=(",", ":")) + "\\n")',
+        'PYEOF',
+        'chmod 0755 /usr/local/bin/neoagent-shell-audit',
+        'cat > /etc/profile.d/neoagent-shell-audit.sh <<\'EOF\'',
+        'if [ -n "$BASH_VERSION" ]; then',
+        '  export PROMPT_COMMAND=\'neoagent_status=$?; neoagent_command=$(history 1 | sed "s/^[ ]*[0-9]*[ ]*//"); /usr/local/bin/neoagent-shell-audit "$neoagent_status" "$neoagent_command" >/dev/null 2>&1; history -a\'',
         'fi',
-        'if [ ! -f "$PLAYWRIGHT_STAMP" ] || [ package.json -nt "$PLAYWRIGHT_STAMP" ]; then',
-        '  echo "Installing Playwright browsers..."',
-        '  PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" retry_cmd npx playwright install chromium || { echo "Error: Playwright browser install failed." >&2; exit 1; }',
-        '  date > "$PLAYWRIGHT_STAMP"',
-        'fi',
+        'EOF',
+        'install -d -o neo -g neo /home/neo/.config/openbox /home/neo/.config/tint2 /home/neo/.neoagent/data/browser-profiles/default /home/neo/Desktop /home/neo/Downloads /home/neo/workspace',
+        'cat > /home/neo/.config/openbox/autostart <<\'EOF\'',
+        'xset -dpms',
+        'xset s off',
+        'pcmanfm --desktop --profile neoagent &',
+        'tint2 &',
+        'EOF',
+        'cat > /home/neo/Desktop/Chromium.desktop <<\'EOF\'',
+        '[Desktop Entry]',
+        'Type=Application',
+        'Name=Chromium',
+        'Exec=chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check',
+        'Icon=chromium',
+        'Terminal=false',
+        'EOF',
+        'cat > /home/neo/Desktop/Files.desktop <<\'EOF\'',
+        '[Desktop Entry]',
+        'Type=Application',
+        'Name=Files',
+        'Exec=pcmanfm /home/neo/workspace',
+        'Icon=system-file-manager',
+        'Terminal=false',
+        'EOF',
+        'cat > /home/neo/Desktop/Terminal.desktop <<\'EOF\'',
+        '[Desktop Entry]',
+        'Type=Application',
+        'Name=Terminal',
+        'Exec=lxterminal --working-directory=/home/neo/workspace',
+        'Icon=utilities-terminal',
+        'Terminal=false',
+        'EOF',
+        'cat > /home/neo/Desktop/Text-Editor.desktop <<\'EOF\'',
+        '[Desktop Entry]',
+        'Type=Application',
+        'Name=Text Editor',
+        'Exec=mousepad',
+        'Icon=accessories-text-editor',
+        'Terminal=false',
+        'EOF',
+        'chmod 0755 /home/neo/Desktop/*.desktop',
+        'chown neo:neo /home/neo',
+        'chown -R neo:neo /home/neo/.config /home/neo/.neoagent /home/neo/Desktop /home/neo/Downloads /home/neo/workspace',
+        'printf "%s\n" "neo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-neoagent',
+        'chmod 0440 /etc/sudoers.d/90-neoagent',
+        'touch "$BROWSER_DEPS_MARKER"',
         'touch "$BROWSER_READY_MARKER"',
       ]
       : [
@@ -235,10 +415,6 @@ function createCloudInitUserData({
 }) {
   const normalizedProfile = normalizeRuntimeProfile(runtimeProfile);
   const includeBrowser = ['browser', 'browser_cli'].includes(normalizedProfile);
-  const guestAgentInnerCommand = includeBrowser
-    ? 'set -a; . /etc/neoagent/neoagent.env; set +a; cd /opt/neoagent && env DISPLAY=:99 PLAYWRIGHT_BROWSERS_PATH=/opt/neoagent/.playwright-browsers /usr/bin/env node server/guest_agent.js 2>&1 | tee -a /var/log/neoagent-guest-agent.log >/dev/console'
-    : 'set -a; . /etc/neoagent/neoagent.env; set +a; cd /opt/neoagent && /usr/bin/env node server/guest_agent.js 2>&1 | tee -a /var/log/neoagent-guest-agent.log >/dev/console';
-  const guestAgentLaunchCommand = `nohup /bin/sh -lc ${JSON.stringify(guestAgentInnerCommand)} </dev/null >/dev/null 2>&1 &`;
   const guestTokenB64 = encodeGuestToken(guestToken);
   const bootstrapScript = createCloudInitScript({
     guestToken,
@@ -251,6 +427,20 @@ function createCloudInitUserData({
     return [
       '#cloud-config',
       'package_update: false',
+      'users:',
+      '  - default',
+      '  - name: neo',
+      '    gecos: NeoAgent',
+      '    groups: [sudo, audio, video, netdev]',
+      '    shell: /bin/bash',
+      '    lock_passwd: true',
+      'fs_setup:',
+      '  - label: neoagent-data',
+      '    filesystem: ext4',
+      '    device: /dev/vdb',
+      '    overwrite: false',
+      'mounts:',
+      '  - [LABEL=neoagent-data, /home/neo, ext4, "defaults,nofail,discard", "0", "2"]',
       'write_files:',
       '  - path: /etc/neoagent/neoagent.env',
       "    permissions: '0600'",
@@ -259,29 +449,6 @@ function createCloudInitUserData({
       `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
       `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
       `      NEOAGENT_GUEST_PROFILE=${normalizedProfile}`,
-      ...(includeBrowser
-        ? [
-          '  - path: /etc/systemd/system/neoagent-xvfb.service',
-          "    permissions: '0644'",
-          '    owner: root:root',
-          '    content: |',
-          '      [Unit]',
-          '      Description=NeoAgent virtual display',
-          '      After=network-online.target',
-          '      Wants=network-online.target',
-          '',
-          '      [Service]',
-          '      Type=simple',
-          '      ExecStart=/usr/bin/Xvfb :99 -screen 0 1440x900x24 -ac -nolisten tcp',
-          '      Restart=always',
-          '      RestartSec=2',
-          '      StandardOutput=journal+console',
-          '      StandardError=journal+console',
-          '',
-          '      [Install]',
-          '      WantedBy=multi-user.target',
-        ]
-        : []),
       '  - path: /etc/systemd/system/neoagent-guest-agent.service',
       "    permissions: '0644'",
       '    owner: root:root',
@@ -289,43 +456,52 @@ function createCloudInitUserData({
       '      [Unit]',
       '      Description=NeoAgent guest agent',
       '      After=network-online.target',
-      ...(includeBrowser ? ['      After=neoagent-xvfb.service'] : []),
+      '      After=cloud-final.service',
+      ...(includeBrowser ? ['      After=display-manager.service'] : []),
       '      ConditionPathExists=/etc/neoagent/neoagent.env',
       '      Wants=network-online.target',
       '',
       '      [Service]',
       '      Type=simple',
+      '      User=neo',
+      '      Group=neo',
       '      EnvironmentFile=/etc/neoagent/neoagent.env',
-      '      ExecStartPre=/bin/mkdir -p /var/lib/neoagent',
+      '      ExecStartPre=+/bin/mkdir -p /var/lib/neoagent',
       ...(includeBrowser
         ? [
-          '      ExecStartPre=/usr/bin/touch /var/lib/neoagent/browser-runtime-ready',
-          '      ExecStartPre=/bin/sh -lc \'for _ in $(seq 1 30); do [ -S /tmp/.X11-unix/X99 ] && exit 0; sleep 1; done; exit 1\'',
-          '      Environment=DISPLAY=:99',
-          '      Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/neoagent/.playwright-browsers',
+          '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/browser-runtime-ready',
+          '      Environment=DISPLAY=:0',
+          '      Environment=CHROMIUM_BIN=/usr/bin/chromium',
         ]
         : [
-          '      ExecStartPre=/bin/sh -lc \'rm -f /var/lib/neoagent/browser-runtime-ready || true\'',
+          '      ExecStartPre=+/bin/sh -lc \'rm -f /var/lib/neoagent/browser-runtime-ready || true\'',
         ]),
-      '      ExecStartPre=/usr/bin/touch /var/lib/neoagent/bootstrap-complete',
+      '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/bootstrap-complete',
+      '      Environment=HOME=/home/neo',
+      '      Environment=NEOAGENT_HOME=/home/neo/.neoagent',
       '      WorkingDirectory=/opt/neoagent',
       '      ExecStart=/usr/bin/env node /opt/neoagent/server/guest_agent.js',
       '      Restart=always',
       '      RestartSec=5',
+      '      TasksMax=768',
+      '      MemoryHigh=85%',
+      '      MemoryMax=95%',
+      '      CPUQuota=180%',
       '      StandardOutput=journal+console',
       '      StandardError=journal+console',
       '',
       '      [Install]',
-      '      WantedBy=multi-user.target',
+      '      WantedBy=cloud-init.target',
       'runcmd:',
       '  - [bash, -lc, "systemctl daemon-reload"]',
       ...(includeBrowser
         ? [
-          '  - [bash, -lc, "systemctl enable neoagent-xvfb.service"]',
-          '  - [bash, -lc, "systemctl start neoagent-xvfb.service"]',
+          '  - [bash, -lc, "systemctl enable lightdm.service"]',
+          '  - [bash, -lc, "systemctl restart lightdm.service"]',
+          '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
         ]
         : []),
-      '  - [bash, -lc, "systemctl enable neoagent-guest-agent.service"]',
+      '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
       '  - [bash, -lc, "systemctl start --no-block neoagent-guest-agent.service"]',
       '',
     ].join('\n');
@@ -334,6 +510,20 @@ function createCloudInitUserData({
   return [
     '#cloud-config',
     'package_update: false',
+    'users:',
+    '  - default',
+    '  - name: neo',
+    '    gecos: NeoAgent',
+    '    groups: [sudo, audio, video, netdev]',
+    '    shell: /bin/bash',
+    '    lock_passwd: true',
+    'fs_setup:',
+    '  - label: neoagent-data',
+    '    filesystem: ext4',
+    '    device: /dev/vdb',
+    '    overwrite: false',
+    'mounts:',
+    '  - [LABEL=neoagent-data, /home/neo, ext4, "defaults,nofail,discard", "0", "2"]',
     'write_files:',
     '  - path: /etc/neoagent/neoagent.env',
     "    permissions: '0600'",
@@ -362,52 +552,36 @@ function createCloudInitUserData({
     '      After=network-online.target',
     '      After=cloud-final.service',
     '      After=neoagent-guest-bootstrap.service',
-    ...(includeBrowser ? ['      After=neoagent-xvfb.service'] : []),
+    ...(includeBrowser ? ['      After=display-manager.service'] : []),
     '      ConditionPathExists=/etc/neoagent/neoagent.env',
-    ...(includeBrowser ? ['      Requires=neoagent-xvfb.service'] : []),
     '      Wants=network-online.target',
     '',
     '      [Service]',
     '      Type=simple',
+    '      User=neo',
+    '      Group=neo',
     '      EnvironmentFile=/etc/neoagent/neoagent.env',
+    '      Environment=HOME=/home/neo',
+    '      Environment=NEOAGENT_HOME=/home/neo/.neoagent',
     ...(includeBrowser
       ? [
-        '      Environment=DISPLAY=:99',
-        '      Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/neoagent/.playwright-browsers',
+        '      Environment=DISPLAY=:0',
+        '      Environment=CHROMIUM_BIN=/usr/bin/chromium',
       ]
       : []),
     '      WorkingDirectory=/opt/neoagent',
     '      ExecStart=/usr/bin/env node /opt/neoagent/server/guest_agent.js',
     '      Restart=always',
     '      RestartSec=5',
+    '      TasksMax=768',
+    '      MemoryHigh=85%',
+    '      MemoryMax=95%',
+    '      CPUQuota=180%',
     '      StandardOutput=journal+console',
     '      StandardError=journal+console',
     '',
     '      [Install]',
-    '      WantedBy=multi-user.target',
-    ...(includeBrowser
-      ? [
-        '  - path: /etc/systemd/system/neoagent-xvfb.service',
-        "    permissions: '0644'",
-        '    owner: root:root',
-        '    content: |',
-        '      [Unit]',
-        '      Description=NeoAgent virtual display',
-        '      After=network-online.target',
-        '      Wants=network-online.target',
-        '',
-        '      [Service]',
-        '      Type=simple',
-        '      ExecStart=/usr/bin/Xvfb :99 -screen 0 1440x900x24 -ac -nolisten tcp',
-        '      Restart=always',
-        '      RestartSec=2',
-        '      StandardOutput=journal+console',
-        '      StandardError=journal+console',
-        '',
-        '      [Install]',
-        '      WantedBy=multi-user.target',
-      ]
-      : []),
+    '      WantedBy=cloud-init.target',
     '  - path: /etc/systemd/system/neoagent-guest-bootstrap.service',
     "    permissions: '0644'",
     '    owner: root:root',
@@ -426,14 +600,16 @@ function createCloudInitUserData({
     '      WantedBy=multi-user.target',
     'runcmd:',
     '  - [bash, -lc, "systemctl daemon-reload"]',
+    '  - [bash, -lc, "/usr/local/bin/neoagent-guest-bootstrap.sh"]',
     ...(includeBrowser
       ? [
-        '  - [bash, -lc, "systemctl enable neoagent-xvfb.service"]',
-        '  - [bash, -lc, "systemctl start neoagent-xvfb.service"]',
+        '  - [bash, -lc, "systemctl enable lightdm.service"]',
+        '  - [bash, -lc, "systemctl restart lightdm.service"]',
+        '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
       ]
       : []),
-    '  - [bash, -lc, "/usr/local/bin/neoagent-guest-bootstrap.sh"]',
-    `  - [bash, -lc, ${JSON.stringify(guestAgentLaunchCommand)}]`,
+    '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
+    '  - [bash, -lc, "systemctl restart --no-block neoagent-guest-agent.service"]',
     '',
   ].join('\n');
 }
@@ -566,6 +742,18 @@ function createFatSeedImage(sourceDir, imagePath) {
 }
 
 function createSeedIso(sourceDir, isoPath) {
+  const javascriptIsoWriter = [
+    "import fs from 'node:fs';",
+    "import path from 'node:path';",
+    "import { ISOWriter } from '@gcu/iso9660';",
+    'const [source, output] = process.argv.slice(1);',
+    "const writer = new ISOWriter({ volumeId: 'CIDATA' });",
+    'for (const name of fs.readdirSync(source)) {',
+    '  const file = path.join(source, name);',
+    "  if (fs.statSync(file).isFile()) writer.addFile('/' + name, fs.readFileSync(file));",
+    '}',
+    'fs.writeFileSync(output, Buffer.from(writer.build()));',
+  ].join('\n');
   const candidates = [
     {
       command: 'xorriso',
@@ -583,11 +771,15 @@ function createSeedIso(sourceDir, isoPath) {
       command: 'mkisofs',
       args: ['-o', isoPath, '-V', 'CIDATA', '-J', '-r', sourceDir],
     },
+    {
+      command: process.execPath,
+      args: ['--input-type=module', '--eval', javascriptIsoWriter, sourceDir, isoPath],
+    },
   ];
 
   let lastError = null;
   for (const candidate of candidates) {
-    if (!commandExists(candidate.command)) {
+    if (candidate.command !== process.execPath && !commandExists(candidate.command)) {
       continue;
     }
 
@@ -634,6 +826,14 @@ function ensureGuestBootstrapSeed({
     runtimeProfile,
   });
   const identity = resolveCloudInitIdentity(userRoot);
+  const identityMaterial = guestPayloadBase64
+    ? userData.replace(guestPayloadBase64, `guest-payload-sha256:${guestPayloadDigest(runtimeProfile)}`)
+    : userData;
+  identity.instanceId = `${identity.instanceId}-${crypto
+    .createHash('sha256')
+    .update(identityMaterial)
+    .digest('hex')
+    .slice(0, 12)}`;
   const metaData = createCloudInitMetaData(identity);
   const startupNsh = guestArch === 'arm64'
     ? [
@@ -641,19 +841,19 @@ function ensureGuestBootstrapSeed({
       'map -r',
       'for %d in fs0 fs1 fs2 fs3 fs4 fs5',
       '  if exist %d:\\EFI\\ubuntu\\shimaa64.efi then',
-      '    %d:\\EFI\\ubuntu\\shimaa64.efi',
+      '    %d:\\EFI\\debian\\shimaa64.efi',
       '  endif',
       'endfor',
       '# Fallback',
-      '\\EFI\\ubuntu\\shimaa64.efi',
-      '\\EFI\\ubuntu\\grubaa64.efi',
+      '\\EFI\\debian\\shimaa64.efi',
+      '\\EFI\\debian\\grubaa64.efi',
     ].join('\r\n')
     : [
       '@echo -off',
       'map -r',
       'fs0:',
-      '\\EFI\\ubuntu\\shimx64.efi',
-      '\\EFI\\ubuntu\\grubx64.efi',
+      '\\EFI\\debian\\shimx64.efi',
+      '\\EFI\\debian\\grubx64.efi',
       '\\EFI\\BOOT\\BOOTX64.EFI',
     ].join('\r\n');
 
@@ -684,6 +884,7 @@ module.exports = {
   createCloudInitScript,
   createSeedIso,
   ensureGuestBootstrapSeed,
+  guestPayloadDigest,
   GUEST_BOOTSTRAP_ROOT,
   GUEST_PAYLOAD_PROFILES,
   REPO_ROOT,

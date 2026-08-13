@@ -44,8 +44,7 @@ function buildPublicStatus(app) {
   const hasMessaging = Boolean(app?.locals?.messagingManager);
   const hasIntegrations = Boolean(app?.locals?.integrationManager);
   const hasMcp = Boolean(app?.locals?.mcpClient);
-  const hasDesktop = Boolean(app?.locals?.desktopCompanionRegistry || app?.locals?.desktopProvider);
-  const hasBrowser = Boolean(app?.locals?.browserExtensionRegistry || app?.locals?.browserController);
+  const hasComputer = Boolean(app?.locals?.runtimeManager?.computerBackend);
   const hasMemory = Boolean(app?.locals?.memoryManager);
   const hasAi = hasAnyAiProviderEnv();
 
@@ -67,8 +66,8 @@ function buildPublicStatus(app) {
     component(
       'Devices',
       'Browser & Desktop Control',
-      hasBrowser && hasDesktop ? 'operational' : 'degraded',
-      hasBrowser && hasDesktop ? 'Control gateways are ready.' : 'One control gateway is not currently initialized.'
+      hasComputer ? 'operational' : 'degraded',
+      hasComputer ? 'The unified cloud computer provider is ready.' : 'The cloud computer provider is not initialized.'
     ),
     component(
       'Communication',

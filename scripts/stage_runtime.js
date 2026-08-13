@@ -13,8 +13,15 @@ function argument(name) {
   return path.resolve(value);
 }
 
+function optionalArgument(name) {
+  const index = process.argv.indexOf(`--${name}`);
+  const value = index >= 0 ? process.argv[index + 1] : '';
+  return value && !value.startsWith('--') ? path.resolve(value) : null;
+}
+
 const outputDirectory = argument('output');
 const nodeExecutable = argument('node');
+const computerRuntimeDirectory = optionalArgument('computer-runtime');
 const repositoryRoot = path.resolve(__dirname, '..');
 
 fs.rmSync(outputDirectory, { recursive: true, force: true });
@@ -25,7 +32,6 @@ fs.mkdirSync(nodeDirectory, { recursive: true });
 
 for (const entry of [
   'bin',
-  'extensions',
   'lib',
   'runtime',
   'server',
@@ -52,6 +58,26 @@ fs.cpSync(nodeModules, path.join(appDirectory, 'node_modules'), {
   recursive: true,
   force: true,
 });
+
+if (computerRuntimeDirectory) {
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  const systemName = process.arch === 'arm64' ? 'qemu-system-aarch64' : 'qemu-system-x86_64';
+  for (const relativePath of [
+    path.join('bin', `${systemName}${suffix}`),
+    path.join('bin', `qemu-img${suffix}`),
+    path.join('share', 'qemu'),
+    'manifest.json',
+  ]) {
+    if (!fs.existsSync(path.join(computerRuntimeDirectory, relativePath))) {
+      throw new Error(`Computer runtime is incomplete: ${relativePath}`);
+    }
+  }
+  fs.cpSync(
+    computerRuntimeDirectory,
+    path.join(appDirectory, 'computer-runtime', 'qemu'),
+    { recursive: true, force: true },
+  );
+}
 
 const targetNode = process.platform === 'win32'
   ? path.join(nodeDirectory, 'node.exe')

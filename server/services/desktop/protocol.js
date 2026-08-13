@@ -1,6 +1,6 @@
 'use strict';
 
-const DESKTOP_COMPANION_WS_PATH = '/api/desktop/ws';
+const DESKTOP_COMPANION_WS_PATH = '/api/computer/local/ws';
 
 const DESKTOP_COMMANDS = Object.freeze({
   GET_STATUS: 'getStatus',
@@ -22,6 +22,11 @@ const DESKTOP_COMMANDS = Object.freeze({
   CANCEL_COMMAND: 'cancelCommand',
   PING: 'ping',
   MOUSE_MOVE: 'mouseMove',
+  OPEN_URI: 'openUri',
+  LIST_FILES: 'listFiles',
+  READ_FILE: 'readFile',
+  WRITE_FILE: 'writeFile',
+  SEARCH_FILES: 'searchFiles',
 });
 
 const FRAME_TYPE_VIDEO = 0x01;

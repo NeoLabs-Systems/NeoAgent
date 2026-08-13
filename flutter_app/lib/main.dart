@@ -26,12 +26,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'src/android_apk_drop_zone.dart';
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/backend_client.dart';
 import 'src/backend_discovery_service.dart';
+import 'src/computer_display.dart';
 import 'src/desktop_companion.dart';
 import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
@@ -44,7 +44,6 @@ import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
-import 'src/stream_renderer.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
 import 'src/webauthn_client.dart';
@@ -97,9 +96,7 @@ Future<void> runNeoAgentApp({
   runApp(NeoAgentApp(mode: mode));
 }
 
-const String _browserUrlPlaceholder = 'https://example.com';
 const String _androidLaunchPlaceholder = 'com.android.settings';
-const String _packageOrUrlHint = 'Package name or URL';
 const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =

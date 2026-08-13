@@ -1,61 +1,46 @@
 # Devices and interfaces
 
-NeoAgent clients connect to one self-hosted server. A client interface does not
-move the server-side data or tools onto that client unless a device is
-explicitly paired as a runtime backend.
+NeoAgent exposes two agent-controlled devices: **Computer** and **Android**.
+The web, mobile, and desktop clients all connect to the same NeoAgent server
+and show the same device model.
 
-## Web interface
+## Computer
 
-The web interface provides chat, runs, tasks, agents, integrations, memory,
-devices, health, settings, permissions, and logs. It is served by
-the NeoAgent backend.
+Computer offers two locations without splitting the tools or UI: a persistent,
+isolated Linux cloud computer or **This device** in the NeoAgent desktop app.
+Browser, desktop, files, terminal, and Python-capable shell tools all go
+through the same agent loop and selected provider.
 
-## Android app
+The guest is a deliberately small Debian desktop with Openbox, Tint2, PCManFM,
+Chromium, Mousepad, LXTerminal, Python, Git, and standard Unix tools. A
+same-origin noVNC display lets the user watch the agent or take an exclusive
+control lease. Files and terminal are panels within Computer, not separate
+devices.
 
-The Android app connects to the same backend and adds:
+Teach Mode records a user demonstration in this computer. It combines input
+events with browser semantics, Linux accessibility, shell events, file changes,
+and masked screenshots. NeoAgent synthesizes and validates an adaptive skill,
+then deletes the encrypted recording data.
 
-- Health Connect synchronization
-- Android notification forwarding
-- Native notifications and device pairing
+On macOS, Windows, and Linux, **This device** uses an outbound authenticated
+connection from the signed-in desktop app. The user separately approves screen
+observation, mouse/keyboard input, the scoped `NeoAgent Workspace`, and local
+CLI/app access. Every permission can be granted once, remembered, denied, or
+revoked. Teach Mode currently remains available only for the cloud provider.
 
-The normal Android app is distinct from the Android device that the agent
-controls over ADB.
-
-## Launcher mode
-
-NeoAgent also has an Android launcher build. It provides an integrated home
-experience, pairing, device controls, and hardware-button
-integration. Launcher releases use a separate application package from the
-standard Android client.
-
-## Desktop companion
-
-The Flutter desktop client can pair with a server. When selected in settings,
-shell and desktop-control actions run on the paired desktop with that user's
-permissions. Pair only a machine and OS account that the agent is allowed to
-operate.
-
-## Chrome extension
-
-The bundled extension pairs a Chrome profile with NeoAgent. Browser actions can
-then run in that profile instead of the isolated server browser.
-
-Download the extension from `/api/browser-extension/download`, load the
-unpacked directory through `chrome://extensions`, and pair it after signing in.
-Use a dedicated browser profile because pairing grants the agent access to its
-open sessions and sites.
-
-## Android control
+## Android
 
 NeoAgent controls a server-attached emulator or physical Android device over
-ADB. The agent can inspect screenshots and UI nodes, tap, swipe, type, launch
-apps and intents, install application bundles, and run `adb shell`.
+ADB. It can inspect screenshots and UI nodes, tap, swipe, type, launch apps and
+intents, install application bundles, and run `adb shell`.
 
 If NeoAgent runs on a remote server, it controls the Android device attached to
-that server, not the phone displaying the NeoAgent client.
+that server, not the phone displaying the NeoAgent client. Android Teach Mode
+is not part of the first release.
 
-## Wearable firmware
+## Client interfaces
 
-The repository includes an ESP-IDF firmware target for the Waveshare ESP32-S3
-Touch AMOLED 1.8 board. This is a source-level hardware target, not part of the
-npm installer. See [Hardware](hardware.md).
+The Flutter web, Android, desktop, and Android launcher applications are user
+interfaces for the same server. The standard Android client can additionally
+synchronize Health Connect data and forward notifications. Wearable firmware
+remains a separate source-level hardware target; see [Hardware](hardware.md).

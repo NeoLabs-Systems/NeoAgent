@@ -9,10 +9,12 @@ const String desktopCompanionDeviceIdPrefsKey = 'desktop.companion.deviceId';
 const String desktopCompanionActivationIdPrefsKey =
     'desktop.companion.activationId';
 const String desktopCompanionPausedPrefsKey = 'desktop.companion.paused';
+const String localComputerPermissionsPrefsKey = 'computer.local.permissions';
 
 class DesktopCompanionManager extends ChangeNotifier {
   DesktopCompanionManager({required DesktopScreenCapture screenCapture});
 
+  bool get supported => false;
   bool get enabled => false;
   bool get paused => false;
   bool get connecting => false;
@@ -22,6 +24,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get deviceId => '';
   String get activationId => '';
   Map<String, Object?> get status => const <String, Object?>{};
+  String? get pendingPermission => null;
+  Set<String> get grantedPermissions => const <String>{};
 
   Future<void> bootstrap(SharedPreferences prefs) async {}
 
@@ -56,4 +60,19 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> openPermissionSettings(String permissionKey) async {
     throw UnsupportedError('Desktop companion is not available here.');
   }
+
+  Future<void> grantPermission(
+    String capability,
+    SharedPreferences prefs, {
+    required bool remember,
+  }) async {
+    throw UnsupportedError('Local computer control is not available here.');
+  }
+
+  Future<void> denyPermission(String capability) async {}
+
+  Future<void> revokePermission(
+    String capability,
+    SharedPreferences prefs,
+  ) async {}
 }

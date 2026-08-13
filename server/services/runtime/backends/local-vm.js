@@ -235,7 +235,7 @@ class VmBrowserProvider {
     this.client = client;
     this.userId = options.userId;
     this.artifactStore = options.artifactStore || null;
-    this.headless = true;
+    this.headless = false;
   }
 
   async #request(method, pathname, body, options = {}) {
@@ -418,7 +418,8 @@ class VmBrowserProvider {
     return this.client.request('GET', '/browser/cookies', undefined, options);
   }
   async setHeadless(value) {
-    this.headless = true;
+    void value;
+    this.headless = false;
     return { success: true };
   }
 }
@@ -433,6 +434,7 @@ class LocalVmExecutionBackend {
     this.token = options.token || process.env.NEOAGENT_VM_GUEST_TOKEN || '';
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
+    this.activeOperations = new Map();
     this.reaperInterval = null;
     this.reaperInFlight = false;
     this.shuttingDown = false;
@@ -450,6 +452,24 @@ class LocalVmExecutionBackend {
     }
   }
 
+  touchActivity(userId) {
+    this.#touch(userId);
+  }
+
+  async #withActiveOperation(userId, work) {
+    const key = String(userId || '').trim();
+    this.activeOperations.set(key, (this.activeOperations.get(key) || 0) + 1);
+    this.#touch(key);
+    try {
+      return await work();
+    } finally {
+      const remaining = (this.activeOperations.get(key) || 1) - 1;
+      if (remaining > 0) this.activeOperations.set(key, remaining);
+      else this.activeOperations.delete(key);
+      this.#touch(key);
+    }
+  }
+
   #startIdleReaper() {
     if (this.reaperInterval) return;
     this.reaperInterval = setInterval(async () => {
@@ -458,11 +478,17 @@ class LocalVmExecutionBackend {
       const now = Date.now();
       try {
         for (const [userId, lastUsed] of this.lastActivity.entries()) {
+          if ((this.activeOperations.get(userId) || 0) > 0) continue;
+          if (this.isIdleProtected?.(userId) === true) continue;
           if (now - lastUsed > IDLE_TIMEOUT_MS) {
             console.log(`[Runtime:${this.runtimeProfile}] User ${userId} runtime idle for ${Math.round((now - lastUsed) / 1000)}s, shutting down VM.`);
             this.lastActivity.delete(userId);
             try {
-              await this.vmManager?.killVm?.(userId);
+              if (typeof this.vmManager?.sleepVm === 'function') {
+                await this.vmManager.sleepVm(userId);
+              } else {
+                await this.vmManager?.killVm?.(userId);
+              }
             } catch (err) {
               console.error(`[Runtime:${this.runtimeProfile}] Failed to shut down idle VM for user ${userId}:`, err.message);
             }
@@ -509,34 +535,70 @@ class LocalVmExecutionBackend {
           return Boolean(session && session.process && isPidAlive(session.process.pid));
         },
       });
+      if (session.state === 'starting') session.state = 'ready';
+      await this.vmManager.cacheDirectBootAssets?.(userId, client);
     } catch (error) {
       if (options.signal?.aborted) throw abortError(options.signal);
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
       const detail = runtimeError ? ` ${runtimeError}` : '';
-      throw new Error(`${error.message}${detail}`.trim());
+      const startupError = new Error(`${error.message}${detail}`.trim());
+      startupError.code = error.code || 'COMPUTER_START_FAILED';
+      if (typeof this.vmManager?.failVm === 'function') {
+        await this.vmManager.failVm(userId, startupError);
+      }
+      throw startupError;
     }
     return client;
   }
 
-  async executeCommand(userId, command, options = {}) {
+  async getClientForUser(userId, options = {}) {
+    return this.#clientForUser(userId, options);
+  }
+
+  async requestGuest(userId, method, pathname, body, options = {}) {
     const client = await this.#clientForUser(userId, options);
-    const requestedCommandTimeout = Number(options.timeout || 0);
-    const transportTimeout = requestedCommandTimeout > 0
-      ? Math.min(30 * 60 * 1000, requestedCommandTimeout + 30_000)
-      : 16 * 60 * 1000;
-    const result = await client.request('POST', '/exec', {
-      command,
-      cwd: options.cwd,
-      timeout: options.timeout,
-      stdin_input: options.stdinInput,
-      pty: options.pty === true,
-      inputs: options.inputs || [],
-    }, {
-      timeoutMs: transportTimeout,
-      retryCount: 0,
+    return client.request(method, pathname, body, {
+      timeoutMs: Number(options.timeoutMs || 120000),
+      maxResponseBytes: Number(options.maxResponseBytes || 32 * 1024 * 1024),
+      retryCount: options.retryCount,
       signal: options.signal,
     });
-    return this.#materializeCommandOutput(client, userId, result, options);
+  }
+
+  async importWorkspaceArchive(userId, archivePath, sha256, options = {}) {
+    const client = await this.#clientForUser(userId, options);
+    const stats = fs.statSync(archivePath);
+    return client.requestStream('POST', '/workspace/import', fs.createReadStream(archivePath), {
+      contentType: 'application/gzip',
+      contentLength: stats.size,
+      headers: { 'x-neoagent-sha256': sha256 },
+      timeoutMs: 30 * 60 * 1000,
+      maxResponseBytes: 1024 * 1024,
+      signal: options.signal,
+    });
+  }
+
+  async executeCommand(userId, command, options = {}) {
+    return this.#withActiveOperation(userId, async () => {
+      const client = await this.#clientForUser(userId, options);
+      const requestedCommandTimeout = Number(options.timeout || 0);
+      const transportTimeout = requestedCommandTimeout > 0
+        ? Math.min(30 * 60 * 1000, requestedCommandTimeout + 30_000)
+        : 16 * 60 * 1000;
+      const result = await client.request('POST', '/exec', {
+        command,
+        cwd: options.cwd,
+        timeout: options.timeout,
+        stdin_input: options.stdinInput,
+        pty: options.pty === true,
+        inputs: options.inputs || [],
+      }, {
+        timeoutMs: transportTimeout,
+        retryCount: 0,
+        signal: options.signal,
+      });
+      return this.#materializeCommandOutput(client, userId, result, options);
+    });
   }
 
   async #materializeCommandOutput(client, userId, result, options = {}) {
@@ -637,7 +699,7 @@ class LocalVmExecutionBackend {
     if (!session?.baseUrl) {
       return false;
     }
-    const client = new RuntimeHttpClient(session.baseUrl, this.token);
+    const client = new RuntimeHttpClient(session.baseUrl, session.guestToken || this.token);
     try {
       await client.request('GET', '/health', undefined, { timeoutMs });
       return true;
@@ -649,6 +711,7 @@ class LocalVmExecutionBackend {
   async shutdown() {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.shuttingDown = true;
+    this.activeOperations.clear();
     if (this.reaperInterval) {
       clearInterval(this.reaperInterval);
       this.reaperInterval = null;

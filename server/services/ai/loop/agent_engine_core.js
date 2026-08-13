@@ -1291,11 +1291,17 @@ class AgentEngine {
   }
 
   completeRun(runId, fields = {}) {
-    return closeRun(runId, 'completed', fields, ['running']);
+    const runMeta = this.activeRuns.get(runId);
+    const closed = closeRun(runId, 'completed', fields, ['running']);
+    if (closed && runMeta?.userId != null) this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
+    return closed;
   }
 
   failRun(runId, fields = {}) {
-    return closeRun(runId, 'failed', fields, ['running']);
+    const runMeta = this.activeRuns.get(runId);
+    const closed = closeRun(runId, 'failed', fields, ['running']);
+    if (closed && runMeta?.userId != null) this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
+    return closed;
   }
 
   attachProcessToRun(runId, pid) {
@@ -1954,6 +1960,7 @@ class AgentEngine {
        WHERE parent_run_id = ? AND status = 'running'`
     ).run(reason, runId);
     closeRun(runId, 'interrupted', { error: reason }, ['running', 'pausing', 'paused', 'resuming']);
+    if (persistedRun?.userId != null) this.runtimeManager?.releaseControl?.(persistedRun.userId, runId);
   }
 
   interruptAllActiveRuns(reason = 'Server shutting down while run was in progress.') {
@@ -2006,6 +2013,7 @@ class AgentEngine {
       { error: stopReason },
       ['running', 'pausing', 'paused', 'resuming'],
     );
+    if (persistedRun?.userId != null) this.runtimeManager?.releaseControl?.(persistedRun.userId, runId);
     return true;
   }
 
@@ -2029,6 +2037,7 @@ class AgentEngine {
       }
     }
     this.emit(runMeta.userId, 'run:pausing', { runId, reason: reason || null });
+    this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
     return true;
   }
 

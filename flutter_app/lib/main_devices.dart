@@ -1,6 +1,8 @@
 part of 'main.dart';
 
-// ignore_for_file: unused_element
+enum _DeviceTab { computer, android }
+
+enum _ComputerTool { desktop, files, terminal }
 
 class DevicesPanel extends StatefulWidget {
   const DevicesPanel({super.key, required this.controller});
@@ -12,2544 +14,1276 @@ class DevicesPanel extends StatefulWidget {
 }
 
 class _DevicesPanelState extends State<DevicesPanel> {
-  late final TextEditingController _browserUrlController;
-  late final TextEditingController _androidLaunchController;
-  late final TextEditingController _desktopLaunchController;
-  late final TextEditingController _textEntryController;
-  late final TextEditingController _workspaceEditorController;
-  Timer? _surfaceFrameTimer;
-  _DeviceSurface _surface = _DeviceSurface.browser;
-  _DeviceSurface? _runningSurface;
+  final TextEditingController _teachGoalController = TextEditingController();
+  final TextEditingController _terminalController = TextEditingController();
+  final TextEditingController _workspaceEditorController =
+      TextEditingController();
+  final TextEditingController _androidAppController = TextEditingController(
+    text: _androidLaunchPlaceholder,
+  );
+  _DeviceTab _device = _DeviceTab.computer;
+  _ComputerTool _computerTool = _ComputerTool.desktop;
 
   @override
   void initState() {
     super.initState();
-    _browserUrlController = TextEditingController(text: _browserUrlPlaceholder);
-    _androidLaunchController = TextEditingController(
-      text: _androidLaunchPlaceholder,
-    );
-    _desktopLaunchController = TextEditingController();
-    _textEntryController = TextEditingController();
-    _workspaceEditorController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(_bootstrapSurface());
-    });
-    _surfaceFrameTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      unawaited(_refreshSurfaceFrame());
+      if (mounted) unawaited(widget.controller.refreshDevices());
     });
   }
 
   @override
   void dispose() {
-    for (final controller in <TextEditingController>[
-      _browserUrlController,
-      _androidLaunchController,
-      _desktopLaunchController,
-      _textEntryController,
-      _workspaceEditorController,
-    ]) {
-      controller.dispose();
-    }
-    _surfaceFrameTimer?.cancel();
+    _teachGoalController.dispose();
+    _terminalController.dispose();
+    _workspaceEditorController.dispose();
+    _androidAppController.dispose();
     super.dispose();
   }
 
-  bool get _isBrowser => _surface == _DeviceSurface.browser;
-  bool get _isDesktop => _surface == _DeviceSurface.desktop;
-  bool get _isFiles => _surface == _DeviceSurface.files;
-
-  bool get _isCurrentSurfaceBusy =>
-      widget.controller.isRunningDeviceAction &&
-      (_runningSurface == null || _runningSurface == _surface);
-
-  Future<T> _runOnSurface<T>(Future<T> Function() action) async {
-    final surface = _surface;
-    if (mounted) setState(() => _runningSurface = surface);
-    try {
-      return await action();
-    } finally {
-      if (mounted) setState(() => _runningSurface = null);
-    }
-  }
-
-  bool get _androidOnline {
-    final status = widget.controller.androidRuntime;
-    final devices = _jsonMapList(status['devices'], fallbackToMapValues: true);
-    return devices.any((device) => device['status']?.toString() == 'device');
-  }
-
-  bool get _androidStarting =>
-      widget.controller.androidRuntime['starting'] == true;
-
-  String? get _androidDeviceId {
-    final status = widget.controller.androidRuntime;
-    final direct = status['adbSerial']?.toString().trim();
-    if (direct != null && direct.isNotEmpty) {
-      return direct;
-    }
-    final devices = _jsonMapList(status['devices'], fallbackToMapValues: true);
-    for (final device in devices) {
-      if (device['status']?.toString() != 'device') {
-        continue;
-      }
-      final serial = device['serial']?.toString().trim();
-      if (serial != null && serial.isNotEmpty) {
-        return serial;
-      }
-      final id = device['deviceId']?.toString().trim();
-      if (id != null && id.isNotEmpty) {
-        return id;
-      }
-    }
-    return null;
-  }
-
-  List<Map<String, dynamic>> get _onlineDesktopDevices => widget
-      .controller
-      .desktopDevices
-      .where((device) => device['online'] == true)
-      .toList(growable: false);
-
-  bool get _desktopOnline => _onlineDesktopDevices.isNotEmpty;
-
-  bool get _desktopRequiresSelection =>
-      _isDesktop &&
-      _onlineDesktopDevices.length > 1 &&
-      (widget.controller.selectedDesktopDeviceId ?? '').isEmpty;
-
-  bool get _extensionPreferredButOffline =>
-      widget.controller.browserBackend == 'extension' &&
-      !widget.controller.browserExtensionConnected;
-
-  List<Map<String, dynamic>> get _browserExtensionDevices =>
-      widget.controller.browserExtensionTokens;
-
-  String? get _activeScreenshotPath {
-    if (_isBrowser) {
-      if (_extensionPreferredButOffline) return null;
-      return widget.controller.browserScreenshotPath;
-    }
-    if (_isDesktop) {
-      return widget.controller.desktopScreenshotPath;
-    }
-    return widget.controller.androidScreenshotPath;
-  }
-
-  Future<void> _bootstrapSurface() async {
-    await widget.controller.refreshDevices();
-    await _ensurePreview();
-  }
-
-  Future<void> _ensurePreview() async {
-    final controller = widget.controller;
-    if (_isBrowser) {
-      if (_extensionPreferredButOffline) return;
-      if (controller.browserRuntime['launched'] != true) {
-        return;
-      }
-      if ((controller.browserScreenshotPath ?? '').isEmpty) {
-        final currentUrl =
-            controller.browserRuntime['pageInfo'] is Map<dynamic, dynamic>
-            ? (controller.browserRuntime['pageInfo'] as Map)['url']?.toString()
-            : null;
-        if (currentUrl != null && currentUrl.isNotEmpty) {
-          await controller.navigateBrowserRuntime(url: currentUrl);
-        } else {
-          await controller.screenshotBrowserRuntime();
-        }
-      }
-      return;
-    }
-
-    if (_isDesktop) {
-      if (_desktopRequiresSelection || !_desktopOnline) {
-        return;
-      }
-      if ((controller.desktopScreenshotPath ?? '').isEmpty) {
-        await controller.screenshotDesktopRuntime();
-      }
-      return;
-    }
-
-    if (_isFiles) {
-      if (controller.workspaceEntries.isEmpty) {
-        await controller.refreshWorkspaceFiles();
-      }
-      return;
-    }
-
-    if (_androidOnline && (controller.androidScreenshotPath ?? '').isEmpty) {
-      await controller.screenshotAndroidRuntime();
-    }
-  }
-
-  Future<void> _refreshSurfaceFrame() async {
-    if (!mounted ||
-        widget.controller.selectedSection != AppSection.devices ||
-        widget.controller.isRunningDeviceAction ||
-        widget.controller.isRefreshingDevices) {
-      return;
-    }
-    if (_isBrowser) {
-      if (_extensionPreferredButOffline) return;
-      await widget.controller.refreshBrowserFrameRuntime();
-      return;
-    }
-    if (_isDesktop) {
-      await widget.controller.refreshDesktopFrameRuntime();
-      return;
-    }
-    if (_isFiles) {
-      return;
-    }
-    if (_androidStarting) {
-      await widget.controller.refreshDevices();
-      if (_androidOnline &&
-          (widget.controller.androidScreenshotPath ?? '').isEmpty) {
-        await widget.controller.screenshotAndroidRuntime();
-      }
-      return;
-    }
-    await widget.controller.refreshAndroidFrameRuntime();
-  }
-
-  Future<void> _selectSurface(_DeviceSurface surface) async {
-    setState(() => _surface = surface);
-    await _ensurePreview();
-  }
-
-  Future<void> _openPrimary() => _runOnSurface(_openPrimaryInner);
-
-  Future<void> _openPrimaryInner() async {
-    final controller = widget.controller;
-    if (_isBrowser) {
-      await controller.navigateBrowserRuntime(
-        url: _browserUrlController.text.trim(),
-      );
-      return;
-    }
-
-    if (_isDesktop) {
-      if (_desktopRequiresSelection) {
-        final selectedId = widget.controller.selectedDesktopDeviceId;
-        if ((selectedId ?? '').isEmpty && _onlineDesktopDevices.length == 1) {
-          await controller.selectDesktopDeviceRuntime(
-            _onlineDesktopDevices.first['deviceId']?.toString() ?? '',
-          );
-        } else {
-          await controller.openDesktopSelectionRuntime();
-        }
-        return;
-      }
-      if (!_desktopOnline) {
-        return;
-      }
-      final selectedId = widget.controller.selectedDesktopDeviceId;
-      if ((selectedId ?? '').isEmpty && _onlineDesktopDevices.length == 1) {
-        await controller.selectDesktopDeviceRuntime(
-          _onlineDesktopDevices.first['deviceId']?.toString() ?? '',
-        );
-      }
-      final raw = _desktopLaunchController.text.trim();
-      if (raw.isNotEmpty) {
-        await controller.launchDesktopAppRuntime(raw);
-        return;
-      }
-      await controller.observeDesktopRuntime();
-      return;
-    }
-
-    if (_isFiles) {
-      await controller.refreshWorkspaceFiles();
-      return;
-    }
-
-    if (!_androidOnline) {
-      await controller.startAndroidRuntime();
-      await widget.controller.refreshDevices();
-      if (_androidOnline) {
-        await controller.screenshotAndroidRuntime();
-      }
-      return;
-    }
-
-    final raw = _androidLaunchController.text.trim();
-    if (raw.isEmpty) {
-      return;
-    }
-    if (raw.startsWith('http://') || raw.startsWith('https://')) {
-      await controller.openAndroidIntentRuntime(
-        action: 'android.intent.action.VIEW',
-        dataUri: raw,
-      );
-      return;
-    }
-    await controller.openAndroidAppRuntime(packageName: raw);
-  }
-
-  Future<void> _sleepPrimary() => _runOnSurface(_sleepPrimaryInner);
-
-  Future<void> _sleepPrimaryInner() async {
-    final controller = widget.controller;
-    if (_isBrowser) {
-      if (controller.browserRuntime['launched'] != true) {
-        return;
-      }
-      await controller.closeBrowserRuntime();
-      return;
-    }
-    if (_isDesktop) {
-      final selectedId = widget.controller.selectedDesktopDeviceId;
-      if ((selectedId ?? '').isNotEmpty) {
-        await controller.pauseDesktopDeviceRuntime(selectedId!);
-      }
-      return;
-    }
-    if (_isFiles) {
-      return;
-    }
-    if (!_androidOnline) {
-      return;
-    }
-    await controller.stopAndroidRuntime();
-  }
-
-  Future<void> _sendText() => _runOnSurface(() async {
-    final text = _textEntryController.text;
-    if (text.trim().isEmpty) {
-      return;
-    }
-    if (_isBrowser) {
-      await widget.controller.typeBrowserTextRuntime(text, pressEnter: true);
-    } else if (_isDesktop) {
-      await widget.controller.typeDesktopRuntime(text, pressEnter: true);
-    } else if (_isFiles) {
-      return;
-    } else {
-      await widget.controller.typeAndroidRuntime(<String, dynamic>{
-        'text': text,
-        'pressEnter': true,
-      });
-    }
-  });
-
-  void _handleHover(Offset point) {
-    if (_isBrowser) {
-      unawaited(
-        widget.controller.hoverBrowserPointRuntime(
-          x: point.dx.round(),
-          y: point.dy.round(),
-        ),
-      );
-    } else if (_isDesktop) {
-      if (_desktopRequiresSelection) {
-        return;
-      }
-      unawaited(
-        widget.controller.hoverDesktopRuntime(
-          x: point.dx.round(),
-          y: point.dy.round(),
-        ),
-      );
-    }
-  }
-
-  Future<void> _handleTap(Offset point) => _runOnSurface(() async {
-    if (_isBrowser) {
-      await widget.controller.clickBrowserPointRuntime(
-        x: point.dx.round(),
-        y: point.dy.round(),
-      );
-      return;
-    }
-    if (_isDesktop) {
-      if (_desktopRequiresSelection) {
-        return;
-      }
-      await widget.controller.clickDesktopRuntime(
-        x: point.dx.round(),
-        y: point.dy.round(),
-      );
-      return;
-    }
-    if (!_androidOnline) {
-      await widget.controller.startAndroidRuntime();
-      return;
-    }
-    await widget.controller.tapAndroidRuntime(<String, dynamic>{
-      'x': point.dx.round(),
-      'y': point.dy.round(),
-    });
-  });
-
-  Future<void> _handleSwipe(Offset start, Offset end) =>
-      _runOnSurface(() async {
-        if (_isBrowser) {
-          await widget.controller.scrollBrowserRuntime(
-            deltaY: (start.dy - end.dy).round(),
-          );
-          return;
-        }
-        if (_isDesktop) {
-          if (_desktopRequiresSelection) {
-            return;
-          }
-          await widget.controller.dragDesktopRuntime(
-            x1: start.dx.round(),
-            y1: start.dy.round(),
-            x2: end.dx.round(),
-            y2: end.dy.round(),
-          );
-          return;
-        }
-        if (!_androidOnline) {
-          return;
-        }
-        await widget.controller.swipeAndroidRuntime(<String, dynamic>{
-          'x1': start.dx.round(),
-          'y1': start.dy.round(),
-          'x2': end.dx.round(),
-          'y2': end.dy.round(),
-          'durationMs': 280,
-        });
-      });
-
-  Future<void> _runQuickAction(String action) => _runOnSurface(() async {
-    final controller = widget.controller;
-    switch (action) {
-      case 'browser_refresh':
-        await controller.navigateBrowserRuntime(
-          url: controller.browserRuntime['pageInfo'] is Map<dynamic, dynamic>
-              ? ((controller.browserRuntime['pageInfo'] as Map)['url']
-                        ?.toString() ??
-                    _browserUrlController.text.trim())
-              : _browserUrlController.text.trim(),
-        );
-        break;
-      case 'browser_enter':
-        await controller.pressBrowserKeyRuntime('Enter');
-        break;
-      case 'desktop_enter':
-        await controller.pressDesktopKeyRuntime('Return');
-        break;
-      case 'desktop_escape':
-        await controller.pressDesktopKeyRuntime('Escape');
-        break;
-      case 'android_back':
-        await controller.pressAndroidKeyRuntime('back');
-        break;
-      case 'android_home':
-        await controller.pressAndroidKeyRuntime('home');
-        break;
-      case 'android_recent':
-        await controller.pressAndroidKeyRuntime('app_switch');
-        break;
-      case 'surface_refresh':
-        await _ensurePreview();
-        break;
-    }
-  });
-
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final browserStatus = controller.browserRuntime;
-    final prefersExtension = controller.browserBackend == 'extension';
-    final extensionConnected = controller.browserExtensionConnected;
-    final usingExtension = prefersExtension && extensionConnected;
-    final selectedBrowserExtension = controller.browserExtensionTokens
-        .where(
-          (device) =>
-              device['tokenId'] == controller.selectedBrowserExtensionTokenId,
-        )
-        .cast<Map<String, dynamic>?>()
-        .firstWhere((device) => device != null, orElse: () => null);
-    final browserFallbackLabel = 'cloud browser runtime';
-    final browserPageInfo = browserStatus['pageInfo'] is Map<dynamic, dynamic>
-        ? Map<String, dynamic>.from(browserStatus['pageInfo'] as Map)
-        : const <String, dynamic>{};
-    final selectedDesktopDevice = controller.desktopDevices
-        .where(
-          (device) => device['deviceId'] == controller.selectedDesktopDeviceId,
-        )
-        .cast<Map<String, dynamic>?>()
-        .firstWhere((device) => device != null, orElse: () => null);
-    final desktopDeviceOnline = selectedDesktopDevice?['online'] == true;
-    return ListView(
-      padding: _pagePadding(context),
-      children: <Widget>[
-        _PageTitle(
-          title: 'Remote Device',
-          subtitle:
-              'Tap, swipe, and type directly on the live surface. Use the arrows below to switch between browser, phone, and desktop.',
-          trailing: OutlinedButton.icon(
-            onPressed:
-                controller.isRefreshingDevices ||
-                    controller.isRunningDeviceAction
-                ? null
-                : _bootstrapSurface,
-            icon: Icon(Icons.sync),
-            label: Text('Sync Surface'),
-          ),
-        ),
-        if (controller.errorMessage case final message?)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _InlineError(message: message),
-          ),
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 980),
-            child: Card(
-              color: _bgCard,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-                side: BorderSide(color: _borderLight),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: <Widget>[
-                    _DeviceSurfaceHeader(
-                      surface: _surface,
-                      browserStatus: browserStatus,
-                      browserPageInfo: browserPageInfo,
-                      androidRuntime: controller.androidRuntime,
-                      androidOnline: _androidOnline,
-                      desktopRuntime: controller.desktopRuntime,
-                      desktopDevices: controller.desktopDevices,
-                      selectedDesktopDeviceId:
-                          controller.selectedDesktopDeviceId,
-                      browserExtensionDevices:
-                          controller.browserExtensionTokens,
-                      selectedBrowserExtensionTokenId:
-                          controller.selectedBrowserExtensionTokenId,
-                      browserExtensionPreferred: prefersExtension,
-                      browserExtensionActive: usingExtension,
-                      browserFallbackLabel: browserFallbackLabel,
-                    ),
-                    if (_isFiles) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _WorkspaceExplorer(
-                        controller: controller,
-                        editorController: _workspaceEditorController,
-                      ),
-                      const SizedBox(height: 14),
-                      _SurfaceSwitcher(
-                        surface: _surface,
-                        onSelect: _selectSurface,
-                      ),
-                    ] else ...<Widget>[
-                      if (_isBrowser && prefersExtension) ...<Widget>[
-                        const SizedBox(height: 14),
-                        if (_browserExtensionDevices.isNotEmpty) ...<Widget>[
-                          DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            initialValue: selectedBrowserExtension?['tokenId']
-                                ?.toString(),
-                            decoration: const InputDecoration(
-                              labelText: 'Chrome extension device',
-                              prefixIcon: Icon(Icons.extension_outlined),
-                            ),
-                            hint: const Text('Select a paired extension'),
-                            items: _browserExtensionDevices.map((device) {
-                              final tokenId =
-                                  device['tokenId']?.toString() ?? '';
-                              final label =
-                                  device['name']
-                                          ?.toString()
-                                          .trim()
-                                          .isNotEmpty ==
-                                      true
-                                  ? device['name'].toString()
-                                  : tokenId;
-                              final state =
-                                  device['online'] == true ||
-                                      device['connected'] == true
-                                  ? 'online'
-                                  : 'offline';
-                              return DropdownMenuItem<String>(
-                                value: tokenId,
-                                child: Text(
-                                  '$label · $state',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  softWrap: false,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: _isCurrentSurfaceBusy
-                                ? null
-                                : (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return;
-                                    }
-                                    unawaited(
-                                      controller.selectBrowserExtensionRuntime(
-                                        value,
-                                      ),
-                                    );
-                                  },
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        _ExtensionStatusBar(
-                          connected: extensionConnected,
-                          onDownload: controller.downloadBrowserExtension,
-                          onRefresh: controller.refreshBrowserExtensionStatus,
+    final theme = Theme.of(context);
+    return DefaultTabController(
+      length: 2,
+      initialIndex: _device.index,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text('Devices', style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text(
+                        'One persistent computer for browser, apps, files and terminal.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                      if (_isDesktop) ...<Widget>[
-                        const SizedBox(height: 14),
-                        DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue: selectedDesktopDevice?['deviceId']
-                              ?.toString(),
-                          decoration: const InputDecoration(
-                            labelText: 'Desktop device',
-                            prefixIcon: Icon(Icons.computer_outlined),
-                          ),
-                          hint: const Text('Select a companion desktop'),
-                          items: controller.desktopDevices.map((device) {
-                            final deviceId =
-                                device['deviceId']?.toString() ?? '';
-                            final label =
-                                device['label']?.toString().trim().isNotEmpty ==
-                                    true
-                                ? device['label'].toString()
-                                : (device['hostname']?.toString() ?? deviceId);
-                            final os =
-                                device['platform']?.toString() ?? 'desktop';
-                            final state = device['online'] == true
-                                ? (device['paused'] == true
-                                      ? 'paused'
-                                      : 'online')
-                                : 'offline';
-                            return DropdownMenuItem<String>(
-                              value: deviceId,
-                              child: Text(
-                                '$label · $os · $state',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: _isCurrentSurfaceBusy
-                              ? null
-                              : (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return;
-                                  }
-                                  unawaited(
-                                    controller.selectDesktopDeviceRuntime(
-                                      value,
-                                    ),
-                                  );
-                                },
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            _DotStatus(
-                              label: desktopDeviceOnline
-                                  ? 'Companion live'
-                                  : controller.desktopCompanionConnected
-                                  ? 'Companion live'
-                                  : controller.desktopCompanionConnecting
-                                  ? 'Connecting'
-                                  : 'Companion idle',
-                              color: desktopDeviceOnline
-                                  ? _success
-                                  : controller.desktopCompanionConnected
-                                  ? _success
-                                  : controller.desktopCompanionConnecting
-                                  ? _accent
-                                  : _warning,
-                            ),
-                            if (selectedDesktopDevice != null)
-                              _DotStatus(
-                                label: selectedDesktopDevice['paused'] == true
-                                    ? 'Paused'
-                                    : (selectedDesktopDevice['online'] == true
-                                          ? 'Ready'
-                                          : 'Offline'),
-                                color: selectedDesktopDevice['paused'] == true
-                                    ? _warning
-                                    : (selectedDesktopDevice['online'] == true
-                                          ? _success
-                                          : _textMuted),
-                              ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      _DeviceLaunchBar(
-                        surface: _surface,
-                        controller: _isBrowser
-                            ? _browserUrlController
-                            : (_isDesktop
-                                  ? _desktopLaunchController
-                                  : _androidLaunchController),
-                        active: _isBrowser
-                            ? browserStatus['launched'] == true
-                            : (_isDesktop
-                                  ? _desktopOnline
-                                  : _androidOnline || _androidStarting),
-                        starting:
-                            !_isBrowser && !_isDesktop && _androidStarting,
-                        busy: _isCurrentSurfaceBusy,
-                        onSubmit: _openPrimary,
-                        onSleep: _sleepPrimary,
-                      ),
-                      const SizedBox(height: 18),
-                      _InteractiveSurfacePreview(
-                        surface: _surface,
-                        controller: controller,
-                        screenshotPath: _activeScreenshotPath,
-                        streamPlatform:
-                            _isBrowser && browserStatus['launched'] == true
-                            ? 'browser'
-                            : (_isDesktop && _desktopOnline
-                                  ? 'desktop'
-                                  : (!_isBrowser &&
-                                            !_isDesktop &&
-                                            _androidOnline
-                                        ? 'android'
-                                        : null)),
-                        streamDeviceId:
-                            _isBrowser && browserStatus['launched'] == true
-                            ? 'browser'
-                            : (_isDesktop && _desktopOnline
-                                  ? (widget
-                                            .controller
-                                            .selectedDesktopDeviceId ??
-                                        (_onlineDesktopDevices.isNotEmpty
-                                            ? _onlineDesktopDevices
-                                                  .first['deviceId']
-                                                  ?.toString()
-                                            : null))
-                                  : (!_isBrowser &&
-                                            !_isDesktop &&
-                                            _androidOnline
-                                        ? _androidDeviceId
-                                        : null)),
-                        busy: _isCurrentSurfaceBusy,
-                        wakingUp:
-                            !_isBrowser && !_isDesktop && _androidStarting,
-                        enabled: _isBrowser || _isDesktop || _androidOnline,
-                        connectRequired: _isBrowser
-                            ? _extensionPreferredButOffline
-                            : _desktopRequiresSelection,
-                        onTapPoint: _handleTap,
-                        onSwipe: _handleSwipe,
-                        onHover: _handleHover,
-                        onWakeRequested: _openPrimary,
-                      ),
-                      if (!_isBrowser && !_isDesktop) ...<Widget>[
-                        const SizedBox(height: 12),
-                        _AndroidNavDock(
-                          busy: _isCurrentSurfaceBusy,
-                          androidOnline: _androidOnline,
-                          onAction: _runQuickAction,
-                        ),
-                        if (kIsWeb) ...<Widget>[
-                          const SizedBox(height: 12),
-                          _AndroidActionsBox(
-                            enabled: _androidOnline,
-                            busy: _isCurrentSurfaceBusy,
-                            onInstall: ({required filename, required bytes}) {
-                              return controller.installAndroidApkRuntime(
-                                filename: filename,
-                                bytes: bytes,
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                      const SizedBox(height: 18),
-                      _DeviceTypeDock(
-                        controller: _textEntryController,
-                        busy: _isCurrentSurfaceBusy,
-                        surface: _surface,
-                        onSubmit: _sendText,
-                      ),
-                      if (_isBrowser || _isDesktop) ...<Widget>[
-                        const SizedBox(height: 14),
-                        _DeviceQuickActions(
-                          surface: _surface,
-                          androidOnline: _androidOnline,
-                          busy: _isCurrentSurfaceBusy,
-                          onAction: _runQuickAction,
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      _SurfaceSwitcher(
-                        surface: _surface,
-                        onSelect: _selectSurface,
                       ),
                     ],
-                  ],
+                  ),
                 ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: widget.controller.isRefreshingDevices
+                      ? null
+                      : () => widget.controller.refreshDevices(),
+                  icon: widget.controller.isRefreshingDevices
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
               ),
+              child: TabBar(
+                onTap: (index) =>
+                    setState(() => _device = _DeviceTab.values[index]),
+                tabs: const <Tab>[
+                  Tab(icon: Icon(Icons.computer_rounded), text: 'Computer'),
+                  Tab(icon: Icon(Icons.android_rounded), text: 'Android'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _device == _DeviceTab.computer
+                  ? _buildComputer(context)
+                  : _buildAndroid(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComputer(BuildContext context) {
+    final controller = widget.controller;
+    final local = controller.computerProvider == 'local';
+    final state = controller.computerRuntime['state']?.toString() ?? 'stopped';
+    final running = <String>{
+      'ready',
+      'agent_control',
+      'user_control',
+      'teaching',
+      'sleeping',
+    }.contains(state);
+    final starting = state == 'starting' || controller.isRunningDeviceAction;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _ComputerProviderPicker(
+          provider: controller.computerProvider,
+          localSupported: controller.localComputerSupported,
+          busy: controller.isRunningDeviceAction,
+          onChanged: controller.selectComputerProvider,
+        ),
+        const SizedBox(height: 12),
+        if (local) ...<Widget>[
+          _LocalComputerPermissionPanel(controller: controller),
+          const SizedBox(height: 12),
+        ],
+        _ComputerStatusBar(
+          state: state,
+          runtime: controller.computerRuntime,
+          busy: controller.isRunningDeviceAction,
+          onStart: running || starting ? null : controller.startComputerRuntime,
+          onOpen: running ? controller.openComputerDisplayRuntime : null,
+          onStop: running ? controller.stopComputerRuntime : null,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: <Widget>[
+            _ToolButton(
+              selected: _computerTool == _ComputerTool.desktop,
+              icon: Icons.desktop_windows_rounded,
+              label: 'Desktop',
+              onPressed: () =>
+                  setState(() => _computerTool = _ComputerTool.desktop),
+            ),
+            const SizedBox(width: 8),
+            _ToolButton(
+              selected: _computerTool == _ComputerTool.files,
+              icon: Icons.folder_open_rounded,
+              label: 'Files',
+              onPressed: running
+                  ? () {
+                      setState(() => _computerTool = _ComputerTool.files);
+                      unawaited(controller.refreshWorkspaceFiles());
+                    }
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            _ToolButton(
+              selected: _computerTool == _ComputerTool.terminal,
+              icon: Icons.terminal_rounded,
+              label: 'Terminal',
+              onPressed: running
+                  ? () => setState(() => _computerTool = _ComputerTool.terminal)
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: switch (_computerTool) {
+            _ComputerTool.desktop => _buildDesktop(context, running),
+            _ComputerTool.files => _buildFiles(context, running),
+            _ComputerTool.terminal => _buildTerminal(context, running),
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool running) {
+    final controller = widget.controller;
+    if (controller.computerProvider == 'local') {
+      return _LocalComputerDesktop(controller: controller, running: running);
+    }
+    final displayUrl = controller.computerDisplayUrl;
+    final teachStatus = controller.teachRuntime['status']?.toString() ?? 'idle';
+    final teaching =
+        teachStatus == 'recording' || teachStatus == 'synthesizing';
+
+    return Column(
+      children: <Widget>[
+        _TeachBar(
+          controller: _teachGoalController,
+          status: teachStatus,
+          runtime: controller.teachRuntime,
+          enabled: running && !controller.isRunningDeviceAction,
+          onGoalChanged: (_) => setState(() {}),
+          onStart: () =>
+              controller.startTeachRuntime(_teachGoalController.text),
+          onStop: teaching && teachStatus == 'recording'
+              ? controller.stopTeachRuntime
+              : null,
+          onCancel: teaching ? controller.cancelTeachRuntime : null,
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: ColoredBox(
+              color: Colors.black,
+              child: !running
+                  ? const _ComputerEmptyState(
+                      icon: Icons.computer_rounded,
+                      title: 'Computer is stopped',
+                      message:
+                          'Start it to open the persistent lightweight Linux desktop.',
+                    )
+                  : displayUrl == null
+                  ? _ComputerEmptyState(
+                      icon: Icons.desktop_windows_rounded,
+                      title: 'Desktop is ready',
+                      message:
+                          'Open the display to interact with Linux, Chromium and apps.',
+                      action: FilledButton.icon(
+                        onPressed: controller.isRunningDeviceAction
+                            ? null
+                            : controller.openComputerDisplayRuntime,
+                        icon: const Icon(Icons.open_in_browser_rounded),
+                        label: const Text('Open display'),
+                      ),
+                    )
+                  : ComputerDisplay(
+                      key: ValueKey<String>(displayUrl),
+                      url: displayUrl,
+                    ),
             ),
           ),
         ),
       ],
     );
   }
-}
 
-enum _DeviceSurface { browser, android, desktop, files }
-
-extension _DeviceSurfaceX on _DeviceSurface {
-  String get label => switch (this) {
-    _DeviceSurface.browser => 'Browser',
-    _DeviceSurface.android => 'Phone',
-    _DeviceSurface.desktop => 'Desktop',
-    _DeviceSurface.files => 'Files',
-  };
-
-  String get helper => switch (this) {
-    _DeviceSurface.browser => 'Tap to click. Drag to scroll.',
-    _DeviceSurface.android => 'Tap to touch. Drag to swipe.',
-    _DeviceSurface.desktop =>
-      'Tap to click. Drag to drag windows or selections.',
-    _DeviceSurface.files => 'Browse files created by the agent.',
-  };
-
-  IconData get icon => switch (this) {
-    _DeviceSurface.browser => Icons.language_outlined,
-    _DeviceSurface.android => Icons.smartphone_outlined,
-    _DeviceSurface.desktop => Icons.computer_outlined,
-    _DeviceSurface.files => Icons.folder_outlined,
-  };
-}
-
-class _DeviceSurfaceHeader extends StatelessWidget {
-  const _DeviceSurfaceHeader({
-    required this.surface,
-    required this.browserStatus,
-    required this.browserPageInfo,
-    required this.androidRuntime,
-    required this.androidOnline,
-    required this.desktopRuntime,
-    required this.desktopDevices,
-    required this.selectedDesktopDeviceId,
-    required this.browserExtensionDevices,
-    required this.selectedBrowserExtensionTokenId,
-    required this.browserExtensionPreferred,
-    required this.browserExtensionActive,
-    required this.browserFallbackLabel,
-  });
-
-  final _DeviceSurface surface;
-  final Map<String, dynamic> browserStatus;
-  final Map<String, dynamic> browserPageInfo;
-  final Map<String, dynamic> androidRuntime;
-  final bool androidOnline;
-  final Map<String, dynamic> desktopRuntime;
-  final List<Map<String, dynamic>> desktopDevices;
-  final String? selectedDesktopDeviceId;
-  final List<Map<String, dynamic>> browserExtensionDevices;
-  final String? selectedBrowserExtensionTokenId;
-  final bool browserExtensionPreferred;
-  final bool browserExtensionActive;
-  final String browserFallbackLabel;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildFiles(BuildContext context, bool running) {
+    if (!running) {
+      return const _ComputerEmptyState(
+        icon: Icons.folder_off_outlined,
+        title: 'Computer is stopped',
+        message: 'Files live on the persistent computer data disk.',
+      );
+    }
+    final controller = widget.controller;
+    final selectedPath = controller.workspaceSelectedFilePath;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 720;
-        final androidStarting = androidRuntime['starting'] == true;
-        final androidVersion = _androidRuntimeVersionLabel(androidRuntime);
-        final selectedDesktop = desktopDevices
-            .where((device) => device['deviceId'] == selectedDesktopDeviceId)
-            .cast<Map<String, dynamic>?>()
-            .firstWhere((device) => device != null, orElse: () => null);
-        final selectedExtension = browserExtensionDevices
-            .where(
-              (device) => device['tokenId'] == selectedBrowserExtensionTokenId,
-            )
-            .cast<Map<String, dynamic>?>()
-            .firstWhere((device) => device != null, orElse: () => null);
-        final extensionOnlineCount = browserExtensionDevices
-            .where(
-              (device) =>
-                  device['online'] == true || device['connected'] == true,
-            )
-            .length;
-        final desktopOnlineCount = desktopDevices
-            .where((device) => device['online'] == true)
-            .length;
-        final title = switch (surface) {
-          _DeviceSurface.browser =>
-            browserExtensionPreferred &&
-                    selectedExtension?['name']?.toString().trim().isNotEmpty ==
-                        true
-                ? selectedExtension!['name'].toString()
-                : (browserPageInfo['title']?.toString().trim().isNotEmpty ??
-                      false)
-                ? browserPageInfo['title'].toString()
-                : 'Live Browser',
-          _DeviceSurface.android => 'Android Phone',
-          _DeviceSurface.desktop =>
-            selectedDesktop?['label']?.toString().trim().isNotEmpty == true
-                ? selectedDesktop!['label'].toString()
-                : 'Desktop Companion',
-          _DeviceSurface.files => 'File Explorer',
-        };
-        final subtitle = switch (surface) {
-          _DeviceSurface.browser =>
-            browserExtensionPreferred && selectedExtension == null
-                ? extensionOnlineCount > 1
-                      ? 'Multiple extension devices are online. Pick the browser you want to control.'
-                      : 'No extension device is active. Using the $browserFallbackLabel.'
-                : browserExtensionPreferred && !browserExtensionActive
-                ? 'Selected extension is offline. Using the $browserFallbackLabel.'
-                : (browserPageInfo['url']?.toString() ??
-                      'Ready for navigation'),
-          _DeviceSurface.android =>
-            androidOnline
-                ? androidVersion == null
-                      ? 'Tap and swipe directly on the preview.'
-                      : '$androidVersion · Tap and swipe directly on the preview.'
-                : androidStarting
-                ? (androidRuntime['startupPhase']
-                              ?.toString()
-                              .trim()
-                              .isNotEmpty ??
-                          false)
-                      ? androidRuntime['startupPhase'].toString()
-                      : 'Starting the phone. This can take a little while.'
-                : (androidRuntime['lastLogLine']
-                          ?.toString()
-                          .trim()
-                          .isNotEmpty ??
-                      false)
-                ? androidRuntime['lastLogLine'].toString()
-                : androidVersion != null
-                ? '$androidVersion selected. Phone is offline.'
-                : 'Phone is offline. Open or start it from below.',
-          _DeviceSurface.desktop =>
-            selectedDesktop == null
-                ? desktopOnlineCount > 1
-                      ? 'Multiple desktop companions are online. Pick the machine you want to control.'
-                      : desktopOnlineCount == 1
-                      ? 'One desktop companion is online. Open the surface to fetch the latest frame.'
-                      : 'No desktop companion is online. Enable Companion Mode on a signed-in desktop app.'
-                : '${selectedDesktop['platform'] ?? 'desktop'} · ${selectedDesktop['hostname'] ?? 'unknown host'}',
-          _DeviceSurface.files =>
-            'Secure per-user workspace inside the isolated VM.',
-        };
-        final statusLabel = surface == _DeviceSurface.browser
-            ? browserExtensionPreferred && selectedExtension == null
-                  ? (extensionOnlineCount > 0 ? 'Select Device' : 'Fallback')
-                  : browserExtensionPreferred && !browserExtensionActive
-                  ? 'Fallback'
-                  : browserExtensionActive
-                  ? 'Extension'
-                  : (browserStatus['launched'] == true ? 'Live' : 'Sleeping')
-            : surface == _DeviceSurface.desktop
-            ? selectedDesktop == null
-                  ? (desktopOnlineCount > 0 ? 'Select Device' : 'Offline')
-                  : (selectedDesktop['paused'] == true
-                        ? 'Paused'
-                        : (selectedDesktop['online'] == true
-                              ? 'Live'
-                              : 'Offline'))
-            : surface == _DeviceSurface.files
-            ? ''
-            : (androidOnline
-                  ? 'Live'
-                  : androidStarting
-                  ? 'Starting'
-                  : 'Offline');
-        final statusColor = surface == _DeviceSurface.browser
-            ? (browserStatus['launched'] == true ? _success : _warning)
-            : surface == _DeviceSurface.desktop
-            ? (selectedDesktop?['paused'] == true
-                  ? _warning
-                  : (selectedDesktop?['online'] == true ? _success : _warning))
-            : surface == _DeviceSurface.files
-            ? _success
-            : (androidOnline
-                  ? _success
-                  : (androidStarting ? _accent : _warning));
-
-        final textColumn = Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _textSecondary, height: 1.4),
-              ),
-            ],
-          ),
+        final stacked = constraints.maxWidth < 760;
+        final explorer = _WorkspaceBrowser(
+          controller: controller,
+          onOpenFile: (path) async {
+            await controller.openWorkspaceFile(path);
+            if (!mounted) return;
+            _workspaceEditorController.text = controller.workspaceEditorContent;
+            setState(() {});
+          },
         );
-
-        final statusChip = Flexible(
-          child: Align(
-            alignment: compact ? Alignment.centerLeft : Alignment.centerRight,
-            child: _DotStatus(label: statusLabel, color: statusColor),
-          ),
+        final editor = _WorkspaceEditor(
+          path: selectedPath,
+          controller: _workspaceEditorController,
+          saving: controller.isSavingWorkspaceFile,
+          onSave: selectedPath == null
+              ? null
+              : () => controller.saveWorkspaceFile(
+                  _workspaceEditorController.text,
+                ),
+          onDownload: selectedPath == null
+              ? null
+              : () => controller.downloadWorkspaceFile(selectedPath),
         );
-
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _accentMuted,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(surface.icon, color: _textPrimary),
-                  ),
-                  const SizedBox(width: 14),
-                  textColumn,
-                ],
-              ),
-              const SizedBox(height: 12),
-              statusChip,
-            ],
-          );
-        }
-
-        return Row(
-          children: <Widget>[
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _accentMuted,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(surface.icon, color: _textPrimary),
-            ),
-            const SizedBox(width: 14),
-            textColumn,
-            const SizedBox(width: 12),
-            statusChip,
-          ],
+        return Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: stacked
+              ? Column(
+                  children: <Widget>[
+                    SizedBox(height: 220, child: explorer),
+                    const Divider(height: 1),
+                    Expanded(child: editor),
+                  ],
+                )
+              : Row(
+                  children: <Widget>[
+                    SizedBox(width: 300, child: explorer),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: editor),
+                  ],
+                ),
         );
       },
     );
   }
-}
 
-class _DeviceLaunchBar extends StatelessWidget {
-  const _DeviceLaunchBar({
-    required this.surface,
-    required this.controller,
-    required this.active,
-    required this.starting,
-    required this.busy,
-    required this.onSubmit,
-    required this.onSleep,
-  });
-
-  final _DeviceSurface surface;
-  final TextEditingController controller;
-  final bool active;
-  final bool starting;
-  final bool busy;
-  final Future<void> Function() onSubmit;
-  final Future<void> Function() onSleep;
-
-  @override
-  Widget build(BuildContext context) {
-    final hint = switch (surface) {
-      _DeviceSurface.browser => _browserUrlPlaceholder,
-      _DeviceSurface.android => _packageOrUrlHint,
-      _DeviceSurface.desktop =>
-        'Launch an app on the selected desktop (optional)',
-      _DeviceSurface.files => 'Workspace path',
-    };
-    final buttonLabel = switch (surface) {
-      _DeviceSurface.browser => 'Open',
-      _DeviceSurface.android => starting ? 'Starting...' : 'Launch',
-      _DeviceSurface.desktop => 'Refresh',
-      _DeviceSurface.files => 'Refresh',
-    };
-    final sleepLabel = switch (surface) {
-      _DeviceSurface.browser => 'Sleep Browser',
-      _DeviceSurface.android => 'Sleep Phone',
-      _DeviceSurface.desktop => 'Pause Desktop',
-      _DeviceSurface.files => 'Close',
-    };
-    final narrow = MediaQuery.sizeOf(context).width < 720;
-
-    final input = TextField(
-      controller: controller,
-      onSubmitted: (_) => onSubmit(),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(
-          surface == _DeviceSurface.browser
-              ? Icons.travel_explore
-              : surface == _DeviceSurface.desktop
-              ? Icons.apps_outlined
-              : surface == _DeviceSurface.files
-              ? Icons.folder_outlined
-              : Icons.open_in_new,
-        ),
-      ),
-    );
-
-    final button = FilledButton.icon(
-      onPressed: busy || starting ? null : onSubmit,
-      icon: Icon(
-        surface == _DeviceSurface.browser
-            ? Icons.arrow_forward
-            : surface == _DeviceSurface.desktop
-            ? Icons.desktop_windows_outlined
-            : surface == _DeviceSurface.files
-            ? Icons.refresh_rounded
-            : Icons.play_arrow,
-      ),
-      label: Text(buttonLabel),
-    );
-    final sleepButton = OutlinedButton.icon(
-      onPressed: busy || !active ? null : onSleep,
-      icon: Icon(Icons.bedtime_outlined),
-      label: Text(sleepLabel),
-    );
-
-    if (narrow) {
-      return Column(
-        children: <Widget>[
-          input,
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              Expanded(child: button),
-              const SizedBox(width: 10),
-              Expanded(child: sleepButton),
-            ],
-          ),
-        ],
+  Widget _buildTerminal(BuildContext context, bool running) {
+    if (!running) {
+      return const _ComputerEmptyState(
+        icon: Icons.terminal_rounded,
+        title: 'Computer is stopped',
+        message: 'Start it to use the shell in the same persistent filesystem.',
       );
     }
-
-    return Row(
-      children: <Widget>[
-        Expanded(child: input),
-        const SizedBox(width: 10),
-        sleepButton,
-        const SizedBox(width: 10),
-        button,
-      ],
-    );
-  }
-}
-
-class _DeviceTypeDock extends StatelessWidget {
-  const _DeviceTypeDock({
-    required this.controller,
-    required this.busy,
-    required this.surface,
-    required this.onSubmit,
-  });
-
-  final TextEditingController controller;
-  final bool busy;
-  final _DeviceSurface surface;
-  final Future<void> Function() onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    final hint = switch (surface) {
-      _DeviceSurface.browser => 'Type into the currently focused field',
-      _DeviceSurface.android => 'Type into the current phone field',
-      _DeviceSurface.desktop => 'Type into the focused desktop field',
-      _DeviceSurface.files => 'Edit the selected file',
-    };
-    final narrow = MediaQuery.sizeOf(context).width < 720;
-
-    final input = TextField(
-      controller: controller,
-      onSubmitted: (_) => onSubmit(),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(Icons.keyboard_outlined),
-      ),
-    );
-
-    final button = FilledButton.icon(
-      onPressed: busy ? null : onSubmit,
-      icon: Icon(Icons.send_rounded),
-      label: Text('Send'),
-    );
-
-    if (narrow) {
-      return Column(
-        children: <Widget>[
-          input,
-          const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: button),
-        ],
-      );
-    }
-
-    return Row(
-      children: <Widget>[
-        Expanded(child: input),
-        const SizedBox(width: 10),
-        button,
-      ],
-    );
-  }
-}
-
-class _DeviceQuickActions extends StatelessWidget {
-  const _DeviceQuickActions({
-    required this.surface,
-    required this.androidOnline,
-    required this.busy,
-    required this.onAction,
-  });
-
-  final _DeviceSurface surface;
-  final bool androidOnline;
-  final bool busy;
-  final Future<void> Function(String action) onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = switch (surface) {
-      _DeviceSurface.browser => const <MapEntry<String, IconData>>[
-        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-        MapEntry<String, IconData>('browser_refresh', Icons.replay_rounded),
-        MapEntry<String, IconData>(
-          'browser_enter',
-          Icons.keyboard_return_rounded,
-        ),
-      ],
-      _DeviceSurface.desktop => const <MapEntry<String, IconData>>[
-        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-        MapEntry<String, IconData>(
-          'desktop_enter',
-          Icons.keyboard_return_rounded,
-        ),
-        MapEntry<String, IconData>('desktop_escape', Icons.close_fullscreen),
-      ],
-      _DeviceSurface.android => const <MapEntry<String, IconData>>[
-        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-      ],
-      _DeviceSurface.files => const <MapEntry<String, IconData>>[
-        MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-      ],
-    };
-
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: actions.map((entry) {
-        final disabled =
-            busy ||
-            (surface != _DeviceSurface.browser &&
-                entry.key.startsWith('browser_')) ||
-            (surface != _DeviceSurface.desktop &&
-                entry.key.startsWith('desktop_')) ||
-            (!androidOnline && entry.key.startsWith('android_'));
-        return InkWell(
-          onTap: disabled ? null : () => onAction(entry.key),
-          borderRadius: BorderRadius.circular(14),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: disabled ? _bgSecondary : _bgTertiary,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _borderLight),
-            ),
-            child: Icon(
-              entry.value,
-              color: disabled ? _textMuted : _textPrimary,
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _AndroidNavDock extends StatelessWidget {
-  const _AndroidNavDock({
-    required this.busy,
-    required this.androidOnline,
-    required this.onAction,
-  });
-
-  final bool busy;
-  final bool androidOnline;
-  final Future<void> Function(String action) onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    const actions = <MapEntry<String, IconData>>[
-      MapEntry<String, IconData>('surface_refresh', Icons.refresh_rounded),
-      MapEntry<String, IconData>('android_back', Icons.arrow_back_rounded),
-      MapEntry<String, IconData>('android_home', Icons.home_rounded),
-      MapEntry<String, IconData>('android_recent', Icons.crop_square_rounded),
-    ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: actions.map((entry) {
-          final disabled =
-              busy || (!androidOnline && entry.key.startsWith('android_'));
-          return IconButton.filledTonal(
-            tooltip: entry.key.replaceAll('_', ' '),
-            onPressed: disabled ? null : () => onAction(entry.key),
-            icon: Icon(entry.value),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-/// Tiny pill shown in the top-right corner of the preview to indicate no audio.
-class _MutedBadge extends StatelessWidget {
-  const _MutedBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(
-        Icons.volume_off_rounded,
-        size: 11,
-        color: Colors.white,
-      ),
-    );
-  }
-}
-
-/// Compact expandable actions box shown beneath the Android nav dock.
-/// Starts with APK install; more actions can be added as tiles.
-class _AndroidActionsBox extends StatelessWidget {
-  const _AndroidActionsBox({
-    required this.enabled,
-    required this.busy,
-    required this.onInstall,
-  });
-
-  final bool enabled;
-  final bool busy;
-  final AndroidApkInstallCallback onInstall;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            'ACTIONS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: _textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              AndroidApkTile(
-                enabled: enabled,
-                busy: busy,
-                onInstall: onInstall,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SurfaceSwitcher extends StatelessWidget {
-  const _SurfaceSwitcher({required this.surface, required this.onSelect});
-
-  final _DeviceSurface surface;
-  final Future<void> Function(_DeviceSurface) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: _DeviceSurface.values.map((s) {
-            final selected = s == surface;
-            return ChoiceChip(
-              avatar: Icon(
-                s.icon,
-                size: 16,
-                color: selected ? _textPrimary : _textSecondary,
-              ),
-              label: Text(s.label),
-              selected: selected,
-              onSelected: (_) => onSelect(s),
-              selectedColor: _accentMuted,
-              backgroundColor: _bgCard,
-              side: BorderSide(
-                color: selected
-                    ? _accent.withValues(alpha: 0.42)
-                    : _borderLight,
-              ),
-              labelStyle: TextStyle(
-                color: selected ? _textPrimary : _textSecondary,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          surface.helper,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: _textSecondary),
-        ),
-      ],
-    );
-  }
-}
-
-class _InteractiveSurfacePreview extends StatefulWidget {
-  const _InteractiveSurfacePreview({
-    required this.surface,
-    required this.controller,
-    required this.screenshotPath,
-    required this.streamPlatform,
-    required this.streamDeviceId,
-    required this.busy,
-    required this.wakingUp,
-    required this.enabled,
-    required this.connectRequired,
-    required this.onTapPoint,
-    required this.onSwipe,
-    this.onHover,
-    required this.onWakeRequested,
-  });
-
-  final _DeviceSurface surface;
-  final NeoAgentController controller;
-  final String? screenshotPath;
-  final String? streamPlatform;
-  final String? streamDeviceId;
-  final bool busy;
-  final bool wakingUp;
-  final bool enabled;
-  final bool connectRequired;
-  final Future<void> Function(Offset point) onTapPoint;
-  final Future<void> Function(Offset start, Offset end) onSwipe;
-  final void Function(Offset point)? onHover;
-  final Future<void> Function() onWakeRequested;
-
-  @override
-  State<_InteractiveSurfacePreview> createState() =>
-      _InteractiveSurfacePreviewState();
-}
-
-class _InteractiveSurfacePreviewState
-    extends State<_InteractiveSurfacePreview> {
-  ImageStream? _imageStream;
-  ImageStreamListener? _imageListener;
-  Size? _pixelSize;
-  Uint8List? _imageBytes;
-  Object? _imageError;
-  Offset? _dragStart;
-  Offset? _dragEnd;
-  bool _streamStarting = false;
-  String? _activeStreamKey;
-  String? _streamFailedKey;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadImage());
-    unawaited(_syncStream());
-  }
-
-  @override
-  void didUpdateWidget(covariant _InteractiveSurfacePreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.screenshotPath != widget.screenshotPath) {
-      unawaited(_loadImage());
-    }
-    if (oldWidget.streamPlatform != widget.streamPlatform ||
-        oldWidget.streamDeviceId != widget.streamDeviceId ||
-        oldWidget.controller.streamSocket != widget.controller.streamSocket) {
-      unawaited(_syncStream());
-    }
-  }
-
-  @override
-  void dispose() {
-    unawaited(_stopActiveStream());
-    _detachImageListener();
-    super.dispose();
-  }
-
-  String? get _requestedStreamKey {
-    final platform = widget.streamPlatform?.trim();
-    final deviceId = widget.streamDeviceId?.trim();
-    if (platform == null ||
-        platform.isEmpty ||
-        deviceId == null ||
-        deviceId.isEmpty ||
-        widget.controller.streamSocket == null) {
-      return null;
-    }
-    return '$platform:$deviceId';
-  }
-
-  Future<void> _syncStream() async {
-    final requested = _requestedStreamKey;
-    if (_activeStreamKey == requested || _streamStarting) {
-      return;
-    }
-    if (requested != _streamFailedKey) {
-      _streamFailedKey = null;
-    }
-    await _stopActiveStream();
-    if (requested == null) {
-      return;
-    }
-    final parts = requested.split(':');
-    _streamStarting = true;
-    try {
-      await widget.controller.startStreamRuntime(
-        platform: parts[0],
-        deviceId: parts.sublist(1).join(':'),
-        fps: 10,
-        quality: 70,
-      );
-      if (mounted && _requestedStreamKey == requested) {
-        _activeStreamKey = requested;
-        _streamFailedKey = null;
-      } else {
-        await widget.controller.stopStreamRuntime(
-          platform: parts[0],
-          deviceId: parts.sublist(1).join(':'),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        _streamFailedKey = requested;
-      }
-      if (mounted && (widget.screenshotPath ?? '').isEmpty) {
-        unawaited(_loadImage());
-      }
-    } finally {
-      _streamStarting = false;
-      if (mounted &&
-          _activeStreamKey != _requestedStreamKey &&
-          _streamFailedKey != _requestedStreamKey) {
-        unawaited(_syncStream());
-      }
-    }
-  }
-
-  Future<void> _stopActiveStream() async {
-    final active = _activeStreamKey;
-    _activeStreamKey = null;
-    if (active == null) {
-      return;
-    }
-    final parts = active.split(':');
-    try {
-      await widget.controller.stopStreamRuntime(
-        platform: parts[0],
-        deviceId: parts.sublist(1).join(':'),
-      );
-    } catch (_) {}
-  }
-
-  void _handleStreamFirstFrame(String streamKey) {
-    if (!mounted || _requestedStreamKey != streamKey) {
-      return;
-    }
-    if (_streamFailedKey == streamKey) {
-      setState(() => _streamFailedKey = null);
-    }
-  }
-
-  void _handleStreamFrameTimeout(String streamKey) {
-    if (!mounted || _requestedStreamKey != streamKey) {
-      return;
-    }
-    setState(() => _streamFailedKey = streamKey);
-    unawaited(_stopActiveStream());
-    if ((widget.screenshotPath ?? '').isEmpty) {
-      unawaited(_refreshStaticFrame());
-    }
-  }
-
-  Future<void> _refreshStaticFrame() async {
-    switch (widget.surface) {
-      case _DeviceSurface.browser:
-        await widget.controller.screenshotBrowserRuntime();
-        break;
-      case _DeviceSurface.android:
-        await widget.controller.screenshotAndroidRuntime();
-        break;
-      case _DeviceSurface.desktop:
-        await widget.controller.screenshotDesktopRuntime();
-        break;
-      case _DeviceSurface.files:
-        break;
-    }
-  }
-
-  void _detachImageListener() {
-    if (_imageStream != null && _imageListener != null) {
-      _imageStream!.removeListener(_imageListener!);
-    }
-    _imageStream = null;
-    _imageListener = null;
-  }
-
-  Future<void> _loadImage() async {
-    _detachImageListener();
-    final path = widget.screenshotPath;
-    if (path == null || path.isEmpty) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _pixelSize = null;
-        _imageBytes = null;
-        _imageError = null;
-      });
-      return;
-    }
-    try {
-      final bytes = await widget.controller.fetchRuntimeAssetBytes(path);
-      if (!mounted || widget.screenshotPath != path) {
-        return;
-      }
-      setState(() {
-        _imageBytes = bytes;
-        _imageError = null;
-        _pixelSize = null;
-      });
-      final provider = MemoryImage(bytes);
-      final stream = provider.resolve(const ImageConfiguration());
-      final listener = ImageStreamListener((image, _) {
-        if (!mounted || widget.screenshotPath != path) {
-          return;
-        }
-        setState(() {
-          _pixelSize = Size(
-            image.image.width.toDouble(),
-            image.image.height.toDouble(),
-          );
-        });
-      });
-      _imageStream = stream;
-      _imageListener = listener;
-      stream.addListener(listener);
-    } catch (error) {
-      if (!mounted || widget.screenshotPath != path) {
-        return;
-      }
-      setState(() {
-        _imageBytes = null;
-        _pixelSize = null;
-        _imageError = error;
-      });
-    }
-  }
-
-  Offset? _mapToPixels(Offset localPosition, Size boxSize) {
-    final pixelSize = _pixelSize;
-    if (pixelSize == null) {
-      return null;
-    }
-    final boxAspect = boxSize.width / boxSize.height;
-    final imageAspect = pixelSize.width / pixelSize.height;
-    late final double renderWidth;
-    late final double renderHeight;
-    late final double offsetX;
-    late final double offsetY;
-
-    if (boxAspect > imageAspect) {
-      renderHeight = boxSize.height;
-      renderWidth = renderHeight * imageAspect;
-      offsetX = (boxSize.width - renderWidth) / 2;
-      offsetY = 0;
-    } else {
-      renderWidth = boxSize.width;
-      renderHeight = renderWidth / imageAspect;
-      offsetX = 0;
-      offsetY = (boxSize.height - renderHeight) / 2;
-    }
-
-    if (localPosition.dx < offsetX ||
-        localPosition.dx > offsetX + renderWidth ||
-        localPosition.dy < offsetY ||
-        localPosition.dy > offsetY + renderHeight) {
-      return null;
-    }
-
-    return Offset(
-      ((localPosition.dx - offsetX) / renderWidth) * pixelSize.width,
-      ((localPosition.dy - offsetY) / renderHeight) * pixelSize.height,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final path = widget.screenshotPath;
-    final hasImage = path != null && path.isNotEmpty;
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final surfaceHeightCap = widget.surface == _DeviceSurface.android
-        ? 640.0
-        : 560.0;
-    final previewMaxHeight = math.min(surfaceHeightCap, viewportHeight * 0.48);
-    final aspectRatio = switch (widget.surface) {
-      _DeviceSurface.browser => 16 / 10,
-      _DeviceSurface.android => 10 / 16,
-      _DeviceSurface.desktop => 16 / 10,
-      _DeviceSurface.files => 16 / 10,
-    };
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[_bgTertiary, _bgSecondary],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _borderLight),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: <Widget>[
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: previewMaxHeight),
-            child: AspectRatio(
-              aspectRatio: aspectRatio,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final boxSize = Size(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                    );
-                    final socket = widget.controller.streamSocket;
-                    final streamPlatform = widget.streamPlatform;
-                    final streamDeviceId = widget.streamDeviceId;
-                    final streamKey = _requestedStreamKey;
-                    if (socket != null &&
-                        streamPlatform != null &&
-                        streamPlatform.isNotEmpty &&
-                        streamDeviceId != null &&
-                        streamDeviceId.isNotEmpty &&
-                        streamKey != _streamFailedKey) {
-                      final activeStreamKey = streamKey!;
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: <Widget>[
-                          Container(color: _bgSecondary),
-                          StreamRenderer(
-                            socket: socket,
-                            deviceId: streamDeviceId,
-                            platform: streamPlatform,
-                            remoteResolution: _pixelSize,
-                            onFirstFrame: () =>
-                                _handleStreamFirstFrame(activeStreamKey),
-                            onFrameTimeout: () =>
-                                _handleStreamFrameTimeout(activeStreamKey),
-                            onTap: widget.busy
-                                ? null
-                                : (x, y) => unawaited(
-                                    widget.onTapPoint(Offset(x, y)),
-                                  ),
-                            onSwipe: widget.busy
-                                ? null
-                                : (x1, y1, x2, y2) => unawaited(
-                                    widget.onSwipe(
-                                      Offset(x1, y1),
-                                      Offset(x2, y2),
-                                    ),
-                                  ),
-                            onHover: widget.busy
-                                ? null
-                                : (x, y) => widget.onHover?.call(Offset(x, y)),
-                          ),
-                          const Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Opacity(opacity: 0.45, child: _MutedBadge()),
-                          ),
-                          Positioned(
-                            left: 12,
-                            right: 12,
-                            bottom: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xB205080D),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: _borderLight),
-                              ),
-                              child: Text(
-                                widget.surface.helper,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: _textPrimary),
-                              ),
-                            ),
-                          ),
-                          if (widget.busy)
-                            const Center(child: CircularProgressIndicator()),
-                        ],
-                      );
-                    }
-                    if (!hasImage) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: widget.wakingUp,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    final imageBytes = _imageBytes;
-                    if (imageBytes == null) {
-                      return _EmptySurfaceState(
-                        surface: widget.surface,
-                        enabled: widget.enabled,
-                        busy: widget.busy,
-                        isLoadingPreview: _imageError == null,
-                        connectRequired: widget.connectRequired,
-                        errorMessage: _imageError?.toString(),
-                        onPressed: widget.onWakeRequested,
-                      );
-                    }
-                    return Semantics(
-                      button: true,
-                      label:
-                          'Device surface preview — tap to interact, swipe to scroll',
-                      child: GestureDetector(
-                        onTapUp: widget.busy
-                            ? null
-                            : (details) async {
-                                final point = _mapToPixels(
-                                  details.localPosition,
-                                  boxSize,
-                                );
-                                if (point != null) {
-                                  await widget.onTapPoint(point);
-                                }
-                              },
-                        onPanStart: widget.busy
-                            ? null
-                            : (details) {
-                                _dragStart = details.localPosition;
-                                _dragEnd = details.localPosition;
-                              },
-                        onPanUpdate: widget.busy
-                            ? null
-                            : (details) {
-                                _dragEnd = details.localPosition;
-                              },
-                        onPanEnd: widget.busy
-                            ? null
-                            : (_) async {
-                                final start = _dragStart;
-                                final end = _dragEnd;
-                                _dragStart = null;
-                                _dragEnd = null;
-                                if (start == null || end == null) {
-                                  return;
-                                }
-                                if ((start - end).distance < 12) {
-                                  return;
-                                }
-                                final mappedStart = _mapToPixels(
-                                  start,
-                                  boxSize,
-                                );
-                                final mappedEnd = _mapToPixels(end, boxSize);
-                                if (mappedStart != null && mappedEnd != null) {
-                                  await widget.onSwipe(mappedStart, mappedEnd);
-                                }
-                              },
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            Container(color: _bgSecondary),
-                            Image.memory(
-                              imageBytes,
-                              fit: BoxFit.contain,
-                              gaplessPlayback: true,
-                            ),
-                            const Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Opacity(
-                                opacity: 0.45,
-                                child: _MutedBadge(),
-                              ),
-                            ),
-                            Positioned(
-                              left: 12,
-                              right: 12,
-                              bottom: 12,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xB205080D),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: _borderLight),
-                                ),
-                                child: Text(
-                                  widget.surface.helper,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: _textPrimary),
-                                ),
-                              ),
-                            ),
-                            if (widget.busy)
-                              const Center(child: CircularProgressIndicator()),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptySurfaceState extends StatelessWidget {
-  const _EmptySurfaceState({
-    required this.surface,
-    required this.enabled,
-    required this.busy,
-    required this.isLoadingPreview,
-    required this.connectRequired,
-    this.errorMessage,
-    required this.onPressed,
-  });
-
-  final _DeviceSurface surface;
-  final bool enabled;
-  final bool busy;
-  final bool isLoadingPreview;
-  final bool connectRequired;
-  final String? errorMessage;
-  final Future<void> Function() onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (surface) {
-      _DeviceSurface.browser =>
-        connectRequired
-            ? 'Open Settings'
-            : (busy ? 'Opening Browser...' : 'Wake Browser'),
-      _DeviceSurface.android =>
-        busy
-            ? 'Starting Phone...'
-            : (enabled ? 'Refresh Phone' : 'Start Phone'),
-      _DeviceSurface.desktop =>
-        connectRequired
-            ? 'Select Desktop'
-            : (busy ? 'Refreshing Desktop...' : 'Refresh Desktop'),
-      _DeviceSurface.files => busy ? 'Loading Files...' : 'Refresh Files',
-    };
-    final message = switch ((surface, busy, isLoadingPreview)) {
-      (_DeviceSurface.browser, true, _) =>
-        'Opening the browser and downloading the first preview...',
-      (_DeviceSurface.browser, false, true) =>
-        'Downloading the latest browser preview...',
-      (_DeviceSurface.desktop, true, _) =>
-        'Refreshing the selected desktop companion...',
-      (_DeviceSurface.desktop, false, true) =>
-        'Downloading the latest desktop preview...',
-      (_DeviceSurface.android, true, _) =>
-        'Waking the phone and downloading the first preview. This can take a little while.',
-      (_DeviceSurface.android, false, true) =>
-        'Downloading the latest phone preview...',
-      (_DeviceSurface.files, true, _) => 'Loading workspace files...',
-      (_DeviceSurface.files, false, true) => 'Loading workspace files...',
-      _ =>
-        surface == _DeviceSurface.browser
-            ? connectRequired
-                  ? 'Chrome extension is not connected. Use Settings to download, load, and pair the extension on the remote machine.'
-                  : 'Browser is sleeping. Press Open to start it.'
-            : surface == _DeviceSurface.desktop
-            ? connectRequired
-                  ? 'Multiple desktop companions are online. Select a machine before sending clicks or keystrokes.'
-                  : (errorMessage != null && errorMessage!.trim().isNotEmpty)
-                  ? errorMessage!
-                  : 'No desktop frame is loaded yet. Refresh the selected machine to capture a frame.'
-            : (errorMessage != null && errorMessage!.trim().isNotEmpty)
-            ? errorMessage!
-            : 'Phone is offline. Press Start Phone to boot it.',
-    };
-    return Container(
-      color: _bgSecondary,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          if (busy || isLoadingPreview) ...<Widget>[
-            const SizedBox(
-              width: 38,
-              height: 38,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            ),
-            const SizedBox(height: 14),
-          ] else
-            Icon(surface.icon, size: 46, color: _textSecondary),
-          if (!(busy || isLoadingPreview)) const SizedBox(height: 12),
-          Text(
-            message,
-            style: TextStyle(color: _textSecondary),
-            textAlign: TextAlign.center,
-          ),
-          if (errorMessage != null &&
-              surface == _DeviceSurface.browser &&
-              errorMessage!.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: Text(
-                errorMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _textMuted, fontSize: 12),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: busy ? null : onPressed,
-            icon: Icon(Icons.play_arrow_rounded),
-            label: Text(label),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeviceFieldRow extends StatelessWidget {
-  const _DeviceFieldRow({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    if (children.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final stacked = MediaQuery.sizeOf(context).width < 860;
-    if (stacked) {
-      return Column(
-        children: children
-            .map(
-              (child) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: child,
-              ),
-            )
-            .toList(),
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        for (var index = 0; index < children.length; index++) ...<Widget>[
-          if (index > 0) const SizedBox(width: 12),
-          Expanded(child: children[index]),
-        ],
-      ],
-    );
-  }
-}
-
-class _DeviceField extends StatelessWidget {
-  const _DeviceField({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          label,
-          style: TextStyle(
-            color: _textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
-    );
-  }
-}
-
-class _RuntimePreview extends StatelessWidget {
-  const _RuntimePreview({
-    required this.title,
-    required this.screenshotPath,
-    required this.controller,
-  });
-
-  final String title;
-  final String? screenshotPath;
-  final NeoAgentController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    if (screenshotPath == null || screenshotPath!.isEmpty) {
-      return _EmptyCard(
-        title: title,
-        subtitle:
-            'Run a screenshot-capable action to preview the live runtime.',
-      );
-    }
-
-    final uri = controller.resolveRuntimeAsset(screenshotPath!);
+    final controller = widget.controller;
     return Card(
-      color: _bgSecondary,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      color: const Color(0xFF101418),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              screenshotPath!,
-              style: TextStyle(color: _textSecondary, fontSize: 12),
+            Row(
+              children: <Widget>[
+                const Icon(Icons.terminal_rounded, color: Color(0xFF9DE2B2)),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '/home/neo/workspace',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: controller.isRunningDeviceAction
+                      ? null
+                      : () => controller.launchComputerAppRuntime('terminal'),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('Open app'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                uri.toString(),
-                headers: controller.authenticatedImageHeaders,
-                fit: BoxFit.cover,
-                errorBuilder: (context, _, __) {
-                  return Container(
-                    height: 220,
-                    color: _bgCard,
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Could not load preview image',
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionStatusBar extends StatelessWidget {
-  const _ExtensionStatusBar({
-    required this.connected,
-    required this.onDownload,
-    required this.onRefresh,
-  });
-
-  final bool connected;
-  final Future<void> Function() onDownload;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Row(
-        children: <Widget>[
-          _DotStatus(
-            label: connected
-                ? 'Extension connected'
-                : 'Extension not connected',
-            color: connected ? _success : _warning,
-          ),
-          const Spacer(),
-          OutlinedButton.icon(
-            onPressed: onDownload,
-            icon: const Icon(Icons.download_outlined, size: 18),
-            label: const Text('Download'),
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.sync, size: 18),
-            label: const Text('Refresh'),
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WorkspaceExplorer extends StatefulWidget {
-  const _WorkspaceExplorer({
-    required this.controller,
-    required this.editorController,
-  });
-
-  final NeoAgentController controller;
-  final TextEditingController editorController;
-
-  @override
-  State<_WorkspaceExplorer> createState() => _WorkspaceExplorerState();
-}
-
-class _WorkspaceExplorerState extends State<_WorkspaceExplorer> {
-  String? _syncedPath;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || widget.controller.workspaceEntries.isNotEmpty) {
-        return;
-      }
-      unawaited(widget.controller.refreshWorkspaceFiles());
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _WorkspaceExplorer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final selectedPath = widget.controller.workspaceSelectedFilePath;
-    if (selectedPath != _syncedPath) {
-      _syncedPath = selectedPath;
-      widget.editorController.text = widget.controller.workspaceEditorContent;
-    }
-  }
-
-  Future<void> _openEntry(Map<String, dynamic> entry) async {
-    final path = entry['path']?.toString() ?? '';
-    if (path.isEmpty && entry['name']?.toString() != '') {
-      return;
-    }
-    if (entry['type']?.toString() == 'directory') {
-      await widget.controller.openWorkspaceDirectory(path);
-      return;
-    }
-    await widget.controller.openWorkspaceFile(path);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final entries = controller.workspaceEntries;
-    final currentPath = controller.workspaceCurrentPath;
-    final selectedPath = controller.workspaceSelectedFilePath;
-    final busy =
-        controller.isLoadingWorkspaceFiles || controller.isSavingWorkspaceFile;
-    final canGoUp = currentPath.trim().isNotEmpty;
-    final parentPath = currentPath.contains('/')
-        ? currentPath.substring(0, currentPath.lastIndexOf('/'))
-        : '';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  currentPath.isEmpty ? '/' : '/$currentPath',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontWeight: FontWeight.w700,
+            Expanded(
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  controller.computerTerminalOutput.isEmpty
+                      ? 'NeoAgent Linux shell ready.\n'
+                            'Python, pip, venv, git, curl, jq and standard Unix tools are available.'
+                      : controller.computerTerminalOutput,
+                  style: const TextStyle(
+                    color: Color(0xFFD6E2E8),
+                    fontFamily: 'monospace',
+                    height: 1.45,
                   ),
                 ),
               ),
-              IconButton.filledTonal(
-                tooltip: 'Parent folder',
-                onPressed: busy || !canGoUp
-                    ? null
-                    : () => controller.openWorkspaceDirectory(parentPath),
-                icon: const Icon(Icons.arrow_upward_rounded),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _terminalController,
+              enabled: !controller.isRunningDeviceAction,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'monospace',
               ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: 'Refresh',
-                onPressed: busy ? null : controller.refreshWorkspaceFiles,
+              decoration: InputDecoration(
+                prefixText: r'$ ',
+                prefixStyle: const TextStyle(color: Color(0xFF9DE2B2)),
+                hintText: 'Enter a command',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: const Color(0xFF1A2026),
+                suffixIcon: IconButton(
+                  tooltip: 'Run',
+                  onPressed: controller.isRunningDeviceAction
+                      ? null
+                      : () => _runTerminalCommand(),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                ),
+              ),
+              onSubmitted: (_) => _runTerminalCommand(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _runTerminalCommand() async {
+    final command = _terminalController.text;
+    if (command.trim().isEmpty) return;
+    await widget.controller.executeComputerCommandRuntime(command);
+    if (mounted) _terminalController.clear();
+  }
+
+  Widget _buildAndroid(BuildContext context) {
+    final controller = widget.controller;
+    final devices = _jsonMapList(
+      controller.androidRuntime['devices'],
+      fallbackToMapValues: true,
+    );
+    final online = devices.any(
+      (device) => device['status']?.toString() == 'device',
+    );
+    final screenshotPath = controller.androidScreenshotPath;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: online ? Colors.green : Colors.grey,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(online ? 'Android ready' : 'Android stopped'),
+                ),
+                if (online) ...<Widget>[
+                  OutlinedButton.icon(
+                    onPressed: controller.isRunningDeviceAction
+                        ? null
+                        : controller.screenshotAndroidRuntime,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Refresh'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: controller.isRunningDeviceAction
+                        ? null
+                        : controller.stopAndroidRuntime,
+                    child: const Text('Stop'),
+                  ),
+                ] else
+                  FilledButton.icon(
+                    onPressed: controller.isRunningDeviceAction
+                        ? null
+                        : controller.startAndroidRuntime,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Start Android'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: TextField(
+                controller: _androidAppController,
+                enabled: online && !controller.isRunningDeviceAction,
+                decoration: const InputDecoration(
+                  labelText: 'Package name',
+                  prefixIcon: Icon(Icons.apps_rounded),
+                ),
+                onSubmitted: (_) => _openAndroidApp(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: online && !controller.isRunningDeviceAction
+                  ? _openAndroidApp
+                  : null,
+              child: const Text('Open'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            color: Colors.black,
+            child: !online
+                ? const _ComputerEmptyState(
+                    icon: Icons.android_rounded,
+                    title: 'Android is stopped',
+                    message:
+                        'Start the managed Android environment when you need it.',
+                  )
+                : screenshotPath == null
+                ? _ComputerEmptyState(
+                    icon: Icons.phone_android_rounded,
+                    title: 'Android is ready',
+                    message: 'Refresh to fetch the current device frame.',
+                    action: FilledButton(
+                      onPressed: controller.screenshotAndroidRuntime,
+                      child: const Text('Show screen'),
+                    ),
+                  )
+                : FutureBuilder<Uint8List>(
+                    key: ValueKey<String>(screenshotPath),
+                    future: controller.fetchRuntimeAssetBytes(screenshotPath),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return InteractiveViewer(
+                          child: Center(
+                            child: Image.memory(
+                              snapshot.data!,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return const _ComputerEmptyState(
+                          icon: Icons.broken_image_outlined,
+                          title: 'Frame unavailable',
+                          message: 'Refresh the Android screen to try again.',
+                        );
+                      }
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openAndroidApp() async {
+    final packageName = _androidAppController.text.trim();
+    if (packageName.isEmpty) return;
+    await widget.controller.openAndroidAppRuntime(packageName: packageName);
+    await widget.controller.screenshotAndroidRuntime();
+  }
+}
+
+class _ComputerStatusBar extends StatelessWidget {
+  const _ComputerStatusBar({
+    required this.state,
+    required this.runtime,
+    required this.busy,
+    required this.onStart,
+    required this.onOpen,
+    required this.onStop,
+  });
+
+  final String state;
+  final Map<String, dynamic> runtime;
+  final bool busy;
+  final VoidCallback? onStart;
+  final VoidCallback? onOpen;
+  final VoidCallback? onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final resources = runtime['resources'] is Map
+        ? Map<String, dynamic>.from(runtime['resources'] as Map)
+        : const <String, dynamic>{};
+    final statusColor = switch (state) {
+      'ready' || 'user_control' || 'agent_control' => Colors.green,
+      'teaching' => Colors.orange,
+      'starting' || 'capacity_wait' || 'sleeping' => Colors.amber,
+      'error' => theme.colorScheme.error,
+      _ => Colors.grey,
+    };
+    final label = state.replaceAll('_', ' ');
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.circle, size: 12, color: statusColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    label.isEmpty
+                        ? 'Stopped'
+                        : '${label[0].toUpperCase()}${label.substring(1)}',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  if (resources.isNotEmpty)
+                    Text(
+                      '${resources['memoryMb'] ?? '—'} MiB · ${resources['cpus'] ?? '—'} vCPU · ${runtime['accelerator'] ?? 'QEMU'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (runtime['provider'] == 'local')
+                    Text(
+                      runtime['device'] is Map
+                          ? '${(runtime['device'] as Map)['label'] ?? 'This device'} · local session'
+                          : 'Waiting for the NeoAgent desktop app',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (busy)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            if (onOpen != null)
+              OutlinedButton.icon(
+                onPressed: busy ? null : onOpen,
+                icon: const Icon(Icons.open_in_browser_rounded),
+                label: const Text('Display'),
+              ),
+            if (onOpen != null) const SizedBox(width: 8),
+            if (onStart != null)
+              FilledButton.icon(
+                onPressed: busy ? null : onStart,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('Start'),
+              ),
+            if (onStop != null)
+              IconButton(
+                tooltip: 'Stop computer',
+                onPressed: busy ? null : onStop,
+                icon: const Icon(Icons.stop_circle_outlined),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComputerProviderPicker extends StatelessWidget {
+  const _ComputerProviderPicker({
+    required this.provider,
+    required this.localSupported,
+    required this.busy,
+    required this.onChanged,
+  });
+
+  final String provider;
+  final bool localSupported;
+  final bool busy;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              provider == 'local'
+                  ? Icons.laptop_mac_rounded
+                  : Icons.cloud_rounded,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Where should NeoAgent work?',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  Text(
+                    provider == 'local'
+                        ? 'Commands, files and screen control stay on this signed-in desktop.'
+                        : 'A private persistent Linux computer with an isolated desktop.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SegmentedButton<String>(
+              segments: <ButtonSegment<String>>[
+                const ButtonSegment<String>(
+                  value: 'cloud',
+                  icon: Icon(Icons.cloud_rounded),
+                  label: Text('Cloud'),
+                ),
+                ButtonSegment<String>(
+                  value: 'local',
+                  enabled: localSupported,
+                  icon: const Icon(Icons.laptop_rounded),
+                  label: const Text('This device'),
+                  tooltip: localSupported
+                      ? 'Use this desktop'
+                      : 'Available in the macOS, Windows and Linux desktop app',
+                ),
+              ],
+              selected: <String>{provider},
+              onSelectionChanged: busy
+                  ? null
+                  : (selection) => onChanged(selection.first),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalComputerPermissionPanel extends StatelessWidget {
+  const _LocalComputerPermissionPanel({required this.controller});
+
+  final NeoAgentController controller;
+
+  static const Map<String, ({IconData icon, String label, String detail})>
+  _definitions = <String, ({IconData icon, String label, String detail})>{
+    'screen': (
+      icon: Icons.visibility_rounded,
+      label: 'See screen',
+      detail: 'Screenshots and visual desktop context',
+    ),
+    'input': (
+      icon: Icons.touch_app_rounded,
+      label: 'Control input',
+      detail: 'Mouse and keyboard actions',
+    ),
+    'files': (
+      icon: Icons.folder_open_rounded,
+      label: 'Files',
+      detail: 'NeoAgent Workspace in your home folder',
+    ),
+    'shell': (
+      icon: Icons.terminal_rounded,
+      label: 'CLI and apps',
+      detail: 'Run commands and open apps or URLs',
+    ),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pending = controller.localComputerPendingPermission;
+    final permissions = controller.localComputerPermissions;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: pending == null ? null : theme.colorScheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  controller.localComputerConnected
+                      ? Icons.verified_user_rounded
+                      : Icons.link_off_rounded,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    controller.localComputerConnecting
+                        ? 'Connecting this device…'
+                        : controller.localComputerConnected
+                        ? 'This device is connected'
+                        : 'Waiting for the local control connection',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                if (controller.localComputerConnecting)
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            if (controller.localComputerError?.isNotEmpty == true) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                controller.localComputerError!,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ],
+            if (pending != null &&
+                _definitions.containsKey(pending)) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                'NeoAgent requests ${_definitions[pending]!.label.toLowerCase()} access',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  FilledButton(
+                    onPressed: () => controller.grantLocalComputerPermission(
+                      pending,
+                      remember: false,
+                    ),
+                    child: const Text('Allow for this session'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () => controller.grantLocalComputerPermission(
+                      pending,
+                      remember: true,
+                    ),
+                    child: const Text('Always allow'),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        controller.denyLocalComputerPermission(pending),
+                    child: const Text('Deny'),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _definitions.entries
+                  .map((entry) {
+                    final granted = permissions.contains(entry.key);
+                    return ActionChip(
+                      avatar: Icon(entry.value.icon, size: 18),
+                      label: Text(
+                        '${entry.value.label} · ${granted ? 'allowed' : 'ask'}',
+                      ),
+                      tooltip: entry.value.detail,
+                      onPressed: granted
+                          ? () => controller.revokeLocalComputerPermission(
+                              entry.key,
+                            )
+                          : () => controller.grantLocalComputerPermission(
+                              entry.key,
+                              remember: true,
+                            ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+            if (permissions.contains('screen') ||
+                permissions.contains('input')) ...<Widget>[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => controller.openLocalComputerSystemPermission(
+                    permissions.contains('screen') ? 'screen' : 'input',
+                  ),
+                  icon: const Icon(Icons.settings_rounded),
+                  label: const Text('Open system privacy settings'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalComputerDesktop extends StatelessWidget {
+  const _LocalComputerDesktop({
+    required this.controller,
+    required this.running,
+  });
+
+  final NeoAgentController controller;
+  final bool running;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!running) {
+      return const _ComputerEmptyState(
+        icon: Icons.laptop_rounded,
+        title: 'This device is paused',
+        message:
+            'Start it when you want NeoAgent to work with your local apps, files and command line.',
+      );
+    }
+    final permissions = controller.localComputerPermissions;
+    return _ComputerEmptyState(
+      icon: Icons.desktop_windows_rounded,
+      title: 'NeoAgent can work on this desktop',
+      message:
+          'Switch to any app normally. NeoAgent uses the same Computer tools and agent loop, while every sensitive capability remains under your control.\n\n'
+          '${permissions.length}/4 capabilities allowed · Local files stay in “NeoAgent Workspace”.',
+    );
+  }
+}
+
+class _ToolButton extends StatelessWidget {
+  const _ToolButton({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return selected
+        ? FilledButton.tonalIcon(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(label),
+          )
+        : OutlinedButton.icon(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(label),
+          );
+  }
+}
+
+class _TeachBar extends StatelessWidget {
+  const _TeachBar({
+    required this.controller,
+    required this.status,
+    required this.runtime,
+    required this.enabled,
+    required this.onGoalChanged,
+    required this.onStart,
+    required this.onStop,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final String status;
+  final Map<String, dynamic> runtime;
+  final bool enabled;
+  final ValueChanged<String> onGoalChanged;
+  final VoidCallback onStart;
+  final VoidCallback? onStop;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = status == 'recording' || status == 'synthesizing';
+    final goal = runtime['goal']?.toString() ?? '';
+    final startedAt = DateTime.tryParse(runtime['startedAt']?.toString() ?? '');
+    final elapsed = startedAt == null
+        ? Duration.zero
+        : DateTime.now().difference(startedAt.toLocal());
+    final elapsedLabel = elapsed.isNegative
+        ? '0:00'
+        : '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
+    final timeline = _jsonMapList(runtime['timeline']);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: active
+            ? Row(
+                children: <Widget>[
+                  Icon(
+                    status == 'recording'
+                        ? Icons.fiber_manual_record
+                        : Icons.auto_awesome,
+                    color: status == 'recording' ? Colors.red : Colors.orange,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          status == 'recording'
+                              ? 'Teach Mode recording'
+                              : 'Creating adaptive skill…',
+                        ),
+                        if (goal.isNotEmpty)
+                          Text(
+                            goal,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        Text(
+                          '$elapsedLabel · ${runtime['eventCount'] ?? 0} events · ${runtime['screenshotCount'] ?? 0} semantic frames',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (timeline.isNotEmpty)
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: timeline
+                                  .map((event) {
+                                    final atSeconds =
+                                        (event['atMs'] as num? ?? 0) ~/ 1000;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 6),
+                                      child: Text(
+                                        '${event['type'] ?? 'event'} +${atSeconds}s',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelSmall,
+                                      ),
+                                    );
+                                  })
+                                  .toList(growable: false),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (onStop != null)
+                    FilledButton.icon(
+                      onPressed: onStop,
+                      icon: const Icon(Icons.stop_rounded),
+                      label: const Text('Finish'),
+                    ),
+                  if (onCancel != null)
+                    TextButton(
+                      onPressed: onCancel,
+                      child: const Text('Cancel'),
+                    ),
+                ],
+              )
+            : Row(
+                children: <Widget>[
+                  const Icon(Icons.school_rounded),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      enabled: enabled,
+                      maxLength: 1000,
+                      buildCounter:
+                          (
+                            _, {
+                            required currentLength,
+                            required isFocused,
+                            maxLength,
+                          }) => null,
+                      decoration: const InputDecoration(
+                        labelText: 'What should NeoAgent learn?',
+                        hintText:
+                            'Describe the outcome, then demonstrate it on the desktop',
+                        isDense: true,
+                      ),
+                      onChanged: onGoalChanged,
+                      onSubmitted: (_) =>
+                          enabled && controller.text.trim().isNotEmpty
+                          ? onStart()
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    key: const ValueKey<String>('computer-teach-start'),
+                    onPressed: enabled && controller.text.trim().isNotEmpty
+                        ? onStart
+                        : null,
+                    icon: const Icon(Icons.fiber_manual_record_rounded),
+                    label: const Text('Teach'),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _ComputerEmptyState extends StatelessWidget {
+  const _ComputerEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, size: 42, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (action != null) ...<Widget>[
+                const SizedBox(height: 16),
+                action!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceBrowser extends StatelessWidget {
+  const _WorkspaceBrowser({required this.controller, required this.onOpenFile});
+
+  final NeoAgentController controller;
+  final Future<void> Function(String path) onOpenFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = controller.workspaceEntries;
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: <Widget>[
+              if (controller.workspaceCurrentPath.isNotEmpty)
+                IconButton(
+                  tooltip: 'Up',
+                  onPressed: () {
+                    final parts = controller.workspaceCurrentPath.split('/')
+                      ..removeLast();
+                    controller.openWorkspaceDirectory(parts.join('/'));
+                  },
+                  icon: const Icon(Icons.arrow_upward_rounded),
+                ),
+              Expanded(
+                child: Text(
+                  controller.workspaceCurrentPath.isEmpty
+                      ? 'Workspace'
+                      : controller.workspaceCurrentPath,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Refresh files',
+                onPressed: controller.isLoadingWorkspaceFiles
+                    ? null
+                    : () => controller.refreshWorkspaceFiles(),
                 icon: const Icon(Icons.refresh_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            constraints: const BoxConstraints(maxHeight: 260),
-            decoration: BoxDecoration(
-              color: _bgCard,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _borderLight),
-            ),
-            child: entries.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        controller.isLoadingWorkspaceFiles
-                            ? 'Loading files...'
-                            : 'No files in this folder.',
-                        style: TextStyle(color: _textSecondary),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: controller.isLoadingWorkspaceFiles && entries.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : entries.isEmpty
+              ? const Center(child: Text('This folder is empty.'))
+              : ListView.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    final directory = entry['type']?.toString() == 'directory';
+                    final path = entry['path']?.toString() ?? '';
+                    return ListTile(
+                      dense: true,
+                      selected: path == controller.workspaceSelectedFilePath,
+                      leading: Icon(
+                        directory
+                            ? Icons.folder_rounded
+                            : Icons.description_outlined,
                       ),
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: entries.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: _borderLight),
-                    itemBuilder: (context, index) {
-                      final entry = entries[index];
-                      final type = entry['type']?.toString() ?? 'file';
-                      final path = entry['path']?.toString() ?? '';
-                      final selected = selectedPath == path;
-                      return ListTile(
-                        dense: true,
-                        selected: selected,
-                        leading: Icon(
-                          type == 'directory'
-                              ? Icons.folder_outlined
-                              : Icons.insert_drive_file_outlined,
-                          color: type == 'directory' ? _accent : _textSecondary,
-                        ),
-                        title: Text(
-                          entry['name']?.toString() ?? path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: type == 'file'
-                            ? Text(_formatWorkspaceBytes(entry['size']))
-                            : null,
-                        trailing: type == 'file'
-                            ? IconButton(
-                                tooltip: 'Download',
-                                onPressed: busy || path.isEmpty
-                                    ? null
-                                    : () => controller.downloadWorkspaceFile(
-                                        path,
-                                      ),
-                                icon: const Icon(Icons.download_outlined),
-                              )
-                            : const Icon(Icons.chevron_right_rounded),
-                        onTap: busy ? null : () => _openEntry(entry),
-                      );
-                    },
-                  ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  selectedPath ?? 'No file selected',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selectedPath == null ? _textSecondary : _textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                      title: Text(entry['name']?.toString() ?? path),
+                      onTap: path.isEmpty
+                          ? null
+                          : directory
+                          ? () => controller.openWorkspaceDirectory(path)
+                          : () => onOpenFile(path),
+                    );
+                  },
                 ),
-              ),
-              OutlinedButton.icon(
-                onPressed: busy || selectedPath == null
-                    ? null
-                    : () => controller.downloadWorkspaceFile(selectedPath),
-                icon: const Icon(Icons.download_outlined, size: 18),
-                label: const Text('Download'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: busy || selectedPath == null
-                    ? null
-                    : () => controller.saveWorkspaceFile(
-                        widget.editorController.text,
-                      ),
-                icon: controller.isSavingWorkspaceFile
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined, size: 18),
-                label: const Text('Save'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: widget.editorController,
-            enabled: selectedPath != null && !controller.isSavingWorkspaceFile,
-            minLines: 12,
-            maxLines: 18,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 13,
-              height: 1.35,
-            ),
-            decoration: InputDecoration(
-              hintText: selectedPath == null
-                  ? 'Select a file to view or edit it.'
-                  : 'File contents',
-              alignLabelWithHint: true,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-String _formatWorkspaceBytes(Object? value) {
-  final bytes = value is num
-      ? value.toDouble()
-      : double.tryParse('$value') ?? 0;
-  if (bytes >= 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  if (bytes >= 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  }
-  return '${bytes.round()} B';
-}
+class _WorkspaceEditor extends StatelessWidget {
+  const _WorkspaceEditor({
+    required this.path,
+    required this.controller,
+    required this.saving,
+    required this.onSave,
+    required this.onDownload,
+  });
 
-class _ResultBlock extends StatelessWidget {
-  const _ResultBlock({required this.label, required this.value});
-
-  final String label;
-  final String value;
+  final String? path;
+  final TextEditingController controller;
+  final bool saving;
+  final VoidCallback? onSave;
+  final VoidCallback? onDownload;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          SelectableText(
-            value,
-            style: TextStyle(
-              fontFamily: GoogleFonts.geistMono().fontFamily,
-              fontSize: 12,
-              color: _textSecondary,
-              height: 1.5,
+    if (path == null) {
+      return const _ComputerEmptyState(
+        icon: Icons.edit_document,
+        title: 'Select a file',
+        message:
+            'Text files can be inspected and edited here or in Mousepad on the desktop.',
+      );
+    }
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  path!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Download',
+                onPressed: onDownload,
+                icon: const Icon(Icons.download_rounded),
+              ),
+              FilledButton.icon(
+                onPressed: saving ? null : onSave,
+                icon: saving
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
+                label: const Text('Save'),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            expands: true,
+            minLines: null,
+            maxLines: null,
+            keyboardType: TextInputType.multiline,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(14),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

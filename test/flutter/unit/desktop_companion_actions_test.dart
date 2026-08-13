@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neoagent_flutter/src/desktop_companion.dart';
 import 'package:neoagent_flutter/src/desktop_companion_actions.dart';
 import 'package:neoagent_flutter/src/desktop_command_output.dart';
 import 'package:neoagent_flutter/src/desktop_screen_capture.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _UnsupportedScreenCapture implements DesktopScreenCapture {
   @override
@@ -14,6 +16,8 @@ class _UnsupportedScreenCapture implements DesktopScreenCapture {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('desktop display selection validates IDs and resolves primary', () {
     final displays = <Map<String, Object?>>[
       <String, Object?>{'id': 'left', 'primary': false},
@@ -106,4 +110,37 @@ void main() {
       await file.parent.delete(recursive: true);
     }
   });
+
+  test(
+    'local computer permissions distinguish once from remembered access',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final manager = DesktopCompanionManager(
+        screenCapture: _UnsupportedScreenCapture(),
+      );
+      await manager.bootstrap(prefs);
+
+      await manager.grantPermission('files', prefs, remember: false);
+      expect(manager.grantedPermissions, contains('files'));
+      expect(prefs.getStringList(localComputerPermissionsPrefsKey), isNull);
+
+      await manager.grantPermission('shell', prefs, remember: true);
+      expect(
+        manager.grantedPermissions,
+        containsAll(<String>['files', 'shell']),
+      );
+      expect(prefs.getStringList(localComputerPermissionsPrefsKey), <String>[
+        'shell',
+      ]);
+
+      await manager.disconnect();
+      expect(manager.grantedPermissions, isNot(contains('files')));
+      expect(manager.grantedPermissions, contains('shell'));
+
+      await manager.revokePermission('shell', prefs);
+      expect(manager.grantedPermissions, isNot(contains('shell')));
+      manager.dispose();
+    },
+  );
 }

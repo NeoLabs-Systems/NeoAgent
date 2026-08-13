@@ -14,7 +14,7 @@ the current NeoAgent source.
 | Primary experience | Operator UI backed by a self-hosted service | Gateway and assistant across channels, nodes, and companion surfaces | Terminal UI or messaging gateway |
 | Persistent memory | Local structured facts, temporal updates, provenance, hybrid retrieval | Project-defined memory and plugin surfaces | Built-in Markdown memory with optional external memory providers |
 | Android operation | Direct ADB control of a host-attached device or emulator | Android companion/node capabilities | Android and Termux-oriented capabilities |
-| Desktop and browser | Isolated runtime, paired desktop companion, paired Chrome extension | Node and companion ecosystem | Local and remote execution backends |
+| Desktop and browser | Persistent lightweight Linux computer | QEMU, noVNC, Chromium, and guest agent | One adaptive browser/desktop/files/terminal flow |
 | Multi-user administration | User accounts, admin interface, optional service email, per-user runtime | Gateway-centered deployment model | Primarily personal-agent configuration |
 | Automation | Schedules, account events, weather events, webhooks, notification runs | Cron, hooks, webhooks, and channel/node events | Cron, gateway events, and tool-driven workflows |
 | Interfaces | Web, Android, desktop, launcher, messaging, extension, wearable firmware | Broad channel, platform, node, and companion ecosystem | Terminal plus Telegram, Discord, Slack, WhatsApp, Signal, email, and other integrations |

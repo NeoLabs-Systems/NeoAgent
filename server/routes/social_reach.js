@@ -66,15 +66,14 @@ router.post('/search', async (req, res) => {
 router.post('/cookies/import', async (req, res) => {
   try {
     const service = serviceFromReq(req);
-    if (!service || typeof service.importCookiesFromExtension !== 'function') {
+    if (!service || typeof service.importCookiesFromComputer !== 'function') {
       return res.status(503).json({ error: 'Social reach service is unavailable.' });
     }
     const platform = String(req.body?.platform || '').trim();
     if (!platform) {
       return res.status(400).json({ error: 'platform is required.' });
     }
-    return res.json(await service.importCookiesFromExtension(req.session.userId, platform, {
-      tokenId: req.body?.tokenId || req.body?.token_id || null,
+    return res.json(await service.importCookiesFromComputer(req.session.userId, platform, {
       signal: req.signal,
     }));
   } catch (error) {

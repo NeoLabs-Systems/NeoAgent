@@ -27,11 +27,17 @@ async function analyzeImageForUser({
   userId,
   agentId = null,
   imagePath,
+  imageBase64 = null,
   question = 'Describe this image in detail.',
   mimeType = null,
+  signal = null,
 } = {}) {
-  if (!fs.existsSync(imagePath)) {
+  const encodedImage = String(imageBase64 || '').trim();
+  if (!encodedImage && !fs.existsSync(imagePath)) {
     throw new Error(`File not found: ${imagePath}`);
+  }
+  if (encodedImage && encodedImage.length > 8 * 1024 * 1024) {
+    throw new Error('Image payload exceeds the analysis limit.');
   }
 
   const attempted = [];
@@ -40,12 +46,14 @@ async function analyzeImageForUser({
   try {
     const preferred = await getProviderForUser(userId, '', false, null, {
       agentId,
+      signal,
     });
     candidates.push({
       providerName: preferred.providerName,
       provider: preferred.provider,
     });
   } catch (error) {
+    if (signal?.aborted) throw signal.reason || error;
     attempted.push(`default-provider lookup failed: ${error.message}`);
   }
 
@@ -61,6 +69,7 @@ async function analyzeImageForUser({
         provider: createProviderInstance(providerInfo.id, userId, { agentId }),
       });
     } catch (error) {
+      if (signal?.aborted) throw signal.reason || error;
       attempted.push(`${providerInfo.id}: ${error.message}`);
     }
   }
@@ -80,10 +89,12 @@ async function analyzeImageForUser({
       const response = await withProviderRetry(
         () => candidate.provider.analyzeImage({
           imagePath,
+          imageBase64: encodedImage || null,
           mimeType: resolveImageMimeType(imagePath, mimeType),
           question,
+          signal,
         }),
-        { label: `ImageAnalysis ${candidate.providerName}` },
+        { label: `ImageAnalysis ${candidate.providerName}`, signal },
       );
       return {
         description: String(response.content || '').trim(),
@@ -91,6 +102,7 @@ async function analyzeImageForUser({
         provider: candidate.providerName,
       };
     } catch (error) {
+      if (signal?.aborted) throw signal.reason || error;
       attempted.push(`${candidate.providerName}: ${error.message}`);
     }
   }
