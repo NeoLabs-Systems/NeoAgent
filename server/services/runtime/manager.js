@@ -9,7 +9,9 @@ const { QemuVMManager } = require('./qemu_vm_manager');
 const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
+const { createServiceLogger } = require('../../utils/logger');
 
+const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
 const CONTROL_LEASE_TTL_MS = 35 * 60 * 1000;
 
@@ -210,22 +212,19 @@ class RuntimeManager {
     };
   }
 
-  async startComputer(userId, options = {}) {
+  async ensureComputer(userId, options = {}) {
     this._emitStatus(userId);
     try {
       const backend = this._computerBackendForUser(userId, options.deviceTarget);
       if (backend === this.localComputerBackend) await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
-      if (backend === this.computerBackend) await this.#migrateWorkspace(userId, options);
-      const browser = await backend.getBrowserProviderForUser(userId, options);
-      await browser.launch({ signal: options.signal });
       if (backend === this.computerBackend) {
         const session = backend.vmManager.instances.get(String(userId || '').trim());
         if (session) {
           session.startupDurationMs = Date.now() - Date.parse(session.startedAt);
           if (session.directBoot && session.startupDurationMs >= 10_000) {
-            console.warn(
-              `[CloudComputer] Startup SLA exceeded for user ${String(userId)}: ${session.startupDurationMs}ms.`,
+            logger.warn(
+              `Startup SLA exceeded for user ${String(userId)}: ${session.startupDurationMs}ms.`,
             );
           }
         }
@@ -234,6 +233,25 @@ class RuntimeManager {
     } finally {
       this._emitStatus(userId);
     }
+  }
+
+  async startComputer(userId, options = {}) {
+    const status = await this.ensureComputer(userId, options);
+    const backend = this._computerBackendForUser(userId, options.deviceTarget);
+    if (backend === this.computerBackend) {
+      try {
+        await this.#migrateWorkspace(userId, options);
+      } catch (error) {
+        logger.warn(`Workspace import failed for user ${String(userId)}: ${error.message}`);
+      }
+    }
+    try {
+      const browser = await backend.getBrowserProviderForUser(userId, options);
+      await browser.launch({ signal: options.signal });
+    } catch (error) {
+      logger.warn(`Browser launch failed for user ${String(userId)}: ${error.message}`);
+    }
+    return this.getComputerStatus(userId, options) || status;
   }
 
   async #migrateWorkspace(userId, options = {}) {

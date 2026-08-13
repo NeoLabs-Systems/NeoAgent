@@ -16,10 +16,6 @@ const {
   ensurePrivateFile,
 } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
-const {
-  COMPUTER_DISPLAY_HEIGHT,
-  COMPUTER_DISPLAY_WIDTH,
-} = require('./computer_display');
 const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 const {
   allocateComputerResources,
@@ -354,11 +350,7 @@ function buildQemuArgs({
       '-device', 'ramfb',
     );
   } else {
-    args.push(
-      '-machine', 'q35',
-      '-cpu', accelerators[0] === 'tcg' ? 'max' : 'host',
-      '-device', `virtio-vga,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`,
-    );
+    args.push('-machine', 'q35', '-cpu', accelerators[0] === 'tcg' ? 'max' : 'host', '-device', 'virtio-vga');
   }
   const accelerator = accelerators[0];
   if (!accelerator) {

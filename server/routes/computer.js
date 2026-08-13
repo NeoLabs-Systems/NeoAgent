@@ -71,7 +71,11 @@ function requireUserControl(req, manager) {
 }
 
 function sendError(res, error) {
-  res.status(error.status || 500).json({
+  const status = error.status || 500;
+  if (status >= 500) {
+    console.error('[Computer]', error.code || 'ERROR', error.message, error.stack);
+  }
+  res.status(status).json({
     error: sanitizeError(error),
     code: error.code || null,
   });
@@ -114,7 +118,7 @@ router.post('/stop', route((req, manager) => manager.stopComputer(
 )));
 
 router.post('/display-session', route(async (req, manager) => {
-  await manager.startComputer(req.session.userId, runtimeOptions(req));
+  await manager.ensureComputer(req.session.userId, runtimeOptions(req));
   return manager.createDisplaySession(req.session.userId, runtimeOptions(req));
 }));
 

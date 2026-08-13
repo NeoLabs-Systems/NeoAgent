@@ -117,6 +117,43 @@ test('computer control leases are exclusive and expire cleanly', () => {
   assert.equal(manager.acquireControl(7, 'teach', 'teach-1').ownerType, 'teach');
 });
 
+test('display sessions come up even when browser launch and workspace import fail', async () => {
+  const computerBackend = {
+    async getClientForUser() { return {}; },
+    async getBrowserProviderForUser() {
+      return {
+        async launch() {
+          throw new Error('No DISPLAY');
+        },
+      };
+    },
+    async importWorkspaceArchive() {
+      throw new Error('workspace import unavailable');
+    },
+    vmManager: {
+      instances: new Map([['7', {
+        display: { websocketUrl: 'ws://127.0.0.1:16080' },
+        instanceDir: '/tmp/neoagent-computer-test',
+        startedAt: new Date().toISOString(),
+      }]]),
+      getStatus: () => ({ state: 'ready' }),
+    },
+  };
+  const manager = new RuntimeManager({
+    computerBackend,
+    workspaceManager: {
+      async getWorkspaceRoot() { return '/tmp/neoagent-workspace-test'; },
+    },
+  });
+
+  const status = await manager.startComputer(7);
+  assert.equal(status.state, 'ready');
+  manager.acquireControl(7, 'user', 'session-7');
+  const display = manager.createDisplaySession(7);
+  assert.equal(display.viewOnly, false);
+  assert.match(display.viewUrl, /\/api\/computer\/display\//);
+});
+
 test('display sessions are user-scoped, lease-aware, and revoked on control changes', () => {
   const computerBackend = {
     vmManager: {

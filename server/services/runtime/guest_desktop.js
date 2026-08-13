@@ -1,11 +1,7 @@
 'use strict';
 
 const path = require('path');
-const {
-  COMPUTER_DISPLAY_HEIGHT,
-  COMPUTER_DISPLAY_WIDTH,
-  computerDisplayMode,
-} = require('./computer_display');
+const { computerDisplayMode } = require('./computer_display');
 
 function fileEntry(filePath, content, mode = '0644') {
   return {
@@ -41,22 +37,6 @@ if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
   xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s ${mode} >/dev/null 2>&1 || true
 fi
 `, '0755'),
-    fileEntry('/etc/X11/xorg.conf.d/10-neoagent-display.conf', `Section "Monitor"
-    Identifier "NeoAgentMonitor"
-    Modeline "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync
-    Option "PreferredMode" "${mode}"
-EndSection
-Section "Screen"
-    Identifier "NeoAgentScreen"
-    Monitor "NeoAgentMonitor"
-    DefaultDepth 24
-    SubSection "Display"
-        Depth 24
-        Modes "${mode}" "1280x720_60.00"
-        Virtual ${COMPUTER_DISPLAY_WIDTH} ${COMPUTER_DISPLAY_HEIGHT}
-    EndSubSection
-EndSection
-`),
     fileEntry('/etc/xdg/openbox/rc.xml', OPENBOX_RC_XML),
     fileEntry('/etc/xdg/openbox/menu.xml', OPENBOX_MENU_XML),
     fileEntry('/etc/xdg/openbox/autostart', `xset -dpms
