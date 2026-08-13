@@ -18,62 +18,19 @@ function getGuestDesktopSkelFiles() {
   }));
 }
 
-function guestDisplayXorgConfig() {
-  const mode = computerDisplayMode();
-  return `Section "Monitor"
-    Identifier "NeoAgentMonitor"
-    Modeline "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync
-    Option "PreferredMode" "${mode}"
-EndSection
-Section "Screen"
-    Identifier "NeoAgentScreen"
-    Monitor "NeoAgentMonitor"
-    DefaultDepth 24
-    SubSection "Display"
-        Depth 24
-        Modes "${mode}" "1280x720_60.00"
-    EndSubSection
-EndSection
-`;
-}
+function guestLightDmConfig() {
+  return `[LightDM]
+start-default-seat=true
+logind-check-graphical=false
 
-function guestDisplayFbdevConfig() {
-  return `Section "Device"
-    Identifier "NeoAgentGPU"
-    Driver "fbdev"
-    Option "fbdev" "/dev/fb0"
-EndSection
-Section "Screen"
-    Identifier "NeoAgentScreen"
-    Device "NeoAgentGPU"
-    DefaultDepth 16
-    SubSection "Display"
-        Depth 16
-    EndSubSection
-EndSection
+[Seat:*]
+autologin-user=neo
+autologin-user-timeout=0
+autologin-session=openbox
+user-session=openbox
+xserver-command=X -nolisten tcp vt7
+display-setup-script=/usr/local/bin/neoagent-display-setup
 `;
-}
-
-function guestDesktopBringUpCommand() {
-  const autoConfig = Buffer.from(guestDisplayXorgConfig()).toString('base64');
-  const fbConfig = Buffer.from(guestDisplayFbdevConfig()).toString('base64');
-  const script = [
-    'install -d -m 0755 /etc/X11/xorg.conf.d /etc/lightdm/lightdm.conf.d',
-    'systemctl set-default graphical.target || true',
-    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
-    'if [ -S /tmp/.X11-unix/X0 ]; then chvt 7 || true; exit 0; fi',
-    `echo ${autoConfig} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf`,
-    'systemctl restart lightdm.service || true',
-    'sleep 2',
-    'chvt 7 || true',
-    'if [ -S /tmp/.X11-unix/X0 ]; then exit 0; fi',
-    `echo ${fbConfig} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf`,
-    'true # fbdev-fallback',
-    'systemctl restart lightdm.service || true',
-    'sleep 2',
-    'chvt 7 || true',
-  ].join(' ; ');
-  return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;
 }
 
 function getGuestDesktopSystemFiles() {
@@ -97,43 +54,29 @@ if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
 fi
 exit 0
 `, '0755'),
-    fileEntry('/etc/X11/xorg.conf.d/10-neoagent-display.conf', guestDisplayXorgConfig()),
+    fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `virtio_gpu
+virtio-gpu
+`),
     fileEntry('/usr/local/bin/neoagent-ensure-desktop', `#!/bin/sh
-install -d -m 0755 /etc/X11/xorg.conf.d /etc/lightdm/lightdm.conf.d
-if [ -S /tmp/.X11-unix/X0 ]; then
-  chvt 7 >/dev/null 2>&1 || true
-  exit 0
-fi
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'XORG'
-${guestDisplayXorgConfig().replace(/\n$/, '')}
-XORG
+modprobe virtio_gpu >/dev/null 2>&1 || modprobe virtio-gpu >/dev/null 2>&1 || true
+install -d -m 0755 /etc/lightdm/lightdm.conf.d
+rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
+cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
+${guestLightDmConfig().replace(/\n$/, '')}
+LIGHTDM
 systemctl set-default graphical.target >/dev/null 2>&1 || true
 systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
 systemctl restart lightdm.service >/dev/null 2>&1 || true
-sleep 2
-chvt 7 >/dev/null 2>&1 || true
-if [ -S /tmp/.X11-unix/X0 ]; then
-  exit 0
-fi
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
-${guestDisplayFbdevConfig().replace(/\n$/, '')}
-FBDEV
-systemctl restart lightdm.service >/dev/null 2>&1 || true
-sleep 2
-chvt 7 >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+    chvt 7 >/dev/null 2>&1 || true
+    exit 0
+  fi
+  sleep 1
+done
+exit 1
 `, '0755'),
-    fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', `[LightDM]
-start-default-seat=true
-logind-check-graphical=false
-
-[Seat:*]
-autologin-user=neo
-autologin-user-timeout=0
-autologin-session=openbox
-user-session=openbox
-xserver-command=X -core -nolisten tcp vt7
-display-setup-script=/usr/local/bin/neoagent-display-setup
-`),
+    fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', guestLightDmConfig()),
     fileEntry('/etc/systemd/system/neoagent-desktop-seat.service', `[Unit]
 Description=Show the NeoAgent desktop on the VNC console
 After=lightdm.service
@@ -561,9 +504,7 @@ module.exports = {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
-  guestDesktopBringUpCommand,
-  guestDisplayFbdevConfig,
-  guestDisplayXorgConfig,
+  guestLightDmConfig,
   renderDesktopCloudInitWriteFiles,
   renderDesktopFileCommands,
 };

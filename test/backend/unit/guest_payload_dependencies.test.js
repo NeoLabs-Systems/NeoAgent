@@ -73,7 +73,8 @@ test('computer cloud-init starts one owned desktop after cloud-init without an o
   });
 
   assert.match(userData, /\[LightDM\]\s+start-default-seat=true\s+logind-check-graphical=false/);
-  assert.match(userData, /xserver-command=X -core -nolisten tcp vt7/);
+  assert.match(userData, /xserver-command=X -nolisten tcp vt7/);
+  assert.doesNotMatch(userData, /xserver-command=X -core/);
   assert.match(userData, /systemctl set-default graphical\.target/);
   assert.match(userData, /chvt 7/);
   assert.match(userData, /1280x720/);

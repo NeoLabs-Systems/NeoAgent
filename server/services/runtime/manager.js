@@ -10,7 +10,6 @@ const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
-const { guestDesktopBringUpCommand } = require('./guest_desktop');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -230,7 +229,10 @@ class RuntimeManager {
       await backend.getClientForUser(userId, options);
       if (backend === this.computerBackend) {
         try {
-          await backend.executeCommand(userId, guestDesktopBringUpCommand(), options);
+          await backend.requestGuest(userId, 'POST', '/desktop/ensure', {}, {
+            ...options,
+            timeoutMs: 45000,
+          });
         } catch (error) {
           logger.warn(`Desktop bring-up failed for user ${String(userId)}: ${error.message}`);
         }

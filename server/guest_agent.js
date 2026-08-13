@@ -146,6 +146,45 @@ function assertDiskSafety(requiredBytes = 0) {
   }
 }
 
+function runSudo(args, options = {}) {
+  return spawnSync('sudo', ['-n', ...args], {
+    encoding: 'utf8',
+    timeout: Number(options.timeoutMs || 30000),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function writePrivilegedFile(filePath, content) {
+  const encoded = Buffer.from(String(content)).toString('base64');
+  const result = runSudo([
+    '/bin/sh',
+    '-c',
+    `install -d -m 0755 ${JSON.stringify(path.posix.dirname(filePath))} && echo ${encoded} | base64 -d > ${JSON.stringify(filePath)}`,
+  ]);
+  if (result.status !== 0) {
+    throw new Error(String(result.stderr || result.stdout || `Failed to write ${filePath}`).trim());
+  }
+}
+
+function displayServerAlive() {
+  const probe = spawnSync('xdpyinfo', ['-display', ':0'], {
+    encoding: 'utf8',
+    timeout: 3000,
+    env: { ...process.env, DISPLAY: ':0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return probe.status === 0;
+}
+
+async function waitForDisplay(timeoutMs = 12000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (displayServerAlive()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return displayServerAlive();
+}
+
 function runDesktopCommand(command, args = [], options = {}) {
   const result = spawnSync(command, args, {
     encoding: 'utf8',
@@ -513,15 +552,87 @@ app.post('/workspace/search', async (req, res) => {
 app.get('/desktop/status', async (_req, res) => {
   await handle(res, async () => {
     let activeWindow = null;
+    let resolution = null;
     try {
       activeWindow = runDesktopCommand('xdotool', ['getactivewindow', 'getwindowname']);
     } catch {}
+    try {
+      resolution = runDesktopCommand('xdpyinfo', []).match(/dimensions:\s+(\d+x\d+)/)?.[1] || null;
+    } catch {}
     return {
-      available: Boolean(process.env.DISPLAY),
-      display: process.env.DISPLAY || ':0',
+      available: displayServerAlive(),
+      display: ':0',
       activeWindow,
-      resolution: runDesktopCommand('xdpyinfo', []).match(/dimensions:\s+(\d+x\d+)/)?.[1] || null,
+      resolution,
     };
+  });
+});
+
+app.post('/desktop/ensure', async (_req, res) => {
+  await handle(res, async () => {
+    runSudo(['/bin/sh', '-c', 'modprobe virtio_gpu >/dev/null 2>&1 || modprobe virtio-gpu >/dev/null 2>&1 || true']);
+    runSudo(['rm', '-f', '/etc/X11/xorg.conf.d/10-neoagent-display.conf']);
+    writePrivilegedFile(
+      '/etc/lightdm/lightdm.conf.d/50-neoagent.conf',
+      [
+        '[LightDM]',
+        'start-default-seat=true',
+        'logind-check-graphical=false',
+        '',
+        '[Seat:*]',
+        'autologin-user=neo',
+        'autologin-user-timeout=0',
+        'autologin-session=openbox',
+        'user-session=openbox',
+        'xserver-command=X -nolisten tcp vt7',
+        'display-setup-script=/usr/local/bin/neoagent-display-setup',
+        '',
+      ].join('\n'),
+    );
+    runSudo(['systemctl', 'set-default', 'graphical.target']);
+    runSudo(['systemctl', 'enable', 'lightdm.service', 'neoagent-desktop-seat.service']);
+    const restart = runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
+    if (restart.status !== 0 && !displayServerAlive()) {
+      throw new Error(String(restart.stderr || restart.stdout || 'LightDM failed to restart').trim());
+    }
+    if (await waitForDisplay(12000)) {
+      runSudo(['chvt', '7']);
+      return { available: true, display: ':0', fallback: null };
+    }
+
+    writePrivilegedFile(
+      '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
+      [
+        'Section "Device"',
+        '    Identifier "NeoAgentGPU"',
+        '    Driver "fbdev"',
+        '    Option "fbdev" "/dev/fb0"',
+        'EndSection',
+        'Section "Screen"',
+        '    Identifier "NeoAgentScreen"',
+        '    Device "NeoAgentGPU"',
+        '    DefaultDepth 16',
+        '    SubSection "Display"',
+        '        Depth 16',
+        '    EndSubSection',
+        'EndSection',
+        '',
+      ].join('\n'),
+    );
+    runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
+    if (await waitForDisplay(12000)) {
+      runSudo(['chvt', '7']);
+      return { available: true, display: ':0', fallback: 'fbdev' };
+    }
+
+    let xorgLog = '';
+    try {
+      xorgLog = fs.readFileSync('/var/log/Xorg.0.log', 'utf8').slice(-4000);
+    } catch {}
+    const error = new Error('The Linux desktop did not start.');
+    error.code = 'COMPUTER_DESKTOP_UNAVAILABLE';
+    if (xorgLog) error.message += ` ${xorgLog.split('\n').slice(-8).join(' ')}`;
+    throw error;
   });
 });
 

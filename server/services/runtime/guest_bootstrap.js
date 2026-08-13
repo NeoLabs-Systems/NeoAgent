@@ -354,7 +354,7 @@ function createCloudInitScript({
         ]),
         '/usr/local/bin/neoagent-apply-desktop-home',
         'chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-ensure-desktop /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop',
-        'if [ -f /etc/default/grub ]; then sed -i \'s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/\' /etc/default/grub && update-grub || true; fi',
+        'if [ -f /etc/default/grub ]; then sed -i \'s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=ttyS0,115200n8 console=ttyAMA0"/\' /etc/default/grub && update-grub || true; fi',
         'systemctl daemon-reload',
         'systemctl set-default graphical.target',
         'systemctl enable lightdm.service neoagent-desktop-seat.service',
