@@ -32503,7 +32503,7 @@ bSc(a,b,c,d,e){var s,r,q,p,o,n,m,l,k,j,i="Starting your computer",h="The Linux g
 if(b&&!B.ajE.m(0,e)&&e!=="starting")return new A.kV([a.ax.b,B.pL,"This may take a moment.",i])
 s=c==="local"
 switch(e){case"starting":r=A.bo(J.S(d,"readiness"))
-q=!s&&!J.e(J.S(r,"imageReady"),!0)
+q=!s&&J.e(J.S(r,"imageReady"),!1)
 p=q?"Preparing your computer":i
 o=q?"First-time setup is in progress.":"Opening your saved desktop."
 return new A.kV([a.ax.b,B.pL,o,p])
@@ -131964,7 +131964,7 @@ aw2(a,b,c){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g=i.a.c,f=g.gDJ()
 if(f==="local")return new A.abr(g,b,c,g.N?h:new A.aXc(i,g),h)
 s=A.O(a)
 r=g.l3
-q=!J.e(J.S(A.bo(J.S(g.iJ,"readiness")),"imageReady"),!0)
+q=J.e(J.S(A.bo(J.S(g.iJ,"readiness")),"imageReady"),!1)
 p=c==="starting"||g.N
 f=J.S(g.iJ,"errorCode")
 o=f==null?h:J.q(f)
@@ -137681,7 +137681,7 @@ if(r){r=s.d
 r===$&&A.b()
 p.push(A.kG(q,A.iA(!1,new A.Z(B.wt,A.cS(new A.cI(B.np,new A.aap(r,q),q),q,q),q),!1,B.F,!0),q,q,0,0,0,q))}if(!s.ax){r=s.e
 r===$&&A.b()
-r=B.b.t("mss1mt88-44d8c87").length!==0&&r.b}else r=!1
+r=B.b.t("mss33iqm-19ee3ff").length!==0&&r.b}else r=!1
 if(r){r=s.d
 r===$&&A.b()
 r=r.bv&&!r.bf?84:0
@@ -143521,7 +143521,7 @@ $S:12}
 A.a1l.prototype={}
 A.UX.prototype={
 qE(a){var s=this
-if(B.b.t("mss1mt88-44d8c87").length===0||s.a!=null)return
+if(B.b.t("mss33iqm-19ee3ff").length===0||s.a!=null)return
 s.Bg()
 s.a=A.kP(B.Xp,new A.bhp(s))},
 Bg(){var s=0,r=A.l(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f
@@ -143539,7 +143539,7 @@ if(!t.f.b(k)){s=1
 break}i=J.S(k,"buildId")
 h=i==null?null:B.b.t(J.q(i))
 j=h==null?"":h
-if(J.bk(j)===0||J.e(j,"mss1mt88-44d8c87")){s=1
+if(J.bk(j)===0||J.e(j,"mss33iqm-19ee3ff")){s=1
 break}n.b=!0
 n.E()
 p=2
@@ -143556,7 +143556,7 @@ case 2:return A.i(o.at(-1),r)}})
 return A.k($async$Bg,r)},
 w4(){var s=0,r=A.l(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
 var $async$w4=A.m(function(a2,a3){if(a2===1){o.push(a3)
-s=p}while(true)switch(s){case 0:if(B.b.t("mss1mt88-44d8c87").length===0||n.c){s=1
+s=p}while(true)switch(s){case 0:if(B.b.t("mss33iqm-19ee3ff").length===0||n.c){s=1
 break}n.c=!0
 n.E()
 p=4
