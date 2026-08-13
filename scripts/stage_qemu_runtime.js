@@ -37,19 +37,33 @@ function hashFile(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-function copyUnique(source, destinationDirectory) {
-  const destination = path.join(destinationDirectory, path.basename(source));
-  fs.mkdirSync(destinationDirectory, { recursive: true });
-  if (fs.existsSync(destination)) {
-    if (hashFile(source) !== hashFile(destination)) {
-      throw new Error(`Portable QEMU dependency name collision: ${path.basename(source)}`);
+function createUniqueCopier() {
+  const sourceByDestination = new Map();
+  return function copyUnique(source, destinationDirectory) {
+    const resolvedSource = fs.realpathSync.native(source);
+    const destination = path.join(destinationDirectory, path.basename(resolvedSource));
+    fs.mkdirSync(destinationDirectory, { recursive: true });
+    const previousSource = sourceByDestination.get(destination);
+    if (previousSource) {
+      if (
+        previousSource !== resolvedSource
+        && hashFile(previousSource) !== hashFile(resolvedSource)
+      ) {
+        throw new Error(`Portable QEMU dependency name collision: ${path.basename(resolvedSource)}`);
+      }
+      return destination;
     }
+    if (fs.existsSync(destination) && hashFile(resolvedSource) !== hashFile(destination)) {
+      throw new Error(`Portable QEMU dependency name collision: ${path.basename(resolvedSource)}`);
+    }
+    sourceByDestination.set(destination, resolvedSource);
+    if (!fs.existsSync(destination)) fs.copyFileSync(resolvedSource, destination);
+    if (process.platform !== 'win32') fs.chmodSync(destination, 0o755);
     return destination;
-  }
-  fs.copyFileSync(source, destination);
-  if (process.platform !== 'win32') fs.chmodSync(destination, 0o755);
-  return destination;
+  };
 }
+
+const copyUnique = createUniqueCopier();
 
 function findDataDirectory(systemBinary) {
   const prefix = path.dirname(path.dirname(systemBinary));
@@ -149,42 +163,48 @@ function stageWindowsRuntime(systemBinary, imageBinary, outputDirectory) {
   }
 }
 
-const outputDirectory = argument('output');
-const systemName = process.arch === 'arm64' ? 'qemu-system-aarch64' : 'qemu-system-x86_64';
-const systemBinary = resolveCommand(systemName);
-const imageBinary = resolveCommand('qemu-img');
-const dataDirectory = findDataDirectory(systemBinary);
-if (!dataDirectory) throw new Error('QEMU firmware/data directory was not found.');
+function main() {
+  const outputDirectory = argument('output');
+  const systemName = process.arch === 'arm64' ? 'qemu-system-aarch64' : 'qemu-system-x86_64';
+  const systemBinary = resolveCommand(systemName);
+  const imageBinary = resolveCommand('qemu-img');
+  const dataDirectory = findDataDirectory(systemBinary);
+  if (!dataDirectory) throw new Error('QEMU firmware/data directory was not found.');
 
-fs.rmSync(outputDirectory, { recursive: true, force: true });
-fs.mkdirSync(outputDirectory, { recursive: true });
-let stagedBinaries;
-if (process.platform === 'win32') {
-  stageWindowsRuntime(systemBinary, imageBinary, outputDirectory);
-  stagedBinaries = [
-    path.join(outputDirectory, 'bin', path.basename(systemBinary)),
-    path.join(outputDirectory, 'bin', path.basename(imageBinary)),
-  ];
-} else {
-  const binaryDirectory = path.join(outputDirectory, 'bin');
-  stagedBinaries = [
-    copyUnique(systemBinary, binaryDirectory),
-    copyUnique(imageBinary, binaryDirectory),
-  ];
-  if (process.platform === 'darwin') collectMacDependencies(stagedBinaries, outputDirectory);
-  else collectLinuxDependencies(stagedBinaries, outputDirectory);
+  fs.rmSync(outputDirectory, { recursive: true, force: true });
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  let stagedBinaries;
+  if (process.platform === 'win32') {
+    stageWindowsRuntime(systemBinary, imageBinary, outputDirectory);
+    stagedBinaries = [
+      path.join(outputDirectory, 'bin', path.basename(systemBinary)),
+      path.join(outputDirectory, 'bin', path.basename(imageBinary)),
+    ];
+  } else {
+    const binaryDirectory = path.join(outputDirectory, 'bin');
+    stagedBinaries = [
+      copyUnique(systemBinary, binaryDirectory),
+      copyUnique(imageBinary, binaryDirectory),
+    ];
+    if (process.platform === 'darwin') collectMacDependencies(stagedBinaries, outputDirectory);
+    else collectLinuxDependencies(stagedBinaries, outputDirectory);
+  }
+  fs.cpSync(dataDirectory, path.join(outputDirectory, 'share', 'qemu'), { recursive: true, force: true });
+
+  const version = commandOutput(systemBinary, ['--version']).split(/\r?\n/)[0];
+  const manifest = {
+    schemaVersion: 1,
+    platform: process.platform,
+    architecture: process.arch,
+    version,
+    files: stagedBinaries.map((filePath) => ({
+      path: path.relative(outputDirectory, filePath).split(path.sep).join('/'),
+      sha256: hashFile(filePath),
+    })),
+  };
+  fs.writeFileSync(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
-fs.cpSync(dataDirectory, path.join(outputDirectory, 'share', 'qemu'), { recursive: true, force: true });
 
-const version = commandOutput(systemBinary, ['--version']).split(/\r?\n/)[0];
-const manifest = {
-  schemaVersion: 1,
-  platform: process.platform,
-  architecture: process.arch,
-  version,
-  files: stagedBinaries.map((filePath) => ({
-    path: path.relative(outputDirectory, filePath).split(path.sep).join('/'),
-    sha256: hashFile(filePath),
-  })),
-};
-fs.writeFileSync(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+if (require.main === module) main();
+
+module.exports = { createUniqueCopier };
