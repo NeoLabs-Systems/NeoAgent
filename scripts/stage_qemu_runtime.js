@@ -65,17 +65,37 @@ function createUniqueCopier() {
 
 const copyUnique = createUniqueCopier();
 
-function findDataDirectory(systemBinary) {
-  const prefix = path.dirname(path.dirname(systemBinary));
-  const candidates = [
+const QEMU_DATA_MARKERS = [
+  'bios.bin',
+  'bios-256k.bin',
+  'edk2-x86_64-code.fd',
+  'edk2-i386-code.fd',
+  'edk2-aarch64-code.fd',
+  'kvmvapic.bin',
+];
+
+function isQemuDataDirectory(directory) {
+  if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) return false;
+  if (QEMU_DATA_MARKERS.some((marker) => fs.existsSync(path.join(directory, marker)))) return true;
+  return fs.readdirSync(directory).some((name) => /\.(bin|fd|rom)$/i.test(name));
+}
+
+function qemuDataDirectoryCandidates(systemBinary) {
+  const binaryDirectory = path.dirname(systemBinary);
+  const prefix = path.dirname(binaryDirectory);
+  return [
+    path.join(binaryDirectory, 'share', 'qemu'),
+    path.join(binaryDirectory, 'share'),
     path.join(prefix, 'share', 'qemu'),
-    path.join(path.dirname(systemBinary), 'share', 'qemu'),
-    path.join(path.dirname(systemBinary), '..', 'share', 'qemu'),
+    path.join(binaryDirectory, '..', 'share', 'qemu'),
     '/usr/share/qemu',
     '/usr/local/share/qemu',
     '/opt/homebrew/share/qemu',
-  ];
-  return candidates.map((candidate) => path.resolve(candidate)).find((candidate) => fs.existsSync(candidate)) || null;
+  ].map((candidate) => path.resolve(candidate));
+}
+
+function findDataDirectory(systemBinary) {
+  return qemuDataDirectoryCandidates(systemBinary).find((candidate) => isQemuDataDirectory(candidate)) || null;
 }
 
 function linuxDependencies(binary) {
@@ -169,7 +189,11 @@ function main() {
   const systemBinary = resolveCommand(systemName);
   const imageBinary = resolveCommand('qemu-img');
   const dataDirectory = findDataDirectory(systemBinary);
-  if (!dataDirectory) throw new Error('QEMU firmware/data directory was not found.');
+  if (!dataDirectory) {
+    throw new Error(
+      `QEMU firmware/data directory was not found. Searched: ${qemuDataDirectoryCandidates(systemBinary).join(', ')}`,
+    );
+  }
 
   fs.rmSync(outputDirectory, { recursive: true, force: true });
   fs.mkdirSync(outputDirectory, { recursive: true });
@@ -207,4 +231,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { createUniqueCopier };
+module.exports = { createUniqueCopier, findDataDirectory, isQemuDataDirectory };

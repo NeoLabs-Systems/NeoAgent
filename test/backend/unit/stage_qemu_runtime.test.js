@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { createUniqueCopier } = require('../../../scripts/stage_qemu_runtime');
+const { createUniqueCopier, findDataDirectory, isQemuDataDirectory } = require('../../../scripts/stage_qemu_runtime');
 
 test('portable QEMU staging recognizes a dependency after patching its copy', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-stage-test-'));
@@ -45,4 +45,43 @@ test('portable QEMU staging still rejects distinct libraries with one name', (t)
     () => copyUnique(second, outputDirectory),
     /Portable QEMU dependency name collision: libexample\.so\.1/,
   );
+});
+
+test('portable QEMU staging recognizes a Windows-style share firmware directory', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-share-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const binary = path.join(root, 'qemu-system-x86_64.exe');
+  const share = path.join(root, 'share');
+  fs.writeFileSync(binary, 'qemu');
+  fs.mkdirSync(share);
+  fs.writeFileSync(path.join(share, 'bios.bin'), 'bios');
+
+  assert.equal(isQemuDataDirectory(share), true);
+  assert.equal(isQemuDataDirectory(root), false);
+  assert.equal(findDataDirectory(binary), path.resolve(share));
+});
+
+test('portable QEMU staging prefers share/qemu over an empty share directory', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-share-qemu-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const binary = path.join(root, 'qemu-system-x86_64');
+  const share = path.join(root, 'share');
+  const nested = path.join(share, 'qemu');
+  fs.writeFileSync(binary, 'qemu');
+  fs.mkdirSync(nested, { recursive: true });
+  fs.writeFileSync(path.join(nested, 'edk2-aarch64-code.fd'), 'firmware');
+
+  assert.equal(isQemuDataDirectory(share), false);
+  assert.equal(findDataDirectory(binary), path.resolve(nested));
+});
+
+test('portable QEMU staging accepts a firmware directory with ROM files only', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-rom-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const firmware = path.join(root, 'share');
+  fs.mkdirSync(firmware);
+  fs.writeFileSync(path.join(firmware, 'efi-virtio.rom'), 'rom');
+
+  assert.equal(isQemuDataDirectory(firmware), true);
+  assert.equal(isQemuDataDirectory(root), false);
 });
