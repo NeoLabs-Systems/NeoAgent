@@ -29,7 +29,13 @@ class AgentCallCoordinator {
 
     const sockets = await this.io.in(`user:${userId}`).fetchSockets();
     const recipients = new Set(sockets.map((socket) => socket.id));
-    if (recipients.size === 0) return { status: 'unavailable' };
+    if (recipients.size === 0) {
+      return {
+        status: 'unavailable',
+        reason: 'no_connected_flutter_client',
+        message: 'The call_user tool is available, but no Flutter app client is currently connected to receive the call.',
+      };
+    }
 
     const agent = resolveAgent(userId, agentId);
     const callId = randomUUID();

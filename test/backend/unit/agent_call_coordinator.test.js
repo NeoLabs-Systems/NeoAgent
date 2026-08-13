@@ -62,7 +62,7 @@ test('agent calls are approval-gated in their own permission category', async (t
   assert.deepEqual(tool.parameters.required, ['opening_message']);
 });
 
-test('agent call returns unavailable without a connected Flutter client', async (t) => {
+test('agent call distinguishes an offline Flutter client from a missing tool', async (t) => {
   const ctx = createTestRuntime();
   t.after(() => teardownTestRuntime(ctx));
   const user = await createTestUser(ctx.db);
@@ -78,7 +78,11 @@ test('agent call returns unavailable without a connected Flutter client', async 
     userId: user.userId,
     openingMessage: 'I have an update.',
   });
-  assert.deepEqual(result, { status: 'unavailable' });
+  assert.deepEqual(result, {
+    status: 'unavailable',
+    reason: 'no_connected_flutter_client',
+    message: 'The call_user tool is available, but no Flutter app client is currently connected to receive the call.',
+  });
 });
 
 test('first accepting client wins and opening context is attached to the voice session', async (t) => {

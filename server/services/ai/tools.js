@@ -2479,7 +2479,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'call_user': {
             const coordinator = agentCalls();
-            if (!coordinator) return { status: 'unavailable' };
+            if (!coordinator) {
+                return {
+                    status: 'unavailable',
+                    reason: 'call_service_not_initialized',
+                    message: 'The call_user tool is available, but the in-app call service is not initialized on this server.',
+                };
+            }
             const openingMessage = typeof args.opening_message === 'string'
                 ? args.opening_message.trim()
                 : '';
