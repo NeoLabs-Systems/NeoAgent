@@ -156,6 +156,7 @@ function createCloudInitScript({
       'git',
       'jq',
       'lightdm',
+      'lightdm-gtk-greeter',
       'lxterminal',
       'mousepad',
       'openssh-client',
@@ -278,18 +279,7 @@ function createCloudInitScript({
       ? [
         'echo "Configuring the lightweight Linux desktop..."',
         'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/chromium/policies/managed /etc/apt/apt.conf.d /etc/apt/preferences.d /etc/security/limits.d /etc/profile.d /etc/systemd/system/user-1000.slice.d',
-        'cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<\'EOF\'',
-        '[LightDM]',
-        'start-default-seat=true',
-        'logind-check-graphical=false',
-        '',
-        '[Seat:*]',
-        'autologin-user=neo',
-        'autologin-user-timeout=0',
-        'user-session=openbox',
-        'xserver-command=X -core -nolisten tcp',
-        'display-setup-script=/usr/local/bin/neoagent-display-setup',
-        'EOF',
+        'rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf',
         'cat > /etc/chromium/policies/managed/neoagent.json <<\'EOF\'',
         '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
         'EOF',
@@ -363,7 +353,11 @@ function createCloudInitScript({
           ...getGuestDesktopSkelFiles(),
         ]),
         '/usr/local/bin/neoagent-apply-desktop-home',
-        'chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop',
+        'chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-ensure-desktop /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop',
+        'if [ -f /etc/default/grub ]; then sed -i \'s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/\' /etc/default/grub && update-grub || true; fi',
+        'systemctl daemon-reload',
+        'systemctl set-default graphical.target',
+        'systemctl enable lightdm.service neoagent-desktop-seat.service',
         'chown neo:neo /home/neo',
         'chown -R neo:neo /home/neo/.config /home/neo/.neoagent /home/neo/Desktop /home/neo/Downloads /home/neo/workspace',
         'printf "%s\n" "neo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-neoagent',
@@ -477,8 +471,8 @@ function createCloudInitUserData({
       ...(includeBrowser
         ? [
           '  - [bash, -lc, "/usr/local/bin/neoagent-apply-desktop-home"]',
-          '  - [bash, -lc, "systemctl enable lightdm.service"]',
-          '  - [bash, -lc, "systemctl restart lightdm.service"]',
+          '  - [bash, -lc, "systemctl daemon-reload"]',
+          '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
           '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
         ]
         : []),
@@ -584,8 +578,7 @@ function createCloudInitUserData({
     '  - [bash, -lc, "/usr/local/bin/neoagent-guest-bootstrap.sh"]',
     ...(includeBrowser
       ? [
-        '  - [bash, -lc, "systemctl enable lightdm.service"]',
-        '  - [bash, -lc, "systemctl restart lightdm.service"]',
+        '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
         '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
       ]
       : []),

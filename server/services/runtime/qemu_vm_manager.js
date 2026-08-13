@@ -365,8 +365,8 @@ function buildQemuArgs({
       '-kernel', kernelImage,
       '-initrd', initrdImage,
       '-append', architecture === 'arm64'
-        ? 'root=/dev/vda1 ro rootwait console=ttyAMA0'
-        : 'root=/dev/vda1 ro rootwait console=ttyS0',
+        ? 'root=/dev/vda1 ro rootwait console=tty0 console=ttyAMA0'
+        : 'root=/dev/vda1 ro rootwait console=tty0 console=ttyS0',
     );
   }
   args.push(

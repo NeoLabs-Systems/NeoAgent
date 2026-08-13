@@ -29,6 +29,7 @@ chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
     fileEntry('/usr/local/bin/neoagent-display-setup', `#!/bin/sh
+chvt 7 >/dev/null 2>&1 || true
 output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
 [ -n "$output" ] || exit 0
 if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
@@ -36,12 +37,48 @@ if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
   xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true
   xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s ${mode} >/dev/null 2>&1 || true
 fi
+exit 0
 `, '0755'),
+    fileEntry('/usr/local/bin/neoagent-ensure-desktop', `#!/bin/sh
+rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
+systemctl set-default graphical.target >/dev/null 2>&1 || true
+systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
+systemctl start lightdm.service >/dev/null 2>&1 || true
+sleep 1
+chvt 7 >/dev/null 2>&1 || true
+`, '0755'),
+    fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', `[LightDM]
+start-default-seat=true
+logind-check-graphical=false
+
+[Seat:*]
+autologin-user=neo
+autologin-user-timeout=0
+autologin-session=openbox
+user-session=openbox
+xserver-command=X -core -nolisten tcp vt7
+display-setup-script=/usr/local/bin/neoagent-display-setup
+`),
+    fileEntry('/etc/systemd/system/neoagent-desktop-seat.service', `[Unit]
+Description=Show the NeoAgent desktop on the VNC console
+After=lightdm.service
+Wants=lightdm.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/chvt 7
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+WantedBy=multi-user.target
+`),
     fileEntry('/etc/xdg/openbox/rc.xml', OPENBOX_RC_XML),
     fileEntry('/etc/xdg/openbox/menu.xml', OPENBOX_MENU_XML),
     fileEntry('/etc/xdg/openbox/autostart', `xset -dpms
 xset s off
 xset s noblank
+chvt 7 >/dev/null 2>&1 || true
 /usr/local/bin/neoagent-display-setup || true
 pcmanfm --desktop --profile neoagent &
 tint2 -c /etc/xdg/tint2/tint2rc &

@@ -115,4 +115,5 @@ test('cached direct boot bypasses firmware disk discovery', () => {
     '/runtime/initrd.img',
   ]);
   assert.match(args[args.indexOf('-append') + 1], /root=\/dev\/vda1/);
+  assert.match(args[args.indexOf('-append') + 1], /console=tty0/);
 });

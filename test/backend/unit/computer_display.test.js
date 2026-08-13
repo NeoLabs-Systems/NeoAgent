@@ -46,6 +46,11 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.ok(paths.includes('/etc/xdg/tint2/tint2rc'));
   assert.ok(paths.includes('/etc/xdg/openbox/rc.xml'));
   assert.ok(paths.includes('/usr/local/bin/neoagent-display-setup'));
+  assert.ok(paths.includes('/etc/lightdm/lightdm.conf.d/50-neoagent.conf'));
+  assert.ok(paths.includes('/etc/systemd/system/neoagent-desktop-seat.service'));
+  const lightdm = systemFiles.find((file) => file.path.endsWith('50-neoagent.conf')).content;
+  assert.match(lightdm, /xserver-command=X -core -nolisten tcp vt7/);
+  assert.match(lightdm, /autologin-session=openbox/);
   const tint2 = systemFiles.find((file) => file.path === '/etc/xdg/tint2/tint2rc').content;
   assert.match(tint2, /panel_position = bottom center horizontal/);
   assert.match(tint2, /neoagent-chromium\.desktop/);
