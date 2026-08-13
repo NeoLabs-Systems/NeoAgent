@@ -214,7 +214,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final theme = Theme.of(context);
     final displayUrl = controller.computerDisplayUrl;
     final readiness = _jsonMap(controller.computerRuntime['readiness']);
-    final firstSetup = readiness['imageReady'] != true;
+    final firstSetup = readiness['imageReady'] == false;
     final busy = state == 'starting' || controller.isRunningDeviceAction;
     final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
 
@@ -742,7 +742,7 @@ _computerStatusPresentation(
   switch (state) {
     case 'starting':
       final readiness = _jsonMap(runtime['readiness']);
-      final firstSetup = !local && readiness['imageReady'] != true;
+      final firstSetup = !local && readiness['imageReady'] == false;
       return (
         title: firstSetup
             ? 'Preparing your computer'

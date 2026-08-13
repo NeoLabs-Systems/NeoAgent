@@ -60,7 +60,7 @@ void main() {
 
     const labels = <String, String>{
       'stopped': 'Your computer is off',
-      'starting': 'Preparing your computer',
+      'starting': 'Starting your computer',
       'ready': 'Your computer is ready',
       'agent_control': 'NeoAgent is working',
       'user_control': 'You are in control',
@@ -251,7 +251,49 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ComputerDisplay), findsOneWidget);
-    expect(find.text('Starting your computer'), findsNothing);
+    expect(find.text('Preparing your computer'), findsNothing);
+  });
+
+  testWidgets('first-time setup is only shown when the guest image is missing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => DevicesPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+
+    controller.computerRuntime = const <String, dynamic>{
+      'state': 'starting',
+      'readiness': <String, dynamic>{'imageReady': false},
+    };
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Preparing your computer'), findsWidgets);
+
+    controller.computerRuntime = const <String, dynamic>{
+      'state': 'starting',
+      'readiness': <String, dynamic>{'imageReady': true},
+    };
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Starting your computer'), findsWidgets);
+    expect(find.text('Preparing your computer'), findsNothing);
   });
 
   testWidgets(

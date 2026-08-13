@@ -626,6 +626,7 @@ class QemuVMManager {
       },
       lastError: session.lastError || null,
       desktop: session.desktop || null,
+      readiness: this.getReadiness(),
     };
   }
 
