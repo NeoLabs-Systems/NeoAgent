@@ -52,6 +52,7 @@ class RuntimeManager {
     this.androidControllers = new Map();
     this.displaySessions = new Map();
     this.controlLeases = new Map();
+    this.startupJobs = new Map();
     this.io = options.io || null;
     this.providerModes = new Map();
 
@@ -222,6 +223,78 @@ class RuntimeManager {
     };
   }
 
+  #startupJobKey(userId, options = {}) {
+    return `${String(userId || '').trim()}:${this.resolveComputerProvider(userId, options.deviceTarget)}`;
+  }
+
+  #computerStillRunning(userId, options = {}) {
+    const backend = this._computerBackendForUser(userId, options.deviceTarget);
+    if (backend !== this.computerBackend) return true;
+    return backend.vmManager.hasVm?.(userId) !== false;
+  }
+
+  #queueComputerStartup(userId, options = {}) {
+    const key = this.#startupJobKey(userId, options);
+    const existing = this.startupJobs.get(key);
+    if (existing) return existing;
+    const job = this.#completeComputerStartup(userId, {
+      deviceTarget: options.deviceTarget,
+    }).catch((error) => {
+      logger.warn(`Computer startup completion failed for user ${String(userId)}: ${error.message}`);
+    }).finally(() => {
+      if (this.startupJobs.get(key) === job) this.startupJobs.delete(key);
+    });
+    this.startupJobs.set(key, job);
+    return job;
+  }
+
+  async #completeComputerStartup(userId, options = {}) {
+    if (!this.#computerStillRunning(userId, options)) {
+      return this.getComputerStatus(userId, options);
+    }
+    const status = await this.ensureComputer(userId, options);
+    const backend = this._computerBackendForUser(userId, options.deviceTarget);
+    if (!this.#computerStillRunning(userId, options)) return status;
+    if (backend === this.computerBackend) {
+      try {
+        await this.#migrateWorkspace(userId, options);
+      } catch (error) {
+        logger.warn(`Workspace import failed for user ${String(userId)}: ${error.message}`);
+      }
+    }
+    if (!this.#computerStillRunning(userId, options)) {
+      return this.getComputerStatus(userId, options);
+    }
+    try {
+      const browser = await backend.getBrowserProviderForUser(userId, options);
+      await browser.launch({ signal: options.signal });
+    } catch (error) {
+      logger.warn(`Browser launch failed for user ${String(userId)}: ${error.message}`);
+    }
+    this._emitStatus(userId);
+    return this.getComputerStatus(userId, options);
+  }
+
+  async ensureComputerDisplay(userId, options = {}) {
+    this._emitStatus(userId);
+    try {
+      const backend = this._computerBackendForUser(userId, options.deviceTarget);
+      if (backend === this.localComputerBackend) {
+        await backend.pause(userId, false);
+        return this.getComputerStatus(userId, options);
+      }
+      if (typeof backend.vmManager?.ensureVm === 'function') {
+        await backend.vmManager.ensureVm(userId);
+      } else if (typeof backend.getClientForUser === 'function') {
+        await backend.getClientForUser(userId, { deviceTarget: options.deviceTarget });
+      }
+      this.#queueComputerStartup(userId, { deviceTarget: options.deviceTarget });
+      return this.getComputerStatus(userId, options);
+    } finally {
+      this._emitStatus(userId);
+    }
+  }
+
   async ensureComputer(userId, options = {}) {
     this._emitStatus(userId);
     try {
@@ -281,22 +354,7 @@ class RuntimeManager {
   }
 
   async startComputer(userId, options = {}) {
-    const status = await this.ensureComputer(userId, options);
-    const backend = this._computerBackendForUser(userId, options.deviceTarget);
-    if (backend === this.computerBackend) {
-      try {
-        await this.#migrateWorkspace(userId, options);
-      } catch (error) {
-        logger.warn(`Workspace import failed for user ${String(userId)}: ${error.message}`);
-      }
-    }
-    try {
-      const browser = await backend.getBrowserProviderForUser(userId, options);
-      await browser.launch({ signal: options.signal });
-    } catch (error) {
-      logger.warn(`Browser launch failed for user ${String(userId)}: ${error.message}`);
-    }
-    return this.getComputerStatus(userId, options) || status;
+    return this.ensureComputerDisplay(userId, options);
   }
 
   async #migrateWorkspace(userId, options = {}) {

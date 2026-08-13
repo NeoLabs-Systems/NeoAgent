@@ -119,7 +119,7 @@ router.post('/stop', route((req, manager) => manager.stopComputer(
 )));
 
 router.post('/display-session', route(async (req, manager) => {
-  await manager.ensureComputer(req.session.userId, runtimeOptions(req));
+  await manager.ensureComputerDisplay(req.session.userId, runtimeOptions(req));
   return manager.createDisplaySession(req.session.userId, runtimeOptions(req));
 }));
 

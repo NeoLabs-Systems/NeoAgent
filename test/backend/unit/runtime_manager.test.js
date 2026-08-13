@@ -155,6 +155,85 @@ test('local and cloud computer leases do not block each other', () => {
   );
 });
 
+function createCloudComputerBackend(session, overrides = {}) {
+  return {
+    async getClientForUser() { return {}; },
+    async requestGuest() { return { available: true }; },
+    async executeCommand() {
+      return { exitCode: 0, stdout: 'DESKTOP_READY\n', stderr: '' };
+    },
+    async getBrowserProviderForUser() {
+      return { async launch() { return {}; } };
+    },
+    vmManager: {
+      async ensureVm() { return session; },
+      instances: new Map([['7', session]]),
+      getStatus: () => ({ state: session.state, desktop: session.desktop || null }),
+      hasTrackedVm: () => true,
+      hasVm: () => true,
+    },
+    ...overrides,
+  };
+}
+
+test('startComputer returns when QEMU is up and does not wait for the guest desktop', async () => {
+  const session = {
+    state: 'starting',
+    startedAt: new Date().toISOString(),
+    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+  };
+  let guestWaitStarted = false;
+  const manager = new RuntimeManager({
+    computerBackend: createCloudComputerBackend(session, {
+      async getClientForUser() {
+        guestWaitStarted = true;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        session.state = 'ready';
+        return {};
+      },
+    }),
+  });
+
+  const started = Date.now();
+  const status = await manager.startComputer(7);
+  const elapsed = Date.now() - started;
+
+  assert.ok(elapsed < 80, `startComputer blocked for ${elapsed}ms`);
+  assert.equal(status.state, 'starting');
+  assert.equal(guestWaitStarted, true);
+});
+
+test('computer startup keeps repairing the desktop after the HTTP client disconnects', async () => {
+  const session = {
+    state: 'starting',
+    startedAt: new Date().toISOString(),
+    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    desktop: null,
+  };
+  const controller = new AbortController();
+  const manager = new RuntimeManager({
+    computerBackend: createCloudComputerBackend(session, {
+      async requestGuest() { throw new Error('not found'); },
+      async executeCommand(_userId, _command, options = {}) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        if (options.signal?.aborted) {
+          const error = new Error('HTTP client disconnected.');
+          error.name = 'AbortError';
+          throw error;
+        }
+        session.desktop = { available: true, error: null };
+        return { exitCode: 0, stdout: 'DESKTOP_READY\n', stderr: '' };
+      },
+    }),
+  });
+
+  await manager.startComputer(7, { signal: controller.signal });
+  controller.abort();
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.equal(session.desktop?.available, true);
+});
+
 test('cloud desktop repair does not surface SysV enable chatter as the user-facing error', async () => {
   const session = {
     startedAt: new Date().toISOString(),
@@ -190,8 +269,15 @@ test('cloud desktop repair does not surface SysV enable chatter as the user-faci
 });
 
 test('display sessions come up even when browser launch and workspace import fail', async () => {
+  const session = {
+    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    instanceDir: '/tmp/neoagent-computer-test',
+    startedAt: new Date().toISOString(),
+    state: 'starting',
+  };
   const computerBackend = {
     async getClientForUser() { return {}; },
+    async requestGuest() { return { available: true }; },
     async getBrowserProviderForUser() {
       return {
         async launch() {
@@ -203,12 +289,11 @@ test('display sessions come up even when browser launch and workspace import fai
       throw new Error('workspace import unavailable');
     },
     vmManager: {
-      instances: new Map([['7', {
-        display: { websocketUrl: 'ws://127.0.0.1:16080' },
-        instanceDir: '/tmp/neoagent-computer-test',
-        startedAt: new Date().toISOString(),
-      }]]),
-      getStatus: () => ({ state: 'ready' }),
+      async ensureVm() { return session; },
+      instances: new Map([['7', session]]),
+      getStatus: () => ({ state: session.state, desktop: session.desktop }),
+      hasTrackedVm: () => true,
+      hasVm: () => true,
     },
   };
   const manager = new RuntimeManager({
@@ -219,7 +304,7 @@ test('display sessions come up even when browser launch and workspace import fai
   });
 
   const status = await manager.startComputer(7);
-  assert.equal(status.state, 'ready');
+  assert.equal(status.state, 'starting');
   manager.acquireControl(7, 'user', 'session-7');
   const display = manager.createDisplaySession(7);
   assert.equal(display.viewOnly, false);

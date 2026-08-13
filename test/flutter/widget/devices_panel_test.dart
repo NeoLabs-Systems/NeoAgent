@@ -227,6 +227,33 @@ void main() {
     );
   });
 
+  testWidgets('starting cloud computer shows the live display once VNC exists', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller =
+        NeoAgentController(
+            backendClient: BackendClient(),
+            healthBridge: HealthBridge(),
+          )
+          ..computerRuntime = const <String, dynamic>{'state': 'starting'}
+          ..computerDisplayUrl = 'https://example.test/api/computer/display/token';
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DevicesPanel(controller: controller)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ComputerDisplay), findsOneWidget);
+    expect(find.text('Starting your computer'), findsNothing);
+  });
+
   testWidgets(
     'embedded computer uses the desktop without duplicate navigation',
     (tester) async {

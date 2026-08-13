@@ -218,7 +218,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final busy = state == 'starting' || controller.isRunningDeviceAction;
     final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
 
-    if (running && displayUrl != null) {
+    if (displayUrl != null && (running || busy)) {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF111111),
