@@ -10,7 +10,7 @@ const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
-const { guestDesktopRepairCommand } = require('./guest_desktop');
+const { guestDesktopRepairCommand, summarizeDesktopRepairOutput } = require('./guest_desktop');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -230,40 +230,39 @@ class RuntimeManager {
       await backend.getClientForUser(userId, options);
       if (backend === this.computerBackend) {
         const session = backend.vmManager.instances.get(String(userId || '').trim());
+        let ensured = null;
         try {
-          const ensured = await backend.requestGuest(userId, 'POST', '/desktop/ensure', {}, {
+          ensured = await backend.requestGuest(userId, 'POST', '/desktop/ensure', {}, {
             ...options,
             timeoutMs: 180000,
           });
-          if (session) {
-            session.desktop = {
-              available: ensured?.available === true,
-              error: ensured?.available === true ? null : (ensured?.error || 'Desktop did not start.'),
-            };
-          }
         } catch (error) {
           logger.warn(`Desktop ensure endpoint failed for user ${String(userId)}: ${error.message}`);
+          ensured = { available: false, error: error.message };
+        }
+        if (ensured?.available === true) {
+          if (session) session.desktop = { available: true, error: null };
+        } else {
           try {
             const repaired = await backend.executeCommand(userId, guestDesktopRepairCommand(), {
               ...options,
               timeout: 10 * 60 * 1000,
             });
-            const ready = Number(repaired?.exitCode) === 0
-              || String(repaired?.stdout || '').includes('DESKTOP_READY');
-            if (session) {
-              session.desktop = {
-                available: ready,
-                error: ready ? null : String(repaired?.stderr || repaired?.stdout || error.message).slice(-500),
-              };
-            }
-            if (!ready) {
-              logger.warn(`Desktop repair failed for user ${String(userId)}: ${(repaired?.stderr || repaired?.stdout || 'xdpyinfo failed').toString().slice(-500)}`);
+            const summary = summarizeDesktopRepairOutput(
+              repaired,
+              'The Linux graphical session is not running.',
+            );
+            if (session) session.desktop = summary;
+            if (!summary.available) {
+              logger.warn(`Desktop repair failed for user ${String(userId)}: ${summary.error}`);
             }
           } catch (repairError) {
-            if (session) {
-              session.desktop = { available: false, error: repairError.message };
-            }
-            logger.warn(`Desktop repair command failed for user ${String(userId)}: ${repairError.message}`);
+            const summary = summarizeDesktopRepairOutput(
+              {},
+              repairError.message || ensured?.error,
+            );
+            if (session) session.desktop = summary;
+            logger.warn(`Desktop repair command failed for user ${String(userId)}: ${summary.error}`);
           }
         }
         if (session) {

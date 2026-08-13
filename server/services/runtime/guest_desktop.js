@@ -49,39 +49,171 @@ function guestDesktopPackages() {
   ].join(' ');
 }
 
-function guestDesktopRepairCommand() {
-  const lightdm = Buffer.from(guestLightDmConfig()).toString('base64');
-  const fbdev = Buffer.from(guestFbdevXorgConfig()).toString('base64');
+function guestDisplaySetupScript() {
+  const mode = computerDisplayMode();
+  return `#!/bin/sh
+chvt 1 >/dev/null 2>&1 || true
+output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
+[ -n "$output" ] || exit 0
+if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
+  xrandr --newmode "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync >/dev/null 2>&1 || true
+  xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true
+  xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s ${mode} >/dev/null 2>&1 || true
+fi
+exit 0
+`;
+}
+
+function guestDesktopSeatUnit() {
+  return `[Unit]
+Description=Show the NeoAgent desktop on the VNC console
+After=lightdm.service
+Wants=lightdm.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/chvt 1
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+WantedBy=multi-user.target
+`;
+}
+
+function guestDesktopBringUpScript() {
+  const setup = guestDisplaySetupScript().replace(/\n$/, '');
+  const seat = guestDesktopSeatUnit().replace(/\n$/, '');
+  const lightdm = guestLightDmConfig().replace(/\n$/, '');
+  const fbdev = guestFbdevXorgConfig().replace(/\n$/, '');
   const packages = guestDesktopPackages();
-  const script = [
-    'set -e',
-    'export DEBIAN_FRONTEND=noninteractive',
-    'if ! command -v lightdm >/dev/null || ! command -v X >/dev/null; then'
-      + ' apt-get update -qq;'
-      + ` apt-get install -y --no-install-recommends ${packages}; fi`,
-    'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d',
-    'rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf',
-    `echo ${lightdm} | base64 -d > /etc/lightdm/lightdm.conf.d/50-neoagent.conf`,
-    'if [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ]; then'
-      + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf; fi`,
-    'systemctl stop getty@tty1.service || true',
-    'systemctl mask getty@tty1.service || true',
-    'systemctl set-default graphical.target',
-    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
-    'systemctl restart lightdm.service',
-    'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; echo DESKTOP_READY; exit 0; fi; sleep 1; done',
-    'if [ -e /dev/fb0 ]; then'
-      + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf;`
-      + ' systemctl restart lightdm.service;'
-      + ' for i in 1 2 3 4 5 6 7 8 9 10; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; echo DESKTOP_READY; exit 0; fi; sleep 1; done; fi',
-    'echo DESKTOP_FAILED',
-    'systemctl --no-pager --full status lightdm || true',
-    'tail -n 40 /var/log/Xorg.0.log || true',
-    'exit 1',
-  ].join(' ; ');
-  return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;
+  return `#!/bin/sh
+export DEBIAN_FRONTEND=noninteractive
+needs_pkgs=0
+command -v lightdm >/dev/null 2>&1 || needs_pkgs=1
+command -v Xorg >/dev/null 2>&1 || command -v X >/dev/null 2>&1 || needs_pkgs=1
+command -v xdpyinfo >/dev/null 2>&1 || needs_pkgs=1
+command -v openbox >/dev/null 2>&1 || needs_pkgs=1
+if [ "$needs_pkgs" -eq 1 ]; then
+  apt-get update -qq || true
+  apt-get install -y --no-install-recommends ${packages} || true
+fi
+install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system
+cat > /usr/local/bin/neoagent-display-setup <<'SETUP'
+${setup}
+SETUP
+chmod 0755 /usr/local/bin/neoagent-display-setup
+cat > /etc/systemd/system/neoagent-desktop-seat.service <<'UNIT'
+${seat}
+UNIT
+cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
+${lightdm}
+LIGHTDM
+rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
+if [ -e /dev/fb0 ]; then
+cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
+${fbdev}
+FBDEV
+fi
+systemctl stop getty@tty1.service >/dev/null 2>&1 || true
+systemctl mask getty@tty1.service >/dev/null 2>&1 || true
+systemctl stop serial-getty@tty1.service >/dev/null 2>&1 || true
+systemctl daemon-reload >/dev/null 2>&1 || true
+systemctl set-default graphical.target >/dev/null 2>&1 || true
+systemctl reset-failed lightdm.service >/dev/null 2>&1 || true
+systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
+systemctl restart lightdm.service >/dev/null 2>&1 || true
+systemctl start neoagent-desktop-seat.service >/dev/null 2>&1 || true
+wait_for_x() {
+  tries=$1
+  i=0
+  while [ "$i" -lt "$tries" ]; do
+    if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+      chvt 1 >/dev/null 2>&1 || true
+      echo DESKTOP_READY
+      exit 0
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
+}
+wait_for_x 30
+if [ -e /dev/fb0 ]; then
+cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
+${fbdev}
+FBDEV
+  systemctl restart lightdm.service >/dev/null 2>&1 || true
+  wait_for_x 20
+fi
+systemctl stop lightdm.service >/dev/null 2>&1 || true
+xbin=$(command -v Xorg || command -v X || true)
+if [ -n "$xbin" ] && [ ! -S /tmp/.X11-unix/X0 ]; then
+  "$xbin" :0 vt1 -nolisten tcp >/var/log/neoagent-xorg-direct.log 2>&1 &
+  i=0
+  while [ "$i" -lt 12 ]; do
+    if [ -S /tmp/.X11-unix/X0 ]; then
+      break
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
+  if [ -S /tmp/.X11-unix/X0 ]; then
+    chvt 1 >/dev/null 2>&1 || true
+    if command -v openbox-session >/dev/null 2>&1; then
+      su - neo -c 'DISPLAY=:0 openbox-session' >/tmp/neoagent-openbox.log 2>&1 &
+    elif command -v openbox >/dev/null 2>&1; then
+      su - neo -c 'DISPLAY=:0 openbox' >/tmp/neoagent-openbox.log 2>&1 &
+    fi
+    wait_for_x 15
+  fi
+fi
+echo DESKTOP_FAILED
+echo "--- lightdm ---"
+systemctl --no-pager --full status lightdm 2>&1 | tail -n 20 || true
+echo "--- journal ---"
+journalctl -u lightdm -n 40 --no-pager 2>&1 || true
+echo "--- xorg ---"
+tail -n 40 /var/log/Xorg.0.log 2>/dev/null || true
+tail -n 20 /var/log/neoagent-xorg-direct.log 2>/dev/null || true
+echo "--- devices ---"
+ls -l /dev/fb0 /dev/dri /tmp/.X11-unix /dev/tty1 2>&1 || true
+fgconsole 2>/dev/null || true
+exit 1
+`;
+}
+
+function guestDesktopRepairCommand() {
+  return `sudo -n /bin/sh -c ${JSON.stringify(guestDesktopBringUpScript())}`;
+}
+
+const DESKTOP_REPAIR_NOISE = /systemd-sysv-install|Synchronizing state of \S+ with SysV|Executing:\s*\/usr\/lib\/systemd\/systemd-sysv-install/i;
+
+function summarizeDesktopRepairOutput(result = {}, fallback = 'The Linux graphical session is not running.') {
+  const stdout = String(result?.stdout || '');
+  const stderr = String(result?.stderr || '');
+  if (stdout.includes('DESKTOP_READY')) {
+    return { available: true, error: null };
+  }
+  const combined = [stdout, stderr].filter(Boolean).join('\n');
+  const marker = 'DESKTOP_FAILED';
+  const diagnostic = combined.includes(marker)
+    ? combined.slice(combined.indexOf(marker) + marker.length)
+    : combined;
+  const lines = diagnostic
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !DESKTOP_REPAIR_NOISE.test(line))
+    .filter((line) => !/^--- /.test(line));
+  const preferred = lines.filter((line) => (
+    /\(EE\)|Failed|failed|error|fatal|not found|No screens/i.test(line)
+  ));
+  const picked = (preferred.length ? preferred : lines).slice(-8).join(' ').replace(/\s+/g, ' ').trim();
+  const fallbackText = String(fallback || '').trim() || 'The Linux graphical session is not running.';
+  return {
+    available: false,
+    error: (picked || fallbackText).slice(0, 500),
+  };
 }
 
 function guestLightDmConfig() {
@@ -100,7 +232,6 @@ display-setup-script=/usr/local/bin/neoagent-display-setup
 }
 
 function getGuestDesktopSystemFiles() {
-  const mode = computerDisplayMode();
   return [
     fileEntry('/usr/local/bin/neoagent-apply-desktop-home', `#!/bin/sh
 set -eu
@@ -109,73 +240,13 @@ cp -a /usr/share/neoagent/desktop-skel/. /home/neo/
 chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
-    fileEntry('/usr/local/bin/neoagent-display-setup', `#!/bin/sh
-chvt 1 >/dev/null 2>&1 || true
-output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
-[ -n "$output" ] || exit 0
-if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
-  xrandr --newmode "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync >/dev/null 2>&1 || true
-  xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true
-  xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s ${mode} >/dev/null 2>&1 || true
-fi
-exit 0
-`, '0755'),
+    fileEntry('/usr/local/bin/neoagent-display-setup', guestDisplaySetupScript(), '0755'),
     fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `virtio_gpu
 virtio-gpu
 `),
-    fileEntry('/usr/local/bin/neoagent-ensure-desktop', `#!/bin/sh
-install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d
-rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
-cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
-${guestLightDmConfig().replace(/\n$/, '')}
-LIGHTDM
-if [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ]; then
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
-${guestFbdevXorgConfig().replace(/\n$/, '')}
-FBDEV
-fi
-systemctl stop getty@tty1.service >/dev/null 2>&1 || true
-systemctl mask getty@tty1.service >/dev/null 2>&1 || true
-systemctl set-default graphical.target >/dev/null 2>&1 || true
-systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
-systemctl restart lightdm.service >/dev/null 2>&1 || true
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-  if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
-    chvt 1 >/dev/null 2>&1 || true
-    exit 0
-  fi
-  sleep 1
-done
-if [ -e /dev/fb0 ]; then
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
-${guestFbdevXorgConfig().replace(/\n$/, '')}
-FBDEV
-  systemctl restart lightdm.service >/dev/null 2>&1 || true
-  for _ in 1 2 3 4 5 6 7 8; do
-    if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
-      chvt 1 >/dev/null 2>&1 || true
-      exit 0
-    fi
-    sleep 1
-  done
-fi
-exit 1
-`, '0755'),
+    fileEntry('/usr/local/bin/neoagent-ensure-desktop', guestDesktopBringUpScript(), '0755'),
     fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', guestLightDmConfig()),
-    fileEntry('/etc/systemd/system/neoagent-desktop-seat.service', `[Unit]
-Description=Show the NeoAgent desktop on the VNC console
-After=lightdm.service
-Wants=lightdm.service
-
-[Service]
-Type=oneshot
-ExecStart=/bin/chvt 1
-RemainAfterExit=yes
-
-[Install]
-WantedBy=graphical.target
-WantedBy=multi-user.target
-`),
+    fileEntry('/etc/systemd/system/neoagent-desktop-seat.service', guestDesktopSeatUnit()),
     fileEntry('/etc/xdg/openbox/rc.xml', OPENBOX_RC_XML),
     fileEntry('/etc/xdg/openbox/menu.xml', OPENBOX_MENU_XML),
     fileEntry('/etc/xdg/openbox/autostart', `xset -dpms
@@ -589,9 +660,11 @@ module.exports = {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
+  guestDesktopBringUpScript,
   guestDesktopRepairCommand,
   guestFbdevXorgConfig,
   guestLightDmConfig,
   renderDesktopCloudInitWriteFiles,
   renderDesktopFileCommands,
+  summarizeDesktopRepairOutput,
 };

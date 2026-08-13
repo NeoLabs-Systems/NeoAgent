@@ -155,6 +155,40 @@ test('local and cloud computer leases do not block each other', () => {
   );
 });
 
+test('cloud desktop repair does not surface SysV enable chatter as the user-facing error', async () => {
+  const session = {
+    startedAt: new Date().toISOString(),
+    desktop: null,
+  };
+  const manager = new RuntimeManager({
+    computerBackend: {
+      async getClientForUser() { return {}; },
+      async requestGuest() { throw new Error('not found'); },
+      async executeCommand() {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: [
+            'Synchronizing state of lightdm.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.',
+            'Executing: /usr/lib/systemd/systemd-sysv-install enable lightdm',
+          ].join('\n'),
+        };
+      },
+      vmManager: {
+        instances: new Map([['7', session]]),
+        getStatus: () => ({ state: 'ready', desktop: session.desktop }),
+        hasTrackedVm: () => true,
+      },
+    },
+  });
+  manager._emitStatus = () => {};
+
+  const status = await manager.ensureComputer(7);
+  assert.equal(session.desktop.available, false);
+  assert.equal(session.desktop.error, 'The Linux graphical session is not running.');
+  assert.doesNotMatch(String(status.desktop?.error || ''), /SysV|systemd-sysv-install/);
+});
+
 test('display sessions come up even when browser launch and workspace import fail', async () => {
   const computerBackend = {
     async getClientForUser() { return {}; },

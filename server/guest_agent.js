@@ -568,9 +568,95 @@ app.get('/desktop/status', async (_req, res) => {
   });
 });
 
+function writeFbdevXorgConfig() {
+  writePrivilegedFile(
+    '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
+    [
+      'Section "Device"',
+      '    Identifier "NeoAgentGPU"',
+      '    Driver "fbdev"',
+      '    Option "fbdev" "/dev/fb0"',
+      'EndSection',
+      'Section "Screen"',
+      '    Identifier "NeoAgentScreen"',
+      '    Device "NeoAgentGPU"',
+      '    DefaultDepth 16',
+      '    SubSection "Display"',
+      '        Depth 16',
+      '    EndSubSection',
+      'EndSection',
+      '',
+    ].join('\n'),
+  );
+}
+
+function desktopEnsureDiagnostics() {
+  const result = runSudo([
+    '/bin/sh',
+    '-c',
+    'systemctl --no-pager --full status lightdm 2>&1 | tail -n 20; '
+      + 'journalctl -u lightdm -n 20 --no-pager 2>&1; '
+      + 'tail -n 20 /var/log/Xorg.0.log 2>/dev/null; '
+      + 'tail -n 20 /var/log/neoagent-xorg-direct.log 2>/dev/null',
+  ], { timeoutMs: 15000 });
+  return String(result.stdout || result.stderr || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/systemd-sysv-install|Synchronizing state of \S+ with SysV/i.test(line))
+    .slice(-8)
+    .join(' ')
+    .trim();
+}
+
 app.post('/desktop/ensure', async (_req, res) => {
   await handle(res, async () => {
+    if (fs.existsSync('/usr/local/bin/neoagent-ensure-desktop')) {
+      const repaired = runSudo(['/usr/local/bin/neoagent-ensure-desktop'], { timeoutMs: 150000 });
+      const output = `${repaired.stdout || ''}\n${repaired.stderr || ''}`;
+      if (repaired.status === 0 || output.includes('DESKTOP_READY') || displayServerAlive()) {
+        runSudo(['chvt', '1']);
+        return { available: true, display: ':0' };
+      }
+    }
+
     runSudo(['rm', '-f', '/etc/X11/xorg.conf.d/10-neoagent-display.conf']);
+    writePrivilegedFile(
+      '/usr/local/bin/neoagent-display-setup',
+      [
+        '#!/bin/sh',
+        'chvt 1 >/dev/null 2>&1 || true',
+        "output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')",
+        '[ -n "$output" ] || exit 0',
+        'if ! xrandr --output "$output" --mode 1280x720 >/dev/null 2>&1; then',
+        '  xrandr --newmode "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync >/dev/null 2>&1 || true',
+        '  xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true',
+        '  xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s 1280x720 >/dev/null 2>&1 || true',
+        'fi',
+        'exit 0',
+        '',
+      ].join('\n'),
+    );
+    runSudo(['chmod', '0755', '/usr/local/bin/neoagent-display-setup']);
+    writePrivilegedFile(
+      '/etc/systemd/system/neoagent-desktop-seat.service',
+      [
+        '[Unit]',
+        'Description=Show the NeoAgent desktop on the VNC console',
+        'After=lightdm.service',
+        'Wants=lightdm.service',
+        '',
+        '[Service]',
+        'Type=oneshot',
+        'ExecStart=/bin/chvt 1',
+        'RemainAfterExit=yes',
+        '',
+        '[Install]',
+        'WantedBy=graphical.target',
+        'WantedBy=multi-user.target',
+        '',
+      ].join('\n'),
+    );
     writePrivilegedFile(
       '/etc/lightdm/lightdm.conf.d/50-neoagent.conf',
       [
@@ -588,74 +674,53 @@ app.post('/desktop/ensure', async (_req, res) => {
         '',
       ].join('\n'),
     );
-    const framebufferOnly = fs.existsSync('/dev/fb0') && !fs.existsSync('/dev/dri/card0');
-    if (framebufferOnly) {
-      writePrivilegedFile(
-        '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
-        [
-          'Section "Device"',
-          '    Identifier "NeoAgentGPU"',
-          '    Driver "fbdev"',
-          '    Option "fbdev" "/dev/fb0"',
-          'EndSection',
-          'Section "Screen"',
-          '    Identifier "NeoAgentScreen"',
-          '    Device "NeoAgentGPU"',
-          '    DefaultDepth 16',
-          '    SubSection "Display"',
-          '        Depth 16',
-          '    EndSubSection',
-          'EndSection',
-          '',
-        ].join('\n'),
-      );
-    }
+    const hasFramebuffer = fs.existsSync('/dev/fb0');
+    if (hasFramebuffer) writeFbdevXorgConfig();
     runSudo(['systemctl', 'stop', 'getty@tty1.service']);
     runSudo(['systemctl', 'mask', 'getty@tty1.service']);
+    runSudo(['systemctl', 'daemon-reload']);
     runSudo(['systemctl', 'set-default', 'graphical.target']);
     runSudo(['systemctl', 'enable', 'lightdm.service', 'neoagent-desktop-seat.service']);
-    const restart = runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
-    if (restart.status !== 0 && !displayServerAlive()) {
-      throw new Error(String(restart.stderr || restart.stdout || 'LightDM failed to restart').trim());
-    }
-    if (await waitForDisplay(12000)) {
-      runSudo(['chvt', '1']);
-      return { available: true, display: ':0', fallback: framebufferOnly ? 'fbdev' : null };
-    }
-
-    writePrivilegedFile(
-      '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
-      [
-        'Section "Device"',
-        '    Identifier "NeoAgentGPU"',
-        '    Driver "fbdev"',
-        '    Option "fbdev" "/dev/fb0"',
-        'EndSection',
-        'Section "Screen"',
-        '    Identifier "NeoAgentScreen"',
-        '    Device "NeoAgentGPU"',
-        '    DefaultDepth 16',
-        '    SubSection "Display"',
-        '        Depth 16',
-        '    EndSubSection',
-        'EndSection',
-        '',
-      ].join('\n'),
-    );
     runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
-    if (await waitForDisplay(12000)) {
+    runSudo(['systemctl', 'start', 'neoagent-desktop-seat.service']);
+    if (await waitForDisplay(30000)) {
       runSudo(['chvt', '1']);
-      return { available: true, display: ':0', fallback: 'fbdev' };
+      return { available: true, display: ':0', fallback: hasFramebuffer ? 'fbdev' : null };
     }
 
-    let xorgLog = '';
-    try {
-      xorgLog = fs.readFileSync('/var/log/Xorg.0.log', 'utf8').slice(-4000);
-    } catch {}
-    const error = new Error('The Linux desktop did not start.');
-    error.code = 'COMPUTER_DESKTOP_UNAVAILABLE';
-    if (xorgLog) error.message += ` ${xorgLog.split('\n').slice(-8).join(' ')}`;
-    throw error;
+    if (hasFramebuffer) {
+      writeFbdevXorgConfig();
+      runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
+      if (await waitForDisplay(20000)) {
+        runSudo(['chvt', '1']);
+        return { available: true, display: ':0', fallback: 'fbdev' };
+      }
+    }
+
+    runSudo(['systemctl', 'stop', 'lightdm.service']);
+    const xbin = ['/usr/bin/Xorg', '/usr/bin/X'].find((candidate) => fs.existsSync(candidate));
+    if (xbin && !fs.existsSync('/tmp/.X11-unix/X0')) {
+      runSudo([
+        '/bin/sh',
+        '-c',
+        `${JSON.stringify(xbin)} :0 vt1 -nolisten tcp >/var/log/neoagent-xorg-direct.log 2>&1 &`,
+      ], { timeoutMs: 5000 });
+      if (await waitForDisplay(15000)) {
+        runSudo(['chvt', '1']);
+        runSudo([
+          '/bin/sh',
+          '-c',
+          "su - neo -c 'DISPLAY=:0 openbox-session' >/tmp/neoagent-openbox.log 2>&1 &",
+        ], { timeoutMs: 5000 });
+        return { available: true, display: ':0', fallback: 'xorg' };
+      }
+    }
+
+    return {
+      available: false,
+      display: ':0',
+      error: desktopEnsureDiagnostics() || 'The Linux graphical session is not running.',
+    };
   });
 });
 

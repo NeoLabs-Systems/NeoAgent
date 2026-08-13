@@ -9,13 +9,16 @@ const {
   buildComputerDisplayPage,
   computerDisplayMode,
 } = require('../../../server/services/runtime/computer_display');
+const { spawnSync } = require('node:child_process');
 const {
   getGuestDesktopHomeFiles,
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
+  guestDesktopBringUpScript,
   guestDesktopRepairCommand,
   guestLightDmConfig,
   renderDesktopFileCommands,
+  summarizeDesktopRepairOutput,
 } = require('../../../server/services/runtime/guest_desktop');
 const { createCloudInitUserData } = require('../../../server/services/runtime/guest_bootstrap');
 
@@ -68,17 +71,66 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(ensure, /getty@tty1/);
   assert.match(ensure, /chvt 1/);
   assert.doesNotMatch(ensure, /chvt 7/);
-  assert.match(guestDesktopRepairCommand(), /xdpyinfo/);
-  assert.match(guestDesktopRepairCommand(), /\/dev\/fb0/);
-  assert.match(guestDesktopRepairCommand(), /getty@tty1/);
-  assert.match(guestDesktopRepairCommand(), /DESKTOP_READY/);
-  assert.match(guestDesktopRepairCommand(), /apt-get install/);
+  const repair = guestDesktopRepairCommand();
+  assert.match(repair, /xdpyinfo/);
+  assert.match(repair, /\/dev\/fb0/);
+  assert.match(repair, /getty@tty1/);
+  assert.match(repair, /DESKTOP_READY/);
+  assert.match(repair, /apt-get install/);
+  assert.match(repair, /neoagent-display-setup/);
+  assert.match(repair, /systemctl restart lightdm\.service >\/dev\/null 2>&1 \|\| true/);
+  assert.doesNotMatch(repair, /set -e/);
+  assert.match(ensure, /systemctl restart lightdm\.service >\/dev\/null 2>&1 \|\| true/);
+  assert.doesNotMatch(ensure, /set -e/);
+  assert.match(ensure, /\[ -e \/dev\/fb0 \]/);
+  assert.doesNotMatch(ensure, /! -e \/dev\/dri\/card0/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),
   ]).join('\n');
   assert.doesNotMatch(commands, /<<'EOF'\n[\s\S]*<<'EOF'/);
   assert.ok(getGuestDesktopHomeFiles().some((file) => file.path.endsWith('/Desktop/Chromium.desktop')));
+});
+
+test('desktop bring-up script is valid POSIX shell', () => {
+  const result = spawnSync('sh', ['-n'], {
+    input: guestDesktopBringUpScript(),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('desktop repair ignores SysV enable chatter and surfaces Xorg failure', () => {
+  const ready = summarizeDesktopRepairOutput({
+    exitCode: 0,
+    stdout: 'DESKTOP_READY\n',
+    stderr: 'Synchronizing state of lightdm.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.\n',
+  });
+  assert.equal(ready.available, true);
+  assert.equal(ready.error, null);
+
+  const failed = summarizeDesktopRepairOutput({
+    exitCode: 1,
+    stdout: 'DESKTOP_FAILED\n--- xorg ---\n(EE) Failed to load module "fbdev"\n',
+    stderr: [
+      'Synchronizing state of lightdm.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.',
+      'Executing: /usr/lib/systemd/systemd-sysv-install enable lightdm',
+    ].join('\n'),
+  });
+  assert.equal(failed.available, false);
+  assert.match(failed.error, /Failed to load module "fbdev"/);
+  assert.doesNotMatch(failed.error, /SysV|systemd-sysv-install/);
+
+  const noiseOnly = summarizeDesktopRepairOutput({
+    exitCode: 1,
+    stdout: '',
+    stderr: [
+      'Synchronizing state of lightdm.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.',
+      'Executing: /usr/lib/systemd/systemd-sysv-install enable lightdm',
+    ].join('\n'),
+  });
+  assert.equal(noiseOnly.available, false);
+  assert.equal(noiseOnly.error, 'The Linux graphical session is not running.');
 });
 
 test('desktop file commands cannot terminate their own heredoc early', () => {
