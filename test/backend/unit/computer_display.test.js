@@ -61,8 +61,9 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(setup, /1280x720/);
   assert.match(xorg, /PreferredMode/);
   assert.match(xorg, /1280x720/);
-  assert.match(xorg, /Driver "modesetting"/);
+  assert.doesNotMatch(xorg, /Driver "modesetting"/);
   assert.match(guestDesktopBringUpCommand(), /base64 -d/);
+  assert.match(guestDesktopBringUpCommand(), /fbdev-fallback/);
   assert.match(guestDesktopBringUpCommand(), /lightdm\.service/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,

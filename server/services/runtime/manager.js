@@ -229,6 +229,11 @@ class RuntimeManager {
       if (backend === this.localComputerBackend) await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
       if (backend === this.computerBackend) {
+        try {
+          await backend.executeCommand(userId, guestDesktopBringUpCommand(), options);
+        } catch (error) {
+          logger.warn(`Desktop bring-up failed for user ${String(userId)}: ${error.message}`);
+        }
         const session = backend.vmManager.instances.get(String(userId || '').trim());
         if (session) {
           session.startupDurationMs = Date.now() - Date.parse(session.startedAt);
@@ -253,17 +258,6 @@ class RuntimeManager {
         await this.#migrateWorkspace(userId, options);
       } catch (error) {
         logger.warn(`Workspace import failed for user ${String(userId)}: ${error.message}`);
-      }
-    }
-    if (backend === this.computerBackend) {
-      try {
-        await backend.executeCommand(
-          userId,
-          guestDesktopBringUpCommand(),
-          options,
-        );
-      } catch (error) {
-        logger.warn(`Desktop bring-up failed for user ${String(userId)}: ${error.message}`);
       }
     }
     try {

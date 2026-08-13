@@ -1,11 +1,7 @@
 'use strict';
 
 const path = require('path');
-const {
-  COMPUTER_DISPLAY_HEIGHT,
-  COMPUTER_DISPLAY_WIDTH,
-  computerDisplayMode,
-} = require('./computer_display');
+const { computerDisplayMode } = require('./computer_display');
 
 function fileEntry(filePath, content, mode = '0644') {
   return {
@@ -29,38 +25,55 @@ function guestDisplayXorgConfig() {
     Modeline "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync
     Option "PreferredMode" "${mode}"
 EndSection
-Section "Device"
-    Identifier "NeoAgentGPU"
-    Driver "modesetting"
-    Option "AccelMethod" "none"
-EndSection
 Section "Screen"
     Identifier "NeoAgentScreen"
-    Device "NeoAgentGPU"
     Monitor "NeoAgentMonitor"
     DefaultDepth 24
     SubSection "Display"
         Depth 24
         Modes "${mode}" "1280x720_60.00"
-        Virtual ${COMPUTER_DISPLAY_WIDTH} ${COMPUTER_DISPLAY_HEIGHT}
+    EndSubSection
+EndSection
+`;
+}
+
+function guestDisplayFbdevConfig() {
+  return `Section "Device"
+    Identifier "NeoAgentGPU"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb0"
+EndSection
+Section "Screen"
+    Identifier "NeoAgentScreen"
+    Device "NeoAgentGPU"
+    DefaultDepth 16
+    SubSection "Display"
+        Depth 16
     EndSubSection
 EndSection
 `;
 }
 
 function guestDesktopBringUpCommand() {
-  const encoded = Buffer.from(guestDisplayXorgConfig()).toString('base64');
-  return [
-    'sudo -n /bin/sh -c',
-    JSON.stringify(
-      `install -d -m 0755 /etc/X11/xorg.conf.d /etc/lightdm/lightdm.conf.d`
-      + ` && echo ${encoded} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf`
-      + ` && systemctl set-default graphical.target`
-      + ` && systemctl enable lightdm.service neoagent-desktop-seat.service`
-      + ` && systemctl restart lightdm.service`
-      + ` && chvt 7 || true`,
-    ),
-  ].join(' ');
+  const autoConfig = Buffer.from(guestDisplayXorgConfig()).toString('base64');
+  const fbConfig = Buffer.from(guestDisplayFbdevConfig()).toString('base64');
+  const script = [
+    'install -d -m 0755 /etc/X11/xorg.conf.d /etc/lightdm/lightdm.conf.d',
+    'systemctl set-default graphical.target || true',
+    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
+    'if [ -S /tmp/.X11-unix/X0 ]; then chvt 7 || true; exit 0; fi',
+    `echo ${autoConfig} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf`,
+    'systemctl restart lightdm.service || true',
+    'sleep 2',
+    'chvt 7 || true',
+    'if [ -S /tmp/.X11-unix/X0 ]; then exit 0; fi',
+    `echo ${fbConfig} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf`,
+    'true # fbdev-fallback',
+    'systemctl restart lightdm.service || true',
+    'sleep 2',
+    'chvt 7 || true',
+  ].join(' ; ');
+  return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;
 }
 
 function getGuestDesktopSystemFiles() {
@@ -87,37 +100,26 @@ exit 0
     fileEntry('/etc/X11/xorg.conf.d/10-neoagent-display.conf', guestDisplayXorgConfig()),
     fileEntry('/usr/local/bin/neoagent-ensure-desktop', `#!/bin/sh
 install -d -m 0755 /etc/X11/xorg.conf.d /etc/lightdm/lightdm.conf.d
+if [ -S /tmp/.X11-unix/X0 ]; then
+  chvt 7 >/dev/null 2>&1 || true
+  exit 0
+fi
 cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'XORG'
-Section "Monitor"
-    Identifier "NeoAgentMonitor"
-    Modeline "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync
-    Option "PreferredMode" "${mode}"
-EndSection
-Section "Device"
-    Identifier "NeoAgentGPU"
-    Driver "modesetting"
-    Option "AccelMethod" "none"
-EndSection
-Section "Screen"
-    Identifier "NeoAgentScreen"
-    Device "NeoAgentGPU"
-    Monitor "NeoAgentMonitor"
-    DefaultDepth 24
-    SubSection "Display"
-        Depth 24
-        Modes "${mode}" "1280x720_60.00"
-        Virtual ${COMPUTER_DISPLAY_WIDTH} ${COMPUTER_DISPLAY_HEIGHT}
-    EndSubSection
-EndSection
+${guestDisplayXorgConfig().replace(/\n$/, '')}
 XORG
 systemctl set-default graphical.target >/dev/null 2>&1 || true
 systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
-systemctl start lightdm.service >/dev/null 2>&1 || true
-sleep 1
-if ! systemctl is-active --quiet lightdm; then
-  systemctl restart lightdm.service >/dev/null 2>&1 || true
-  sleep 1
+systemctl restart lightdm.service >/dev/null 2>&1 || true
+sleep 2
+chvt 7 >/dev/null 2>&1 || true
+if [ -S /tmp/.X11-unix/X0 ]; then
+  exit 0
 fi
+cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
+${guestDisplayFbdevConfig().replace(/\n$/, '')}
+FBDEV
+systemctl restart lightdm.service >/dev/null 2>&1 || true
+sleep 2
 chvt 7 >/dev/null 2>&1 || true
 `, '0755'),
     fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', `[LightDM]
@@ -560,6 +562,7 @@ module.exports = {
   getGuestDesktopSkelFiles,
   getGuestDesktopSystemFiles,
   guestDesktopBringUpCommand,
+  guestDisplayFbdevConfig,
   guestDisplayXorgConfig,
   renderDesktopCloudInitWriteFiles,
   renderDesktopFileCommands,
