@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-installers-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-installers:
     uses: ./.github/workflows/_build-installers.yml

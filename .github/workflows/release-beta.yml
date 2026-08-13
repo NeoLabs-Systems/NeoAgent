@@ -12,6 +12,10 @@ permissions:
   pull-requests: write
   id-token: write
 
+concurrency:
+  group: release-beta-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     name: Publish beta release
