@@ -5,6 +5,7 @@ const path = require('path');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { uploadDesktopCommandOutput } = require('../services/desktop/command_output_upload');
+const { buildComputerDisplayPage } = require('../services/runtime/computer_display');
 
 const router = express.Router();
 const noVncRoot = path.dirname(path.dirname(require.resolve('@novnc/novnc')));
@@ -124,30 +125,10 @@ router.get('/display/:token', (req, res) => {
     if (!session) return res.status(403).type('text/plain').send('Display session expired.');
     const websocketPath = `/api/computer/display-ws?token=${encodeURIComponent(req.params.token)}`;
     res.setHeader('Cache-Control', 'private, no-store');
-    res.type('html').send(`<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body,#screen{width:100%;height:100%;margin:0;overflow:hidden;background:#111}canvas{outline:none}</style></head>
-<body><div id="screen"></div><script type="module">
-import RFB from '/api/computer/novnc/core/rfb.js';
-const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-const rfb = new RFB(document.getElementById('screen'), scheme + '://' + location.host + ${JSON.stringify(websocketPath)});
-rfb.scaleViewport = true;
-rfb.resizeSession = true;
-rfb.clipViewport = false;
-rfb.viewOnly = ${session.viewOnly === true ? 'true' : 'false'};
-const record = (event) => fetch('/api/computer/teach/events', {
-  method: 'POST', credentials: 'same-origin', headers: {'content-type':'application/json'},
-  body: JSON.stringify(event),
-}).catch(() => {});
-document.getElementById('screen').addEventListener('pointerup', (event) => {
-  const rect = event.currentTarget.getBoundingClientRect();
-  record({type:'pointer', x:Math.round(event.clientX-rect.left), y:Math.round(event.clientY-rect.top), button:event.button});
-}, true);
-document.addEventListener('keydown', (event) => {
-  const printable = event.key && event.key.length === 1;
-  record({type:printable?'text-input':'key', key:printable?null:event.key, modifiers:{alt:event.altKey,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey}});
-}, true);
-</script></body></html>`);
+    res.type('html').send(buildComputerDisplayPage({
+      websocketPath,
+      viewOnly: session.viewOnly === true,
+    }));
     return undefined;
   } catch (error) {
     return res.status(error.status || 500).type('text/plain').send(sanitizeError(error));

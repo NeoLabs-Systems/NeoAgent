@@ -229,16 +229,22 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final busy = state == 'starting' || controller.isRunningDeviceAction;
     final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
 
-    Widget content;
     if (running && displayUrl != null) {
-      content = ColoredBox(
-        color: const Color(0xFF111111),
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF111111),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: ComputerDisplay(
           key: ValueKey<String>(displayUrl),
           url: displayUrl,
         ),
       );
-    } else if (running) {
+    }
+
+    Widget content;
+    if (running) {
       content = _ComputerEmptyState(
         icon: Icons.desktop_windows_rounded,
         title: 'Your desktop is ready',

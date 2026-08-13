@@ -3,6 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { DATA_DIR } = require('../../../runtime/paths');
+const {
+  getGuestDesktopSkelFiles,
+  getGuestDesktopSystemFiles,
+  renderDesktopCloudInitWriteFiles,
+  renderDesktopFileCommands,
+} = require('./guest_desktop');
 
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const GUEST_BOOTSTRAP_ROOT = path.join(VM_ROOT, 'guest-bootstrap');
@@ -282,6 +288,7 @@ function createCloudInitScript({
         'autologin-user-timeout=0',
         'user-session=openbox',
         'xserver-command=X -core -nolisten tcp',
+        'display-setup-script=/usr/local/bin/neoagent-display-setup',
         'EOF',
         'cat > /etc/chromium/policies/managed/neoagent.json <<\'EOF\'',
         '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
@@ -351,45 +358,12 @@ function createCloudInitScript({
         'fi',
         'EOF',
         'install -d -o neo -g neo /home/neo/.config/openbox /home/neo/.config/tint2 /home/neo/.neoagent/data/browser-profiles/default /home/neo/Desktop /home/neo/Downloads /home/neo/workspace',
-        'cat > /home/neo/.config/openbox/autostart <<\'EOF\'',
-        'xset -dpms',
-        'xset s off',
-        'pcmanfm --desktop --profile neoagent &',
-        'tint2 &',
-        'EOF',
-        'cat > /home/neo/Desktop/Chromium.desktop <<\'EOF\'',
-        '[Desktop Entry]',
-        'Type=Application',
-        'Name=Chromium',
-        'Exec=chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check',
-        'Icon=chromium',
-        'Terminal=false',
-        'EOF',
-        'cat > /home/neo/Desktop/Files.desktop <<\'EOF\'',
-        '[Desktop Entry]',
-        'Type=Application',
-        'Name=Files',
-        'Exec=pcmanfm /home/neo/workspace',
-        'Icon=system-file-manager',
-        'Terminal=false',
-        'EOF',
-        'cat > /home/neo/Desktop/Terminal.desktop <<\'EOF\'',
-        '[Desktop Entry]',
-        'Type=Application',
-        'Name=Terminal',
-        'Exec=lxterminal --working-directory=/home/neo/workspace',
-        'Icon=utilities-terminal',
-        'Terminal=false',
-        'EOF',
-        'cat > /home/neo/Desktop/Text-Editor.desktop <<\'EOF\'',
-        '[Desktop Entry]',
-        'Type=Application',
-        'Name=Text Editor',
-        'Exec=mousepad',
-        'Icon=accessories-text-editor',
-        'Terminal=false',
-        'EOF',
-        'chmod 0755 /home/neo/Desktop/*.desktop',
+        ...renderDesktopFileCommands([
+          ...getGuestDesktopSystemFiles(),
+          ...getGuestDesktopSkelFiles(),
+        ]),
+        '/usr/local/bin/neoagent-apply-desktop-home',
+        'chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop',
         'chown neo:neo /home/neo',
         'chown -R neo:neo /home/neo/.config /home/neo/.neoagent /home/neo/Desktop /home/neo/Downloads /home/neo/workspace',
         'printf "%s\n" "neo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-neoagent',
@@ -492,10 +466,17 @@ function createCloudInitUserData({
       '',
       '      [Install]',
       '      WantedBy=cloud-init.target',
+      ...(includeBrowser
+        ? renderDesktopCloudInitWriteFiles([
+          ...getGuestDesktopSystemFiles(),
+          ...getGuestDesktopSkelFiles(),
+        ])
+        : []),
       'runcmd:',
       '  - [bash, -lc, "systemctl daemon-reload"]',
       ...(includeBrowser
         ? [
+          '  - [bash, -lc, "/usr/local/bin/neoagent-apply-desktop-home"]',
           '  - [bash, -lc, "systemctl enable lightdm.service"]',
           '  - [bash, -lc, "systemctl restart lightdm.service"]',
           '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',

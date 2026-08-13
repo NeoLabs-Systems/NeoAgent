@@ -73,6 +73,9 @@ test('computer cloud-init starts one owned desktop after cloud-init without an o
   });
 
   assert.match(userData, /\[LightDM\]\n\s+start-default-seat=true\n\s+logind-check-graphical=false/);
+  assert.match(userData, /display-setup-script=\/usr\/local\/bin\/neoagent-display-setup/);
+  assert.match(userData, /xres=1280|1280x720/);
+  assert.match(userData, /tint2 -c \/etc\/xdg\/tint2\/tint2rc/);
   assert.match(userData, /chown neo:neo \/home\/neo/);
   assert.match(userData, /After=cloud-final\.service/);
   assert.match(userData, /WantedBy=cloud-init\.target/);

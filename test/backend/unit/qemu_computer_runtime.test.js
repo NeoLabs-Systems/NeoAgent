@@ -37,6 +37,7 @@ test('QEMU computer exposes display and guest agent only on loopback', () => {
   assert.match(joined, /data\.qcow2/);
   assert.match(joined, /usb-kbd/);
   assert.match(joined, /usb-tablet/);
+  assert.match(joined, /virtio-vga,xres=1280,yres=720/);
   assert.match(joined, /order=c,menu=off,reboot-timeout=0,splash-time=0,strict=on/);
   assert.equal(args.filter((argument) => argument === '-accel').length, 1);
 });

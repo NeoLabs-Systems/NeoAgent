@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 import 'package:neoagent_flutter/src/backend_client.dart';
+import 'package:neoagent_flutter/src/computer_display.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
 
 void main() {
@@ -194,6 +195,36 @@ void main() {
         (widget) => widget is ColoredBox && widget.color == Colors.black,
       ),
       findsNothing,
+    );
+  });
+
+  testWidgets('ready cloud computer shows the live desktop surface', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller =
+        NeoAgentController(
+            backendClient: BackendClient(),
+            healthBridge: HealthBridge(),
+          )
+          ..computerRuntime = const <String, dynamic>{'state': 'user_control'}
+          ..computerDisplayUrl = 'https://example.test/api/computer/display/token';
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DevicesPanel(controller: controller)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ComputerDisplay), findsOneWidget);
+    expect(
+      find.textContaining('interactive Linux desktop'),
+      findsOneWidget,
     );
   });
 
