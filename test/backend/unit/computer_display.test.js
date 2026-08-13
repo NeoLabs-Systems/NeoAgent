@@ -71,6 +71,8 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(guestDesktopRepairCommand(), /xdpyinfo/);
   assert.match(guestDesktopRepairCommand(), /\/dev\/fb0/);
   assert.match(guestDesktopRepairCommand(), /getty@tty1/);
+  assert.match(guestDesktopRepairCommand(), /DESKTOP_READY/);
+  assert.match(guestDesktopRepairCommand(), /apt-get install/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),

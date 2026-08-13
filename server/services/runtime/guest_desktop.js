@@ -35,27 +35,50 @@ EndSection
 `;
 }
 
+function guestDesktopPackages() {
+  return [
+    'dbus-x11',
+    'lightdm',
+    'lightdm-gtk-greeter',
+    'openbox',
+    'x11-xserver-utils',
+    'xdotool',
+    'xserver-xorg-core',
+    'xserver-xorg-input-libinput',
+    'xserver-xorg-video-fbdev',
+  ].join(' ');
+}
+
 function guestDesktopRepairCommand() {
   const lightdm = Buffer.from(guestLightDmConfig()).toString('base64');
   const fbdev = Buffer.from(guestFbdevXorgConfig()).toString('base64');
+  const packages = guestDesktopPackages();
   const script = [
+    'set -e',
+    'export DEBIAN_FRONTEND=noninteractive',
+    'if ! command -v lightdm >/dev/null || ! command -v X >/dev/null; then'
+      + ' apt-get update -qq;'
+      + ` apt-get install -y --no-install-recommends ${packages}; fi`,
     'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d',
     'rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf',
     `echo ${lightdm} | base64 -d > /etc/lightdm/lightdm.conf.d/50-neoagent.conf`,
     'if [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ]; then'
       + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf; fi`,
-    'systemctl set-default graphical.target || true',
-    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
-    'systemctl restart lightdm.service || true',
     'systemctl stop getty@tty1.service || true',
     'systemctl mask getty@tty1.service || true',
-    'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; exit 0; fi; sleep 1; done',
+    'systemctl set-default graphical.target',
+    'systemctl enable lightdm.service neoagent-desktop-seat.service || true',
+    'systemctl restart lightdm.service',
+    'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do'
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; echo DESKTOP_READY; exit 0; fi; sleep 1; done',
     'if [ -e /dev/fb0 ]; then'
       + ` echo ${fbdev} | base64 -d > /etc/X11/xorg.conf.d/10-neoagent-display.conf;`
-      + ' systemctl restart lightdm.service || true;'
-      + ' for i in 1 2 3 4 5 6 7 8; do'
-      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; exit 0; fi; sleep 1; done; fi',
+      + ' systemctl restart lightdm.service;'
+      + ' for i in 1 2 3 4 5 6 7 8 9 10; do'
+      + ' if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then chvt 1 || true; echo DESKTOP_READY; exit 0; fi; sleep 1; done; fi',
+    'echo DESKTOP_FAILED',
+    'systemctl --no-pager --full status lightdm || true',
+    'tail -n 40 /var/log/Xorg.0.log || true',
     'exit 1',
   ].join(' ; ');
   return `sudo -n /bin/sh -c ${JSON.stringify(script)}`;

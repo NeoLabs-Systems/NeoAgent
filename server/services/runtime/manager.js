@@ -229,23 +229,43 @@ class RuntimeManager {
       if (backend === this.localComputerBackend) await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
       if (backend === this.computerBackend) {
+        const session = backend.vmManager.instances.get(String(userId || '').trim());
         try {
-          await backend.requestGuest(userId, 'POST', '/desktop/ensure', {}, {
+          const ensured = await backend.requestGuest(userId, 'POST', '/desktop/ensure', {}, {
             ...options,
-            timeoutMs: 45000,
+            timeoutMs: 180000,
           });
+          if (session) {
+            session.desktop = {
+              available: ensured?.available === true,
+              error: ensured?.available === true ? null : (ensured?.error || 'Desktop did not start.'),
+            };
+          }
         } catch (error) {
           logger.warn(`Desktop ensure endpoint failed for user ${String(userId)}: ${error.message}`);
           try {
-            await backend.executeCommand(userId, guestDesktopRepairCommand(), {
+            const repaired = await backend.executeCommand(userId, guestDesktopRepairCommand(), {
               ...options,
-              timeout: 45000,
+              timeout: 10 * 60 * 1000,
             });
+            const ready = Number(repaired?.exitCode) === 0
+              || String(repaired?.stdout || '').includes('DESKTOP_READY');
+            if (session) {
+              session.desktop = {
+                available: ready,
+                error: ready ? null : String(repaired?.stderr || repaired?.stdout || error.message).slice(-500),
+              };
+            }
+            if (!ready) {
+              logger.warn(`Desktop repair failed for user ${String(userId)}: ${(repaired?.stderr || repaired?.stdout || 'xdpyinfo failed').toString().slice(-500)}`);
+            }
           } catch (repairError) {
+            if (session) {
+              session.desktop = { available: false, error: repairError.message };
+            }
             logger.warn(`Desktop repair command failed for user ${String(userId)}: ${repairError.message}`);
           }
         }
-        const session = backend.vmManager.instances.get(String(userId || '').trim());
         if (session) {
           session.startupDurationMs = Date.now() - Date.parse(session.startedAt);
           if (session.directBoot && session.startupDurationMs >= 10_000) {

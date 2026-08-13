@@ -625,6 +625,7 @@ class QemuVMManager {
         mode: session.directBoot ? 'direct' : 'provisioning',
       },
       lastError: session.lastError || null,
+      desktop: session.desktop || null,
     };
   }
 

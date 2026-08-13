@@ -754,26 +754,43 @@ _computerStatusPresentation(
         color: theme.colorScheme.primary,
       );
     case 'ready':
+    case 'agent_control':
+    case 'user_control':
+      final desktop = _jsonMap(runtime['desktop']);
+      final desktopDown = !local && desktop['available'] == false;
+      if (desktopDown) {
+        return (
+          title: 'Desktop failed to start',
+          subtitle: desktop['error']?.toString().ifEmpty(
+                'The Linux graphical session is not running.',
+              ) ??
+              'The Linux graphical session is not running.',
+          icon: Icons.desktop_access_disabled_rounded,
+          color: theme.colorScheme.error,
+        );
+      }
+      if (state == 'agent_control') {
+        return (
+          title: 'NeoAgent is working',
+          subtitle: 'You can follow along on the desktop.',
+          icon: Icons.auto_awesome_rounded,
+          color: theme.colorScheme.primary,
+        );
+      }
+      if (state == 'user_control') {
+        return (
+          title: 'You are in control',
+          subtitle: 'NeoAgent is waiting while you use the desktop.',
+          icon: Icons.touch_app_rounded,
+          color: Colors.green,
+        );
+      }
       return (
         title: local ? 'This device is ready' : 'Your computer is ready',
         subtitle: local
             ? 'NeoAgent can use the access you allow.'
             : 'Everything is available from the desktop.',
         icon: Icons.check_circle_rounded,
-        color: Colors.green,
-      );
-    case 'agent_control':
-      return (
-        title: 'NeoAgent is working',
-        subtitle: 'You can follow along on the desktop.',
-        icon: Icons.auto_awesome_rounded,
-        color: theme.colorScheme.primary,
-      );
-    case 'user_control':
-      return (
-        title: 'You are in control',
-        subtitle: 'NeoAgent is waiting while you use the desktop.',
-        icon: Icons.touch_app_rounded,
         color: Colors.green,
       );
     case 'teaching':
