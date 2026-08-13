@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -8,6 +9,7 @@ const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
+  QemuVMManager,
   buildQemuArgs,
   normalizeArchitecture,
 } = require('../../../server/services/runtime/qemu_vm_manager');
@@ -49,6 +51,10 @@ test('Debian guest images are architecture-specific and digest pinned', () => {
     assert.match(image.url, /^https:\/\/cloud\.debian\.org\/images\/cloud\/trixie\//);
     assert.match(image.url, /20260810-2566\.qcow2$/);
     assert.match(image.sha512, /^[a-f0-9]{128}$/);
+    // genericcloud ships the "cloud" kernel flavour, which has no DRM drivers, so the
+    // guest desktop can never paint a framebuffer on it.
+    assert.doesNotMatch(image.url, /genericcloud/);
+    assert.match(image.url, /debian-13-generic-(amd64|arm64)/);
   }
   assert.notEqual(PINNED_IMAGES.x64.sha512, PINNED_IMAGES.arm64.sha512);
 });
@@ -78,7 +84,7 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device VGA/);
+    assert.match(joined, /-device VGA,edid=on,xres=1280,yres=720/);
     assert.doesNotMatch(joined, /virtio-gpu/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
@@ -87,6 +93,55 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
     if (previousFirmware === undefined) delete process.env.NEOAGENT_QEMU_EFI_FIRMWARE;
     else process.env.NEOAGENT_QEMU_EFI_FIRMWARE = previousFirmware;
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('direct-boot assets from an older boot profile are re-cached, not reused', async () => {
+  const instanceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-direct-boot-'));
+  try {
+    const kernel = Buffer.from('replacement kernel');
+    const initrd = Buffer.from('replacement initramfs');
+    fs.writeFileSync(path.join(instanceDir, 'vmlinuz'), 'stale kernel');
+    fs.writeFileSync(path.join(instanceDir, 'initrd.img'), 'stale initramfs');
+    fs.writeFileSync(path.join(instanceDir, 'direct-boot.json'), JSON.stringify({
+      version: 1,
+      architecture: normalizeArchitecture(),
+      bootProfile: 'a-previous-display',
+      kernelSha256: 'stale',
+      initrdSha256: 'stale',
+    }));
+
+    const manager = new QemuVMManager();
+    manager.instances.set('user-1', { instanceDir });
+    let requests = 0;
+    const encode = (data) => ({
+      sha256: crypto.createHash('sha256').update(data).digest('hex'),
+      size: data.length,
+      content: data.toString('base64'),
+    });
+    await manager.cacheDirectBootAssets('user-1', {
+      request: async () => {
+        requests += 1;
+        return { release: '6.12.0', kernel: encode(kernel), initrd: encode(initrd) };
+      },
+    });
+
+    assert.equal(requests, 1);
+    assert.equal(fs.readFileSync(path.join(instanceDir, 'vmlinuz'), 'utf8'), 'replacement kernel');
+    const marker = JSON.parse(fs.readFileSync(path.join(instanceDir, 'direct-boot.json'), 'utf8'));
+    assert.notEqual(marker.bootProfile, 'a-previous-display');
+    assert.match(marker.bootProfile, /^[a-f0-9]{16}$/);
+
+    // A marker written by the current boot profile is reused without a second download.
+    await manager.cacheDirectBootAssets('user-1', {
+      request: async () => {
+        requests += 1;
+        return { release: '6.12.0', kernel: encode(kernel), initrd: encode(initrd) };
+      },
+    });
+    assert.equal(requests, 1);
+  } finally {
+    fs.rmSync(instanceDir, { recursive: true, force: true });
   }
 });
 

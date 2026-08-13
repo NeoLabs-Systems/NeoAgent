@@ -254,6 +254,41 @@ void main() {
     expect(find.text('Preparing your computer'), findsNothing);
   });
 
+  testWidgets('a failed desktop replaces the blank display with a repair action', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller =
+        NeoAgentController(
+            backendClient: BackendClient(),
+            healthBridge: HealthBridge(),
+          )
+          ..computerRuntime = const <String, dynamic>{
+            'state': 'user_control',
+            'desktop': <String, dynamic>{
+              'available': false,
+              'error': 'Xorg did not create :0',
+            },
+          }
+          ..computerDisplayUrl = 'https://example.test/api/computer/display/token';
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DevicesPanel(controller: controller)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ComputerDisplay), findsNothing);
+    expect(find.text('The desktop did not start'), findsOneWidget);
+    expect(find.text('Xorg did not create :0'), findsWidgets);
+    expect(find.text('Repair desktop'), findsOneWidget);
+  });
+
   testWidgets('first-time setup is only shown when the guest image is missing', (
     tester,
   ) async {

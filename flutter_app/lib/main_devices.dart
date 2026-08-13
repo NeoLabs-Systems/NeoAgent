@@ -217,8 +217,10 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final firstSetup = readiness['imageReady'] == false;
     final busy = state == 'starting' || controller.isRunningDeviceAction;
     final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
+    final desktop = _jsonMap(controller.computerRuntime['desktop']);
+    final desktopDown = desktop['available'] == false;
 
-    if (displayUrl != null && (running || busy)) {
+    if (displayUrl != null && (running || busy) && !desktopDown) {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF111111),
@@ -233,7 +235,26 @@ class _DevicesPanelState extends State<DevicesPanel> {
     }
 
     Widget content;
-    if (running) {
+    if (desktopDown) {
+      content = _ComputerEmptyState(
+        icon: Icons.desktop_access_disabled_rounded,
+        title: 'The desktop did not start',
+        message:
+            desktop['error']?.toString().ifEmpty(
+              'The Linux graphical session is not running.',
+            ) ??
+            'The Linux graphical session is not running.',
+        action: FilledButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.startComputerRuntime(
+                  deviceTarget: widget.deviceTarget,
+                ),
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Repair desktop'),
+        ),
+      );
+    } else if (running) {
       content = _ComputerEmptyState(
         icon: Icons.desktop_windows_rounded,
         title: 'Your desktop is ready',

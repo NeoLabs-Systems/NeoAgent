@@ -33,17 +33,23 @@ const COMPUTER_ROOT = path.join(DATA_DIR, 'computers');
 const IMAGE_ROOT = path.join(COMPUTER_ROOT, 'images');
 const INSTANCE_ROOT = path.join(COMPUTER_ROOT, 'instances');
 const PINNED_DEBIAN_BUILD = '20260810-2566';
+// The genericcloud images ship Debian's "cloud" kernel flavour, which contains no DRM
+// drivers at all, so the guest can never program a scanout and the desktop stays black.
+// The generic images carry the full kernel (virtio_gpu, bochs, simpledrm) instead.
+const GUEST_IMAGE_VARIANT = 'generic';
+// Bumped whenever the guest image changes so existing system disks are rebuilt from it.
+const GUEST_IMAGE_REVISION = `${PINNED_DEBIAN_BUILD}-${GUEST_IMAGE_VARIANT}`;
 const MAX_BOOT_ASSET_BYTES = 128 * 1024 * 1024;
 const PINNED_IMAGES = Object.freeze({
   x64: Object.freeze({
-    filename: `debian-13-${PINNED_DEBIAN_BUILD}-amd64.qcow2`,
-    url: `https://cloud.debian.org/images/cloud/trixie/${PINNED_DEBIAN_BUILD}/debian-13-genericcloud-amd64-${PINNED_DEBIAN_BUILD}.qcow2`,
-    sha512: '0ce1f1d675733027d3e17a4665cb95e1d7173bdf67fb8a87ff822ff5ee025bc2a90ecb270465ef395755e41c868b40072eb9ac493810196d9cf68f941afb93dc',
+    filename: `debian-13-${GUEST_IMAGE_REVISION}-amd64.qcow2`,
+    url: `https://cloud.debian.org/images/cloud/trixie/${PINNED_DEBIAN_BUILD}/debian-13-${GUEST_IMAGE_VARIANT}-amd64-${PINNED_DEBIAN_BUILD}.qcow2`,
+    sha512: 'f6978100d8031c266d55d7815ceea7fcdeacf28e1e5834fdb9c94ac96880a054a6e6f8681c2d3b0584e0057eaf3ef7353856b85212d04134744faa9b3bb1f24f',
   }),
   arm64: Object.freeze({
-    filename: `debian-13-${PINNED_DEBIAN_BUILD}-arm64.qcow2`,
-    url: `https://cloud.debian.org/images/cloud/trixie/${PINNED_DEBIAN_BUILD}/debian-13-genericcloud-arm64-${PINNED_DEBIAN_BUILD}.qcow2`,
-    sha512: '7a0eeb424f4a0e9fe35a4c04dee92cdded59aa4b056655488caf606cad4711b08c88af69a3d7de8af6837b082609872017e009a845837bde371c17b8fc27cd76',
+    filename: `debian-13-${GUEST_IMAGE_REVISION}-arm64.qcow2`,
+    url: `https://cloud.debian.org/images/cloud/trixie/${PINNED_DEBIAN_BUILD}/debian-13-${GUEST_IMAGE_VARIANT}-arm64-${PINNED_DEBIAN_BUILD}.qcow2`,
+    sha512: '60a2cc628f0dd114c25d70ce8388631c3f165f25c8932bc9f147987467680bcc39bda38c471c31d35056ae3eb089d22ab295583a7cbff323f21caabb467b0656',
   }),
 });
 
@@ -315,6 +321,34 @@ function resolveArmFirmwareVariablesTemplate() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
+function displayDeviceArgument(architecture) {
+  // ARM64 uses the Bochs-compatible VGA adapter because EDK2 paints it before the guest
+  // boots; x86 keeps virtio-vga. Both honour the EDID mode the desktop is sized for.
+  return architecture === 'arm64'
+    ? `VGA,edid=on,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`
+    : `virtio-vga,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`;
+}
+
+function directBootCommandLine(architecture) {
+  return architecture === 'arm64'
+    ? 'root=/dev/vda1 ro rootwait console=tty0 console=ttyAMA0'
+    : 'root=/dev/vda1 ro rootwait console=tty0 console=ttyS0';
+}
+
+// Cached kernels are only reused while the guest image, display device and kernel command
+// line are unchanged; otherwise a stale cache keeps booting a guest that cannot drive the
+// current display.
+function bootProfileDigest(architecture) {
+  return crypto.createHash('sha256')
+    .update([
+      GUEST_IMAGE_REVISION,
+      displayDeviceArgument(architecture),
+      directBootCommandLine(architecture),
+    ].join('\n'))
+    .digest('hex')
+    .slice(0, 16);
+}
+
 function buildQemuArgs({
   architecture,
   accelerators,
@@ -351,13 +385,13 @@ function buildQemuArgs({
     args.push(
       '-drive', `if=pflash,unit=0,format=raw,readonly=on,file=${drivePath(firmwareCode)}`,
       '-drive', `if=pflash,unit=1,format=qcow2,file=${drivePath(armFirmwareVariables)}`,
-      '-device', 'VGA',
+      '-device', displayDeviceArgument(architecture),
     );
   } else {
     args.push(
       '-machine', 'q35',
       '-cpu', accelerators[0] === 'tcg' ? 'max' : 'host',
-      '-device', `virtio-vga,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`,
+      '-device', displayDeviceArgument(architecture),
     );
   }
   const accelerator = accelerators[0];
@@ -372,9 +406,7 @@ function buildQemuArgs({
     args.push(
       '-kernel', kernelImage,
       '-initrd', initrdImage,
-      '-append', architecture === 'arm64'
-        ? 'root=/dev/vda1 ro rootwait console=tty0 console=ttyAMA0'
-        : 'root=/dev/vda1 ro rootwait console=tty0 console=ttyS0',
+      '-append', directBootCommandLine(architecture),
     );
   }
   args.push(
@@ -536,6 +568,24 @@ class QemuVMManager {
     };
   }
 
+  #readDirectBootMarker(instanceDir) {
+    try {
+      const marker = JSON.parse(fs.readFileSync(path.join(instanceDir, 'direct-boot.json'), 'utf8'));
+      const usable = marker?.version === 1
+        && marker.architecture === this.architecture
+        && marker.bootProfile === bootProfileDigest(this.architecture);
+      return usable ? marker : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #discardDirectBootCache(instanceDir) {
+    for (const name of ['direct-boot.json', 'vmlinuz', 'initrd.img']) {
+      fs.rmSync(path.join(instanceDir, name), { force: true });
+    }
+  }
+
   async cacheDirectBootAssets(userId, client) {
     const key = String(userId || '').trim();
     const session = this.instances.get(key);
@@ -543,7 +593,11 @@ class QemuVMManager {
     const markerPath = path.join(session.instanceDir, 'direct-boot.json');
     const kernelPath = path.join(session.instanceDir, 'vmlinuz');
     const initrdPath = path.join(session.instanceDir, 'initrd.img');
-    if (fs.existsSync(markerPath) && fs.existsSync(kernelPath) && fs.existsSync(initrdPath)) {
+    if (
+      this.#readDirectBootMarker(session.instanceDir)
+      && fs.existsSync(kernelPath)
+      && fs.existsSync(initrdPath)
+    ) {
       return true;
     }
     const payload = await client.request('GET', '/system/boot-assets', undefined, {
@@ -575,7 +629,7 @@ class QemuVMManager {
     fs.writeFileSync(markerPath, `${JSON.stringify({
       version: 1,
       architecture: this.architecture,
-      debianBuild: PINNED_DEBIAN_BUILD,
+      bootProfile: bootProfileDigest(this.architecture),
       release: String(payload?.release || ''),
       kernelSha256: kernel.digest,
       initrdSha256: initrd.digest,
@@ -719,8 +773,8 @@ class QemuVMManager {
     const baseBuildMarker = path.join(instanceDir, 'base-build');
     const previousBuild = fs.existsSync(baseBuildMarker)
       ? fs.readFileSync(baseBuildMarker, 'utf8').trim()
-      : PINNED_DEBIAN_BUILD;
-    const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== PINNED_DEBIAN_BUILD;
+      : GUEST_IMAGE_REVISION;
+    const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== GUEST_IMAGE_REVISION;
     const createsSystemDisk = !fs.existsSync(systemDisk) || replaceSystemDisk;
     const diskCapacity = getDiskCapacity(INSTANCE_ROOT);
     const sparseLiabilityBytes = getSparseDiskLiabilityBytes(this.qemuImgBinary, INSTANCE_ROOT);
@@ -739,15 +793,13 @@ class QemuVMManager {
       const previousSystemDisk = path.join(instanceDir, 'system.previous.qcow2');
       fs.rmSync(previousSystemDisk, { force: true });
       fs.renameSync(systemDisk, previousSystemDisk);
-      fs.rmSync(path.join(instanceDir, 'direct-boot.json'), { force: true });
-      fs.rmSync(path.join(instanceDir, 'vmlinuz'), { force: true });
-      fs.rmSync(path.join(instanceDir, 'initrd.img'), { force: true });
+      this.#discardDirectBootCache(instanceDir);
     }
     if (!fs.existsSync(systemDisk)) {
       runChecked(this.qemuImgBinary, ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', baseImage, systemDisk]);
     }
     ensureVirtualDiskSize(this.qemuImgBinary, systemDisk, 8);
-    fs.writeFileSync(baseBuildMarker, `${PINNED_DEBIAN_BUILD}\n`, { mode: 0o600 });
+    fs.writeFileSync(baseBuildMarker, `${GUEST_IMAGE_REVISION}\n`, { mode: 0o600 });
     if (!fs.existsSync(dataDisk)) {
       const diskGiB = chooseDataDiskGiB(this.resourceProfile, storage);
       runChecked(this.qemuImgBinary, ['create', '-f', 'qcow2', dataDisk, `${diskGiB}G`]);
@@ -777,30 +829,22 @@ class QemuVMManager {
     });
     let kernelImage = null;
     let initrdImage = null;
-    try {
-      const directBoot = JSON.parse(fs.readFileSync(path.join(instanceDir, 'direct-boot.json'), 'utf8'));
+    const directBoot = this.#readDirectBootMarker(instanceDir);
+    if (directBoot) {
       const candidateKernel = path.join(instanceDir, 'vmlinuz');
       const candidateInitrd = path.join(instanceDir, 'initrd.img');
-      const metadataMatches = (
-        directBoot?.version === 1
-        && directBoot.architecture === this.architecture
-        && directBoot.debianBuild === PINNED_DEBIAN_BUILD
-        && fs.existsSync(candidateKernel)
+      const hashesMatch = fs.existsSync(candidateKernel)
         && fs.existsSync(candidateInitrd)
-      );
-      const hashesMatch = metadataMatches
         && await hashFile(candidateKernel, 'sha256') === directBoot.kernelSha256
         && await hashFile(candidateInitrd, 'sha256') === directBoot.initrdSha256;
       if (hashesMatch) {
         kernelImage = candidateKernel;
         initrdImage = candidateInitrd;
-      } else if (metadataMatches) {
-        fs.rmSync(path.join(instanceDir, 'direct-boot.json'), { force: true });
-        fs.rmSync(candidateKernel, { force: true });
-        fs.rmSync(candidateInitrd, { force: true });
+      } else {
+        this.#discardDirectBootCache(instanceDir);
         logger.warn(`Discarded invalid direct-boot cache for user ${key}.`);
       }
-    } catch {}
+    }
     let armFirmwareVariables = null;
     if (this.architecture === 'arm64') {
       const variablesTemplate = resolveArmFirmwareVariablesTemplate();

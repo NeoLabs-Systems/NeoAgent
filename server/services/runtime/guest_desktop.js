@@ -110,7 +110,7 @@ unbind_fbcon() {
 }
 
 modprobe virtio_gpu >/dev/null 2>&1 || true
-modprobe virtio-gpu >/dev/null 2>&1 || true
+modprobe bochs >/dev/null 2>&1 || true
 i=0
 while [ "$i" -lt 8 ] && [ ! -e /dev/dri/card0 ]; do
   i=$((i + 1))
@@ -193,12 +193,8 @@ if [ "$needs_pkgs" -eq 1 ]; then
 fi
 install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system /etc/systemd/system-generators
 ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
-install -d -m 0755 /etc/modules-load.d /etc/initramfs-tools
-printf '%s\n' bochs bochs_drm virtio_gpu virtio-gpu > /etc/modules-load.d/neoagent-gpu.conf
-if [ -f /etc/initramfs-tools/modules ]; then
-  grep -qxF bochs /etc/initramfs-tools/modules || echo bochs >> /etc/initramfs-tools/modules
-  grep -qxF virtio_gpu /etc/initramfs-tools/modules || echo virtio_gpu >> /etc/initramfs-tools/modules
-fi
+install -d -m 0755 /etc/modules-load.d
+printf '%s\n' bochs virtio_gpu > /etc/modules-load.d/neoagent-gpu.conf
 cat > /usr/local/bin/neoagent-display-setup <<'SETUP'
 ${setup}
 SETUP
@@ -240,6 +236,7 @@ wait_for_x() {
   done
 }
 modprobe virtio_gpu >/dev/null 2>&1 || true
+modprobe bochs >/dev/null 2>&1 || true
 systemctl stop lightdm.service >/dev/null 2>&1 || true
 systemctl restart neoagent-framebuffer-desktop.service >/dev/null 2>&1 || true
 wait_for_x 25
@@ -325,9 +322,7 @@ chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
     fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `bochs
-bochs_drm
 virtio_gpu
-virtio-gpu
 `),
     fileEntry('/usr/local/bin/neoagent-display-setup', guestDisplaySetupScript(), '0755'),
     fileEntry('/usr/local/bin/neoagent-framebuffer-desktop', guestFramebufferDesktopScript(), '0755'),

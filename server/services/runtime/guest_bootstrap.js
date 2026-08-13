@@ -355,7 +355,12 @@ function createCloudInitScript({
         '/usr/local/bin/neoagent-apply-desktop-home',
         'chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-ensure-desktop /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop',
         'if [ -f /etc/default/grub ]; then sed -i \'s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/\' /etc/default/grub && update-grub || true; fi',
-        'if [ -d /etc/initramfs-tools ]; then grep -qxF virtio_gpu /etc/initramfs-tools/modules || echo virtio_gpu >> /etc/initramfs-tools/modules; update-initramfs -u || true; fi',
+        // The direct-boot path has no EFI framebuffer, so the display driver has to be in
+        // the initramfs for the desktop to appear as the guest boots.
+        'if [ -d /etc/initramfs-tools ]; then',
+        '  for module in virtio_gpu bochs; do grep -qxF "$module" /etc/initramfs-tools/modules || echo "$module" >> /etc/initramfs-tools/modules; done',
+        '  update-initramfs -u || true',
+        'fi',
         'install -d -m 0755 /etc/systemd/system-generators',
         'ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator',
         'systemctl daemon-reload',

@@ -29,8 +29,8 @@ const PERSISTENT_IDENTITY_ENV_KEYS = new Set([
   'ADMIN_PASSWORD',
 ]);
 const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
-  arm64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-genericcloud-arm64-20260810-2566.qcow2',
-  x64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-genericcloud-amd64-20260810-2566.qcow2',
+  arm64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-arm64-20260810-2566.qcow2',
+  x64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-amd64-20260810-2566.qcow2',
 });
 
 function ensureRuntimeDirs() {
