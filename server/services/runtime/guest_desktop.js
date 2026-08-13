@@ -1,7 +1,6 @@
 'use strict';
 
 const path = require('path');
-const { computerDisplayMode } = require('./computer_display');
 
 function fileEntry(filePath, content, mode = '0644') {
   return {
@@ -56,16 +55,8 @@ function guestDesktopPackages() {
 }
 
 function guestDisplaySetupScript() {
-  const mode = computerDisplayMode();
   return `#!/bin/sh
 chvt 1 >/dev/null 2>&1 || true
-output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
-[ -n "$output" ] || exit 0
-if ! xrandr --output "$output" --mode ${mode} >/dev/null 2>&1; then
-  xrandr --newmode "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync >/dev/null 2>&1 || true
-  xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true
-  xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s ${mode} >/dev/null 2>&1 || true
-fi
 exit 0
 `;
 }
@@ -106,22 +97,8 @@ WantedBy=graphical.target
 `;
 }
 
-function guestModesettingXorgConfig() {
-  return `Section "Device"
-    Identifier "NeoAgentGPU"
-    Driver "modesetting"
-    Option "AccelMethod" "none"
-    Option "SWcursor" "true"
-EndSection
-Section "ServerFlags"
-    Option "DontZap" "true"
-EndSection
-`;
-}
-
 function guestFramebufferDesktopScript() {
   const fbdev24 = guestFbdevXorgConfig(24).replace(/\n$/, '');
-  const modesetting = guestModesettingXorgConfig().replace(/\n$/, '');
   return `#!/bin/sh
 unbind_fbcon() {
   echo 0 > /proc/sys/kernel/printk 2>/dev/null || true
@@ -139,16 +116,17 @@ while [ "$i" -lt 8 ] && [ ! -e /dev/dri/card0 ]; do
   i=$((i + 1))
   sleep 1
 done
+for cons in /sys/class/vtconsole/vtcon*; do
+  if grep -qi frame "$cons/name" 2>/dev/null; then
+    echo 1 > "$cons/bind" 2>/dev/null || true
+  fi
+done
 
 systemctl stop getty@tty1.service >/dev/null 2>&1 || true
 systemctl stop lightdm.service >/dev/null 2>&1 || true
 install -d -m 0755 /etc/X11/xorg.conf.d
-if [ -e /dev/dri/card0 ]; then
-  cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'MODESET'
-${modesetting}
-MODESET
-  cp /etc/X11/xorg.conf.d/10-neoagent-display.conf /etc/X11/xorg.conf
-else
+rm -f /etc/X11/xorg.conf /etc/X11/xorg.conf.d/10-neoagent-display.conf
+if [ ! -e /dev/dri/card0 ]; then
   unbind_fbcon
   cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV24'
 ${fbdev24}
@@ -215,7 +193,11 @@ if [ "$needs_pkgs" -eq 1 ]; then
 fi
 install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system /etc/systemd/system-generators
 ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
-rm -f /etc/modules-load.d/neoagent-gpu.conf
+install -d -m 0755 /etc/modules-load.d /etc/initramfs-tools
+printf '%s\n' virtio_gpu virtio-gpu > /etc/modules-load.d/neoagent-gpu.conf
+if [ -f /etc/initramfs-tools/modules ]; then
+  grep -qxF virtio_gpu /etc/initramfs-tools/modules || echo virtio_gpu >> /etc/initramfs-tools/modules
+fi
 cat > /usr/local/bin/neoagent-display-setup <<'SETUP'
 ${setup}
 SETUP
@@ -234,7 +216,7 @@ cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
 ${lightdm}
 LIGHTDM
 if [ -f /etc/default/grub ]; then
-  sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="quiet loglevel=3 console=ttyS0,115200n8"/' /etc/default/grub || true
+  sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/' /etc/default/grub || true
   update-grub >/dev/null 2>&1 || true
 fi
 systemctl stop getty@tty1.service >/dev/null 2>&1 || true

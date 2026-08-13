@@ -569,41 +569,31 @@ app.get('/desktop/status', async (_req, res) => {
 });
 
 function writeGuestXorgConfig() {
-  const hasDri = fs.existsSync('/dev/dri/card0');
-  const config = hasDri
-    ? [
-      'Section "Device"',
-      '    Identifier "NeoAgentGPU"',
-      '    Driver "modesetting"',
-      '    Option "AccelMethod" "none"',
-      '    Option "SWcursor" "true"',
-      'EndSection',
-      'Section "ServerFlags"',
-      '    Option "DontZap" "true"',
-      'EndSection',
-      '',
-    ].join('\n')
-    : [
-      'Section "Device"',
-      '    Identifier "NeoAgentGPU"',
-      '    Driver "fbdev"',
-      '    Option "fbdev" "/dev/fb0"',
-      '    Option "ShadowFB" "true"',
-      'EndSection',
-      'Section "Screen"',
-      '    Identifier "NeoAgentScreen"',
-      '    Device "NeoAgentGPU"',
-      '    DefaultDepth 24',
-      '    SubSection "Display"',
-      '        Depth 24',
-      '    EndSubSection',
-      'EndSection',
-      'Section "ServerFlags"',
-      '    Option "DontZap" "true"',
-      '    Option "AutoAddGPU" "false"',
-      'EndSection',
-      '',
-    ].join('\n');
+  if (fs.existsSync('/dev/dri/card0')) {
+    runSudo(['rm', '-f', '/etc/X11/xorg.conf', '/etc/X11/xorg.conf.d/10-neoagent-display.conf']);
+    return;
+  }
+  const config = [
+    'Section "Device"',
+    '    Identifier "NeoAgentGPU"',
+    '    Driver "fbdev"',
+    '    Option "fbdev" "/dev/fb0"',
+    '    Option "ShadowFB" "true"',
+    'EndSection',
+    'Section "Screen"',
+    '    Identifier "NeoAgentScreen"',
+    '    Device "NeoAgentGPU"',
+    '    DefaultDepth 24',
+    '    SubSection "Display"',
+    '        Depth 24',
+    '    EndSubSection',
+    'EndSection',
+    'Section "ServerFlags"',
+    '    Option "DontZap" "true"',
+    '    Option "AutoAddGPU" "false"',
+    'EndSection',
+    '',
+  ].join('\n');
   writePrivilegedFile('/etc/X11/xorg.conf.d/10-neoagent-display.conf', config);
   writePrivilegedFile('/etc/X11/xorg.conf', config);
 }
@@ -652,19 +642,7 @@ app.post('/desktop/ensure', async (_req, res) => {
     runSudo(['rm', '-f', '/etc/X11/xorg.conf.d/10-neoagent-display.conf']);
     writePrivilegedFile(
       '/usr/local/bin/neoagent-display-setup',
-      [
-        '#!/bin/sh',
-        'chvt 1 >/dev/null 2>&1 || true',
-        "output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')",
-        '[ -n "$output" ] || exit 0',
-        'if ! xrandr --output "$output" --mode 1280x720 >/dev/null 2>&1; then',
-        '  xrandr --newmode "1280x720_60.00" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync >/dev/null 2>&1 || true',
-        '  xrandr --addmode "$output" "1280x720_60.00" >/dev/null 2>&1 || true',
-        '  xrandr --output "$output" --mode "1280x720_60.00" >/dev/null 2>&1 || xrandr -s 1280x720 >/dev/null 2>&1 || true',
-        'fi',
-        'exit 0',
-        '',
-      ].join('\n'),
+      ['#!/bin/sh', 'chvt 1 >/dev/null 2>&1 || true', 'exit 0', ''].join('\n'),
     );
     runSudo(['chmod', '0755', '/usr/local/bin/neoagent-display-setup']);
     writePrivilegedFile(

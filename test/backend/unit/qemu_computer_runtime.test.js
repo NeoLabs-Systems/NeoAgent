@@ -78,7 +78,8 @@ test('ARM64 computer uses virtio-gpu so VNC shows the guest desktop scanout', ()
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device virtio-gpu-pci,xres=1280,yres=720/);
+    assert.match(joined, /-device virtio-gpu-pci/);
+    assert.doesNotMatch(joined, /xres=/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
     assert.doesNotMatch(joined, /-device ramfb/);
@@ -115,6 +116,5 @@ test('cached direct boot bypasses firmware disk discovery', () => {
   ]);
   assert.match(args[args.indexOf('-append') + 1], /root=\/dev\/vda1/);
   assert.match(args[args.indexOf('-append') + 1], /console=ttyS0/);
-  assert.match(args[args.indexOf('-append') + 1], /quiet/);
-  assert.doesNotMatch(args[args.indexOf('-append') + 1], /console=tty0/);
+  assert.match(args[args.indexOf('-append') + 1], /console=tty0/);
 });

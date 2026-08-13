@@ -66,10 +66,10 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(tint2, /neoagent-chromium\.desktop/);
   const setup = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-display-setup').content;
   const ensure = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-ensure-desktop').content;
-  assert.match(setup, /1280x720/);
+  assert.match(setup, /chvt 1/);
   assert.match(ensure, /xdpyinfo/);
   assert.match(ensure, /Driver "fbdev"/);
-  assert.match(ensure, /Driver "modesetting"/);
+  assert.match(ensure, /virtio_gpu/);
   assert.doesNotMatch(ensure, /Virtual 1280/);
   assert.match(ensure, /getty@tty1/);
   assert.match(ensure, /chvt 1/);
