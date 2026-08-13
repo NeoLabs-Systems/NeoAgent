@@ -568,26 +568,55 @@ app.get('/desktop/status', async (_req, res) => {
   });
 });
 
-function writeFbdevXorgConfig() {
-  writePrivilegedFile(
-    '/etc/X11/xorg.conf.d/10-neoagent-display.conf',
-    [
+function writeGuestXorgConfig() {
+  const hasDri = fs.existsSync('/dev/dri/card0');
+  const config = hasDri
+    ? [
+      'Section "Device"',
+      '    Identifier "NeoAgentGPU"',
+      '    Driver "modesetting"',
+      '    Option "AccelMethod" "none"',
+      '    Option "SWcursor" "true"',
+      'EndSection',
+      'Section "ServerFlags"',
+      '    Option "DontZap" "true"',
+      'EndSection',
+      '',
+    ].join('\n')
+    : [
       'Section "Device"',
       '    Identifier "NeoAgentGPU"',
       '    Driver "fbdev"',
       '    Option "fbdev" "/dev/fb0"',
+      '    Option "ShadowFB" "true"',
       'EndSection',
       'Section "Screen"',
       '    Identifier "NeoAgentScreen"',
       '    Device "NeoAgentGPU"',
-      '    DefaultDepth 16',
+      '    DefaultDepth 24',
       '    SubSection "Display"',
-      '        Depth 16',
+      '        Depth 24',
       '    EndSubSection',
       'EndSection',
+      'Section "ServerFlags"',
+      '    Option "DontZap" "true"',
+      '    Option "AutoAddGPU" "false"',
+      'EndSection',
       '',
-    ].join('\n'),
-  );
+    ].join('\n');
+  writePrivilegedFile('/etc/X11/xorg.conf.d/10-neoagent-display.conf', config);
+  writePrivilegedFile('/etc/X11/xorg.conf', config);
+}
+
+function unbindFramebufferConsole() {
+  runSudo([
+    '/bin/sh',
+    '-c',
+    'echo 0 > /proc/sys/kernel/printk 2>/dev/null || true; '
+      + 'for cons in /sys/class/vtconsole/vtcon*; do '
+      + 'if grep -qi frame "$cons/name" 2>/dev/null; then echo 0 > "$cons/bind" 2>/dev/null || true; fi; '
+      + 'done',
+  ]);
 }
 
 function desktopEnsureDiagnostics() {
@@ -674,30 +703,34 @@ app.post('/desktop/ensure', async (_req, res) => {
         '',
       ].join('\n'),
     );
+    const hasDri = fs.existsSync('/dev/dri/card0');
     const hasFramebuffer = fs.existsSync('/dev/fb0');
-    if (hasFramebuffer) writeFbdevXorgConfig();
     runSudo(['systemctl', 'stop', 'getty@tty1.service']);
     runSudo(['systemctl', 'mask', 'getty@tty1.service']);
+    runSudo(['install', '-d', '-m', '0755', '/etc/systemd/system-generators']);
+    runSudo(['ln', '-sfn', '/dev/null', '/etc/systemd/system-generators/systemd-ssh-generator']);
+    writeGuestXorgConfig();
+    if (!hasDri && hasFramebuffer) unbindFramebufferConsole();
+    runSudo(['systemctl', 'stop', 'lightdm.service']);
+    if (fs.existsSync('/usr/local/bin/neoagent-framebuffer-desktop')) {
+      runSudo(['systemctl', 'restart', 'neoagent-framebuffer-desktop.service'], { timeoutMs: 45000 });
+      if (await waitForDisplay(25000)) {
+        runSudo(['chvt', '1']);
+        return { available: true, display: ':0', fallback: hasDri ? 'modesetting' : 'fbdev' };
+      }
+    }
     runSudo(['systemctl', 'daemon-reload']);
     runSudo(['systemctl', 'set-default', 'graphical.target']);
     runSudo(['systemctl', 'enable', 'lightdm.service', 'neoagent-desktop-seat.service']);
     runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
     runSudo(['systemctl', 'start', 'neoagent-desktop-seat.service']);
-    if (await waitForDisplay(30000)) {
+    if (await waitForDisplay(20000)) {
       runSudo(['chvt', '1']);
       return { available: true, display: ':0', fallback: hasFramebuffer ? 'fbdev' : null };
     }
 
-    if (hasFramebuffer) {
-      writeFbdevXorgConfig();
-      runSudo(['systemctl', 'restart', 'lightdm.service'], { timeoutMs: 45000 });
-      if (await waitForDisplay(20000)) {
-        runSudo(['chvt', '1']);
-        return { available: true, display: ':0', fallback: 'fbdev' };
-      }
-    }
-
     runSudo(['systemctl', 'stop', 'lightdm.service']);
+    if (hasFramebuffer) unbindFramebufferConsole();
     const xbin = ['/usr/bin/Xorg', '/usr/bin/X'].find((candidate) => fs.existsSync(candidate));
     if (xbin && !fs.existsSync('/tmp/.X11-unix/X0')) {
       runSudo([

@@ -53,7 +53,7 @@ test('Debian guest images are architecture-specific and digest pinned', () => {
   assert.notEqual(PINNED_IMAGES.x64.sha512, PINNED_IMAGES.arm64.sha512);
 });
 
-test('ARM64 computer uses ramfb so VNC has a framebuffer before X starts', () => {
+test('ARM64 computer uses virtio-gpu so VNC shows the guest desktop scanout', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-firmware-test-'));
   const firmware = path.join(temporaryRoot, 'firmware.fd');
   const variables = path.join(temporaryRoot, 'variables.qcow2');
@@ -78,10 +78,10 @@ test('ARM64 computer uses ramfb so VNC has a framebuffer before X starts', () =>
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device ramfb/);
+    assert.match(joined, /-device virtio-gpu-pci,xres=1280,yres=720/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
-    assert.doesNotMatch(joined, /virtio-gpu/);
+    assert.doesNotMatch(joined, /-device ramfb/);
   } finally {
     if (previousFirmware === undefined) delete process.env.NEOAGENT_QEMU_EFI_FIRMWARE;
     else process.env.NEOAGENT_QEMU_EFI_FIRMWARE = previousFirmware;
@@ -114,6 +114,7 @@ test('cached direct boot bypasses firmware disk discovery', () => {
     '/runtime/initrd.img',
   ]);
   assert.match(args[args.indexOf('-append') + 1], /root=\/dev\/vda1/);
-  assert.match(args[args.indexOf('-append') + 1], /console=tty0/);
   assert.match(args[args.indexOf('-append') + 1], /console=ttyS0/);
+  assert.match(args[args.indexOf('-append') + 1], /quiet/);
+  assert.doesNotMatch(args[args.indexOf('-append') + 1], /console=tty0/);
 });

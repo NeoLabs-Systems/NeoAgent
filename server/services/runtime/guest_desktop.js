@@ -18,19 +18,25 @@ function getGuestDesktopSkelFiles() {
   }));
 }
 
-function guestFbdevXorgConfig() {
+function guestFbdevXorgConfig(depth = 24) {
+  const screenDepth = Number(depth) === 16 ? 16 : 24;
   return `Section "Device"
     Identifier "NeoAgentGPU"
     Driver "fbdev"
     Option "fbdev" "/dev/fb0"
+    Option "ShadowFB" "true"
 EndSection
 Section "Screen"
     Identifier "NeoAgentScreen"
     Device "NeoAgentGPU"
-    DefaultDepth 16
+    DefaultDepth ${screenDepth}
     SubSection "Display"
-        Depth 16
+        Depth ${screenDepth}
     EndSubSection
+EndSection
+Section "ServerFlags"
+    Option "DontZap" "true"
+    Option "AutoAddGPU" "false"
 EndSection
 `;
 }
@@ -67,8 +73,7 @@ exit 0
 function guestDesktopSeatUnit() {
   return `[Unit]
 Description=Show the NeoAgent desktop on the VNC console
-After=lightdm.service
-Wants=lightdm.service
+After=lightdm.service neoagent-framebuffer-desktop.service
 
 [Service]
 Type=oneshot
@@ -81,16 +86,126 @@ WantedBy=multi-user.target
 `;
 }
 
+function guestFramebufferDesktopUnit() {
+  return `[Unit]
+Description=NeoAgent framebuffer desktop
+After=local-fs.target
+Conflicts=getty@tty1.service
+ConditionPathExists=|/dev/dri/card0
+ConditionPathExists=|/dev/fb0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/neoagent-framebuffer-desktop
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=graphical.target
+`;
+}
+
+function guestModesettingXorgConfig() {
+  return `Section "Device"
+    Identifier "NeoAgentGPU"
+    Driver "modesetting"
+    Option "AccelMethod" "none"
+    Option "SWcursor" "true"
+EndSection
+Section "ServerFlags"
+    Option "DontZap" "true"
+EndSection
+`;
+}
+
+function guestFramebufferDesktopScript() {
+  const fbdev24 = guestFbdevXorgConfig(24).replace(/\n$/, '');
+  const modesetting = guestModesettingXorgConfig().replace(/\n$/, '');
+  return `#!/bin/sh
+unbind_fbcon() {
+  echo 0 > /proc/sys/kernel/printk 2>/dev/null || true
+  for cons in /sys/class/vtconsole/vtcon*; do
+    if grep -qi frame "$cons/name" 2>/dev/null; then
+      echo 0 > "$cons/bind" 2>/dev/null || true
+    fi
+  done
+}
+
+modprobe virtio_gpu >/dev/null 2>&1 || true
+modprobe virtio-gpu >/dev/null 2>&1 || true
+i=0
+while [ "$i" -lt 8 ] && [ ! -e /dev/dri/card0 ]; do
+  i=$((i + 1))
+  sleep 1
+done
+
+systemctl stop getty@tty1.service >/dev/null 2>&1 || true
+systemctl stop lightdm.service >/dev/null 2>&1 || true
+install -d -m 0755 /etc/X11/xorg.conf.d
+if [ -e /dev/dri/card0 ]; then
+  cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'MODESET'
+${modesetting}
+MODESET
+  cp /etc/X11/xorg.conf.d/10-neoagent-display.conf /etc/X11/xorg.conf
+else
+  unbind_fbcon
+  cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV24'
+${fbdev24}
+FBDEV24
+  cp /etc/X11/xorg.conf.d/10-neoagent-display.conf /etc/X11/xorg.conf
+fi
+pkill -x Xorg >/dev/null 2>&1 || true
+pkill -x X >/dev/null 2>&1 || true
+sleep 1
+xbin=$(command -v Xorg || command -v X || true)
+if [ -z "$xbin" ]; then
+  echo "Xorg is not installed" >&2
+  exit 1
+fi
+"$xbin" :0 vt1 -nolisten tcp >/var/log/neoagent-xorg-direct.log 2>&1 &
+xpid=$!
+i=0
+while [ "$i" -lt 20 ]; do
+  if [ -S /tmp/.X11-unix/X0 ]; then
+    break
+  fi
+  if ! kill -0 "$xpid" 2>/dev/null; then
+    echo "Xorg exited during startup" >&2
+    tail -n 40 /var/log/neoagent-xorg-direct.log >&2 || true
+    tail -n 40 /var/log/Xorg.0.log >&2 || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 1
+done
+if [ ! -S /tmp/.X11-unix/X0 ]; then
+  echo "Xorg did not create :0" >&2
+  tail -n 40 /var/log/neoagent-xorg-direct.log >&2 || true
+  exit 1
+fi
+chvt 1 >/dev/null 2>&1 || true
+session=openbox
+command -v openbox-session >/dev/null 2>&1 && session=openbox-session
+if command -v dbus-launch >/dev/null 2>&1; then
+  su - neo -c "DISPLAY=:0 dbus-launch --exit-with-session $session" >/tmp/neoagent-openbox.log 2>&1 &
+else
+  su - neo -c "DISPLAY=:0 $session" >/tmp/neoagent-openbox.log 2>&1 &
+fi
+wait "$xpid"
+`;
+}
+
 function guestDesktopBringUpScript() {
   const setup = guestDisplaySetupScript().replace(/\n$/, '');
   const seat = guestDesktopSeatUnit().replace(/\n$/, '');
+  const framebufferUnit = guestFramebufferDesktopUnit().replace(/\n$/, '');
+  const framebuffer = guestFramebufferDesktopScript().replace(/\n$/, '');
   const lightdm = guestLightDmConfig().replace(/\n$/, '');
-  const fbdev = guestFbdevXorgConfig().replace(/\n$/, '');
   const packages = guestDesktopPackages();
   return `#!/bin/sh
 export DEBIAN_FRONTEND=noninteractive
 needs_pkgs=0
-command -v lightdm >/dev/null 2>&1 || needs_pkgs=1
 command -v Xorg >/dev/null 2>&1 || command -v X >/dev/null 2>&1 || needs_pkgs=1
 command -v xdpyinfo >/dev/null 2>&1 || needs_pkgs=1
 command -v openbox >/dev/null 2>&1 || needs_pkgs=1
@@ -98,32 +213,36 @@ if [ "$needs_pkgs" -eq 1 ]; then
   apt-get update -qq || true
   apt-get install -y --no-install-recommends ${packages} || true
 fi
-install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system
+install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system /etc/systemd/system-generators
+ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
+rm -f /etc/modules-load.d/neoagent-gpu.conf
 cat > /usr/local/bin/neoagent-display-setup <<'SETUP'
 ${setup}
 SETUP
 chmod 0755 /usr/local/bin/neoagent-display-setup
+cat > /usr/local/bin/neoagent-framebuffer-desktop <<'FRAMEBUFFER'
+${framebuffer}
+FRAMEBUFFER
+chmod 0755 /usr/local/bin/neoagent-framebuffer-desktop
+cat > /etc/systemd/system/neoagent-framebuffer-desktop.service <<'FBUNIT'
+${framebufferUnit}
+FBUNIT
 cat > /etc/systemd/system/neoagent-desktop-seat.service <<'UNIT'
 ${seat}
 UNIT
 cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
 ${lightdm}
 LIGHTDM
-rm -f /etc/X11/xorg.conf.d/10-neoagent-display.conf
-if [ -e /dev/fb0 ]; then
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
-${fbdev}
-FBDEV
+if [ -f /etc/default/grub ]; then
+  sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="quiet loglevel=3 console=ttyS0,115200n8"/' /etc/default/grub || true
+  update-grub >/dev/null 2>&1 || true
 fi
 systemctl stop getty@tty1.service >/dev/null 2>&1 || true
 systemctl mask getty@tty1.service >/dev/null 2>&1 || true
 systemctl stop serial-getty@tty1.service >/dev/null 2>&1 || true
 systemctl daemon-reload >/dev/null 2>&1 || true
 systemctl set-default graphical.target >/dev/null 2>&1 || true
-systemctl reset-failed lightdm.service >/dev/null 2>&1 || true
-systemctl enable lightdm.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
-systemctl restart lightdm.service >/dev/null 2>&1 || true
-systemctl start neoagent-desktop-seat.service >/dev/null 2>&1 || true
+systemctl enable neoagent-framebuffer-desktop.service neoagent-desktop-seat.service >/dev/null 2>&1 || true
 wait_for_x() {
   tries=$1
   i=0
@@ -137,46 +256,28 @@ wait_for_x() {
     sleep 1
   done
 }
-wait_for_x 30
-if [ -e /dev/fb0 ]; then
-cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV'
-${fbdev}
-FBDEV
-  systemctl restart lightdm.service >/dev/null 2>&1 || true
-  wait_for_x 20
-fi
+modprobe virtio_gpu >/dev/null 2>&1 || true
 systemctl stop lightdm.service >/dev/null 2>&1 || true
-xbin=$(command -v Xorg || command -v X || true)
-if [ -n "$xbin" ] && [ ! -S /tmp/.X11-unix/X0 ]; then
-  "$xbin" :0 vt1 -nolisten tcp >/var/log/neoagent-xorg-direct.log 2>&1 &
-  i=0
-  while [ "$i" -lt 12 ]; do
-    if [ -S /tmp/.X11-unix/X0 ]; then
-      break
-    fi
-    i=$((i + 1))
-    sleep 1
-  done
-  if [ -S /tmp/.X11-unix/X0 ]; then
-    chvt 1 >/dev/null 2>&1 || true
-    if command -v openbox-session >/dev/null 2>&1; then
-      su - neo -c 'DISPLAY=:0 openbox-session' >/tmp/neoagent-openbox.log 2>&1 &
-    elif command -v openbox >/dev/null 2>&1; then
-      su - neo -c 'DISPLAY=:0 openbox' >/tmp/neoagent-openbox.log 2>&1 &
-    fi
-    wait_for_x 15
-  fi
-fi
+systemctl restart neoagent-framebuffer-desktop.service >/dev/null 2>&1 || true
+wait_for_x 25
+systemctl reset-failed lightdm.service >/dev/null 2>&1 || true
+systemctl enable lightdm.service >/dev/null 2>&1 || true
+systemctl restart lightdm.service >/dev/null 2>&1 || true
+systemctl start neoagent-desktop-seat.service >/dev/null 2>&1 || true
+wait_for_x 20
 echo DESKTOP_FAILED
+echo "--- framebuffer ---"
+systemctl --no-pager --full status neoagent-framebuffer-desktop 2>&1 | tail -n 20 || true
 echo "--- lightdm ---"
 systemctl --no-pager --full status lightdm 2>&1 | tail -n 20 || true
 echo "--- journal ---"
-journalctl -u lightdm -n 40 --no-pager 2>&1 || true
+journalctl -u neoagent-framebuffer-desktop -u lightdm -n 40 --no-pager 2>&1 || true
 echo "--- xorg ---"
 tail -n 40 /var/log/Xorg.0.log 2>/dev/null || true
 tail -n 20 /var/log/neoagent-xorg-direct.log 2>/dev/null || true
 echo "--- devices ---"
 ls -l /dev/fb0 /dev/dri /tmp/.X11-unix /dev/tty1 2>&1 || true
+cat /sys/class/graphics/fb0/virtual_size /sys/class/graphics/fb0/bits_per_pixel 2>/dev/null || true
 fgconsole 2>/dev/null || true
 exit 1
 `;
@@ -240,12 +341,14 @@ cp -a /usr/share/neoagent/desktop-skel/. /home/neo/
 chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
-    fileEntry('/usr/local/bin/neoagent-display-setup', guestDisplaySetupScript(), '0755'),
     fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `virtio_gpu
 virtio-gpu
 `),
+    fileEntry('/usr/local/bin/neoagent-display-setup', guestDisplaySetupScript(), '0755'),
+    fileEntry('/usr/local/bin/neoagent-framebuffer-desktop', guestFramebufferDesktopScript(), '0755'),
     fileEntry('/usr/local/bin/neoagent-ensure-desktop', guestDesktopBringUpScript(), '0755'),
     fileEntry('/etc/lightdm/lightdm.conf.d/50-neoagent.conf', guestLightDmConfig()),
+    fileEntry('/etc/systemd/system/neoagent-framebuffer-desktop.service', guestFramebufferDesktopUnit()),
     fileEntry('/etc/systemd/system/neoagent-desktop-seat.service', guestDesktopSeatUnit()),
     fileEntry('/etc/xdg/openbox/rc.xml', OPENBOX_RC_XML),
     fileEntry('/etc/xdg/openbox/menu.xml', OPENBOX_MENU_XML),

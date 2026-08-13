@@ -51,9 +51,11 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.ok(paths.includes('/etc/xdg/tint2/tint2rc'));
   assert.ok(paths.includes('/etc/xdg/openbox/rc.xml'));
   assert.ok(paths.includes('/usr/local/bin/neoagent-display-setup'));
+  assert.ok(paths.includes('/usr/local/bin/neoagent-framebuffer-desktop'));
   assert.ok(!paths.includes('/etc/X11/xorg.conf.d/10-neoagent-display.conf'));
   assert.ok(paths.includes('/etc/lightdm/lightdm.conf.d/50-neoagent.conf'));
   assert.ok(paths.includes('/etc/systemd/system/neoagent-desktop-seat.service'));
+  assert.ok(paths.includes('/etc/systemd/system/neoagent-framebuffer-desktop.service'));
   const lightdm = systemFiles.find((file) => file.path.endsWith('50-neoagent.conf')).content;
   assert.match(lightdm, /xserver-command=X -nolisten tcp vt1/);
   assert.doesNotMatch(lightdm, /-core/);
@@ -65,11 +67,15 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   const setup = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-display-setup').content;
   const ensure = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-ensure-desktop').content;
   assert.match(setup, /1280x720/);
-  assert.match(ensure, /rm -f \/etc\/X11\/xorg\.conf\.d\/10-neoagent-display\.conf/);
   assert.match(ensure, /xdpyinfo/);
   assert.match(ensure, /Driver "fbdev"/);
+  assert.match(ensure, /Driver "modesetting"/);
+  assert.doesNotMatch(ensure, /Virtual 1280/);
   assert.match(ensure, /getty@tty1/);
   assert.match(ensure, /chvt 1/);
+  assert.match(ensure, /vtconsole/);
+  assert.match(ensure, /neoagent-framebuffer-desktop/);
+  assert.match(ensure, /systemd-ssh-generator/);
   assert.doesNotMatch(ensure, /chvt 7/);
   const repair = guestDesktopRepairCommand();
   assert.match(repair, /xdpyinfo/);
@@ -77,13 +83,12 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(repair, /getty@tty1/);
   assert.match(repair, /DESKTOP_READY/);
   assert.match(repair, /apt-get install/);
-  assert.match(repair, /neoagent-display-setup/);
+  assert.match(repair, /neoagent-framebuffer-desktop/);
   assert.match(repair, /systemctl restart lightdm\.service >\/dev\/null 2>&1 \|\| true/);
   assert.doesNotMatch(repair, /set -e/);
   assert.match(ensure, /systemctl restart lightdm\.service >\/dev\/null 2>&1 \|\| true/);
   assert.doesNotMatch(ensure, /set -e/);
-  assert.match(ensure, /\[ -e \/dev\/fb0 \]/);
-  assert.doesNotMatch(ensure, /! -e \/dev\/dri\/card0/);
+  assert.match(ensure, /\/dev\/dri\/card0/);
   const commands = renderDesktopFileCommands([
     ...systemFiles,
     ...getGuestDesktopSkelFiles(),
@@ -98,6 +103,16 @@ test('desktop bring-up script is valid POSIX shell', () => {
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
+  const framebuffer = getGuestDesktopSystemFiles()
+    .find((file) => file.path === '/usr/local/bin/neoagent-framebuffer-desktop')
+    .content;
+  const framebufferCheck = spawnSync('sh', ['-n'], {
+    input: framebuffer,
+    encoding: 'utf8',
+  });
+  assert.equal(framebufferCheck.status, 0, framebufferCheck.stderr);
+  assert.match(framebuffer, /vtconsole/);
+  assert.match(framebuffer, /ShadowFB/);
 });
 
 test('desktop repair ignores SysV enable chatter and surfaces Xorg failure', () => {
