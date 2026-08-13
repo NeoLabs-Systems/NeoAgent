@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   build-installers:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     uses: ./.github/workflows/_build-installers.yml
     secrets: inherit
     with:
