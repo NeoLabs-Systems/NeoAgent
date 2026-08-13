@@ -79,6 +79,7 @@ test('computer cloud-init starts one owned desktop after cloud-init without an o
   assert.match(userData, /chvt 1/);
   assert.match(userData, /getty@tty1/);
   assert.match(userData, /virtio_gpu/);
+  assert.match(userData, /bochs/);
   assert.match(userData, /tint2 -c \/etc\/xdg\/tint2\/tint2rc/);
   assert.match(userData, /chown neo:neo \/home\/neo/);
   assert.match(userData, /After=cloud-final\.service/);

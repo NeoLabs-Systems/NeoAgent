@@ -41,7 +41,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows-installer:
@@ -271,6 +271,13 @@ jobs:
           path: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
           if-no-files-found: error
 
+      - name: Attach Windows installer to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -361,6 +368,16 @@ jobs:
             dist/neoagent-runtime-windows-*.zip
             dist/neoagent-runtime-metadata-windows-*.json
           if-no-files-found: error
+
+      - name: Attach Windows runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-windows-*.exe
+            dist/neoagent-runtime-windows-*.zip
+            dist/neoagent-runtime-metadata-windows-*.json
 
   build-macos-installer:
     name: Build macOS Installer (${{ matrix.architecture }})
@@ -563,6 +580,13 @@ jobs:
           path: dist/neoagent-macos-*.dmg
           if-no-files-found: error
 
+      - name: Attach macOS installer to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: dist/neoagent-macos-*.dmg
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -649,6 +673,16 @@ jobs:
             dist/neoagent-runtime-macos-*.zip
             dist/neoagent-runtime-metadata-macos-*.json
           if-no-files-found: error
+
+      - name: Attach macOS runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-macos-*
+            dist/neoagent-runtime-macos-*.zip
+            dist/neoagent-runtime-metadata-macos-*.json
 
   build-linux-installer:
     name: Build Linux Installer
@@ -861,6 +895,16 @@ jobs:
             dist/neoagent-linux-x86_64-*.AppImage
           if-no-files-found: error
 
+      - name: Attach Linux installers to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-linux-amd64-*.deb
+            dist/neoagent-arch-x86_64-*.pkg.tar.zst
+            dist/neoagent-linux-x86_64-*.AppImage
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -932,6 +976,16 @@ jobs:
             dist/neoagent-runtime-linux-*.zip
             dist/neoagent-runtime-metadata-linux-*.json
           if-no-files-found: error
+
+      - name: Attach Linux runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-linux-*
+            dist/neoagent-runtime-linux-*.zip
+            dist/neoagent-runtime-metadata-linux-*.json
 
   build-android-apks:
     name: Build Android APKs
@@ -1052,3 +1106,11 @@ jobs:
           name: neoagent-android-installer
           path: dist/*.apk
           if-no-files-found: error
+
+      - name: Attach Android apps to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-android-*.apk

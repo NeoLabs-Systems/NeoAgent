@@ -104,6 +104,41 @@ async function capture(device, directory) {
   }
 }
 
+test('ARM VGA has a VNC framebuffer immediately', async (t) => {
+  if (!qemuAvailable()) {
+    t.skip('qemu-system-aarch64 + HVF firmware are required');
+    return;
+  }
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-display-'));
+  const qmpSocket = path.join(directory, 'vga.sock');
+  const dump = path.join(directory, 'vga.ppm');
+  const child = spawn('qemu-system-aarch64', [
+    '-machine', 'virt,highmem=on',
+    '-cpu', 'host',
+    '-accel', 'hvf',
+    '-m', '512',
+    '-drive', `if=pflash,format=raw,readonly=on,file=${FIRMWARE}`,
+    '-device', 'VGA',
+    '-display', 'none',
+    '-qmp', `unix:${qmpSocket},server=on,wait=off`,
+    '-serial', 'null',
+  ], { stdio: 'ignore' });
+  try {
+    for (let i = 0; i < 40 && !fs.existsSync(qmpSocket); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!fs.existsSync(qmpSocket)) throw new Error('QMP did not start.');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await qmp(qmpSocket, { execute: 'screendump', arguments: { filename: dump } });
+    const shot = ppmNonBlackPixels(dump);
+    assert.ok(shot.nonempty > 50, `VGA should paint immediately, got ${shot.nonempty}`);
+    assert.ok(shot.width > 0);
+  } finally {
+    child.kill('SIGTERM');
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('ARM ramfb produces a real QEMU framebuffer screenshot', async (t) => {
   if (!qemuAvailable()) {
     t.skip('qemu-system-aarch64 + HVF firmware are required');

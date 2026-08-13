@@ -351,7 +351,7 @@ function buildQemuArgs({
     args.push(
       '-drive', `if=pflash,unit=0,format=raw,readonly=on,file=${drivePath(firmwareCode)}`,
       '-drive', `if=pflash,unit=1,format=qcow2,file=${drivePath(armFirmwareVariables)}`,
-      '-device', 'virtio-gpu-pci',
+      '-device', 'VGA',
     );
   } else {
     args.push(

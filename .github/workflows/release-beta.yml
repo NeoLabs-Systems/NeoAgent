@@ -192,6 +192,11 @@ jobs:
           done
           exit 1
 
+      - name: Add download links to release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release_download.js --tag "${{ env.NEW_VERSION }}"
+
       - name: Capture release sha
         id: capture_release_sha
         run: |

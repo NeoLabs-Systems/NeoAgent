@@ -13,7 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-firmware:
@@ -96,3 +96,13 @@ jobs:
           name: neoagent-wearable-firmware
           path: dist/*
           if-no-files-found: error
+
+      - name: Attach firmware to release
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-wearable-firmware.bin
+            dist/neoagent-wearable-firmware.bin.sha256
+            dist/neoagent-wearable-bootloader.bin
+            dist/neoagent-wearable-partition-table.bin

@@ -53,7 +53,7 @@ test('Debian guest images are architecture-specific and digest pinned', () => {
   assert.notEqual(PINNED_IMAGES.x64.sha512, PINNED_IMAGES.arm64.sha512);
 });
 
-test('ARM64 computer uses virtio-gpu so VNC shows the guest desktop scanout', () => {
+test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-firmware-test-'));
   const firmware = path.join(temporaryRoot, 'firmware.fd');
   const variables = path.join(temporaryRoot, 'variables.qcow2');
@@ -78,8 +78,8 @@ test('ARM64 computer uses virtio-gpu so VNC shows the guest desktop scanout', ()
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device virtio-gpu-pci/);
-    assert.doesNotMatch(joined, /xres=/);
+    assert.match(joined, /-device VGA/);
+    assert.doesNotMatch(joined, /virtio-gpu/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
     assert.doesNotMatch(joined, /-device ramfb/);

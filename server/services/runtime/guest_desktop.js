@@ -194,8 +194,9 @@ fi
 install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/X11/xorg.conf.d /usr/local/bin /etc/systemd/system /etc/systemd/system-generators
 ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
 install -d -m 0755 /etc/modules-load.d /etc/initramfs-tools
-printf '%s\n' virtio_gpu virtio-gpu > /etc/modules-load.d/neoagent-gpu.conf
+printf '%s\n' bochs bochs_drm virtio_gpu virtio-gpu > /etc/modules-load.d/neoagent-gpu.conf
 if [ -f /etc/initramfs-tools/modules ]; then
+  grep -qxF bochs /etc/initramfs-tools/modules || echo bochs >> /etc/initramfs-tools/modules
   grep -qxF virtio_gpu /etc/initramfs-tools/modules || echo virtio_gpu >> /etc/initramfs-tools/modules
 fi
 cat > /usr/local/bin/neoagent-display-setup <<'SETUP'
@@ -323,7 +324,9 @@ cp -a /usr/share/neoagent/desktop-skel/. /home/neo/
 chmod 0755 /home/neo/Desktop/*.desktop
 chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
 `, '0755'),
-    fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `virtio_gpu
+    fileEntry('/etc/modules-load.d/neoagent-gpu.conf', `bochs
+bochs_drm
+virtio_gpu
 virtio-gpu
 `),
     fileEntry('/usr/local/bin/neoagent-display-setup', guestDisplaySetupScript(), '0755'),
