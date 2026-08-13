@@ -399,8 +399,8 @@ function isProcessAlive(processHandle) {
   return Boolean(processHandle && processHandle.exitCode == null && !processHandle.killed);
 }
 
-function isCapacityError(error) {
-  return ['COMPUTER_CAPACITY', 'COMPUTER_STORAGE_CAPACITY'].includes(error?.code);
+function isQueueableCapacityError(error) {
+  return error?.code === 'COMPUTER_CAPACITY';
 }
 
 function requestQmpCommand(qmpSocket, execute, args = undefined, timeoutMs = 30000) {
@@ -681,7 +681,7 @@ class QemuVMManager {
       })
       .catch((error) => {
         this.#transientStatus.set(key, {
-          state: isCapacityError(error) ? 'capacity_wait' : 'error',
+          state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
           lastError: error.message,
           errorCode: error.code || null,
         });
@@ -905,7 +905,7 @@ class QemuVMManager {
     const key = String(userId || '').trim();
     await this.killVm(key);
     this.#transientStatus.set(key, {
-      state: isCapacityError(error) ? 'capacity_wait' : 'error',
+      state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
       lastError: String(error?.message || error || 'Cloud computer failed.'),
       errorCode: error?.code || null,
     });

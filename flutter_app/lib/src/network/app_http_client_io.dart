@@ -77,6 +77,21 @@ class IoAppHttpClient implements AppHttpClient {
   }
 
   @override
+  Future<HttpResponseData> patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    final response = await _client.patch(
+      uri,
+      headers: _withCookie(headers),
+      body: body,
+    );
+    _storeCookie(response.headers);
+    return _toResponseData(response);
+  }
+
+  @override
   Future<HttpResponseData> delete(
     Uri uri, {
     Map<String, String>? headers,

@@ -9,6 +9,7 @@ const routeRegistry = [
   { basePath: '/api/setup', modulePath: '../routes/setup' },
   { basePath: '/api/runtime', modulePath: '../routes/runtime' },
   { basePath: '/api/computer', modulePath: '../routes/computer' },
+  { basePath: '/api/cowork', modulePath: '../routes/cowork' },
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },

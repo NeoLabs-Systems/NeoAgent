@@ -49,6 +49,16 @@ class NeoAgentController extends ChangeNotifier {
   );
   static const String _selectedSectionPrefsKey = 'ui.selectedSection';
   static const String _selectedAgentPrefsKey = 'ui.selectedAgentId';
+  static const String _desktopWorkspaceModePrefsKey = 'desktop.workspaceMode';
+  static const Set<String> _workspaceToolNames = <String>{
+    'read_file',
+    'read_files',
+    'write_file',
+    'edit_file',
+    'replace_file_range',
+    'list_directory',
+    'search_files',
+  };
 
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -104,6 +114,8 @@ class NeoAgentController extends ChangeNotifier {
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
   bool isDiscoveringBackends = false;
+  bool desktopCoworkMode = false;
+  bool isLoadingCowork = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
@@ -150,6 +162,12 @@ class NeoAgentController extends ChangeNotifier {
   HealthBridgeStatus? deviceHealthStatus;
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
+  List<CoworkChat> coworkChats = const <CoworkChat>[];
+  String? selectedCoworkChatId;
+  final Map<String, CoworkThreadState> _coworkThreads =
+      <String, CoworkThreadState>{};
+  CoworkDeviceSelection? coworkDefaultDevice;
+  bool coworkWorkSurfacePinned = false;
   bool chatHistoryHasMore = false;
   bool isLoadingOlderChatHistory = false;
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
@@ -189,6 +207,8 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic> teachRuntime = const <String, dynamic>{'status': 'idle'};
   String? computerDisplayUrl;
   String computerTerminalOutput = '';
+  Map<String, dynamic> computerBrowserRuntime = const <String, dynamic>{};
+  String? computerBrowserScreenshotPath;
   Map<String, dynamic> socialReachStatus = const <String, dynamic>{};
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
@@ -209,6 +229,21 @@ class NeoAgentController extends ChangeNotifier {
   String? _chatHistoryBeforeSource;
   String? _chatHistoryBeforeId;
   String? _requestedRunFocusId;
+
+  CoworkChat? get selectedCoworkChat {
+    final id = selectedCoworkChatId;
+    if (id == null) return null;
+    for (final chat in coworkChats) {
+      if (chat.id == id) return chat;
+    }
+    return null;
+  }
+
+  CoworkThreadState get selectedCoworkThread =>
+      _coworkThreads[selectedCoworkChatId] ?? const CoworkThreadState();
+
+  CoworkThreadState coworkThreadFor(String conversationId) =>
+      _coworkThreads[conversationId] ?? const CoworkThreadState();
 
   ActiveRunState? activeRun;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
@@ -627,6 +662,9 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.keepRunningOnClose') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
+    desktopCoworkMode = _supportsDesktopShell
+        ? _prefs?.getString(_desktopWorkspaceModePrefsKey) == 'cowork'
+        : false;
     _restoreSelectedSectionFromPrefs();
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
@@ -1478,6 +1516,11 @@ class NeoAgentController extends ChangeNotifier {
     supportedModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
+    coworkChats = const <CoworkChat>[];
+    selectedCoworkChatId = null;
+    _coworkThreads.clear();
+    coworkDefaultDevice = null;
+    isLoadingCowork = false;
     timelineItems = const <TimelineEventItem>[];
     isRefreshingTimeline = false;
     tokenUsage = null;
@@ -1598,6 +1641,631 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.settings) {
       unawaited(refreshAiCatalog());
     }
+    notifyListeners();
+  }
+
+  Future<void> setDesktopCoworkMode(bool enabled) async {
+    if (!_supportsDesktopShell || desktopCoworkMode == enabled) return;
+    desktopCoworkMode = enabled;
+    await _prefs?.setString(
+      _desktopWorkspaceModePrefsKey,
+      enabled ? 'cowork' : 'standard',
+    );
+    notifyListeners();
+    if (enabled) await refreshCowork();
+  }
+
+  Future<void> refreshCowork({bool selectFirst = true}) async {
+    if (!isAuthenticated || !_supportsDesktopShell || isLoadingCowork) return;
+    isLoadingCowork = true;
+    notifyListeners();
+    try {
+      final responses = await Future.wait(<Future<Map<String, dynamic>>>[
+        _backendClient.fetchCoworkChats(backendUrl),
+        _backendClient.fetchCoworkCapabilities(backendUrl),
+      ]);
+      coworkChats = _decodeModelList(
+        'cowork_chats',
+        responses[0]['chats'],
+        (json) => CoworkChat.fromJson(Map<String, dynamic>.from(json)),
+        fallbackToMapValues: true,
+      );
+      coworkDefaultDevice = CoworkDeviceSelection.fromJson(
+        _jsonMap(responses[1]['device']),
+      );
+      if (selectFirst) {
+        final selectedStillExists = coworkChats.any(
+          (chat) => chat.id == selectedCoworkChatId,
+        );
+        if (!selectedStillExists) {
+          selectedCoworkChatId = coworkChats.isEmpty
+              ? null
+              : coworkChats.first.id;
+        }
+      }
+      final selectedId = selectedCoworkChatId;
+      if (selectedId != null && !_coworkThreads.containsKey(selectedId)) {
+        await _loadCoworkChat(selectedId);
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingCowork = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadCoworkChat(String conversationId) async {
+    _coworkThreads[conversationId] = coworkThreadFor(
+      conversationId,
+    ).copyWith(loading: true);
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchCoworkChat(
+        backendUrl,
+        conversationId,
+      );
+      final messages =
+          _jsonMapList(response['messages'], fallbackToMapValues: true)
+              .map((message) {
+                return ChatEntry(
+                  id: message['id']?.toString() ?? '',
+                  role: message['role']?.toString() ?? 'assistant',
+                  content: message['content']?.toString() ?? '',
+                  platform: 'cowork',
+                  runId: message['runId']?.toString(),
+                  senderName: message['agentName']?.toString(),
+                  metadata: _jsonMap(message['metadata']),
+                  createdAt: _parseTimestamp(message['createdAt']?.toString()),
+                );
+              })
+              .toList(growable: false);
+      final inputRequests = _jsonMapList(
+        response['inputRequests'],
+        fallbackToMapValues: true,
+      ).map(CoworkInputRequest.fromJson).toList(growable: false);
+      final activity = <CoworkActivityItem>[];
+      String? activeRunId;
+      String? runStatus;
+      for (final run in _jsonMapList(
+        response['activity'],
+        fallbackToMapValues: true,
+      )) {
+        final runId = run['id']?.toString() ?? '';
+        final status = run['status']?.toString() ?? 'pending';
+        if (activeRunId == null &&
+            <String>{
+              'pending',
+              'running',
+              'pausing',
+              'paused',
+              'resuming',
+            }.contains(status)) {
+          activeRunId = runId;
+          runStatus = status;
+        }
+        for (final event in _jsonMapList(
+          run['events'],
+          fallbackToMapValues: true,
+        )) {
+          final payload = _jsonMap(event['payload']);
+          activity.add(
+            CoworkActivityItem(
+              id: 'event-${event['id']}',
+              runId: runId,
+              kind: event['eventType']?.toString() ?? 'activity',
+              label:
+                  payload['tool']?.toString() ??
+                  event['eventType']?.toString() ??
+                  'Activity',
+              status: status,
+              summary: _summarizeToolResult(payload),
+              createdAt: _parseTimestamp(event['createdAt']?.toString()),
+              durationMs: payload['elapsed_ms'] is num
+                  ? (payload['elapsed_ms'] as num).toInt()
+                  : null,
+            ),
+          );
+        }
+      }
+      _coworkThreads[conversationId] = CoworkThreadState(
+        messages: messages,
+        activity: activity,
+        inputRequests: inputRequests,
+        activeRunId: activeRunId,
+        runStatus: runStatus,
+      );
+    } catch (error) {
+      _coworkThreads[conversationId] = coworkThreadFor(
+        conversationId,
+      ).copyWith(loading: false);
+      errorMessage = _friendlyErrorMessage(error);
+    }
+  }
+
+  Future<void> _refreshCoworkConversation(String conversationId) async {
+    await refreshCowork(selectFirst: false);
+    if (coworkChats.any((chat) => chat.id == conversationId)) {
+      await _loadCoworkChat(conversationId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> selectCoworkChat(String conversationId) async {
+    if (selectedCoworkChatId == conversationId) return;
+    selectedCoworkChatId = conversationId;
+    notifyListeners();
+    if (!_coworkThreads.containsKey(conversationId)) {
+      await _loadCoworkChat(conversationId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> createCoworkChat() async {
+    try {
+      final response = await _backendClient.createCoworkChat(
+        backendUrl,
+        <String, dynamic>{},
+      );
+      final chat = CoworkChat.fromJson(_jsonMap(response['chat']));
+      coworkChats = <CoworkChat>[chat, ...coworkChats];
+      selectedCoworkChatId = chat.id;
+      _coworkThreads[chat.id] = const CoworkThreadState();
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateCoworkChat(
+    String conversationId,
+    Map<String, dynamic> patch,
+  ) async {
+    try {
+      final response = await _backendClient.updateCoworkChat(
+        backendUrl,
+        conversationId,
+        patch,
+      );
+      final updated = CoworkChat.fromJson(_jsonMap(response['chat']));
+      coworkChats = coworkChats
+          .map((chat) => chat.id == updated.id ? updated : chat)
+          .toList(growable: false);
+      notifyListeners();
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> implementSelectedCoworkPlan() async {
+    final chat = selectedCoworkChat;
+    if (chat == null || chat.mode != CoworkInteractionMode.plan) return;
+    final updated = await updateCoworkChat(chat.id, <String, dynamic>{
+      'mode': 'agent',
+    });
+    if (!updated) return;
+    if (selectedCoworkChatId == chat.id) {
+      await sendCoworkMessage('Implement the plan above.');
+    }
+  }
+
+  Future<void> deleteCoworkChat(String conversationId) async {
+    try {
+      await _backendClient.deleteCoworkChat(backendUrl, conversationId);
+      coworkChats = coworkChats
+          .where((chat) => chat.id != conversationId)
+          .toList(growable: false);
+      _coworkThreads.remove(conversationId);
+      if (selectedCoworkChatId == conversationId) {
+        selectedCoworkChatId = coworkChats.isEmpty
+            ? null
+            : coworkChats.first.id;
+      }
+      notifyListeners();
+      final selectedId = selectedCoworkChatId;
+      if (selectedId != null && !_coworkThreads.containsKey(selectedId)) {
+        await _loadCoworkChat(selectedId);
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  void setCoworkWorkSurfacePinned(bool pinned) {
+    coworkWorkSurfacePinned = pinned;
+    notifyListeners();
+  }
+
+  Future<void> sendCoworkMessage(
+    String content, {
+    List<SharedChatAttachment> sharedAttachments =
+        const <SharedChatAttachment>[],
+  }) async {
+    final chat = selectedCoworkChat;
+    if (chat == null) return;
+    await _sendCoworkMessageToChat(
+      chat,
+      content,
+      sharedAttachments: sharedAttachments,
+    );
+  }
+
+  Future<void> _sendCoworkMessageToChat(
+    CoworkChat chat,
+    String content, {
+    List<SharedChatAttachment> sharedAttachments =
+        const <SharedChatAttachment>[],
+  }) async {
+    final trimmed = content.trim();
+    final normalizedAttachments = sharedAttachments
+        .where((item) => item.isValid)
+        .toList(growable: false);
+    final outgoingTask = _taskWithSharedAttachments(
+      trimmed,
+      normalizedAttachments,
+    );
+    if (outgoingTask.isEmpty || _socket == null) return;
+    final current = coworkThreadFor(chat.id);
+    _coworkThreads[chat.id] = current.copyWith(
+      messages: <ChatEntry>[
+        ...current.messages,
+        ChatEntry(
+          id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+          role: 'user',
+          content: trimmed.isNotEmpty ? trimmed : 'Sent shared attachments.',
+          platform: 'cowork',
+          createdAt: DateTime.now(),
+          transient: true,
+          metadata: normalizedAttachments.isEmpty
+              ? const <String, dynamic>{}
+              : <String, dynamic>{
+                  'sharedAttachments': normalizedAttachments
+                      .map((item) => item.toJson())
+                      .toList(growable: false),
+                },
+        ),
+      ],
+      sending: true,
+      phase: current.hasLiveRun ? 'Steering' : 'Queued',
+    );
+    notifyListeners();
+    _socket!.emit('agent:run', <String, dynamic>{
+      'task': outgoingTask,
+      'options': <String, dynamic>{
+        'conversationId': chat.id,
+        'coworkDisplayContent': trimmed.isNotEmpty
+            ? trimmed
+            : 'Sent shared attachments.',
+        if (normalizedAttachments.isNotEmpty)
+          'coworkSharedAttachments': normalizedAttachments
+              .map((item) => item.toJson())
+              .toList(growable: false),
+      },
+    });
+  }
+
+  Future<void> pauseCoworkRun() async {
+    final runId = selectedCoworkThread.activeRunId;
+    if (runId == null) return;
+    try {
+      await _backendClient.pauseAgentRun(backendUrl, runId);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> resumeCoworkRun() async {
+    final runId = selectedCoworkThread.activeRunId;
+    if (runId == null) return;
+    try {
+      await _backendClient.resumeAgentRun(backendUrl, runId);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopCoworkRun() async {
+    final runId = selectedCoworkThread.activeRunId;
+    if (runId == null) return;
+    try {
+      await _backendClient.abortAgentRun(backendUrl, runId);
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> answerCoworkInput(
+    CoworkInputRequest request,
+    Map<String, String> answers,
+  ) async {
+    final chat = selectedCoworkChat;
+    if (chat == null) return;
+    try {
+      final response = await _backendClient.answerCoworkInput(
+        backendUrl,
+        conversationId: chat.id,
+        requestId: request.id,
+        answers: answers,
+      );
+      final prompt = _jsonMap(response['answer'])['prompt']?.toString() ?? '';
+      await _loadCoworkChat(chat.id);
+      notifyListeners();
+      if (prompt.isNotEmpty) {
+        await _sendCoworkMessageToChat(chat, prompt);
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  String? _coworkConversationId(Map<String, dynamic> payload) {
+    final direct = payload['conversationId']?.toString().trim() ?? '';
+    if (direct.isNotEmpty && coworkChats.any((chat) => chat.id == direct)) {
+      return direct;
+    }
+    final runId = payload['runId']?.toString().trim() ?? '';
+    if (runId.isEmpty) return null;
+    for (final entry in _coworkThreads.entries) {
+      if (entry.value.activeRunId == runId ||
+          entry.value.activity.any((item) => item.runId == runId) ||
+          entry.value.messages.any((message) => message.runId == runId)) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  void _updateCoworkRunEvent(String event, Map<String, dynamic> payload) {
+    final conversationId = _coworkConversationId(payload);
+    if (conversationId == null) return;
+    final current = coworkThreadFor(conversationId);
+    final runId = payload['runId']?.toString() ?? current.activeRunId ?? '';
+    var next = current;
+
+    switch (event) {
+      case 'start':
+        next = current.copyWith(
+          activeRunId: runId,
+          runStatus: 'running',
+          phase: 'Starting',
+          sending: true,
+          streamingContent: '',
+        );
+      case 'thinking':
+        next = current.copyWith(phase: 'Thinking');
+      case 'analysis':
+        next = current.copyWith(phase: 'Analyzing');
+      case 'plan':
+        next = current.copyWith(phase: 'Planning');
+      case 'stopping':
+        next = current.copyWith(phase: 'Stopping', runStatus: 'stopping');
+      case 'pausing':
+        next = current.copyWith(phase: 'Pausing', runStatus: 'pausing');
+      case 'stream':
+        next = current.copyWith(
+          phase: 'Streaming',
+          streamingContent: payload['content']?.toString() ?? '',
+        );
+      case 'tool_start':
+        final toolName = payload['toolName']?.toString() ?? 'tool';
+        final item = CoworkActivityItem(
+          id:
+              payload['stepId']?.toString().ifEmpty(
+                'tool-${DateTime.now().microsecondsSinceEpoch}',
+              ) ??
+              'tool-${DateTime.now().microsecondsSinceEpoch}',
+          runId: runId,
+          kind: payload['type']?.toString() ?? 'tool',
+          label: toolName,
+          status: 'running',
+          summary: _summarizeToolArgs(payload['toolArgs']),
+          createdAt: DateTime.now(),
+        );
+        next = current.copyWith(
+          phase: 'Running $toolName',
+          activity: <CoworkActivityItem>[
+            ...current.activity.where((entry) => entry.id != item.id),
+            item,
+          ],
+        );
+      case 'tool_end':
+        final stepId = payload['stepId']?.toString() ?? '';
+        final toolName = payload['toolName']?.toString() ?? 'tool';
+        final toolResult = _jsonMap(payload['result']);
+        final item = CoworkActivityItem(
+          id: stepId.isEmpty
+              ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
+              : stepId,
+          runId: runId,
+          kind: payload['type']?.toString() ?? 'tool',
+          label: toolName,
+          status: payload['status']?.toString() ?? 'completed',
+          summary:
+              payload['error']?.toString() ??
+              _summarizeToolResult(payload['result']),
+          createdAt: DateTime.now(),
+        );
+        next = current.copyWith(
+          phase: 'Working',
+          activity: <CoworkActivityItem>[
+            ...current.activity.where((entry) => entry.id != item.id),
+            item,
+          ],
+        );
+        final selectedChat = selectedCoworkChatId == conversationId
+            ? selectedCoworkChat
+            : null;
+        if (selectedChat != null) {
+          final target = selectedChat.device.effective;
+          final screenshotPath =
+              payload['screenshotPath']?.toString() ??
+              toolResult['screenshotPath']?.toString() ??
+              toolResult['path']?.toString();
+          if (toolName.startsWith('browser_') &&
+              screenshotPath?.trim().isNotEmpty == true) {
+            computerBrowserScreenshotPath = screenshotPath;
+          }
+          if (toolName == 'execute_command') {
+            computerTerminalOutput =
+                toolResult['stdout']?.toString() ??
+                toolResult['output']?.toString() ??
+                computerTerminalOutput;
+          }
+          if (_workspaceToolNames.contains(toolName)) {
+            unawaited(refreshWorkspaceFiles(deviceTarget: target));
+          }
+          if (toolName.startsWith('browser_') ||
+              toolName.startsWith('desktop_') ||
+              toolName == 'execute_command' ||
+              _workspaceToolNames.contains(toolName)) {
+            unawaited(
+              refreshComputerRuntime(silent: true, deviceTarget: target),
+            );
+          }
+        }
+      case 'verification' || 'subagent' || 'steer_queued' || 'steer_applied':
+        final kind = event == 'verification'
+            ? 'verification'
+            : event == 'subagent'
+            ? 'subagent'
+            : 'steering';
+        final status = event == 'verification'
+            ? (payload['status']?.toString() == 'verified'
+                  ? 'completed'
+                  : 'failed')
+            : payload['status']?.toString() == 'failed'
+            ? 'failed'
+            : payload['status']?.toString() == 'running'
+            ? 'running'
+            : 'completed';
+        final summary = event == 'verification'
+            ? (payload['notes']?.toString() ??
+                  'Verification: ${payload['status']?.toString() ?? 'unknown'}')
+            : event == 'subagent'
+            ? (payload['task']?.toString() ??
+                  payload['error']?.toString() ??
+                  payload['result']?.toString() ??
+                  'Subagent update')
+            : event == 'steer_queued'
+            ? 'Queued steering: ${payload['content']?.toString() ?? ''}'
+            : 'Applied ${_asInt(payload['count'])} steering update(s).';
+        final item = CoworkActivityItem(
+          id: '$kind-${payload['handle']?.toString() ?? DateTime.now().microsecondsSinceEpoch}',
+          runId: runId,
+          kind: kind,
+          label: kind == 'subagent'
+              ? 'Subagent'
+              : kind == 'steering'
+              ? 'Steering'
+              : 'Verification',
+          status: status,
+          summary: summary,
+          createdAt: DateTime.now(),
+        );
+        next = current.copyWith(
+          phase: event == 'verification'
+              ? 'Verifying'
+              : event == 'steer_applied'
+              ? 'Incorporating steering'
+              : current.phase,
+          activity: <CoworkActivityItem>[...current.activity, item],
+        );
+      case 'interim':
+        final content =
+            payload['content']?.toString() ??
+            payload['message']?.toString() ??
+            '';
+        if (content.trim().isNotEmpty) {
+          next = current.copyWith(
+            phase: 'Working',
+            messages: <ChatEntry>[
+              ...current.messages,
+              ChatEntry(
+                id: 'interim-${DateTime.now().microsecondsSinceEpoch}',
+                role: 'assistant',
+                content: content,
+                platform: 'cowork',
+                runId: runId,
+                createdAt: DateTime.now(),
+                transient: true,
+                metadata: <String, dynamic>{
+                  'interim': true,
+                  'kind': payload['kind']?.toString() ?? 'progress',
+                },
+              ),
+            ],
+          );
+        }
+      case 'input_required':
+        final request = CoworkInputRequest.fromJson(
+          _jsonMap(payload['request']),
+        );
+        next = current.copyWith(
+          phase: 'Waiting for input',
+          runStatus: 'waiting_input',
+          sending: false,
+          inputRequests: <CoworkInputRequest>[
+            ...current.inputRequests.where((entry) => entry.id != request.id),
+            request,
+          ],
+        );
+      case 'complete':
+        final content = payload['content']?.toString().trim() ?? '';
+        next = current.copyWith(
+          messages: content.isEmpty
+              ? current.messages
+              : <ChatEntry>[
+                  ...current.messages,
+                  ChatEntry(
+                    id: 'final-${DateTime.now().microsecondsSinceEpoch}',
+                    role: 'assistant',
+                    content: content,
+                    platform: 'cowork',
+                    runId: runId,
+                    createdAt: DateTime.now(),
+                    transient: true,
+                  ),
+                ],
+          phase: 'Completed',
+          runStatus: 'completed',
+          sending: false,
+          streamingContent: '',
+          clearActiveRunId: true,
+        );
+        unawaited(_refreshCoworkConversation(conversationId));
+      case 'paused':
+        next = current.copyWith(phase: 'Paused', runStatus: 'paused');
+      case 'resumed':
+        next = current.copyWith(phase: 'Working', runStatus: 'running');
+      case 'stopped':
+        next = current.copyWith(
+          phase: 'Stopped',
+          runStatus: 'stopped',
+          sending: false,
+          streamingContent: '',
+          clearActiveRunId: true,
+        );
+        unawaited(_refreshCoworkConversation(conversationId));
+      case 'error':
+        next = current.copyWith(
+          phase: payload['error']?.toString() ?? 'Failed',
+          runStatus: 'failed',
+          sending: false,
+          streamingContent: '',
+          clearActiveRunId: true,
+        );
+        unawaited(_refreshCoworkConversation(conversationId));
+    }
+    _coworkThreads[conversationId] = next;
     notifyListeners();
   }
 
@@ -2615,7 +3283,7 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshDevices() async {
+  Future<void> refreshDevices({String? deviceTarget}) async {
     if (!isAuthenticated || isRefreshingDevices) {
       return;
     }
@@ -2623,7 +3291,10 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
     try {
       final responses = await Future.wait(<Future<Map<String, dynamic>>>[
-        _backendClient.fetchComputerStatus(backendUrl),
+        _backendClient.fetchComputerStatus(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
         _backendClient.fetchAndroidStatus(backendUrl),
         _backendClient.fetchTeachStatus(backendUrl),
       ]);
@@ -2714,19 +3385,23 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> startComputerRuntime() async {
+  Future<void> startComputerRuntime({String? deviceTarget}) async {
     if (isRunningDeviceAction) return;
     isRunningDeviceAction = true;
     errorMessage = null;
     notifyListeners();
     try {
       computerRuntime = Map<String, dynamic>.from(
-        await _backendClient.startComputer(backendUrl),
+        await _backendClient.startComputer(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
       );
-      if (computerProvider == 'cloud') {
+      if ((deviceTarget ?? computerProvider) == 'cloud') {
         await _backendClient.acquireComputerControl(backendUrl);
         final display = await _backendClient.createComputerDisplaySession(
           backendUrl,
+          deviceTarget: deviceTarget,
         );
         final viewPath = display['viewUrl']?.toString().trim() ?? '';
         if (viewPath.isNotEmpty) {
@@ -2737,17 +3412,23 @@ class NeoAgentController extends ChangeNotifier {
       }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
-      await refreshComputerRuntime(silent: true);
+      await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
     } finally {
       isRunningDeviceAction = false;
       notifyListeners();
     }
   }
 
-  Future<void> refreshComputerRuntime({bool silent = false}) async {
+  Future<void> refreshComputerRuntime({
+    bool silent = false,
+    String? deviceTarget,
+  }) async {
     try {
       computerRuntime = Map<String, dynamic>.from(
-        await _backendClient.fetchComputerStatus(backendUrl),
+        await _backendClient.fetchComputerStatus(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
       );
       teachRuntime = Map<String, dynamic>.from(
         await _backendClient.fetchTeachStatus(backendUrl),
@@ -2761,22 +3442,26 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> openComputerDisplayRuntime() async {
+  Future<void> openComputerDisplayRuntime({String? deviceTarget}) async {
     if (isRunningDeviceAction) return;
     isRunningDeviceAction = true;
     errorMessage = null;
     notifyListeners();
     try {
-      if (computerProvider == 'local') {
-        await refreshComputerRuntime(silent: true);
+      if ((deviceTarget ?? computerProvider) == 'local') {
+        await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
         return;
       }
       await _backendClient.acquireComputerControl(backendUrl);
       final display = await _backendClient.createComputerDisplaySession(
         backendUrl,
+        deviceTarget: deviceTarget,
       );
       computerRuntime = Map<String, dynamic>.from(
-        await _backendClient.fetchComputerStatus(backendUrl),
+        await _backendClient.fetchComputerStatus(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
       );
       final viewPath = display['viewUrl']?.toString().trim() ?? '';
       computerDisplayUrl = viewPath.isEmpty
@@ -2790,14 +3475,17 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> stopComputerRuntime() async {
+  Future<void> stopComputerRuntime({String? deviceTarget}) async {
     if (isRunningDeviceAction) return;
     isRunningDeviceAction = true;
     errorMessage = null;
     notifyListeners();
     try {
       computerRuntime = Map<String, dynamic>.from(
-        await _backendClient.stopComputer(backendUrl),
+        await _backendClient.stopComputer(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
       );
       computerDisplayUrl = null;
       teachRuntime = const <String, dynamic>{'status': 'idle'};
@@ -2873,14 +3561,22 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> launchComputerAppRuntime(String app) async {
+  Future<void> launchComputerAppRuntime(
+    String app, {
+    String? deviceTarget,
+  }) async {
     if (isRunningDeviceAction) return;
     isRunningDeviceAction = true;
     errorMessage = null;
     notifyListeners();
     try {
       await _withLocalUserControl(
-        () => _backendClient.launchComputerApp(backendUrl, app: app),
+        () => _backendClient.launchComputerApp(
+          backendUrl,
+          app: app,
+          deviceTarget: deviceTarget,
+        ),
+        deviceTarget: deviceTarget,
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -2890,7 +3586,10 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> executeComputerCommandRuntime(String command) async {
+  Future<void> executeComputerCommandRuntime(
+    String command, {
+    String? deviceTarget,
+  }) async {
     final normalized = command.trim();
     if (normalized.isEmpty || isRunningDeviceAction) return;
     isRunningDeviceAction = true;
@@ -2902,7 +3601,9 @@ class NeoAgentController extends ChangeNotifier {
           backendUrl,
           command: normalized,
           cwd: '/home/neo/workspace',
+          deviceTarget: deviceTarget,
         ),
+        deviceTarget: deviceTarget,
       );
       final stdout = result['stdout']?.toString() ?? '';
       final stderr = result['stderr']?.toString() ?? '';
@@ -2913,6 +3614,62 @@ class NeoAgentController extends ChangeNotifier {
         if (stderr.isNotEmpty) stderr.trimRight(),
         if (exitCode != null) '[exit $exitCode]',
       ].join('\n');
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshComputerBrowser({String? deviceTarget}) async {
+    if (isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      computerBrowserRuntime = Map<String, dynamic>.from(
+        await _backendClient.fetchComputerBrowserStatus(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        ),
+      );
+      final screenshot = await _backendClient.screenshotComputerBrowser(
+        backendUrl,
+        deviceTarget: deviceTarget,
+      );
+      computerBrowserScreenshotPath =
+          screenshot['screenshotPath']?.toString() ??
+          screenshot['path']?.toString();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isRunningDeviceAction = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> navigateComputerBrowser(
+    String url, {
+    String? deviceTarget,
+  }) async {
+    final normalized = url.trim();
+    if (normalized.isEmpty || isRunningDeviceAction) return;
+    isRunningDeviceAction = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _withLocalUserControl(
+        () => _backendClient.navigateComputerBrowser(
+          backendUrl,
+          url: normalized,
+          deviceTarget: deviceTarget,
+        ),
+        deviceTarget: deviceTarget,
+      );
+      computerBrowserRuntime = Map<String, dynamic>.from(result);
+      computerBrowserScreenshotPath =
+          result['screenshotPath']?.toString() ?? result['path']?.toString();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -3181,11 +3938,14 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
-  String workspaceDownloadUrl(String path) {
-    return '${_socketOrigin()}/${_backendClient.workspaceDownloadPath(path).replaceFirst(RegExp(r'^/'), '')}';
+  String workspaceDownloadUrl(String path, {String? deviceTarget}) {
+    return '${_socketOrigin()}/${_backendClient.workspaceDownloadPath(path, deviceTarget: deviceTarget).replaceFirst(RegExp(r'^/'), '')}';
   }
 
-  Future<void> refreshWorkspaceFiles({String? path}) async {
+  Future<void> refreshWorkspaceFiles({
+    String? path,
+    String? deviceTarget,
+  }) async {
     if (!isAuthenticated || isLoadingWorkspaceFiles) {
       return;
     }
@@ -3196,6 +3956,7 @@ class NeoAgentController extends ChangeNotifier {
       final response = await _backendClient.fetchWorkspaceDirectory(
         backendUrl,
         path: path ?? workspaceCurrentPath,
+        deviceTarget: deviceTarget,
       );
       workspaceCurrentPath = response['path']?.toString() ?? '';
       workspaceEntries = _jsonMapList(
@@ -3210,13 +3971,16 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> openWorkspaceDirectory(String path) async {
+  Future<void> openWorkspaceDirectory(
+    String path, {
+    String? deviceTarget,
+  }) async {
     workspaceSelectedFilePath = null;
     workspaceEditorContent = '';
-    await refreshWorkspaceFiles(path: path);
+    await refreshWorkspaceFiles(path: path, deviceTarget: deviceTarget);
   }
 
-  Future<void> openWorkspaceFile(String path) async {
+  Future<void> openWorkspaceFile(String path, {String? deviceTarget}) async {
     if (isLoadingWorkspaceFiles) {
       return;
     }
@@ -3227,6 +3991,7 @@ class NeoAgentController extends ChangeNotifier {
       final response = await _backendClient.fetchWorkspaceFile(
         backendUrl,
         path: path,
+        deviceTarget: deviceTarget,
       );
       workspaceSelectedFilePath = response['path']?.toString() ?? path;
       workspaceEditorContent = response['content']?.toString() ?? '';
@@ -3238,7 +4003,7 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> saveWorkspaceFile(String content) async {
+  Future<void> saveWorkspaceFile(String content, {String? deviceTarget}) async {
     final path = workspaceSelectedFilePath?.trim() ?? '';
     if (path.isEmpty || isSavingWorkspaceFile) {
       return;
@@ -3252,10 +4017,15 @@ class NeoAgentController extends ChangeNotifier {
           backendUrl,
           path: path,
           content: content,
+          deviceTarget: deviceTarget,
         ),
+        deviceTarget: deviceTarget,
       );
       workspaceEditorContent = content;
-      await refreshWorkspaceFiles(path: workspaceCurrentPath);
+      await refreshWorkspaceFiles(
+        path: workspaceCurrentPath,
+        deviceTarget: deviceTarget,
+      );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -3264,8 +4034,11 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<T> _withLocalUserControl<T>(Future<T> Function() action) async {
-    if (computerProvider != 'local') return action();
+  Future<T> _withLocalUserControl<T>(
+    Future<T> Function() action, {
+    String? deviceTarget,
+  }) async {
+    if ((deviceTarget ?? computerProvider) != 'local') return action();
     await _backendClient.acquireComputerControl(backendUrl);
     try {
       return await action();
@@ -3276,13 +4049,16 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> downloadWorkspaceFile(String path) async {
+  Future<void> downloadWorkspaceFile(
+    String path, {
+    String? deviceTarget,
+  }) async {
     final normalized = path.trim();
     if (normalized.isEmpty) {
       return;
     }
     final result = await _oauthLauncher.openExternal(
-      url: workspaceDownloadUrl(normalized),
+      url: workspaceDownloadUrl(normalized, deviceTarget: deviceTarget),
       label: 'neoagent_workspace_file_download',
     );
     if (!result.launched) {
@@ -5646,9 +6422,9 @@ class NeoAgentController extends ChangeNotifier {
         })
         .join('\n');
     final attachmentBlock = [
-      'Shared attachments from mobile app:',
+      'Shared attachments from the NeoAgent client:',
       lines,
-      'Use these for context. If the local URI is not directly accessible from the server, ask me to upload the file.',
+      'Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.',
     ].join('\n');
     if (base.isEmpty) {
       return attachmentBlock;
@@ -5806,6 +6582,18 @@ class NeoAgentController extends ChangeNotifier {
     final backendStatusCode = error is BackendException
         ? error.statusCode
         : null;
+    final backendCode = error is BackendException ? error.code : null;
+
+    if (backendCode == 'COMPUTER_STORAGE_CAPACITY') {
+      return 'The computer needs more free disk space on the NeoAgent host. Free some space, then try again.';
+    }
+    if (backendCode == 'COMPUTER_CAPACITY') {
+      return 'All cloud-computer slots are currently in use. Try again in a moment.';
+    }
+    if (backendCode == 'COMPUTER_RUNTIME_UNAVAILABLE' ||
+        backendCode == 'COMPUTER_FIRMWARE_MISSING') {
+      return 'The computer runtime needs repair. Run NeoAgent Doctor, then try again.';
+    }
 
     if (backendStatusCode == 402) {
       final details = _extractMeaningfulErrorDetails(text);
@@ -6654,6 +7442,10 @@ class NeoAgentController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      if (triggerSource == 'cowork' || _coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('start', payload);
+        return;
+      }
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
         _backgroundRunIds.add(runId);
@@ -6682,6 +7474,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:thinking', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('thinking', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6699,6 +7495,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:analysis', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('analysis', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6728,6 +7528,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:plan', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('plan', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6762,6 +7566,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:stopping', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('stopping', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6774,8 +7582,24 @@ class NeoAgentController extends ChangeNotifier {
         notifyListeners();
       }
     });
+    socket.on('run:pausing', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('pausing', payload);
+        return;
+      }
+      final runId = payload['runId']?.toString() ?? '';
+      if (activeRun?.runId == runId) {
+        activeRun = activeRun!.copyWith(phase: 'Pausing');
+        notifyListeners();
+      }
+    });
     socket.on('run:tool_start', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('tool_start', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6813,6 +7637,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:verification', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('verification', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6843,6 +7671,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:subagent', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('subagent', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6880,6 +7712,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:tool_end', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('tool_end', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6951,6 +7787,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:steer_queued', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('steer_queued', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -6978,6 +7818,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:steer_applied', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('steer_applied', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -7007,6 +7851,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('interim', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -7022,6 +7870,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:assistant_interim', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('interim', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -7037,8 +7889,28 @@ class NeoAgentController extends ChangeNotifier {
       }
       notifyListeners();
     });
+    socket.on('run:input_required', (dynamic data) {
+      final payload = _jsonMap(data);
+      _updateCoworkRunEvent('input_required', payload);
+    });
+    socket.on('run:paused', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('paused', payload);
+      }
+    });
+    socket.on('run:resumed', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('resumed', payload);
+      }
+    });
     socket.on('run:stream', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('stream', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -7067,6 +7939,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:complete', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('complete', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.remove(runId)) {
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
@@ -7111,6 +7987,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:stopped', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('stopped', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       clearPendingApprovalForRun(runId);
       if (_voiceRunIds.remove(runId)) {
@@ -7135,6 +8015,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:interrupted', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('stopped', payload);
+        return;
+      }
       final runId = payload['runId']?.toString() ?? '';
       clearPendingApprovalForRun(runId);
       if (_voiceRunIds.remove(runId)) {
@@ -7159,6 +8043,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:error', (dynamic data) {
       final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('error', payload);
+        return;
+      }
       final runId = payload['runId']?.toString();
       if (runId != null && _voiceRunIds.remove(runId)) {
         _resetLiveVoiceTurnBuffer();

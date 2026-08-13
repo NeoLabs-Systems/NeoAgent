@@ -71,6 +71,7 @@ part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
 part 'main_chat.dart';
+part 'main_cowork.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
 part 'main_security.dart';

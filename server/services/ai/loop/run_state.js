@@ -203,11 +203,13 @@ function findActiveRunForUser(engine, userId, predicate = null) {
   return candidate;
 }
 
-function findSteerableRunForUser(engine, userId, triggerSource = 'web') {
+function findSteerableRunForUser(engine, userId, triggerSource = 'web', conversationId = null) {
   return findActiveRunForUser(
     engine,
     userId,
-    (runMeta) => runMeta.triggerSource === triggerSource && runMeta.triggerType === 'user'
+    (runMeta) => runMeta.triggerSource === triggerSource
+      && runMeta.triggerType === 'user'
+      && (!conversationId || runMeta.conversationId === conversationId)
   );
 }
 
@@ -226,6 +228,7 @@ function enqueueSteering(engine, runId, content, metadata = {}) {
   runMeta.steeringQueue.push(item);
   engine.emit(runMeta.userId, 'run:steer_queued', {
     runId,
+    conversationId: runMeta.conversationId || null,
     content: item.content,
     pendingCount: runMeta.steeringQueue.length,
   });
@@ -296,13 +299,23 @@ function applyQueuedSteering(engine, runId, messages, { userId, conversationId }
   for (const entry of queued) {
     messages.push({ role: 'user', content: entry.content });
     if (conversationId) {
-      db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
-        .run(conversationId, 'user', entry.content);
+      db.prepare(
+        `INSERT INTO conversation_messages (
+          conversation_id, run_id, agent_id, role, content, metadata_json
+        ) VALUES (?, ?, ?, 'user', ?, ?)`,
+      ).run(
+        conversationId,
+        runId,
+        runMeta.agentId || null,
+        entry.content,
+        JSON.stringify({ steering: true }),
+      );
     }
   }
 
   engine.emit(userId, 'run:steer_applied', {
     runId,
+    conversationId: runMeta.conversationId || conversationId || null,
     count: queued.length,
     pendingCount: runMeta.steeringQueue.length,
     latestContent: queued[queued.length - 1]?.content || '',
@@ -321,7 +334,9 @@ function attachProcessToRun(engine, runId, pid) {
   runMeta.toolPids.add(pid);
   if (runMeta.aborted) {
     if (engine.runtimeManager && typeof engine.runtimeManager.killCommand === 'function') {
-      void engine.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+      void engine.runtimeManager.killCommand(runMeta.userId, pid, 'aborted', {
+        deviceTarget: runMeta.deviceTarget,
+      });
     }
   }
 }

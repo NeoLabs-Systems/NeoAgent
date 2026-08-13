@@ -52,8 +52,20 @@ test('allocations keep guaranteed capacity for every admitted computer', () => {
       totalBytes: 100 * 1024 ** 3,
       sparseLiabilityBytes: 8 * 1024 ** 3,
     }),
-    12 * 1024 ** 3,
+    24 * 1024 ** 3,
   );
+});
+
+test('storage reserve remains usable when the host is already below 20 percent free', () => {
+  const profile = getComputerResourceProfile({ storageReservePercent: 20 });
+  const storage = {
+    availableBytes: 28 * 1024 ** 3,
+    totalBytes: 228 * 1024 ** 3,
+    sparseLiabilityBytes: 8 * 1024 ** 3,
+  };
+
+  assert.equal(chooseDataDiskGiB(profile, storage), 12);
+  assert.ok(getStorageHeadroomBytes(profile, storage) >= 14 * 1024 ** 3);
 });
 
 test('TCG compatibility mode and sparse disk sizing remain bounded', () => {

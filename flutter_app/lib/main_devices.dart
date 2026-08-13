@@ -2,12 +2,19 @@ part of 'main.dart';
 
 enum _DeviceTab { computer, android }
 
-enum _ComputerTool { desktop, files, terminal }
-
 class DevicesPanel extends StatefulWidget {
-  const DevicesPanel({super.key, required this.controller});
+  const DevicesPanel({
+    super.key,
+    required this.controller,
+    this.deviceTarget,
+    this.showProviderPicker = true,
+    this.computerOnly = false,
+  });
 
   final NeoAgentController controller;
+  final String? deviceTarget;
+  final bool showProviderPicker;
+  final bool computerOnly;
 
   @override
   State<DevicesPanel> createState() => _DevicesPanelState();
@@ -15,28 +22,27 @@ class DevicesPanel extends StatefulWidget {
 
 class _DevicesPanelState extends State<DevicesPanel> {
   final TextEditingController _teachGoalController = TextEditingController();
-  final TextEditingController _terminalController = TextEditingController();
-  final TextEditingController _workspaceEditorController =
-      TextEditingController();
   final TextEditingController _androidAppController = TextEditingController(
     text: _androidLaunchPlaceholder,
   );
   _DeviceTab _device = _DeviceTab.computer;
-  _ComputerTool _computerTool = _ComputerTool.desktop;
+  bool _teachComposerVisible = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(widget.controller.refreshDevices());
+      if (mounted) {
+        unawaited(
+          widget.controller.refreshDevices(deviceTarget: widget.deviceTarget),
+        );
+      }
     });
   }
 
   @override
   void dispose() {
     _teachGoalController.dispose();
-    _terminalController.dispose();
-    _workspaceEditorController.dispose();
     _androidAppController.dispose();
     super.dispose();
   }
@@ -44,11 +50,17 @@ class _DevicesPanelState extends State<DevicesPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (widget.computerOnly) {
+      return Padding(
+        padding: const EdgeInsets.all(10),
+        child: _buildComputer(context),
+      );
+    }
     return DefaultTabController(
       length: 2,
       initialIndex: _device.index,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -58,11 +70,11 @@ class _DevicesPanelState extends State<DevicesPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('Devices', style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: 4),
+                      Text('Devices', style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 2),
                       Text(
-                        'One persistent computer for browser, apps, files and terminal.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                        'Use a full computer or Android device with NeoAgent.',
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -73,7 +85,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
                   tooltip: 'Refresh',
                   onPressed: widget.controller.isRefreshingDevices
                       ? null
-                      : () => widget.controller.refreshDevices(),
+                      : () => widget.controller.refreshDevices(
+                          deviceTarget: widget.deviceTarget,
+                        ),
                   icon: widget.controller.isRefreshingDevices
                       ? const SizedBox.square(
                           dimension: 18,
@@ -83,11 +97,11 @@ class _DevicesPanelState extends State<DevicesPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             DecoratedBox(
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: TabBar(
                 onTap: (index) =>
@@ -98,7 +112,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Expanded(
               child: _device == _DeviceTab.computer
                   ? _buildComputer(context)
@@ -112,294 +126,206 @@ class _DevicesPanelState extends State<DevicesPanel> {
 
   Widget _buildComputer(BuildContext context) {
     final controller = widget.controller;
-    final local = controller.computerProvider == 'local';
+    final provider = widget.deviceTarget ?? controller.computerProvider;
+    final local = provider == 'local';
     final state = controller.computerRuntime['state']?.toString() ?? 'stopped';
     final running = <String>{
       'ready',
       'agent_control',
       'user_control',
       'teaching',
-      'sleeping',
     }.contains(state);
     final starting = state == 'starting' || controller.isRunningDeviceAction;
+    final teachStatus = controller.teachRuntime['status']?.toString() ?? 'idle';
+    final teaching = <String>{
+      'recording',
+      'synthesizing',
+    }.contains(teachStatus);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _ComputerProviderPicker(
-          provider: controller.computerProvider,
+        _ComputerToolbar(
+          provider: provider,
+          showProviderPicker: widget.showProviderPicker,
           localSupported: controller.localComputerSupported,
-          busy: controller.isRunningDeviceAction,
-          onChanged: controller.selectComputerProvider,
-        ),
-        const SizedBox(height: 12),
-        if (local) ...<Widget>[
-          _LocalComputerPermissionPanel(controller: controller),
-          const SizedBox(height: 12),
-        ],
-        _ComputerStatusBar(
           state: state,
           runtime: controller.computerRuntime,
           busy: controller.isRunningDeviceAction,
-          onStart: running || starting ? null : controller.startComputerRuntime,
-          onOpen: running ? controller.openComputerDisplayRuntime : null,
-          onStop: running ? controller.stopComputerRuntime : null,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: <Widget>[
-            _ToolButton(
-              selected: _computerTool == _ComputerTool.desktop,
-              icon: Icons.desktop_windows_rounded,
-              label: 'Desktop',
-              onPressed: () =>
-                  setState(() => _computerTool = _ComputerTool.desktop),
-            ),
-            const SizedBox(width: 8),
-            _ToolButton(
-              selected: _computerTool == _ComputerTool.files,
-              icon: Icons.folder_open_rounded,
-              label: 'Files',
-              onPressed: running
-                  ? () {
-                      setState(() => _computerTool = _ComputerTool.files);
-                      unawaited(controller.refreshWorkspaceFiles());
-                    }
-                  : null,
-            ),
-            const SizedBox(width: 8),
-            _ToolButton(
-              selected: _computerTool == _ComputerTool.terminal,
-              icon: Icons.terminal_rounded,
-              label: 'Terminal',
-              onPressed: running
-                  ? () => setState(() => _computerTool = _ComputerTool.terminal)
-                  : null,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: switch (_computerTool) {
-            _ComputerTool.desktop => _buildDesktop(context, running),
-            _ComputerTool.files => _buildFiles(context, running),
-            _ComputerTool.terminal => _buildTerminal(context, running),
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDesktop(BuildContext context, bool running) {
-    final controller = widget.controller;
-    if (controller.computerProvider == 'local') {
-      return _LocalComputerDesktop(controller: controller, running: running);
-    }
-    final displayUrl = controller.computerDisplayUrl;
-    final teachStatus = controller.teachRuntime['status']?.toString() ?? 'idle';
-    final teaching =
-        teachStatus == 'recording' || teachStatus == 'synthesizing';
-
-    return Column(
-      children: <Widget>[
-        _TeachBar(
-          controller: _teachGoalController,
-          status: teachStatus,
-          runtime: controller.teachRuntime,
-          enabled: running && !controller.isRunningDeviceAction,
-          onGoalChanged: (_) => setState(() {}),
-          onStart: () =>
-              controller.startTeachRuntime(_teachGoalController.text),
-          onStop: teaching && teachStatus == 'recording'
-              ? controller.stopTeachRuntime
+          onProviderChanged: controller.selectComputerProvider,
+          onStart: running || starting
+              ? null
+              : () => controller.startComputerRuntime(
+                  deviceTarget: widget.deviceTarget,
+                ),
+          onStop: running
+              ? () => controller.stopComputerRuntime(
+                  deviceTarget: widget.deviceTarget,
+                )
               : null,
-          onCancel: teaching ? controller.cancelTeachRuntime : null,
+          onTeach: !local && running && !teaching
+              ? () => setState(
+                  () => _teachComposerVisible = !_teachComposerVisible,
+                )
+              : null,
         ),
-        const SizedBox(height: 12),
+        if (local) ...<Widget>[
+          const SizedBox(height: 8),
+          _LocalComputerPermissionPanel(controller: controller),
+        ],
+        if (!local && (_teachComposerVisible || teaching)) ...<Widget>[
+          const SizedBox(height: 8),
+          _TeachBar(
+            controller: _teachGoalController,
+            status: teachStatus,
+            runtime: controller.teachRuntime,
+            enabled: running && !controller.isRunningDeviceAction,
+            onGoalChanged: (_) => setState(() {}),
+            onStart: () =>
+                controller.startTeachRuntime(_teachGoalController.text),
+            onStop: teachStatus == 'recording'
+                ? controller.stopTeachRuntime
+                : null,
+            onCancel: teaching ? controller.cancelTeachRuntime : null,
+            onClose: teaching
+                ? null
+                : () => setState(() => _teachComposerVisible = false),
+          ),
+        ],
+        const SizedBox(height: 8),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: ColoredBox(
-              color: Colors.black,
-              child: !running
-                  ? const _ComputerEmptyState(
-                      icon: Icons.computer_rounded,
-                      title: 'Computer is stopped',
-                      message:
-                          'Start it to open the persistent lightweight Linux desktop.',
-                    )
-                  : displayUrl == null
-                  ? _ComputerEmptyState(
-                      icon: Icons.desktop_windows_rounded,
-                      title: 'Desktop is ready',
-                      message:
-                          'Open the display to interact with Linux, Chromium and apps.',
-                      action: FilledButton.icon(
-                        onPressed: controller.isRunningDeviceAction
-                            ? null
-                            : controller.openComputerDisplayRuntime,
-                        icon: const Icon(Icons.open_in_browser_rounded),
-                        label: const Text('Open display'),
-                      ),
-                    )
-                  : ComputerDisplay(
-                      key: ValueKey<String>(displayUrl),
-                      url: displayUrl,
-                    ),
-            ),
+          child: _buildDesktop(
+            context,
+            running: running,
+            state: starting && !running ? 'starting' : state,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFiles(BuildContext context, bool running) {
-    if (!running) {
-      return const _ComputerEmptyState(
-        icon: Icons.folder_off_outlined,
-        title: 'Computer is stopped',
-        message: 'Files live on the persistent computer data disk.',
+  Widget _buildDesktop(
+    BuildContext context, {
+    required bool running,
+    required String state,
+  }) {
+    final controller = widget.controller;
+    if ((widget.deviceTarget ?? controller.computerProvider) == 'local') {
+      return _LocalComputerDesktop(
+        controller: controller,
+        running: running,
+        state: state,
+        onStart: controller.isRunningDeviceAction
+            ? null
+            : () => controller.startComputerRuntime(
+                deviceTarget: widget.deviceTarget,
+              ),
       );
     }
-    final controller = widget.controller;
-    final selectedPath = controller.workspaceSelectedFilePath;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stacked = constraints.maxWidth < 760;
-        final explorer = _WorkspaceBrowser(
-          controller: controller,
-          onOpenFile: (path) async {
-            await controller.openWorkspaceFile(path);
-            if (!mounted) return;
-            _workspaceEditorController.text = controller.workspaceEditorContent;
-            setState(() {});
-          },
-        );
-        final editor = _WorkspaceEditor(
-          path: selectedPath,
-          controller: _workspaceEditorController,
-          saving: controller.isSavingWorkspaceFile,
-          onSave: selectedPath == null
-              ? null
-              : () => controller.saveWorkspaceFile(
-                  _workspaceEditorController.text,
-                ),
-          onDownload: selectedPath == null
-              ? null
-              : () => controller.downloadWorkspaceFile(selectedPath),
-        );
-        return Card(
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          child: stacked
-              ? Column(
-                  children: <Widget>[
-                    SizedBox(height: 220, child: explorer),
-                    const Divider(height: 1),
-                    Expanded(child: editor),
-                  ],
-                )
-              : Row(
-                  children: <Widget>[
-                    SizedBox(width: 300, child: explorer),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: editor),
-                  ],
-                ),
-        );
-      },
-    );
-  }
+    final theme = Theme.of(context);
+    final displayUrl = controller.computerDisplayUrl;
+    final readiness = _jsonMap(controller.computerRuntime['readiness']);
+    final firstSetup = readiness['imageReady'] != true;
+    final busy = state == 'starting' || controller.isRunningDeviceAction;
+    final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
 
-  Widget _buildTerminal(BuildContext context, bool running) {
-    if (!running) {
-      return const _ComputerEmptyState(
-        icon: Icons.terminal_rounded,
-        title: 'Computer is stopped',
-        message: 'Start it to use the shell in the same persistent filesystem.',
+    Widget content;
+    if (running && displayUrl != null) {
+      content = ColoredBox(
+        color: const Color(0xFF111111),
+        child: ComputerDisplay(
+          key: ValueKey<String>(displayUrl),
+          url: displayUrl,
+        ),
+      );
+    } else if (running) {
+      content = _ComputerEmptyState(
+        icon: Icons.desktop_windows_rounded,
+        title: 'Your desktop is ready',
+        message:
+            'Chromium, files, the text editor and terminal are all available from the Linux desktop.',
+        action: FilledButton.icon(
+          onPressed: controller.isRunningDeviceAction
+              ? null
+              : () => controller.openComputerDisplayRuntime(
+                  deviceTarget: widget.deviceTarget,
+                ),
+          icon: const Icon(Icons.desktop_windows_rounded),
+          label: const Text('Connect desktop'),
+        ),
+      );
+    } else if (busy) {
+      content = _ComputerEmptyState(
+        icon: Icons.cloud_sync_rounded,
+        title: firstSetup
+            ? 'Preparing your computer'
+            : 'Starting your computer',
+        message: firstSetup
+            ? 'NeoAgent is downloading and preparing the secure Linux system. This only happens the first time.'
+            : 'Opening your saved desktop. Normal starts take less than 10 seconds.',
+        action: const SizedBox(width: 220, child: LinearProgressIndicator()),
+      );
+    } else if (state == 'capacity_wait') {
+      content = _ComputerEmptyState(
+        icon: Icons.hourglass_top_rounded,
+        title: 'All computer slots are busy',
+        message:
+            'No cloud-computer slot is free right now. Try again in a moment.',
+        action: FilledButton.icon(
+          onPressed: () => controller.startComputerRuntime(
+            deviceTarget: widget.deviceTarget,
+          ),
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Try again'),
+        ),
+      );
+    } else if (state == 'error') {
+      final storageError = errorCode == 'COMPUTER_STORAGE_CAPACITY';
+      content = _ComputerEmptyState(
+        icon: storageError ? Icons.storage_rounded : Icons.cloud_off_rounded,
+        title: storageError
+            ? 'More free space is needed'
+            : 'The computer could not start',
+        message: storageError
+            ? 'Free some disk space on the NeoAgent host, then try again. Your existing computer data is safe.'
+            : 'Try again. If this keeps happening, run NeoAgent Doctor to check the computer runtime.',
+        action: FilledButton.icon(
+          onPressed: () => controller.startComputerRuntime(
+            deviceTarget: widget.deviceTarget,
+          ),
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Try again'),
+        ),
+      );
+    } else {
+      content = _ComputerEmptyState(
+        icon: Icons.computer_rounded,
+        title: state == 'sleeping'
+            ? 'Your computer is asleep'
+            : 'Your Linux computer',
+        message:
+            'A private desktop with Chromium, files, a text editor, terminal and Python. Your work stays saved between sessions.',
+        action: FilledButton.icon(
+          onPressed: () => controller.startComputerRuntime(
+            deviceTarget: widget.deviceTarget,
+          ),
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: Text(state == 'sleeping' ? 'Wake computer' : 'Start computer'),
+        ),
       );
     }
-    final controller = widget.controller;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      color: const Color(0xFF101418),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                const Icon(Icons.terminal_rounded, color: Color(0xFF9DE2B2)),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    '/home/neo/workspace',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: controller.isRunningDeviceAction
-                      ? null
-                      : () => controller.launchComputerAppRuntime('terminal'),
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Open app'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  controller.computerTerminalOutput.isEmpty
-                      ? 'NeoAgent Linux shell ready.\n'
-                            'Python, pip, venv, git, curl, jq and standard Unix tools are available.'
-                      : controller.computerTerminalOutput,
-                  style: const TextStyle(
-                    color: Color(0xFFD6E2E8),
-                    fontFamily: 'monospace',
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _terminalController,
-              enabled: !controller.isRunningDeviceAction,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'monospace',
-              ),
-              decoration: InputDecoration(
-                prefixText: r'$ ',
-                prefixStyle: const TextStyle(color: Color(0xFF9DE2B2)),
-                hintText: 'Enter a command',
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: const Color(0xFF1A2026),
-                suffixIcon: IconButton(
-                  tooltip: 'Run',
-                  onPressed: controller.isRunningDeviceAction
-                      ? null
-                      : () => _runTerminalCommand(),
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                ),
-              ),
-              onSubmitted: (_) => _runTerminalCommand(),
-            ),
-          ],
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
         ),
+        child: content,
       ),
     );
-  }
-
-  Future<void> _runTerminalCommand() async {
-    final command = _terminalController.text;
-    if (command.trim().isEmpty) return;
-    await widget.controller.executeComputerCommandRuntime(command);
-    if (mounted) _terminalController.clear();
   }
 
   Widget _buildAndroid(BuildContext context) {
@@ -541,182 +467,263 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 }
 
-class _ComputerStatusBar extends StatelessWidget {
-  const _ComputerStatusBar({
+class _ComputerToolbar extends StatelessWidget {
+  const _ComputerToolbar({
+    required this.provider,
+    required this.showProviderPicker,
+    required this.localSupported,
     required this.state,
     required this.runtime,
     required this.busy,
+    required this.onProviderChanged,
     required this.onStart,
-    required this.onOpen,
     required this.onStop,
+    required this.onTeach,
   });
 
+  final String provider;
+  final bool showProviderPicker;
+  final bool localSupported;
   final String state;
   final Map<String, dynamic> runtime;
   final bool busy;
+  final ValueChanged<String> onProviderChanged;
   final VoidCallback? onStart;
-  final VoidCallback? onOpen;
   final VoidCallback? onStop;
+  final VoidCallback? onTeach;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final resources = runtime['resources'] is Map
-        ? Map<String, dynamic>.from(runtime['resources'] as Map)
-        : const <String, dynamic>{};
-    final statusColor = switch (state) {
-      'ready' || 'user_control' || 'agent_control' => Colors.green,
-      'teaching' => Colors.orange,
-      'starting' || 'capacity_wait' || 'sleeping' => Colors.amber,
-      'error' => theme.colorScheme.error,
-      _ => Colors.grey,
-    };
-    final label = state.replaceAll('_', ' ');
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: <Widget>[
-            Icon(Icons.circle, size: 12, color: statusColor),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    label.isEmpty
-                        ? 'Stopped'
-                        : '${label[0].toUpperCase()}${label.substring(1)}',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  if (resources.isNotEmpty)
-                    Text(
-                      '${resources['memoryMb'] ?? '—'} MiB · ${resources['cpus'] ?? '—'} vCPU · ${runtime['accelerator'] ?? 'QEMU'}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  if (runtime['provider'] == 'local')
-                    Text(
-                      runtime['device'] is Map
-                          ? '${(runtime['device'] as Map)['label'] ?? 'This device'} · local session'
-                          : 'Waiting for the NeoAgent desktop app',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (busy)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+    final status = _computerStatusPresentation(
+      theme,
+      provider: provider,
+      state: state,
+      runtime: runtime,
+      busy: busy,
+    );
+    final statusView = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: status.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(status.icon, size: 19, color: status.color),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(status.title, style: theme.textTheme.titleSmall),
+              Text(
+                status.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            if (onOpen != null)
-              OutlinedButton.icon(
-                onPressed: busy ? null : onOpen,
-                icon: const Icon(Icons.open_in_browser_rounded),
-                label: const Text('Display'),
+            ],
+          ),
+        ),
+      ],
+    );
+    final controls = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        if (showProviderPicker)
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: <ButtonSegment<String>>[
+              const ButtonSegment<String>(
+                value: 'cloud',
+                icon: Icon(Icons.cloud_rounded, size: 18),
+                label: Text('Cloud'),
               ),
-            if (onOpen != null) const SizedBox(width: 8),
-            if (onStart != null)
-              FilledButton.icon(
-                onPressed: busy ? null : onStart,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Start'),
+              ButtonSegment<String>(
+                value: 'local',
+                enabled: localSupported,
+                icon: const Icon(Icons.laptop_rounded, size: 18),
+                label: const Text('This device'),
+                tooltip: localSupported
+                    ? 'Let NeoAgent work on this computer'
+                    : 'Available in the desktop app for macOS, Windows and Linux',
               ),
-            if (onStop != null)
-              IconButton(
-                tooltip: 'Stop computer',
-                onPressed: busy ? null : onStop,
-                icon: const Icon(Icons.stop_circle_outlined),
-              ),
-          ],
+            ],
+            selected: <String>{provider},
+            onSelectionChanged: busy
+                ? null
+                : (selection) => onProviderChanged(selection.first),
+          ),
+        if (onTeach != null)
+          OutlinedButton.icon(
+            key: const ValueKey<String>('computer-teach-toggle'),
+            onPressed: busy ? null : onTeach,
+            icon: const Icon(Icons.school_outlined, size: 18),
+            label: const Text('Teach'),
+          ),
+        if (busy)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        if (onStart != null)
+          FilledButton.icon(
+            onPressed: busy ? null : onStart,
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: Text(state == 'sleeping' ? 'Wake' : 'Start'),
+          ),
+        if (onStop != null)
+          IconButton(
+            tooltip: 'Turn off computer',
+            onPressed: busy ? null : onStop,
+            icon: const Icon(Icons.power_settings_new_rounded),
+          ),
+      ],
+    );
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 760) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  statusView,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerLeft, child: controls),
+                ],
+              );
+            }
+            return Row(
+              children: <Widget>[
+                Expanded(child: statusView),
+                const SizedBox(width: 12),
+                controls,
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _ComputerProviderPicker extends StatelessWidget {
-  const _ComputerProviderPicker({
-    required this.provider,
-    required this.localSupported,
-    required this.busy,
-    required this.onChanged,
-  });
-
-  final String provider;
-  final bool localSupported;
-  final bool busy;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: <Widget>[
-            Icon(
-              provider == 'local'
-                  ? Icons.laptop_mac_rounded
-                  : Icons.cloud_rounded,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Where should NeoAgent work?',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  Text(
-                    provider == 'local'
-                        ? 'Commands, files and screen control stay on this signed-in desktop.'
-                        : 'A private persistent Linux computer with an isolated desktop.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SegmentedButton<String>(
-              segments: <ButtonSegment<String>>[
-                const ButtonSegment<String>(
-                  value: 'cloud',
-                  icon: Icon(Icons.cloud_rounded),
-                  label: Text('Cloud'),
-                ),
-                ButtonSegment<String>(
-                  value: 'local',
-                  enabled: localSupported,
-                  icon: const Icon(Icons.laptop_rounded),
-                  label: const Text('This device'),
-                  tooltip: localSupported
-                      ? 'Use this desktop'
-                      : 'Available in the macOS, Windows and Linux desktop app',
-                ),
-              ],
-              selected: <String>{provider},
-              onSelectionChanged: busy
-                  ? null
-                  : (selection) => onChanged(selection.first),
-            ),
-          ],
-        ),
-      ),
+({String title, String subtitle, IconData icon, Color color})
+_computerStatusPresentation(
+  ThemeData theme, {
+  required String provider,
+  required String state,
+  required Map<String, dynamic> runtime,
+  required bool busy,
+}) {
+  if (busy &&
+      !const <String>{
+        'ready',
+        'agent_control',
+        'user_control',
+        'teaching',
+      }.contains(state) &&
+      state != 'starting') {
+    return (
+      title: 'Starting your computer',
+      subtitle: 'This may take a moment.',
+      icon: Icons.cloud_sync_rounded,
+      color: theme.colorScheme.primary,
     );
+  }
+  final local = provider == 'local';
+  switch (state) {
+    case 'starting':
+      final readiness = _jsonMap(runtime['readiness']);
+      final firstSetup = !local && readiness['imageReady'] != true;
+      return (
+        title: firstSetup
+            ? 'Preparing your computer'
+            : 'Starting your computer',
+        subtitle: firstSetup
+            ? 'First-time setup is in progress.'
+            : 'Opening your saved desktop.',
+        icon: Icons.cloud_sync_rounded,
+        color: theme.colorScheme.primary,
+      );
+    case 'ready':
+      return (
+        title: local ? 'This device is ready' : 'Your computer is ready',
+        subtitle: local
+            ? 'NeoAgent can use the access you allow.'
+            : 'Everything is available from the desktop.',
+        icon: Icons.check_circle_rounded,
+        color: Colors.green,
+      );
+    case 'agent_control':
+      return (
+        title: 'NeoAgent is working',
+        subtitle: 'You can follow along on the desktop.',
+        icon: Icons.auto_awesome_rounded,
+        color: theme.colorScheme.primary,
+      );
+    case 'user_control':
+      return (
+        title: 'You are in control',
+        subtitle: 'NeoAgent is waiting while you use the desktop.',
+        icon: Icons.touch_app_rounded,
+        color: Colors.green,
+      );
+    case 'teaching':
+      return (
+        title: 'Teaching in progress',
+        subtitle: 'Complete the workflow on the desktop.',
+        icon: Icons.fiber_manual_record_rounded,
+        color: Colors.red,
+      );
+    case 'sleeping':
+      return (
+        title: 'Your computer is asleep',
+        subtitle: 'Your apps and files are saved.',
+        icon: Icons.bedtime_rounded,
+        color: Colors.amber,
+      );
+    case 'capacity_wait':
+      return (
+        title: 'All computer slots are busy',
+        subtitle: 'Try again in a moment.',
+        icon: Icons.hourglass_top_rounded,
+        color: Colors.amber,
+      );
+    case 'error':
+      final storage = runtime['errorCode'] == 'COMPUTER_STORAGE_CAPACITY';
+      return (
+        title: storage ? 'More free space is needed' : 'Could not start',
+        subtitle: storage
+            ? 'Free some host storage and try again.'
+            : 'Try again or run NeoAgent Doctor.',
+        icon: storage ? Icons.storage_rounded : Icons.error_outline_rounded,
+        color: theme.colorScheme.error,
+      );
+    default:
+      return (
+        title: local ? 'This device is paused' : 'Your computer is off',
+        subtitle: local
+            ? 'Start when you want NeoAgent to help here.'
+            : 'Your apps and files remain saved.',
+        icon: local ? Icons.laptop_rounded : Icons.computer_rounded,
+        color: theme.colorScheme.onSurfaceVariant,
+      );
   }
 }
 
@@ -729,23 +736,23 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
   _definitions = <String, ({IconData icon, String label, String detail})>{
     'screen': (
       icon: Icons.visibility_rounded,
-      label: 'See screen',
-      detail: 'Screenshots and visual desktop context',
+      label: 'Screen',
+      detail: 'Let NeoAgent understand what is visible on your screen.',
     ),
     'input': (
       icon: Icons.touch_app_rounded,
-      label: 'Control input',
-      detail: 'Mouse and keyboard actions',
+      label: 'Mouse & keyboard',
+      detail: 'Let NeoAgent click, type and move through your apps.',
     ),
     'files': (
       icon: Icons.folder_open_rounded,
-      label: 'Files',
-      detail: 'NeoAgent Workspace in your home folder',
+      label: 'Workspace files',
+      detail: 'Read and edit files inside your NeoAgent Workspace folder.',
     ),
     'shell': (
       icon: Icons.terminal_rounded,
-      label: 'CLI and apps',
-      detail: 'Run commands and open apps or URLs',
+      label: 'Commands & apps',
+      detail: 'Run terminal commands and open apps or web pages.',
     ),
   };
 
@@ -754,121 +761,128 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final pending = controller.localComputerPendingPermission;
     final permissions = controller.localComputerPermissions;
+    final permissionControls = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _definitions.entries
+          .map((entry) {
+            final granted = permissions.contains(entry.key);
+            return FilterChip(
+              avatar: Icon(entry.value.icon, size: 18),
+              label: Text(entry.value.label),
+              tooltip: entry.value.detail,
+              selected: granted,
+              onSelected: (selected) => selected
+                  ? controller.grantLocalComputerPermission(
+                      entry.key,
+                      remember: true,
+                    )
+                  : controller.revokeLocalComputerPermission(entry.key),
+            );
+          })
+          .toList(growable: false),
+    );
+    if (pending != null && _definitions.containsKey(pending)) {
+      final request = _definitions[pending]!;
+      return Card(
+        margin: EdgeInsets.zero,
+        color: theme.colorScheme.tertiaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(request.icon, color: theme.colorScheme.onTertiaryContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '${request.label} access needed',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(request.detail, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        FilledButton(
+                          onPressed: () =>
+                              controller.grantLocalComputerPermission(
+                                pending,
+                                remember: false,
+                              ),
+                          child: const Text('Allow once'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () =>
+                              controller.grantLocalComputerPermission(
+                                pending,
+                                remember: true,
+                              ),
+                          child: const Text('Always allow'),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              controller.denyLocalComputerPermission(pending),
+                          child: const Text('Not now'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Card(
       margin: EdgeInsets.zero,
-      color: pending == null ? null : theme.colorScheme.tertiaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  controller.localComputerConnected
-                      ? Icons.verified_user_rounded
-                      : Icons.link_off_rounded,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    controller.localComputerConnecting
-                        ? 'Connecting this device…'
-                        : controller.localComputerConnected
-                        ? 'This device is connected'
-                        : 'Waiting for the local control connection',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-                if (controller.localComputerConnecting)
-                  const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            if (controller.localComputerError?.isNotEmpty == true) ...<Widget>[
-              const SizedBox(height: 6),
-              Text(
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        dense: true,
+        leading: Icon(
+          controller.localComputerConnected
+              ? Icons.shield_outlined
+              : Icons.link_off_rounded,
+        ),
+        title: const Text('Access permissions'),
+        subtitle: Text(
+          controller.localComputerConnecting
+              ? 'Connecting…'
+              : controller.localComputerConnected
+              ? '${permissions.length} of 4 allowed'
+              : 'Waiting for this device to connect',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        children: <Widget>[
+          Align(alignment: Alignment.centerLeft, child: permissionControls),
+          if (controller.localComputerError?.isNotEmpty == true) ...<Widget>[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
                 controller.localComputerError!,
                 style: TextStyle(color: theme.colorScheme.error),
               ),
-            ],
-            if (pending != null &&
-                _definitions.containsKey(pending)) ...<Widget>[
-              const SizedBox(height: 12),
-              Text(
-                'NeoAgent requests ${_definitions[pending]!.label.toLowerCase()} access',
-                style: theme.textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  FilledButton(
-                    onPressed: () => controller.grantLocalComputerPermission(
-                      pending,
-                      remember: false,
-                    ),
-                    child: const Text('Allow for this session'),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: () => controller.grantLocalComputerPermission(
-                      pending,
-                      remember: true,
-                    ),
-                    child: const Text('Always allow'),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        controller.denyLocalComputerPermission(pending),
-                    child: const Text('Deny'),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _definitions.entries
-                  .map((entry) {
-                    final granted = permissions.contains(entry.key);
-                    return ActionChip(
-                      avatar: Icon(entry.value.icon, size: 18),
-                      label: Text(
-                        '${entry.value.label} · ${granted ? 'allowed' : 'ask'}',
-                      ),
-                      tooltip: entry.value.detail,
-                      onPressed: granted
-                          ? () => controller.revokeLocalComputerPermission(
-                              entry.key,
-                            )
-                          : () => controller.grantLocalComputerPermission(
-                              entry.key,
-                              remember: true,
-                            ),
-                    );
-                  })
-                  .toList(growable: false),
             ),
-            if (permissions.contains('screen') ||
-                permissions.contains('input')) ...<Widget>[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => controller.openLocalComputerSystemPermission(
-                    permissions.contains('screen') ? 'screen' : 'input',
-                  ),
-                  icon: const Icon(Icons.settings_rounded),
-                  label: const Text('Open system privacy settings'),
-                ),
-              ),
-            ],
           ],
-        ),
+          if (permissions.contains('screen') || permissions.contains('input'))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => controller.openLocalComputerSystemPermission(
+                  permissions.contains('screen') ? 'screen' : 'input',
+                ),
+                icon: const Icon(Icons.settings_rounded),
+                label: const Text('System privacy settings'),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -878,58 +892,69 @@ class _LocalComputerDesktop extends StatelessWidget {
   const _LocalComputerDesktop({
     required this.controller,
     required this.running,
+    required this.state,
+    required this.onStart,
   });
 
   final NeoAgentController controller;
   final bool running;
+  final String state;
+  final VoidCallback? onStart;
 
   @override
   Widget build(BuildContext context) {
     if (!running) {
-      return const _ComputerEmptyState(
-        icon: Icons.laptop_rounded,
-        title: 'This device is paused',
-        message:
-            'Start it when you want NeoAgent to work with your local apps, files and command line.',
+      return _ComputerSurface(
+        child: _ComputerEmptyState(
+          icon: state == 'starting' ? Icons.sync_rounded : Icons.laptop_rounded,
+          title: state == 'starting'
+              ? 'Connecting this device'
+              : 'Use this computer with NeoAgent',
+          message: state == 'starting'
+              ? 'The secure local connection is being established.'
+              : 'NeoAgent will ask before it uses your screen, mouse, keyboard, files or command line.',
+          action: state == 'starting'
+              ? const SizedBox(width: 220, child: LinearProgressIndicator())
+              : FilledButton.icon(
+                  onPressed: onStart,
+                  icon: const Icon(Icons.link_rounded),
+                  label: const Text('Connect this device'),
+                ),
+        ),
       );
     }
     final permissions = controller.localComputerPermissions;
-    return _ComputerEmptyState(
-      icon: Icons.desktop_windows_rounded,
-      title: 'NeoAgent can work on this desktop',
-      message:
-          'Switch to any app normally. NeoAgent uses the same Computer tools and agent loop, while every sensitive capability remains under your control.\n\n'
-          '${permissions.length}/4 capabilities allowed · Local files stay in “NeoAgent Workspace”.',
+    return _ComputerSurface(
+      child: _ComputerEmptyState(
+        icon: Icons.desktop_windows_rounded,
+        title: 'This desktop is connected',
+        message:
+            'Keep using your apps normally. NeoAgent works on the same screen and asks whenever it needs new access.\n\n'
+            '${permissions.length} of 4 permissions allowed. Files are limited to your NeoAgent Workspace folder.',
+      ),
     );
   }
 }
 
-class _ToolButton extends StatelessWidget {
-  const _ToolButton({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
+class _ComputerSurface extends StatelessWidget {
+  const _ComputerSurface({required this.child});
 
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return selected
-        ? FilledButton.tonalIcon(
-            onPressed: onPressed,
-            icon: Icon(icon),
-            label: Text(label),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon),
-            label: Text(label),
-          );
+    final theme = Theme.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: child,
+      ),
+    );
   }
 }
 
@@ -943,6 +968,7 @@ class _TeachBar extends StatelessWidget {
     required this.onStart,
     required this.onStop,
     required this.onCancel,
+    this.onClose,
   });
 
   final TextEditingController controller;
@@ -953,6 +979,7 @@ class _TeachBar extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback? onStop;
   final VoidCallback? onCancel;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -965,7 +992,6 @@ class _TeachBar extends StatelessWidget {
     final elapsedLabel = elapsed.isNegative
         ? '0:00'
         : '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
-    final timeline = _jsonMapList(runtime['timeline']);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -986,8 +1012,9 @@ class _TeachBar extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           status == 'recording'
-                              ? 'Teach Mode recording'
-                              : 'Creating adaptive skill…',
+                              ? 'Recording your demonstration'
+                              : 'Creating your skill…',
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                         if (goal.isNotEmpty)
                           Text(
@@ -996,30 +1023,11 @@ class _TeachBar extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         Text(
-                          '$elapsedLabel · ${runtime['eventCount'] ?? 0} events · ${runtime['screenshotCount'] ?? 0} semantic frames',
+                          status == 'recording'
+                              ? '$elapsedLabel · Work through the task as you normally would.'
+                              : 'NeoAgent is turning your demonstration into an adaptable workflow.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        if (timeline.isNotEmpty)
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: timeline
-                                  .map((event) {
-                                    final atSeconds =
-                                        (event['atMs'] as num? ?? 0) ~/ 1000;
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 6),
-                                      child: Text(
-                                        '${event['type'] ?? 'event'} +${atSeconds}s',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelSmall,
-                                      ),
-                                    );
-                                  })
-                                  .toList(growable: false),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -1074,6 +1082,12 @@ class _TeachBar extends StatelessWidget {
                     icon: const Icon(Icons.fiber_manual_record_rounded),
                     label: const Text('Teach'),
                   ),
+                  if (onClose != null)
+                    IconButton(
+                      tooltip: 'Close Teach Mode',
+                      onPressed: onClose,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
                 ],
               ),
       ),
@@ -1128,162 +1142,6 @@ class _ComputerEmptyState extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _WorkspaceBrowser extends StatelessWidget {
-  const _WorkspaceBrowser({required this.controller, required this.onOpenFile});
-
-  final NeoAgentController controller;
-  final Future<void> Function(String path) onOpenFile;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = controller.workspaceEntries;
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            children: <Widget>[
-              if (controller.workspaceCurrentPath.isNotEmpty)
-                IconButton(
-                  tooltip: 'Up',
-                  onPressed: () {
-                    final parts = controller.workspaceCurrentPath.split('/')
-                      ..removeLast();
-                    controller.openWorkspaceDirectory(parts.join('/'));
-                  },
-                  icon: const Icon(Icons.arrow_upward_rounded),
-                ),
-              Expanded(
-                child: Text(
-                  controller.workspaceCurrentPath.isEmpty
-                      ? 'Workspace'
-                      : controller.workspaceCurrentPath,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Refresh files',
-                onPressed: controller.isLoadingWorkspaceFiles
-                    ? null
-                    : () => controller.refreshWorkspaceFiles(),
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: controller.isLoadingWorkspaceFiles && entries.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : entries.isEmpty
-              ? const Center(child: Text('This folder is empty.'))
-              : ListView.builder(
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    final directory = entry['type']?.toString() == 'directory';
-                    final path = entry['path']?.toString() ?? '';
-                    return ListTile(
-                      dense: true,
-                      selected: path == controller.workspaceSelectedFilePath,
-                      leading: Icon(
-                        directory
-                            ? Icons.folder_rounded
-                            : Icons.description_outlined,
-                      ),
-                      title: Text(entry['name']?.toString() ?? path),
-                      onTap: path.isEmpty
-                          ? null
-                          : directory
-                          ? () => controller.openWorkspaceDirectory(path)
-                          : () => onOpenFile(path),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _WorkspaceEditor extends StatelessWidget {
-  const _WorkspaceEditor({
-    required this.path,
-    required this.controller,
-    required this.saving,
-    required this.onSave,
-    required this.onDownload,
-  });
-
-  final String? path;
-  final TextEditingController controller;
-  final bool saving;
-  final VoidCallback? onSave;
-  final VoidCallback? onDownload;
-
-  @override
-  Widget build(BuildContext context) {
-    if (path == null) {
-      return const _ComputerEmptyState(
-        icon: Icons.edit_document,
-        title: 'Select a file',
-        message:
-            'Text files can be inspected and edited here or in Mousepad on the desktop.',
-      );
-    }
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  path!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Download',
-                onPressed: onDownload,
-                icon: const Icon(Icons.download_rounded),
-              ),
-              FilledButton.icon(
-                onPressed: saving ? null : onSave,
-                icon: saving
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_rounded),
-                label: const Text('Save'),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            expands: true,
-            minLines: null,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-            textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.all(14),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

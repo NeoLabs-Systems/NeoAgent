@@ -536,6 +536,75 @@ test('task_complete message field becomes final content', async () => {
   assert.match(String(result.content || ''), /All calendar items reviewed/);
 });
 
+test('Cowork Plan mode blocks mutating tools before execution', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Prepare an implementation plan without changing files',
+    confidence: 0.9,
+    complexity: 'standard',
+    needs_verification: false,
+    success_criteria: [],
+  });
+  let modelTurn = 0;
+  engine.requestModelResponse = async () => {
+    modelTurn += 1;
+    const toolCall = modelTurn === 1
+      ? {
+        id: 'write-1',
+        type: 'function',
+        function: {
+          name: 'write_file',
+          arguments: JSON.stringify({ path: 'src/app.js', content: 'changed' }),
+        },
+      }
+      : {
+        id: `done-${modelTurn}`,
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message: 'Implementation plan prepared.' }),
+        },
+      };
+    return {
+      response: {
+        content: '',
+        toolCalls: [toolCall],
+        usage: { total_tokens: 3 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  const executed = [];
+  engine.executeTool = async (name) => {
+    executed.push(name);
+    return { success: true };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Plan this implementation.', {
+    triggerSource: 'cowork',
+    interactionMode: 'plan',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.equal(executed.includes('write_file'), false);
+  const blocked = ctx.db.prepare(
+    `SELECT status, error FROM agent_steps
+     WHERE run_id = ? AND tool_name = 'write_file'`,
+  ).get(result.runId);
+  assert.equal(blocked.status, 'failed');
+  assert.match(blocked.error, /Plan mode blocks tools/);
+});
+
 test('a satisfied durable run completes without burning the budget on repairs', async () => {
   const engine = createEngine({
     mode: 'execute',

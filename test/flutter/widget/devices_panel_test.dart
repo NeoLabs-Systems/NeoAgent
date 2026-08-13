@@ -58,27 +58,23 @@ void main() {
     );
     await tester.pump();
 
-    for (final state in <String>[
-      'stopped',
-      'starting',
-      'ready',
-      'agent_control',
-      'user_control',
-      'teaching',
-      'sleeping',
-      'capacity_wait',
-      'error',
-    ]) {
+    const labels = <String, String>{
+      'stopped': 'Your computer is off',
+      'starting': 'Preparing your computer',
+      'ready': 'Your computer is ready',
+      'agent_control': 'NeoAgent is working',
+      'user_control': 'You are in control',
+      'teaching': 'Teaching in progress',
+      'sleeping': 'Your computer is asleep',
+      'capacity_wait': 'All computer slots are busy',
+      'error': 'Could not start',
+    };
+    for (final entry in labels.entries) {
+      final state = entry.key;
       controller.computerRuntime = <String, dynamic>{'state': state};
       controller.notifyListeners();
       await tester.pump();
-      final label = state
-          .replaceAll('_', ' ')
-          .replaceFirstMapped(
-            RegExp(r'^.'),
-            (match) => match[0]!.toUpperCase(),
-          );
-      expect(find.text(label), findsOneWidget, reason: 'state $state');
+      expect(find.text(entry.value), findsWidgets, reason: 'state $state');
     }
   });
 
@@ -99,6 +95,11 @@ void main() {
       MaterialApp(
         home: Scaffold(body: DevicesPanel(controller: controller)),
       ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('computer-teach-toggle')),
     );
     await tester.pump();
 
@@ -144,15 +145,88 @@ void main() {
     expect(find.text('Cloud'), findsOneWidget);
     expect(find.text('This device'), findsOneWidget);
     expect(find.textContaining('This device is connected'), findsNothing);
-    expect(find.text('See screen · ask'), findsOneWidget);
-    expect(find.text('Control input · ask'), findsOneWidget);
-    expect(find.text('Files · ask'), findsOneWidget);
-    expect(find.text('CLI and apps · ask'), findsOneWidget);
+    expect(find.text('Access permissions'), findsOneWidget);
+    await tester.tap(find.text('Access permissions'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilterChip, 'Screen'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Mouse & keyboard'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Workspace files'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Commands & apps'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('computer-teach-start')),
       findsNothing,
     );
+    expect(find.widgetWithText(OutlinedButton, 'Files'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Terminal'), findsNothing);
     expect(find.widgetWithText(Tab, 'Computer'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Android'), findsOneWidget);
   });
+
+  testWidgets('storage errors are not presented as a capacity queue', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller =
+        NeoAgentController(
+            backendClient: BackendClient(),
+            healthBridge: HealthBridge(),
+          )
+          ..computerRuntime = const <String, dynamic>{
+            'state': 'error',
+            'errorCode': 'COMPUTER_STORAGE_CAPACITY',
+          };
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DevicesPanel(controller: controller)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('More free space is needed'), findsWidgets);
+    expect(find.text('All computer slots are busy'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ColoredBox && widget.color == Colors.black,
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'embedded computer uses the desktop without duplicate navigation',
+    (tester) async {
+      tester.view.physicalSize = const Size(680, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final controller = NeoAgentController(
+        backendClient: BackendClient(),
+        healthBridge: HealthBridge(),
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DevicesPanel(
+              controller: controller,
+              computerOnly: true,
+              showProviderPicker: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Devices'), findsNothing);
+      expect(find.byType(TabBar), findsNothing);
+      expect(find.text('Your Linux computer'), findsOneWidget);
+      expect(find.text('Start computer'), findsOneWidget);
+    },
+  );
 }

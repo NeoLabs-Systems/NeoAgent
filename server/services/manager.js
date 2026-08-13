@@ -273,7 +273,7 @@ function createRuntimeManager(app) {
   registerLocal(
     app,
     'getDesktopProviderForUser',
-    (userId) => runtimeManager.getDesktopProviderForUser(userId),
+    (userId, options) => runtimeManager.getDesktopProviderForUser(userId, options),
   );
   registerLocal(app, 'computerWorkspaceManager', new ComputerWorkspaceClient({ runtimeManager }));
   logServiceReady('Unified cloud/local computer runtime + shell worker pool ready');

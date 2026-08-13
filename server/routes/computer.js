@@ -38,6 +38,25 @@ function teach(req) {
   return service;
 }
 
+function deviceTarget(req) {
+  const value = String(
+    req.body?.deviceTarget
+    || req.body?.device_target
+    || req.query?.deviceTarget
+    || req.query?.device_target
+    || '',
+  ).trim().toLowerCase();
+  return ['local', 'cloud'].includes(value) ? value : null;
+}
+
+function runtimeOptions(req, extra = {}) {
+  return {
+    ...extra,
+    signal: req.signal,
+    deviceTarget: deviceTarget(req),
+  };
+}
+
 function requireUserControl(req, manager) {
   const ownerId = `session:${req.sessionID}`;
   const lease = manager.getControlLease(req.session.userId);
@@ -68,7 +87,10 @@ function route(action) {
   };
 }
 
-router.get('/status', route((req, manager) => manager.getComputerStatus(req.session.userId)));
+router.get('/status', route((req, manager) => manager.getComputerStatus(
+  req.session.userId,
+  runtimeOptions(req),
+)));
 
 router.get('/provider', route((req, manager) => ({
   provider: manager.getComputerProvider(req.session.userId),
@@ -80,15 +102,19 @@ router.put('/provider', route((req, manager) => manager.setComputerProvider(
   req.body?.provider,
 )));
 
-router.post('/start', route((req, manager) => manager.startComputer(req.session.userId, {
-  signal: req.signal,
-})));
+router.post('/start', route((req, manager) => manager.startComputer(
+  req.session.userId,
+  runtimeOptions(req),
+)));
 
-router.post('/stop', route((req, manager) => manager.stopComputer(req.session.userId)));
+router.post('/stop', route((req, manager) => manager.stopComputer(
+  req.session.userId,
+  runtimeOptions(req),
+)));
 
 router.post('/display-session', route(async (req, manager) => {
-  await manager.startComputer(req.session.userId, { signal: req.signal });
-  return manager.createDisplaySession(req.session.userId);
+  await manager.startComputer(req.session.userId, runtimeOptions(req));
+  return manager.createDisplaySession(req.session.userId, runtimeOptions(req));
 }));
 
 router.get('/display/:token', (req, res) => {
@@ -209,7 +235,7 @@ router.get('/files', route((req, manager) => manager.requestComputer(
   'GET',
   `/workspace/files?path=${encodeURIComponent(String(req.query?.path || '.'))}`,
   undefined,
-  { signal: req.signal },
+  runtimeOptions(req),
 )));
 
 router.get('/files/content', route((req, manager) => manager.requestComputer(
@@ -217,7 +243,7 @@ router.get('/files/content', route((req, manager) => manager.requestComputer(
   'GET',
   `/workspace/files/content?path=${encodeURIComponent(String(req.query?.path || ''))}`,
   undefined,
-  { signal: req.signal },
+  runtimeOptions(req),
 )));
 
 router.put('/files/content', route((req, manager) => {
@@ -231,7 +257,7 @@ router.put('/files/content', route((req, manager) => {
   return manager.requestComputer(req.session.userId, 'PUT', '/workspace/files/content', {
     path: String(req.body?.path || ''),
     content,
-  }, { signal: req.signal });
+  }, runtimeOptions(req));
 }));
 
 router.get('/files/download', async (req, res) => {
@@ -241,7 +267,7 @@ router.get('/files/download', async (req, res) => {
       'GET',
       `/workspace/files/download?path=${encodeURIComponent(String(req.query?.path || ''))}`,
       undefined,
-      { signal: req.signal, maxResponseBytes: 24 * 1024 * 1024 },
+      runtimeOptions(req, { maxResponseBytes: 24 * 1024 * 1024 }),
     );
     const content = Buffer.from(String(result.content || ''), 'base64');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -254,18 +280,18 @@ router.get('/files/download', async (req, res) => {
 });
 
 router.post('/desktop/screenshot', route(async (req, manager) => {
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.screenshot({ signal: req.signal });
 }));
 
 router.post('/desktop/observe', route(async (req, manager) => {
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.observe({ includeTree: req.body?.includeTree === true, signal: req.signal });
 }));
 
 router.post('/desktop/click', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.clickPoint(req.body?.x, req.body?.y, {
     button: req.body?.button,
     signal: req.signal,
@@ -274,7 +300,7 @@ router.post('/desktop/click', route(async (req, manager) => {
 
 router.post('/desktop/type', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.typeText(String(req.body?.text || ''), {
     pressEnter: req.body?.pressEnter === true,
     signal: req.signal,
@@ -283,13 +309,13 @@ router.post('/desktop/type', route(async (req, manager) => {
 
 router.post('/desktop/key', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.pressKey(String(req.body?.key || ''), { signal: req.signal });
 }));
 
 router.post('/desktop/launch', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = manager.getDesktopProviderForUser(req.session.userId);
+  const provider = manager.getDesktopProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.launchApp({
     app: String(req.body?.app || ''),
     signal: req.signal,
@@ -306,7 +332,7 @@ router.post('/shell/execute', route((req, manager) => {
       timeout: req.body?.timeout,
       stdinInput: req.body?.stdinInput,
       pty: req.body?.pty === true,
-      signal: req.signal,
+      ...runtimeOptions(req),
     },
   );
 }));
@@ -347,7 +373,7 @@ router.post('/local/command-output', async (req, res) => {
 });
 
 router.get('/browser/status', route(async (req, manager) => {
-  const provider = await manager.getBrowserProviderForUser(req.session.userId, { signal: req.signal });
+  const provider = await manager.getBrowserProviderForUser(req.session.userId, runtimeOptions(req));
   return {
     launched: await Promise.resolve(provider.isLaunched()),
     pages: await Promise.resolve(provider.getPageCount()),
@@ -358,7 +384,7 @@ router.get('/browser/status', route(async (req, manager) => {
 
 router.post('/browser/navigate', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = await manager.getBrowserProviderForUser(req.session.userId, { signal: req.signal });
+  const provider = await manager.getBrowserProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.navigate(String(req.body?.url || ''), {
     waitFor: req.body?.waitFor,
     signal: req.signal,
@@ -367,7 +393,7 @@ router.post('/browser/navigate', route(async (req, manager) => {
 
 router.post('/browser/click', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = await manager.getBrowserProviderForUser(req.session.userId, { signal: req.signal });
+  const provider = await manager.getBrowserProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.click(
     req.body?.selector,
     req.body?.text,
@@ -378,7 +404,7 @@ router.post('/browser/click', route(async (req, manager) => {
 
 router.post('/browser/type', route(async (req, manager) => {
   requireUserControl(req, manager);
-  const provider = await manager.getBrowserProviderForUser(req.session.userId, { signal: req.signal });
+  const provider = await manager.getBrowserProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.typeText(String(req.body?.text || ''), {
     pressEnter: req.body?.pressEnter === true,
     screenshot: req.body?.screenshot !== false,
@@ -387,7 +413,7 @@ router.post('/browser/type', route(async (req, manager) => {
 }));
 
 router.post('/browser/screenshot', route(async (req, manager) => {
-  const provider = await manager.getBrowserProviderForUser(req.session.userId, { signal: req.signal });
+  const provider = await manager.getBrowserProviderForUser(req.session.userId, runtimeOptions(req));
   return provider.screenshot({
     fullPage: req.body?.fullPage === true,
     selector: req.body?.selector,

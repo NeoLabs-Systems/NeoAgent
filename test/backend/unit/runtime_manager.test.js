@@ -39,6 +39,34 @@ test('interactive command options reach the same computer backend', async () => 
   assert.deepEqual(calls, [{ userId: '7', command: 'confirm', options }]);
 });
 
+test('a device target override routes one command without changing the saved provider', async () => {
+  const calls = [];
+  const manager = Object.create(RuntimeManager.prototype);
+  manager.providerModes = new Map([['7', 'local']]);
+  manager.computerBackend = {
+    async executeCommand(userId, command) {
+      calls.push({ backend: 'cloud', userId, command });
+      return { stdout: 'cloud', stderr: '', exitCode: 0 };
+    },
+  };
+  manager.localComputerBackend = {
+    async executeCommand(userId, command) {
+      calls.push({ backend: 'local', userId, command });
+      return { stdout: 'local', stderr: '', exitCode: 0 };
+    },
+  };
+
+  const overridden = await manager.executeCliCommand(7, 'pwd', {
+    deviceTarget: 'cloud',
+  });
+  const inherited = await manager.executeCliCommand(7, 'pwd');
+
+  assert.equal(overridden.backend, 'cloud-computer');
+  assert.equal(inherited.backend, 'local-computer');
+  assert.deepEqual(calls.map((entry) => entry.backend), ['cloud', 'local']);
+  assert.equal(manager.getComputerProvider(7), 'local');
+});
+
 test('Android providers are stable per user so concurrent starts share one controller', async () => {
   const created = [];
   const manager = Object.create(RuntimeManager.prototype);

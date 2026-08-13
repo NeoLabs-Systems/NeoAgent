@@ -1517,7 +1517,7 @@ function getAvailableTools(app, options = {}) {
     });
 
     const allowInterimUpdates = (
-        (options.triggerSource === 'web' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
+        (options.triggerSource === 'web' || options.triggerSource === 'cowork' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
         && options.triggerSource !== 'agent_delegation'
     );
@@ -1539,6 +1539,52 @@ function getAvailableTools(app, options = {}) {
                     required: ['content', 'kind']
                 }
             }
+        );
+    }
+
+    if (options.triggerSource === 'cowork' && options.triggerType !== 'subagent') {
+        tools.splice(
+            tools.findIndex((tool) => tool.name === 'read_file'),
+            0,
+            {
+                name: 'request_user_input',
+                description: 'Pause this Cowork run and ask one to three structured questions when the answers materially change the work. Give two or three options per question, mark the recommended option, and permit a custom answer.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        questions: {
+                            type: 'array',
+                            minItems: 1,
+                            maxItems: 3,
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'string', description: 'Stable letters, numbers, or underscores identifier.' },
+                                    header: { type: 'string', description: 'Short label of at most 24 characters.' },
+                                    question: { type: 'string' },
+                                    options: {
+                                        type: 'array',
+                                        minItems: 2,
+                                        maxItems: 3,
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                label: { type: 'string' },
+                                                description: { type: 'string' },
+                                                recommended: { type: 'boolean' },
+                                            },
+                                            required: ['label', 'description'],
+                                        },
+                                    },
+                                    allowCustom: { type: 'boolean' },
+                                },
+                                required: ['id', 'header', 'question', 'options'],
+                            },
+                        },
+                    },
+                    required: ['questions'],
+                },
+            },
         );
     }
 
@@ -1613,16 +1659,17 @@ async function executeTool(toolName, args, context, engine) {
         deliveryState = null,
         allowMultipleProactiveMessages = false,
         signal = null,
+        deviceTarget = null,
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
         const manager = runtime();
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
             const backend = typeof manager.getActiveBrowserBackend === 'function'
-                ? await Promise.resolve(manager.getActiveBrowserBackend(userId))
+                ? await Promise.resolve(manager.getActiveBrowserBackend(userId, { deviceTarget }))
                 : 'vm';
             return {
-                provider: await manager.getBrowserProviderForUser(userId, { signal }),
+                provider: await manager.getBrowserProviderForUser(userId, { signal, deviceTarget }),
                 backend,
             };
         }
@@ -1640,9 +1687,11 @@ async function executeTool(toolName, args, context, engine) {
     const dc = () => {
         const scoped = app?.locals?.getDesktopProviderForUser;
         if (typeof scoped === 'function') {
-            return scoped(userId);
+            return scoped(userId, { deviceTarget });
         }
-        return app?.locals?.desktopProvider || null;
+        return runtime()?.getDesktopProviderForUser?.(userId, { deviceTarget })
+            || app?.locals?.desktopProvider
+            || null;
     };
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
@@ -1699,7 +1748,7 @@ async function executeTool(toolName, args, context, engine) {
         userId,
         agentId,
         cliExecutor: runtime() && typeof runtime().getCommandExecutorForUser === 'function'
-            ? await runtime().getCommandExecutorForUser(userId)
+            ? await runtime().getCommandExecutorForUser(userId, { deviceTarget })
             : null,
         workspaceManager: wc(),
         artifactStore,
@@ -1729,6 +1778,7 @@ async function executeTool(toolName, args, context, engine) {
                 runId,
                 stepId,
                 signal,
+                deviceTarget,
             };
             if (typeof runtimeManager.executeCliCommand === 'function') {
                 return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
@@ -2298,6 +2348,44 @@ async function executeTool(toolName, args, context, engine) {
             });
         }
 
+        case 'request_user_input': {
+            if (triggerSource !== 'cowork' || !context.conversationId || !runId) {
+                return { error: 'Structured input requests require an active Cowork chat.' };
+            }
+            const cowork = require('../cowork/service');
+            const request = cowork.createInputRequest({
+                userId,
+                conversationId: context.conversationId,
+                runId,
+                agentId,
+                schema: args,
+            });
+            const runMeta = engine?.getRunMeta?.(runId);
+            if (runMeta) {
+                runMeta.awaitingInput = request;
+                runMeta.terminalInterim = {
+                    kind: 'question',
+                    content: request.schema.questions.map((question) => question.question).join('\n'),
+                    createdAt: new Date().toISOString(),
+                };
+            }
+            db.prepare(
+                `UPDATE agent_runs
+                 SET status = 'waiting_input', updated_at = datetime('now')
+                 WHERE id = ? AND user_id = ?`,
+            ).run(runId, userId);
+            engine?.persistRunMetadata?.(runId, {
+                awaitingInputRequestId: request.id,
+                terminalInterim: runMeta?.terminalInterim || null,
+            });
+            engine?.emit?.(userId, 'run:input_required', {
+                runId,
+                conversationId: context.conversationId,
+                request,
+            });
+            return { waitingForUser: true, requestId: request.id };
+        }
+
         case 'send_message': {
             if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
                 return { error: 'Delegated agents cannot send external messages unless external side effects were explicitly allowed.' };
@@ -2475,7 +2563,10 @@ async function executeTool(toolName, args, context, engine) {
                         error: 'read_file requires path or file_path. Keep source files in the workspace; for repository work clone or move the checkout into the workspace before using file tools.',
                     };
                 }
-                return await workspace.readFile(userId, normalizedArgs);
+                return await workspace.readFile(userId, {
+                    ...normalizedArgs,
+                    deviceTarget,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2507,7 +2598,10 @@ async function executeTool(toolName, args, context, engine) {
                             error: 'Each read_files item requires path or file_path.',
                         };
                     }
-                    const result = await workspace.readFile(userId, normalizedArgs);
+                    const result = await workspace.readFile(userId, {
+                        ...normalizedArgs,
+                        deviceTarget,
+                    });
                     return {
                         index,
                         requestedPath: normalizedArgs.path,
@@ -2548,6 +2642,7 @@ async function executeTool(toolName, args, context, engine) {
                     path: targetPath,
                     content: args.content,
                     mode: args.mode,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2570,6 +2665,7 @@ async function executeTool(toolName, args, context, engine) {
                 return await workspace.editFile(userId, {
                     path: targetPath,
                     edits,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2590,6 +2686,7 @@ async function executeTool(toolName, args, context, engine) {
                     start_line: args.start_line ?? args.startLine,
                     end_line: args.end_line ?? args.endLine,
                     content: args.content,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2604,6 +2701,7 @@ async function executeTool(toolName, args, context, engine) {
                     path: args.path,
                     depth: args.depth,
                     recursive: args.recursive,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2620,6 +2718,7 @@ async function executeTool(toolName, args, context, engine) {
                     include: args.include,
                     maxDepth: args.maxDepth ?? args.max_depth,
                     maxFileSize: args.maxFileSize ?? args.max_file_size,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };

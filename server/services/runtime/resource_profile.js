@@ -148,11 +148,8 @@ function getStorageHeadroomBytes(profile, storage) {
     : { availableBytes: storage };
   const availableBytes = Number(input.availableBytes || 0);
   if (!Number.isFinite(availableBytes) || availableBytes <= 0) return 0;
-  const totalBytes = Number(input.totalBytes || 0);
   const sparseLiabilityBytes = Math.max(0, Number(input.sparseLiabilityBytes || 0));
-  const hostReserveBytes = Number.isFinite(totalBytes) && totalBytes > 0
-    ? totalBytes * profile.storageReservePercent / 100
-    : availableBytes * profile.storageReservePercent / 100;
+  const hostReserveBytes = availableBytes * profile.storageReservePercent / 100;
   return Math.floor(availableBytes - hostReserveBytes - sparseLiabilityBytes);
 }
 

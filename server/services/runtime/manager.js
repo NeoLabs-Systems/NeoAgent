@@ -92,6 +92,23 @@ class RuntimeManager {
     return provider;
   }
 
+  resolveComputerProvider(userId, override = null) {
+    const normalized = String(override || '').trim().toLowerCase();
+    if (!normalized) return this.getComputerProvider(userId);
+    if (!['cloud', 'local'].includes(normalized)) {
+      const error = new Error('Computer provider must be cloud or local.');
+      error.status = 400;
+      throw error;
+    }
+    if (normalized === 'local' && !this.localComputerBackend) {
+      const error = new Error('Local computer control is unavailable on this server.');
+      error.code = 'LOCAL_COMPUTER_UNAVAILABLE';
+      error.status = 503;
+      throw error;
+    }
+    return normalized;
+  }
+
   setComputerProvider(userId, provider) {
     const normalized = String(provider || '').trim().toLowerCase();
     if (!['cloud', 'local'].includes(normalized)) {
@@ -123,8 +140,8 @@ class RuntimeManager {
     return this.getComputerStatus(userId);
   }
 
-  _computerBackendForUser(userId) {
-    if (this.getComputerProvider(userId) === 'local' && this.localComputerBackend) {
+  _computerBackendForUser(userId, providerOverride = null) {
+    if (this.resolveComputerProvider(userId, providerOverride) === 'local') {
       return this.localComputerBackend;
     }
     return this.computerBackend;
@@ -140,8 +157,9 @@ class RuntimeManager {
     this.io?.to(`user:${key}`).emit('computer:status', this.getComputerStatus(key));
   }
 
-  getCapabilitySnapshot(userId) {
-    const backend = this._computerBackendForUser(userId);
+  getCapabilitySnapshot(userId, options = {}) {
+    const provider = this.resolveComputerProvider(userId, options.deviceTarget);
+    const backend = this._computerBackendForUser(userId, provider);
     const computer = backend.vmManager.getStatus(userId);
     const key = String(userId || '').trim();
     const androidController = key ? this.androidControllers.get(key) : null;
@@ -152,7 +170,7 @@ class RuntimeManager {
     return {
       computer,
       browser: {
-        activeBackend: this.getComputerProvider(userId) === 'local' ? 'local-computer' : 'cloud-computer',
+        activeBackend: provider === 'local' ? 'local-computer' : 'cloud-computer',
         vmInitialized: backend.vmManager.hasTrackedVm(userId),
       },
       desktop: computer,
@@ -163,9 +181,9 @@ class RuntimeManager {
     };
   }
 
-  getComputerStatus(userId) {
-    const provider = this.getComputerProvider(userId);
-    const status = this._computerBackendForUser(userId).vmManager.getStatus(userId);
+  getComputerStatus(userId, options = {}) {
+    const provider = this.resolveComputerProvider(userId, options.deviceTarget);
+    const status = this._computerBackendForUser(userId, provider).vmManager.getStatus(userId);
     const lease = this.getControlLease(userId);
     const controlledState = status.state === 'ready' && lease
       ? lease.ownerType === 'teach'
@@ -177,6 +195,7 @@ class RuntimeManager {
     return {
       ...status,
       provider,
+      defaultProvider: this.getComputerProvider(userId),
       providers: {
         cloud: { available: true },
         local: {
@@ -194,7 +213,7 @@ class RuntimeManager {
   async startComputer(userId, options = {}) {
     this._emitStatus(userId);
     try {
-      const backend = this._computerBackendForUser(userId);
+      const backend = this._computerBackendForUser(userId, options.deviceTarget);
       if (backend === this.localComputerBackend) await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
       if (backend === this.computerBackend) await this.#migrateWorkspace(userId, options);
@@ -211,7 +230,7 @@ class RuntimeManager {
           }
         }
       }
-      return this.getComputerStatus(userId);
+      return this.getComputerStatus(userId, options);
     } finally {
       this._emitStatus(userId);
     }
@@ -248,44 +267,52 @@ class RuntimeManager {
     }
   }
 
-  async stopComputer(userId) {
+  async stopComputer(userId, options = {}) {
     this.releaseControl(userId);
     this.revokeDisplaySessions(userId);
-    await this._computerBackendForUser(userId).vmManager.killVm(userId);
-    const status = this.getComputerStatus(userId);
+    await this._computerBackendForUser(userId, options.deviceTarget).vmManager.killVm(userId);
+    const status = this.getComputerStatus(userId, options);
     this._emitStatus(userId);
     return status;
   }
 
   executeCommand(userId, command, options = {}) {
-    return this._computerBackendForUser(userId).executeCommand(userId, command, options);
+    return this._computerBackendForUser(userId, options.deviceTarget)
+      .executeCommand(userId, command, options);
   }
 
   executeCliCommand(userId, command, options = {}) {
     return this.executeCommand(userId, command, options).then((result) => ({
       ...result,
-      backend: this.getComputerProvider(userId) === 'local' ? 'local-computer' : 'cloud-computer',
+      backend: this.resolveComputerProvider(userId, options.deviceTarget) === 'local'
+        ? 'local-computer'
+        : 'cloud-computer',
     }));
   }
 
-  killCommand(userId, pid, reason = 'aborted') {
-    return this._computerBackendForUser(userId).killCommand(userId, pid, reason);
+  killCommand(userId, pid, reason = 'aborted', options = {}) {
+    return this._computerBackendForUser(userId, options.deviceTarget)
+      .killCommand(userId, pid, reason);
   }
 
-  getCommandExecutorForUser(userId) {
-    return this._computerBackendForUser(userId).getCommandExecutorForUser(userId);
+  getCommandExecutorForUser(userId, options = {}) {
+    return this._computerBackendForUser(userId, options.deviceTarget)
+      .getCommandExecutorForUser(userId);
   }
 
   getBrowserProviderForUser(userId, options = {}) {
-    return this._computerBackendForUser(userId).getBrowserProviderForUser(userId, options);
+    return this._computerBackendForUser(userId, options.deviceTarget)
+      .getBrowserProviderForUser(userId, options);
   }
 
-  getActiveBrowserBackend(userId) {
-    return this.getComputerProvider(userId) === 'local' ? 'local-computer' : 'cloud-computer';
+  getActiveBrowserBackend(userId, options = {}) {
+    return this.resolveComputerProvider(userId, options.deviceTarget) === 'local'
+      ? 'local-computer'
+      : 'cloud-computer';
   }
 
-  getDesktopProviderForUser(userId) {
-    const backend = this._computerBackendForUser(userId);
+  getDesktopProviderForUser(userId, options = {}) {
+    const backend = this._computerBackendForUser(userId, options.deviceTarget);
     if (backend === this.localComputerBackend) {
       return backend.getDesktopProviderForUser(userId);
     }
@@ -305,11 +332,12 @@ class RuntimeManager {
   }
 
   requestComputer(userId, method, pathname, body, options = {}) {
-    return this._computerBackendForUser(userId).requestGuest(userId, method, pathname, body, options);
+    return this._computerBackendForUser(userId, options.deviceTarget)
+      .requestGuest(userId, method, pathname, body, options);
   }
 
-  createDisplaySession(userId) {
-    if (this.getComputerProvider(userId) === 'local') {
+  createDisplaySession(userId, options = {}) {
+    if (this.resolveComputerProvider(userId, options.deviceTarget) === 'local') {
       if (!this.localComputerBackend?.isConnected?.(userId)) {
         const error = new Error('This device is not connected to NeoAgent.');
         error.code = 'LOCAL_COMPUTER_NOT_CONNECTED';

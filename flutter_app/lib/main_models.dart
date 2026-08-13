@@ -4110,3 +4110,289 @@ class AccountUsageAndLimits {
   bool get hasLimits => fourHourLimit != null || weeklyLimit != null;
   bool get isReached => fourHourReached || weeklyReached;
 }
+
+enum CoworkInteractionMode { agent, plan }
+
+class CoworkDeviceSelection {
+  const CoworkDeviceSelection({
+    required this.effective,
+    required this.setting,
+    required this.inherited,
+    required this.available,
+    required this.localAvailable,
+    required this.localConnected,
+    required this.cloudAvailable,
+    this.override,
+  });
+
+  factory CoworkDeviceSelection.fromJson(Map<String, dynamic> json) {
+    final providers = _jsonMap(json['providers']);
+    final local = _jsonMap(providers['local']);
+    final cloud = _jsonMap(providers['cloud']);
+    return CoworkDeviceSelection(
+      effective: json['effective']?.toString() == 'local' ? 'local' : 'cloud',
+      setting: json['setting']?.toString() == 'local' ? 'local' : 'cloud',
+      inherited: json['inherited'] != false,
+      available: json['available'] != false,
+      localAvailable: local['available'] == true,
+      localConnected: local['connected'] == true,
+      cloudAvailable: cloud['available'] != false,
+      override: json['override']?.toString(),
+    );
+  }
+
+  final String effective;
+  final String setting;
+  final String? override;
+  final bool inherited;
+  final bool available;
+  final bool localAvailable;
+  final bool localConnected;
+  final bool cloudAvailable;
+}
+
+class CoworkChat {
+  const CoworkChat({
+    required this.id,
+    required this.title,
+    required this.agentId,
+    required this.agentName,
+    required this.mode,
+    required this.device,
+    required this.manuallyTitled,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.messageCount,
+    required this.pendingInputCount,
+    this.latestRun,
+  });
+
+  factory CoworkChat.fromJson(Map<String, dynamic> json) {
+    return CoworkChat(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString().ifEmpty('New chat') ?? 'New chat',
+      agentId: json['agentId']?.toString() ?? '',
+      agentName: json['agentName']?.toString().ifEmpty('Main') ?? 'Main',
+      mode: json['mode']?.toString() == 'plan'
+          ? CoworkInteractionMode.plan
+          : CoworkInteractionMode.agent,
+      device: CoworkDeviceSelection.fromJson(_jsonMap(json['device'])),
+      manuallyTitled: json['manuallyTitled'] == true,
+      createdAt: _parseTimestamp(json['createdAt']?.toString()),
+      updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
+      messageCount: _asInt(json['messageCount']),
+      pendingInputCount: _asInt(json['pendingInputCount']),
+      latestRun: json['latestRun'] is Map
+          ? CoworkRunSummary.fromJson(_jsonMap(json['latestRun']))
+          : null,
+    );
+  }
+
+  final String id;
+  final String title;
+  final String agentId;
+  final String agentName;
+  final CoworkInteractionMode mode;
+  final CoworkDeviceSelection device;
+  final bool manuallyTitled;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final int messageCount;
+  final int pendingInputCount;
+  final CoworkRunSummary? latestRun;
+}
+
+class CoworkRunSummary {
+  const CoworkRunSummary({
+    required this.id,
+    required this.status,
+    required this.title,
+    required this.mode,
+    required this.deviceTarget,
+  });
+
+  factory CoworkRunSummary.fromJson(Map<String, dynamic> json) {
+    return CoworkRunSummary(
+      id: json['id']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      title: json['title']?.toString() ?? '',
+      mode: json['mode']?.toString() == 'plan'
+          ? CoworkInteractionMode.plan
+          : CoworkInteractionMode.agent,
+      deviceTarget: json['deviceTarget']?.toString(),
+    );
+  }
+
+  final String id;
+  final String status;
+  final String title;
+  final CoworkInteractionMode mode;
+  final String? deviceTarget;
+
+  bool get isLive => <String>{
+    'pending',
+    'running',
+    'pausing',
+    'paused',
+    'resuming',
+  }.contains(status);
+}
+
+class CoworkActivityItem {
+  const CoworkActivityItem({
+    required this.id,
+    required this.runId,
+    required this.kind,
+    required this.label,
+    required this.status,
+    required this.summary,
+    required this.createdAt,
+    this.durationMs,
+  });
+
+  final String id;
+  final String runId;
+  final String kind;
+  final String label;
+  final String status;
+  final String summary;
+  final DateTime createdAt;
+  final int? durationMs;
+}
+
+class CoworkInputOption {
+  const CoworkInputOption({
+    required this.label,
+    required this.description,
+    required this.recommended,
+  });
+
+  factory CoworkInputOption.fromJson(Map<String, dynamic> json) {
+    return CoworkInputOption(
+      label: json['label']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      recommended: json['recommended'] == true,
+    );
+  }
+
+  final String label;
+  final String description;
+  final bool recommended;
+}
+
+class CoworkInputQuestion {
+  const CoworkInputQuestion({
+    required this.id,
+    required this.header,
+    required this.question,
+    required this.options,
+    required this.allowCustom,
+  });
+
+  factory CoworkInputQuestion.fromJson(Map<String, dynamic> json) {
+    return CoworkInputQuestion(
+      id: json['id']?.toString() ?? '',
+      header: json['header']?.toString() ?? 'Question',
+      question: json['question']?.toString() ?? '',
+      options: _jsonMapList(
+        json['options'],
+        fallbackToMapValues: true,
+      ).map(CoworkInputOption.fromJson).toList(growable: false),
+      allowCustom: json['allowCustom'] != false,
+    );
+  }
+
+  final String id;
+  final String header;
+  final String question;
+  final List<CoworkInputOption> options;
+  final bool allowCustom;
+}
+
+class CoworkInputRequest {
+  const CoworkInputRequest({
+    required this.id,
+    required this.runId,
+    required this.status,
+    required this.questions,
+  });
+
+  factory CoworkInputRequest.fromJson(Map<String, dynamic> json) {
+    final schema = _jsonMap(json['schema']);
+    return CoworkInputRequest(
+      id: json['id']?.toString() ?? '',
+      runId: json['runId']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      questions: _jsonMapList(
+        schema['questions'],
+        fallbackToMapValues: true,
+      ).map(CoworkInputQuestion.fromJson).toList(growable: false),
+    );
+  }
+
+  final String id;
+  final String runId;
+  final String status;
+  final List<CoworkInputQuestion> questions;
+
+  bool get isPending => status == 'pending';
+}
+
+class CoworkThreadState {
+  const CoworkThreadState({
+    this.messages = const <ChatEntry>[],
+    this.activity = const <CoworkActivityItem>[],
+    this.inputRequests = const <CoworkInputRequest>[],
+    this.streamingContent = '',
+    this.phase = '',
+    this.activeRunId,
+    this.runStatus,
+    this.loading = false,
+    this.sending = false,
+  });
+
+  final List<ChatEntry> messages;
+  final List<CoworkActivityItem> activity;
+  final List<CoworkInputRequest> inputRequests;
+  final String streamingContent;
+  final String phase;
+  final String? activeRunId;
+  final String? runStatus;
+  final bool loading;
+  final bool sending;
+
+  bool get hasLiveRun =>
+      activeRunId != null &&
+      <String>{
+        'pending',
+        'running',
+        'pausing',
+        'paused',
+        'resuming',
+      }.contains(runStatus);
+
+  CoworkThreadState copyWith({
+    List<ChatEntry>? messages,
+    List<CoworkActivityItem>? activity,
+    List<CoworkInputRequest>? inputRequests,
+    String? streamingContent,
+    String? phase,
+    String? activeRunId,
+    bool clearActiveRunId = false,
+    String? runStatus,
+    bool? loading,
+    bool? sending,
+  }) {
+    return CoworkThreadState(
+      messages: messages ?? this.messages,
+      activity: activity ?? this.activity,
+      inputRequests: inputRequests ?? this.inputRequests,
+      streamingContent: streamingContent ?? this.streamingContent,
+      phase: phase ?? this.phase,
+      activeRunId: clearActiveRunId ? null : activeRunId ?? this.activeRunId,
+      runStatus: runStatus ?? this.runStatus,
+      loading: loading ?? this.loading,
+      sending: sending ?? this.sending,
+    );
+  }
+}

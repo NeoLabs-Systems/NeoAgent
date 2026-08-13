@@ -732,8 +732,100 @@ class BackendClient {
     return getMap(baseUrl, '/api/system/test/computer');
   }
 
-  Future<Map<String, dynamic>> fetchComputerStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/computer/status');
+  String _withDeviceTarget(String path, String? deviceTarget) {
+    final normalized = deviceTarget?.trim().toLowerCase() ?? '';
+    if (normalized != 'local' && normalized != 'cloud') return path;
+    final query = 'deviceTarget=${Uri.encodeQueryComponent(normalized)}';
+    return path.contains('?') ? '$path&$query' : '$path?$query';
+  }
+
+  Future<Map<String, dynamic>> fetchComputerStatus(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withDeviceTarget('/api/computer/status', deviceTarget),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchCoworkCapabilities(String baseUrl) {
+    return getMap(baseUrl, '/api/cowork/capabilities');
+  }
+
+  Future<Map<String, dynamic>> fetchCoworkChats(String baseUrl) {
+    return getMap(baseUrl, '/api/cowork/chats');
+  }
+
+  Future<Map<String, dynamic>> fetchCoworkChat(
+    String baseUrl,
+    String conversationId,
+  ) {
+    return getMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> createCoworkChat(
+    String baseUrl,
+    Map<String, dynamic> payload,
+  ) {
+    return postMap(baseUrl, '/api/cowork/chats', payload);
+  }
+
+  Future<Map<String, dynamic>> updateCoworkChat(
+    String baseUrl,
+    String conversationId,
+    Map<String, dynamic> payload,
+  ) {
+    return patchMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
+      payload,
+    );
+  }
+
+  Future<void> deleteCoworkChat(String baseUrl, String conversationId) async {
+    await deleteMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> answerCoworkInput(
+    String baseUrl, {
+    required String conversationId,
+    required String requestId,
+    required Map<String, String> answers,
+  }) {
+    return postMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}'
+      '/input-requests/${Uri.encodeComponent(requestId)}/answer',
+      <String, dynamic>{'answers': answers},
+    );
+  }
+
+  Future<Map<String, dynamic>> pauseAgentRun(String baseUrl, String runId) {
+    return _postEmpty(
+      baseUrl,
+      '/api/agents/${Uri.encodeComponent(runId)}/pause',
+    );
+  }
+
+  Future<Map<String, dynamic>> resumeAgentRun(String baseUrl, String runId) {
+    return _postEmpty(
+      baseUrl,
+      '/api/agents/${Uri.encodeComponent(runId)}/resume',
+    );
+  }
+
+  Future<Map<String, dynamic>> abortAgentRun(String baseUrl, String runId) {
+    return _postEmpty(
+      baseUrl,
+      '/api/agents/${Uri.encodeComponent(runId)}/abort',
+    );
   }
 
   Future<Map<String, dynamic>> setComputerProvider(
@@ -745,18 +837,31 @@ class BackendClient {
     });
   }
 
-  Future<Map<String, dynamic>> startComputer(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/computer/start');
+  Future<Map<String, dynamic>> startComputer(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return postMap(baseUrl, '/api/computer/start', <String, dynamic>{
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
   }
 
-  Future<Map<String, dynamic>> stopComputer(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/computer/stop');
+  Future<Map<String, dynamic>> stopComputer(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return postMap(baseUrl, '/api/computer/stop', <String, dynamic>{
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
   }
 
   Future<Map<String, dynamic>> createComputerDisplaySession(
-    String baseUrl,
-  ) async {
-    return _postEmpty(baseUrl, '/api/computer/display-session');
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return postMap(baseUrl, '/api/computer/display-session', <String, dynamic>{
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
   }
 
   Future<Map<String, dynamic>> acquireComputerControl(String baseUrl) async {
@@ -770,9 +875,11 @@ class BackendClient {
   Future<Map<String, dynamic>> launchComputerApp(
     String baseUrl, {
     required String app,
+    String? deviceTarget,
   }) async {
     return postMap(baseUrl, '/api/computer/desktop/launch', <String, dynamic>{
       'app': app,
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
     });
   }
 
@@ -780,11 +887,45 @@ class BackendClient {
     String baseUrl, {
     required String command,
     String? cwd,
+    String? deviceTarget,
   }) async {
     return postMap(baseUrl, '/api/computer/shell/execute', <String, dynamic>{
       'command': command,
       if (cwd?.trim().isNotEmpty == true) 'cwd': cwd!.trim(),
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
     });
+  }
+
+  Future<Map<String, dynamic>> fetchComputerBrowserStatus(
+    String baseUrl, {
+    String? deviceTarget,
+  }) {
+    return getMap(
+      baseUrl,
+      _withDeviceTarget('/api/computer/browser/status', deviceTarget),
+    );
+  }
+
+  Future<Map<String, dynamic>> navigateComputerBrowser(
+    String baseUrl, {
+    required String url,
+    String? deviceTarget,
+  }) {
+    return postMap(baseUrl, '/api/computer/browser/navigate', <String, dynamic>{
+      'url': url,
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
+    });
+  }
+
+  Future<Map<String, dynamic>> screenshotComputerBrowser(
+    String baseUrl, {
+    String? deviceTarget,
+  }) {
+    return postMap(
+      baseUrl,
+      '/api/computer/browser/screenshot',
+      <String, dynamic>{if (deviceTarget != null) 'deviceTarget': deviceTarget},
+    );
   }
 
   Future<Map<String, dynamic>> fetchTeachStatus(String baseUrl) async {
@@ -877,20 +1018,28 @@ class BackendClient {
   Future<Map<String, dynamic>> fetchWorkspaceDirectory(
     String baseUrl, {
     String path = '.',
+    String? deviceTarget,
   }) async {
     return getMap(
       baseUrl,
-      '/api/computer/files?path=${Uri.encodeQueryComponent(path)}',
+      _withDeviceTarget(
+        '/api/computer/files?path=${Uri.encodeQueryComponent(path)}',
+        deviceTarget,
+      ),
     );
   }
 
   Future<Map<String, dynamic>> fetchWorkspaceFile(
     String baseUrl, {
     required String path,
+    String? deviceTarget,
   }) async {
     return getMap(
       baseUrl,
-      '/api/computer/files/content?path=${Uri.encodeQueryComponent(path)}',
+      _withDeviceTarget(
+        '/api/computer/files/content?path=${Uri.encodeQueryComponent(path)}',
+        deviceTarget,
+      ),
     );
   }
 
@@ -898,15 +1047,20 @@ class BackendClient {
     String baseUrl, {
     required String path,
     required String content,
+    String? deviceTarget,
   }) async {
     return putMap(baseUrl, '/api/computer/files/content', <String, dynamic>{
       'path': path,
       'content': content,
+      if (deviceTarget != null) 'deviceTarget': deviceTarget,
     });
   }
 
-  String workspaceDownloadPath(String path) {
-    return '/api/computer/files/download?path=${Uri.encodeQueryComponent(path)}';
+  String workspaceDownloadPath(String path, {String? deviceTarget}) {
+    return _withDeviceTarget(
+      '/api/computer/files/download?path=${Uri.encodeQueryComponent(path)}',
+      deviceTarget,
+    );
   }
 
   Future<Map<String, dynamic>> fetchAndroidApps(
@@ -1810,6 +1964,20 @@ class BackendClient {
     return _asMap(_decodeJson(response.body));
   }
 
+  Future<Map<String, dynamic>> patchMap(
+    String baseUrl,
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _request(
+      'PATCH',
+      _resolveUri(baseUrl, path),
+      body: payload,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
   Future<Map<String, dynamic>> deleteMap(String baseUrl, String path) async {
     final response = await _request('DELETE', _resolveUri(baseUrl, path));
     _throwIfError(response);
@@ -1851,6 +2019,8 @@ class BackendClient {
         request = _httpClient.post(uri, headers: headers, body: encodedBody);
       case 'PUT':
         request = _httpClient.put(uri, headers: headers, body: encodedBody);
+      case 'PATCH':
+        request = _httpClient.patch(uri, headers: headers, body: encodedBody);
       case 'DELETE':
         request = _httpClient.delete(uri, headers: headers, body: encodedBody);
       default:
@@ -1975,12 +2145,18 @@ class BackendClient {
     }
 
     var message = 'Request failed with HTTP ${response.statusCode}';
+    String? code;
     try {
       final decoded = _asMap(_decodeJson(response.body));
       message = decoded['error']?.toString() ?? message;
+      code = decoded['code']?.toString();
     } catch (_) {}
 
-    throw BackendException(message, statusCode: response.statusCode);
+    throw BackendException(
+      message,
+      statusCode: response.statusCode,
+      code: code,
+    );
   }
 
   // ── Tool security ──────────────────────────────────────────────────────────
@@ -2037,10 +2213,11 @@ class BackendClient {
 }
 
 class BackendException implements Exception {
-  const BackendException(this.message, {this.statusCode});
+  const BackendException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+  final String? code;
 
   @override
   String toString() => message;

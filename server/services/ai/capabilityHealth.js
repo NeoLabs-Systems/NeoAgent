@@ -34,7 +34,7 @@ function summarizeCapabilityHealth(health) {
   return lines.join('\n');
 }
 
-async function getBrowserHealth(userId, app, engine) {
+async function getBrowserHealth(userId, app, engine, deviceTarget = null) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
   if (!runtimeManager) {
     return capabilityEntry({
@@ -43,7 +43,7 @@ async function getBrowserHealth(userId, app, engine) {
   }
 
   const snapshot = typeof runtimeManager.getCapabilitySnapshot === 'function'
-    ? runtimeManager.getCapabilitySnapshot(userId)
+    ? runtimeManager.getCapabilitySnapshot(userId, { deviceTarget })
     : null;
   const computer = snapshot?.computer || {};
   const state = String(computer.state || 'stopped');
@@ -61,14 +61,14 @@ async function getBrowserHealth(userId, app, engine) {
         ? 'The unified cloud computer is available.'
         : 'The unified cloud computer will start on first use.',
     details: {
-      backend: 'cloud-computer',
+      backend: snapshot?.browser?.activeBackend || 'cloud-computer',
       state,
       runtimeInitialized: snapshot?.browser?.vmInitialized === true,
     },
   });
 }
 
-async function getAndroidHealth(userId, app, engine) {
+async function getAndroidHealth(userId, app, engine, deviceTarget = null) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
   if (!runtimeManager) {
     return capabilityEntry({
@@ -79,7 +79,7 @@ async function getAndroidHealth(userId, app, engine) {
   // Like browser health, Android health is a snapshot. Creating a controller or
   // running adb here makes unrelated chat turns pay runtime startup/status costs.
   const runtimeSnapshot = typeof runtimeManager.getCapabilitySnapshot === 'function'
-    ? runtimeManager.getCapabilitySnapshot(userId)
+    ? runtimeManager.getCapabilitySnapshot(userId, { deviceTarget })
     : null;
   const status = runtimeSnapshot?.android?.status || null;
   const bootstrapped = status?.bootstrapped === true;
@@ -265,7 +265,7 @@ function getTaskHealth(userId, agentId = null) {
   });
 }
 
-async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
+async function getCapabilityHealth({ userId, agentId = null, app, engine, deviceTarget = null }) {
   const providers = await getProviderHealthCatalog(userId, agentId, {
     probeLocal: false,
   });
@@ -277,8 +277,8 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
       files: getFileHealth(app, engine),
       memory: getMemoryHealth(engine),
       search: getSearchHealth(),
-      browser: await getBrowserHealth(userId, app, engine),
-      android: await getAndroidHealth(userId, app, engine),
+      browser: await getBrowserHealth(userId, app, engine, deviceTarget),
+      android: await getAndroidHealth(userId, app, engine, deviceTarget),
       messaging: getMessagingHealth(userId, app, engine, agentId),
       integrations: getIntegrationHealth(userId, app, agentId),
       mcp: getMcpHealth(userId, app, engine, agentId),

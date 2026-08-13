@@ -9,11 +9,13 @@ class ComputerWorkspaceClient {
     return this.runtimeManager.requestComputer(userId, method, pathname, body, options);
   }
 
-  async #readContent(userId, filePath) {
+  async #readContent(userId, filePath, requestOptions = {}) {
     const result = await this.#request(
       userId,
       'GET',
       `/workspace/files/content?path=${encodeURIComponent(String(filePath || ''))}`,
+      undefined,
+      requestOptions,
     );
     return {
       ...result,
@@ -23,7 +25,7 @@ class ComputerWorkspaceClient {
 
   async readFile(userId, options = {}) {
     try {
-      const result = await this.#readContent(userId, options.path);
+      const result = await this.#readContent(userId, options.path, options);
       let content = String(result.content || '');
       const lines = content.split('\n');
       const start = options.start_line == null ? 1 : Number(options.start_line);
@@ -49,13 +51,13 @@ class ComputerWorkspaceClient {
     try {
       let content = String(options.content ?? '');
       if (String(options.mode || '').toLowerCase() === 'append') {
-        const current = await this.#readContent(userId, options.path);
+        const current = await this.#readContent(userId, options.path, options);
         content = `${current.content}${content}`;
       }
       const result = await this.#request(userId, 'PUT', '/workspace/files/content', {
         path: options.path,
         content,
-      });
+      }, options);
       return { ...result, path: `/home/neo/workspace/${result.path}` };
     } catch (error) {
       return { success: false, error: error.message, path: options.path || null };
@@ -65,7 +67,7 @@ class ComputerWorkspaceClient {
   async editFile(userId, options = {}) {
     let current;
     try {
-      current = await this.#readContent(userId, options.path);
+      current = await this.#readContent(userId, options.path, options);
     } catch (error) {
       return { error: error.message, path: options.path || null };
     }
@@ -82,14 +84,18 @@ class ComputerWorkspaceClient {
       report.push({ success: true });
     }
     if (!modified) return { success: false, report, path: current.path };
-    const result = await this.writeFile(userId, { path: options.path, content });
+    const result = await this.writeFile(userId, {
+      path: options.path,
+      content,
+      deviceTarget: options.deviceTarget,
+    });
     return { ...result, report };
   }
 
   async replaceFileRange(userId, options = {}) {
     let current;
     try {
-      current = await this.#readContent(userId, options.path);
+      current = await this.#readContent(userId, options.path, options);
     } catch (error) {
       return { error: error.message, path: options.path || null };
     }
@@ -100,7 +106,11 @@ class ComputerWorkspaceClient {
       return { success: false, error: 'Invalid line range.', path: current.path };
     }
     lines.splice(start - 1, end - start + 1, ...String(options.content ?? '').split('\n'));
-    return this.writeFile(userId, { path: options.path, content: lines.join('\n') });
+    return this.writeFile(userId, {
+      path: options.path,
+      content: lines.join('\n'),
+      deviceTarget: options.deviceTarget,
+    });
   }
 
   async listDirectory(userId, options = {}) {
@@ -109,6 +119,8 @@ class ComputerWorkspaceClient {
         userId,
         'GET',
         `/workspace/files?path=${encodeURIComponent(String(options.path || '.'))}`,
+        undefined,
+        options,
       );
       return {
         path: `/home/neo/workspace/${result.path || ''}`,
@@ -126,7 +138,7 @@ class ComputerWorkspaceClient {
         glob: options.glob || options.pattern || '',
         query: options.query || '',
         maxResults: options.max_results || options.maxResults || 100,
-      });
+      }, options);
     } catch (error) {
       return { error: error.message, results: [] };
     }
