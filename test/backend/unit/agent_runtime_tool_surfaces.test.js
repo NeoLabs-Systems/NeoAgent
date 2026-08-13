@@ -62,6 +62,7 @@ function buildLargeCatalog() {
     'think',
     'send_message',
     'send_interim_update',
+    'call_user',
     'read_file',
     'read_files',
     'list_directory',
@@ -194,6 +195,7 @@ for (const [label, runOptions] of SURFACES) {
 
     assert.ok(observed.activeNames.includes('activate_tools'), 'activate_tools must always be active');
     assert.ok(observed.activeNames.includes('task_complete'), 'task_complete must always be active');
+    assert.ok(observed.activeNames.includes('call_user'), 'call_user must always be active');
     assert.ok(
       observed.activeNames.length <= MAX_TOOLS,
       `active schemas (${observed.activeNames.length}) exceed the provider cap`,

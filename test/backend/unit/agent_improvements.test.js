@@ -85,7 +85,14 @@ test('repetition guard normalizes repeated read-only shell evidence fetches', ()
 });
 
 test('tool catalog retains every tool and activation replaces unrelated schemas', () => {
-  const required = ['task_complete', 'activate_tools', 'think', 'send_message', 'send_interim_update'];
+  const required = [
+    'task_complete',
+    'activate_tools',
+    'think',
+    'send_message',
+    'send_interim_update',
+    'call_user',
+  ];
   const tools = [
     ...required.map((name) => ({ name, description: `${name} description` })),
     ...Array.from({ length: 40 }, (_, index) => ({
@@ -106,7 +113,14 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
 });
 
 test('execute runs start with core file tools but direct runs stay lean', () => {
-  const required = ['task_complete', 'activate_tools', 'think', 'send_message', 'send_interim_update'];
+  const required = [
+    'task_complete',
+    'activate_tools',
+    'think',
+    'send_message',
+    'send_interim_update',
+    'call_user',
+  ];
   const tools = [
     ...required.map((name) => ({ name, description: `${name} description` })),
     ...CORE_FILE_TOOLS.map((name) => ({ name, description: `${name} description` })),
@@ -119,6 +133,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 
   const directInitial = selectInitialTools(tools, [], { includeCoreFileTools: false });
+  assert.equal(directInitial.some((tool) => tool.name === 'call_user'), true);
   assert.equal(directInitial.some((tool) => tool.name === 'read_files'), false);
   assert.equal(directInitial.some((tool) => tool.name === 'replace_file_range'), false);
 
@@ -162,6 +177,16 @@ test('task analysis keeps short immediate work out of task automation flow', () 
   assert.match(prompt, /progress_update_policy="none"/);
   assert.match(prompt, /Do not suggest create_task/);
   assert.match(prompt, /future, recurring, scheduled, monitored, background/);
+});
+
+test('task analysis routes in-app voice calls through call_user', () => {
+  const prompt = buildAnalysisPrompt({
+    tools: [{ name: 'call_user', description: 'Start an in-app voice call.' }],
+  });
+
+  assert.match(prompt, /use mode="execute" and suggest call_user/);
+  assert.match(prompt, /Never claim that voice calling is unavailable/);
+  assert.match(prompt, /does not dial phone numbers/);
 });
 
 test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {

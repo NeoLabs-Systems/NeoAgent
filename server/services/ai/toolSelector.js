@@ -14,6 +14,7 @@ const ALWAYS_INCLUDE_BUILT_INS = [
   'think',
   'send_message',
   'send_interim_update',
+  'call_user',
 ];
 const CORE_FILE_TOOLS = [
   'read_file',

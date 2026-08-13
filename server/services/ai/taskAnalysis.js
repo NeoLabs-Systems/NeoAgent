@@ -64,6 +64,7 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Set progress_update_policy="required" for long, slow, voice, messaging, or externally visible work where silence would be confusing.',
   'When a spoken or interactive request needs durable work, acknowledgement may contain one short request-specific spoken sentence. It must not claim completion. Otherwise use an empty string.',
   'Do not suggest create_task, update_task, delete_task, or list_tasks for ordinary immediate work. Use task tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
+  'When the user asks to start an in-app voice call, use mode="execute" and suggest call_user. Never claim that voice calling is unavailable when call_user appears in the tool catalog. call_user does not dial phone numbers.',
   'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
   'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
   'For research, product/device comparisons, reviews, fact-checks, or multi-entity look-into requests, use mode="execute" or mode="plan_execute", never direct_answer. Set needs_verification=true, freshness_risk="possible" or higher, and completion_confidence_required="high".',
