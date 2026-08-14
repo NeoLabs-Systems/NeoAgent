@@ -88,6 +88,7 @@ class ComputerWorkspaceClient {
       path: options.path,
       content,
       deviceTarget: options.deviceTarget,
+      workspaceRoot: options.workspaceRoot,
     });
     return { ...result, report };
   }
@@ -110,6 +111,7 @@ class ComputerWorkspaceClient {
       path: options.path,
       content: lines.join('\n'),
       deviceTarget: options.deviceTarget,
+      workspaceRoot: options.workspaceRoot,
     });
   }
 

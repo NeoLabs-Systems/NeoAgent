@@ -50,8 +50,8 @@ const RESOURCES = {"version.json": "5cd50674fd5bd1680182437707286956",
 "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf": "33b7d9392238c04c131b6ce224e13711",
 "assets/packages/record_web/assets/js/record.fixwebmduration.js": "1f0108ea80c8951ba702ced40cf8cdce",
 "assets/packages/record_web/assets/js/record.worklet.js": "6d247986689d283b7e45ccdf7214c2ff",
-"main.dart.js": "936aabe06bf94889fc89baf8bb5a5cc2",
-"flutter_bootstrap.js": "c102d67b192bc5a41780fb71accb1a44",
+"main.dart.js": "5ea289cb8c5403f5e4e79216fa2e5e04",
+"flutter_bootstrap.js": "86e2e617510666f9b97678b5c750cca7",
 "manifest.json": "d514f8ffe3832613f318d85210084acc",
 "favicon_light.svg": "ceea64c8acfb9be8f427a73592340d64"};
 // The application shell files that are downloaded before a service worker can

@@ -78,6 +78,89 @@ void main() {
     }
   });
 
+  testWidgets('local computer stays connected without a Connect button', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+    controller.computerRuntime = <String, dynamic>{
+      'state': 'stopped',
+      'provider': 'local',
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => DevicesPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Connect this device'), findsNothing);
+    expect(find.text('Keeping this device connected'), findsOneWidget);
+    expect(find.text('This device is paused'), findsOneWidget);
+  });
+
+  testWidgets('cowork local computer ignores default cloud status flashes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+    controller.computerRuntime = <String, dynamic>{
+      'state': 'ready',
+      'provider': 'local',
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => DevicesPanel(
+              controller: controller,
+              deviceTarget: 'local',
+              computerOnly: true,
+              showProviderPicker: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('This desktop is connected'), findsOneWidget);
+    expect(find.text('This device is ready'), findsOneWidget);
+
+    controller.computerRuntime = <String, dynamic>{
+      'state': 'stopped',
+      'provider': 'cloud',
+    };
+    controller.notifyListeners();
+    await tester.pump();
+
+    expect(find.text('This desktop is connected'), findsOneWidget);
+    expect(find.text('This device is ready'), findsOneWidget);
+    expect(find.text('Keeping this device connected'), findsNothing);
+    expect(find.text('Your computer is off'), findsNothing);
+  });
+
   testWidgets('Teach Mode requires a goal before recording can start', (
     tester,
   ) async {

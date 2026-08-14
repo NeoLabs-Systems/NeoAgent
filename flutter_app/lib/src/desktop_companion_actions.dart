@@ -556,19 +556,34 @@ class DesktopCompanionActions {
     );
   }
 
+  Directory _resolveWorkspaceDirectory(String? workspaceRoot) {
+    final override = workspaceRoot?.trim() ?? '';
+    if (override.isEmpty) return _workspaceDirectory;
+    final overrideDir = Directory(override);
+    if (!overrideDir.isAbsolute) {
+      throw ArgumentError.value(
+        workspaceRoot,
+        'workspaceRoot',
+        'Workspace override must be an absolute path.',
+      );
+    }
+    return overrideDir;
+  }
+
   Future<FileSystemEntity> _workspaceEntity(
     String relativePath, {
     required bool directory,
+    String? workspaceRoot,
   }) async {
     final normalized = relativePath.trim().replaceAll('\\', '/');
     if (normalized.startsWith('/') || normalized.split('/').contains('..')) {
       throw ArgumentError.value(
         relativePath,
         'path',
-        'Path must stay inside NeoAgent Workspace.',
+        'Path must stay inside the workspace folder.',
       );
     }
-    final root = _workspaceDirectory.absolute;
+    final root = _resolveWorkspaceDirectory(workspaceRoot).absolute;
     await root.create(recursive: true);
     final suffix = normalized == '.' || normalized.isEmpty
         ? ''
@@ -609,13 +624,20 @@ class DesktopCompanionActions {
     }
   }
 
-  Future<Map<String, Object?>> listFiles({required String path}) async {
-    final directory =
-        await _workspaceEntity(path, directory: true) as Directory;
+  Future<Map<String, Object?>> listFiles({
+    required String path,
+    String? workspaceRoot,
+  }) async {
+    final directory = await _workspaceEntity(
+          path,
+          directory: true,
+          workspaceRoot: workspaceRoot,
+        )
+        as Directory;
     if (!await directory.exists()) {
       throw FileSystemException('Directory does not exist.', path);
     }
-    final rootPath = _workspaceDirectory.absolute.path;
+    final rootPath = _resolveWorkspaceDirectory(workspaceRoot).absolute.path;
     final entries = <Map<String, Object?>>[];
     await for (final entity in directory.list(followLinks: false)) {
       final stat = await entity.stat();
@@ -653,8 +675,14 @@ class DesktopCompanionActions {
   Future<Map<String, Object?>> readFile({
     required String path,
     bool base64 = false,
+    String? workspaceRoot,
   }) async {
-    final file = await _workspaceEntity(path, directory: false) as File;
+    final file = await _workspaceEntity(
+          path,
+          directory: false,
+          workspaceRoot: workspaceRoot,
+        )
+        as File;
     final size = await file.length();
     final maximum = base64 ? 24 * 1024 * 1024 : 1024 * 1024;
     if (size > maximum) {
@@ -674,11 +702,17 @@ class DesktopCompanionActions {
   Future<Map<String, Object?>> writeFile({
     required String path,
     required String content,
+    String? workspaceRoot,
   }) async {
     if (utf8.encode(content).length > 1024 * 1024) {
       throw FileSystemException('File exceeds the 1 MiB editor limit.', path);
     }
-    final file = await _workspaceEntity(path, directory: false) as File;
+    final file = await _workspaceEntity(
+          path,
+          directory: false,
+          workspaceRoot: workspaceRoot,
+        )
+        as File;
     await file.parent.create(recursive: true);
     await file.writeAsString(content, flush: true);
     return <String, Object?>{
@@ -693,10 +727,15 @@ class DesktopCompanionActions {
     required String query,
     required String pattern,
     required int maxResults,
+    String? workspaceRoot,
   }) async {
-    final directory =
-        await _workspaceEntity(path, directory: true) as Directory;
-    final rootPath = _workspaceDirectory.absolute.path;
+    final directory = await _workspaceEntity(
+          path,
+          directory: true,
+          workspaceRoot: workspaceRoot,
+        )
+        as Directory;
+    final rootPath = _resolveWorkspaceDirectory(workspaceRoot).absolute.path;
     final normalizedQuery = query.toLowerCase();
     final normalizedPattern = pattern.toLowerCase().replaceAll('*', '');
     final results = <Map<String, Object?>>[];

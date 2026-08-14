@@ -135,13 +135,26 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final controller = widget.controller;
     final provider = widget.deviceTarget ?? controller.computerProvider;
     final local = provider == 'local';
-    final state = controller.computerRuntime['state']?.toString() ?? 'stopped';
+    final runtime = controller.computerRuntimeFor(widget.deviceTarget);
+    final rawState = runtime['state']?.toString() ?? 'stopped';
+    final localHeld = local && controller.localComputerDisplayConnected;
+    final state = localHeld &&
+            !const <String>{
+              'ready',
+              'agent_control',
+              'user_control',
+              'teaching',
+              'starting',
+            }.contains(rawState)
+        ? 'ready'
+        : rawState;
     final running = <String>{
-      'ready',
-      'agent_control',
-      'user_control',
-      'teaching',
-    }.contains(state);
+          'ready',
+          'agent_control',
+          'user_control',
+          'teaching',
+        }.contains(state) ||
+        localHeld;
     final starting = state == 'starting' || controller.isRunningDeviceAction;
     final teachStatus = controller.teachRuntime['status']?.toString() ?? 'idle';
     final teaching = <String>{
@@ -157,15 +170,15 @@ class _DevicesPanelState extends State<DevicesPanel> {
           showProviderPicker: widget.showProviderPicker,
           localSupported: controller.localComputerSupported,
           state: state,
-          runtime: controller.computerRuntime,
+          runtime: runtime,
           busy: controller.isRunningDeviceAction,
           onProviderChanged: controller.selectComputerProvider,
-          onStart: running || starting
+          onStart: local || running || starting
               ? null
               : () => controller.startComputerRuntime(
                   deviceTarget: widget.deviceTarget,
                 ),
-          onStop: running
+          onStop: !local && running
               ? () => controller.stopComputerRuntime(
                   deviceTarget: widget.deviceTarget,
                 )
@@ -222,20 +235,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
         controller: controller,
         running: running,
         state: state,
-        onStart: controller.isRunningDeviceAction
-            ? null
-            : () => controller.startComputerRuntime(
-                deviceTarget: widget.deviceTarget,
-              ),
       );
     }
     final theme = Theme.of(context);
     final displayUrl = controller.computerDisplayUrl;
-    final readiness = _jsonMap(controller.computerRuntime['readiness']);
+    final runtime = controller.computerRuntimeFor(widget.deviceTarget);
+    final readiness = _jsonMap(runtime['readiness']);
     final firstSetup = readiness['imageReady'] == false;
     final busy = state == 'starting' || controller.isRunningDeviceAction;
-    final errorCode = controller.computerRuntime['errorCode']?.toString() ?? '';
-    final desktop = _jsonMap(controller.computerRuntime['desktop']);
+    final errorCode = runtime['errorCode']?.toString() ?? '';
+    final desktop = _jsonMap(runtime['desktop']);
     final desktopDown = desktop['available'] == false;
 
     // The display surface stays hidden until the computer is up, so nobody watches
@@ -318,7 +327,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
     } else if (state == 'error') {
       final storageError = errorCode == 'COMPUTER_STORAGE_CAPACITY';
       final lastError =
-          controller.computerRuntime['lastError']?.toString().trim() ?? '';
+          runtime['lastError']?.toString().trim() ?? '';
       content = _ComputerEmptyState(
         icon: storageError ? Icons.storage_rounded : Icons.cloud_off_rounded,
         title: storageError
@@ -1221,7 +1230,7 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
               ? 'Connecting…'
               : controller.localComputerConnected
               ? '${permissions.length} of 4 allowed'
-              : 'Waiting for this device to connect',
+              : 'Reconnecting this device…',
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         children: <Widget>[
@@ -1253,38 +1262,48 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
   }
 }
 
-class _LocalComputerDesktop extends StatelessWidget {
+class _LocalComputerDesktop extends StatefulWidget {
   const _LocalComputerDesktop({
     required this.controller,
     required this.running,
     required this.state,
-    required this.onStart,
   });
 
   final NeoAgentController controller;
   final bool running;
   final String state;
-  final VoidCallback? onStart;
+
+  @override
+  State<_LocalComputerDesktop> createState() => _LocalComputerDesktopState();
+}
+
+class _LocalComputerDesktopState extends State<_LocalComputerDesktop> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(widget.controller.ensureLocalDeviceConnected());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final running = widget.running;
+    final connecting =
+        widget.state == 'starting' || controller.localComputerConnecting;
     if (!running) {
       return _ComputerSurface(
         child: _ComputerEmptyState(
-          icon: state == 'starting' ? Icons.sync_rounded : Icons.laptop_rounded,
-          title: state == 'starting'
+          icon: connecting ? Icons.sync_rounded : Icons.laptop_rounded,
+          title: connecting
               ? 'Connecting this device'
-              : 'Use this computer with NeoAgent',
-          message: state == 'starting'
+              : 'Keeping this device connected',
+          message: connecting
               ? 'The secure local connection is being established.'
-              : 'NeoAgent will ask before it uses your screen, mouse, keyboard, files or command line.',
-          action: state == 'starting'
-              ? const SizedBox(width: 220, child: LinearProgressIndicator())
-              : FilledButton.icon(
-                  onPressed: onStart,
-                  icon: const Icon(Icons.link_rounded),
-                  label: const Text('Connect this device'),
-                ),
+              : 'NeoAgent uses this computer automatically and asks before it uses your screen, mouse, keyboard, files or command line.',
+          action: const SizedBox(width: 220, child: LinearProgressIndicator()),
         ),
       );
     }

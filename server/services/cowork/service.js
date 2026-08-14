@@ -39,6 +39,16 @@ function normalizeDeviceOverride(value) {
   return target;
 }
 
+function normalizeWorkspacePathOverride(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const path = String(value).trim();
+  if (path.length > 1024) throw serviceError('Workspace path is too long.');
+  if (!path.startsWith('/') && !/^[a-zA-Z]:[\\/]/.test(path)) {
+    throw serviceError('Workspace path override must be an absolute path.');
+  }
+  return path;
+}
+
 function resolveAgent(userId, agentId) {
   if (agentId == null || String(agentId).trim() === '') return getDefaultAgent(userId);
   const agent = getAgentById(userId, String(agentId).trim());
@@ -93,6 +103,7 @@ function serializeConversation(row, options = {}) {
     title: row.title || 'New chat',
     mode: normalizeMode(row.interaction_mode, 'agent'),
     device,
+    workspacePathOverride: row.workspace_path_override || null,
     manuallyTitled: row.manually_titled === 1 || row.manually_titled === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -162,12 +173,15 @@ function createConversation(userId, input = {}, options = {}) {
   const deviceOverride = normalizeDeviceOverride(
     input.deviceTargetOverride ?? input.device_target_override,
   );
+  const workspacePathOverride = normalizeWorkspacePathOverride(
+    input.workspacePathOverride ?? input.workspace_path_override,
+  );
   const id = randomUUID();
   db.prepare(
     `INSERT INTO conversations (
       id, user_id, agent_id, platform, title, interaction_mode,
-      device_target_override, manually_titled
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      device_target_override, manually_titled, workspace_path_override
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     userId,
@@ -177,6 +191,7 @@ function createConversation(userId, input = {}, options = {}) {
     mode,
     deviceOverride,
     input.title == null ? 0 : 1,
+    workspacePathOverride,
   );
   return serializeConversation(getConversationRow(userId, id), options);
 }
@@ -200,11 +215,16 @@ function updateConversation(userId, conversationId, input = {}, options = {}) {
   const deviceOverride = hasDeviceOverride
     ? normalizeDeviceOverride(input.deviceTargetOverride ?? input.device_target_override)
     : current.device_target_override;
+  const hasWorkspaceOverride = Object.prototype.hasOwnProperty.call(input, 'workspacePathOverride')
+    || Object.prototype.hasOwnProperty.call(input, 'workspace_path_override');
+  const workspacePathOverride = hasWorkspaceOverride
+    ? normalizeWorkspacePathOverride(input.workspacePathOverride ?? input.workspace_path_override)
+    : current.workspace_path_override;
 
   db.prepare(
     `UPDATE conversations
      SET title = ?, agent_id = ?, interaction_mode = ?, device_target_override = ?,
-         manually_titled = ?, updated_at = datetime('now')
+         manually_titled = ?, workspace_path_override = ?, updated_at = datetime('now')
      WHERE id = ? AND user_id = ? AND platform = ?`,
   ).run(
     title,
@@ -212,6 +232,7 @@ function updateConversation(userId, conversationId, input = {}, options = {}) {
     mode,
     deviceOverride,
     hasTitle ? 1 : current.manually_titled,
+    workspacePathOverride,
     conversationId,
     userId,
     COWORK_PLATFORM,
@@ -451,6 +472,9 @@ function getRunContext(userId, conversationId, runtimeManager = null) {
     mode: normalizeMode(conversation.interaction_mode, 'agent'),
     deviceTarget: device.effective,
     device,
+    workspacePathOverride: device.effective === 'local'
+      ? (conversation.workspace_path_override || null)
+      : null,
   };
 }
 

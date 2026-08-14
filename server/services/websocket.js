@@ -413,6 +413,7 @@ function setupWebSocket(io, services) {
           triggerSource,
           interactionMode: runContext?.mode || 'agent',
           deviceTarget: runContext?.deviceTarget || null,
+          workspaceRoot: runContext?.workspacePathOverride || null,
           ...(coworkMessage || {}),
           priorMessages: prior,
           priorSummary: webContext.summary

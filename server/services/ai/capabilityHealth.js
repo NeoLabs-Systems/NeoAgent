@@ -215,15 +215,25 @@ function getSkillHealth(app, engine) {
   });
 }
 
-function getFileHealth(app, engine) {
+function getFileHealth(app, engine, options = {}) {
   const workspaceManager = app?.locals?.workspaceManager || engine?.workspaceManager || null;
+  const workspaceRoot = typeof options.workspaceRoot === 'string' && options.workspaceRoot.trim()
+    ? options.workspaceRoot.trim()
+    : '';
+  const folderName = workspaceRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() || '';
+  let summary = 'Per-user workspace service is not available.';
+  if (workspaceManager && workspaceRoot && folderName) {
+    summary = `The selected project folder "${folderName}" is already mounted as the workspace.`;
+  } else if (workspaceManager && options.triggerSource === 'cowork') {
+    summary = 'The Cowork workspace is already attached. List the workspace root instead of asking for a URL.';
+  } else if (workspaceManager) {
+    summary = 'Per-user workspace access is available.';
+  }
   return capabilityEntry({
     connected: Boolean(workspaceManager),
     configured: Boolean(workspaceManager),
     healthy: Boolean(workspaceManager),
-    summary: workspaceManager
-      ? 'Per-user workspace access is available.'
-      : 'Per-user workspace service is not available.',
+    summary,
   });
 }
 
@@ -265,7 +275,15 @@ function getTaskHealth(userId, agentId = null) {
   });
 }
 
-async function getCapabilityHealth({ userId, agentId = null, app, engine, deviceTarget = null }) {
+async function getCapabilityHealth({
+  userId,
+  agentId = null,
+  app,
+  engine,
+  deviceTarget = null,
+  triggerSource = null,
+  workspaceRoot = null,
+} = {}) {
   const providers = await getProviderHealthCatalog(userId, agentId, {
     probeLocal: false,
   });
@@ -274,7 +292,7 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine, device
     providers,
     capabilities: {
       command: getCommandHealth(userId, app, engine),
-      files: getFileHealth(app, engine),
+      files: getFileHealth(app, engine, { triggerSource, workspaceRoot }),
       memory: getMemoryHealth(engine),
       search: getSearchHealth(),
       browser: await getBrowserHealth(userId, app, engine, deviceTarget),
@@ -292,5 +310,6 @@ module.exports = {
   getAndroidHealth,
   getBrowserHealth,
   getCapabilityHealth,
+  getFileHealth,
   summarizeCapabilityHealth,
 };

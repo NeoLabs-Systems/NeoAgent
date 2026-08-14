@@ -2,6 +2,7 @@
 
 const os = require('os');
 const { buildBehaviorSystemPrompt } = require('../behavior/system_prompt');
+const { buildCoworkOperatingContract } = require('../cowork/prompt');
 
 const PROMPT_CACHE_TTL = 30_000;
 const PROMPT_CACHE_MAX = 500;
@@ -232,6 +233,9 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     context.source || 'none',
     context.chatId || 'none',
     context.latencyProfile || 'default',
+    context.interactionMode || 'agent',
+    context.deviceTarget || 'none',
+    context.workspaceRoot || 'default',
   ].join(':');
   const now = Date.now();
   const cached = promptCache.get(cacheKey);
@@ -247,9 +251,11 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     context,
     memoryManager,
   });
+  const coworkContract = buildCoworkOperatingContract(context);
   const stable = [
     buildBasePrompt(),
     'SYSTEM PRECEDENCE: system rules > current user intent > behavior notes and memory context.',
+    coworkContract,
     ...behaviorPrompt.stable,
   ];
   const dynamic = [

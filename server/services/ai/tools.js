@@ -1548,7 +1548,7 @@ function getAvailableTools(app, options = {}) {
             0,
             {
                 name: 'request_user_input',
-                description: 'Pause this Cowork run and ask one to three structured questions when the answers materially change the work. Give two or three options per question, mark the recommended option, and permit a custom answer.',
+                description: 'Pause this Cowork run and ask one to three structured questions only when an irreversible product choice is missing. Give two or three options per question, mark the recommended option, and permit a custom answer. Do not use this to ask for a project URL, repo, or permission to edit files that are already in the attached workspace.',
                 parameters: {
                     type: 'object',
                     properties: {
@@ -1660,6 +1660,7 @@ async function executeTool(toolName, args, context, engine) {
         allowMultipleProactiveMessages = false,
         signal = null,
         deviceTarget = null,
+        workspaceRoot = null,
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
@@ -2571,6 +2572,7 @@ async function executeTool(toolName, args, context, engine) {
                 return await workspace.readFile(userId, {
                     ...normalizedArgs,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2606,6 +2608,7 @@ async function executeTool(toolName, args, context, engine) {
                     const result = await workspace.readFile(userId, {
                         ...normalizedArgs,
                         deviceTarget,
+                        workspaceRoot,
                     });
                     return {
                         index,
@@ -2648,6 +2651,7 @@ async function executeTool(toolName, args, context, engine) {
                     content: args.content,
                     mode: args.mode,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2671,6 +2675,7 @@ async function executeTool(toolName, args, context, engine) {
                     path: targetPath,
                     edits,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2692,6 +2697,7 @@ async function executeTool(toolName, args, context, engine) {
                     end_line: args.end_line ?? args.endLine,
                     content: args.content,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2707,6 +2713,7 @@ async function executeTool(toolName, args, context, engine) {
                     depth: args.depth,
                     recursive: args.recursive,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2724,6 +2731,7 @@ async function executeTool(toolName, args, context, engine) {
                     maxDepth: args.maxDepth ?? args.max_depth,
                     maxFileSize: args.maxFileSize ?? args.max_file_size,
                     deviceTarget,
+                    workspaceRoot,
                 });
             } catch (err) {
                 return { error: err.message };

@@ -11,7 +11,7 @@ class NeoAgentController extends ChangeNotifier {
        _healthBridge = healthBridge,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher(),
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
-    _desktopCompanion.addListener(notifyListeners);
+    _desktopCompanion.addListener(_onDesktopCompanionChanged);
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
@@ -201,9 +201,16 @@ class NeoAgentController extends ChangeNotifier {
   List<ConversationItem> memoryConversations = const <ConversationItem>[];
   List<TaskItem> taskItems = const <TaskItem>[];
   List<McpServerItem> mcpServers = const <McpServerItem>[];
-  Map<String, dynamic> computerRuntime = const <String, dynamic>{
+  Map<String, dynamic> _computerRuntime = const <String, dynamic>{
     'state': 'stopped',
   };
+  final Map<String, Map<String, dynamic>> _computerRuntimeByProvider =
+      <String, Map<String, dynamic>>{};
+  Timer? _localDisconnectHoldTimer;
+  bool _localDisplayConnected = false;
+
+  Map<String, dynamic> get computerRuntime => _computerRuntime;
+  set computerRuntime(Map<String, dynamic> value) => _setComputerRuntime(value);
   Map<String, dynamic> teachRuntime = const <String, dynamic>{'status': 'idle'};
   String? computerDisplayUrl;
   String computerTerminalOutput = '';
@@ -281,6 +288,9 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get localComputerSupported => _desktopCompanion.supported;
   bool get localComputerConnected => _desktopCompanion.connected;
+  bool get localComputerDisplayConnected =>
+      localComputerSupported &&
+      (_desktopCompanion.connected || _localDisplayConnected);
   bool get localComputerConnecting => _desktopCompanion.connecting;
   bool get localComputerEnabled => _desktopCompanion.enabled;
   String? get localComputerError => _desktopCompanion.errorMessage;
@@ -411,7 +421,8 @@ class NeoAgentController extends ChangeNotifier {
     _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
     _backendDiscoveryService.dispose();
-    _desktopCompanion.removeListener(notifyListeners);
+    _desktopCompanion.removeListener(_onDesktopCompanionChanged);
+    _localDisconnectHoldTimer?.cancel();
     unawaited(_desktopCompanion.disconnect());
     unawaited(_liveVoiceCapture.dispose());
     _oauthLauncher.dispose();
@@ -1601,12 +1612,82 @@ class NeoAgentController extends ChangeNotifier {
     await _syncDesktopCompanionSession();
   }
 
+  bool _lastCompanionConnected = false;
+
+  void _setComputerRuntime(Map<String, dynamic> incoming) {
+    final snapshot = Map<String, dynamic>.from(incoming);
+    final provider = snapshot['provider']?.toString() == 'local'
+        ? 'local'
+        : 'cloud';
+    _computerRuntimeByProvider[provider] = snapshot;
+    _computerRuntime = snapshot;
+  }
+
+  Map<String, dynamic> computerRuntimeFor(String? target) {
+    final provider = target == 'local' || target == 'cloud'
+        ? target!
+        : computerProvider;
+    final scoped = _computerRuntimeByProvider[provider];
+    if (scoped != null) return scoped;
+    if (_computerRuntime['provider']?.toString() == provider) {
+      return _computerRuntime;
+    }
+    return provider == 'local'
+        ? const <String, dynamic>{'state': 'stopped', 'provider': 'local'}
+        : _computerRuntime;
+  }
+
+  void _onDesktopCompanionChanged() {
+    final connected = _desktopCompanion.connected;
+    if (connected) {
+      _localDisconnectHoldTimer?.cancel();
+      _localDisconnectHoldTimer = null;
+      _localDisplayConnected = true;
+    } else if (_localDisplayConnected && _localDisconnectHoldTimer == null) {
+      _localDisconnectHoldTimer = Timer(const Duration(seconds: 2), () {
+        _localDisconnectHoldTimer = null;
+        if (!_desktopCompanion.connected) {
+          _localDisplayConnected = false;
+          notifyListeners();
+        }
+      });
+    }
+    notifyListeners();
+    if (!isAuthenticated) {
+      _lastCompanionConnected = connected;
+      return;
+    }
+    if (connected == _lastCompanionConnected) return;
+    _lastCompanionConnected = connected;
+    if (connected) {
+      unawaited(refreshComputerRuntime(silent: true, deviceTarget: 'local'));
+    }
+  }
+
   Future<void> _syncDesktopCompanionSession() {
     return _desktopCompanion.updateSession(
       backendUrl: backendUrl,
       sessionCookie: _backendClient.sessionCookie ?? '',
       authenticated: isAuthenticated,
     );
+  }
+
+  Future<void> ensureLocalDeviceConnected() async {
+    if (!isAuthenticated || !_desktopCompanion.supported || _prefs == null) {
+      return;
+    }
+    if (!_desktopCompanion.enabled) {
+      await _desktopCompanion.setEnabled(true, _prefs!);
+    }
+    await _syncDesktopCompanionSession();
+    await _desktopCompanion.reconnectIfNeeded();
+  }
+
+  Future<void> handleAppResumed() async {
+    if (!isAuthenticated) return;
+    await _desktopCompanion.reconnectIfNeeded(force: true);
+    _ensureSocketConnected();
+    unawaited(refreshComputerRuntime(silent: true));
   }
 
   void _restoreSelectedSectionFromPrefs() {
@@ -2969,6 +3050,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) return;
+      unawaited(ensureLocalDeviceConnected());
       _ensureSocketConnected();
       _ensureUpdatePolling();
     } catch (error) {
@@ -3346,7 +3428,7 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      if (normalized == 'local') {
+      if (normalized == 'local' && _desktopCompanion.supported) {
         await _desktopCompanion.setEnabled(true, _prefs!);
         await _syncDesktopCompanionSession();
         await _desktopCompanion.refreshLocalStatus();
@@ -3357,9 +3439,6 @@ class NeoAgentController extends ChangeNotifier {
       computerDisplayUrl = null;
       workspaceCurrentPath = '';
       workspaceEntries = const <Map<String, dynamic>>[];
-      if (normalized == 'cloud' && _desktopCompanion.enabled) {
-        await _desktopCompanion.setEnabled(false, _prefs!);
-      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -7058,7 +7137,10 @@ class NeoAgentController extends ChangeNotifier {
   void _ensureSocketConnected() {
     final origin = _socketOrigin();
     final existing = _socket?.io.uri;
-    if (_socket != null && socketConnected && existing == origin) {
+    if (_socket != null && existing == origin) {
+      if (!socketConnected) {
+        _socket!.connect();
+      }
       return;
     }
 
@@ -7067,6 +7149,9 @@ class NeoAgentController extends ChangeNotifier {
     final options = <String, dynamic>{
       'transports': <String>['websocket', 'polling'],
       'autoConnect': false,
+      'reconnection': true,
+      'reconnectionDelay': 800,
+      'reconnectionDelayMax': 8000,
       'withCredentials': true,
     };
 
@@ -7816,12 +7901,7 @@ class NeoAgentController extends ChangeNotifier {
           androidScreenshotPath = screenshotPath;
         }
       }
-      if (toolName.startsWith('browser_') ||
-          toolName.startsWith('desktop_') ||
-          toolName.startsWith('cli_') ||
-          toolName.startsWith('file_')) {
-        unawaited(refreshComputerRuntime());
-      } else if (toolName.startsWith('android_')) {
+      if (toolName.startsWith('android_')) {
         unawaited(refreshDevices());
       }
       notifyListeners();

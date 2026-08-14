@@ -90,3 +90,14 @@ test('execution rules still ban fabricated completion and require real tool evid
   assert.match(prompt, /Never invent facts, capabilities, tool results, or completion status/i);
   assert.match(prompt, /Never end a turn by only promising work/i);
 });
+
+test('web chat stays on the general channel and does not inherit cowork workspace rules', async () => {
+  const sections = await buildSystemPromptSections(null, { triggerSource: 'web' }, memoryManager);
+  const prompt = [sections.stable, sections.dynamic].join('\n\n');
+
+  assert.match(prompt, /CHANNEL: short paragraphs/);
+  assert.doesNotMatch(prompt, /COWORK WORKSPACE/);
+  assert.doesNotMatch(prompt, /CHANNEL: cowork/);
+  assert.doesNotMatch(prompt, /ORIENT FIRST/);
+  assert.doesNotMatch(prompt, /If a Cowork session already has a project folder open/);
+});

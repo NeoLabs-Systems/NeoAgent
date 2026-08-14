@@ -732,11 +732,23 @@ class BackendClient {
     return getMap(baseUrl, '/api/system/test/computer');
   }
 
-  String _withDeviceTarget(String path, String? deviceTarget) {
+  String _withDeviceTarget(
+    String path,
+    String? deviceTarget, {
+    String? workspaceRoot,
+  }) {
+    var result = path;
     final normalized = deviceTarget?.trim().toLowerCase() ?? '';
-    if (normalized != 'local' && normalized != 'cloud') return path;
-    final query = 'deviceTarget=${Uri.encodeQueryComponent(normalized)}';
-    return path.contains('?') ? '$path&$query' : '$path?$query';
+    if (normalized == 'local' || normalized == 'cloud') {
+      final query = 'deviceTarget=${Uri.encodeQueryComponent(normalized)}';
+      result = result.contains('?') ? '$result&$query' : '$result?$query';
+    }
+    final root = workspaceRoot?.trim() ?? '';
+    if (root.isNotEmpty) {
+      final query = 'workspaceRoot=${Uri.encodeQueryComponent(root)}';
+      result = result.contains('?') ? '$result&$query' : '$result?$query';
+    }
+    return result;
   }
 
   Future<Map<String, dynamic>> fetchComputerStatus(
@@ -1029,12 +1041,14 @@ class BackendClient {
     String baseUrl, {
     String path = '.',
     String? deviceTarget,
+    String? workspaceRoot,
   }) async {
     return getMap(
       baseUrl,
       _withDeviceTarget(
         '/api/computer/files?path=${Uri.encodeQueryComponent(path)}',
         deviceTarget,
+        workspaceRoot: workspaceRoot,
       ),
     );
   }
@@ -1043,12 +1057,14 @@ class BackendClient {
     String baseUrl, {
     required String path,
     String? deviceTarget,
+    String? workspaceRoot,
   }) async {
     return getMap(
       baseUrl,
       _withDeviceTarget(
         '/api/computer/files/content?path=${Uri.encodeQueryComponent(path)}',
         deviceTarget,
+        workspaceRoot: workspaceRoot,
       ),
     );
   }
@@ -1058,11 +1074,14 @@ class BackendClient {
     required String path,
     required String content,
     String? deviceTarget,
+    String? workspaceRoot,
   }) async {
     return putMap(baseUrl, '/api/computer/files/content', <String, dynamic>{
       'path': path,
       'content': content,
       if (deviceTarget != null) 'deviceTarget': deviceTarget,
+      if (workspaceRoot != null && workspaceRoot.trim().isNotEmpty)
+        'workspaceRoot': workspaceRoot,
     });
   }
 

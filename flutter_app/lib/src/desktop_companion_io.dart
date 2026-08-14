@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'desktop_companion_actions.dart';
+import 'desktop_companion_health.dart';
 import 'desktop_screen_capture.dart';
 
 const String desktopCompanionEnabledPrefsKey = 'desktop.companion.enabled';
@@ -59,6 +60,8 @@ class DesktopCompanionManager extends ChangeNotifier {
   int _connectionGeneration = 0;
   int _reconnectAttempt = 0;
   bool _disposed = false;
+  DateTime? _connectingSince;
+  DateTime? _lastInboundAt;
 
   String _backendUrl = '';
   String _sessionCookie = '';
@@ -104,7 +107,12 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   Future<void> bootstrap(SharedPreferences prefs) async {
-    _enabled = prefs.getBool(desktopCompanionEnabledPrefsKey) ?? false;
+    // This machine is the local device. Keep the companion on whenever the
+    // desktop app is running so Cowork never needs a manual Connect press.
+    _enabled = supported;
+    if (supported) {
+      await prefs.setBool(desktopCompanionEnabledPrefsKey, true);
+    }
     // Always start unpaused — paused state must not carry over across restarts.
     _paused = false;
     _label =
@@ -275,16 +283,10 @@ class DesktopCompanionManager extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
-    _connectionGeneration++;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _connectionWatchdogTimer?.cancel();
     _connectionWatchdogTimer = null;
-    _helloTimer?.cancel();
-    _helloTimer = null;
-    _stopStreaming();
-    _connecting = false;
-    _connected = false;
     _sessionPermissions.clear();
     _pendingPermission = null;
     _status = <String, Object?>{
@@ -292,13 +294,54 @@ class DesktopCompanionManager extends ChangeNotifier {
       'appApprovals': _approvalSnapshot(),
       'pendingPermission': null,
     };
+    await _dropCurrentSocket();
+    _notify();
+  }
+
+  Future<void> reconnectIfNeeded({bool force = false}) async {
+    if (_disposed || !supported || !_enabled || !_authenticated) {
+      return;
+    }
+    final socketOpen = _socket?.readyState == WebSocket.open;
+    final shouldForce =
+        force &&
+        desktopCompanionShouldForceReconnectOnResume(
+          connected: _connected,
+          socketOpen: socketOpen,
+          lastInboundAt: _lastInboundAt,
+        );
+    final needsReconnect = desktopCompanionNeedsReconnect(
+      enabled: _enabled,
+      authenticated: _authenticated,
+      connected: _connected,
+      connecting: _connecting,
+      socketOpen: socketOpen,
+      connectingSince: _connectingSince,
+    );
+    if (!shouldForce && !needsReconnect) return;
+    _reconnectAttempt = 0;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    await _dropCurrentSocket();
+    _notify();
+    _ensureConnectionWatchdog();
+    await _ensureConnected();
+  }
+
+  Future<void> _dropCurrentSocket() async {
+    _connectionGeneration++;
+    _helloTimer?.cancel();
+    _helloTimer = null;
+    _stopStreaming();
+    _connecting = false;
+    _connectingSince = null;
+    _connected = false;
     _cancelPendingCommands();
     final socket = _socket;
     _socket = null;
     if (socket != null) {
       await _closeSocket(socket);
     }
-    _notify();
   }
 
   Future<void> rotateIdentity(SharedPreferences prefs) async {
@@ -368,9 +411,10 @@ class DesktopCompanionManager extends ChangeNotifier {
     if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
       return;
     }
-    if (_connecting || _connected) return;
+    if (_connecting || _socketHealthy) return;
     final generation = ++_connectionGeneration;
     _connecting = true;
+    _connectingSince = DateTime.now();
     _errorMessage = null;
     _notify();
     WebSocket? connectedSocket;
@@ -438,12 +482,16 @@ class DesktopCompanionManager extends ChangeNotifier {
       }
       if (_disposed || generation != _connectionGeneration) return;
       _connecting = false;
+      _connectingSince = null;
       _connected = false;
       _errorMessage = '$error';
       _notify();
       _scheduleReconnect();
     }
   }
+
+  bool get _socketHealthy =>
+      _connected && _socket != null && _socket!.readyState == WebSocket.open;
 
   Future<WebSocket> _openWebSocket(Uri uri) async {
     final pending = WebSocket.connect(
@@ -474,6 +522,7 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   void _handleMessage(WebSocket source, int generation, dynamic raw) {
     if (_socket != source || generation != _connectionGeneration) return;
+    _lastInboundAt = DateTime.now();
     try {
       final message = jsonDecode(raw as String);
       if (message is! Map) return;
@@ -492,6 +541,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           return;
         }
         _connected = true;
+        _connectingSince = null;
         _reconnectAttempt = 0;
         _errorMessage = null;
         final device = message['device'];
@@ -845,16 +895,21 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'openUri':
         return _actions.openUri(uri: payload['uri']?.toString() ?? '');
       case 'listFiles':
-        return _actions.listFiles(path: payload['path']?.toString() ?? '.');
+        return _actions.listFiles(
+          path: payload['path']?.toString() ?? '.',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
+        );
       case 'readFile':
         return _actions.readFile(
           path: payload['path']?.toString() ?? '',
           base64: payload['encoding'] == 'base64',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'writeFile':
         return _actions.writeFile(
           path: payload['path']?.toString() ?? '',
           content: payload['content']?.toString() ?? '',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'searchFiles':
         return _actions.searchFiles(
@@ -862,6 +917,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           query: payload['query']?.toString() ?? '',
           pattern: payload['glob']?.toString() ?? '',
           maxResults: (payload['maxResults'] as num?)?.round() ?? 100,
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'listDisplays':
         final status = await _actions.getStatus(
@@ -946,6 +1002,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     _stopStreaming();
     _socket = null;
     _connecting = false;
+    _connectingSince = null;
     _connected = false;
     _cancelPendingCommands();
     unawaited(_closeSocket(source));
@@ -1009,16 +1066,42 @@ class DesktopCompanionManager extends ChangeNotifier {
       return;
     }
     if (_connectionWatchdogTimer != null) return;
-    _connectionWatchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _connectionWatchdogTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (_disposed || !_enabled || !_authenticated || _sessionCookie.isEmpty) {
         _connectionWatchdogTimer?.cancel();
         _connectionWatchdogTimer = null;
         return;
       }
-      if (!_connected && !_connecting) {
-        unawaited(_ensureConnected());
+      final socketOpen = _socket?.readyState == WebSocket.open;
+      if (desktopCompanionNeedsReconnect(
+        enabled: _enabled,
+        authenticated: _authenticated,
+        connected: _connected,
+        connecting: _connecting,
+        socketOpen: socketOpen,
+        connectingSince: _connectingSince,
+      )) {
+        unawaited(reconnectIfNeeded());
+        return;
       }
+      _sendKeepalive();
     });
+  }
+
+  void _sendKeepalive() {
+    final socket = _socket;
+    if (socket == null || !_connected) return;
+    try {
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'type': 'event',
+          'event': 'heartbeat',
+          'payload': const <String, Object?>{},
+        }),
+      );
+    } catch (_) {
+      _handleSocketClosed(socket, _connectionGeneration);
+    }
   }
 
   Future<void> _sendEvent(String event, Map<String, Object?> payload) async {
