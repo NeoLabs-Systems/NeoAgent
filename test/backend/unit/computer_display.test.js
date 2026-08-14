@@ -44,6 +44,12 @@ test('noVNC page scales the 16:9 desktop without resizing the guest', () => {
   }), /connect\("[^"]+", true\)/);
 });
 
+test('a page without a live session opens one instead of dead-ending', () => {
+  const page = buildComputerDisplayPage({ websocketPath: '' });
+  assert.match(page, /^reconnect\(\);$/m);
+  assert.doesNotMatch(page, /^connect\("/m);
+});
+
 test('a dropped display socket reconnects on a fresh session', () => {
   const page = buildComputerDisplayPage({
     websocketPath: '/api/computer/display-ws?token=abc',

@@ -127,12 +127,14 @@ router.get('/display/:token', (req, res) => {
   try {
     const manager = runtime(req);
     const session = manager.resolveDisplaySession(req.session.userId, req.params.token);
-    if (!session) return res.status(403).type('text/plain').send('Display session expired.');
-    const websocketPath = `/api/computer/display-ws?token=${encodeURIComponent(req.params.token)}`;
     res.setHeader('Cache-Control', 'private, no-store');
     res.type('html').send(buildComputerDisplayPage({
-      websocketPath,
-      viewOnly: session.viewOnly === true,
+      // Without a live session the page opens its own, so a link that outlived its
+      // token reconnects instead of stranding the viewer on an error.
+      websocketPath: session
+        ? `/api/computer/display-ws?token=${encodeURIComponent(req.params.token)}`
+        : '',
+      viewOnly: session ? session.viewOnly === true : false,
     }));
     return undefined;
   } catch (error) {

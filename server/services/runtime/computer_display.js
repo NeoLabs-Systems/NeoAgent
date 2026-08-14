@@ -7,7 +7,9 @@ function computerDisplayMode() {
   return `${COMPUTER_DISPLAY_WIDTH}x${COMPUTER_DISPLAY_HEIGHT}`;
 }
 
-function buildComputerDisplayPage({ websocketPath, viewOnly = false }) {
+// `websocketPath` may be empty: a page loaded from a token the server no longer knows
+// (a restart, an expired link) opens its own session rather than dead-ending.
+function buildComputerDisplayPage({ websocketPath = '', viewOnly = false }) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -55,7 +57,9 @@ const reconnect = () => {
     }
   }, Math.min(10000, 500 * attempt));
 };
-connect(${JSON.stringify(websocketPath)}, ${viewOnly === true ? 'true' : 'false'});
+${websocketPath
+    ? `connect(${JSON.stringify(websocketPath)}, ${viewOnly === true ? 'true' : 'false'});`
+    : 'reconnect();'}
 const record = (event) => fetch('/api/computer/teach/events', {
   method: 'POST', credentials: 'same-origin', headers: {'content-type':'application/json'},
   body: JSON.stringify(event),
