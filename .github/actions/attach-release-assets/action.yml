@@ -1,0 +1,73 @@
+name: Attach release assets
+description: Upload finished files to the GitHub release immediately and refresh the download notes.
+
+inputs:
+  release_tag:
+    description: Release tag to attach files to
+    required: false
+    default: ''
+  files:
+    description: Newline-separated file paths or globs to upload
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Attach files and refresh download notes
+      if: inputs.release_tag != ''
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: ${{ inputs.release_tag }}
+        FILE_PATTERNS: ${{ inputs.files }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        if [ -z "$RELEASE_TAG" ]; then
+          exit 0
+        fi
+
+        files=()
+        while IFS= read -r pattern; do
+          pattern="${pattern//$'\r'/}"
+          if [ -z "$pattern" ]; then
+            continue
+          fi
+          for match in $pattern; do
+            if [ -f "$match" ]; then
+              files+=("$match")
+            fi
+          done
+        done <<< "$FILE_PATTERNS"
+
+        if [ "${#files[@]}" -eq 0 ]; then
+          echo "No release files matched the provided patterns."
+          exit 1
+        fi
+
+        uploaded=0
+        for attempt in 1 2 3 4 5; do
+          if gh release upload "$RELEASE_TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"; then
+            uploaded=1
+            break
+          fi
+          echo "GitHub release upload failed (attempt ${attempt}); retrying..."
+          sleep $((attempt * 3))
+        done
+        if [ "$uploaded" -ne 1 ]; then
+          echo "Could not attach files to ${RELEASE_TAG}."
+          exit 1
+        fi
+
+        if [ -f scripts/release_download.js ]; then
+          for attempt in 1 2 3 4 5; do
+            if node scripts/release_download.js --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"; then
+              exit 0
+            fi
+            echo "Release download notes update failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 3))
+          done
+          echo "::warning::Attached files to ${RELEASE_TAG}, but the release download notes could not be refreshed."
+        fi

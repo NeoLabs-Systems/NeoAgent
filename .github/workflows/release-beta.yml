@@ -12,6 +12,10 @@ permissions:
   pull-requests: write
   id-token: write
 
+concurrency:
+  group: release-beta-${{ github.ref }}
+  cancel-in-progress: ${{ github.actor != 'github-actions[bot]' }}
+
 jobs:
   release:
     name: Publish beta release
@@ -172,10 +176,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ env.NEW_VERSION }}" \
-            --title "Beta ${{ env.NEW_VERSION }}" \
-            --generate-notes \
-            --prerelease
+          for attempt in 1 2 3 4 5; do
+            if gh release view "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+              echo "GitHub prerelease ${{ env.NEW_VERSION }} already exists."
+              exit 0
+            fi
+            if gh release create "${{ env.NEW_VERSION }}" \
+              --title "Beta ${{ env.NEW_VERSION }}" \
+              --generate-notes \
+              --prerelease; then
+              exit 0
+            fi
+            echo "GitHub release create failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
+
+      - name: Add download links to release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release_download.js --tag "${{ env.NEW_VERSION }}"
 
       - name: Capture release sha
         id: capture_release_sha

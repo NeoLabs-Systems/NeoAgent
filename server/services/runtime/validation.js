@@ -5,15 +5,14 @@ const { getDeploymentPolicy } = require('../../utils/deployment');
 function getRuntimeValidation(runtimeManager) {
   const policy = getDeploymentPolicy();
   const nodeEnvIsProd = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'prod';
-  const browserVmReadiness = runtimeManager?.browserBackend?.vmManager?.getReadiness?.() || null;
-  const cliVmReadiness = runtimeManager?.cliBackend?.vmManager?.getReadiness?.() || null;
+  const computerReadiness = runtimeManager?.computerBackend?.vmManager?.getReadiness?.() || null;
   const issues = [];
 
   if (policy.profile === 'prod' || nodeEnvIsProd) {
-    if (!browserVmReadiness || !cliVmReadiness) {
-      issues.push('prod profile requires working isolated container runtimes for browser and CLI.');
-    } else if (!browserVmReadiness.dockerAvailable || !cliVmReadiness.dockerAvailable) {
-      issues.push('prod profile requires Docker to be installed and running for the browser and CLI runtimes.');
+    if (!computerReadiness) {
+      issues.push('prod profile requires the isolated cloud computer runtime.');
+    } else if (!computerReadiness.qemuAvailable) {
+      issues.push('prod profile requires the CLI-managed QEMU computer runtime. Run neoagent repair.');
     }
   }
 
@@ -21,8 +20,7 @@ function getRuntimeValidation(runtimeManager) {
     ready: issues.length === 0,
     issues,
     vm: {
-      browser: browserVmReadiness,
-      cli: cliVmReadiness,
+      computer: computerReadiness,
       android: null,
     },
     guestTokenConfigured: true,

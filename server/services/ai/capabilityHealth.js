@@ -34,79 +34,41 @@ function summarizeCapabilityHealth(health) {
   return lines.join('\n');
 }
 
-async function getBrowserHealth(userId, app, engine) {
+async function getBrowserHealth(userId, app, engine, deviceTarget = null) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
-  const runtimeSettings = typeof runtimeManager?.getSettings === 'function'
-    ? runtimeManager.getSettings(userId)
-    : null;
-  const runtimeSnapshot = typeof runtimeManager?.getCapabilitySnapshot === 'function'
-    ? runtimeManager.getCapabilitySnapshot(userId)
-    : null;
-  const extensionStatus = runtimeSettings?.browser_backend === 'extension'
-    ? app?.locals?.browserExtensionRegistry?.getStatus(userId)
-    : null;
-  if (runtimeSettings?.browser_backend === 'extension') {
-    const activeTokens = Array.isArray(extensionStatus?.tokens)
-      ? extensionStatus.tokens.filter((token) => token.status === 'active')
-      : [];
-    const connected = extensionStatus?.connected === true;
-    const configured = connected || activeTokens.length > 0;
-    if (connected) {
-      return capabilityEntry({
-        connected,
-        configured,
-        healthy: connected,
-        degraded: false,
-        summary: 'Browser extension is connected.',
-        details: {
-          backend: 'extension',
-          activeTokenCount: activeTokens.length,
-          activeTokenId: extensionStatus?.activeTokenId || null,
-        },
-      });
-    }
-  }
   if (!runtimeManager) {
     return capabilityEntry({
-      summary: 'Browser runtime is not available in this environment.',
+      summary: 'Cloud computer runtime is not available in this environment.',
     });
   }
 
-  // Capability reporting runs on every agent turn. It must never resolve a
-  // provider because the VM provider performs image builds and container boot.
-  // Tool execution remains the authoritative health check and starts/restarts
-  // the runtime only when the model actually uses a browser tool.
-  const preferredBackend = runtimeSettings?.browser_backend
-    || runtimeSnapshot?.browser?.preferredBackend
-    || 'vm';
-  const vmInitialized = runtimeSnapshot?.browser?.vmInitialized === true;
-  const extensionConnected = extensionStatus?.connected === true
-    || runtimeSnapshot?.browser?.extensionConnected === true;
-  const extensionPreferredButOffline = preferredBackend === 'extension' && !extensionConnected;
+  const snapshot = typeof runtimeManager.getCapabilitySnapshot === 'function'
+    ? runtimeManager.getCapabilitySnapshot(userId, { deviceTarget })
+    : null;
+  const computer = snapshot?.computer || {};
+  const state = String(computer.state || 'stopped');
+  const active = ['starting', 'ready', 'agent_control', 'user_control', 'teaching'].includes(state);
+  const healthy = state !== 'error';
 
   return capabilityEntry({
-    connected: vmInitialized || extensionConnected,
+    connected: active,
     configured: true,
-    healthy: true,
-    degraded: extensionPreferredButOffline,
-    summary: extensionPreferredButOffline
-      ? 'No extension device is active. The VM browser will start on first use.'
-      : vmInitialized
-        ? 'Browser VM session is initialized.'
-        : 'Browser runtime is available and will start on first use.',
+    healthy,
+    degraded: false,
+    summary: state === 'error'
+      ? String(computer.error || 'Cloud computer failed to start.')
+      : active
+        ? 'The unified cloud computer is available.'
+        : 'The unified cloud computer will start on first use.',
     details: {
-      preferredBackend,
-      backend: extensionConnected ? 'extension' : 'vm',
-      extensionConnected,
-      activeTokenCount: Array.isArray(extensionStatus?.tokens)
-        ? extensionStatus.tokens.filter((token) => token.status === 'active').length
-        : 0,
-      runtimeInitialized: vmInitialized,
+      backend: snapshot?.browser?.activeBackend || 'cloud-computer',
+      state,
+      runtimeInitialized: snapshot?.browser?.vmInitialized === true,
     },
   });
 }
 
-async function getAndroidHealth(userId, app, engine) {
+async function getAndroidHealth(userId, app, engine, deviceTarget = null) {
   const runtimeManager = app?.locals?.runtimeManager || engine?.runtimeManager || null;
   if (!runtimeManager) {
     return capabilityEntry({
@@ -117,7 +79,7 @@ async function getAndroidHealth(userId, app, engine) {
   // Like browser health, Android health is a snapshot. Creating a controller or
   // running adb here makes unrelated chat turns pay runtime startup/status costs.
   const runtimeSnapshot = typeof runtimeManager.getCapabilitySnapshot === 'function'
-    ? runtimeManager.getCapabilitySnapshot(userId)
+    ? runtimeManager.getCapabilitySnapshot(userId, { deviceTarget })
     : null;
   const status = runtimeSnapshot?.android?.status || null;
   const bootstrapped = status?.bootstrapped === true;
@@ -303,7 +265,7 @@ function getTaskHealth(userId, agentId = null) {
   });
 }
 
-async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
+async function getCapabilityHealth({ userId, agentId = null, app, engine, deviceTarget = null }) {
   const providers = await getProviderHealthCatalog(userId, agentId, {
     probeLocal: false,
   });
@@ -315,8 +277,8 @@ async function getCapabilityHealth({ userId, agentId = null, app, engine }) {
       files: getFileHealth(app, engine),
       memory: getMemoryHealth(engine),
       search: getSearchHealth(),
-      browser: await getBrowserHealth(userId, app, engine),
-      android: await getAndroidHealth(userId, app, engine),
+      browser: await getBrowserHealth(userId, app, engine, deviceTarget),
+      android: await getAndroidHealth(userId, app, engine, deviceTarget),
       messaging: getMessagingHealth(userId, app, engine, agentId),
       integrations: getIntegrationHealth(userId, app, agentId),
       mcp: getMcpHealth(userId, app, engine, agentId),

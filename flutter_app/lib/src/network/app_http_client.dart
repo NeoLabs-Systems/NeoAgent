@@ -23,6 +23,12 @@ abstract class AppHttpClient {
     Object? body,
   });
 
+  Future<HttpResponseData> patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  });
+
   Future<HttpResponseData> delete(
     Uri uri, {
     Map<String, String>? headers,

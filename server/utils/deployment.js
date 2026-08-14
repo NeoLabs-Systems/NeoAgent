@@ -70,12 +70,11 @@ function getDeploymentPolicy(env = process.env) {
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED,
     registrationOpen: getAllowSignup(env),
     runtimeDefaults: {
-      runtime_profile: 'secure-vm',
-      runtime_backend: 'vm',
-      browser_backend: 'vm',
+      runtime_profile: 'cloud-computer',
+      runtime_backend: 'qemu',
+      computer_backend: 'cloud',
       android_backend: 'host',
       mcp_backend: 'host-remote',
-      cli_backend: 'vm',
     },
     allowHostRuntime: false,
   };

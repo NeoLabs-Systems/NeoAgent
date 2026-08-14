@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { resolveAgent } = require('../agents/manager');
+const { createLinkedAbortController, isAbortError } = require('../../utils/abort');
 const { createServiceLogger } = require('../../utils/logger');
 
 const DEFAULT_RING_TIMEOUT_MS = 30_000;
@@ -57,6 +58,7 @@ class AgentCallCoordinator {
         abortHandler: null,
         timer: null,
         settled: false,
+        openingSpeech: null,
       };
       invitation.timer = setTimeout(() => this.#finish(invitation, 'missed'), this.ringTimeoutMs);
       invitation.timer.unref?.();
@@ -66,6 +68,7 @@ class AgentCallCoordinator {
       }
       this.pendingById.set(callId, invitation);
       this.pendingByUser.set(String(userId), callId);
+      invitation.openingSpeech = this.#beginOpeningSpeech(invitation);
       this.io.to(`user:${userId}`).emit('voice:incoming_call', {
         callId,
         agentId: invitation.agentId,
@@ -75,16 +78,29 @@ class AgentCallCoordinator {
     });
   }
 
+  offerPendingCall(socket, userId) {
+    const invitation = this.#pendingForUser(userId);
+    if (!invitation || !socket?.id) return false;
+    invitation.recipients.add(socket.id);
+    socket.emit('voice:incoming_call', {
+      callId: invitation.callId,
+      agentId: invitation.agentId,
+      agentName: invitation.agentName,
+      expiresAt: invitation.expiresAt,
+    });
+    return true;
+  }
+
   async accept(callId, userId, socket) {
     const invitation = this.#ownedInvitation(callId, userId);
     if (!invitation || invitation.settled) return { accepted: false, status: 'unavailable' };
-    if (!invitation.recipients.has(socket.id)) return { accepted: false, status: 'unavailable' };
     if (this.voiceRuntimeManager.hasActiveSessionForUser(userId)) {
       this.#finish(invitation, 'busy');
       return { accepted: false, status: 'busy' };
     }
 
     invitation.settled = true;
+    invitation.recipients.add(socket.id);
     this.#remove(invitation);
     socket.to(`user:${userId}`).emit('voice:call_cancelled', {
       callId: invitation.callId,
@@ -104,11 +120,13 @@ class AgentCallCoordinator {
       if (!socket.data.voiceSessionIds) socket.data.voiceSessionIds = new Set();
       socket.data.voiceSessionIds.add(session.id);
       this.#recordOpening(invitation);
+      const prepared = await this.#takeOpeningSpeech(invitation);
       await this.voiceRuntimeManager.deliveryPresenter.present(session, {
         content: invitation.openingMessage,
         kind: 'opening',
         messageId: randomUUID(),
         runId: invitation.runId,
+        audioChunks: prepared?.chunks,
       });
       invitation.resolve({ status: 'accepted', callId: invitation.callId, sessionId: session.id });
       return { accepted: true, status: 'accepted', sessionId: session.id };
@@ -133,11 +151,9 @@ class AgentCallCoordinator {
   }
 
   handleDisconnect(socketId, userId) {
-    const callId = this.pendingByUser.get(String(userId));
-    const invitation = callId ? this.pendingById.get(callId) : null;
+    const invitation = this.#pendingForUser(userId);
     if (!invitation) return;
     invitation.recipients.delete(socketId);
-    if (invitation.recipients.size === 0) this.#finish(invitation, 'unavailable');
   }
 
   notifySessionClosed(session, reason = 'closed') {
@@ -159,6 +175,56 @@ class AgentCallCoordinator {
     const invitation = this.pendingById.get(String(callId || '').trim());
     if (!invitation || String(invitation.userId) !== String(userId)) return null;
     return invitation;
+  }
+
+  #pendingForUser(userId) {
+    const callId = this.pendingByUser.get(String(userId));
+    const invitation = callId ? this.pendingById.get(callId) : null;
+    if (!invitation || invitation.settled) return null;
+    return invitation;
+  }
+
+  #beginOpeningSpeech(invitation) {
+    const prepare = this.voiceRuntimeManager.prepareComposedSpeech;
+    if (typeof prepare !== 'function') {
+      return { promise: Promise.resolve(null) };
+    }
+    const linked = createLinkedAbortController([invitation.signal]);
+    const promise = prepare.call(this.voiceRuntimeManager, {
+      userId: invitation.userId,
+      agentId: invitation.agentId,
+      text: invitation.openingMessage,
+      signal: linked.signal,
+    }).catch((error) => {
+      if (!isAbortError(error, linked.signal)) {
+        logger.warn('Failed to pre-generate opening speech', error?.message || error);
+      }
+      return null;
+    });
+    return {
+      promise,
+      controller: linked.controller,
+      cleanup: linked.cleanup,
+    };
+  }
+
+  async #takeOpeningSpeech(invitation) {
+    const openingSpeech = invitation.openingSpeech;
+    if (!openingSpeech) return null;
+    try {
+      return await openingSpeech.promise;
+    } finally {
+      openingSpeech.cleanup?.();
+    }
+  }
+
+  #abortOpeningSpeech(invitation) {
+    const openingSpeech = invitation?.openingSpeech;
+    if (!openingSpeech) return;
+    if (!openingSpeech.controller?.signal?.aborted) {
+      openingSpeech.controller?.abort();
+    }
+    openingSpeech.cleanup?.();
   }
 
   #recordOpening(invitation) {
@@ -190,6 +256,7 @@ class AgentCallCoordinator {
   #finish(invitation, status) {
     if (!invitation || invitation.settled) return;
     invitation.settled = true;
+    this.#abortOpeningSpeech(invitation);
     this.#remove(invitation);
     this.io.to(`user:${invitation.userId}`).emit('voice:call_ended', {
       callId: invitation.callId,

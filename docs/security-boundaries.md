@@ -31,15 +31,14 @@ reported to the model as blocked rather than executed.
 
 | Capability | Runtime |
 |---|---|
-| Default browser and shell | Per-user isolated runtime managed by the NeoAgent host |
-| Workspace files | Server-enforced user workspace paths |
-| Paired Chrome extension | The paired Chrome profile and machine |
-| Paired desktop companion | The paired desktop account |
+| Browser, desktop, shell, and workspace files | Selected Computer provider: per-user QEMU guest or authenticated desktop app |
 | Android | The selected host-attached ADB device or emulator |
 | Integrations | NeoAgent server using stored account credentials |
 
-The paired extension and desktop companion are access grants, not isolation
-boundaries. Android commands do not run in the browser and shell VM.
+Android commands do not run in the Linux computer. The cloud computer has
+controlled sudo only inside the guest and no direct access to the NeoAgent
+host. Local computer commands run with the signed-in desktop user's rights only
+after the corresponding app-level permission is granted.
 
 ## Account and integration controls
 
@@ -48,13 +47,16 @@ boundaries. Android commands do not run in the browser and shell VM.
 - Users and agents have separate application data and assignments.
 - Messaging allowlists restrict which chats and senders can trigger runs.
 - A guest token authenticates communication with the isolated runtime.
+- Local computer connections are outbound, session-authenticated, user-scoped,
+  and never expose a listener on the desktop machine.
+- Local file tools are confined to `NeoAgent Workspace`; local shell access is
+  a separate, explicit permission because it can reach anything the OS user can.
 
 ## Important limitations
 
 - Read-only tools do not require approval by default.
 - Outbound network access is not filtered by destination.
-- A paired browser can access the signed-in state of that Chrome profile.
-- A paired desktop process acts with the permissions of its OS account.
+- The computer browser can access its persistent signed-in sessions.
 - ADB can expose broad access to the selected Android device.
 - Prompt-injection detection cannot identify every malicious instruction.
 - Multi-user application isolation does not make NeoAgent suitable for
@@ -66,7 +68,7 @@ boundaries. Android commands do not run in the browser and shell VM.
 - Use HTTPS for remote access.
 - Keep shell, desktop, Android, and write categories on approval until the
   workflow is understood.
-- Use dedicated Chrome and desktop profiles for paired control.
+- Keep persistent computer browser sessions scoped to accounts the agent may use.
 - Keep integrations read-only unless writes are required.
 - Do not use allow-all for open-ended runs that browse the web or read messages.
 - Back up secrets and user data securely and test account recovery.

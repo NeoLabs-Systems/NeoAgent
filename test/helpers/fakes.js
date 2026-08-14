@@ -32,6 +32,9 @@ function createFakeMcpClient() {
 function createFakeRuntimeManager() {
   return {
     validation: { ready: true, issues: [] },
+    getComputerStatus() {
+      return { state: 'stopped', backend: 'qemu', control: null };
+    },
     hasVmForUser() {
       return false;
     },
@@ -101,40 +104,6 @@ function createFakeTaskRuntime() {
   };
 }
 
-function createFakeDesktopRegistry() {
-  return {
-    getStatus() {
-      return { connected: false, onlineCount: 0, devices: [] };
-    },
-    getSelectedDeviceId() {
-      return null;
-    },
-  };
-}
-
-function createFakeDesktopProvider(registry = createFakeDesktopRegistry()) {
-  return {
-    registry,
-    getStatus: () => registry.getStatus(),
-    listDevices: () => [],
-    selectDevice: (deviceId) => ({ selectedDeviceId: deviceId }),
-    screenshot: () => ({ imageBase64: '', mimeType: 'image/png' }),
-    observe: () => ({ observations: [] }),
-    clickPoint: () => ({ success: true }),
-    mouseMove: () => ({ success: true }),
-    drag: () => ({ success: true }),
-    scroll: () => ({ success: true }),
-    typeText: () => ({ success: true }),
-    pressKey: () => ({ success: true }),
-    launchApp: () => ({ success: true }),
-    getDisplays: () => [],
-    selectDisplay: () => ({ success: true }),
-    revokeDevice: () => ({ success: true }),
-    pauseDevice: () => ({ success: true }),
-    getTree: () => ({ tree: null }),
-  };
-}
-
 function createFakeMemoryIngestionService() {
   return {
     getStatus() {
@@ -155,18 +124,11 @@ function createFakeMemoryIngestionService() {
 
 function createFakeAppLocals() {
   const runtimeManager = createFakeRuntimeManager();
-  const desktopRegistry = createFakeDesktopRegistry();
   return {
     runtimeManager,
     mcpClient: createFakeMcpClient(),
     taskRuntime: createFakeTaskRuntime(),
     memoryIngestionService: createFakeMemoryIngestionService(),
-    browserExtensionRegistry: {
-      getStatus: () => ({ connected: false, onlineCount: 0, devices: [] }),
-    },
-    desktopCompanionRegistry: desktopRegistry,
-    desktopProvider: createFakeDesktopProvider(desktopRegistry),
-    getDesktopProviderForUser: () => createFakeDesktopProvider(desktopRegistry),
     authProviderManager: {
       listProviders: () => [],
       listUserProviders: () => [],
@@ -250,7 +212,6 @@ function createFakeAppLocals() {
 
 module.exports = {
   createFakeAppLocals,
-  createFakeDesktopProvider,
   createFakeMcpClient,
   createFakeRuntimeManager,
   createFakeTaskRuntime,

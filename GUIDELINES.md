@@ -23,7 +23,6 @@ runtime/         Startup paths, env resolution, release channel
 lib/             Install helpers and migration logic
 flutter_app/     Cross-platform Flutter client (web, Android, macOS, Windows, Linux)
   lib/src/       Feature-specific Dart source files
-extensions/      Chrome browser extension (ES modules, .mjs)
 scripts/         Build and release utility scripts
 ```
 
@@ -114,13 +113,6 @@ scripts/         Build and release utility scripts
 
 - Flutter web builds are handled separately as part of the release pipeline. Do not run `flutter build web` during normal development.
 - For local development use the `flutter:run:web` npm script, which includes the required `--dart-define` flags.
-
----
-
-## Chrome Extension
-
-- ES module syntax (`.mjs` files) is used exclusively inside `extensions/chrome-browser/`.
-- All backend communication must use the message protocol defined in `extensions/chrome-browser/protocol.mjs`. Adding a new message type requires updating both the extension and the backend gateway.
 
 ---
 

@@ -98,6 +98,13 @@ const memoryWritePipeline = require('./memory/memory_write_pipeline');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
 
+const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
+  'activate_tools',
+  'request_user_input',
+  'send_interim_update',
+  'task_complete',
+]);
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -147,6 +154,10 @@ class DurableRunRuntime {
     const aiSettings = getAiSettings(userId, agentId);
     const runId = options.runId || randomUUID();
     const conversationId = options.conversationId;
+    const interactionMode = options.interactionMode === 'plan' ? 'plan' : 'agent';
+    const deviceTarget = ['local', 'cloud'].includes(options.deviceTarget)
+      ? options.deviceTarget
+      : null;
     const app = options.app || this.engine.app;
     const triggerSource = options.triggerSource || 'web';
     const deliveryChannel = resolveDeliveryChannel(triggerSource);
@@ -191,8 +202,9 @@ class DurableRunRuntime {
         db.prepare(
           `INSERT INTO agent_runs(
             id, user_id, agent_id, title, status, runtime_state, version,
-            trigger_type, trigger_source, model, metadata_json
-          ) VALUES(?, ?, ?, ?, 'running', ?, 0, ?, ?, ?, ?)`,
+            trigger_type, trigger_source, model, metadata_json,
+            conversation_id, interaction_mode, device_target
+          ) VALUES(?, ?, ?, ?, 'running', ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           runId,
           userId,
@@ -206,8 +218,14 @@ class DurableRunRuntime {
             ...(options.taskId ? { taskId: options.taskId } : {}),
             ...(options.sessionBinding ? { sessionBinding: options.sessionBinding } : {}),
             ...(options.latencyPriority ? { latencyPriority: options.latencyPriority } : {}),
+            ...(conversationId ? { conversationId } : {}),
+            interactionMode,
+            ...(deviceTarget ? { deviceTarget } : {}),
             runtimeKernel: 'v2',
           }),
+          conversationId || null,
+          interactionMode,
+          deviceTarget,
         );
         runRecordCreated = true;
       } catch (error) {
@@ -253,6 +271,9 @@ class DurableRunRuntime {
         deliveryState,
         triggerType,
         triggerSource,
+        conversationId: conversationId || null,
+        interactionMode,
+        deviceTarget,
         voiceSessionId: options.voiceSessionId || options.sessionBinding?.sessionId || null,
         sessionBinding: options.sessionBinding || null,
         latencyPriority: options.latencyPriority || null,
@@ -350,9 +371,12 @@ class DurableRunRuntime {
       this.engine.emit(userId, 'run:start', {
         runId,
         agentId,
+        conversationId: conversationId || null,
         title: runTitle,
         triggerType,
         triggerSource,
+        interactionMode,
+        deviceTarget,
         runtimeKernel: 'v2',
       });
 
@@ -522,6 +546,16 @@ class DurableRunRuntime {
         triggerSource,
         memoryAudience: options.memoryAudience || 'owner',
       });
+      if (interactionMode === 'plan') {
+        systemPrompt = `${systemPrompt}\n\n${[
+          '[Cowork Plan mode]',
+          'Create an implementation plan and do not mutate the environment.',
+          'You may inspect existing state with tools that are explicitly read-only.',
+          'Do not run shell commands or call tools that write files, change devices, browse interactively, message people, or modify external systems.',
+          'Ask structured questions with request_user_input only when an unresolved choice materially changes the plan.',
+          'Your final response must be an actionable plan that can be implemented in a later Agent-mode run.',
+        ].join(' ')}`;
+      }
 
       const builtInTools = this.engine.getAvailableTools(app, {
         includeDescriptions: true,
@@ -570,7 +604,13 @@ class DurableRunRuntime {
       }
 
       messages = this.engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
-      const capabilityHealth = await getCapabilityHealth({ userId, agentId, app, engine: this.engine });
+      const capabilityHealth = await getCapabilityHealth({
+        userId,
+        agentId,
+        app,
+        engine: this.engine,
+        deviceTarget,
+      });
       const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
       if (capabilitySummary) {
         messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
@@ -583,8 +623,28 @@ class DurableRunRuntime {
       ackContextMessages = [...messages];
 
       if (conversationId) {
-        db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
-          .run(conversationId, 'user', String(userMessage || ''));
+        const sharedAttachments = triggerSource === 'cowork'
+          && Array.isArray(options.coworkSharedAttachments)
+          ? options.coworkSharedAttachments
+          : [];
+        db.prepare(
+          `INSERT INTO conversation_messages (
+            conversation_id, run_id, agent_id, role, content, metadata_json
+          ) VALUES (?, ?, ?, 'user', ?, ?)`,
+        ).run(
+          conversationId,
+          runId,
+          agentId,
+          String(userMessage || ''),
+          JSON.stringify({
+            interactionMode,
+            deviceTarget,
+            ...(triggerSource === 'cowork' && options.coworkDisplayContent
+              ? { displayContent: String(options.coworkDisplayContent) }
+              : {}),
+            ...(sharedAttachments.length > 0 ? { sharedAttachments } : {}),
+          }),
+        );
       }
 
       // ── Triage ─────────────────────────────────────────────────────────
@@ -1859,43 +1919,59 @@ class DurableRunRuntime {
             let errorMessage = null;
             const repetitionGuard = this.engine.getRunMeta(runId)?.repetitionGuard;
             try {
-              const hookResult = await globalHooks.run('before_tool_call', {
-                runId,
-                toolName: call.name,
-                args: call.arguments,
-                userId,
-                agentId,
-              });
-              if (hookResult?.block === true) {
+              if (
+                interactionMode === 'plan'
+                && !isReadOnly
+                && !PLAN_MODE_SAFE_CONTROL_TOOLS.has(call.name)
+              ) {
                 success = false;
-                errorMessage = hookResult.reason || 'Blocked by policy hook';
-                result = { error: errorMessage, blocked: true };
-              } else if (isReadOnly && repetitionGuard?.shouldBlock(call.name, call.arguments)) {
-                success = false;
-                errorMessage = 'The same read-only call already returned an unchanged result twice.';
-                result = { status: 'blocked', reason: errorMessage };
+                errorMessage = 'Plan mode blocks tools that can mutate state.';
+                result = {
+                  error: errorMessage,
+                  blocked: true,
+                  blockedBy: 'cowork_plan_mode',
+                };
               } else {
-                // Flatten run options the same way the legacy loop did so
-                // background staging, messaging origin, and delivery bookkeeping work.
-                result = await this.engine.executeTool(call.name, call.arguments, {
+                const hookResult = await globalHooks.run('before_tool_call', {
+                  runId,
+                  toolName: call.name,
+                  args: call.arguments,
                   userId,
                   agentId,
-                  runId,
-                  stepId,
-                  app,
-                  triggerType,
-                  triggerSource,
-                  conversationId,
-                  source: options.source || null,
-                  chatId: options.chatId || null,
-                  taskId: options.taskId || null,
-                  deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
-                  stageProactiveMessages: options.stageProactiveMessages === true,
-                  allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
-                    || options.allow_multiple_messages === true,
-                  allowExternalSideEffects: options.allowExternalSideEffects === true,
-                  signal: getActiveSignal(),
                 });
+                if (hookResult?.block === true) {
+                  success = false;
+                  errorMessage = hookResult.reason || 'Blocked by policy hook';
+                  result = { error: errorMessage, blocked: true };
+                } else if (isReadOnly && repetitionGuard?.shouldBlock(call.name, call.arguments)) {
+                  success = false;
+                  errorMessage = 'The same read-only call already returned an unchanged result twice.';
+                  result = { status: 'blocked', reason: errorMessage };
+                } else {
+                  // Flatten run options the same way the legacy loop did so
+                  // background staging, messaging origin, and delivery bookkeeping work.
+                  result = await this.engine.executeTool(call.name, call.arguments, {
+                    userId,
+                    agentId,
+                    runId,
+                    stepId,
+                    app,
+                    triggerType,
+                    triggerSource,
+                    conversationId,
+                    deviceTarget,
+                    interactionMode,
+                    source: options.source || null,
+                    chatId: options.chatId || null,
+                    taskId: options.taskId || null,
+                    deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
+                    stageProactiveMessages: options.stageProactiveMessages === true,
+                    allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
+                      || options.allow_multiple_messages === true,
+                    allowExternalSideEffects: options.allowExternalSideEffects === true,
+                    signal: getActiveSignal(),
+                  });
+                }
               }
             } catch (error) {
               success = false;
@@ -2102,6 +2178,34 @@ class DurableRunRuntime {
           }
           for (const planned of mutatingCalls) {
             await executeOne(planned);
+          }
+
+          const inputRequest = this.engine.getRunMeta(runId)?.awaitingInput;
+          if (inputRequest) {
+            applyTransition({
+              runId,
+              toState: RUNTIME_STATES.WAITING,
+              reason: 'structured_input_required',
+              workerId,
+              eventBus: this.eventBus,
+              patch: {
+                metadata: { awaitingInputRequestId: inputRequest.id },
+              },
+            });
+            db.prepare(
+              `UPDATE agent_runs
+               SET status = 'waiting_input', updated_at = datetime('now')
+               WHERE id = ?`,
+            ).run(runId);
+            return {
+              runId,
+              content: '',
+              totalTokens,
+              iterations,
+              status: 'waiting_input',
+              inputRequest,
+              path,
+            };
           }
 
           // Mark active node progress
@@ -2371,8 +2475,16 @@ class DurableRunRuntime {
     if (conversationId && content) {
       try {
         db.prepare(
-          'INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)',
-        ).run(conversationId, 'assistant', content);
+          `INSERT INTO conversation_messages (
+            conversation_id, run_id, agent_id, role, content, metadata_json
+          ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
+        ).run(
+          conversationId,
+          runId,
+          agentId,
+          content,
+          JSON.stringify({ final: true }),
+        );
       } catch {
         // ignore
       }

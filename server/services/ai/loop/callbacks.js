@@ -97,12 +97,25 @@ async function publishInterimUpdate(engine, {
     if (!delivery.ok) return { sent: false, skipped: true, reason: delivery.reason };
   } else {
     db.prepare(
-      'INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(userId, agentId, runId, 'assistant', normalizedContent, JSON.stringify(metadata));
+      `INSERT INTO conversation_history (
+        user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      userId,
+      agentId,
+      runId,
+      conversationId || null,
+      'assistant',
+      normalizedContent,
+      JSON.stringify(metadata),
+    );
 
     if (conversationId) {
-      db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
-        .run(conversationId, 'assistant', normalizedContent);
+      db.prepare(
+        `INSERT INTO conversation_messages (
+          conversation_id, run_id, agent_id, role, content, metadata_json
+        ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
+      ).run(conversationId, runId, agentId, normalizedContent, JSON.stringify(metadata));
     }
   }
 
@@ -122,6 +135,7 @@ async function publishInterimUpdate(engine, {
   if (triggerSource !== 'voice_live') {
     engine.emit(userId, 'run:assistant_interim', {
       runId,
+      conversationId: conversationId || null,
       content: normalizedContent,
       kind: normalizedKind,
       expectsReply: expectsReply === true,

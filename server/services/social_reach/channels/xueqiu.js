@@ -24,7 +24,7 @@ class XueqiuChannel extends SocialReachChannel {
       cookie: cookies,
       message: cookies.configured
         ? 'Cookie-backed Xueqiu APIs are configured.'
-        : 'Import Xueqiu cookies from the Chrome extension before using stock and community APIs.',
+        : 'Import Xueqiu cookies from the cloud computer browser before using stock and community APIs.',
     };
   }
 

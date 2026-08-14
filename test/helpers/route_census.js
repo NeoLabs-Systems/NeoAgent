@@ -12,9 +12,7 @@ const ROUTE_BASES = {
   android: '/api/android',
   artifacts: '/api/artifacts',
   auth: '',
-  browser: '/api/browser',
-  browser_extension: '/api/browser-extension',
-  desktop: '/api/desktop',
+  computer: '/api/computer',
   integrations: '/api/integrations',
   mcp: '/api/mcp',
   memory: '/api/memory',
@@ -38,8 +36,7 @@ const EXTRA_ROUTES = [
   'GET /api/health',
   'GET /api/system/health-check',
   'GET /api/system/test/cli',
-  'GET /api/system/test/extension',
-  'GET /api/system/test/desktop',
+  'GET /api/system/test/computer',
   'GET /api/version',
 ];
 

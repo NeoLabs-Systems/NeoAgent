@@ -149,6 +149,16 @@ function estimateTokenValue(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
+const FILE_TOOL_NAMES = new Set([
+  'read_file',
+  'read_files',
+  'write_file',
+  'edit_file',
+  'replace_file_range',
+  'list_directory',
+  'search_files',
+]);
+
 class AgentEngine {
   constructor(io, services = {}) {
     this.io = io;
@@ -1206,8 +1216,8 @@ class AgentEngine {
     return findActiveRunForUserImpl(this, userId, predicate);
   }
 
-  findSteerableRunForUser(userId, triggerSource = 'web') {
-    return findSteerableRunForUserImpl(this, userId, triggerSource);
+  findSteerableRunForUser(userId, triggerSource = 'web', conversationId = null) {
+    return findSteerableRunForUserImpl(this, userId, triggerSource, conversationId);
   }
 
   enqueueSteering(runId, content, metadata = {}) {
@@ -1291,11 +1301,17 @@ class AgentEngine {
   }
 
   completeRun(runId, fields = {}) {
-    return closeRun(runId, 'completed', fields, ['running']);
+    const runMeta = this.activeRuns.get(runId);
+    const closed = closeRun(runId, 'completed', fields, ['running']);
+    if (closed && runMeta?.userId != null) this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
+    return closed;
   }
 
   failRun(runId, fields = {}) {
-    return closeRun(runId, 'failed', fields, ['running']);
+    const runMeta = this.activeRuns.get(runId);
+    const closed = closeRun(runId, 'failed', fields, ['running']);
+    if (closed && runMeta?.userId != null) this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
+    return closed;
   }
 
   attachProcessToRun(runId, pid) {
@@ -1935,7 +1951,9 @@ class AgentEngine {
       this.emit(runMeta.userId, 'run:stopping', { runId });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
-          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted', {
+            deviceTarget: runMeta.deviceTarget,
+          });
         }
       }
       runMeta.toolPids.clear();
@@ -1954,6 +1972,7 @@ class AgentEngine {
        WHERE parent_run_id = ? AND status = 'running'`
     ).run(reason, runId);
     closeRun(runId, 'interrupted', { error: reason }, ['running', 'pausing', 'paused', 'resuming']);
+    if (persistedRun?.userId != null) this.runtimeManager?.releaseControl?.(persistedRun.userId, runId);
   }
 
   interruptAllActiveRuns(reason = 'Server shutting down while run was in progress.') {
@@ -1984,7 +2003,9 @@ class AgentEngine {
       this.emit(runMeta.userId, 'run:stopping', { runId, reason: stopReason });
       for (const pid of runMeta.toolPids) {
         if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
-          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted');
+          void this.runtimeManager.killCommand(runMeta.userId, pid, 'aborted', {
+            deviceTarget: runMeta.deviceTarget,
+          });
         }
       }
       runMeta.toolPids.clear();
@@ -2006,6 +2027,7 @@ class AgentEngine {
       { error: stopReason },
       ['running', 'pausing', 'paused', 'resuming'],
     );
+    if (persistedRun?.userId != null) this.runtimeManager?.releaseControl?.(persistedRun.userId, runId);
     return true;
   }
 
@@ -2025,10 +2047,13 @@ class AgentEngine {
     runMeta.abortController?.abort('Run paused.');
     for (const pid of runMeta.toolPids) {
       if (this.runtimeManager && typeof this.runtimeManager.killCommand === 'function') {
-        void this.runtimeManager.killCommand(runMeta.userId, pid, 'paused');
+        void this.runtimeManager.killCommand(runMeta.userId, pid, 'paused', {
+          deviceTarget: runMeta.deviceTarget,
+        });
       }
     }
     this.emit(runMeta.userId, 'run:pausing', { runId, reason: reason || null });
+    this.runtimeManager?.releaseControl?.(runMeta.userId, runId);
     return true;
   }
 
@@ -2069,10 +2094,13 @@ class AgentEngine {
 
   getStepType(toolName) {
     if (toolName.startsWith('browser_')) return 'browser';
+    if (toolName.startsWith('desktop_')) return 'desktop';
     if (toolName.startsWith('android_')) return 'android';
     if (toolName === 'execute_command') return 'cli';
+    if (FILE_TOOL_NAMES.has(toolName)) return 'files';
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_interim_update') return 'note';
+    if (toolName === 'request_user_input') return 'question';
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'call_user') return 'voice';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
@@ -2083,14 +2111,37 @@ class AgentEngine {
   }
 
   emit(userId, event, data) {
+    let payload = data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...data }
+      : data;
+    if (payload?.runId && !payload.conversationId) {
+      const runMeta = this.activeRuns.get(payload.runId);
+      let persisted = null;
+      if (!runMeta) {
+        persisted = db.prepare(
+          `SELECT conversation_id, interaction_mode, device_target
+           FROM agent_runs WHERE id = ?`,
+        ).get(payload.runId);
+      }
+      const conversationId = runMeta?.conversationId || persisted?.conversation_id || null;
+      if (conversationId) {
+        payload.conversationId = conversationId;
+        payload.interactionMode = runMeta?.interactionMode
+          || persisted?.interaction_mode
+          || 'agent';
+        payload.deviceTarget = runMeta?.deviceTarget
+          || persisted?.device_target
+          || null;
+      }
+    }
     if (
       ['run:complete', 'run:error', 'run:stopped', 'run:interrupted'].includes(event)
-      && data?.runId
+      && payload?.runId
     ) {
-      this.voiceRuntimeManager?.handleRunTerminal?.(data.runId);
+      this.voiceRuntimeManager?.handleRunTerminal?.(payload.runId);
     }
     if (this.io) {
-      this.io.to(`user:${userId}`).emit(event, data);
+      this.io.to(`user:${userId}`).emit(event, payload);
     }
   }
 }

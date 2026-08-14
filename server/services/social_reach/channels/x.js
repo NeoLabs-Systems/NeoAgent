@@ -39,7 +39,7 @@ class XChannel extends SocialReachChannel {
       activeBackend: cookies.configured ? 'x_syndication_cookies' : 'x_syndication_public',
       message: cookies.configured
         ? 'Reads X post links using imported cookies for better reliability.'
-        : 'Reads public X post links when X allows anonymous access. Import cookies from the Chrome extension for better reliability.',
+        : 'Reads public X post links when X allows anonymous access. Import cookies from the cloud computer browser for better reliability.',
     };
   }
 

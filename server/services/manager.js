@@ -20,6 +20,9 @@ const { IntegrationManager } = require('./integrations/manager');
 const { MemoryIngestionService } = require('./memory/ingestion');
 const { ArtifactStore } = require('./artifacts/store');
 const { RuntimeManager } = require('./runtime/manager');
+const { LocalComputerBackend } = require('./runtime/backends/local-computer');
+const { DesktopCompanionRegistry } = require('./desktop/registry');
+const { ComputerWorkspaceClient } = require('./runtime/computer_workspace_client');
 const { WorkspaceManager } = require('./workspace/manager');
 const { CodeNavigationService } = require('./workspace/code_navigation');
 const { StructuredDataService } = require('./workspace/structured_data');
@@ -29,13 +32,11 @@ const { CapabilityAuditService } = require('./security/capability_audit');
 const { ToolPolicyService } = require('./security/tool_policy_service');
 const { ApprovalGateService } = require('./security/approval_gate_service');
 const { registerToolSecurityHooks } = require('./security/tool_security_hook');
-const { BrowserExtensionRegistry } = require('./browser/extension/registry');
-const { DesktopCompanionRegistry } = require('./desktop/registry');
-const { DesktopProvider } = require('./desktop/provider');
 const { TimelineService } = require('./timeline/service');
 const { WearableService } = require('./wearable/service');
 const { BitwardenCli } = require('./credentials/bitwarden_cli');
 const { CredentialBroker } = require('./credentials/broker');
+const { TeachService } = require('./teach/service');
 const { getRuntimeValidation } = require('./runtime/validation');
 const {
   getErrorMessage,
@@ -65,36 +66,6 @@ function createWorkspaceManager(app) {
   registerLocal(app, 'structuredDataService', new StructuredDataService({ workspaceManager }));
   logServiceReady('Workspace manager ready');
   return workspaceManager;
-}
-
-function createBrowserExtensionRegistry(app) {
-  const registry = registerLocal(app, 'browserExtensionRegistry', new BrowserExtensionRegistry());
-  logServiceReady('Browser extension registry ready');
-  return registry;
-}
-
-function createDesktopCompanionRegistry(app) {
-  const registry = registerLocal(app, 'desktopCompanionRegistry', new DesktopCompanionRegistry());
-  registerLocal(
-    app,
-    'getDesktopProviderForUser',
-    (userId) => new DesktopProvider({
-      registry,
-      artifactStore: app.locals.artifactStore,
-      userId,
-    }),
-  );
-  registerLocal(
-    app,
-    'desktopProvider',
-    new DesktopProvider({
-      registry,
-      artifactStore: app.locals.artifactStore,
-      userId: null,
-    }),
-  );
-  logServiceReady('Desktop companion registry ready');
-  return registry;
 }
 
 function createTimelineService(app, io) {
@@ -266,7 +237,7 @@ function createUserScopedControllerPool(app, {
 
 function createBrowserController(app, artifactStore) {
   registerLocal(app, 'getBrowserControllerForUser', async () => {
-    throw new Error('Host browser controller is disabled. Use the VM browser backend or a paired extension.');
+    throw new Error('Host browser controller is disabled. Use the cloud computer browser.');
   });
   registerLocal(app, 'browserController', null);
   logServiceReady('Browser controller disabled in VM-only mode');
@@ -280,17 +251,32 @@ function createRuntimeManager(app) {
     'shellWorkerPool',
     new ShellWorkerPool({ size: 4 }),
   );
+  const localComputerRegistry = registerLocal(
+    app,
+    'desktopCompanionRegistry',
+    new DesktopCompanionRegistry(),
+  );
+  const localComputerBackend = new LocalComputerBackend({
+    registry: localComputerRegistry,
+    artifactStore: app.locals.artifactStore,
+  });
   const runtimeManager = registerLocal(
     app,
     'runtimeManager',
     new RuntimeManager({
       artifactStore: app.locals.artifactStore,
-      browserExtensionRegistry: app.locals.browserExtensionRegistry,
-      desktopCompanionRegistry: app.locals.desktopCompanionRegistry,
       shellWorkerPool,
+      workspaceManager: app.locals.workspaceManager,
+      localComputerBackend,
     }),
   );
-  logServiceReady('Runtime manager + shell worker pool ready');
+  registerLocal(
+    app,
+    'getDesktopProviderForUser',
+    (userId, options) => runtimeManager.getDesktopProviderForUser(userId, options),
+  );
+  registerLocal(app, 'computerWorkspaceManager', new ComputerWorkspaceClient({ runtimeManager }));
+  logServiceReady('Unified cloud/local computer runtime + shell worker pool ready');
   return runtimeManager;
 }
 
@@ -423,7 +409,7 @@ function createSocialReachService(app) {
     app,
     'socialReachService',
     new SocialReachService({
-      browserExtensionRegistry: app.locals.browserExtensionRegistry,
+      runtimeManager: app.locals.runtimeManager,
       socialVideoService: app.locals.socialVideoService,
     }),
   );
@@ -467,6 +453,7 @@ function startTaskRuntime(app, io, agentEngine) {
 }
 
 function configureRealtime(app, io, services) {
+  app.locals.runtimeManager?.setIo?.(io);
   setupWebSocket(io, {
     agentEngine: services.agentEngine,
     messagingManager: services.messagingManager,
@@ -488,8 +475,6 @@ async function startServices(app, io) {
   try {
     const artifactStore = createArtifactStore(app);
     createWorkspaceManager(app);
-    createBrowserExtensionRegistry(app);
-    createDesktopCompanionRegistry(app);
     createTimelineService(app, io);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
@@ -515,6 +500,13 @@ async function startServices(app, io) {
       skillRunner,
       workspaceManager: app.locals.workspaceManager,
     });
+    registerLocal(app, 'teachService', new TeachService({
+      runtimeManager,
+      agentEngine,
+      skillRunner,
+      io,
+    }));
+    logServiceReady('Teach Mode ready');
     registerLocal(app, 'learningManager', new LearningManager(skillRunner, io));
     registerLocal(app, 'capabilityAuditService', new CapabilityAuditService({
       mcpClient,
@@ -557,6 +549,7 @@ async function startServices(app, io) {
 
     configureRealtime(app, io, {
       agentEngine,
+      runtimeManager,
       messagingManager,
       integrationManager,
       mcpClient,
@@ -596,6 +589,15 @@ async function startServices(app, io) {
 async function stopServices(app) {
   const tasks = [];
   console.log('[Services] Stopping services');
+  if (app.locals.teachService) {
+    try {
+      app.locals.teachService.shutdown();
+      app.locals.teachService = null;
+      logServiceReady('Teach Mode sessions purged');
+    } catch (err) {
+      console.error('[TeachMode] Shutdown error:', getErrorMessage(err));
+    }
+  }
   if (app.locals.setupDiscovery) {
     try {
       app.locals.setupDiscovery.stop();
@@ -741,10 +743,10 @@ async function stopServices(app) {
     );
   }
 
-  if (app.locals.browserExtensionGateway?.close) {
+  if (app.locals.computerDisplayGateway?.close) {
     tasks.push(
-      app.locals.browserExtensionGateway.close().catch((err) => {
-        console.error('[BrowserExtensionGateway] Shutdown error:', getErrorMessage(err));
+      app.locals.computerDisplayGateway.close().catch((err) => {
+        console.error('[ComputerDisplayGateway] Shutdown error:', getErrorMessage(err));
       }),
     );
   }
@@ -752,9 +754,16 @@ async function stopServices(app) {
   if (app.locals.desktopCompanionGateway?.close) {
     tasks.push(
       app.locals.desktopCompanionGateway.close().catch((err) => {
-        console.error('[DesktopCompanionGateway] Shutdown error:', getErrorMessage(err));
+        console.error('[LocalComputerGateway] Shutdown error:', getErrorMessage(err));
       }),
     );
+  }
+  if (app.locals.desktopCompanionRegistry) {
+    try {
+      app.locals.desktopCompanionRegistry.closeAll();
+    } catch (err) {
+      console.error('[LocalComputerRegistry] Shutdown error:', getErrorMessage(err));
+    }
   }
 
   if (app.locals.browserControllers instanceof Map) {
@@ -813,24 +822,6 @@ async function stopServices(app) {
         console.error('[Bitwarden] Shutdown error:', getErrorMessage(err));
       }),
     );
-  }
-
-  if (app.locals.browserExtensionRegistry) {
-    try {
-      app.locals.browserExtensionRegistry.closeAll();
-      logServiceReady('Browser extension connections closed');
-    } catch (err) {
-      console.error('[BrowserExtension] Shutdown error:', getErrorMessage(err));
-    }
-  }
-
-  if (app.locals.desktopCompanionRegistry) {
-    try {
-      app.locals.desktopCompanionRegistry.closeAll();
-      logServiceReady('Desktop companion connections closed');
-    } catch (err) {
-      console.error('[DesktopCompanion] Shutdown error:', getErrorMessage(err));
-    }
   }
 
   await Promise.allSettled(tasks);

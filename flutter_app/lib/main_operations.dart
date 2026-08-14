@@ -213,8 +213,8 @@ class _LogsPanelState extends State<LogsPanel> {
       },
       'runtime': <String, dynamic>{
         'headlessBrowser': controller.headlessBrowser,
-        'browserBackend': controller.browserBackend,
-        'browserExtensionConnected': controller.browserExtensionConnected,
+        'computerState': controller.computerRuntime['state'],
+        'teachState': controller.teachRuntime['status'],
         'hasLiveRun': controller.hasLiveRun,
         'activeRun': controller.activeRun == null
             ? null

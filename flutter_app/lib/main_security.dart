@@ -224,7 +224,7 @@ class _AppNotificationService {
     // Foreground case is handled directly by the approval gate service.
   }
 
-  static Future<void> requestPermission() async {
+  static Future<void> requestPermission({bool sound = false}) async {
     final plugin = await _getPlugin();
     if (plugin == null) return;
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
@@ -237,8 +237,24 @@ class _AppNotificationService {
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
           >()
-          ?.requestPermissions(alert: true, badge: false, sound: false);
+          ?.requestPermissions(alert: true, badge: false, sound: sound);
+      await plugin
+          .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: false, sound: sound);
     }
+  }
+
+  static Future<void> requestIncomingCallPermission() async {
+    await requestPermission(sound: true);
+    if (kIsWeb || !Platform.isAndroid) return;
+    final plugin = await _getPlugin();
+    await plugin
+        ?.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestFullScreenIntentPermission();
   }
 
   static Future<void> showApprovalNotification(ToolApprovalRequest req) async {
@@ -321,14 +337,9 @@ class _AppNotificationService {
   static Future<void> showIncomingCallNotification(
     IncomingAgentCall call,
   ) async {
-    await requestPermission();
+    await requestIncomingCallPermission();
     final plugin = await _getPlugin();
     if (plugin == null) return;
-    await plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestFullScreenIntentPermission();
     const androidDetails = AndroidNotificationDetails(
       _incomingCallChannelId,
       _incomingCallChannelName,
@@ -343,6 +354,7 @@ class _AppNotificationService {
     );
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
+      presentBanner: true,
       presentSound: true,
       interruptionLevel: InterruptionLevel.timeSensitive,
     );

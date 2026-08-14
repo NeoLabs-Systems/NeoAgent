@@ -11,11 +11,10 @@ const {
 test('browser capability health never starts or resolves a browser runtime', async () => {
   let providerResolutions = 0;
   const runtimeManager = {
-    getSettings: () => ({ browser_backend: 'vm' }),
+    getSettings: () => ({ computer_backend: 'cloud' }),
     getCapabilitySnapshot: () => ({
       browser: {
-        preferredBackend: 'vm',
-        extensionConnected: false,
+        activeBackend: 'cloud-computer',
         vmInitialized: false,
       },
     }),

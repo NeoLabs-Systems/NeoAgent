@@ -67,8 +67,9 @@ neoagent setup --quick
 
 The first account is protected by a short-lived one-time setup claim. The app
 connects to the actual selected port automatically; nearby NeoAgent servers are
-discovered and verified on the local network. Docker is optional and only
-needed for isolated browser and terminal capabilities.
+discovered and verified on the local network. The CLI downloads the signed
+QEMU runtime, firmware, and guest image used for
+the isolated cloud computer; no separate VM product is required.
 
 Read the [installation guide](docs/getting-started.md) before exposing the
 service to a network.
@@ -77,11 +78,11 @@ service to a network.
 
 - **It is a service, not just a chat window.** NeoAgent keeps tasks, integrations, memory, connected devices, and messaging channels available between sessions.
 - **Memory is stored as structured local data.** Durable facts are separated from conversation history, scoped by user and agent, and updated when newer information replaces older information. NeoAgent can also index supported integration content with source references. See [How memory works](docs/memory.md).
-- **It operates real devices.** The agent can use an isolated browser and shell, control an Android device or emulator over ADB, or work through a paired Chrome extension and desktop companion.
+- **It operates real devices.** The agent uses one persistent Linux cloud computer or, with explicit per-capability permission in the desktop app, the local macOS/Windows/Linux session for browser, desktop, files, and shell work. Android devices or emulators remain available over ADB.
 - **Automation can start without a message.** Tasks can run on a schedule or from supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events. Android notifications can also start an agent run.
 - **Agents and users have separate state.** Specialist agents can have their own memory, settings, tools, account assignments, conversations, and task history. Multi-user deployments include administrative account controls and optional email confirmation.
 - **SaaS billing is built in and off by default.** Set `NEOAGENT_BILLING_ENABLED=true` to activate Stripe subscriptions, plan management, free trials, and model access restrictions. When disabled, no payment routes or UI appear anywhere. See [Billing](docs/billing.md).
-- **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, a Chrome extension, and firmware for a supported ESP32-S3 wearable.
+- **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, and firmware for a supported ESP32-S3 wearable.
 
 ## 🖥️ Interfaces
 

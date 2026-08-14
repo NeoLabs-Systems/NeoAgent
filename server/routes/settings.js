@@ -88,6 +88,16 @@ const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
 ]);
 
+const RETIRED_RUNTIME_SETTING_KEYS = new Set([
+  'browser_backend',
+  'browser_extension_token_id',
+  'selected_browser_extension_token_id',
+  'cli_backend',
+  'cli_desktop_device_id',
+  'desktop_backend',
+  'desktop_device_id',
+]);
+
 function isProtectedSecretSettingKey(key) {
   return /^social_reach_cookies_/i.test(String(key || ''));
 }
@@ -215,6 +225,7 @@ router.get('/', (req, res) => {
   ensureDefaultRuntimeSettings(req.session.userId);
   const includeLegacyAgentSettings = isMainAgent(req.session.userId, agentId);
   const userRows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId)
+    .filter((row) => !RETIRED_RUNTIME_SETTING_KEYS.has(row.key))
     .filter((row) => includeLegacyAgentSettings || !isAgentScopedSettingKey(row.key));
   const rows = [
     ...userRows,
@@ -253,6 +264,8 @@ router.put('/', async (req, res) => {
   const upsertAgent = db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value');
   const normalizedBody = { ...req.body };
 
+  for (const key of RETIRED_RUNTIME_SETTING_KEYS) delete normalizedBody[key];
+
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
     if (typeof whitelist === 'string') {
@@ -286,12 +299,8 @@ router.put('/', async (req, res) => {
   if (
     'runtime_profile' in normalizedBody
     || 'runtime_backend' in normalizedBody
-    || 'browser_backend' in normalizedBody
-    || 'browser_extension_token_id' in normalizedBody
-    || 'selected_browser_extension_token_id' in normalizedBody
     || 'android_backend' in normalizedBody
-    || 'cli_backend' in normalizedBody
-    || 'cli_desktop_device_id' in normalizedBody
+    || 'computer_backend' in normalizedBody
     || 'mcp_backend' in normalizedBody
   ) {
     const validation = validateRuntimeSettings({
@@ -512,7 +521,7 @@ router.put('/:key', async (req, res) => {
   } else if (req.params.key === 'ai_provider_configs') {
     value = normalizeProviderConfigs(value);
   } else if (
-    ['runtime_profile', 'runtime_backend', 'browser_backend', 'android_backend', 'mcp_backend']
+    ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
       .includes(req.params.key)
   ) {
     const validation = validateRuntimeSettings({

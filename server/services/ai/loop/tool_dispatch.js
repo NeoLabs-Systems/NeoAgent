@@ -50,6 +50,15 @@ function isReadOnlyToolCall(toolCall, toolDefinition = null) {
     'list_skills',
     'list_subagents',
     'read_health_data',
+    'browser_extract',
+    'browser_screenshot',
+    'desktop_observe',
+    'desktop_get_tree',
+    'android_list_devices',
+    'android_list_apps',
+    'android_observe',
+    'android_screenshot',
+    'android_ui_dump',
   ]);
   if (name === 'http_request') {
     return String(toolArgs.method || 'GET').toUpperCase() === 'GET';
@@ -178,6 +187,7 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
         source: options.source || null,
         chatId: options.chatId || null,
         taskId: options.taskId || null,
+        deviceTarget: options.deviceTarget || context.deviceTarget || null,
         deliveryState: options.deliveryState || null,
         allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true,
         allowExternalSideEffects: false,

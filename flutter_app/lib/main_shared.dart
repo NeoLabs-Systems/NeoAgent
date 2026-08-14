@@ -2600,47 +2600,6 @@ class _DesktopCloseDecision {
   final bool rememberChoice;
 }
 
-class _CompanionPermissionBadge extends StatelessWidget {
-  const _CompanionPermissionBadge({required this.label, required this.state});
-
-  final String label;
-  final String state;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = state.trim().toLowerCase();
-    final (color, icon, text) = switch (normalized) {
-      'available' => (_success, Icons.check_circle, 'Granted'),
-      'required' => (_warning, Icons.lock_outline, 'Needs access'),
-      'unsupported' => (
-        _textSecondary,
-        Icons.do_not_disturb_alt_outlined,
-        'Unsupported',
-      ),
-      _ => (_warning, Icons.help_outline, 'Unknown'),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            '$label · $text',
-            style: TextStyle(color: color, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 bool _desktopAssistantUsesToggleControls() {
   if (kIsWeb) {
     return false;
@@ -3074,19 +3033,6 @@ String _modelLabelForValue(String value, List<ModelMeta> models) {
   final model = _modelForValue(value, models);
   if (model != null) return model.label;
   return value;
-}
-
-String? _androidRuntimeVersionLabel(Map<String, dynamic> runtime) {
-  final apiLevel = _asInt(runtime['apiLevel']);
-  final systemImage = runtime['systemImage']?.toString().trim() ?? '';
-  if (apiLevel <= 0 && systemImage.isEmpty) {
-    return null;
-  }
-
-  if (apiLevel > 0) {
-    return 'Android $apiLevel';
-  }
-  return systemImage;
 }
 
 Map<String, dynamic> _jsonMap(dynamic value) {

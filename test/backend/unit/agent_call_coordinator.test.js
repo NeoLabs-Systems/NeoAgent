@@ -141,6 +141,93 @@ test('first accepting client wins and opening context is attached to the voice s
   )));
 });
 
+test('opening speech is pre-generated while ringing and reused when the user answers', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const roomEvents = [];
+  const socket = createSocket('socket-1', roomEvents);
+  const io = createIo([socket], roomEvents);
+  const prepared = { chunks: [{ audioBytes: Buffer.from('abc'), mimeType: 'audio/wav' }] };
+  let preparedWith = null;
+  let presented = null;
+  const voiceRuntimeManager = {
+    hasActiveSessionForUser: () => false,
+    async prepareComposedSpeech(options) {
+      preparedWith = options;
+      return prepared;
+    },
+    async openFlutterSession(options) {
+      return { id: options.sessionId, userId: user.userId, agentInitiated: true };
+    },
+    deliveryPresenter: {
+      async present(_session, entry) {
+        presented = entry;
+      },
+    },
+  };
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const coordinator = new AgentCallCoordinator({
+    io,
+    agentEngine: {},
+    voiceRuntimeManager,
+    ringTimeoutMs: 1000,
+  });
+
+  const outcome = coordinator.callUser({
+    userId: user.userId,
+    openingMessage: 'The build is green.',
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(preparedWith.text, 'The build is green.');
+  const callId = emittedCallId(io);
+  const accepted = await coordinator.accept(callId, user.userId, socket);
+  assert.equal(accepted.status, 'accepted');
+  assert.deepEqual(presented.audioChunks, prepared.chunks);
+  assert.equal((await outcome).status, 'accepted');
+});
+
+test('a reconnecting client is offered the pending call and can accept it', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const roomEvents = [];
+  const original = createSocket('socket-original', roomEvents);
+  const late = createSocket('socket-late', roomEvents);
+  const io = createIo([original], roomEvents);
+  const voiceRuntimeManager = {
+    hasActiveSessionForUser: () => false,
+    async openFlutterSession(options) {
+      return { id: options.sessionId, userId: user.userId, agentInitiated: true };
+    },
+    deliveryPresenter: {
+      async present() {},
+    },
+  };
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const coordinator = new AgentCallCoordinator({
+    io,
+    agentEngine: {},
+    voiceRuntimeManager,
+    ringTimeoutMs: 1000,
+  });
+
+  const outcome = coordinator.callUser({
+    userId: user.userId,
+    openingMessage: 'I need you on the line.',
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const callId = emittedCallId(io);
+  coordinator.handleDisconnect(original.id, user.userId);
+  assert.equal(coordinator.offerPendingCall(late, user.userId), true);
+  assert.ok(late.events.some((entry) => (
+    entry.event === 'voice:incoming_call' && entry.payload.callId === callId
+  )));
+  const accepted = await coordinator.accept(callId, user.userId, late);
+  assert.equal(accepted.status, 'accepted');
+  assert.equal((await outcome).status, 'accepted');
+});
+
 test('all recipients declining resolves the call and abort cancels a pending ring', async (t) => {
   const ctx = createTestRuntime();
   t.after(() => teardownTestRuntime(ctx));

@@ -37,7 +37,7 @@ Reports are especially useful when they involve:
 - Cross-user or cross-agent data access.
 - Secret, token, or personal-data exposure.
 - Command execution outside the configured runtime boundary.
-- Browser, Android, extension, desktop companion, or VM isolation failures.
+- Browser, Android, cloud-computer, or VM isolation failures.
 - Injection through HTTP, WebSocket, messaging, integration, MCP, or skill
   inputs.
 

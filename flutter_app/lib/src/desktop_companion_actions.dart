@@ -511,6 +511,225 @@ class DesktopCompanionActions {
     return <String, Object?>{'success': true, 'app': app};
   }
 
+  Future<Map<String, Object?>> openUri({required String uri}) async {
+    final parsed = Uri.tryParse(uri.trim());
+    if (parsed == null ||
+        !parsed.hasScheme ||
+        !<String>{'http', 'https'}.contains(parsed.scheme)) {
+      throw ArgumentError.value(
+        uri,
+        'uri',
+        'An http or https URL is required.',
+      );
+    }
+    final command = switch (defaultTargetPlatform) {
+      TargetPlatform.macOS => _ShellCommand('open', <String>[
+        parsed.toString(),
+      ]),
+      TargetPlatform.windows => _ShellCommand('cmd.exe', <String>[
+        '/c',
+        'start',
+        '',
+        parsed.toString(),
+      ]),
+      TargetPlatform.linux => _ShellCommand('xdg-open', <String>[
+        parsed.toString(),
+      ]),
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.fuchsia => throw Exception(
+        'Opening desktop URLs is not supported on this platform.',
+      ),
+    };
+    await _run(command);
+    return <String, Object?>{'success': true, 'url': parsed.toString()};
+  }
+
+  Directory get _workspaceDirectory {
+    final home =
+        Platform.environment[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
+    if (home == null || home.trim().isEmpty) {
+      throw StateError('The local user home directory is unavailable.');
+    }
+    return Directory(
+      '${home.trim()}${Platform.pathSeparator}NeoAgent Workspace',
+    );
+  }
+
+  Future<FileSystemEntity> _workspaceEntity(
+    String relativePath, {
+    required bool directory,
+  }) async {
+    final normalized = relativePath.trim().replaceAll('\\', '/');
+    if (normalized.startsWith('/') || normalized.split('/').contains('..')) {
+      throw ArgumentError.value(
+        relativePath,
+        'path',
+        'Path must stay inside NeoAgent Workspace.',
+      );
+    }
+    final root = _workspaceDirectory.absolute;
+    await root.create(recursive: true);
+    final suffix = normalized == '.' || normalized.isEmpty
+        ? ''
+        : normalized
+              .split('/')
+              .where((part) => part.isNotEmpty && part != '.')
+              .join(Platform.pathSeparator);
+    final target = suffix.isEmpty
+        ? root.path
+        : '${root.path}${Platform.pathSeparator}$suffix';
+    await _rejectWorkspaceSymlinks(root.path, target);
+    return directory ? Directory(target) : File(target);
+  }
+
+  Future<void> _rejectWorkspaceSymlinks(
+    String workspaceRoot,
+    String target,
+  ) async {
+    var current = File(target).absolute.path;
+    final root = Directory(workspaceRoot).absolute.path;
+    while (true) {
+      final type = await FileSystemEntity.type(current, followLinks: false);
+      if (type == FileSystemEntityType.link) {
+        throw FileSystemException(
+          'Symbolic links are not allowed in NeoAgent Workspace paths.',
+          current,
+        );
+      }
+      if (current == root) return;
+      final parent = FileSystemEntity.parentOf(current);
+      if (parent == current || current.length < root.length) {
+        throw FileSystemException(
+          'Path must stay inside NeoAgent Workspace.',
+          target,
+        );
+      }
+      current = parent;
+    }
+  }
+
+  Future<Map<String, Object?>> listFiles({required String path}) async {
+    final directory =
+        await _workspaceEntity(path, directory: true) as Directory;
+    if (!await directory.exists()) {
+      throw FileSystemException('Directory does not exist.', path);
+    }
+    final rootPath = _workspaceDirectory.absolute.path;
+    final entries = <Map<String, Object?>>[];
+    await for (final entity in directory.list(followLinks: false)) {
+      final stat = await entity.stat();
+      final relative = entity.absolute.path
+          .substring(rootPath.length)
+          .replaceAll('\\', '/')
+          .replaceFirst(RegExp(r'^/+'), '');
+      entries.add(<String, Object?>{
+        'name': entity.uri.pathSegments.where((part) => part.isNotEmpty).last,
+        'path': relative,
+        'type': stat.type == FileSystemEntityType.directory
+            ? 'directory'
+            : 'file',
+        'size': stat.size,
+        'modifiedAt': stat.modified.toUtc().toIso8601String(),
+      });
+    }
+    entries.sort((left, right) {
+      final leftDirectory = left['type'] == 'directory';
+      final rightDirectory = right['type'] == 'directory';
+      if (leftDirectory != rightDirectory) return leftDirectory ? -1 : 1;
+      return left['name'].toString().toLowerCase().compareTo(
+        right['name'].toString().toLowerCase(),
+      );
+    });
+    final relativePath = directory.absolute.path == rootPath
+        ? ''
+        : directory.absolute.path
+              .substring(rootPath.length)
+              .replaceAll('\\', '/')
+              .replaceFirst(RegExp(r'^/+'), '');
+    return <String, Object?>{'path': relativePath, 'entries': entries};
+  }
+
+  Future<Map<String, Object?>> readFile({
+    required String path,
+    bool base64 = false,
+  }) async {
+    final file = await _workspaceEntity(path, directory: false) as File;
+    final size = await file.length();
+    final maximum = base64 ? 24 * 1024 * 1024 : 1024 * 1024;
+    if (size > maximum) {
+      throw FileSystemException('File exceeds the supported size limit.', path);
+    }
+    final bytes = await file.readAsBytes();
+    return <String, Object?>{
+      'path': path,
+      'size': size,
+      'filename': file.uri.pathSegments.last,
+      'content': base64 ? base64Encode(bytes) : utf8.decode(bytes),
+      if (base64) 'contentType': 'application/octet-stream',
+      if (base64) 'encoding': 'base64',
+    };
+  }
+
+  Future<Map<String, Object?>> writeFile({
+    required String path,
+    required String content,
+  }) async {
+    if (utf8.encode(content).length > 1024 * 1024) {
+      throw FileSystemException('File exceeds the 1 MiB editor limit.', path);
+    }
+    final file = await _workspaceEntity(path, directory: false) as File;
+    await file.parent.create(recursive: true);
+    await file.writeAsString(content, flush: true);
+    return <String, Object?>{
+      'success': true,
+      'path': path,
+      'size': await file.length(),
+    };
+  }
+
+  Future<Map<String, Object?>> searchFiles({
+    required String path,
+    required String query,
+    required String pattern,
+    required int maxResults,
+  }) async {
+    final directory =
+        await _workspaceEntity(path, directory: true) as Directory;
+    final rootPath = _workspaceDirectory.absolute.path;
+    final normalizedQuery = query.toLowerCase();
+    final normalizedPattern = pattern.toLowerCase().replaceAll('*', '');
+    final results = <Map<String, Object?>>[];
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is! File || results.length >= maxResults.clamp(1, 500)) {
+        continue;
+      }
+      final relative = entity.absolute.path
+          .substring(rootPath.length)
+          .replaceAll('\\', '/')
+          .replaceFirst(RegExp(r'^/+'), '');
+      if (normalizedPattern.isNotEmpty &&
+          !relative.toLowerCase().contains(normalizedPattern)) {
+        continue;
+      }
+      if (normalizedQuery.isNotEmpty) {
+        final stat = await entity.stat();
+        if (stat.size > 1024 * 1024) continue;
+        try {
+          final content = await entity.readAsString();
+          if (!content.toLowerCase().contains(normalizedQuery)) continue;
+        } catch (_) {
+          continue;
+        }
+      }
+      results.add(<String, Object?>{'path': relative});
+    }
+    return <String, Object?>{'results': results};
+  }
+
   Future<Map<String, Object?>> getTree() async {
     return <String, Object?>{
       'supported': false,
@@ -536,9 +755,17 @@ class DesktopCompanionActions {
     final args = Platform.isWindows
         ? <String>['/c', command]
         : <String>['-lc', command];
-    final workingDir = cwd?.trim().isNotEmpty == true
-        ? cwd
-        : Platform.environment['HOME'];
+    final requestedCwd = cwd?.trim() ?? '';
+    final workingDir = requestedCwd == '__neoagent_workspace__'
+        ? _workspaceDirectory.path
+        : (requestedCwd.isNotEmpty
+              ? requestedCwd
+              : Platform.environment[Platform.isWindows
+                    ? 'USERPROFILE'
+                    : 'HOME']);
+    if (requestedCwd == '__neoagent_workspace__') {
+      await _workspaceDirectory.create(recursive: true);
+    }
     final startedAt = DateTime.now();
 
     final output = DesktopCommandOutputAccumulator();

@@ -41,7 +41,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows-installer:
@@ -271,6 +271,13 @@ jobs:
           path: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
           if-no-files-found: error
 
+      - name: Attach Windows installer to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -328,6 +335,18 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: npm prune --omit=dev --no-audit --no-fund
 
+      - name: Prepare portable Windows QEMU runtime
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          choco install qemu --yes --no-progress
+          $qemuBin = "C:\Program Files\qemu"
+          if (-not (Test-Path $qemuBin)) { throw "QEMU installation directory was not found." }
+          $env:Path = "$qemuBin;$env:Path"
+          $qemuRuntime = Join-Path $env:RUNNER_TEMP "neoagent-qemu-windows-${{ matrix.architecture }}"
+          node scripts/stage_qemu_runtime.js --output $qemuRuntime
+          "QEMU_RUNTIME=$qemuRuntime" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build Windows backend runtime
         shell: pwsh
         working-directory: ${{ github.workspace }}
@@ -336,7 +355,7 @@ jobs:
           $arch = node -p "process.arch"
           $stage = Join-Path $env:RUNNER_TEMP "neoagent-runtime-windows-$arch"
           $asset = Join-Path $env:GITHUB_WORKSPACE "dist/neoagent-runtime-windows-$arch-$version.zip"
-          node scripts/stage_runtime.js --output $stage --node (Get-Command node).Source
+          node scripts/stage_runtime.js --output $stage --node (Get-Command node).Source --computer-runtime $env:QEMU_RUNTIME
           Compress-Archive -Path "$stage\*" -DestinationPath $asset -CompressionLevel Optimal
           node scripts/create_runtime_metadata.js --asset $asset --output "dist/neoagent-runtime-metadata-windows-$arch.json" --platform windows --architecture $arch
 
@@ -349,6 +368,16 @@ jobs:
             dist/neoagent-runtime-windows-*.zip
             dist/neoagent-runtime-metadata-windows-*.json
           if-no-files-found: error
+
+      - name: Attach Windows runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-windows-*.exe
+            dist/neoagent-runtime-windows-*.zip
+            dist/neoagent-runtime-metadata-windows-*.json
 
   build-macos-installer:
     name: Build macOS Installer (${{ matrix.architecture }})
@@ -551,6 +580,13 @@ jobs:
           path: dist/neoagent-macos-*.dmg
           if-no-files-found: error
 
+      - name: Attach macOS installer to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: dist/neoagent-macos-*.dmg
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -602,6 +638,14 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: npm prune --omit=dev --no-audit --no-fund
 
+      - name: Prepare portable macOS QEMU runtime
+        working-directory: ${{ github.workspace }}
+        run: |
+          brew install qemu
+          QEMU_RUNTIME="$RUNNER_TEMP/neoagent-qemu-macos-${{ matrix.architecture }}"
+          node scripts/stage_qemu_runtime.js --output "$QEMU_RUNTIME"
+          echo "QEMU_RUNTIME=$QEMU_RUNTIME" >> "$GITHUB_ENV"
+
       - name: Build macOS backend runtime
         working-directory: ${{ github.workspace }}
         run: |
@@ -609,7 +653,7 @@ jobs:
           ARCH="$(node -p process.arch)"
           STAGE="$RUNNER_TEMP/neoagent-runtime-macos-$ARCH"
           ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-macos-$ARCH-$VERSION.zip"
-          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)"
+          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)" --computer-runtime "$QEMU_RUNTIME"
           (
             cd "$STAGE"
             zip -qry "$ASSET" .
@@ -629,6 +673,16 @@ jobs:
             dist/neoagent-runtime-macos-*.zip
             dist/neoagent-runtime-metadata-macos-*.json
           if-no-files-found: error
+
+      - name: Attach macOS runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-macos-*
+            dist/neoagent-runtime-macos-*.zip
+            dist/neoagent-runtime-metadata-macos-*.json
 
   build-linux-installer:
     name: Build Linux Installer
@@ -841,6 +895,16 @@ jobs:
             dist/neoagent-linux-x86_64-*.AppImage
           if-no-files-found: error
 
+      - name: Attach Linux installers to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-linux-amd64-*.deb
+            dist/neoagent-arch-x86_64-*.pkg.tar.zst
+            dist/neoagent-linux-x86_64-*.AppImage
+
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
         with:
@@ -876,6 +940,15 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: npm prune --omit=dev --no-audit --no-fund
 
+      - name: Prepare portable Linux QEMU runtime
+        working-directory: ${{ github.workspace }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf patchelf
+          QEMU_RUNTIME="$RUNNER_TEMP/neoagent-qemu-linux-$(node -p process.arch)"
+          node scripts/stage_qemu_runtime.js --output "$QEMU_RUNTIME"
+          echo "QEMU_RUNTIME=$QEMU_RUNTIME" >> "$GITHUB_ENV"
+
       - name: Build Linux backend runtime
         working-directory: ${{ github.workspace }}
         run: |
@@ -883,7 +956,7 @@ jobs:
           ARCH="$(node -p process.arch)"
           STAGE="$RUNNER_TEMP/neoagent-runtime-linux-$ARCH"
           ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-linux-$ARCH-$VERSION.zip"
-          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)"
+          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)" --computer-runtime "$QEMU_RUNTIME"
           (
             cd "$STAGE"
             zip -qry "$ASSET" .
@@ -903,6 +976,16 @@ jobs:
             dist/neoagent-runtime-linux-*.zip
             dist/neoagent-runtime-metadata-linux-*.json
           if-no-files-found: error
+
+      - name: Attach Linux runtime to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-cli-linux-*
+            dist/neoagent-runtime-linux-*.zip
+            dist/neoagent-runtime-metadata-linux-*.json
 
   build-android-apks:
     name: Build Android APKs
@@ -1023,3 +1106,11 @@ jobs:
           name: neoagent-android-installer
           path: dist/*.apk
           if-no-files-found: error
+
+      - name: Attach Android apps to release
+        if: inputs.release_tag != ''
+        uses: ./.github/actions/attach-release-assets
+        with:
+          release_tag: ${{ inputs.release_tag }}
+          files: |
+            dist/neoagent-android-*.apk

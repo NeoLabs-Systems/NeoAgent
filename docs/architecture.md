@@ -43,9 +43,11 @@ changes are applied through the migration layer rather than ad hoc service SQL.
 
 ### Execution runtimes
 
-Browser and terminal tools normally use the per-user isolated runtime. A user
-can select a paired Chrome extension for browser work or a paired desktop
-client for shell and desktop control. Android remains a host ADB capability.
+Browser, desktop, terminal, and file tools use one selected Computer provider
+per user. The cloud provider is a persistent QEMU Linux guest; desktop builds
+can instead supply the local macOS, Windows, or Linux session through the same
+runtime contract and permission gate. Android remains a separate host ADB
+capability.
 
 ## Subsystem guides
 

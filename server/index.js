@@ -34,7 +34,7 @@ const { registerStaticRoutes } = require('./http/static');
 const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
 const { DEFAULT_NEOAGENT_PORT } = require('../lib/setup/contract');
-const { bindBrowserExtensionGateway } = require('./services/browser/extension/gateway');
+const { bindComputerDisplayGateway } = require('./services/runtime/display_gateway');
 const { bindDesktopCompanionGateway } = require('./services/desktop/gateway');
 const { bindWearableGateway } = require('./services/wearable/gateway');
 const { StreamHub } = require('./services/streaming/stream-hub');
@@ -119,7 +119,7 @@ bindSocketSessions(io, sessionMiddleware);
 registerApiRoutes(app);
 registerStaticRoutes(app);
 registerErrorHandler(app);
-bindBrowserExtensionGateway(httpServer, app);
+bindComputerDisplayGateway(httpServer, app, sessionMiddleware);
 bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamHub);
 bindWearableGateway(httpServer, app, sessionMiddleware);
 

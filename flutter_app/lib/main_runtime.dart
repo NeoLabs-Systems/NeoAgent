@@ -639,6 +639,11 @@ class NeoAgentRoot extends StatelessWidget {
     if (controller.isLauncherMode) {
       return LauncherHomeView(controller: controller);
     }
+    if (_supportsDesktopShell) {
+      return controller.desktopCoworkMode
+          ? CoworkHomeView(controller: controller)
+          : DesktopStandardWorkspace(controller: controller);
+    }
     return HomeView(controller: controller);
   }
 }

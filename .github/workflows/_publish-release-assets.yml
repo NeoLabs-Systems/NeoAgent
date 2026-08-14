@@ -184,3 +184,8 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag }}
           files: ${{ steps.release_files.outputs.files }}
+
+      - name: Refresh release download notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release_download.js --tag "${{ inputs.release_tag }}"

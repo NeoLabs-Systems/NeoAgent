@@ -49,6 +49,17 @@ class FakeHttpClient implements AppHttpClient {
   }
 
   @override
+  Future<HttpResponseData> patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    lastUri = uri;
+    lastBody = body;
+    return _json(<String, dynamic>{'ok': true});
+  }
+
+  @override
   Future<HttpResponseData> postMultipart(
     Uri uri, {
     Map<String, String>? headers,

@@ -59,4 +59,37 @@ void main() {
     await tester.pump();
     expect(controller.incomingAgentCall, isNull);
   });
+
+  testWidgets(
+    'incoming call overlay still presents when a leftover voice session id exists',
+    (tester) async {
+      final controller = NeoAgentController(
+        backendClient: BackendClient(),
+        healthBridge: HealthBridge(),
+      );
+      addTearDown(controller.dispose);
+      controller.voiceAssistantLiveState = VoiceAssistantLiveState(
+        sessionId: 'stale-session',
+        transportState: 'reconnecting',
+      );
+      controller.incomingAgentCall = IncomingAgentCall(
+        callId: 'call-2',
+        agentId: 'agent-1',
+        agentName: 'Ops Agent',
+        expiresAt: DateTime.now().add(const Duration(seconds: 30)),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IncomingAgentCallOverlay(
+            call: controller.incomingAgentCall!,
+            controller: controller,
+          ),
+        ),
+      );
+
+      expect(find.text('Ops Agent'), findsOneWidget);
+      expect(find.byKey(const Key('accept-agent-call')), findsOneWidget);
+    },
+  );
 }

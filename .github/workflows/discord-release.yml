@@ -74,7 +74,12 @@ jobs:
                 title: (if (.name // "") == "" then .tag_name else .name end),
                 url: .html_url,
                 description: (
-                  (if (.body // "") == "" then "No release notes were provided." else .body end)
+                  (
+                    (.body // "")
+                    | gsub("(?s)<!-- neoagent-download:start -->.*?<!-- neoagent-download:end -->"; "")
+                    | gsub("^\\s+"; "")
+                    | if . == "" then "No release notes were provided." else . end
+                  )
                   | if length > 3500 then .[0:3497] + "..." else . end
                 ),
                 color: $embed_color,

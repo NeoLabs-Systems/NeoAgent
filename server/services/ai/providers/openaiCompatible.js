@@ -53,7 +53,7 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
 
     const model = options.model || this.getDefaultVisionModel();
-    const b64 = BaseProvider.readImageAsBase64(options.imagePath);
+    const b64 = options.imageBase64 || BaseProvider.readImageAsBase64(options.imagePath);
     const response = await this.client.chat.completions.create({
       model,
       max_tokens: options.maxTokens || 4096,
@@ -69,7 +69,7 @@ class OpenAICompatibleProvider extends BaseProvider {
           },
         ],
       }],
-    });
+    }, options.signal ? { signal: options.signal } : undefined);
 
     return {
       content: response.choices[0]?.message?.content || '',

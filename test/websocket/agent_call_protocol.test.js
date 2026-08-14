@@ -12,6 +12,7 @@ let ctx;
 let fixture;
 let accepted;
 let declined;
+const offered = [];
 
 before(async () => {
   ctx = createTestRuntime();
@@ -26,6 +27,10 @@ before(async () => {
         return { declined: true, status: 'declined' };
       },
       handleDisconnect() {},
+      offerPendingCall(socket, userId) {
+        offered.push({ socketId: socket.id, userId });
+        return false;
+      },
     },
   });
 });
@@ -50,6 +55,9 @@ async function authenticatedSocket(username) {
 
 test('authenticated clients can accept and decline only well-formed call ids', async () => {
   const { socket, user } = await authenticatedSocket('agent_call_socket_user');
+  assert.ok(offered.some((entry) => (
+    entry.socketId === socket.id && entry.userId === user.userId
+  )));
   socket.emit('voice:call_accept', { callId: 'call-accept' });
   socket.emit('voice:call_decline', { callId: 'call-decline' });
 

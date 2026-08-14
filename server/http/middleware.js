@@ -177,12 +177,6 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
     },
   });
   const urlencodedBody = require('express').urlencoded({ extended: true });
-  const isBrowserExtensionCorsPath = (value = '') => {
-    const path = `${value}`.split('?')[0];
-    return path === '/api/browser-extension/latest'
-      || path === '/api/browser-extension/pairing/request'
-      || /^\/api\/browser-extension\/pairing\/[^/]+\/claim$/i.test(path);
-  };
   const isSocketIoCorsPath = (value = '') => {
     const path = `${value}`.split('?')[0];
     return path === '/socket.io/' || path === '/socket.io' || path.startsWith('/socket.io/');
@@ -209,12 +203,9 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
       const requestPath = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
       callback(null, {
         origin(origin, originCallback) {
-          const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(requestPath);
           const allowSocketIoMissingOrigin = isSocketIoCorsPath(requestPath);
-          const originOptions = {
-            allowChromeExtension: allowBrowserExtensionOrigin,
-          };
-          if (allowBrowserExtensionOrigin || allowSocketIoMissingOrigin) {
+          const originOptions = {};
+          if (allowSocketIoMissingOrigin) {
             originOptions.allowMissingOrigin = true;
           }
           return validateOrigin(origin, originCallback, originOptions);
@@ -240,17 +231,13 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
     const origin = String(req.get('origin') || '').trim() || extractOriginFromReferer(req.get('referer'));
     if (!origin) return next();
 
-    const allowBrowserExtensionOrigin = isBrowserExtensionCorsPath(path);
     return validateOrigin(origin, (error) => {
       if (error) {
         logRequestSummary('warn', req, 'blocked state-changing request due to invalid origin', { origin });
         return res.status(403).json({ error: 'Origin not allowed' });
       }
       return next();
-    }, {
-      allowChromeExtension: allowBrowserExtensionOrigin,
-      allowMissingOrigin: false,
-    });
+    }, { allowMissingOrigin: false });
   });
   app.use((req, res, next) => {
     const startedAt = Date.now();

@@ -386,7 +386,7 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command as a normal recoverable agent step. Waits for the process to exit, supports PTY for interactive programs, and returns stdout, stderr, exit code, timeout state, duration, and a backend field ("vm" or "desktop-companion") indicating where the command ran. Commands run inside the isolated VM unless the cli_backend setting is set to "desktop" and a companion app is connected, in which case the command runs on the companion desktop machine.',
+            description: 'Execute a terminal/shell command as a normal recoverable agent step inside the user\'s isolated cloud computer. The command shares the same persistent filesystem as browser, desktop, and file tools.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -402,7 +402,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_navigate',
-            description: 'Navigate the browser to a URL and return page content/screenshot. The result includes a backend field ("vm" or "extension") indicating whether the VM browser or the paired browser extension handled the request.',
+            description: 'Navigate the visible Chromium instance in the user\'s cloud computer and return page content or a screenshot.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -529,39 +529,21 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
-            name: 'desktop_list_devices',
-            description: 'List logged-in desktop companion devices available for local PC control.',
-            parameters: { type: 'object', properties: {} }
-        },
-        {
-            name: 'desktop_select_device',
-            description: 'Select the active desktop companion device when multiple desktop PCs are online.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    device_id: { type: 'string', description: 'Desktop companion device ID to make active.' }
-                },
-                required: ['device_id']
-            }
-        },
-        {
             name: 'desktop_observe',
-            description: 'Capture the current desktop screen plus optional accessibility tree for the selected desktop companion.',
+            description: 'Capture the current cloud computer screen plus its accessibility tree.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     includeTree: { type: 'boolean', description: 'Include accessibility tree or semantic nodes when available.' }
                 }
             }
         },
         {
             name: 'desktop_click',
-            description: 'Click at an absolute desktop coordinate on the selected desktop companion.',
+            description: 'Click at an absolute coordinate in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     x: { type: 'number', description: 'Absolute X coordinate in desktop pixels.' },
                     y: { type: 'number', description: 'Absolute Y coordinate in desktop pixels.' },
                     button: { type: 'string', description: 'Optional mouse button name, default left.' }
@@ -571,11 +553,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_drag',
-            description: 'Drag the mouse from one absolute point to another on the selected desktop companion.',
+            description: 'Drag the mouse from one point to another in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     x1: { type: 'number', description: 'Start X coordinate.' },
                     y1: { type: 'number', description: 'Start Y coordinate.' },
                     x2: { type: 'number', description: 'End X coordinate.' },
@@ -587,11 +568,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_scroll',
-            description: 'Scroll on the selected desktop companion.',
+            description: 'Scroll in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     deltaX: { type: 'number', description: 'Horizontal scroll delta.' },
                     deltaY: { type: 'number', description: 'Vertical scroll delta.' }
                 }
@@ -599,11 +579,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_type',
-            description: 'Type text on the selected desktop companion using the currently focused element.',
+            description: 'Type text into the focused element in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     text: { type: 'string', description: 'Text to type.' },
                     pressEnter: { type: 'boolean', description: 'Press Enter after typing.' }
                 },
@@ -612,11 +591,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_press_key',
-            description: 'Press a named key on the selected desktop companion.',
+            description: 'Press a named key in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     key: { type: 'string', description: 'Key to press, for example Enter, Escape, Meta, or Tab.' }
                 },
                 required: ['key']
@@ -624,11 +602,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_launch_app',
-            description: 'Ask the selected desktop companion to launch an application by bundle identifier, executable, or app name.',
+            description: 'Launch an allowed application in the cloud computer desktop.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' },
                     app: { type: 'string', description: 'Application identifier, executable, or app name.' }
                 },
                 required: ['app']
@@ -636,11 +613,10 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'desktop_get_tree',
-            description: 'Return the accessibility tree or semantic node snapshot from the selected desktop companion when available.',
+            description: 'Return the cloud computer accessibility tree or semantic node snapshot.',
             parameters: {
                 type: 'object',
                 properties: {
-                    device_id: { type: 'string', description: 'Optional desktop companion device ID.' }
                 }
             }
         },
@@ -1541,7 +1517,7 @@ function getAvailableTools(app, options = {}) {
     });
 
     const allowInterimUpdates = (
-        (options.triggerSource === 'web' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
+        (options.triggerSource === 'web' || options.triggerSource === 'cowork' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
         && options.triggerSource !== 'agent_delegation'
     );
@@ -1563,6 +1539,52 @@ function getAvailableTools(app, options = {}) {
                     required: ['content', 'kind']
                 }
             }
+        );
+    }
+
+    if (options.triggerSource === 'cowork' && options.triggerType !== 'subagent') {
+        tools.splice(
+            tools.findIndex((tool) => tool.name === 'read_file'),
+            0,
+            {
+                name: 'request_user_input',
+                description: 'Pause this Cowork run and ask one to three structured questions when the answers materially change the work. Give two or three options per question, mark the recommended option, and permit a custom answer.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        questions: {
+                            type: 'array',
+                            minItems: 1,
+                            maxItems: 3,
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'string', description: 'Stable letters, numbers, or underscores identifier.' },
+                                    header: { type: 'string', description: 'Short label of at most 24 characters.' },
+                                    question: { type: 'string' },
+                                    options: {
+                                        type: 'array',
+                                        minItems: 2,
+                                        maxItems: 3,
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                label: { type: 'string' },
+                                                description: { type: 'string' },
+                                                recommended: { type: 'boolean' },
+                                            },
+                                            required: ['label', 'description'],
+                                        },
+                                    },
+                                    allowCustom: { type: 'boolean' },
+                                },
+                                required: ['id', 'header', 'question', 'options'],
+                            },
+                        },
+                    },
+                    required: ['questions'],
+                },
+            },
         );
     }
 
@@ -1637,16 +1659,17 @@ async function executeTool(toolName, args, context, engine) {
         deliveryState = null,
         allowMultipleProactiveMessages = false,
         signal = null,
+        deviceTarget = null,
     } = context;
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
         const manager = runtime();
         if (manager && typeof manager.getBrowserProviderForUser === 'function') {
             const backend = typeof manager.getActiveBrowserBackend === 'function'
-                ? await Promise.resolve(manager.getActiveBrowserBackend(userId))
+                ? await Promise.resolve(manager.getActiveBrowserBackend(userId, { deviceTarget }))
                 : 'vm';
             return {
-                provider: await manager.getBrowserProviderForUser(userId, { signal }),
+                provider: await manager.getBrowserProviderForUser(userId, { signal, deviceTarget }),
                 backend,
             };
         }
@@ -1660,12 +1683,15 @@ async function executeTool(toolName, args, context, engine) {
         throw new Error('Android provider is unavailable. VM runtime is required.');
     };
     const wc = () => app?.locals?.workspaceManager || engine.workspaceManager || null;
+    const computerWorkspace = () => app?.locals?.computerWorkspaceManager || wc();
     const dc = () => {
         const scoped = app?.locals?.getDesktopProviderForUser;
         if (typeof scoped === 'function') {
-            return scoped(userId);
+            return scoped(userId, { deviceTarget });
         }
-        return app?.locals?.desktopProvider || null;
+        return runtime()?.getDesktopProviderForUser?.(userId, { deviceTarget })
+            || app?.locals?.desktopProvider
+            || null;
     };
     const msg = () => app?.locals?.messagingManager || engine.messagingManager;
     const mcp = () => app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
@@ -1677,6 +1703,22 @@ async function executeTool(toolName, args, context, engine) {
     const credentials = () => app?.locals?.credentialBroker || null;
     const artifactStore = app?.locals?.artifactStore || null;
     const agentCalls = () => app?.locals?.agentCallCoordinator || null;
+
+    const computerTool = toolName === 'execute_command'
+        || toolName.startsWith('browser_')
+        || toolName.startsWith('desktop_')
+        || ['read_file', 'read_files', 'write_file', 'edit_file', 'replace_file_range', 'list_directory', 'search_files'].includes(toolName);
+    if (computerTool) {
+        const manager = runtime();
+        if (manager && typeof manager.acquireControl === 'function') {
+            manager.acquireControl(
+                userId,
+                'agent',
+                String(runId || stepId || agentId),
+                { deviceTarget },
+            );
+        }
+    }
 
     const integrationManager = integrations();
     if (integrationManager) {
@@ -1711,7 +1753,7 @@ async function executeTool(toolName, args, context, engine) {
         userId,
         agentId,
         cliExecutor: runtime() && typeof runtime().getCommandExecutorForUser === 'function'
-            ? await runtime().getCommandExecutorForUser(userId)
+            ? await runtime().getCommandExecutorForUser(userId, { deviceTarget })
             : null,
         workspaceManager: wc(),
         artifactStore,
@@ -1741,6 +1783,7 @@ async function executeTool(toolName, args, context, engine) {
                 runId,
                 stepId,
                 signal,
+                deviceTarget,
             };
             if (typeof runtimeManager.executeCliCommand === 'function') {
                 return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
@@ -1833,29 +1876,10 @@ async function executeTool(toolName, args, context, engine) {
             return await controller.startEmulator({ ...(args || {}), signal });
         }
 
-        case 'desktop_list_devices': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            const selectedDeviceId = controller.registry
-                ? controller.registry.getSelectedDeviceId(userId)
-                : null;
-            return {
-                selectedDeviceId,
-                devices: controller.listDevices(),
-            };
-        }
-
-        case 'desktop_select_device': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.selectDevice(args.device_id);
-        }
-
         case 'desktop_observe': {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.observe({
-                deviceId: args.device_id,
                 includeTree: args.includeTree === true,
                 signal,
             });
@@ -1865,7 +1889,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.clickPoint(args.x, args.y, {
-                deviceId: args.device_id,
                 button: args.button,
                 signal,
             });
@@ -1875,7 +1898,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.drag({
-                deviceId: args.device_id,
                 x1: args.x1,
                 y1: args.y1,
                 x2: args.x2,
@@ -1889,7 +1911,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.scroll({
-                deviceId: args.device_id,
                 deltaX: args.deltaX,
                 deltaY: args.deltaY,
                 signal,
@@ -1900,7 +1921,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.typeText(args.text, {
-                deviceId: args.device_id,
                 pressEnter: args.pressEnter === true,
                 signal,
             });
@@ -1910,7 +1930,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.pressKey(args.key, {
-                deviceId: args.device_id,
                 signal,
             });
         }
@@ -1919,7 +1938,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.launchApp({
-                deviceId: args.device_id,
                 app: args.app,
                 signal,
             });
@@ -1929,7 +1947,6 @@ async function executeTool(toolName, args, context, engine) {
             const controller = await dc();
             if (!controller) return { error: 'Desktop provider not available' };
             return await controller.getAccessibilityTree({
-                deviceId: args.device_id,
                 signal,
             });
         }
@@ -2336,6 +2353,44 @@ async function executeTool(toolName, args, context, engine) {
             });
         }
 
+        case 'request_user_input': {
+            if (triggerSource !== 'cowork' || !context.conversationId || !runId) {
+                return { error: 'Structured input requests require an active Cowork chat.' };
+            }
+            const cowork = require('../cowork/service');
+            const request = cowork.createInputRequest({
+                userId,
+                conversationId: context.conversationId,
+                runId,
+                agentId,
+                schema: args,
+            });
+            const runMeta = engine?.getRunMeta?.(runId);
+            if (runMeta) {
+                runMeta.awaitingInput = request;
+                runMeta.terminalInterim = {
+                    kind: 'question',
+                    content: request.schema.questions.map((question) => question.question).join('\n'),
+                    createdAt: new Date().toISOString(),
+                };
+            }
+            db.prepare(
+                `UPDATE agent_runs
+                 SET status = 'waiting_input', updated_at = datetime('now')
+                 WHERE id = ? AND user_id = ?`,
+            ).run(runId, userId);
+            engine?.persistRunMetadata?.(runId, {
+                awaitingInputRequestId: request.id,
+                terminalInterim: runMeta?.terminalInterim || null,
+            });
+            engine?.emit?.(userId, 'run:input_required', {
+                runId,
+                conversationId: context.conversationId,
+                request,
+            });
+            return { waitingForUser: true, requestId: request.id };
+        }
+
         case 'send_message': {
             if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
                 return { error: 'Delegated agents cannot send external messages unless external side effects were explicitly allowed.' };
@@ -2505,7 +2560,7 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'read_file': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const normalizedArgs = normalizeReadFileArgs(args);
                 if (!normalizedArgs.path) {
@@ -2513,7 +2568,10 @@ async function executeTool(toolName, args, context, engine) {
                         error: 'read_file requires path or file_path. Keep source files in the workspace; for repository work clone or move the checkout into the workspace before using file tools.',
                     };
                 }
-                return workspace.readFile(userId, normalizedArgs);
+                return await workspace.readFile(userId, {
+                    ...normalizedArgs,
+                    deviceTarget,
+                });
             } catch (err) {
                 return { error: err.message };
             }
@@ -2521,7 +2579,7 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'read_files': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const entries = Array.isArray(args.files)
                     ? args.files
@@ -2530,7 +2588,7 @@ async function executeTool(toolName, args, context, engine) {
                     return { error: 'read_files requires a non-empty files or paths array.' };
                 }
                 const maxFiles = 8;
-                const results = entries.slice(0, maxFiles).map((entry, index) => {
+                const results = await Promise.all(entries.slice(0, maxFiles).map(async (entry, index) => {
                     const fileArgs = typeof entry === 'string'
                         ? { path: entry }
                         : (entry && typeof entry === 'object' ? entry : {});
@@ -2545,14 +2603,17 @@ async function executeTool(toolName, args, context, engine) {
                             error: 'Each read_files item requires path or file_path.',
                         };
                     }
-                    const result = workspace.readFile(userId, normalizedArgs);
+                    const result = await workspace.readFile(userId, {
+                        ...normalizedArgs,
+                        deviceTarget,
+                    });
                     return {
                         index,
                         requestedPath: normalizedArgs.path,
                         success: !result?.error,
                         ...result,
                     };
-                });
+                }));
                 return {
                     success: results.every((result) => result.success !== false && !result.error),
                     count: results.length,
@@ -2578,14 +2639,15 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'write_file': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
-                return workspace.writeFile(userId, {
+                return await workspace.writeFile(userId, {
                     path: targetPath,
                     content: args.content,
                     mode: args.mode,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2594,7 +2656,7 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'edit_file': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'edit_file requires path or file_path.' };
@@ -2605,9 +2667,10 @@ async function executeTool(toolName, args, context, engine) {
                         newText: edit?.newText ?? edit?.new_text,
                     }))
                     : [];
-                return workspace.editFile(userId, {
+                return await workspace.editFile(userId, {
                     path: targetPath,
                     edits,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2616,18 +2679,19 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'replace_file_range': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 if (typeof workspace.replaceFileRange !== 'function') {
                     return { error: 'Workspace service does not support replace_file_range.' };
                 }
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'replace_file_range requires path or file_path.' };
-                return workspace.replaceFileRange(userId, {
+                return await workspace.replaceFileRange(userId, {
                     path: targetPath,
                     start_line: args.start_line ?? args.startLine,
                     end_line: args.end_line ?? args.endLine,
                     content: args.content,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2636,12 +2700,13 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'list_directory': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
-                return workspace.listDirectory(userId, {
+                return await workspace.listDirectory(userId, {
                     path: args.path,
                     depth: args.depth,
                     recursive: args.recursive,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };
@@ -2650,14 +2715,15 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'search_files': {
             try {
-                const workspace = wc();
+                const workspace = computerWorkspace();
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
-                return workspace.searchFiles(userId, {
+                return await workspace.searchFiles(userId, {
                     path: args.path,
                     query: args.query,
                     include: args.include,
                     maxDepth: args.maxDepth ?? args.max_depth,
                     maxFileSize: args.maxFileSize ?? args.max_file_size,
+                    deviceTarget,
                 });
             } catch (err) {
                 return { error: err.message };

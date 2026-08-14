@@ -16,10 +16,15 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: build-installers-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-installers:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     uses: ./.github/workflows/_build-installers.yml
     secrets: inherit
     with:

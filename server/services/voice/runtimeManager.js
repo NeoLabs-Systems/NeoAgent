@@ -10,6 +10,7 @@ const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { VoiceProviderRegistry } = require('./provider_registry');
 const { VoiceDeliveryPresenter } = require('./voice_delivery_presenter');
 const { SocketVoiceTransport } = require('./voice_transport');
+const { sanitizeSpeechText, synthesizeVoiceReplyStream } = require('./providers');
 
 const logger = createServiceLogger('VoiceRuntime');
 
@@ -138,6 +139,35 @@ class VoiceSessionCoordinator {
     return Array.from(this.sessions.values()).some((session) => (
       String(session.userId) === String(userId) && !session.closed && session.attached
     ));
+  }
+
+  async prepareComposedSpeech({ userId, agentId = null, text, signal = null } = {}) {
+    const content = sanitizeSpeechText(text);
+    if (!content) return { chunks: [], mediaMode: 'composed' };
+    const stored = getVoiceRuntimeSettings(userId, agentId);
+    const resolved = this.providerRegistry.resolve(stored);
+    if (resolved.mediaMode === 'duplex') {
+      return { chunks: [], mediaMode: 'duplex' };
+    }
+    const runtime = this.#providerRuntime(userId, resolved.ttsProvider, agentId);
+    const chunks = [];
+    await synthesizeVoiceReplyStream(
+      content,
+      {
+        provider: resolved.ttsProvider,
+        model: resolved.ttsModel,
+        voice: resolved.ttsVoice,
+        apiKey: runtime.apiKey,
+        baseUrl: runtime.baseUrl,
+        timeoutMs: 30000,
+        signal,
+        transport: 'flutter',
+      },
+      async ({ audioBytes, mimeType }) => {
+        if (audioBytes?.length) chunks.push({ audioBytes, mimeType });
+      },
+    );
+    return { chunks, mediaMode: 'composed' };
   }
 
   openWearableSession({ userId, agentId = null, sessionId = null, sink } = {}) {

@@ -1,18 +1,16 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
 const {
+  createCloudInitUserData,
+  guestPayloadDigest,
   stageGuestPayload,
 } = require('../../../server/services/runtime/guest_bootstrap');
-const {
-  runDockerCommand,
-} = require('../../../server/services/runtime/guest_image');
 
 function resolveLocalModule(fromFile, request) {
   const base = path.resolve(path.dirname(fromFile), request);
@@ -59,21 +57,33 @@ test('browser and Android guest payloads contain their transitive local dependen
   }
 });
 
-test('guest image builds use an asynchronous Docker child process', async () => {
-  const child = new EventEmitter();
-  child.kill = () => true;
-  let invocation = null;
-  const result = runDockerCommand(['build', '-t', 'test-image', '/tmp/context'], {
-    timeout: 1_000,
-    spawnImpl(command, args, options) {
-      invocation = { command, args, options };
-      setImmediate(() => child.emit('close', 0));
-      return child;
-    },
+test('guest payload identity is deterministic for cloud-init restart persistence', () => {
+  const first = guestPayloadDigest('browser_cli');
+  const second = guestPayloadDigest('browser_cli');
+  assert.match(first, /^[a-f0-9]{64}$/);
+  assert.equal(first, second);
+  assert.notEqual(first, guestPayloadDigest('android'));
+});
+
+test('computer cloud-init starts one owned desktop after cloud-init without an ordering deadlock', () => {
+  const userData = createCloudInitUserData({
+    guestToken: 'test-token',
+    guestPayloadBase64: 'dGVzdA==',
+    runtimeProfile: 'browser_cli',
   });
 
-  assert.equal(typeof result.then, 'function');
-  assert.equal(await result, 0);
-  assert.equal(invocation.command, 'docker');
-  assert.deepEqual(invocation.args.slice(0, 3), ['build', '-t', 'test-image']);
+  assert.match(userData, /\[LightDM\]\s+start-default-seat=true\s+logind-check-graphical=false/);
+  assert.match(userData, /xserver-command=X -nolisten tcp vt1/);
+  assert.doesNotMatch(userData, /xserver-command=X -core/);
+  assert.match(userData, /systemctl set-default graphical\.target/);
+  assert.match(userData, /chvt 1/);
+  assert.match(userData, /getty@tty1/);
+  assert.match(userData, /virtio_gpu/);
+  assert.match(userData, /bochs/);
+  assert.match(userData, /tint2 -c \/etc\/xdg\/tint2\/tint2rc/);
+  assert.match(userData, /chown neo:neo \/home\/neo/);
+  assert.match(userData, /After=cloud-final\.service/);
+  assert.match(userData, /WantedBy=cloud-init\.target/);
+  assert.match(userData, /systemctl restart --no-block neoagent-guest-agent\.service/);
+  assert.doesNotMatch(userData, /systemctl restart neoagent-guest-agent\.service/);
 });

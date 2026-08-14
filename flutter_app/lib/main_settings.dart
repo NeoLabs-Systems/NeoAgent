@@ -46,11 +46,11 @@ const _workspaceSettingsSection = _SettingsSection(
   <String>[
     'workspace',
     'browser',
-    'extension',
     'cli',
-    'claude code',
     'desktop',
-    'routing',
+    'files',
+    'terminal',
+    'computer',
   ],
 );
 
@@ -115,15 +115,7 @@ const _desktopSettingsSection = _SettingsSection(
   'desktop',
   'Desktop',
   Icons.desktop_windows_outlined,
-  <String>[
-    'desktop',
-    'permissions',
-    'capture',
-    'companion',
-    'screen recording',
-    'accessibility',
-    'input',
-  ],
+  <String>['desktop', 'local app', 'tray', 'hotkey'],
   requiresDesktop: true,
 );
 
@@ -165,10 +157,6 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
 class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   _SettingsSection _selectedSettingsSection = _overviewSettingsSection;
-  late String _browserBackend;
-  String? _browserExtensionTokenId;
-  late String _cliBackend;
-  String? _cliDesktopDeviceId;
   late bool _smarterSelector;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
@@ -202,10 +190,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   // Inline runtime test state — ephemeral, not stored in controller.
   bool _cliTestRunning = false;
   Map<String, dynamic>? _cliTestResult;
-  bool _extensionTestRunning = false;
-  Map<String, dynamic>? _extensionTestResult;
-  bool _desktopTestRunning = false;
-  Map<String, dynamic>? _desktopTestResult;
   bool _socialReachRefreshing = false;
   String? _socialReachBusyPlatform;
   Map<String, dynamic>? _socialReachActionResult;
@@ -249,12 +233,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .where((model) => model.available)
         .map((model) => model.id)
         .toSet();
-    _browserBackend = _normalizeBrowserBackend(controller.browserBackend);
-    _browserExtensionTokenId =
-        controller.browserExtensionTokenId ??
-        controller.selectedBrowserExtensionTokenId;
-    _cliBackend = _normalizeCliBackend(controller.cliBackend);
-    _cliDesktopDeviceId = controller.cliDesktopDeviceId;
     _smarterSelector = controller.smarterSelector;
     // Only keep ids that are still available -- a model the admin has since
     // disabled (or whose provider lost its credentials) must not survive
@@ -334,16 +312,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
     _pruneControllers(_providerBaseUrlControllers, providerIds);
     _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
-  }
-
-  String _normalizeBrowserBackend(String value) {
-    final normalized = value.trim().toLowerCase();
-    return normalized == 'extension' ? 'extension' : 'vm';
-  }
-
-  String _normalizeCliBackend(String value) {
-    final normalized = value.trim().toLowerCase();
-    return normalized == 'desktop' ? 'desktop' : 'vm';
   }
 
   @override
@@ -620,12 +588,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   Future<void> _doSave() async {
     final controller = widget.controller;
     await controller.saveSettings(
-      browserBackend: _browserBackend == 'extension' ? 'extension' : 'vm',
-      browserExtensionTokenId: _browserBackend == 'extension'
-          ? _browserExtensionTokenId
-          : null,
-      cliBackend: _cliBackend == 'desktop' ? 'desktop' : 'vm',
-      cliDesktopDeviceId: _cliDesktopDeviceId,
       smarterSelector: _smarterSelector,
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
@@ -801,11 +763,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       : 'Manual routing',
                 ),
                 if (_supportsDesktopShell)
-                  _MetaPill(
+                  const _MetaPill(
                     icon: Icons.desktop_windows_outlined,
-                    label: controller.desktopCompanionEnabled
-                        ? 'Desktop companion enabled'
-                        : 'Desktop-only controls available',
+                    label: 'Desktop app controls available',
                   ),
               ],
             ),
@@ -1058,291 +1018,88 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   Widget _buildWorkspaceSection(NeoAgentController controller) {
+    final state = controller.computerRuntime['state']?.toString() ?? 'stopped';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Workspace'),
+            const _SectionTitle('Computer workspace'),
             const SizedBox(height: 10),
             Text(
-              'Controls for how the app runs on this device and in the browser.',
+              'Browser, Linux desktop, files, terminal, and Python share one persistent cloud computer.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Browser Runtime',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                _DotStatus(
+                  label: state.replaceAll('_', ' '),
+                  color:
+                      state == 'ready' ||
+                          state == 'user_control' ||
+                          state == 'agent_control' ||
+                          state == 'teaching'
+                      ? _success
+                      : state == 'error'
+                      ? _danger
+                      : _warning,
+                ),
+                FilledButton.icon(
+                  onPressed: controller.isRunningDeviceAction
+                      ? null
+                      : controller.startComputerRuntime,
+                  icon: const Icon(Icons.computer_outlined),
+                  label: const Text('Open computer'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: controller.isRunningDeviceAction
+                      ? null
+                      : controller.stopComputerRuntime,
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('Stop'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-
-            DropdownButtonFormField<String>(
-              initialValue: _browserBackend,
-              decoration: const InputDecoration(
-                labelText: 'Browser backend',
-                helperText:
-                    'Cloud uses the isolated browser runtime. Extension uses a paired Chrome browser on the remote machine.',
-              ),
-              items: const <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(value: 'vm', child: Text('Cloud')),
-                DropdownMenuItem<String>(
-                  value: 'extension',
-                  child: Text('Chrome extension'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _browserBackend = value;
-                    _browserExtensionTokenId ??=
-                        controller.selectedBrowserExtensionTokenId;
-                    _hasUnsavedChanges = true;
-                  });
-                }
-              },
+            Text(
+              'The runtime is a lightweight Debian Linux desktop with Chromium, PCManFM, Mousepad, LXTerminal, Python, Git, and standard command-line tools. Its capacity is managed by the NeoAgent host.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
             ),
-            const SizedBox(height: 10),
-            if (_browserBackend == 'extension') ...<Widget>[
-              if (controller.browserExtensionTokens.isNotEmpty) ...<Widget>[
-                DropdownButtonFormField<String>(
-                  initialValue:
-                      controller.browserExtensionTokens.any(
-                        (token) =>
-                            token['tokenId']?.toString() ==
-                            _browserExtensionTokenId,
-                      )
-                      ? _browserExtensionTokenId
-                      : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Default extension',
-                    helperText:
-                        'Choose which paired Chrome extension controls browser actions.',
-                  ),
-                  items: controller.browserExtensionTokens.map((token) {
-                    final tokenId = token['tokenId']?.toString() ?? '';
-                    final label =
-                        token['name']?.toString().trim().isNotEmpty == true
-                        ? token['name'].toString()
-                        : tokenId;
-                    final online =
-                        token['online'] == true || token['connected'] == true;
-                    return DropdownMenuItem<String>(
-                      value: tokenId,
-                      child: Row(
-                        children: <Widget>[
-                          Icon(
-                            online ? Icons.circle : Icons.circle_outlined,
-                            size: 10,
-                            color: online ? Colors.green : Colors.grey,
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _browserExtensionTokenId = value;
-                        _hasUnsavedChanges = true;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-              ],
-              _buildInlineTestRow(
-                label: 'Chrome extension',
-                running: _extensionTestRunning,
-                result: _extensionTestResult,
-                note: controller.browserExtensionConnected
-                    ? 'Connected — tap Test to verify the live link.'
-                    : 'Not connected — download the extension, load it in Chrome, then pair after login.',
-                onTest: () async {
-                  setState(() {
-                    _extensionTestRunning = true;
-                    _extensionTestResult = null;
-                  });
-                  try {
-                    final r = await controller.testBrowserExtension();
-                    if (mounted) {
-                      setState(() => _extensionTestResult = r);
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      setState(
-                        () => _extensionTestResult = <String, dynamic>{
-                          'passed': false,
-                          'detail': e.toString(),
-                        },
-                      );
-                    }
-                  } finally {
-                    if (mounted) {
-                      setState(() => _extensionTestRunning = false);
-                    }
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: <Widget>[
-                  OutlinedButton.icon(
-                    onPressed: controller.downloadBrowserExtension,
-                    icon: Icon(Icons.download_outlined),
-                    label: Text('Download extension'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: controller.refreshBrowserExtensionStatus,
-                    icon: Icon(Icons.sync),
-                    label: Text('Refresh'),
-                  ),
-                ],
-              ),
-            ] else ...<Widget>[
-              Text(
-                'Cloud browser runtime is active.',
-                style: TextStyle(color: _textSecondary, height: 1.4),
-              ),
-            ],
             const Divider(height: 32),
-            Text(
-              'CLI Runtime',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            DropdownButtonFormField<String>(
-              initialValue: _cliBackend,
-              decoration: const InputDecoration(
-                labelText: 'CLI backend',
-                helperText:
-                    'Cloud runs the CLI in the isolated VM. Desktop app runs it through the connected desktop companion.',
-              ),
-              items: const <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(value: 'vm', child: Text('Cloud')),
-                DropdownMenuItem<String>(
-                  value: 'desktop',
-                  child: Text('Desktop app'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _cliBackend = value;
-                    _hasUnsavedChanges = true;
-                  });
-                }
-              },
-            ),
-            if (_cliBackend == 'desktop' &&
-                controller.desktopDevices.length > 1) ...<Widget>[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue:
-                    controller.desktopDevices.any(
-                      (d) => d['deviceId']?.toString() == _cliDesktopDeviceId,
-                    )
-                    ? _cliDesktopDeviceId
-                    : null,
-                decoration: const InputDecoration(
-                  labelText: 'Desktop device',
-                  helperText:
-                      'Choose which desktop companion runs CLI commands.',
-                ),
-                items: controller.desktopDevices.map((device) {
-                  final deviceId = device['deviceId']?.toString() ?? '';
-                  final label =
-                      device['hostname']?.toString().isNotEmpty == true
-                      ? device['hostname']!.toString()
-                      : deviceId;
-                  final online = device['online'] == true;
-                  return DropdownMenuItem<String>(
-                    value: deviceId,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(
-                          online ? Icons.circle : Icons.circle_outlined,
-                          size: 10,
-                          color: online ? Colors.green : Colors.grey,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(label),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _cliDesktopDeviceId = value;
-                      _hasUnsavedChanges = true;
-                    });
-                  }
-                },
-              ),
-            ],
-            const SizedBox(height: 10),
             _buildInlineTestRow(
-              label: 'CLI',
+              label: 'Computer shell',
               running: _cliTestRunning,
               result: _cliTestResult,
-              note: _cliBackend == 'desktop'
-                  ? (controller.desktopCompanionConnected
-                        ? 'Desktop app connected — commands route locally through the companion.'
-                        : 'Desktop app selected but not connected. Commands fall back to cloud VM until the companion is online.')
-                  : 'Cloud VM — commands run in an isolated container.',
+              note:
+                  'Commands run in the same persistent computer used by the visible desktop.',
               onTest: () async {
                 setState(() {
                   _cliTestRunning = true;
                   _cliTestResult = null;
                 });
                 try {
-                  final r = await controller.testCliRuntime();
+                  final result = await controller.testCliRuntime();
+                  if (mounted) setState(() => _cliTestResult = result);
+                } catch (error) {
                   if (mounted) {
-                    setState(() => _cliTestResult = r);
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    setState(
-                      () => _cliTestResult = <String, dynamic>{
+                    setState(() {
+                      _cliTestResult = <String, dynamic>{
                         'passed': false,
-                        'detail': e.toString(),
-                      },
-                    );
+                        'detail': error.toString(),
+                      };
+                    });
                   }
                 } finally {
-                  if (mounted) {
-                    setState(() => _cliTestRunning = false);
-                  }
+                  if (mounted) setState(() => _cliTestRunning = false);
                 }
               },
             ),
             const Divider(height: 32),
-            Text(
-              'Routing Behavior',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
             _SettingToggle(
               title: 'Smart model selection',
               subtitle:
@@ -1450,7 +1207,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 if (cookieSetup > 0)
                   _MetaPill(
-                    icon: Icons.extension_outlined,
+                    icon: Icons.computer_outlined,
                     label: 'Cookie setup',
                     color: _warning,
                   ),
@@ -1581,8 +1338,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.extension_outlined, size: 18),
-                  label: const Text('Import from extension'),
+                      : const Icon(Icons.computer_outlined, size: 18),
+                  label: const Text('Import from computer'),
                 ),
                 OutlinedButton.icon(
                   onPressed: busy
@@ -2041,27 +1798,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Desktop'),
+            const _SectionTitle('Desktop app'),
             const SizedBox(height: 10),
             Text(
-              'Desktop-only companion controls for this computer.',
+              'Local preferences for the NeoAgent application. Computer control always runs through the unified cloud computer.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Local App Behavior',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
             SwitchListTile.adaptive(
               value: controller.desktopAskOnClose,
               contentPadding: EdgeInsets.zero,
-              title: Text('Ask before closing to background'),
+              title: const Text('Ask before closing to background'),
               subtitle: Text(
-                'Prompt for whether NeoAgent should stay resident in the tray when the main window closes.',
+                'Prompt before NeoAgent stays resident in the system tray.',
                 style: TextStyle(color: _textSecondary),
               ),
               onChanged: (value) => controller.setDesktopClosePreference(
@@ -2072,253 +1821,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
             SwitchListTile.adaptive(
               value: controller.desktopAssistantHotkeyEnabled,
               contentPadding: EdgeInsets.zero,
-              title: Text('Reserve assistant hotkey'),
+              title: const Text('Reserve assistant hotkey'),
               subtitle: Text(
-                'Register $_desktopAssistantHotkeyLabel so the desktop shell is ready for the upcoming voice assistant summon flow.',
+                'Register $_desktopAssistantHotkeyLabel for the assistant summon flow.',
                 style: TextStyle(color: _textSecondary),
               ),
               onChanged: controller.setDesktopAssistantHotkeyEnabled,
-            ),
-            const Divider(height: 32),
-            Text(
-              'Companion Mode',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile.adaptive(
-              value: controller.desktopCompanionEnabled,
-              contentPadding: EdgeInsets.zero,
-              title: Text('Enable Companion Mode on this computer'),
-              subtitle: Text(
-                'Expose this signed-in desktop app as a controllable companion device without a separate pairing flow.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: controller.setDesktopCompanionEnabled,
-            ),
-            SwitchListTile.adaptive(
-              value: controller.desktopCompanionPaused,
-              contentPadding: EdgeInsets.zero,
-              title: Text('Pause Companion Mode'),
-              subtitle: Text(
-                'Keep the device registered but reject remote control commands locally until resumed.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: controller.desktopCompanionEnabled
-                  ? controller.setDesktopCompanionPaused
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: controller.desktopCompanionLabel,
-              enabled: controller.desktopCompanionEnabled,
-              decoration: const InputDecoration(
-                labelText: 'Companion device label',
-                hintText: 'My workstation',
-                prefixIcon: Icon(Icons.edit_outlined),
-              ),
-              onFieldSubmitted: controller.setDesktopCompanionLabel,
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _DotStatus(
-                  label: controller.desktopCompanionConnected
-                      ? 'Connected'
-                      : controller.desktopCompanionConnecting
-                      ? 'Connecting'
-                      : 'Disconnected',
-                  color: controller.desktopCompanionConnected
-                      ? _success
-                      : controller.desktopCompanionConnecting
-                      ? _accent
-                      : _warning,
-                ),
-                _DotStatus(
-                  label: controller.desktopCompanionPaused ? 'Paused' : 'Ready',
-                  color: controller.desktopCompanionPaused
-                      ? _warning
-                      : _success,
-                ),
-              ],
-            ),
-            if (controller.desktopCompanionErrorMessage
-                case final message?) ...<Widget>[
-              const SizedBox(height: 12),
-              _InlineError(message: message),
-            ],
-            const SizedBox(height: 12),
-            _buildInlineTestRow(
-              label: 'Desktop companion',
-              running: _desktopTestRunning,
-              result: _desktopTestResult != null
-                  ? <String, dynamic>{
-                      'passed': _desktopTestResult!['passed'] == true,
-                      'detail': _desktopTestResult!['detail']?.toString() ?? '',
-                    }
-                  : null,
-              note: controller.desktopCompanionConnected
-                  ? 'Connected — tap Test to fetch live device status from the server.'
-                  : 'Not connected. Make sure the desktop app is running on the target machine.',
-              onTest: () async {
-                setState(() {
-                  _desktopTestRunning = true;
-                  _desktopTestResult = null;
-                });
-                try {
-                  final r = await controller.testDesktopCompanion();
-                  final active = r['activeDevice'];
-                  final multi = r['multipleOnline'] == true;
-                  String detail = r['detail']?.toString() ?? '';
-                  if (r['passed'] == true && active != null) {
-                    final label = active['label']?.toString() ?? 'Device';
-                    final plat = active['platform']?.toString() ?? '';
-                    final sc = active['permissions']?['screenCapture'] == true;
-                    final ic = active['permissions']?['inputControl'] == true;
-                    detail =
-                        '$label${plat.isNotEmpty ? " ($plat)" : ""}'
-                        ' — screen: ${sc ? "✓" : "✗"}, input: ${ic ? "✓" : "✗"}';
-                  } else if (multi) {
-                    detail =
-                        '${r['onlineCount']} devices online — select one in Desktop › Devices';
-                  }
-                  if (mounted) {
-                    setState(
-                      () => _desktopTestResult = <String, dynamic>{
-                        ...r,
-                        'detail': detail,
-                      },
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    setState(
-                      () => _desktopTestResult = <String, dynamic>{
-                        'passed': false,
-                        'detail': e.toString(),
-                      },
-                    );
-                  }
-                } finally {
-                  if (mounted) {
-                    setState(() => _desktopTestRunning = false);
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 14),
-            Builder(
-              builder: (context) {
-                final status = controller.desktopCompanionStatus;
-                final permissionsRaw = status['permissions'];
-                final permissions = permissionsRaw is Map
-                    ? permissionsRaw.map(
-                        (key, value) => MapEntry(
-                          key.toString(),
-                          value?.toString() ?? 'unknown',
-                        ),
-                      )
-                    : const <String, String>{};
-                final screenCaptureState =
-                    permissions['screenCapture'] ?? 'unknown';
-                final inputControlState =
-                    permissions['inputControl'] ?? 'unknown';
-                final accessibilityState =
-                    permissions['accessibility'] ?? 'unknown';
-                final grantHelp = switch (defaultTargetPlatform) {
-                  TargetPlatform.macOS =>
-                    'Grant Screen Recording and Accessibility in System Settings, then press Re-check.',
-                  TargetPlatform.windows =>
-                    'Grant capture and accessibility/input permissions in Windows Settings, then press Re-check.',
-                  TargetPlatform.linux =>
-                    'Approve portal capture/input prompts and desktop accessibility access, then press Re-check.',
-                  TargetPlatform.android ||
-                  TargetPlatform.iOS ||
-                  TargetPlatform.fuchsia =>
-                    'Desktop companion permission controls are unavailable on this platform.',
-                };
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Permissions',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: _textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      grantHelp,
-                      style: TextStyle(color: _textSecondary, height: 1.4),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        _CompanionPermissionBadge(
-                          label: 'Screen capture',
-                          state: screenCaptureState,
-                        ),
-                        _CompanionPermissionBadge(
-                          label: 'Input control',
-                          state: inputControlState,
-                        ),
-                        _CompanionPermissionBadge(
-                          label: 'Accessibility',
-                          state: accessibilityState,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: <Widget>[
-                        OutlinedButton.icon(
-                          onPressed: controller.desktopCompanionEnabled
-                              ? controller.refreshDesktopCompanionStatus
-                              : null,
-                          icon: Icon(Icons.sync_outlined),
-                          label: Text('Re-check permissions'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: controller.desktopCompanionEnabled
-                              ? () => controller
-                                    .openDesktopCompanionPermissionSettings(
-                                      'screenCapture',
-                                    )
-                              : null,
-                          icon: Icon(Icons.monitor_outlined),
-                          label: Text('Open capture settings'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: controller.desktopCompanionEnabled
-                              ? () => controller
-                                    .openDesktopCompanionPermissionSettings(
-                                      'accessibility',
-                                    )
-                              : null,
-                          icon: Icon(Icons.keyboard_command_key_outlined),
-                          label: Text('Open input/access settings'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: controller.desktopCompanionEnabled
-                              ? controller.rotateDesktopCompanionIdentity
-                              : null,
-                          icon: Icon(Icons.refresh_outlined),
-                          label: Text('Reset Device Identity'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
             ),
           ],
         ),

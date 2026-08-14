@@ -600,8 +600,6 @@ class BrowserController {
       const launchArgs = [
         '--start-maximized',
         '--remote-allow-origins=*',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--no-service-autorun',
         '--disable-crash-reporter',
@@ -630,6 +628,7 @@ class BrowserController {
       clearChromiumSingletonLocks(this.profileDir);
       const launchPromise = playwright.chromium.launchPersistentContext(this.profileDir, {
         headless: false,
+        chromiumSandbox: true,
         executablePath,
         env: launchEnv,
         args: launchArgs,

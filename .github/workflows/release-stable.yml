@@ -87,6 +87,11 @@ jobs:
           fi
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Add download links to release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release_download.js --tag "${{ steps.capture_release_tag.outputs.release_tag }}"
+
       - name: Capture release sha
         id: capture_release_sha
         run: |

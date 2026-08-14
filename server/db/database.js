@@ -136,6 +136,37 @@ db.exec(`
     UNIQUE(user_id, key)
   );
 
+  CREATE TABLE IF NOT EXISTS desktop_companion_devices (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    device_id TEXT NOT NULL,
+    activation_id TEXT,
+    label TEXT NOT NULL,
+    hostname TEXT,
+    platform TEXT,
+    platform_version TEXT,
+    app_version TEXT,
+    companion_enabled INTEGER DEFAULT 0,
+    paused INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'offline',
+    display_count INTEGER DEFAULT 0,
+    active_display_id TEXT,
+    permissions_json TEXT DEFAULT '{}',
+    capabilities_json TEXT DEFAULT '{}',
+    metadata_json TEXT DEFAULT '{}',
+    session_id INTEGER,
+    last_connected_at TEXT,
+    last_seen_at TEXT,
+    revoked_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, device_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user
+    ON desktop_companion_devices(user_id, status, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS user_two_factor (
     user_id INTEGER PRIMARY KEY,
     secret TEXT,
@@ -383,61 +414,6 @@ db.exec(`
     UNIQUE(user_id, agent_id, provider_key)
   );
 
-  CREATE TABLE IF NOT EXISTS browser_extension_pairing_requests (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER,
-    pairing_secret_hash TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    approved_at TEXT,
-    claimed_at TEXT,
-    expires_at TEXT NOT NULL,
-    metadata_json TEXT DEFAULT '{}',
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS browser_extension_tokens (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    token_hash TEXT UNIQUE NOT NULL,
-    name TEXT DEFAULT 'Chrome Extension',
-    status TEXT DEFAULT 'active',
-    last_connected_at TEXT,
-    last_seen_at TEXT,
-    revoked_at TEXT,
-    metadata_json TEXT DEFAULT '{}',
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS desktop_companion_devices (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    device_id TEXT NOT NULL,
-    activation_id TEXT,
-    label TEXT NOT NULL,
-    hostname TEXT,
-    platform TEXT,
-    platform_version TEXT,
-    app_version TEXT,
-    companion_enabled INTEGER DEFAULT 0,
-    paused INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'offline',
-    display_count INTEGER DEFAULT 0,
-    active_display_id TEXT,
-    permissions_json TEXT DEFAULT '{}',
-    capabilities_json TEXT DEFAULT '{}',
-    metadata_json TEXT DEFAULT '{}',
-    session_id INTEGER,
-    last_connected_at TEXT,
-    last_seen_at TEXT,
-    revoked_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, device_id)
-  );
-
   CREATE TABLE IF NOT EXISTS scheduled_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -471,6 +447,33 @@ db.exec(`
     auto_created INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS agent_skill_versions (
+    id TEXT PRIMARY KEY,
+    skill_id TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    content_md TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    evaluation_score REAL,
+    validated_at TEXT,
+    status TEXT NOT NULL DEFAULT 'candidate'
+      CHECK(status IN ('candidate', 'validated', 'retired', 'rolled_back')),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(skill_id, version)
+  );
+
+  CREATE TABLE IF NOT EXISTS agent_skill_evaluations (
+    id TEXT PRIMARY KEY,
+    skill_version_id TEXT NOT NULL,
+    run_id TEXT,
+    score REAL,
+    outcome TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (skill_version_id) REFERENCES agent_skill_versions(id) ON DELETE CASCADE,
+    FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS conversations (
@@ -526,9 +529,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_auth_oauth_states_expires ON auth_oauth_states(expires_at, status);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_state ON integration_oauth_states(state);
   CREATE INDEX IF NOT EXISTS idx_integration_oauth_states_expires ON integration_oauth_states(expires_at);
-  CREATE INDEX IF NOT EXISTS idx_browser_extension_pairing_status ON browser_extension_pairing_requests(status, expires_at);
-  CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_user ON browser_extension_tokens(user_id, status, created_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_browser_extension_tokens_hash_status ON browser_extension_tokens(token_hash, status);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform, platform_chat_id);
   CREATE INDEX IF NOT EXISTS idx_messages_dedup ON messages(user_id, platform, platform_msg_id) WHERE platform_msg_id IS NOT NULL;
@@ -1202,21 +1202,6 @@ for (const col of [
   "ALTER TABLE conversations ADD COLUMN last_verified_facts_json TEXT",
   "ALTER TABLE conversations ADD COLUMN last_summary TEXT",
   "ALTER TABLE artifacts ADD COLUMN metadata_json TEXT DEFAULT '{}'",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN activation_id TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN app_version TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN companion_enabled INTEGER DEFAULT 0",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN paused INTEGER DEFAULT 0",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN status TEXT DEFAULT 'offline'",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN display_count INTEGER DEFAULT 0",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN active_display_id TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN permissions_json TEXT DEFAULT '{}'",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN capabilities_json TEXT DEFAULT '{}'",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN metadata_json TEXT DEFAULT '{}'",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN session_id INTEGER",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN last_connected_at TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN last_seen_at TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN revoked_at TEXT",
-  "ALTER TABLE desktop_companion_devices ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
   "ALTER TABLE memory_facts ADD COLUMN valid_from TEXT",
   "ALTER TABLE memory_facts ADD COLUMN valid_to TEXT",
   "ALTER TABLE memory_facts ADD COLUMN learned_at TEXT",
@@ -1236,25 +1221,6 @@ function tableHasColumn(tableName, columnName) {
       .some((column) => column.name === columnName);
   } catch {
     return false;
-  }
-}
-
-function createLegacyCompatibleIndexes() {
-  const deferredIndexes = [
-    {
-      table: 'desktop_companion_devices',
-      columns: ['user_id', 'status', 'created_at'],
-      sql: 'CREATE INDEX IF NOT EXISTS idx_desktop_companion_devices_user ON desktop_companion_devices(user_id, status, created_at DESC)',
-    },
-  ];
-
-  for (const { table, columns, sql } of deferredIndexes) {
-    if (!columns.every((column) => tableHasColumn(table, column))) continue;
-    try {
-      db.exec(sql);
-    } catch {
-      // Keep startup resilient for partially migrated local databases.
-    }
   }
 }
 
@@ -1934,7 +1900,6 @@ rebuildCoreMemoryForAgents();
 migrateIntegrationConnectionsTable();
 migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
-createLegacyCompatibleIndexes();
 createAgentScopedIndexes();
 
 try {

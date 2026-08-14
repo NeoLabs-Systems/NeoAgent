@@ -200,8 +200,6 @@ router.get('/api/version', requireAdminAuth, (req, res) => {
 
 router.get('/api/health', requireAdminAuth, async (req, res) => {
   const runtimeManager = req.app?.locals?.runtimeManager;
-  const desktopRegistry = req.app?.locals?.desktopCompanionRegistry;
-  const extensionRegistry = req.app?.locals?.browserExtensionRegistry;
   const results = [];
 
   results.push({ id: 'backend', label: 'Backend server', passed: true, detail: 'Running' });
@@ -241,28 +239,6 @@ router.get('/api/health', requireAdminAuth, async (req, res) => {
     passed: runtimeReady,
     detail: runtimeReady ? 'Available' : String(runtimeValidation?.issues?.[0] || 'Not configured'),
   });
-
-  if (desktopRegistry) {
-    try {
-      const connectedUsers = [];
-      for (const socket of (req.app?.locals?.io?.sockets?.sockets?.values?.() || [])) {
-        const uid = socket.request?.session?.userId;
-        if (uid && !connectedUsers.includes(uid)) connectedUsers.push(uid);
-      }
-      results.push({
-        id: 'desktop',
-        label: 'Desktop companion',
-        passed: true,
-        detail: 'Registry available',
-      });
-    } catch {
-      results.push({ id: 'desktop', label: 'Desktop companion', passed: false, detail: 'Registry error' });
-    }
-  }
-
-  if (extensionRegistry) {
-    results.push({ id: 'extension', label: 'Chrome extension registry', passed: true, detail: 'Available' });
-  }
 
   const configuredProviders = [];
   if (process.env.ANTHROPIC_API_KEY) configuredProviders.push('Anthropic');

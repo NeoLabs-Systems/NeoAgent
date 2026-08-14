@@ -18,6 +18,16 @@ const String desktopCompanionActivationIdPrefsKey =
 const String desktopCompanionPausedPrefsKey = 'desktop.companion.paused';
 const String desktopCompanionActiveDisplayPrefsKey =
     'desktop.companion.activeDisplayId';
+const String localComputerPermissionsPrefsKey = 'computer.local.permissions';
+
+class LocalComputerPermissionException implements Exception {
+  const LocalComputerPermissionException(this.capability);
+
+  final String capability;
+
+  @override
+  String toString() => 'Permission required: $capability';
+}
 
 class DesktopCompanionManager extends ChangeNotifier {
   DesktopCompanionManager({required DesktopScreenCapture screenCapture})
@@ -63,7 +73,17 @@ class DesktopCompanionManager extends ChangeNotifier {
   String _activeDisplayId = 'primary';
   String? _errorMessage;
   Map<String, Object?> _status = const <String, Object?>{};
+  final Set<String> _persistentPermissions = <String>{};
+  final Set<String> _sessionPermissions = <String>{};
+  String? _pendingPermission;
 
+  bool get supported =>
+      !kIsWeb &&
+      <TargetPlatform>{
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+      }.contains(defaultTargetPlatform);
   bool get enabled => _enabled;
   bool get paused => _paused;
   bool get connecting => _connecting;
@@ -73,6 +93,11 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get deviceId => _deviceId;
   String get activationId => _activationId;
   Map<String, Object?> get status => _status;
+  String? get pendingPermission => _pendingPermission;
+  Set<String> get grantedPermissions => <String>{
+    ..._persistentPermissions,
+    ..._sessionPermissions,
+  };
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -96,7 +121,97 @@ class DesktopCompanionManager extends ChangeNotifier {
         'primary';
     await prefs.setString(desktopCompanionDeviceIdPrefsKey, _deviceId);
     await prefs.setString(desktopCompanionActivationIdPrefsKey, _activationId);
+    _persistentPermissions
+      ..clear()
+      ..addAll(
+        (prefs.getStringList(localComputerPermissionsPrefsKey) ??
+                const <String>[])
+            .where(_isKnownPermission),
+      );
   }
+
+  bool _isKnownPermission(String value) =>
+      const <String>{'screen', 'input', 'files', 'shell'}.contains(value);
+
+  Future<void> grantPermission(
+    String capability,
+    SharedPreferences prefs, {
+    required bool remember,
+  }) async {
+    final normalized = capability.trim().toLowerCase();
+    if (!_isKnownPermission(normalized)) {
+      throw ArgumentError.value(
+        capability,
+        'capability',
+        'Unknown local computer permission.',
+      );
+    }
+    if (remember) {
+      _persistentPermissions.add(normalized);
+      _sessionPermissions.remove(normalized);
+      await prefs.setStringList(
+        localComputerPermissionsPrefsKey,
+        _persistentPermissions.toList(growable: false)..sort(),
+      );
+    } else {
+      _sessionPermissions.add(normalized);
+    }
+    if (_pendingPermission == normalized) _pendingPermission = null;
+    await _publishPermissionState();
+  }
+
+  Future<void> denyPermission(String capability) async {
+    final normalized = capability.trim().toLowerCase();
+    _sessionPermissions.remove(normalized);
+    if (_pendingPermission == normalized) _pendingPermission = null;
+    await _publishPermissionState();
+  }
+
+  Future<void> revokePermission(
+    String capability,
+    SharedPreferences prefs,
+  ) async {
+    final normalized = capability.trim().toLowerCase();
+    _sessionPermissions.remove(normalized);
+    _persistentPermissions.remove(normalized);
+    await prefs.setStringList(
+      localComputerPermissionsPrefsKey,
+      _persistentPermissions.toList(growable: false)..sort(),
+    );
+    await _publishPermissionState();
+  }
+
+  Future<void> _publishPermissionState() async {
+    _status = <String, Object?>{
+      ..._status,
+      'appApprovals': _approvalSnapshot(),
+      'pendingPermission': _pendingPermission,
+    };
+    _notify();
+    if (_connected) {
+      await _sendEvent('permissionsChanged', <String, Object?>{
+        'permissions': <String, Object?>{
+          ...(_status['permissions'] is Map
+              ? Map<String, Object?>.from(_status['permissions'] as Map)
+              : const <String, Object?>{}),
+          'appApprovals': _approvalSnapshot(),
+        },
+        'metadata': <String, Object?>{'pendingPermission': _pendingPermission},
+      });
+    }
+  }
+
+  Map<String, Object?> _approvalSnapshot() => <String, Object?>{
+    for (final capability in const <String>[
+      'screen',
+      'input',
+      'files',
+      'shell',
+    ])
+      capability: _persistentPermissions.contains(capability)
+          ? 'always'
+          : (_sessionPermissions.contains(capability) ? 'once' : 'denied'),
+  };
 
   Future<void> updateSession({
     required String backendUrl,
@@ -170,6 +285,13 @@ class DesktopCompanionManager extends ChangeNotifier {
     _stopStreaming();
     _connecting = false;
     _connected = false;
+    _sessionPermissions.clear();
+    _pendingPermission = null;
+    _status = <String, Object?>{
+      ..._status,
+      'appApprovals': _approvalSnapshot(),
+      'pendingPermission': null,
+    };
     _cancelPendingCommands();
     final socket = _socket;
     _socket = null;
@@ -204,6 +326,8 @@ class DesktopCompanionManager extends ChangeNotifier {
       'hostname': _localHostname(),
       'companionEnabled': _enabled,
       'paused': _paused,
+      'appApprovals': _approvalSnapshot(),
+      'pendingPermission': _pendingPermission,
     };
     _notify();
     if (_connected) {
@@ -281,6 +405,18 @@ class DesktopCompanionManager extends ChangeNotifier {
             activeDisplayId: _activeDisplayId,
           )
           .timeout(const Duration(seconds: 10));
+      hello['permissions'] = <String, Object?>{
+        ...(hello['permissions'] is Map
+            ? Map<String, Object?>.from(hello['permissions'] as Map)
+            : const <String, Object?>{}),
+        'appApprovals': _approvalSnapshot(),
+      };
+      hello['metadata'] = <String, Object?>{
+        ...(hello['metadata'] is Map
+            ? Map<String, Object?>.from(hello['metadata'] as Map)
+            : const <String, Object?>{}),
+        'pendingPermission': _pendingPermission,
+      };
       if (_socket != socket || generation != _connectionGeneration) return;
       socket.add(
         jsonEncode(<String, Object?>{'type': 'hello', 'device': hello}),
@@ -446,6 +582,13 @@ class DesktopCompanionManager extends ChangeNotifier {
         });
         return;
       }
+      final requiredPermission = _permissionForCommand(command);
+      if (requiredPermission != null &&
+          !grantedPermissions.contains(requiredPermission)) {
+        _pendingPermission = requiredPermission;
+        await _publishPermissionState();
+        throw LocalComputerPermissionException(requiredPermission);
+      }
       var response = await _dispatchCommand(command, payload, commandId: id);
       if (command != 'cancelCommand' && _cancelledCommandIds.contains(id)) {
         await _discardCommandOutput(response);
@@ -498,6 +641,8 @@ class DesktopCompanionManager extends ChangeNotifier {
         'type': 'result',
         'id': id,
         'ok': false,
+        if (error is LocalComputerPermissionException)
+          'code': 'LOCAL_COMPUTER_PERMISSION_REQUIRED',
         'error': '$error',
       });
     } finally {
@@ -506,6 +651,27 @@ class DesktopCompanionManager extends ChangeNotifier {
       _pendingShellCommandIds.remove(id);
       _cancelledCommandIds.remove(id);
     }
+  }
+
+  String? _permissionForCommand(String command) {
+    if (<String>{'captureFrame', 'startStream', 'observe'}.contains(command)) {
+      return 'screen';
+    }
+    if (_inputCommands.contains(command)) {
+      return 'input';
+    }
+    if (<String>{
+      'listFiles',
+      'readFile',
+      'writeFile',
+      'searchFiles',
+    }.contains(command)) {
+      return 'files';
+    }
+    if (<String>{'executeCommand', 'launchApp', 'openUri'}.contains(command)) {
+      return 'shell';
+    }
+    return null;
   }
 
   void _sendCommandResult(
@@ -676,6 +842,27 @@ class DesktopCompanionManager extends ChangeNotifier {
         return _actions.pressKey(key: payload['key']?.toString() ?? '');
       case 'launchApp':
         return _actions.launchApp(app: payload['app']?.toString() ?? '');
+      case 'openUri':
+        return _actions.openUri(uri: payload['uri']?.toString() ?? '');
+      case 'listFiles':
+        return _actions.listFiles(path: payload['path']?.toString() ?? '.');
+      case 'readFile':
+        return _actions.readFile(
+          path: payload['path']?.toString() ?? '',
+          base64: payload['encoding'] == 'base64',
+        );
+      case 'writeFile':
+        return _actions.writeFile(
+          path: payload['path']?.toString() ?? '',
+          content: payload['content']?.toString() ?? '',
+        );
+      case 'searchFiles':
+        return _actions.searchFiles(
+          path: payload['path']?.toString() ?? '.',
+          query: payload['query']?.toString() ?? '',
+          pattern: payload['glob']?.toString() ?? '',
+          maxResults: (payload['maxResults'] as num?)?.round() ?? 100,
+        );
       case 'listDisplays':
         final status = await _actions.getStatus(
           label: _label,
@@ -1008,7 +1195,7 @@ Uri _desktopWsUri(String backendUrl) {
   final basePath = base.path.replaceFirst(RegExp(r'/+$'), '');
   return base.replace(
     scheme: scheme,
-    path: '$basePath/api/desktop/ws',
+    path: '$basePath/api/computer/local/ws',
     query: '',
     fragment: '',
   );
@@ -1018,7 +1205,7 @@ Uri _desktopCommandOutputUri(String backendUrl) {
   final base = Uri.parse(backendUrl);
   final basePath = base.path.replaceFirst(RegExp(r'/+$'), '');
   return base.replace(
-    path: '$basePath/api/desktop/command-output',
+    path: '$basePath/api/computer/local/command-output',
     query: '',
     fragment: '',
   );
