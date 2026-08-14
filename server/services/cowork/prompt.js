@@ -64,6 +64,7 @@ function buildCoworkOperatingContract(context = {}) {
     'Do not browse a live site, GitHub Pages, NeoLabs, or the GitHub API to rediscover source that is already on disk. File-by-file remote fetches hit rate limits and skip the local files.',
     'Do not clone into the workspace if the project is already here.',
     'Do not permanently delete files unless the user asked to delete them. Prefer edit or move.',
+    'Do not dump long internal paths, VM mounts, or /home/neo/workspace internals at the user. Refer to the folder by name and relative paths.',
     '',
     'WEB AND INTEGRATIONS',
     'Web search, browser, and GitHub API are only for facts that are not in this folder: current public docs, package versions, or a live site the user explicitly wants checked. They are never a substitute for reading the workspace.',

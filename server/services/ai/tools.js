@@ -1548,6 +1548,7 @@ function getAvailableTools(app, options = {}) {
             0,
             {
                 name: 'request_user_input',
+                description: 'Pause this Cowork run and ask one to three structured questions only when an irreversible product choice is missing. Give two or three options per question, mark the recommended option, and permit a custom answer. Do not use this to ask for a project URL, repo, or permission to edit files that are already in the attached workspace.',
                 parameters: {
                     type: 'object',
                     properties: {
