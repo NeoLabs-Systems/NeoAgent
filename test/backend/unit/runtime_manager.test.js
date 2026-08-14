@@ -356,6 +356,23 @@ test('a display session follows the computer instead of a fixed address', () => 
   assert.equal(manager.getDisplayTarget(7), null);
 });
 
+test('a computer that died is not handed out as a display target', () => {
+  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  let alive = true;
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: { instances, getStatus: () => ({ state: 'ready' }), hasVm: () => alive },
+      touchActivity() {},
+    },
+  });
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+
+  // The process is gone but its exit event has not been delivered yet.
+  alive = false;
+  assert.equal(manager.getDisplayTarget(7), null);
+  assert.throws(() => manager.createDisplaySession(7), /display is not running/i);
+});
+
 test('viewers are dropped when the computer they watch stops', () => {
   const vmManager = {
     instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),

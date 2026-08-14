@@ -145,6 +145,30 @@ async function findVncDisplay() {
   throw new Error('No loopback VNC display is available.');
 }
 
+// QEMU opens its VNC websocket a moment after the process exists. Handing out a display
+// session before then means the first viewer to connect is refused and sees nothing, so
+// the computer is not considered started until the port answers.
+function waitForLoopbackPort(port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  const attempt = () => new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const finish = (reachable) => {
+      socket.destroy();
+      resolve(reachable);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(1000, () => finish(false));
+  });
+  return (async () => {
+    while (Date.now() < deadline) {
+      if (await attempt()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  })();
+}
+
 function userDirectoryKey(userId) {
   return crypto.createHash('sha256').update(String(userId)).digest('hex').slice(0, 24);
 }
@@ -1029,6 +1053,8 @@ class QemuVMManager {
       }
       this.onVmStopped?.(key);
     });
+    const displayListening = await waitForLoopbackPort(websocketPort, 10000);
+    trace('vm.display-listening', { user: key, port: websocketPort, listening: displayListening });
     trace('vm.started', {
       user: key,
       pid: child.pid,
