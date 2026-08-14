@@ -11,6 +11,7 @@ const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
 const { guestDesktopRepairCommand, summarizeDesktopRepairOutput } = require('./guest_desktop');
+const { trace } = require('./trace');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -318,6 +319,11 @@ class RuntimeManager {
           logger.warn(`Desktop ensure endpoint failed for user ${String(userId)}: ${error.message}`);
           ensured = { available: false, error: error.message };
         }
+        trace('desktop.ensure', {
+          user: String(userId),
+          available: ensured?.available === true,
+          error: ensured?.error,
+        });
         if (ensured?.available === true) {
           if (session) session.desktop = { available: true, error: null };
         } else {
@@ -343,7 +349,7 @@ class RuntimeManager {
             logger.warn(`Desktop repair command failed for user ${String(userId)}: ${summary.error}`);
           }
         }
-        if (session) {
+        if (session && session.startupDurationMs == null) {
           session.startupDurationMs = Date.now() - Date.parse(session.startedAt);
           if (session.directBoot && session.startupDurationMs >= 10_000) {
             logger.warn(
@@ -497,6 +503,14 @@ class RuntimeManager {
       expiresAt,
       viewOnly,
     });
+    trace('display.session.create', {
+      user: key,
+      token: token.slice(0, 8),
+      viewOnly,
+      lease: lease ? lease.ownerType : 'none',
+      target: this.getDisplayTarget(key),
+      live: this.displaySessions.size,
+    });
     return {
       token,
       expiresAt: new Date(expiresAt).toISOString(),
@@ -540,8 +554,15 @@ class RuntimeManager {
   revokeDisplaySessions(userId) {
     if (!(this.displaySessions instanceof Map)) return;
     const key = String(userId || '').trim();
+    const revoked = [];
     for (const [token, session] of this.displaySessions.entries()) {
-      if (session.userId === key) this.displaySessions.delete(token);
+      if (session.userId === key) {
+        this.displaySessions.delete(token);
+        revoked.push(token.slice(0, 8));
+      }
+    }
+    if (revoked.length > 0) {
+      trace('display.session.revoke', { user: key, count: revoked.length, tokens: revoked });
     }
   }
 
