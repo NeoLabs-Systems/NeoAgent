@@ -605,6 +605,61 @@ test('Cowork Plan mode blocks mutating tools before execution', async () => {
   assert.match(blocked.error, /Plan mode blocks tools/);
 });
 
+test('Cowork agent runs pass the open folder into the system prompt', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Revamp the portfolio',
+    confidence: 0.9,
+    complexity: 'standard',
+    needs_verification: false,
+    success_criteria: [],
+    suggested_tools: ['list_directory', 'edit_file'],
+  });
+  let promptContext = null;
+  engine.buildSystemPrompt = async (_userId, context) => {
+    promptContext = context;
+    return 'system';
+  };
+  engine.requestModelResponse = async () => ({
+    response: {
+      content: '',
+      toolCalls: [{
+        id: 'done-1',
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message: 'Updated the local files.' }),
+        },
+      }],
+      usage: { total_tokens: 4 },
+    },
+    streamContent: '',
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'list_directory', description: 'list', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.executeTool = async () => ({ success: true });
+
+  await engine.run(userId, 'revamp my portfolio', {
+    triggerSource: 'cowork',
+    interactionMode: 'agent',
+    deviceTarget: 'local',
+    workspaceRoot: '/Users/neo/Projects/Neotastisch-Portfolio',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 2,
+  });
+
+  assert.equal(promptContext.triggerSource, 'cowork');
+  assert.equal(promptContext.interactionMode, 'agent');
+  assert.equal(promptContext.deviceTarget, 'local');
+  assert.equal(promptContext.workspaceRoot, '/Users/neo/Projects/Neotastisch-Portfolio');
+});
+
 test('a satisfied durable run completes without burning the budget on repairs', async () => {
   const engine = createEngine({
     mode: 'execute',

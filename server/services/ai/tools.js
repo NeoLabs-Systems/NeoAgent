@@ -1548,7 +1548,6 @@ function getAvailableTools(app, options = {}) {
             0,
             {
                 name: 'request_user_input',
-                description: 'Pause this Cowork run and ask one to three structured questions when the answers materially change the work. Give two or three options per question, mark the recommended option, and permit a custom answer.',
                 parameters: {
                     type: 'object',
                     properties: {

@@ -1,3 +1,5 @@
+const { buildCoworkAnalysisInstructions, buildCoworkExecutionGuidance } = require('../cowork/prompt');
+
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
 const COMPLEXITY_LEVELS = ['simple', 'standard', 'complex'];
@@ -641,7 +643,12 @@ function shouldRunVerifier({ analysis, toolExecutions = [], finalReply = '' }) {
   return meaningfulExecutions.some((item) => item.stateChanged || item.dependsOnOutput || item.evidenceRelevant);
 }
 
-function buildAnalysisPrompt({ capabilityHealth, tools = [], forceMode = null }) {
+function buildAnalysisPrompt({
+  capabilityHealth,
+  tools = [],
+  forceMode = null,
+  triggerSource = null,
+} = {}) {
   const toolCatalog = summarizeToolCatalog(tools);
   const forceModeLine = forceMode && ANALYSIS_MODES.includes(forceMode)
     ? `Preferred mode override from the runtime: ${forceMode}. Honor it unless it is clearly unsafe or impossible.`
@@ -650,6 +657,7 @@ function buildAnalysisPrompt({ capabilityHealth, tools = [], forceMode = null })
   return composeJsonPrompt([
     JSON_ONLY_RESPONSE_RULE,
     ...ANALYSIS_PROMPT_INSTRUCTIONS,
+    ...buildCoworkAnalysisInstructions({ triggerSource }),
     forceModeLine,
     formatRuntimeCapabilityHealth(capabilityHealth),
     toolCatalog ? `Complete available tool catalog:\n${toolCatalog}` : '',
@@ -669,7 +677,12 @@ function buildPlanPrompt(analysis, capabilityHealth) {
   ], PLAN_SCHEMA_EXAMPLE);
 }
 
-function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
+function buildExecutionGuidance({
+  analysis,
+  plan = null,
+  capabilityHealth,
+  triggerSource = null,
+} = {}) {
   const lines = [
     `Execution mode: ${analysis.mode}.`,
     analysis.goal ? `Goal: ${analysis.goal}` : '',
@@ -689,6 +702,7 @@ function buildExecutionGuidance({ analysis, plan = null, capabilityHealth }) {
     formatPlannedSteps(plan?.steps),
     formatBulletSection('Verification focus', plan?.verification_focus),
     ...EXECUTION_GUIDANCE_ACTION_LINES,
+    ...buildCoworkExecutionGuidance({ triggerSource }),
   );
 
   return lines.filter(Boolean).join('\n\n');

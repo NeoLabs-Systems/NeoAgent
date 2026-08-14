@@ -764,6 +764,7 @@ class AgentEngine {
         capabilityHealth: summary,
         tools,
         forceMode,
+        triggerSource: options.triggerSource || null,
       }),
       maxTokens: 1100,
       normalize: normalizeTaskAnalysis,

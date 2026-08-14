@@ -549,17 +549,10 @@ class DurableRunRuntime {
         agentId,
         triggerSource,
         memoryAudience: options.memoryAudience || 'owner',
+        interactionMode,
+        deviceTarget,
+        workspaceRoot,
       });
-      if (interactionMode === 'plan') {
-        systemPrompt = `${systemPrompt}\n\n${[
-          '[Cowork Plan mode]',
-          'Create an implementation plan and do not mutate the environment.',
-          'You may inspect existing state with tools that are explicitly read-only.',
-          'Do not run shell commands or call tools that write files, change devices, browse interactively, message people, or modify external systems.',
-          'Ask structured questions with request_user_input only when an unresolved choice materially changes the plan.',
-          'Your final response must be an actionable plan that can be implemented in a later Agent-mode run.',
-        ].join(' ')}`;
-      }
 
       const builtInTools = this.engine.getAvailableTools(app, {
         includeDescriptions: true,
@@ -614,6 +607,8 @@ class DurableRunRuntime {
         app,
         engine: this.engine,
         deviceTarget,
+        triggerSource,
+        workspaceRoot,
       });
       const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
       if (capabilitySummary) {
@@ -682,6 +677,7 @@ class DurableRunRuntime {
             capabilityHealth: capabilitySummary,
             tools: allTools,
             forceMode: options.forceMode || null,
+            triggerSource,
           });
           const analysisResponse = await this.engine.requestStructuredJson({
             provider,
@@ -727,7 +723,9 @@ class DurableRunRuntime {
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: analysis.mode === 'execute' || analysis.mode === 'plan_execute',
+        includeCoreFileTools: triggerSource === 'cowork'
+          || analysis.mode === 'execute'
+          || analysis.mode === 'plan_execute',
       };
       tools = selectInitialTools(allTools, analysis.suggested_tools, toolSelectionOptions);
       this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
@@ -887,6 +885,7 @@ class DurableRunRuntime {
             success_criteria: contract.success_criteria,
           },
           capabilityHealth: capabilitySummary,
+          triggerSource,
         }),
       });
       if (options.latencyPriority === 'interactive') {

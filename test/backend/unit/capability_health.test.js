@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const {
   getAndroidHealth,
   getBrowserHealth,
+  getFileHealth,
 } = require('../../../server/services/ai/capabilityHealth');
 
 test('browser capability health never starts or resolves a browser runtime', async () => {
@@ -63,4 +64,23 @@ test('Android capability health uses a synchronous snapshot without adb or contr
   assert.equal(health.healthy, true);
   assert.equal(health.connected, false);
   assert.match(health.summary, /first use/i);
+});
+
+test('file capability health names the attached Cowork folder', () => {
+  const app = { locals: { workspaceManager: {} } };
+  const selected = getFileHealth(app, {}, {
+    triggerSource: 'cowork',
+    workspaceRoot: '/Users/neo/Projects/Neotastisch-Portfolio',
+  });
+  assert.match(selected.summary, /Neotastisch-Portfolio/);
+  assert.match(selected.summary, /already mounted/);
+
+  const defaultCowork = getFileHealth(app, {}, { triggerSource: 'cowork' });
+  assert.match(defaultCowork.summary, /already attached/);
+
+  const web = getFileHealth(app, {}, { triggerSource: 'web' });
+  assert.equal(web.summary, 'Per-user workspace access is available.');
+
+  const legacy = getFileHealth(app, {});
+  assert.equal(legacy.summary, 'Per-user workspace access is available.');
 });

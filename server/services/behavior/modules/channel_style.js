@@ -16,6 +16,9 @@ function buildSystemPromptContribution(ctx) {
   if (ctx.triggerSource === 'wearable') {
     return 'CHANNEL: one or two short sentences, result first.';
   }
+  if (ctx.triggerSource === 'cowork') {
+    return 'CHANNEL: cowork. Work in the open folder. Lead with what you changed. Do not narrate every tool. Do not ask for files or URLs that are already in the workspace.';
+  }
   return 'CHANNEL: short paragraphs or compact lists; lead with the result; no padding.';
 }
 
