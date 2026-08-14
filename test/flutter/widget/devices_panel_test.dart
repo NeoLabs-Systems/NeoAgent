@@ -177,6 +177,10 @@ void main() {
           ..computerRuntime = const <String, dynamic>{
             'state': 'error',
             'errorCode': 'COMPUTER_STORAGE_CAPACITY',
+            'lastError':
+                'Starting this cloud computer needs more free storage: 22.3 GiB free, '
+                '20% held back for the host, and 19.7 GiB still unwritten in existing '
+                'computer disks.',
           };
     addTearDown(controller.dispose);
 
@@ -188,6 +192,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('More free space is needed'), findsWidgets);
+    expect(find.textContaining('19.7 GiB still unwritten'), findsOneWidget);
     expect(find.text('All computer slots are busy'), findsNothing);
     expect(
       find.byWidgetPredicate(

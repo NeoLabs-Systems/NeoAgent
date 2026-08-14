@@ -297,12 +297,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
       );
     } else if (state == 'error') {
       final storageError = errorCode == 'COMPUTER_STORAGE_CAPACITY';
+      final lastError =
+          controller.computerRuntime['lastError']?.toString().trim() ?? '';
       content = _ComputerEmptyState(
         icon: storageError ? Icons.storage_rounded : Icons.cloud_off_rounded,
         title: storageError
             ? 'More free space is needed'
             : 'The computer could not start',
-        message: storageError
+        message: lastError.isNotEmpty
+            ? lastError
+            : storageError
             ? 'Free some disk space on the NeoAgent host, then try again. Your existing computer data is safe.'
             : 'Try again. If this keeps happening, run NeoAgent Doctor to check the computer runtime.',
         action: FilledButton.icon(
