@@ -357,11 +357,13 @@ function resolveArmFirmwareVariablesTemplate() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
+// Both architectures use a virtio GPU because the guest then flushes each damaged region
+// to the host explicitly. The Bochs-compatible VGA adapter instead expects the host to
+// notice writes to video memory, which HVF does not report: the desktop paints once during
+// modeset and every later change stays inside the guest, leaving a still image.
 function displayDeviceArgument(architecture) {
-  // ARM64 uses the Bochs-compatible VGA adapter because EDK2 paints it before the guest
-  // boots; x86 keeps virtio-vga. Both honour the EDID mode the desktop is sized for.
   return architecture === 'arm64'
-    ? `VGA,edid=on,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`
+    ? `virtio-gpu-pci,edid=on,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`
     : `virtio-vga,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`;
 }
 

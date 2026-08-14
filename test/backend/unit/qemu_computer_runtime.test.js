@@ -63,7 +63,7 @@ test('Debian guest images are architecture-specific and digest pinned', () => {
   assert.notEqual(PINNED_IMAGES.x64.sha512, PINNED_IMAGES.arm64.sha512);
 });
 
-test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts', () => {
+test('ARM64 computer uses a virtio GPU so guest redraws reach the host', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-firmware-test-'));
   const firmware = path.join(temporaryRoot, 'firmware.fd');
   const variables = path.join(temporaryRoot, 'variables.qcow2');
@@ -88,8 +88,10 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device VGA,edid=on,xres=1280,yres=720/);
-    assert.doesNotMatch(joined, /virtio-gpu/);
+    assert.match(joined, /-device virtio-gpu-pci,edid=on,xres=1280,yres=720/);
+    // The Bochs-compatible adapter relies on the host noticing writes to video memory,
+    // which HVF does not report: the desktop paints once and then never changes again.
+    assert.doesNotMatch(joined, /-device VGA/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
     assert.doesNotMatch(joined, /-device ramfb/);
