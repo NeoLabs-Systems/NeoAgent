@@ -220,7 +220,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final desktop = _jsonMap(controller.computerRuntime['desktop']);
     final desktopDown = desktop['available'] == false;
 
-    if (displayUrl != null && (running || busy) && !desktopDown) {
+    // The display surface stays hidden until the computer is up, so nobody watches
+    // the guest's boot console instead of their desktop.
+    if (displayUrl != null && running && !desktopDown) {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF111111),

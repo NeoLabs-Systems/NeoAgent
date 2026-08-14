@@ -37,12 +37,22 @@ test('noVNC page scales the 16:9 desktop without resizing the guest', () => {
   assert.match(page, /scaleViewport = true/);
   assert.match(page, /resizeSession = false/);
   assert.match(page, /showDotCursor = true/);
-  assert.match(page, /viewOnly = false/);
-  assert.match(page, /\/api\/computer\/display-ws\?token=abc/);
+  assert.match(page, /connect\("\/api\/computer\/display-ws\?token=abc", false\)/);
   assert.match(buildComputerDisplayPage({
     websocketPath: '/api/computer/display-ws?token=abc',
     viewOnly: true,
-  }), /viewOnly = true/);
+  }), /connect\("[^"]+", true\)/);
+});
+
+test('a dropped display socket reconnects on a fresh session', () => {
+  const page = buildComputerDisplayPage({
+    websocketPath: '/api/computer/display-ws?token=abc',
+    viewOnly: false,
+  });
+  assert.match(page, /addEventListener\('disconnect', reconnect\)/);
+  assert.match(page, /fetch\('\/api\/computer\/display-session'/);
+  assert.match(page, /session\?\.websocketPath/);
+  assert.match(page, /session\.viewOnly/);
 });
 
 test('guest desktop ships a Chromebook-style shelf without nested heredocs', () => {

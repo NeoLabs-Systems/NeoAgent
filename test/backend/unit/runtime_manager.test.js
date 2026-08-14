@@ -335,3 +335,26 @@ test('display sessions are user-scoped, lease-aware, and revoked on control chan
   manager.releaseControl(7, 'session-7');
   assert.equal(manager.isDisplaySessionActive(7, controlled.token, internal), false);
 });
+
+test('a connected display session does not expire underneath the viewer', () => {
+  const computerBackend = {
+    vmManager: {
+      instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+      getStatus: () => ({ state: 'ready' }),
+    },
+    touchActivity() {},
+  };
+  const manager = new RuntimeManager({ computerBackend });
+  const display = manager.createDisplaySession(7);
+  const internal = manager.displaySessions.get(display.token);
+
+  internal.expiresAt = Date.now() - 1000;
+  assert.equal(manager.resolveDisplaySession(7, display.token), null);
+
+  const revived = manager.createDisplaySession(7);
+  const live = manager.displaySessions.get(revived.token);
+  live.expiresAt = Date.now() + 1000;
+  manager.touchDisplaySession(live);
+  assert.ok(live.expiresAt > Date.now() + 60_000);
+  assert.equal(manager.isDisplaySessionActive(7, revived.token, live), true);
+});

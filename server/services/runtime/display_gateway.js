@@ -56,6 +56,7 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
             return;
           }
           runtimeManager.touchComputerActivity(displayUserId);
+          runtimeManager.touchDisplaySession(displaySession);
           if (!upstreamReady) {
             if (pending.length < 32) pending.push([data, isBinary]);
             return;
@@ -69,7 +70,9 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
           }
         });
         upstream.on('message', (data, isBinary) => {
-          if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
+          if (client.readyState !== WebSocket.OPEN) return;
+          runtimeManager.touchDisplaySession(displaySession);
+          client.send(data, { binary: isBinary });
         });
         upstream.once('error', () => {
           if (client.readyState === WebSocket.OPEN) client.close(1011, 'Computer display unavailable');

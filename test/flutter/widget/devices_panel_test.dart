@@ -232,7 +232,7 @@ void main() {
     );
   });
 
-  testWidgets('starting cloud computer shows the live display once VNC exists', (
+  testWidgets('a starting cloud computer hides the guest boot console', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);
@@ -255,8 +255,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(ComputerDisplay), findsOneWidget);
-    expect(find.text('Preparing your computer'), findsNothing);
+    expect(find.byType(ComputerDisplay), findsNothing);
+    expect(find.text('Starting your computer'), findsWidgets);
   });
 
   testWidgets('a failed desktop replaces the blank display with a repair action', (

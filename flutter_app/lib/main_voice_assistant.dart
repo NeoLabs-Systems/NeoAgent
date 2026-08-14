@@ -95,6 +95,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   void initState() {
     super.initState();
     _assistantPlayer = AudioPlayer();
+    _applyAndroidCallAudioContext();
     widget.controller.addListener(_handleControllerChanged);
     _assistantPlayer.onPlayerComplete.listen((_) {
       if (!mounted) {
@@ -105,6 +106,28 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       });
     });
     _syncElapsedTicker();
+  }
+
+  /// Android routes voice sessions through a self-managed Telecom connection, which
+  /// puts the device in communication mode. Replies played with the default media
+  /// usage are ducked or sent to the earpiece there, so the assistant sounds silent.
+  void _applyAndroidCallAudioContext() {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    unawaited(
+      _assistantPlayer.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            audioMode: AndroidAudioMode.inCommunication,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.voiceCommunication,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+        ),
+      ),
+    );
   }
 
   @override

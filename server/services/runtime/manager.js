@@ -512,6 +512,13 @@ class RuntimeManager {
     return current === session && current?.userId === String(userId || '').trim();
   }
 
+  // The session TTL exists to expire tokens nobody is using. A connected viewer is
+  // using it, so keep it alive while frames are flowing rather than freezing the
+  // desktop mid-session.
+  touchDisplaySession(session) {
+    if (session) session.expiresAt = Date.now() + DISPLAY_SESSION_TTL_MS;
+  }
+
   touchComputerActivity(userId, options = {}) {
     const key = String(userId || '').trim();
     this._computerBackendForUser(userId, options.deviceTarget).touchActivity?.(key);
