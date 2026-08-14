@@ -96,9 +96,17 @@ async function capture(device, directory) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (!fs.existsSync(qmpSocket)) throw new Error('QMP did not start.');
-    await new Promise((resolve) => setTimeout(resolve, 8000));
-    await qmp(qmpSocket, { execute: 'screendump', arguments: { filename: dump } });
-    return ppmNonBlackPixels(dump);
+    // Wait for the guest to paint rather than for a fixed delay: the whole suite runs in
+    // parallel, and a boot starved of CPU is not the same as a display that never works.
+    let shot = { width: 0, height: 0, nonempty: 0 };
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await qmp(qmpSocket, { execute: 'screendump', arguments: { filename: dump } });
+      shot = ppmNonBlackPixels(dump);
+      if (shot.nonempty > 100) break;
+    }
+    return shot;
   } finally {
     child.kill('SIGTERM');
   }

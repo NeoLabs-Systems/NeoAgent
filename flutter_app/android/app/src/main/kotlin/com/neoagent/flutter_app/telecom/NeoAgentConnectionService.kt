@@ -3,6 +3,8 @@ package com.neoagent.flutter_app.telecom
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.telecom.Connection
 import android.telecom.ConnectionService
 import android.telecom.ConnectionRequest
@@ -40,6 +42,8 @@ class NeoAgentConnectionService : ConnectionService() {
     }
 
     companion object {
+        const val EXTRA_FLUTTER_INITIATED = "is_flutter_initiated"
+
         @Volatile
         private var currentConnection: NeoAgentConnection? = null
 
@@ -69,18 +73,26 @@ class NeoAgentConnectionService : ConnectionService() {
         swapConnection(connection)
         
         // Custom flag from Flutter to know if it started the call
-        val isFlutterInitiated = request?.extras?.getBoolean("is_flutter_initiated") ?: false
+        val isFlutterInitiated = request?.extras?.getBoolean(EXTRA_FLUTTER_INITIATED) ?: false
         connection.isFlutterInitiated = isFlutterInitiated
 
         connection.connectionProperties = Connection.PROPERTY_SELF_MANAGED
         connection.setInitializing()
-        
+
         if (isIncoming) {
             connection.setRinging()
         } else {
             connection.setDialing()
+            // There is no remote party to ring: the voice session is live as soon as
+            // Telecom hands us the connection. Without this the call sits in DIALING
+            // forever, so audio focus is never granted and STATE_ACTIVE never fires.
+            Handler(Looper.getMainLooper()).post {
+                if (connection.state == Connection.STATE_DIALING) {
+                    connection.setActive()
+                }
+            }
         }
-        
+
         return connection
     }
 }

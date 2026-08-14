@@ -92,8 +92,8 @@ from the machine hosting the selected NeoAgent instance.
 
 ## Next steps
 
-- [Configure models](models.md)
-- [Create specialist agents](agents-and-users.md)
+- [Configure a model](models.md) — a fresh install has none set up
 - [Connect accounts and messaging](integrations.md)
 - [Set up automation](automation.md)
-- [Review deployment security](security-boundaries.md)
+- [Create specialist agents](agents-and-users.md)
+- [Review deployment security](security-boundaries.md) — required reading if the server is reachable by anyone but you

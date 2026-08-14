@@ -144,6 +144,30 @@ async function findVncDisplay() {
   throw new Error('No loopback VNC display is available.');
 }
 
+// QEMU opens its VNC websocket a moment after the process exists. Handing out a display
+// session before then means the first viewer to connect is refused and sees nothing, so
+// the computer is not considered started until the port answers.
+function waitForLoopbackPort(port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  const attempt = () => new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const finish = (reachable) => {
+      socket.destroy();
+      resolve(reachable);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(1000, () => finish(false));
+  });
+  return (async () => {
+    while (Date.now() < deadline) {
+      if (await attempt()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  })();
+}
+
 function userDirectoryKey(userId) {
   return crypto.createHash('sha256').update(String(userId)).digest('hex').slice(0, 24);
 }
@@ -214,16 +238,29 @@ function walkVirtualDisks(directory) {
   return files;
 }
 
-function getSparseDiskLiabilityBytes(qemuImgBinary, directory) {
-  return walkVirtualDisks(directory).reduce((total, diskPath) => {
-    try {
-      const info = JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', diskPath]));
-      const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
-      const actualSize = Math.max(0, Number(info['actual-size'] || 0));
-      return total + Math.max(0, virtualSize - actualSize);
-    } catch {
-      return total;
-    }
+// `-U` reads an image a running guest still holds open. Without it every query against a
+// live computer fails on the QEMU write lock.
+function readVirtualDiskInfo(qemuImgBinary, diskPath) {
+  try {
+    return JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', '-U', diskPath]));
+  } catch {
+    return null;
+  }
+}
+
+// Only disks a running guest can still grow into are a liability. Retired system disks are
+// frozen copies, and a disk that is about to be retired stops growing the moment it is
+// replaced, so neither may be charged against the host storage reserve.
+function getSparseDiskLiabilityBytes(qemuImgBinary, directory, retiringDisk = null) {
+  const isFrozen = (diskPath) => (
+    path.basename(diskPath) === 'system.previous.qcow2' || diskPath === retiringDisk
+  );
+  return walkVirtualDisks(directory).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
+    const info = readVirtualDiskInfo(qemuImgBinary, diskPath);
+    if (!info) return total;
+    const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
+    const actualSize = Math.max(0, Number(info['actual-size'] || 0));
+    return total + Math.max(0, virtualSize - actualSize);
   }, 0);
 }
 
@@ -250,12 +287,10 @@ function loadStoredResourceOptions() {
 }
 
 function ensureVirtualDiskSize(qemuImgBinary, diskPath, minimumGiB) {
-  let currentBytes = 0;
-  try {
-    const info = JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', diskPath]));
-    currentBytes = Number(info['virtual-size'] || 0);
-  } catch {}
-  if (currentBytes < minimumGiB * 1024 ** 3) {
+  const currentBytes = Number(readVirtualDiskInfo(qemuImgBinary, diskPath)?.['virtual-size'] || 0);
+  // Resizing a disk whose size could not be read would mean writing to an image that may
+  // still be open elsewhere, so leave it to QEMU to report the real problem.
+  if (currentBytes > 0 && currentBytes < minimumGiB * 1024 ** 3) {
     runChecked(qemuImgBinary, ['resize', diskPath, `${minimumGiB}G`]);
   }
 }
@@ -321,11 +356,13 @@ function resolveArmFirmwareVariablesTemplate() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
+// Both architectures use a virtio GPU because the guest then flushes each damaged region
+// to the host explicitly. The Bochs-compatible VGA adapter instead expects the host to
+// notice writes to video memory, which HVF does not report: the desktop paints once during
+// modeset and every later change stays inside the guest, leaving a still image.
 function displayDeviceArgument(architecture) {
-  // ARM64 uses the Bochs-compatible VGA adapter because EDK2 paints it before the guest
-  // boots; x86 keeps virtio-vga. Both honour the EDID mode the desktop is sized for.
   return architecture === 'arm64'
-    ? `VGA,edid=on,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`
+    ? `virtio-gpu-pci,edid=on,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`
     : `virtio-vga,xres=${COMPUTER_DISPLAY_WIDTH},yres=${COMPUTER_DISPLAY_HEIGHT}`;
 }
 
@@ -427,7 +464,7 @@ function buildQemuArgs({
     '-device', 'virtio-net-pci,netdev=net0,romfile=',
     '-display', 'none',
     '-vnc', `127.0.0.1:${vncDisplay},websocket=127.0.0.1:${websocketPort}`,
-    '-qmp', process.platform === 'win32'
+    '-qmp', typeof qmpSocket === 'number'
       ? `tcp:127.0.0.1:${qmpSocket},server=on,wait=off`
       : `unix:${qmpSocket},server=on,wait=off`,
     '-serial', 'mon:stdio',
@@ -437,6 +474,51 @@ function buildQemuArgs({
 
 function isProcessAlive(processHandle) {
   return Boolean(processHandle && processHandle.exitCode == null && !processHandle.killed);
+}
+
+// A QEMU that outlived the server holds the write lock on its disks, so the next start
+// fails on every image operation. Only a process whose command line still points at this
+// instance is ours to reclaim.
+// Every process still serving this computer, not just the last one this server started:
+// each restart that loses track of its QEMU leaves another one holding the same disks and
+// its own frozen screen, and a viewer reconnecting lands on whichever answers first.
+function findOrphanedVmPids(instanceDir) {
+  if (process.platform === 'win32') return [];
+  const probe = spawnSync('ps', ['-axo', 'pid=,command='], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (probe.status !== 0) return [];
+  return String(probe.stdout || '')
+    .split('\n')
+    .filter((line) => line.includes('qemu-system-') && line.includes(instanceDir))
+    .map((line) => Number(line.trim().split(/\s+/)[0]))
+    .filter((pid) => Number.isInteger(pid) && pid > 1 && pid !== process.pid);
+}
+
+async function terminateOrphanedVm(pid) {
+  const exited = async (waitMs) => {
+    const deadline = Date.now() + waitMs;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  try { process.kill(pid, 'SIGTERM'); } catch {}
+  if (await exited(5000)) return true;
+  try { process.kill(pid, 'SIGKILL'); } catch {}
+  return exited(3000);
 }
 
 function isQueueableCapacityError(error) {
@@ -768,6 +850,17 @@ class QemuVMManager {
     const baseImage = await this.#ensureBaseImage();
     const instanceDir = path.join(INSTANCE_ROOT, userDirectoryKey(key));
     ensurePrivateDirectory(instanceDir);
+    const orphanPids = findOrphanedVmPids(instanceDir);
+    if (orphanPids.length > 0) {
+      logger.warn(`Reclaiming computer for user ${key} from ${orphanPids.length} orphaned QEMU process(es): ${orphanPids.join(', ')}.`);
+      const terminated = await Promise.all(orphanPids.map(terminateOrphanedVm));
+      if (terminated.includes(false)) {
+        const error = new Error('A previous computer process is still holding this computer. Restart NeoAgent to release it.');
+        error.code = 'COMPUTER_DISK_LOCKED';
+        error.status = 409;
+        throw error;
+      }
+    }
     const systemDisk = path.join(instanceDir, 'system.qcow2');
     const dataDisk = path.join(instanceDir, 'data.qcow2');
     const baseBuildMarker = path.join(instanceDir, 'base-build');
@@ -777,14 +870,24 @@ class QemuVMManager {
     const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== GUEST_IMAGE_REVISION;
     const createsSystemDisk = !fs.existsSync(systemDisk) || replaceSystemDisk;
     const diskCapacity = getDiskCapacity(INSTANCE_ROOT);
-    const sparseLiabilityBytes = getSparseDiskLiabilityBytes(this.qemuImgBinary, INSTANCE_ROOT);
+    const sparseLiabilityBytes = getSparseDiskLiabilityBytes(
+      this.qemuImgBinary,
+      INSTANCE_ROOT,
+      replaceSystemDisk ? systemDisk : null,
+    );
     const newSystemLiabilityBytes = createsSystemDisk ? 8 * 1024 ** 3 : 0;
     const storage = {
       ...diskCapacity,
       sparseLiabilityBytes: sparseLiabilityBytes + newSystemLiabilityBytes,
     };
     if (getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
-      const error = new Error('Starting this cloud computer would violate the host storage reserve.');
+      const gibibytes = (bytes) => (bytes / 1024 ** 3).toFixed(1);
+      const error = new Error(
+        'Starting this cloud computer needs more free storage: '
+        + `${gibibytes(diskCapacity.availableBytes)} GiB free, `
+        + `${this.resourceProfile.storageReservePercent}% held back for the host, and `
+        + `${gibibytes(storage.sparseLiabilityBytes)} GiB still unwritten in existing computer disks.`,
+      );
       error.code = 'COMPUTER_STORAGE_CAPACITY';
       error.status = 507;
       throw error;
@@ -808,9 +911,12 @@ class QemuVMManager {
     const hostAgentPort = await findAvailablePort();
     const websocketPort = await findAvailablePort();
     const vnc = await findVncDisplay();
-    const qmpSocket = process.platform === 'win32'
+    // sockaddr_un caps a UNIX socket path at 104 bytes, and QEMU refuses to start when the
+    // instance directory pushes it past that, so a deep runtime home falls back to loopback.
+    const instanceQmpSocket = path.join(instanceDir, 'qmp.sock');
+    const qmpSocket = process.platform === 'win32' || Buffer.byteLength(instanceQmpSocket) >= 104
       ? await findAvailablePort()
-      : path.join(instanceDir, 'qmp.sock');
+      : instanceQmpSocket;
     if (typeof qmpSocket === 'string') fs.rmSync(qmpSocket, { force: true });
     const guestTokenPath = path.join(instanceDir, 'guest-token');
     let guestToken = fs.existsSync(guestTokenPath)
@@ -930,7 +1036,9 @@ class QemuVMManager {
         session.state = 'error';
         session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
       }
+      this.onVmStopped?.(key);
     });
+    await waitForLoopbackPort(websocketPort, 10000);
     logger.info(`Started computer for user ${key} with ${resources.memoryMb} MiB and ${resources.cpus} vCPU.`);
     return session;
   }
@@ -983,6 +1091,8 @@ module.exports = {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  findOrphanedVmPids,
+  getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
   resolveQemuDataDirectory,

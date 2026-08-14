@@ -42,47 +42,43 @@
 
 ## 🚀 Install
 
-The NeoAgent desktop app installs and starts the backend on macOS, Windows, and
-Linux without a terminal, Node.js, npm, Git, Docker, or a manually entered
-server address. Choose **Quickstart** for safe automatic defaults or **Full
-setup** to continue through providers, integrations, voice, and optional tools.
+**Desktop app** — installs and starts everything on macOS, Windows, and Linux.
+No terminal, Node.js, npm, Git, or Docker needed. **Quickstart** picks safe
+defaults; **Full setup** adds providers, integrations, voice, and tools.
 
 <p align="center">
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download NeoAgent" src="https://img.shields.io/badge/Desktop_and_CLI-download-black?style=flat-square"></a>
 </p>
 
-The same releases contain standalone `neoagent` CLI executables. They include
-their own Node runtime and verify the backend package before installing it:
+**Standalone CLI** — in the same releases, with its own bundled Node runtime:
 
 ```bash
 neoagent
 ```
 
-The npm distribution remains available for existing Node.js installations:
+**npm** — if you already have Node.js 20+:
 
 ```bash
 npm install -g neoagent
 neoagent setup --quick
 ```
 
-The first account is protected by a short-lived one-time setup claim. The app
-connects to the actual selected port automatically; nearby NeoAgent servers are
-discovered and verified on the local network. The CLI downloads the signed
-QEMU runtime, firmware, and guest image used for
-the isolated cloud computer; no separate VM product is required.
+Good to know:
 
-Read the [installation guide](docs/getting-started.md) before exposing the
-service to a network.
+- The first account is protected by a short-lived one-time setup claim.
+- The app finds the server's port automatically and discovers nearby NeoAgent servers on the local network.
+- The CLI downloads the signed QEMU runtime, firmware, and guest image for the isolated cloud computer — no separate VM product.
+- Read the [installation guide](docs/getting-started.md) before exposing the service to a network.
 
 ## ✨ What makes it different
 
-- **It is a service, not just a chat window.** NeoAgent keeps tasks, integrations, memory, connected devices, and messaging channels available between sessions.
-- **Memory is stored as structured local data.** Durable facts are separated from conversation history, scoped by user and agent, and updated when newer information replaces older information. NeoAgent can also index supported integration content with source references. See [How memory works](docs/memory.md).
-- **It operates real devices.** The agent uses one persistent Linux cloud computer or, with explicit per-capability permission in the desktop app, the local macOS/Windows/Linux session for browser, desktop, files, and shell work. Android devices or emulators remain available over ADB.
-- **Automation can start without a message.** Tasks can run on a schedule or from supported Gmail, Outlook, Slack, Teams, personal WhatsApp, and weather events. Android notifications can also start an agent run.
-- **Agents and users have separate state.** Specialist agents can have their own memory, settings, tools, account assignments, conversations, and task history. Multi-user deployments include administrative account controls and optional email confirmation.
-- **SaaS billing is built in and off by default.** Set `NEOAGENT_BILLING_ENABLED=true` to activate Stripe subscriptions, plan management, free trials, and model access restrictions. When disabled, no payment routes or UI appear anywhere. See [Billing](docs/billing.md).
-- **The same server has several interfaces.** NeoAgent includes web, Android, desktop, and Android launcher clients, messaging bridges, and firmware for a supported ESP32-S3 wearable.
+- **Runs as a service.** Tasks, memory, integrations, devices, and messaging channels stay live between sessions.
+- **Structured local memory.** Durable facts kept apart from chat history, scoped per user and agent. See [How memory works](docs/memory.md).
+- **Operates real devices.** A persistent Linux cloud computer, optionally your own desktop (per-capability opt-in), and Android over ADB.
+- **Automation without a message.** Schedules, plus Gmail, Outlook, Slack, Teams, WhatsApp, weather, and Android-notification triggers.
+- **Multi-user and multi-agent.** Specialist agents with their own memory, tools, and history; admin controls for deployments.
+- **Optional SaaS billing.** Stripe subscriptions behind `NEOAGENT_BILLING_ENABLED=true` — invisible when off. See [Billing](docs/billing.md).
+- **Many interfaces, one server.** Web, Android, desktop, and launcher clients, messaging bridges, and ESP32-S3 wearable firmware.
 
 ## 🖥️ Interfaces
 
@@ -92,35 +88,32 @@ service to a network.
 
 ## 🔎 NeoAgent, OpenClaw, and Hermes
 
-NeoAgent is aimed at people who want a UI-first, self-hosted agent with
-structured local memory, multi-user administration, automation, and direct
-Android control in one installation.
+| Project | Strength |
+| --- | --- |
+| **NeoAgent** | UI-first, structured memory, multi-user, automation, Android control — one install |
+| **OpenClaw** | Broader gateway and node ecosystem |
+| **Hermes** | Terminal-first agent workflow |
 
-OpenClaw has a broader gateway and node ecosystem. Hermes is oriented around a
-terminal-first agent workflow. NeoAgent is a different tradeoff rather than a
-blanket replacement for either project.
-
-The [comparison page](docs/why-neoagent.md) records the concrete differences
-and links to the source material used.
+Different tradeoffs, not drop-in replacements. Switching anyway?
+`neoagent migrate` [imports](docs/migration.md) skills, memory, and API keys
+from both. The [comparison page](docs/why-neoagent.md) records the concrete
+differences with sources.
 
 ## 🧪 Project status
 
-NeoAgent is beta software maintained primarily by one person. Expect breaking
-changes and rough edges. Review the
+Beta software, maintained primarily by one person — expect breaking changes
+and rough edges. Review the
 [security boundaries](docs/security-boundaries.md) before connecting sensitive
-accounts or giving the agent access to a personal workstation.
+accounts.
 
-Start with the [documentation](https://neolabs-systems.github.io/NeoAgent/docs/).
-Use [GitHub Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions)
-for questions and [GitHub Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues)
-for reproducible bugs. Security reports belong in the process described by
-[SECURITY.md](SECURITY.md).
+- 📚 [Documentation](https://neolabs-systems.github.io/NeoAgent/docs/)
+- 💬 [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) for questions
+- 🐛 [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues) for reproducible bugs
+- 🔒 [SECURITY.md](SECURITY.md) for vulnerability reports
 
 ## License
 
-NeoAgent is licensed under the
-[GNU Affero General Public License v3.0 only](LICENSE). The
-[licensing decision](docs/licensing.md) explains why AGPL remains the fit for
-this networked, self-hosted project and compares it with MPL-2.0.
+[AGPL-3.0-only](LICENSE) — the [licensing decision](docs/licensing.md)
+explains why.
 
 *Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*

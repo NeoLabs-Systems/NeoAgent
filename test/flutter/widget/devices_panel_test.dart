@@ -177,6 +177,10 @@ void main() {
           ..computerRuntime = const <String, dynamic>{
             'state': 'error',
             'errorCode': 'COMPUTER_STORAGE_CAPACITY',
+            'lastError':
+                'Starting this cloud computer needs more free storage: 22.3 GiB free, '
+                '20% held back for the host, and 19.7 GiB still unwritten in existing '
+                'computer disks.',
           };
     addTearDown(controller.dispose);
 
@@ -188,6 +192,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('More free space is needed'), findsWidgets);
+    expect(find.textContaining('19.7 GiB still unwritten'), findsOneWidget);
     expect(find.text('All computer slots are busy'), findsNothing);
     expect(
       find.byWidgetPredicate(
@@ -227,7 +232,7 @@ void main() {
     );
   });
 
-  testWidgets('starting cloud computer shows the live display once VNC exists', (
+  testWidgets('a starting cloud computer hides the guest boot console', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);
@@ -250,8 +255,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(ComputerDisplay), findsOneWidget);
-    expect(find.text('Preparing your computer'), findsNothing);
+    expect(find.byType(ComputerDisplay), findsNothing);
+    expect(find.text('Starting your computer'), findsWidgets);
   });
 
   testWidgets('a failed desktop replaces the blank display with a repair action', (

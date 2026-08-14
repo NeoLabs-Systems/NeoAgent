@@ -7,7 +7,9 @@ function computerDisplayMode() {
   return `${COMPUTER_DISPLAY_WIDTH}x${COMPUTER_DISPLAY_HEIGHT}`;
 }
 
-function buildComputerDisplayPage({ websocketPath, viewOnly = false }) {
+// `websocketPath` may be empty: a page loaded from a token the server no longer knows
+// (a restart, an expired link) opens its own session rather than dead-ending.
+function buildComputerDisplayPage({ websocketPath = '', viewOnly = false }) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -18,21 +20,51 @@ canvas{outline:none}
 <body><div id="screen"></div><script type="module">
 import RFB from '/api/computer/novnc/core/rfb.js';
 const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-const rfb = new RFB(document.getElementById('screen'), scheme + '://' + location.host + ${JSON.stringify(websocketPath)});
-rfb.scaleViewport = true;
-rfb.resizeSession = false;
-rfb.clipViewport = false;
-rfb.focusOnClick = true;
-rfb.showDotCursor = true;
-rfb.qualityLevel = 6;
-rfb.compressionLevel = 2;
-rfb.viewOnly = ${viewOnly === true ? 'true' : 'false'};
-rfb.addEventListener('connect', () => rfb.focus());
+const screen = document.getElementById('screen');
+let attempt = 0;
+// A dropped socket leaves the last frame painted on the canvas, which is
+// indistinguishable from a live but idle desktop, so reconnect on a fresh
+// session instead of leaving a still image the viewer cannot control.
+const connect = (websocketPath, viewOnly) => {
+  screen.innerHTML = '';
+  const rfb = new RFB(screen, scheme + '://' + location.host + websocketPath);
+  rfb.scaleViewport = true;
+  rfb.resizeSession = false;
+  rfb.clipViewport = false;
+  rfb.focusOnClick = true;
+  rfb.showDotCursor = true;
+  rfb.qualityLevel = 6;
+  rfb.compressionLevel = 2;
+  rfb.viewOnly = viewOnly === true;
+  rfb.addEventListener('connect', () => {
+    attempt = 0;
+    rfb.focus();
+  });
+  rfb.addEventListener('disconnect', reconnect);
+};
+const reconnect = () => {
+  attempt += 1;
+  setTimeout(async () => {
+    try {
+      const response = await fetch('/api/computer/display-session', {
+        method: 'POST', credentials: 'same-origin', headers: {'content-type':'application/json'}, body: '{}',
+      });
+      const session = response.ok ? await response.json() : null;
+      if (session?.websocketPath) connect(session.websocketPath, session.viewOnly);
+      else reconnect();
+    } catch {
+      reconnect();
+    }
+  }, Math.min(10000, 500 * attempt));
+};
+${websocketPath
+    ? `connect(${JSON.stringify(websocketPath)}, ${viewOnly === true ? 'true' : 'false'});`
+    : 'reconnect();'}
 const record = (event) => fetch('/api/computer/teach/events', {
   method: 'POST', credentials: 'same-origin', headers: {'content-type':'application/json'},
   body: JSON.stringify(event),
 }).catch(() => {});
-document.getElementById('screen').addEventListener('pointerup', (event) => {
+screen.addEventListener('pointerup', (event) => {
   const rect = event.currentTarget.getBoundingClientRect();
   record({type:'pointer', x:Math.round(event.clientX-rect.left), y:Math.round(event.clientY-rect.top), button:event.button});
 }, true);

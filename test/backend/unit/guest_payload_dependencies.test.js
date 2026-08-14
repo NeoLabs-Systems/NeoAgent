@@ -83,6 +83,9 @@ test('computer cloud-init starts one owned desktop after cloud-init without an o
   assert.match(userData, /tint2 -c \/etc\/xdg\/tint2\/tint2rc/);
   assert.match(userData, /chown neo:neo \/home\/neo/);
   assert.match(userData, /After=cloud-final\.service/);
+  // /home/neo is a separate disk: an agent started before it is mounted writes into a
+  // directory the mount then hides, which is how the desktop screenshot lost its target.
+  assert.match(userData, /RequiresMountsFor=\/home\/neo/);
   assert.match(userData, /WantedBy=cloud-init\.target/);
   assert.match(userData, /systemctl restart --no-block neoagent-guest-agent\.service/);
   assert.doesNotMatch(userData, /systemctl restart neoagent-guest-agent\.service/);

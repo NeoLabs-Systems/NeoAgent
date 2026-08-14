@@ -57,6 +57,9 @@ class MainActivity : FlutterFragmentActivity() {
             val phoneAccountHandle = PhoneAccountHandle(componentName, "NeoAgentVoiceId")
             val phoneAccount = PhoneAccount.builder(phoneAccountHandle, "NeoAgent Voice Assistant")
                 .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+                .setAddress(Uri.fromParts(PhoneAccount.SCHEME_TEL, "NeoAgent", null))
+                .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+                .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
                 .build()
             telecomManager.registerPhoneAccount(phoneAccount)
         }
@@ -83,12 +86,26 @@ class MainActivity : FlutterFragmentActivity() {
                         val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
                         val componentName = ComponentName(this, NeoAgentConnectionService::class.java)
                         val phoneAccountHandle = PhoneAccountHandle(componentName, "NeoAgentVoiceId")
+                        if (!telecomManager.isOutgoingCallPermitted(phoneAccountHandle)) {
+                            result.error(
+                                "CALL_NOT_PERMITTED",
+                                "Telecom refused a NeoAgent voice call (another call is active or the phone account is disabled)",
+                                null,
+                            )
+                            return@setMethodCallHandler
+                        }
+                        // Custom values only reach ConnectionRequest.getExtras() when they are
+                        // nested under EXTRA_OUTGOING_CALL_EXTRAS; top-level extras are consumed
+                        // by Telecom itself.
+                        val callExtras = Bundle().apply {
+                            putBoolean(NeoAgentConnectionService.EXTRA_FLUTTER_INITIATED, true)
+                        }
                         val extras = Bundle().apply {
                             putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle)
                             putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, android.telecom.VideoProfile.STATE_AUDIO_ONLY)
-                            putBoolean("is_flutter_initiated", true)
+                            putBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, callExtras)
                         }
-                        telecomManager.placeCall(Uri.parse("tel:NeoAgent"), extras)
+                        telecomManager.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, "NeoAgent", null), extras)
                         result.success(true)
                     } catch (e: SecurityException) {
                         result.error("PERMISSION_DENIED", "Missing Manage Own Calls permission", null)

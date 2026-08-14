@@ -437,6 +437,9 @@ function createCloudInitUserData({
       ...(includeBrowser ? ['      After=display-manager.service'] : []),
       '      ConditionPathExists=/etc/neoagent/neoagent.env',
       '      Wants=network-online.target',
+      // /home/neo is the data disk: starting before it is mounted leaves the agent
+      // writing into a directory the mount then hides.
+      '      RequiresMountsFor=/home/neo',
       '',
       '      [Service]',
       '      Type=simple',
@@ -539,6 +542,7 @@ function createCloudInitUserData({
     ...(includeBrowser ? ['      After=display-manager.service'] : []),
     '      ConditionPathExists=/etc/neoagent/neoagent.env',
     '      Wants=network-online.target',
+    '      RequiresMountsFor=/home/neo',
     '',
     '      [Service]',
     '      Type=simple',

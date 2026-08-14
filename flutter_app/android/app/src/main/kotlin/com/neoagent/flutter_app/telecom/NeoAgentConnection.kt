@@ -62,15 +62,17 @@ class NeoAgentConnection(private val context: Context) : Connection() {
     }
 
     private fun startVoiceAssistantHeadless() {
+        // Flutter placed this call and is already driving the voice session; pinging it
+        // again would restart (and cancel) the turn it is in the middle of.
+        if (isFlutterInitiated) return
         if (voiceHeadlessStarted) return
         voiceHeadlessStarted = true
-        if (flutterEngine != null) return
 
         // Wait a slight moment for audio routing to settle before capturing mic
         Handler(Looper.getMainLooper()).postDelayed({
             // Check if there is already an active engine to avoid duplicating connections
-            var existingEngine = FlutterEngineCache.getInstance().get("main_engine")
-            
+            val existingEngine = FlutterEngineCache.getInstance().get("main_engine")
+
             if (existingEngine != null) {
                 // If engine exists (app is in background), we can just trigger it via method channel
                 flutterEngine = existingEngine
@@ -81,34 +83,30 @@ class NeoAgentConnection(private val context: Context) : Connection() {
                     DartExecutor.DartEntrypoint.createDefault()
                 )
             }
-            
-            if (!isFlutterInitiated) {
-                // To ensure the flutter side starts the LiveVoiceCapture session automatically
-                // we should ideally notify it through a MethodChannel.
-                // But since this is a headless connection, if we just initialize the engine,
-                // we need to tell it to start voice mode.
-                // We will invoke a method call to Dart.
-                MethodChannel(
-                    flutterEngine!!.dartExecutor.binaryMessenger,
-                    "neoagent/car_auto"
-                ).invokeMethod("startVoiceMode", null)
-                isFlutterInitiated = true
-            }
 
+            notifyDart("startVoiceMode")
         }, 500)
     }
 
-    private fun cleanup() {
-        if (!isFlutterInitiated) {
-            val messenger = flutterEngine?.dartExecutor?.binaryMessenger
-            if (messenger != null) {
-                MethodChannel(
-                    messenger,
-                    "neoagent/car_auto"
-                ).invokeMethod("stopVoiceMode", null)
-            }
+    private fun notifyDart(method: String) {
+        val messenger = (flutterEngine ?: FlutterEngineCache.getInstance().get("main_engine"))
+            ?.dartExecutor
+            ?.binaryMessenger
+            ?: return
+        Handler(Looper.getMainLooper()).post {
+            MethodChannel(messenger, "neoagent/car_auto").invokeMethod(method, null)
         }
-        
+    }
+
+    private fun cleanup() {
+        // Only calls we started on Dart's behalf need to be torn down from here. When
+        // Flutter placed the call it stops capture itself, and a stop signal at this
+        // point would discard the turn it is committing.
+        if (voiceHeadlessStarted) {
+            voiceHeadlessStarted = false
+            notifyDart("stopVoiceMode")
+        }
+
         NeoAgentConnectionService.getAndClearCurrentConnection()
         
         // We only destroy the engine if we created it headless and we want to clean up.

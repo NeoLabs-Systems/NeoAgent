@@ -64,6 +64,11 @@ class RuntimeManager {
       artifactStore: this.artifactStore,
     });
     this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId, { provider: 'cloud' }));
+    // A viewer whose computer stopped is watching an address that no longer answers, so
+    // drop its session: the display page then reconnects against the computer that follows.
+    if (this.computerBackend.vmManager) {
+      this.computerBackend.vmManager.onVmStopped = (userId) => this.revokeDisplaySessions(userId);
+    }
     this.localComputerBackend = options.localComputerBackend || null;
     this.createAndroidController = options.createAndroidController
       || ((userId) => new AndroidController({
@@ -338,7 +343,7 @@ class RuntimeManager {
             logger.warn(`Desktop repair command failed for user ${String(userId)}: ${summary.error}`);
           }
         }
-        if (session) {
+        if (session && session.startupDurationMs == null) {
           session.startupDurationMs = Date.now() - Date.parse(session.startedAt);
           if (session.directBoot && session.startupDurationMs >= 10_000) {
             logger.warn(
@@ -473,8 +478,7 @@ class RuntimeManager {
       };
     }
     const key = String(userId || '').trim();
-    const vm = this.computerBackend.vmManager.instances.get(key);
-    if (!vm?.display?.websocketUrl) {
+    if (!this.getDisplayTarget(key)) {
       const error = new Error('Cloud computer display is not running.');
       error.code = 'COMPUTER_DISPLAY_UNAVAILABLE';
       error.status = 409;
@@ -485,9 +489,11 @@ class RuntimeManager {
     const expiresAt = Date.now() + DISPLAY_SESSION_TTL_MS;
     const lease = this.getControlLease(key, { provider: 'cloud' });
     const viewOnly = !lease || lease.ownerType === 'agent';
+    // The session grants access to whichever computer the user has running; it deliberately
+    // does not remember an address, because a restarted computer listens somewhere else and
+    // a viewer bound to the old port waits forever on a socket that never speaks.
     this.displaySessions.set(token, {
       userId: key,
-      target: vm.display.websocketUrl,
       expiresAt,
       viewOnly,
     });
@@ -498,6 +504,15 @@ class RuntimeManager {
       websocketPath: `/api/computer/display-ws?token=${encodeURIComponent(token)}`,
       viewOnly,
     };
+  }
+
+  getDisplayTarget(userId) {
+    const key = String(userId || '').trim();
+    const vmManager = this.computerBackend.vmManager;
+    // A computer that has died is still in the instance map until its exit event lands, and
+    // its address is already refusing connections, so ask whether it is actually alive.
+    if (typeof vmManager.hasVm === 'function' && !vmManager.hasVm(key)) return null;
+    return vmManager.instances.get(key)?.display?.websocketUrl || null;
   }
 
   resolveDisplaySession(userId, token) {
@@ -512,6 +527,13 @@ class RuntimeManager {
     return current === session && current?.userId === String(userId || '').trim();
   }
 
+  // The session TTL exists to expire tokens nobody is using. A connected viewer is
+  // using it, so keep it alive while frames are flowing rather than freezing the
+  // desktop mid-session.
+  touchDisplaySession(session) {
+    if (session) session.expiresAt = Date.now() + DISPLAY_SESSION_TTL_MS;
+  }
+
   touchComputerActivity(userId, options = {}) {
     const key = String(userId || '').trim();
     this._computerBackendForUser(userId, options.deviceTarget).touchActivity?.(key);
@@ -523,7 +545,9 @@ class RuntimeManager {
     if (!(this.displaySessions instanceof Map)) return;
     const key = String(userId || '').trim();
     for (const [token, session] of this.displaySessions.entries()) {
-      if (session.userId === key) this.displaySessions.delete(token);
+      if (session.userId === key) {
+        this.displaySessions.delete(token);
+      }
     }
   }
 

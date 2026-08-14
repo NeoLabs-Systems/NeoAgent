@@ -5,13 +5,17 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn, spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  findOrphanedVmPids,
+  getSparseDiskLiabilityBytes,
   normalizeArchitecture,
+  resolveQemuImgBinary,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 
 test('QEMU computer exposes display and guest agent only on loopback', () => {
@@ -59,7 +63,7 @@ test('Debian guest images are architecture-specific and digest pinned', () => {
   assert.notEqual(PINNED_IMAGES.x64.sha512, PINNED_IMAGES.arm64.sha512);
 });
 
-test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts', () => {
+test('ARM64 computer uses a virtio GPU so guest redraws reach the host', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-firmware-test-'));
   const firmware = path.join(temporaryRoot, 'firmware.fd');
   const variables = path.join(temporaryRoot, 'variables.qcow2');
@@ -84,8 +88,10 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
       armFirmwareVariables: variables,
     });
     const joined = args.join(' ');
-    assert.match(joined, /-device VGA,edid=on,xres=1280,yres=720/);
-    assert.doesNotMatch(joined, /virtio-gpu/);
+    assert.match(joined, /-device virtio-gpu-pci,edid=on,xres=1280,yres=720/);
+    // The Bochs-compatible adapter relies on the host noticing writes to video memory,
+    // which HVF does not report: the desktop paints once and then never changes again.
+    assert.doesNotMatch(joined, /-device VGA/);
     assert.match(joined, /if=pflash,unit=0,format=raw,readonly=on/);
     assert.match(joined, /if=pflash,unit=1,format=qcow2/);
     assert.doesNotMatch(joined, /-device ramfb/);
@@ -93,6 +99,88 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
     if (previousFirmware === undefined) delete process.env.NEOAGENT_QEMU_EFI_FIRMWARE;
     else process.env.NEOAGENT_QEMU_EFI_FIRMWARE = previousFirmware;
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('retired system disks are not charged against the host storage reserve', (t) => {
+  const qemuImg = resolveQemuImgBinary();
+  if (!qemuImg) {
+    t.skip('qemu-img is required');
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-storage-'));
+  try {
+    const instanceDir = path.join(root, 'instance');
+    fs.mkdirSync(instanceDir);
+    const systemDisk = path.join(instanceDir, 'system.qcow2');
+    for (const [name, size] of [['system.qcow2', '8G'], ['system.previous.qcow2', '8G'], ['data.qcow2', '4G']]) {
+      spawnSync(qemuImg, ['create', '-f', 'qcow2', path.join(instanceDir, name), size], { stdio: 'ignore' });
+    }
+    const GIB = 1024 ** 3;
+
+    const live = getSparseDiskLiabilityBytes(qemuImg, root);
+    assert.ok(live > 11.5 * GIB && live < 12.5 * GIB, `expected the two live disks, got ${live}`);
+
+    const replacing = getSparseDiskLiabilityBytes(qemuImg, root, systemDisk);
+    assert.ok(replacing > 3.5 * GIB && replacing < 4.5 * GIB, `expected only the data disk, got ${replacing}`);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('QMP falls back to loopback when a UNIX socket path would be too long', () => {
+  const shortPath = '/runtime/user/qmp.sock';
+  const longPath = `/${'deep-runtime-home/'.repeat(6)}instance/qmp.sock`;
+  assert.ok(Buffer.byteLength(longPath) >= 104);
+
+  const argsFor = (qmpSocket) => buildQemuArgs({
+    architecture: 'x64',
+    accelerators: ['kvm'],
+    memoryMb: 1536,
+    cpus: 1,
+    systemDisk: '/runtime/user/system.qcow2',
+    dataDisk: '/runtime/user/data.qcow2',
+    seedImage: '/runtime/user/seed.img',
+    guestAgentPort: 8421,
+    hostAgentPort: 18421,
+    vncDisplay: 10,
+    websocketPort: 16080,
+    qmpSocket,
+  }).join(' ');
+
+  assert.match(argsFor(shortPath), /-qmp unix:\/runtime\/user\/qmp\.sock/);
+  assert.match(argsFor(17009), /-qmp tcp:127\.0\.0\.1:17009,server=on,wait=off/);
+});
+
+test('every process still serving an instance is reclaimed, and only those', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('orphan reclaim is POSIX-only');
+    return;
+  }
+  const instanceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-orphan-'));
+  const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-other-'));
+  // Stand-ins for QEMU: the match is on the binary name plus this instance's directory.
+  const fake = (dir) => spawn(
+    process.execPath,
+    ['-e', 'setTimeout(() => {}, 30000)', `qemu-system-aarch64 -drive file=${dir}/system.qcow2`],
+    { stdio: 'ignore' },
+  );
+  const first = fake(instanceDir);
+  const second = fake(instanceDir);
+  const unrelated = fake(otherDir);
+  try {
+    const found = findOrphanedVmPids(instanceDir);
+    assert.deepEqual(
+      found.slice().sort((a, b) => a - b),
+      [first.pid, second.pid].sort((a, b) => a - b),
+      'both processes serving this instance must be found',
+    );
+    assert.ok(!found.includes(unrelated.pid), 'another computer is never touched');
+    assert.deepEqual(findOrphanedVmPids(path.join(os.tmpdir(), 'neoagent-nothing-here')), []);
+  } finally {
+    for (const child of [first, second, unrelated]) child.kill('SIGKILL');
+    fs.rmSync(instanceDir, { recursive: true, force: true });
+    fs.rmSync(otherDir, { recursive: true, force: true });
   }
 });
 

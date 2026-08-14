@@ -335,3 +335,78 @@ test('display sessions are user-scoped, lease-aware, and revoked on control chan
   manager.releaseControl(7, 'session-7');
   assert.equal(manager.isDisplaySessionActive(7, controlled.token, internal), false);
 });
+
+test('a display session follows the computer instead of a fixed address', () => {
+  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  const vmManager = { instances, getStatus: () => ({ state: 'ready' }) };
+  const manager = new RuntimeManager({
+    computerBackend: { vmManager, touchActivity() {} },
+  });
+
+  const display = manager.createDisplaySession(7);
+  const stored = manager.displaySessions.get(display.token);
+  assert.equal(stored.target, undefined);
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+
+  // The computer restarts and listens somewhere else.
+  instances.set('7', { display: { websocketUrl: 'ws://127.0.0.1:17099' } });
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:17099');
+
+  instances.delete('7');
+  assert.equal(manager.getDisplayTarget(7), null);
+});
+
+test('a computer that died is not handed out as a display target', () => {
+  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  let alive = true;
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: { instances, getStatus: () => ({ state: 'ready' }), hasVm: () => alive },
+      touchActivity() {},
+    },
+  });
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+
+  // The process is gone but its exit event has not been delivered yet.
+  alive = false;
+  assert.equal(manager.getDisplayTarget(7), null);
+  assert.throws(() => manager.createDisplaySession(7), /display is not running/i);
+});
+
+test('viewers are dropped when the computer they watch stops', () => {
+  const vmManager = {
+    instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+    getStatus: () => ({ state: 'ready' }),
+  };
+  const manager = new RuntimeManager({
+    computerBackend: { vmManager, touchActivity() {} },
+  });
+  const display = manager.createDisplaySession(7);
+  assert.ok(manager.resolveDisplaySession(7, display.token));
+
+  vmManager.onVmStopped('7');
+  assert.equal(manager.resolveDisplaySession(7, display.token), null);
+});
+
+test('a connected display session does not expire underneath the viewer', () => {
+  const computerBackend = {
+    vmManager: {
+      instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+      getStatus: () => ({ state: 'ready' }),
+    },
+    touchActivity() {},
+  };
+  const manager = new RuntimeManager({ computerBackend });
+  const display = manager.createDisplaySession(7);
+  const internal = manager.displaySessions.get(display.token);
+
+  internal.expiresAt = Date.now() - 1000;
+  assert.equal(manager.resolveDisplaySession(7, display.token), null);
+
+  const revived = manager.createDisplaySession(7);
+  const live = manager.displaySessions.get(revived.token);
+  live.expiresAt = Date.now() + 1000;
+  manager.touchDisplaySession(live);
+  assert.ok(live.expiresAt > Date.now() + 60_000);
+  assert.equal(manager.isDisplaySessionActive(7, revived.token, live), true);
+});
