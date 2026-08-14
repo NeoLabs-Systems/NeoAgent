@@ -845,16 +845,21 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'openUri':
         return _actions.openUri(uri: payload['uri']?.toString() ?? '');
       case 'listFiles':
-        return _actions.listFiles(path: payload['path']?.toString() ?? '.');
+        return _actions.listFiles(
+          path: payload['path']?.toString() ?? '.',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
+        );
       case 'readFile':
         return _actions.readFile(
           path: payload['path']?.toString() ?? '',
           base64: payload['encoding'] == 'base64',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'writeFile':
         return _actions.writeFile(
           path: payload['path']?.toString() ?? '',
           content: payload['content']?.toString() ?? '',
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'searchFiles':
         return _actions.searchFiles(
@@ -862,6 +867,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           query: payload['query']?.toString() ?? '',
           pattern: payload['glob']?.toString() ?? '',
           maxResults: (payload['maxResults'] as num?)?.round() ?? 100,
+          workspaceRoot: payload['workspaceRoot']?.toString(),
         );
       case 'listDisplays':
         final status = await _actions.getStatus(

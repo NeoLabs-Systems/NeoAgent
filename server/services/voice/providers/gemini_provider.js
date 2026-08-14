@@ -158,7 +158,9 @@ async function stream(text, model, voice, options, onChunk) {
     pending = lines.pop() || '';
     for (const line of lines) {
       if (!line.startsWith('data:')) continue;
-      const payload = JSON.parse(line.slice(5).trim());
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      const payload = JSON.parse(data);
       throwEventError(payload);
       const audio = audioFromEvent(payload);
       if (!audio) continue;

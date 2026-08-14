@@ -120,6 +120,23 @@ test('Gemini TTS forwards streamed audio immediately with its advertised sample 
   }
 });
 
+test('Gemini TTS stream ignores the trailing [DONE] sentinel', async () => {
+  const previousFetch = global.fetch;
+  global.fetch = async () => new Response(`${audioEvent()}data: [DONE]\n\n`);
+  const chunks = [];
+  try {
+    await synthesizeVoiceReplyStream('A short spoken reply.', {
+      provider: 'gemini',
+      apiKey: 'test-key',
+    }, async (chunk) => chunks.push(chunk));
+
+    assert.equal(chunks.length, 1);
+    assert.equal(chunks[0].mimeType, 'audio/wav');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test('Gemini retries one provider 5xx without switching voice providers', async () => {
   const previousFetch = global.fetch;
   let calls = 0;

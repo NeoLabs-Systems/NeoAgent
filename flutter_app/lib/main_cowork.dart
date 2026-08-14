@@ -1050,6 +1050,8 @@ class _CoworkChatHeader extends StatelessWidget {
                 ),
               ),
               _CoworkDeviceMenu(controller: controller, chat: chat),
+              if (chat.device.effective == 'local')
+                _CoworkWorkspaceMenu(controller: controller, chat: chat),
             ],
           ),
         ],
@@ -1158,6 +1160,118 @@ class _CoworkDeviceMenu extends StatelessWidget {
       child: _CoworkOutlinePill(
         icon: local ? Icons.laptop_mac_rounded : Icons.cloud_outlined,
         label: '${local ? 'This device' : 'Cloud'}${device.inherited ? ' · default' : ''}',
+      ),
+    );
+  }
+}
+
+String _coworkWorkspaceLabel(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final segments = normalized
+      .split('/')
+      .where((segment) => segment.isNotEmpty)
+      .toList(growable: false);
+  return segments.isEmpty ? path : segments.last;
+}
+
+class _CoworkWorkspaceMenu extends StatefulWidget {
+  const _CoworkWorkspaceMenu({required this.controller, required this.chat});
+
+  final NeoAgentController controller;
+  final CoworkChat chat;
+
+  @override
+  State<_CoworkWorkspaceMenu> createState() => _CoworkWorkspaceMenuState();
+}
+
+class _CoworkWorkspaceMenuState extends State<_CoworkWorkspaceMenu> {
+  final GlobalKey _anchorKey = GlobalKey();
+
+  Future<void> _setOverride(String? path) async {
+    await widget.controller.updateCoworkChat(
+      widget.chat.id,
+      <String, dynamic>{'workspacePathOverride': path},
+    );
+    if (path != null && path.trim().isNotEmpty) {
+      await WorkspaceRecents.recordUsed(path.trim());
+    }
+  }
+
+  Future<void> _browseForFolder() async {
+    final chosen = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose a workspace folder',
+    );
+    if (chosen == null || chosen.trim().isEmpty) return;
+    await _setOverride(chosen.trim());
+  }
+
+  Future<void> _openMenu() async {
+    final recents = (await WorkspaceRecents.list())
+        .where((path) => path != widget.chat.workspacePathOverride)
+        .toList(growable: false);
+    if (!mounted) return;
+    final renderBox =
+        _anchorKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (renderBox == null || overlay == null) return;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay),
+        renderBox.localToGlobal(
+          renderBox.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<String>(
+      context: context,
+      position: position,
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: '__default__',
+          child: Text('Use default (NeoAgent Workspace)'),
+        ),
+        const PopupMenuItem<String>(
+          value: '__browse__',
+          child: Text('Choose folder…'),
+        ),
+        if (recents.isNotEmpty) const PopupMenuDivider(),
+        for (final path in recents)
+          PopupMenuItem<String>(
+            value: path,
+            child: Text(
+              _coworkWorkspaceLabel(path),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    if (selected == '__browse__') {
+      await _browseForFolder();
+      return;
+    }
+    await _setOverride(selected == '__default__' ? null : selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final override = widget.chat.workspacePathOverride;
+    return Material(
+      key: _anchorKey,
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        onTap: _openMenu,
+        child: _CoworkOutlinePill(
+          icon: Icons.folder_outlined,
+          label: override == null
+              ? 'NeoAgent Workspace'
+              : _coworkWorkspaceLabel(override),
+        ),
       ),
     );
   }

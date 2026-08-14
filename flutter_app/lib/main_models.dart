@@ -4159,6 +4159,7 @@ class CoworkChat {
     required this.agentName,
     required this.mode,
     required this.device,
+    this.workspacePathOverride,
     required this.manuallyTitled,
     required this.createdAt,
     required this.updatedAt,
@@ -4177,6 +4178,9 @@ class CoworkChat {
           ? CoworkInteractionMode.plan
           : CoworkInteractionMode.agent,
       device: CoworkDeviceSelection.fromJson(_jsonMap(json['device'])),
+      workspacePathOverride: (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
+          ? json['workspacePathOverride'].toString().trim()
+          : null,
       manuallyTitled: json['manuallyTitled'] == true,
       createdAt: _parseTimestamp(json['createdAt']?.toString()),
       updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
@@ -4194,6 +4198,7 @@ class CoworkChat {
   final String agentName;
   final CoworkInteractionMode mode;
   final CoworkDeviceSelection device;
+  final String? workspacePathOverride;
   final bool manuallyTitled;
   final DateTime createdAt;
   final DateTime updatedAt;

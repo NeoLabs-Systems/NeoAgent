@@ -48,6 +48,7 @@ import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
 import 'src/webauthn_client.dart';
 import 'src/android_auto_bridge.dart';
+import 'src/workspace_recents.dart';
 
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';

@@ -19,6 +19,11 @@ function normalizeWorkspacePath(value, fallback = '') {
   return normalized || fallback;
 }
 
+function normalizeWorkspaceRoot(value) {
+  const trimmed = String(value ?? '').trim();
+  return trimmed || null;
+}
+
 class LocalComputerBrowserProvider {
   constructor(backend, userId, options = {}) {
     this.backend = backend;
@@ -216,32 +221,38 @@ class LocalComputerBackend {
     const normalizedMethod = String(method || 'GET').toUpperCase();
     const payload = body && typeof body === 'object' ? body : {};
     if (url.pathname === '/health') return { status: 'ok', provider: 'local' };
+    const workspaceRoot = normalizeWorkspaceRoot(options.workspaceRoot);
     if (url.pathname === '/workspace/files' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.LIST_FILES, {
         path: normalizeWorkspacePath(url.searchParams.get('path'), '.'),
+        workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/content' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.READ_FILE, {
         path: normalizeWorkspacePath(url.searchParams.get('path')),
+        workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/content' && normalizedMethod === 'PUT') {
       return this.dispatch(userId, DESKTOP_COMMANDS.WRITE_FILE, {
         path: normalizeWorkspacePath(payload.path),
         content: payload.content,
+        workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/download' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.READ_FILE, {
         path: normalizeWorkspacePath(url.searchParams.get('path')),
         encoding: 'base64',
+        workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/search' && normalizedMethod === 'POST') {
       return this.dispatch(userId, DESKTOP_COMMANDS.SEARCH_FILES, {
         ...payload,
         path: normalizeWorkspacePath(payload.path, '.'),
+        workspaceRoot,
       }, options);
     }
     throw Object.assign(new Error(`Unsupported local computer request: ${normalizedMethod} ${url.pathname}`), {

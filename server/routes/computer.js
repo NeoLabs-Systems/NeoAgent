@@ -50,11 +50,21 @@ function deviceTarget(req) {
   return ['local', 'cloud'].includes(value) ? value : null;
 }
 
+function workspaceRoot(req) {
+  const value = String(
+    req.body?.workspaceRoot
+    || req.query?.workspaceRoot
+    || '',
+  ).trim();
+  return value || null;
+}
+
 function runtimeOptions(req, extra = {}) {
   return {
     ...extra,
     signal: req.signal,
     deviceTarget: deviceTarget(req),
+    workspaceRoot: workspaceRoot(req),
   };
 }
 

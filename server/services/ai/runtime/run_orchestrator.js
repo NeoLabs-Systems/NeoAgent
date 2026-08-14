@@ -158,6 +158,9 @@ class DurableRunRuntime {
     const deviceTarget = ['local', 'cloud'].includes(options.deviceTarget)
       ? options.deviceTarget
       : null;
+    const workspaceRoot = typeof options.workspaceRoot === 'string' && options.workspaceRoot.trim()
+      ? options.workspaceRoot.trim()
+      : null;
     const app = options.app || this.engine.app;
     const triggerSource = options.triggerSource || 'web';
     const deliveryChannel = resolveDeliveryChannel(triggerSource);
@@ -274,6 +277,7 @@ class DurableRunRuntime {
         conversationId: conversationId || null,
         interactionMode,
         deviceTarget,
+        workspaceRoot,
         voiceSessionId: options.voiceSessionId || options.sessionBinding?.sessionId || null,
         sessionBinding: options.sessionBinding || null,
         latencyPriority: options.latencyPriority || null,
@@ -1960,6 +1964,7 @@ class DurableRunRuntime {
                     triggerSource,
                     conversationId,
                     deviceTarget,
+                    workspaceRoot,
                     interactionMode,
                     source: options.source || null,
                     chatId: options.chatId || null,
