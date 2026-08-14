@@ -12,7 +12,7 @@ const {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
-  findOrphanedVmPid,
+  findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
@@ -150,29 +150,35 @@ test('QMP falls back to loopback when a UNIX socket path would be too long', () 
   assert.match(argsFor(17009), /-qmp tcp:127\.0\.0\.1:17009,server=on,wait=off/);
 });
 
-test('only a live process still serving this instance counts as an orphan', (t) => {
+test('every process still serving an instance is reclaimed, and only those', (t) => {
   if (process.platform === 'win32') {
     t.skip('orphan reclaim is POSIX-only');
     return;
   }
   const instanceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-orphan-'));
-  const child = spawn(
+  const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-other-'));
+  // Stand-ins for QEMU: the match is on the binary name plus this instance's directory.
+  const fake = (dir) => spawn(
     process.execPath,
-    ['-e', 'setTimeout(() => {}, 30000)', `${instanceDir}/system.qcow2`],
+    ['-e', 'setTimeout(() => {}, 30000)', `qemu-system-aarch64 -drive file=${dir}/system.qcow2`],
     { stdio: 'ignore' },
   );
+  const first = fake(instanceDir);
+  const second = fake(instanceDir);
+  const unrelated = fake(otherDir);
   try {
-    fs.writeFileSync(path.join(instanceDir, 'qemu.pid'), `${child.pid}\n`);
-    assert.equal(findOrphanedVmPid(instanceDir), child.pid);
-
-    fs.writeFileSync(path.join(instanceDir, 'qemu.pid'), `${process.pid}\n`);
-    assert.equal(findOrphanedVmPid(instanceDir), null, 'a process unrelated to this instance is never killed');
-
-    fs.rmSync(path.join(instanceDir, 'qemu.pid'));
-    assert.equal(findOrphanedVmPid(instanceDir), null);
+    const found = findOrphanedVmPids(instanceDir);
+    assert.deepEqual(
+      found.slice().sort((a, b) => a - b),
+      [first.pid, second.pid].sort((a, b) => a - b),
+      'both processes serving this instance must be found',
+    );
+    assert.ok(!found.includes(unrelated.pid), 'another computer is never touched');
+    assert.deepEqual(findOrphanedVmPids(path.join(os.tmpdir(), 'neoagent-nothing-here')), []);
   } finally {
-    child.kill('SIGKILL');
+    for (const child of [first, second, unrelated]) child.kill('SIGKILL');
     fs.rmSync(instanceDir, { recursive: true, force: true });
+    fs.rmSync(otherDir, { recursive: true, force: true });
   }
 });
 

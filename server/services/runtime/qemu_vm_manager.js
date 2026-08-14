@@ -453,20 +453,22 @@ function isProcessAlive(processHandle) {
 // A QEMU that outlived the server holds the write lock on its disks, so the next start
 // fails on every image operation. Only a process whose command line still points at this
 // instance is ours to reclaim.
-function findOrphanedVmPid(instanceDir) {
-  const pidPath = path.join(instanceDir, 'qemu.pid');
-  const pid = Number(fs.existsSync(pidPath) ? fs.readFileSync(pidPath, 'utf8').trim() : 0);
-  if (!Number.isInteger(pid) || pid <= 1 || process.platform === 'win32') return null;
-  try {
-    process.kill(pid, 0);
-  } catch {
-    return null;
-  }
-  const probe = spawnSync('ps', ['-p', String(pid), '-o', 'command='], {
+// Every process still serving this computer, not just the last one this server started:
+// each restart that loses track of its QEMU leaves another one holding the same disks and
+// its own frozen screen, and a viewer reconnecting lands on whichever answers first.
+function findOrphanedVmPids(instanceDir) {
+  if (process.platform === 'win32') return [];
+  const probe = spawnSync('ps', ['-axo', 'pid=,command='], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
+    maxBuffer: 8 * 1024 * 1024,
   });
-  return probe.status === 0 && probe.stdout.includes(instanceDir) ? pid : null;
+  if (probe.status !== 0) return [];
+  return String(probe.stdout || '')
+    .split('\n')
+    .filter((line) => line.includes('qemu-system-') && line.includes(instanceDir))
+    .map((line) => Number(line.trim().split(/\s+/)[0]))
+    .filter((pid) => Number.isInteger(pid) && pid > 1 && pid !== process.pid);
 }
 
 async function terminateOrphanedVm(pid) {
@@ -822,10 +824,11 @@ class QemuVMManager {
     const baseImage = await this.#ensureBaseImage();
     const instanceDir = path.join(INSTANCE_ROOT, userDirectoryKey(key));
     ensurePrivateDirectory(instanceDir);
-    const orphanPid = findOrphanedVmPid(instanceDir);
-    if (orphanPid) {
-      logger.warn(`Reclaiming computer for user ${key} from orphaned QEMU process ${orphanPid}.`);
-      if (!await terminateOrphanedVm(orphanPid)) {
+    const orphanPids = findOrphanedVmPids(instanceDir);
+    if (orphanPids.length > 0) {
+      logger.warn(`Reclaiming computer for user ${key} from ${orphanPids.length} orphaned QEMU process(es): ${orphanPids.join(', ')}.`);
+      const terminated = await Promise.all(orphanPids.map(terminateOrphanedVm));
+      if (terminated.includes(false)) {
         const error = new Error('A previous computer process is still holding this computer. Restart NeoAgent to release it.');
         error.code = 'COMPUTER_DISK_LOCKED';
         error.status = 409;
@@ -970,8 +973,6 @@ class QemuVMManager {
       windowsHide: true,
     });
     fs.closeSync(logDescriptor);
-    const pidPath = path.join(instanceDir, 'qemu.pid');
-    fs.writeFileSync(pidPath, `${child.pid}\n`, { mode: 0o600 });
 
     const session = {
       instanceDir,
@@ -1005,7 +1006,6 @@ class QemuVMManager {
       session.lastError = error.message;
     });
     child.once('exit', (code, signal) => {
-      fs.rmSync(pidPath, { force: true });
       if (session.state !== 'stopping') {
         session.state = 'error';
         session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
@@ -1064,7 +1064,7 @@ module.exports = {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
-  findOrphanedVmPid,
+  findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
