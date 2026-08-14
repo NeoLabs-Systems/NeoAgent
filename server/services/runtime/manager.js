@@ -594,7 +594,8 @@ class RuntimeManager {
     };
     if (!existing && provider === 'cloud') this.revokeDisplaySessions(userKey);
     this.controlLeases.set(this.#controlKey(userKey, provider), lease);
-    this._emitStatus(userKey);
+    const stateChanged = !existing || existing.ownerType !== normalizedOwnerType;
+    if (stateChanged) this._emitStatus(userKey);
     return {
       ownerType: lease.ownerType,
       ownerId: lease.ownerId,

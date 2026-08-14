@@ -10,7 +10,7 @@ class NeoAgentApp extends StatefulWidget {
 }
 
 class _NeoAgentAppState extends State<NeoAgentApp>
-    with WindowListener, TrayListener {
+    with WindowListener, TrayListener, WidgetsBindingObserver {
   late final NeoAgentController _controller;
   late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
@@ -45,6 +45,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     )..bootstrap();
     _webAppUpdateMonitor = createWebAppUpdateMonitor()..start();
     _controller.addListener(_handleControllerChanged);
+    WidgetsBinding.instance.addObserver(this);
     _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
       _handleAppLaunchRequest,
     );
@@ -56,6 +57,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   @override
   void dispose() {
     _appLaunchSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
       trayManager.removeListener(this);
@@ -69,6 +71,13 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _webAppUpdateMonitor.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_controller.handleAppResumed());
+    }
   }
 
   void _handleControllerChanged() {

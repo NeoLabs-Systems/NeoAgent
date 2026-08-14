@@ -79,3 +79,16 @@ test('local status exposes app approvals without host access', () => {
   assert.equal(status.capabilities.includes('files'), true);
   assert.equal(status.hostAccess, undefined);
 });
+
+test('local computer tells the agent the desktop app is reconnecting', async () => {
+  const backend = new LocalComputerBackend({
+    registry: {
+      isConnected: () => false,
+      getStatus: () => ({ connected: false, selectedDeviceId: null, devices: [] }),
+    },
+  });
+  await assert.rejects(
+    () => backend.assertConnected(7),
+    /desktop app is reconnecting/i,
+  );
+});

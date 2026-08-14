@@ -270,6 +270,9 @@ function createRuntimeManager(app) {
       localComputerBackend,
     }),
   );
+  localComputerRegistry.onConnectionChange = (userId) => {
+    runtimeManager._emitStatus(userId);
+  };
   registerLocal(
     app,
     'getDesktopProviderForUser',

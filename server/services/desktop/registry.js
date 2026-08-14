@@ -70,6 +70,9 @@ class DesktopCompanionRegistry {
     );
     this.connectionsByUser = new Map();
     this.closed = false;
+    this.onConnectionChange = typeof options.onConnectionChange === 'function'
+      ? options.onConnectionChange
+      : null;
   }
 
   _getUserMap(userId, create = false) {
@@ -238,6 +241,7 @@ class DesktopCompanionRegistry {
     if (existing && existing.ws !== ws) {
       existing.close('replaced by a newer desktop companion connection');
     }
+    this._notifyConnectionChange(userId);
 
     return {
       connection,
@@ -265,6 +269,16 @@ class DesktopCompanionRegistry {
       } catch (error) {
         console.warn('[DesktopCompanion] Failed to record disconnect:', error?.message);
       }
+      this._notifyConnectionChange(connection.userId);
+    }
+  }
+
+  _notifyConnectionChange(userId) {
+    if (typeof this.onConnectionChange !== 'function') return;
+    try {
+      this.onConnectionChange(userId);
+    } catch (error) {
+      console.warn('[DesktopCompanion] Connection change hook failed:', error?.message);
     }
   }
 

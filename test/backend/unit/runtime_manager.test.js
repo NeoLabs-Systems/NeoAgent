@@ -130,6 +130,33 @@ test('computer control leases are exclusive and expire cleanly', () => {
   assert.equal(manager.acquireControl(7, 'teach', 'teach-1').ownerType, 'teach');
 });
 
+test('repeated agent control does not re-broadcast computer status', () => {
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+    localComputerBackend: {
+      isConnected: () => true,
+      vmManager: { getStatus: () => ({ state: 'ready' }), hasTrackedVm: () => false },
+    },
+  });
+  const emitted = [];
+  manager.io = {
+    to() {
+      return {
+        emit(event, payload) {
+          emitted.push({ event, payload });
+        },
+      };
+    },
+  };
+  manager.providerModes.set('7', 'local');
+  manager.acquireControl(7, 'agent', 'run-1', { deviceTarget: 'local' });
+  manager.acquireControl(7, 'agent', 'run-1', { deviceTarget: 'local' });
+  manager.acquireControl(7, 'agent', 'step-2', { deviceTarget: 'local' });
+  assert.equal(emitted.filter((item) => item.event === 'computer:status').length, 1);
+});
+
 test('local and cloud computer leases do not block each other', () => {
   const manager = new RuntimeManager({
     computerBackend: {

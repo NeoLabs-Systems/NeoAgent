@@ -49,6 +49,8 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> disconnect() async {}
 
+  Future<void> reconnectIfNeeded({bool force = false}) async {}
+
   Future<void> rotateIdentity(SharedPreferences prefs) async {
     throw UnsupportedError('Desktop companion is not available here.');
   }

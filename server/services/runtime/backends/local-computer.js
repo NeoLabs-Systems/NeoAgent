@@ -186,7 +186,7 @@ class LocalComputerBackend {
   async assertConnected(userId) {
     if (!this.isConnected(userId)) {
       const error = new DesktopCompanionUnavailableError(
-        'Open the NeoAgent desktop app and enable “This device”.',
+        'The NeoAgent desktop app is reconnecting to this device.',
       );
       error.status = 409;
       throw error;
