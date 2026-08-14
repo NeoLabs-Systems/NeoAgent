@@ -508,41 +508,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         ? 'Start the managed Android environment when you need it.'
                         : startError,
                   )
-                : screenshotPath == null
-                ? _ComputerEmptyState(
-                    icon: Icons.phone_android_rounded,
-                    title: 'Android is ready',
-                    message: 'Refresh to fetch the current device frame.',
-                    action: FilledButton(
-                      onPressed: controller.screenshotAndroidRuntime,
-                      child: const Text('Show screen'),
-                    ),
-                  )
-                : FutureBuilder<Uint8List>(
-                    key: ValueKey<String>(screenshotPath),
-                    future: controller.fetchRuntimeAssetBytes(screenshotPath),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return InteractiveViewer(
-                          child: Center(
-                            child: Image.memory(
-                              snapshot.data!,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        );
-                      }
-                      if (snapshot.hasError) {
-                        return const _ComputerEmptyState(
-                          icon: Icons.broken_image_outlined,
-                          title: 'Frame unavailable',
-                          message: 'Refresh the Android screen to try again.',
-                        );
-                      }
-                      return const Center(child: CircularProgressIndicator());
-                    },
+                : _AndroidSurface(
+                    controller: controller,
+                    screenshotPath: screenshotPath,
                   ),
           ),
+        ),
+        const SizedBox(height: 8),
+        _AndroidKeyBar(
+          enabled: online && !controller.isRunningDeviceAction,
+          onKey: controller.pressAndroidKeyRuntime,
         ),
       ],
     );
@@ -553,6 +528,195 @@ class _DevicesPanelState extends State<DevicesPanel> {
     if (packageName.isEmpty) return;
     await widget.controller.openAndroidAppRuntime(packageName: packageName);
     await widget.controller.screenshotAndroidRuntime();
+  }
+}
+
+/// Live Android frame with touch input.
+///
+/// Frames are polled, so the previously decoded bytes stay on screen until the
+/// next frame has loaded — rebuilding a loading spinner between frames made the
+/// surface flicker on every poll.
+class _AndroidSurface extends StatefulWidget {
+  const _AndroidSurface({
+    required this.controller,
+    required this.screenshotPath,
+  });
+
+  final NeoAgentController controller;
+  final String? screenshotPath;
+
+  @override
+  State<_AndroidSurface> createState() => _AndroidSurfaceState();
+}
+
+class _AndroidSurfaceState extends State<_AndroidSurface> {
+  Uint8List? _bytes;
+  Size? _pixelSize;
+  Object? _error;
+  String? _loadedPath;
+  Offset? _dragStart;
+  Offset? _dragEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(covariant _AndroidSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.screenshotPath != widget.screenshotPath) unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final path = widget.screenshotPath;
+    if (path == null || path.isEmpty || path == _loadedPath) return;
+    try {
+      final bytes = await widget.controller.fetchRuntimeAssetBytes(path);
+      if (!mounted || widget.screenshotPath != path) return;
+      setState(() {
+        _bytes = bytes;
+        _error = null;
+        _loadedPath = path;
+      });
+      final image = await decodeImageFromList(bytes);
+      if (!mounted) return;
+      setState(
+        () =>
+            _pixelSize = Size(image.width.toDouble(), image.height.toDouble()),
+      );
+    } catch (error) {
+      if (!mounted || widget.screenshotPath != path) return;
+      // A failed poll keeps the last good frame; only report when nothing is shown.
+      setState(() => _error = _bytes == null ? error : null);
+    }
+  }
+
+  /// Maps a position inside the [BoxFit.contain] letterbox onto device pixels.
+  Offset? _mapToDevice(Offset local, Size boxSize) {
+    final pixelSize = _pixelSize;
+    if (pixelSize == null || boxSize.isEmpty) return null;
+    final imageAspect = pixelSize.width / pixelSize.height;
+    final double renderWidth;
+    final double renderHeight;
+    if (boxSize.width / boxSize.height > imageAspect) {
+      renderHeight = boxSize.height;
+      renderWidth = renderHeight * imageAspect;
+    } else {
+      renderWidth = boxSize.width;
+      renderHeight = renderWidth / imageAspect;
+    }
+    final offsetX = (boxSize.width - renderWidth) / 2;
+    final offsetY = (boxSize.height - renderHeight) / 2;
+    if (local.dx < offsetX ||
+        local.dx > offsetX + renderWidth ||
+        local.dy < offsetY ||
+        local.dy > offsetY + renderHeight) {
+      return null;
+    }
+    return Offset(
+      ((local.dx - offsetX) / renderWidth) * pixelSize.width,
+      ((local.dy - offsetY) / renderHeight) * pixelSize.height,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes == null) {
+      if (_error != null) {
+        return const _ComputerEmptyState(
+          icon: Icons.broken_image_outlined,
+          title: 'Frame unavailable',
+          message: 'Refresh the Android screen to try again.',
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boxSize = Size(constraints.maxWidth, constraints.maxHeight);
+        return Semantics(
+          button: true,
+          label: 'Android screen — tap to touch, drag to swipe',
+          child: GestureDetector(
+            onTapUp: (details) {
+              final point = _mapToDevice(details.localPosition, boxSize);
+              if (point == null) return;
+              unawaited(
+                widget.controller.tapAndroidRuntime(<String, dynamic>{
+                  'x': point.dx.round(),
+                  'y': point.dy.round(),
+                }),
+              );
+            },
+            onPanStart: (details) {
+              _dragStart = details.localPosition;
+              _dragEnd = details.localPosition;
+            },
+            onPanUpdate: (details) => _dragEnd = details.localPosition,
+            onPanEnd: (_) {
+              final start = _dragStart;
+              final end = _dragEnd;
+              _dragStart = null;
+              _dragEnd = null;
+              if (start == null || end == null) return;
+              if ((start - end).distance < 12) return;
+              final mappedStart = _mapToDevice(start, boxSize);
+              final mappedEnd = _mapToDevice(end, boxSize);
+              if (mappedStart == null || mappedEnd == null) return;
+              unawaited(
+                widget.controller.swipeAndroidRuntime(<String, dynamic>{
+                  'x1': mappedStart.dx.round(),
+                  'y1': mappedStart.dy.round(),
+                  'x2': mappedEnd.dx.round(),
+                  'y2': mappedEnd.dy.round(),
+                  'durationMs': 280,
+                }),
+              );
+            },
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AndroidKeyBar extends StatelessWidget {
+  const _AndroidKeyBar({required this.enabled, required this.onKey});
+
+  final bool enabled;
+  final Future<void> Function(String key) onKey;
+
+  static const List<({String key, IconData icon, String label})> _keys =
+      <({String key, IconData icon, String label})>[
+        (key: 'back', icon: Icons.arrow_back_rounded, label: 'Back'),
+        (key: 'home', icon: Icons.circle_outlined, label: 'Home'),
+        (key: 'app_switch', icon: Icons.crop_square_rounded, label: 'Recents'),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: _keys
+          .map(
+            (entry) => IconButton(
+              tooltip: entry.label,
+              onPressed: enabled ? () => unawaited(onKey(entry.key)) : null,
+              icon: Icon(entry.icon),
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 }
 

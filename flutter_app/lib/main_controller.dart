@@ -3911,14 +3911,37 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
+  /// Touch input on the live Android surface.
+  ///
+  /// Deliberately outside [_runDeviceAction]: that flag disables the whole
+  /// Devices panel for the duration, which makes rapid taps flicker and drops
+  /// every gesture that lands while another one is still in flight.
+  Future<void> _runAndroidInput(
+    Future<Map<String, dynamic>> Function() action,
+  ) async {
+    try {
+      final result = await action();
+      final screenshot = result['screenshotPath']?.toString();
+      if (screenshot != null && screenshot.isNotEmpty) {
+        androidScreenshotPath = screenshot;
+        notifyListeners();
+      } else {
+        // Key presses answer without a frame; pull one so the surface follows.
+        await refreshAndroidFrameRuntime();
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> tapAndroidRuntime(Map<String, dynamic> payload) async {
-    await _runDeviceAction(
+    await _runAndroidInput(
       () => _backendClient.tapAndroid(backendUrl, <String, dynamic>{
         ...payload,
         'uiDump': false,
         'includeNodes': false,
       }),
-      refreshDevicesAfter: false,
     );
   }
 
@@ -3934,25 +3957,23 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> swipeAndroidRuntime(Map<String, dynamic> payload) async {
-    await _runDeviceAction(
+    await _runAndroidInput(
       () => _backendClient.swipeAndroid(backendUrl, <String, dynamic>{
         ...payload,
         'uiDump': false,
         'includeNodes': false,
       }),
-      refreshDevicesAfter: false,
     );
   }
 
   Future<void> pressAndroidKeyRuntime(String key) async {
-    await _runDeviceAction(
+    await _runAndroidInput(
       () => _backendClient.pressAndroidKey(
         backendUrl,
         key: key,
         uiDump: false,
         includeNodes: false,
       ),
-      refreshDevicesAfter: false,
     );
   }
 
