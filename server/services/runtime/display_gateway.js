@@ -42,10 +42,15 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
         rejectUpgrade(socket, 403, 'Forbidden');
         return;
       }
+      const target = runtimeManager.getDisplayTarget(req.session.userId);
+      if (!target) {
+        rejectUpgrade(socket, 409, 'Computer Display Unavailable');
+        return;
+      }
       wss.handleUpgrade(req, socket, head, (client) => {
         const displayToken = url.searchParams.get('token');
         const displayUserId = req.session.userId;
-        const upstream = new WebSocket(displaySession.target, ['binary'], {
+        const upstream = new WebSocket(target, ['binary'], {
           maxPayload: MAX_DISPLAY_FRAME_BYTES,
         });
         let upstreamReady = false;

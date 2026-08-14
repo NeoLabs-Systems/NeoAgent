@@ -88,6 +88,10 @@ test('bare CLI invocation diagnoses an incomplete existing instance without rein
   const fixture = createFixture(t);
   fs.mkdirSync(path.dirname(fixture.databaseFile), { recursive: true });
   fs.writeFileSync(fixture.databaseFile, '');
+  // Owning the fixture's env file keeps the developer's own .env - and whatever port it
+  // points at - out of the run. Port 1 never has a listener, so the instance is reliably
+  // seen as installed but not running.
+  fs.writeFileSync(path.join(fixture.root, '.env'), 'PORT=1\n');
 
   const result = spawnSync(
     process.execPath,

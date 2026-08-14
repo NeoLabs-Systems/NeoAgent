@@ -1010,6 +1010,7 @@ class QemuVMManager {
         session.state = 'error';
         session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
       }
+      this.onVmStopped?.(key);
     });
     logger.info(`Started computer for user ${key} with ${resources.memoryMb} MiB and ${resources.cpus} vCPU.`);
     return session;

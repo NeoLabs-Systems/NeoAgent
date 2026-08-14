@@ -64,6 +64,11 @@ class RuntimeManager {
       artifactStore: this.artifactStore,
     });
     this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId, { provider: 'cloud' }));
+    // A viewer whose computer stopped is watching an address that no longer answers, so
+    // drop its session: the display page then reconnects against the computer that follows.
+    if (this.computerBackend.vmManager) {
+      this.computerBackend.vmManager.onVmStopped = (userId) => this.revokeDisplaySessions(userId);
+    }
     this.localComputerBackend = options.localComputerBackend || null;
     this.createAndroidController = options.createAndroidController
       || ((userId) => new AndroidController({
@@ -473,8 +478,7 @@ class RuntimeManager {
       };
     }
     const key = String(userId || '').trim();
-    const vm = this.computerBackend.vmManager.instances.get(key);
-    if (!vm?.display?.websocketUrl) {
+    if (!this.getDisplayTarget(key)) {
       const error = new Error('Cloud computer display is not running.');
       error.code = 'COMPUTER_DISPLAY_UNAVAILABLE';
       error.status = 409;
@@ -485,9 +489,11 @@ class RuntimeManager {
     const expiresAt = Date.now() + DISPLAY_SESSION_TTL_MS;
     const lease = this.getControlLease(key, { provider: 'cloud' });
     const viewOnly = !lease || lease.ownerType === 'agent';
+    // The session grants access to whichever computer the user has running; it deliberately
+    // does not remember an address, because a restarted computer listens somewhere else and
+    // a viewer bound to the old port waits forever on a socket that never speaks.
     this.displaySessions.set(token, {
       userId: key,
-      target: vm.display.websocketUrl,
       expiresAt,
       viewOnly,
     });
@@ -498,6 +504,11 @@ class RuntimeManager {
       websocketPath: `/api/computer/display-ws?token=${encodeURIComponent(token)}`,
       viewOnly,
     };
+  }
+
+  getDisplayTarget(userId) {
+    const vm = this.computerBackend.vmManager.instances.get(String(userId || '').trim());
+    return vm?.display?.websocketUrl || null;
   }
 
   resolveDisplaySession(userId, token) {

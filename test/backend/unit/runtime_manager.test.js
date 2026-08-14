@@ -336,6 +336,41 @@ test('display sessions are user-scoped, lease-aware, and revoked on control chan
   assert.equal(manager.isDisplaySessionActive(7, controlled.token, internal), false);
 });
 
+test('a display session follows the computer instead of a fixed address', () => {
+  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  const vmManager = { instances, getStatus: () => ({ state: 'ready' }) };
+  const manager = new RuntimeManager({
+    computerBackend: { vmManager, touchActivity() {} },
+  });
+
+  const display = manager.createDisplaySession(7);
+  const stored = manager.displaySessions.get(display.token);
+  assert.equal(stored.target, undefined);
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+
+  // The computer restarts and listens somewhere else.
+  instances.set('7', { display: { websocketUrl: 'ws://127.0.0.1:17099' } });
+  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:17099');
+
+  instances.delete('7');
+  assert.equal(manager.getDisplayTarget(7), null);
+});
+
+test('viewers are dropped when the computer they watch stops', () => {
+  const vmManager = {
+    instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+    getStatus: () => ({ state: 'ready' }),
+  };
+  const manager = new RuntimeManager({
+    computerBackend: { vmManager, touchActivity() {} },
+  });
+  const display = manager.createDisplaySession(7);
+  assert.ok(manager.resolveDisplaySession(7, display.token));
+
+  vmManager.onVmStopped('7');
+  assert.equal(manager.resolveDisplaySession(7, display.token), null);
+});
+
 test('a connected display session does not expire underneath the viewer', () => {
   const computerBackend = {
     vmManager: {

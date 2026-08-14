@@ -22,6 +22,16 @@ import RFB from '/api/computer/novnc/core/rfb.js';
 const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
 const screen = document.getElementById('screen');
 let attempt = 0;
+// Support hook: the viewer's own account of what its connection is doing, so a frozen
+// desktop can be diagnosed from the console instead of guessed at.
+const status = { state: 'starting', attempts: 0, lastEvent: null, at: null };
+window.neoagentDisplayStatus = status;
+const note = (state, detail) => {
+  status.state = state;
+  status.lastEvent = detail || null;
+  status.at = new Date().toISOString();
+  console.log('[NeoAgentDisplay]', state, detail || '');
+};
 // A dropped socket leaves the last frame painted on the canvas, which is
 // indistinguishable from a live but idle desktop, so reconnect on a fresh
 // session instead of leaving a still image the viewer cannot control.
@@ -38,12 +48,18 @@ const connect = (websocketPath, viewOnly) => {
   rfb.viewOnly = viewOnly === true;
   rfb.addEventListener('connect', () => {
     attempt = 0;
+    note('connected');
     rfb.focus();
   });
-  rfb.addEventListener('disconnect', reconnect);
+  rfb.addEventListener('disconnect', (event) => {
+    note('disconnected', event?.detail?.clean === false ? 'unclean' : 'clean');
+    reconnect();
+  });
 };
 const reconnect = () => {
   attempt += 1;
+  status.attempts = attempt;
+  note('reconnecting', 'attempt ' + attempt);
   setTimeout(async () => {
     try {
       const response = await fetch('/api/computer/display-session', {
@@ -51,8 +67,12 @@ const reconnect = () => {
       });
       const session = response.ok ? await response.json() : null;
       if (session?.websocketPath) connect(session.websocketPath, session.viewOnly);
-      else reconnect();
-    } catch {
+      else {
+        note('session-unavailable', 'HTTP ' + response.status);
+        reconnect();
+      }
+    } catch (error) {
+      note('session-error', String(error));
       reconnect();
     }
   }, Math.min(10000, 500 * attempt));
