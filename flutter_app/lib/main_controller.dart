@@ -3290,21 +3290,41 @@ class NeoAgentController extends ChangeNotifier {
     isRefreshingDevices = true;
     notifyListeners();
     try {
-      final responses = await Future.wait(<Future<Map<String, dynamic>>>[
-        _backendClient.fetchComputerStatus(
-          backendUrl,
-          deviceTarget: deviceTarget,
+      // Each surface is refreshed independently: a computer runtime that fails
+      // to report must not wipe the Android or Teach state along with it.
+      Object? failure;
+      Future<void> refresh(
+        Future<Map<String, dynamic>> Function() fetch,
+        void Function(Map<String, dynamic>) apply,
+      ) async {
+        try {
+          apply(Map<String, dynamic>.from(await fetch()));
+        } catch (error) {
+          failure ??= error;
+        }
+      }
+
+      await Future.wait(<Future<void>>[
+        refresh(
+          () => _backendClient.fetchComputerStatus(
+            backendUrl,
+            deviceTarget: deviceTarget,
+          ),
+          (value) => computerRuntime = value,
         ),
-        _backendClient.fetchAndroidStatus(backendUrl),
-        _backendClient.fetchTeachStatus(backendUrl),
+        refresh(
+          () => _backendClient.fetchAndroidStatus(backendUrl),
+          (value) => androidRuntime = value,
+        ),
+        refresh(
+          () => _backendClient.fetchTeachStatus(backendUrl),
+          (value) => teachRuntime = value,
+        ),
       ]);
-      computerRuntime = Map<String, dynamic>.from(responses[0]);
-      final androidResponse = responses[1];
-      teachRuntime = Map<String, dynamic>.from(responses[2]);
-      androidRuntime = Map<String, dynamic>.from(androidResponse);
       if (_desktopCompanion.enabled) {
         await _desktopCompanion.refreshLocalStatus();
       }
+      if (failure != null) errorMessage = _friendlyErrorMessage(failure!);
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -3755,6 +3775,19 @@ class NeoAgentController extends ChangeNotifier {
       isRunningDeviceAction = false;
       notifyListeners();
     }
+  }
+
+  /// Android-only status poll. Kept separate from [refreshDevices] so a failing
+  /// computer runtime cannot blank out the Android panel, and so the boot
+  /// progress can be polled cheaply while the emulator comes up.
+  Future<void> refreshAndroidRuntime() async {
+    if (!isAuthenticated) return;
+    try {
+      androidRuntime = Map<String, dynamic>.from(
+        await _backendClient.fetchAndroidStatus(backendUrl),
+      );
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> startAndroidRuntime() async {

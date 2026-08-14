@@ -27,6 +27,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
   );
   _DeviceTab _device = _DeviceTab.computer;
   bool _teachComposerVisible = false;
+  Timer? _androidPollTimer;
 
   @override
   void initState() {
@@ -38,13 +39,30 @@ class _DevicesPanelState extends State<DevicesPanel> {
         );
       }
     });
+    // The emulator boots asynchronously, so the panel has to poll: without this
+    // "Start Android" looks like it does nothing until the page is reloaded.
+    _androidPollTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(_pollAndroid()),
+    );
   }
 
   @override
   void dispose() {
+    _androidPollTimer?.cancel();
     _teachGoalController.dispose();
     _androidAppController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pollAndroid() async {
+    if (!mounted || widget.computerOnly) return;
+    if (_device != _DeviceTab.android) return;
+    final controller = widget.controller;
+    if (controller.isRunningDeviceAction) return;
+    await controller.refreshAndroidRuntime();
+    if (!mounted) return;
+    await controller.refreshAndroidFrameRuntime();
   }
 
   @override
@@ -359,6 +377,11 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final online = devices.any(
       (device) => device['status']?.toString() == 'device',
     );
+    final starting = !online && controller.androidRuntime['starting'] == true;
+    final startupPhase =
+        controller.androidRuntime['startupPhase']?.toString().trim() ?? '';
+    final startError =
+        controller.androidRuntime['lastStartError']?.toString().trim() ?? '';
     final screenshotPath = controller.androidScreenshotPath;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -369,14 +392,36 @@ class _DevicesPanelState extends State<DevicesPanel> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: <Widget>[
-                Icon(
-                  Icons.circle,
-                  size: 12,
-                  color: online ? Colors.green : Colors.grey,
-                ),
+                if (starting)
+                  const SizedBox.square(
+                    dimension: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Icon(
+                    Icons.circle,
+                    size: 12,
+                    color: online
+                        ? Colors.green
+                        : startError.isEmpty
+                        ? Colors.grey
+                        : Theme.of(context).colorScheme.error,
+                  ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(online ? 'Android ready' : 'Android stopped'),
+                  child: Text(
+                    online
+                        ? 'Android ready'
+                        : starting
+                        ? startupPhase.isEmpty
+                              ? 'Starting Android…'
+                              : startupPhase
+                        : startError.isEmpty
+                        ? 'Android stopped'
+                        : startError,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (online) ...<Widget>[
                   OutlinedButton.icon(
@@ -393,7 +438,14 @@ class _DevicesPanelState extends State<DevicesPanel> {
                         : controller.stopAndroidRuntime,
                     child: const Text('Stop'),
                   ),
-                ] else
+                ] else if (starting)
+                  TextButton(
+                    onPressed: controller.isRunningDeviceAction
+                        ? null
+                        : controller.stopAndroidRuntime,
+                    child: const Text('Cancel'),
+                  )
+                else
                   FilledButton.icon(
                     onPressed: controller.isRunningDeviceAction
                         ? null
@@ -434,12 +486,27 @@ class _DevicesPanelState extends State<DevicesPanel> {
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
             color: Colors.black,
-            child: !online
-                ? const _ComputerEmptyState(
+            child: starting
+                ? _ComputerEmptyState(
                     icon: Icons.android_rounded,
-                    title: 'Android is stopped',
-                    message:
-                        'Start the managed Android environment when you need it.',
+                    title: 'Starting Android',
+                    message: startupPhase.isEmpty
+                        ? 'The first start downloads the Android SDK and system image, which can take several minutes.'
+                        : startupPhase,
+                    action: const SizedBox(
+                      width: 220,
+                      child: LinearProgressIndicator(),
+                    ),
+                  )
+                : !online
+                ? _ComputerEmptyState(
+                    icon: Icons.android_rounded,
+                    title: startError.isEmpty
+                        ? 'Android is stopped'
+                        : 'Android could not start',
+                    message: startError.isEmpty
+                        ? 'Start the managed Android environment when you need it.'
+                        : startError,
                   )
                 : screenshotPath == null
                 ? _ComputerEmptyState(
@@ -490,10 +557,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
 }
 
 class _DeviceSurfaceSwitch extends StatelessWidget {
-  const _DeviceSurfaceSwitch({
-    required this.value,
-    required this.onChanged,
-  });
+  const _DeviceSurfaceSwitch({required this.value, required this.onChanged});
 
   final _DeviceTab value;
   final ValueChanged<_DeviceTab> onChanged;
@@ -788,7 +852,8 @@ _computerStatusPresentation(
       if (desktopDown) {
         return (
           title: 'Desktop failed to start',
-          subtitle: desktop['error']?.toString().ifEmpty(
+          subtitle:
+              desktop['error']?.toString().ifEmpty(
                 'The Linux graphical session is not running.',
               ) ??
               'The Linux graphical session is not running.',
