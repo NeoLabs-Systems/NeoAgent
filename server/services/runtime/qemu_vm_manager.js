@@ -16,7 +16,6 @@ const {
   ensurePrivateFile,
 } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
-const { trace } = require('./trace');
 const {
   COMPUTER_DISPLAY_HEIGHT,
   COMPUTER_DISPLAY_WIDTH,
@@ -817,13 +816,6 @@ class QemuVMManager {
     const key = String(userId || '').trim();
     if (!key) throw new Error('Cloud computer requires a user ID.');
     const existing = this.instances.get(key);
-    trace('vm.ensure', {
-      user: key,
-      tracked: Boolean(existing),
-      alive: existing ? isProcessAlive(existing.process) : false,
-      pid: existing?.process?.pid,
-      pending: this.#pending.has(key),
-    });
     if (existing && isProcessAlive(existing.process)) return existing;
     if (existing) this.instances.delete(key);
     if (this.#pending.has(key)) return this.#pending.get(key);
@@ -859,7 +851,6 @@ class QemuVMManager {
     const instanceDir = path.join(INSTANCE_ROOT, userDirectoryKey(key));
     ensurePrivateDirectory(instanceDir);
     const orphanPids = findOrphanedVmPids(instanceDir);
-    trace('vm.orphan-scan', { user: key, found: orphanPids.length, pids: orphanPids });
     if (orphanPids.length > 0) {
       logger.warn(`Reclaiming computer for user ${key} from ${orphanPids.length} orphaned QEMU process(es): ${orphanPids.join(', ')}.`);
       const terminated = await Promise.all(orphanPids.map(terminateOrphanedVm));
@@ -1041,34 +1032,13 @@ class QemuVMManager {
       session.lastError = error.message;
     });
     child.once('exit', (code, signal) => {
-      trace('vm.exit', {
-        user: key,
-        pid: child.pid,
-        code,
-        signal,
-        state: session.state,
-        uptimeMs: Date.now() - Date.parse(session.startedAt),
-      });
       if (session.state !== 'stopping') {
         session.state = 'error';
         session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
       }
       this.onVmStopped?.(key);
     });
-    const displayListening = await waitForLoopbackPort(websocketPort, 10000);
-    trace('vm.display-listening', { user: key, port: websocketPort, listening: displayListening });
-    trace('vm.started', {
-      user: key,
-      pid: child.pid,
-      directBoot: session.directBoot,
-      agentPort: hostAgentPort,
-      vncWebsocket: websocketPort,
-      vncPort: vnc.port,
-      qmp: qmpSocket,
-      memoryMb: resources.memoryMb,
-      cpus: resources.cpus,
-      instanceDir,
-    });
+    await waitForLoopbackPort(websocketPort, 10000);
     logger.info(`Started computer for user ${key} with ${resources.memoryMb} MiB and ${resources.cpus} vCPU.`);
     return session;
   }
@@ -1078,11 +1048,6 @@ class QemuVMManager {
     this.#transientStatus.delete(key);
     const session = this.instances.get(key);
     this.instances.delete(key);
-    trace('vm.kill', {
-      user: key,
-      pid: session?.process?.pid,
-      alive: session ? isProcessAlive(session.process) : false,
-    });
     if (!session?.process || !isProcessAlive(session.process)) return;
     session.state = 'stopping';
     const exited = new Promise((resolve) => session.process.once('exit', resolve));

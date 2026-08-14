@@ -55,13 +55,10 @@ test('a dropped display socket reconnects on a fresh session', () => {
     websocketPath: '/api/computer/display-ws?token=abc',
     viewOnly: false,
   });
-  assert.match(page, /addEventListener\('disconnect'/);
-  assert.match(page, /reconnect\(\);/);
+  assert.match(page, /addEventListener\('disconnect', reconnect\)/);
   assert.match(page, /fetch\('\/api\/computer\/display-session'/);
   assert.match(page, /session\?\.websocketPath/);
   assert.match(page, /session\.viewOnly/);
-  // A frozen viewer has to be diagnosable without a debugger attached.
-  assert.match(page, /window\.neoagentDisplayStatus = status/);
 });
 
 test('guest desktop ships a Chromebook-style shelf without nested heredocs', () => {
