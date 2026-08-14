@@ -126,6 +126,30 @@ test('retired system disks are not charged against the host storage reserve', (t
   }
 });
 
+test('QMP falls back to loopback when a UNIX socket path would be too long', () => {
+  const shortPath = '/runtime/user/qmp.sock';
+  const longPath = `/${'deep-runtime-home/'.repeat(6)}instance/qmp.sock`;
+  assert.ok(Buffer.byteLength(longPath) >= 104);
+
+  const argsFor = (qmpSocket) => buildQemuArgs({
+    architecture: 'x64',
+    accelerators: ['kvm'],
+    memoryMb: 1536,
+    cpus: 1,
+    systemDisk: '/runtime/user/system.qcow2',
+    dataDisk: '/runtime/user/data.qcow2',
+    seedImage: '/runtime/user/seed.img',
+    guestAgentPort: 8421,
+    hostAgentPort: 18421,
+    vncDisplay: 10,
+    websocketPort: 16080,
+    qmpSocket,
+  }).join(' ');
+
+  assert.match(argsFor(shortPath), /-qmp unix:\/runtime\/user\/qmp\.sock/);
+  assert.match(argsFor(17009), /-qmp tcp:127\.0\.0\.1:17009,server=on,wait=off/);
+});
+
 test('only a live process still serving this instance counts as an orphan', (t) => {
   if (process.platform === 'win32') {
     t.skip('orphan reclaim is POSIX-only');

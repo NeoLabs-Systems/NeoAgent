@@ -438,7 +438,7 @@ function buildQemuArgs({
     '-device', 'virtio-net-pci,netdev=net0,romfile=',
     '-display', 'none',
     '-vnc', `127.0.0.1:${vncDisplay},websocket=127.0.0.1:${websocketPort}`,
-    '-qmp', process.platform === 'win32'
+    '-qmp', typeof qmpSocket === 'number'
       ? `tcp:127.0.0.1:${qmpSocket},server=on,wait=off`
       : `unix:${qmpSocket},server=on,wait=off`,
     '-serial', 'mon:stdio',
@@ -882,9 +882,12 @@ class QemuVMManager {
     const hostAgentPort = await findAvailablePort();
     const websocketPort = await findAvailablePort();
     const vnc = await findVncDisplay();
-    const qmpSocket = process.platform === 'win32'
+    // sockaddr_un caps a UNIX socket path at 104 bytes, and QEMU refuses to start when the
+    // instance directory pushes it past that, so a deep runtime home falls back to loopback.
+    const instanceQmpSocket = path.join(instanceDir, 'qmp.sock');
+    const qmpSocket = process.platform === 'win32' || Buffer.byteLength(instanceQmpSocket) >= 104
       ? await findAvailablePort()
-      : path.join(instanceDir, 'qmp.sock');
+      : instanceQmpSocket;
     if (typeof qmpSocket === 'string') fs.rmSync(qmpSocket, { force: true });
     const guestTokenPath = path.join(instanceDir, 'guest-token');
     let guestToken = fs.existsSync(guestTokenPath)
