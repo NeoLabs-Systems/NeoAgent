@@ -214,6 +214,16 @@ function walkVirtualDisks(directory) {
   return files;
 }
 
+// `-U` reads an image a running guest still holds open. Without it every query against a
+// live computer fails on the QEMU write lock.
+function readVirtualDiskInfo(qemuImgBinary, diskPath) {
+  try {
+    return JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', '-U', diskPath]));
+  } catch {
+    return null;
+  }
+}
+
 // Only disks a running guest can still grow into are a liability. Retired system disks are
 // frozen copies, and a disk that is about to be retired stops growing the moment it is
 // replaced, so neither may be charged against the host storage reserve.
@@ -222,14 +232,11 @@ function getSparseDiskLiabilityBytes(qemuImgBinary, directory, retiringDisk = nu
     path.basename(diskPath) === 'system.previous.qcow2' || diskPath === retiringDisk
   );
   return walkVirtualDisks(directory).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
-    try {
-      const info = JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', diskPath]));
-      const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
-      const actualSize = Math.max(0, Number(info['actual-size'] || 0));
-      return total + Math.max(0, virtualSize - actualSize);
-    } catch {
-      return total;
-    }
+    const info = readVirtualDiskInfo(qemuImgBinary, diskPath);
+    if (!info) return total;
+    const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
+    const actualSize = Math.max(0, Number(info['actual-size'] || 0));
+    return total + Math.max(0, virtualSize - actualSize);
   }, 0);
 }
 
@@ -256,12 +263,10 @@ function loadStoredResourceOptions() {
 }
 
 function ensureVirtualDiskSize(qemuImgBinary, diskPath, minimumGiB) {
-  let currentBytes = 0;
-  try {
-    const info = JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', diskPath]));
-    currentBytes = Number(info['virtual-size'] || 0);
-  } catch {}
-  if (currentBytes < minimumGiB * 1024 ** 3) {
+  const currentBytes = Number(readVirtualDiskInfo(qemuImgBinary, diskPath)?.['virtual-size'] || 0);
+  // Resizing a disk whose size could not be read would mean writing to an image that may
+  // still be open elsewhere, so leave it to QEMU to report the real problem.
+  if (currentBytes > 0 && currentBytes < minimumGiB * 1024 ** 3) {
     runChecked(qemuImgBinary, ['resize', diskPath, `${minimumGiB}G`]);
   }
 }
@@ -443,6 +448,49 @@ function buildQemuArgs({
 
 function isProcessAlive(processHandle) {
   return Boolean(processHandle && processHandle.exitCode == null && !processHandle.killed);
+}
+
+// A QEMU that outlived the server holds the write lock on its disks, so the next start
+// fails on every image operation. Only a process whose command line still points at this
+// instance is ours to reclaim.
+function findOrphanedVmPid(instanceDir) {
+  const pidPath = path.join(instanceDir, 'qemu.pid');
+  const pid = Number(fs.existsSync(pidPath) ? fs.readFileSync(pidPath, 'utf8').trim() : 0);
+  if (!Number.isInteger(pid) || pid <= 1 || process.platform === 'win32') return null;
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return null;
+  }
+  const probe = spawnSync('ps', ['-p', String(pid), '-o', 'command='], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  return probe.status === 0 && probe.stdout.includes(instanceDir) ? pid : null;
+}
+
+async function terminateOrphanedVm(pid) {
+  const exited = async (waitMs) => {
+    const deadline = Date.now() + waitMs;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  try { process.kill(pid, 'SIGTERM'); } catch {}
+  if (await exited(5000)) return true;
+  try { process.kill(pid, 'SIGKILL'); } catch {}
+  return exited(3000);
 }
 
 function isQueueableCapacityError(error) {
@@ -774,6 +822,16 @@ class QemuVMManager {
     const baseImage = await this.#ensureBaseImage();
     const instanceDir = path.join(INSTANCE_ROOT, userDirectoryKey(key));
     ensurePrivateDirectory(instanceDir);
+    const orphanPid = findOrphanedVmPid(instanceDir);
+    if (orphanPid) {
+      logger.warn(`Reclaiming computer for user ${key} from orphaned QEMU process ${orphanPid}.`);
+      if (!await terminateOrphanedVm(orphanPid)) {
+        const error = new Error('A previous computer process is still holding this computer. Restart NeoAgent to release it.');
+        error.code = 'COMPUTER_DISK_LOCKED';
+        error.status = 409;
+        throw error;
+      }
+    }
     const systemDisk = path.join(instanceDir, 'system.qcow2');
     const dataDisk = path.join(instanceDir, 'data.qcow2');
     const baseBuildMarker = path.join(instanceDir, 'base-build');
@@ -909,6 +967,8 @@ class QemuVMManager {
       windowsHide: true,
     });
     fs.closeSync(logDescriptor);
+    const pidPath = path.join(instanceDir, 'qemu.pid');
+    fs.writeFileSync(pidPath, `${child.pid}\n`, { mode: 0o600 });
 
     const session = {
       instanceDir,
@@ -942,6 +1002,7 @@ class QemuVMManager {
       session.lastError = error.message;
     });
     child.once('exit', (code, signal) => {
+      fs.rmSync(pidPath, { force: true });
       if (session.state !== 'stopping') {
         session.state = 'error';
         session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
@@ -999,6 +1060,7 @@ module.exports = {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  findOrphanedVmPid,
   getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,

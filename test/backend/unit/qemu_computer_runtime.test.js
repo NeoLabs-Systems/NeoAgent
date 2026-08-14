@@ -5,13 +5,14 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  findOrphanedVmPid,
   getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
@@ -122,6 +123,32 @@ test('retired system disks are not charged against the host storage reserve', (t
     assert.ok(replacing > 3.5 * GIB && replacing < 4.5 * GIB, `expected only the data disk, got ${replacing}`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('only a live process still serving this instance counts as an orphan', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('orphan reclaim is POSIX-only');
+    return;
+  }
+  const instanceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-orphan-'));
+  const child = spawn(
+    process.execPath,
+    ['-e', 'setTimeout(() => {}, 30000)', `${instanceDir}/system.qcow2`],
+    { stdio: 'ignore' },
+  );
+  try {
+    fs.writeFileSync(path.join(instanceDir, 'qemu.pid'), `${child.pid}\n`);
+    assert.equal(findOrphanedVmPid(instanceDir), child.pid);
+
+    fs.writeFileSync(path.join(instanceDir, 'qemu.pid'), `${process.pid}\n`);
+    assert.equal(findOrphanedVmPid(instanceDir), null, 'a process unrelated to this instance is never killed');
+
+    fs.rmSync(path.join(instanceDir, 'qemu.pid'));
+    assert.equal(findOrphanedVmPid(instanceDir), null);
+  } finally {
+    child.kill('SIGKILL');
+    fs.rmSync(instanceDir, { recursive: true, force: true });
   }
 });
 
