@@ -187,21 +187,16 @@ the system prompt:
 SUBSCRIPTION: User is on the "Pro" plan, status: active.
 ```
 
-Agents and workflows can use this context to adapt their behavior — for
-example, acknowledging feature limitations on a free plan or confirming
-capabilities on a paid one.
+This lets the agent answer questions about the user's plan without promising
+models or limits the plan does not include.
 
 ## Admin controls
 
 The **Admin › Billing** page provides:
 
-- **Plans**: Create, edit, and deactivate subscription plans
-- **Subscriptions**: Browse all user subscriptions with status filter and
-  pagination; override a user's plan without going through Stripe
-
-Override a user's plan directly from the subscriptions table using the
-**Override** button. This is useful for comped accounts, support escalations,
-or fixing a webhook gap.
+- **Plans** — create, edit, and deactivate subscription plans
+- **Subscriptions** — every user subscription, with status filter and pagination
+- **Override** — per-row button that assigns a user to a plan without going through Stripe, for comped accounts or repairing a missed webhook
 
 ## Configuration reference
 

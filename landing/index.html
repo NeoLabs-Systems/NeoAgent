@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NeoAgent — One agent for your whole digital life</title>
-  <meta name="description" content="NeoAgent is the private AI agent that watches, listens, and acts across your devices, browser, voice, and messaging. Cloud or self-hosted.">
+  <title>NeoAgent — the agent that keeps working after the chat ends</title>
+  <meta name="description" content="NeoAgent is a self-hosted AI agent that runs as a service: it browses, remembers, drives your devices, and keeps working after you close the tab.">
   <meta name="theme-color" content="#0e1511" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f1e8" media="(prefers-color-scheme: light)">
-  <meta property="og:title" content="NeoAgent — One agent for your whole digital life">
-  <meta property="og:description" content="A calm control surface for an AI agent that keeps working after the chat ends.">
+  <meta property="og:title" content="NeoAgent — the agent that keeps working after the chat ends">
+  <meta property="og:description" content="A self-hosted AI agent with a calm control surface. It browses, remembers, drives your devices — and doesn't stop when you do.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" href="images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,420;0,9..144,560;0,9..144,640;1,9..144,420&family=IBM+Plex+Mono:wght@450;500;600&family=Inter:wght@440;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -65,17 +65,16 @@
       </a>
 
       <nav class="nav-links" aria-label="Primary">
-        <a href="#features">Features</a>
-        <a href="#channels">Channels</a>
-        <a href="#how">How it works</a>
-        <a href="#privacy">Privacy</a>
+        <a href="#surface">The surface</a>
+        <a href="#devices">Devices</a>
+        <a href="#selfhost">Self-host</a>
         <a href="/status">Status</a>
       </nav>
 
       <div class="nav-actions">
         <a class="btn btn-ghost signin" href="/app">Sign in</a>
-        <a class="btn btn-secondary" href="#features">Explore</a>
-        <button class="nav-toggle" type="button" aria-label="Open menu" data-nav-toggle>
+        <a class="btn btn-primary" href="https://github.com/NeoLabs-Systems/NeoAgent">GitHub</a>
+        <button class="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-nav-toggle>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"></path>
           </svg>
@@ -84,384 +83,318 @@
     </div>
 
     <div class="mobile-menu" data-mobile-menu>
-      <a href="#features">Features</a>
-      <a href="#channels">Channels</a>
-      <a href="#how">How it works</a>
-      <a href="#privacy">Privacy</a>
+      <a href="#surface">The surface</a>
+      <a href="#devices">Devices</a>
+      <a href="#selfhost">Self-host</a>
       <a href="/status">Status</a>
+      <a href="https://github.com/NeoLabs-Systems/NeoAgent">GitHub</a>
       <a class="btn btn-primary signin" href="/app">Sign in</a>
     </div>
   </header>
 
   <main id="top">
+
+    <!-- ============================== HERO ============================== -->
     <section class="hero">
       <div class="wrap">
         <div class="hero-grid">
-          <div class="hero-copy reveal">
-            <div class="pill">
-              <span class="tag">Beta</span>
-              <span>Private agent OS for your whole digital life</span>
-            </div>
-            <h1>
-              One agent for your
-              <span class="accent">whole digital life</span>
-            </h1>
-            <p class="lede">
-              NeoAgent watches, listens, and acts across your devices, browser, voice, and messaging —
-              one calm operator that keeps working after the chat ends.
+          <div class="hero-copy">
+            <p class="hero-kicker reveal"><span class="live-dot" aria-hidden="true"></span>Open source · self-hosted · running somewhere right now</p>
+            <h1 class="reveal" data-d="1">Still working<br>after you <em>close the tab.</em></h1>
+            <p class="lede reveal" data-d="2">
+              Most assistants stop existing the moment you stop typing. NeoAgent runs as a
+              service on your own machine — it browses, remembers, drives your devices,
+              and quietly finishes the job while you go do something else.
             </p>
-            <div class="hero-actions">
-              <a class="btn btn-primary btn-lg" href="/app">
-                Open control surface
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
+            <div class="hero-actions reveal" data-d="3">
+              <a class="btn btn-primary btn-lg" href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest">
+                Get NeoAgent
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
               </a>
-              <a class="btn btn-secondary btn-lg" href="#how">See how it works</a>
+              <a class="btn btn-secondary btn-lg" href="#surface">Watch it work</a>
             </div>
-            <div class="hero-meta">
-              <span class="micro-chip"><span class="dot"></span> Cloud or self-hosted</span>
-              <span class="sep" aria-hidden="true"></span>
-              <span class="hero-note">Works with browser, phone, desktop, and chat apps</span>
-            </div>
+            <p class="hero-note reveal" data-d="4">macOS · Windows · Linux — no terminal required</p>
           </div>
 
-          <div class="product-stage reveal" data-d="1">
-            <div class="float-card a glass">
-              <div class="label"><span>Live run</span><span class="status"><i></i>Active</span></div>
-              <strong>Evening wind-down</strong>
-              <p>Dim lights, silence channels, queue tomorrow’s brief.</p>
-            </div>
-
-            <div class="product-frame">
-              <div class="frame-chrome">
-                <div class="traffic" aria-hidden="true">
-                  <span style="background:#e26e61"></span>
-                  <span style="background:#e0b24a"></span>
-                  <span style="background:#4bbf85"></span>
+          <!-- Live replica of the actual control surface -->
+          <div class="hero-demo reveal" data-d="2">
+            <div class="surface-app" data-tilt data-chat-demo aria-label="Interactive preview of the NeoAgent chat surface">
+              <aside class="sa-side" aria-hidden="true">
+                <div class="sa-brand">
+                  <span class="sa-logo">
+                    <svg viewBox="0 0 100 100">
+                      <rect width="100" height="100" rx="22.5" fill="url(#nb-tile)"></rect>
+                      <g fill="none" stroke="url(#nb-tube)" stroke-linecap="round">
+                        <circle cx="50" cy="50" r="17" stroke-width="5" stroke-dasharray="78 29"></circle>
+                        <circle cx="50" cy="50" r="30" stroke-width="5" stroke-dasharray="150 39" stroke-opacity=".8"></circle>
+                      </g>
+                      <circle cx="50" cy="50" r="7" fill="url(#nb-core)"></circle>
+                    </svg>
+                  </span>
+                  <span class="sa-brand-text">NeoAgent<small>control surface</small></span>
                 </div>
-                <div class="url">
-                  <span class="live" aria-hidden="true"></span>
-                  control surface
+                <div class="sa-nav">
+                  <span class="sa-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path></svg>Chat</span>
+                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 4 5-8 4 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Timeline</span>
+                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.7 4.5L18 9l-4.3 1.5L12 15l-1.7-4.5L6 9l4.3-1.5L12 3Z" stroke-linejoin="round"></path><path d="m18.5 14.5.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" stroke-linejoin="round"></path></svg>Automation</span>
+                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"></path><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="7" cy="17" r="1.6" fill="currentColor" stroke="none"></circle></svg>Settings</span>
+                </div>
+                <div class="sa-user"><span class="sa-avatar">N</span>Neo</div>
+              </aside>
+
+              <div class="sa-main">
+                <div class="sa-topbar">
+                  <span class="sa-crumb"><strong>Chat</strong><span class="sep">/</span>Main</span>
+                  <span class="sa-status" data-demo-status><i></i>idle</span>
+                </div>
+                <div class="sa-thread" data-demo-thread aria-live="polite"></div>
+                <div class="sa-composer">
+                  <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 12-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L16 7" stroke-linecap="round"></path></svg>
+                  <span class="sa-input" data-demo-input><span class="sa-placeholder">Ask a question or start a task…</span><span class="caret" aria-hidden="true"></span></span>
+                  <span class="sa-btn call" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" stroke-linejoin="round"></path></svg></span>
+                  <span class="sa-btn send" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 18 18 6M9 6h9v9" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
                 </div>
               </div>
-              <div class="frame-body shot-pair">
-                <img class="lm" src="images/dashboard-light.png" alt="NeoAgent dashboard in light mode" width="1600" height="1000" loading="eager" fetchpriority="high">
-                <img class="dm" src="images/dashboard-dark.png" alt="NeoAgent dashboard in dark mode" width="1600" height="1000" loading="eager" fetchpriority="high">
-              </div>
             </div>
 
-            <div class="float-card b glass">
-              <div class="label"><span>Memory</span><span class="status" style="color:var(--gold-ink)"><i style="background:var(--gold)"></i>Updated</span></div>
-              <strong>Structured recall</strong>
-              <p>Facts, entities, and preferences — editable anytime.</p>
+            <div class="demo-picker" role="group" aria-label="Try another request">
+              <span class="demo-picker-label">Try one:</span>
+              <button type="button" class="demo-chip is-active" data-scenario="0">Morning brief</button>
+              <button type="button" class="demo-chip" data-scenario="1">Real errand</button>
+              <button type="button" class="demo-chip" data-scenario="2">Set a trigger</button>
             </div>
           </div>
         </div>
       </div>
+      <div class="hero-fade" aria-hidden="true"></div>
     </section>
 
-    <section id="channels" class="marquee-zone" aria-label="Connected channels">
-      <p class="marquee-label eyebrow reveal">Connects to the tools you already live in</p>
-      <div class="mtrack" style="--mdur:38s">
-        <div class="mrow" data-marquee>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5 2 12l6 2 2 6 3-4 5 4 3-15Z" stroke-linejoin="round"></path></svg>Telegram</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-4.5-7.8L21 3l-1.2 4.5A8.96 8.96 0 0 1 21 12Z" stroke-linejoin="round"></path></svg>WhatsApp</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18" stroke-linecap="round"></path></svg>Live browser</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2.5"></rect><path d="M11 18h2" stroke-linecap="round"></path></svg>Phone &amp; desktop</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke-linecap="round"></path></svg>Voice</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 8 6 8-6" stroke-linecap="round" stroke-linejoin="round"></path><rect x="3" y="5" width="18" height="14" rx="2"></rect></svg>Email</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"></path></svg>MCP &amp; tools</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M3 9h18M8 2v4M16 2v4" stroke-linecap="round"></path></svg>Calendar</span>
-        </div>
-      </div>
-      <div class="mtrack rev" style="--mdur:52s">
-        <div class="mrow" data-marquee>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="15" rx="2"></rect><path d="M8 21h8M12 18v3" stroke-linecap="round"></path></svg>Remote browser</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z" stroke-linejoin="round"></path></svg>Automations</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 1 6 6v2H6V8a6 6 0 0 1 6-6ZM4 10h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10Z"></path></svg>Secure runtime</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 7a4 4 0 0 0-5.4 5.4L4 17l3 3 4.6-4.6A4 4 0 0 0 17 10l-2.5 2.5L12 10l2.5-2.5Z" stroke-linejoin="round"></path></svg>Credentials vault</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M14 3v6h6"></path></svg>Structured memory</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 0-9-9" stroke-linecap="round"></path><path d="M12 7v5l3 2" stroke-linecap="round"></path></svg>Scheduled tasks</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8h10M7 12h6" stroke-linecap="round"></path><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path></svg>Messaging bridges</span>
-          <span class="channel-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V7l-8-4Z"></path></svg>Self-hosted control</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="capabilities">
+    <!-- ============================== MANIFESTO ============================== -->
+    <section class="section manifesto" id="why">
       <div class="wrap">
-        <div class="section-head center reveal">
-          <span class="eyebrow">Control surface</span>
-          <h2>Designed like an operator console, not a chat toy.</h2>
-          <p class="lede">
-            NeoAgent keeps tasks, memory, devices, and integrations in one place —
-            so the agent can keep moving without making you babysit every step.
-          </p>
-        </div>
-
-        <div class="bento">
-          <article class="bento-card wide reveal">
-            <div class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h10M4 17h7" stroke-linecap="round"></path></svg>
+        <div class="manifesto-inner">
+          <p class="big-line reveal">A chat window forgets you the moment it answers.
+            <span class="dim">NeoAgent is built the other way around:</span> it's a service with
+            memory, hands, and a schedule — and the chat is just one door into it.</p>
+          <div class="manifesto-row">
+            <div class="m-item reveal">
+              <span class="m-num">01</span>
+              <h3>It has hands</h3>
+              <p>A real browser, a terminal, your Android phone, your desktop. It taps, types, and scrolls on actual interfaces — no mocked demos.</p>
             </div>
-            <h3>Chat that turns into real work</h3>
-            <p>Ask in plain language or by voice. NeoAgent streams its thinking, picks tools, and follows through across the channels you already use.</p>
-            <div class="meta">
-              <div class="metric"><strong>Live</strong><span>Tool stream</span></div>
-              <div class="metric"><strong>Multi</strong><span>Channel reply</span></div>
-              <div class="metric"><strong>Smart</strong><span>Agent routing</span></div>
+            <div class="m-item reveal" data-d="1">
+              <span class="m-num">02</span>
+              <h3>It has memory</h3>
+              <p>Durable facts stored as structured local data, separate from chat history. Newer information replaces older. You can read, edit, or erase all of it.</p>
             </div>
-            <div class="bento-visual shot-pair">
-              <img class="lm" src="images/dashboard-light.png" alt="NeoAgent chat and operations surface" loading="lazy">
-              <img class="dm" src="images/dashboard-dark.png" alt="NeoAgent chat and operations surface" loading="lazy">
+            <div class="m-item reveal" data-d="2">
+              <span class="m-num">03</span>
+              <h3>It has a schedule</h3>
+              <p>Routines and event triggers keep running while you sleep. Every action lands in a log you can inspect — or stop.</p>
             </div>
-          </article>
-
-          <article class="bento-card mid reveal" data-d="1">
-            <div class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2.5"></rect><path d="M11 18h2" stroke-linecap="round"></path></svg>
-            </div>
-            <h3>Drive real surfaces</h3>
-            <p>Browser, phone, and desktop control that works on actual interfaces — not mocked demos.</p>
-            <div class="meta">
-              <span class="micro-chip gold"><span class="dot"></span> Take over anytime</span>
-            </div>
-            <div class="bento-visual shot-pair">
-              <img class="lm" src="images/remote-devices-light.png" alt="NeoAgent remote device control" loading="lazy">
-              <img class="dm" src="images/remote-devices-dark.png" alt="NeoAgent remote device control" loading="lazy">
-            </div>
-          </article>
-
-          <article class="bento-card third reveal">
-            <div class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7v5c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V7l-8-4Z"></path></svg>
-            </div>
-            <h3>Private by design</h3>
-            <p>Self-host on your hardware or run cloud — either way, your memory and credentials stay under your control.</p>
-          </article>
-
-          <article class="bento-card third reveal" data-d="1">
-            <div class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l2.5 1.5" stroke-linecap="round"></path><circle cx="12" cy="12" r="9"></circle></svg>
-            </div>
-            <h3>Runs after chat ends</h3>
-            <p>Scheduled and event-triggered tasks keep going while you step away. Full logs stay visible.</p>
-          </article>
-
-          <article class="bento-card third reveal" data-d="2">
-            <div class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M14 3v6h6"></path></svg>
-            </div>
-            <h3>Memory that compounds</h3>
-            <p>Structured facts, entities, and reflections — so NeoAgent never needs re-briefing from scratch.</p>
-          </article>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section-tight" id="how">
+    <!-- ============================== SCROLLYTELLING ============================== -->
+    <section class="story-section" id="surface">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="eyebrow">The control surface</span>
+          <h2>Scroll. It's already doing things.</h2>
+        </div>
+
+        <div class="story" data-story>
+          <div class="story-stage-wrap">
+            <div class="story-stage" data-tilt>
+
+              <!-- Panel 1 · Chat -->
+              <div class="story-panel is-active" data-panel="0">
+                <div class="panel-chrome"><span class="pc-dot"></span><span class="pc-title">Chat · live tool stream</span><span class="pc-steps" aria-hidden="true" data-pc-steps><i class="on"></i><i></i><i></i></span></div>
+                <div class="panel-body chat-panel">
+                  <div class="pb-meta">18:42 · from Telegram</div>
+                  <div class="pb-msg user">Book something nice for Friday dinner, two people, near the river.</div>
+                  <div class="pb-tools">
+                    <span class="tool-chip on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18" stroke-linecap="round"></path></svg>Browser</span>
+                    <span class="tool-chip on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path></svg>Memory</span>
+                    <span class="tool-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M3 9h18M8 2v4M16 2v4" stroke-linecap="round"></path></svg>Calendar</span>
+                  </div>
+                  <div class="pb-msg agent">Found three with terrace seats. You liked the quiet one on Hafenstraße last time — booked 19:30 for two, confirmation is in your mail. Calendar entry added.</div>
+                  <div class="pb-foot"><i></i>4 tool calls · full log available</div>
+                </div>
+              </div>
+
+              <!-- Panel 2 · Memory -->
+              <div class="story-panel" data-panel="1">
+                <div class="panel-chrome"><span class="pc-dot gold"></span><span class="pc-title">Memory · knowledge graph</span><span class="pc-steps" aria-hidden="true" data-pc-steps><i></i><i class="on"></i><i></i></span></div>
+                <div class="panel-body memory-panel">
+                  <svg class="mem-graph" viewBox="0 0 460 250" data-mem-graph role="img" aria-label="Animated knowledge graph of remembered entities">
+                    <g class="mem-links" stroke-linecap="round"></g>
+                    <g class="mem-nodes"></g>
+                  </svg>
+                  <div class="mem-fact" data-mem-fact>
+                    <div class="mf-chips"><span class="mf-chip kind">episodic</span><span class="mf-chip">Imp 8</span><span class="mf-chip ok">90%</span></div>
+                    <p data-mem-fact-text>Primary workspace is NeoAgent self-hosted on a local Mac mini with Flutter web as the control surface.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel 3 · Automation -->
+              <div class="story-panel" data-panel="2">
+                <div class="panel-chrome"><span class="pc-dot sage"></span><span class="pc-title">Automation · scheduled run</span><span class="pc-steps" aria-hidden="true" data-pc-steps><i></i><i></i><i class="on"></i></span></div>
+                <div class="panel-body run-panel">
+                  <div class="run-head">
+                    <div><h4>Evening wind-down</h4><span class="when">22:00 · every day</span></div>
+                    <span class="run-live"><i></i>Running</span>
+                  </div>
+                  <div class="run-steps" data-run-steps>
+                    <div class="run-step"><span class="rs-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Check the house is asleep</div>
+                    <div class="run-step"><span class="rs-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Dim lights to 40%</div>
+                    <div class="run-step"><span class="rs-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Silence non-urgent channels</div>
+                    <div class="run-step"><span class="rs-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Queue tomorrow's brief</div>
+                  </div>
+                  <div class="run-foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm0 6v4l3 3" stroke-linecap="round"></path></svg>You were asleep for all of this. It's in the log.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="story-steps">
+            <div class="story-step" data-step="0">
+              <span class="eyebrow">Chat</span>
+              <h3>Say it once, in your own words.</h3>
+              <p>Type or talk — from the dashboard, Telegram, WhatsApp, or email. NeoAgent streams its thinking and its tool calls live, so you can watch it work or walk away. Both are fine.</p>
+            </div>
+            <div class="story-step" data-step="1">
+              <span class="eyebrow">Memory</span>
+              <h3>It remembers so you can stop repeating yourself.</h3>
+              <p>Facts, people, preferences, and how they connect — stored as structured data on your machine, not as vibes in a chat log. Hover the graph: everything is inspectable, editable, deletable.</p>
+            </div>
+            <div class="story-step" data-step="2">
+              <span class="eyebrow">Automation</span>
+              <h3>The 10 p.m. version of you has opinions too.</h3>
+              <p>Describe a routine once and it runs on schedule — or fires on events. No node editors, no flowcharts. Plain language in, quiet competence out, and a full run log either way.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== DEVICES ============================== -->
+    <section class="section" id="devices">
       <div class="wrap">
         <div class="split">
-          <div class="run-stage reveal">
-            <div class="run-card">
-              <div class="run-head">
-                <div>
-                  <h4>Evening wind-down</h4>
-                  <div class="when">22:00 · every day</div>
-                </div>
-                <span class="micro-chip"><span class="dot"></span> Running</span>
-              </div>
-              <div class="run-badge"><span class="d"></span> Handling the routine now</div>
-              <div class="run-step" style="--sd:0.3s">
-                <span class="rs-chk"><span class="rs-fill"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                <span>Verify home assistant state</span>
-              </div>
-              <div class="run-step" style="--sd:1.6s">
-                <span class="rs-chk"><span class="rs-fill"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                <span>Dim lights to 40%</span>
-              </div>
-              <div class="run-step" style="--sd:2.9s">
-                <span class="rs-chk"><span class="rs-fill"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                <span>Silence non-urgent channels</span>
-              </div>
-              <div class="run-step" style="--sd:4.2s">
-                <span class="rs-chk"><span class="rs-fill"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                <span>Queue tomorrow’s morning brief</span>
-              </div>
-              <div class="run-foot">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm0 6v4l3 3" stroke-linecap="round"></path></svg>
-                <span>Full run log · viewable anytime</span>
-              </div>
+          <div class="device-visual reveal" data-tilt>
+            <div class="dv-chrome">
+              <span class="dv-traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="dv-url"><span class="live-dot" aria-hidden="true"></span>remote devices</span>
+            </div>
+            <div class="shot-pair">
+              <img class="lm" src="images/remote-devices-light.png" alt="NeoAgent controlling a remote phone and browser" loading="lazy" width="1600" height="1000">
+              <img class="dm" src="images/remote-devices-dark.png" alt="NeoAgent controlling a remote phone and browser" loading="lazy" width="1600" height="1000">
+            </div>
+            <div class="dv-cursor" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6.5 1.5L9 19 5 3z" fill="currentColor"></path></svg>
             </div>
           </div>
-
           <div class="split-copy reveal" data-d="1">
-            <span class="eyebrow">How it works</span>
-            <h2>Describe it once. NeoAgent handles the rest.</h2>
+            <span class="eyebrow">Real hands, real screens</span>
+            <h2>It taps the same buttons you would.</h2>
             <p>
-              Set up routines in plain language — or by voice. NeoAgent picks the right tools,
-              runs each step, and keeps you posted. You always get a full log of every action.
+              NeoAgent operates a live browser, an Android phone, or a desktop the way a person
+              does — finding the field, typing into it, waiting for the page. When it gets stuck,
+              you take over the same screen with one click. No API for that airline's clunky
+              portal? Doesn't matter.
             </p>
-            <ul class="checklist">
-              <li>
-                <span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                Plain-language routines and event triggers
-              </li>
-              <li>
-                <span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                Live tool use across browser, devices, and apps
-              </li>
-              <li>
-                <span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                Transparent logs you can inspect or stop
-              </li>
+            <ul class="plainlist">
+              <li>Live browser, phone &amp; desktop control</li>
+              <li>Watch every session as it happens</li>
+              <li>Take over instantly, hand back just as fast</li>
             </ul>
-            <a class="link-arrow" href="#features">
-              Explore all capabilities
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-            </a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section" id="features">
+    <!-- ============================== CHANNELS ============================== -->
+    <section class="section-tight channels" id="channels">
       <div class="wrap">
-        <div class="section-head center reveal">
-          <span class="eyebrow">What it does</span>
-          <h2>Every capability. One surface.</h2>
-          <p class="lede">
-            Chat, automate, control remote devices, speak, and remember —
-            all managed from a single calm interface.
-          </p>
-        </div>
-
-        <div class="feature-block">
-          <div class="feature-visual reveal">
-            <div class="cap" aria-hidden="true">
-              <span style="background:#e26e61"></span>
-              <span style="background:#e0b24a"></span>
-              <span style="background:#4bbf85"></span>
-            </div>
-            <div class="shot-pair">
-              <img class="lm" src="images/dashboard-light.png" alt="NeoAgent live chat" loading="lazy">
-              <img class="dm" src="images/dashboard-dark.png" alt="NeoAgent live chat" loading="lazy">
-            </div>
+        <div class="channels-inner reveal">
+          <p class="channels-lede">One agent, whichever door you knock on —</p>
+          <div class="channel-grid" data-stagger>
+            <span class="channel-chip">Telegram</span>
+            <span class="channel-chip">WhatsApp</span>
+            <span class="channel-chip">Email</span>
+            <span class="channel-chip">Voice calls</span>
+            <span class="channel-chip">Live browser</span>
+            <span class="channel-chip">Android</span>
+            <span class="channel-chip">Desktop</span>
+            <span class="channel-chip">Calendar</span>
+            <span class="channel-chip">MCP tools</span>
+            <span class="channel-chip">Home Assistant</span>
           </div>
-          <div class="feature-copy reveal" data-d="1">
-            <span class="eyebrow">Chat</span>
-            <h3>Talk to it. It takes care of it.</h3>
-            <p>
-              Ask in plain language or by voice. NeoAgent streams its thinking live, picks the right tools,
-              and replies wherever you are — Telegram, WhatsApp, email, or the dashboard.
-            </p>
-            <ul class="checklist">
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Real-time tool streaming</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Multi-channel replies</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Smart agent routing</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="feature-block rev">
-          <div class="feature-visual reveal">
-            <div class="cap" aria-hidden="true">
-              <span style="background:#e26e61"></span>
-              <span style="background:#e0b24a"></span>
-              <span style="background:#4bbf85"></span>
-            </div>
-            <div class="shot-pair">
-              <img class="lm" src="images/remote-devices-light.png" alt="NeoAgent remote devices" loading="lazy">
-              <img class="dm" src="images/remote-devices-dark.png" alt="NeoAgent remote devices" loading="lazy">
-            </div>
-          </div>
-          <div class="feature-copy reveal" data-d="1">
-            <span class="eyebrow">Remote control</span>
-            <h3>Drive any screen. Anywhere.</h3>
-            <p>
-              NeoAgent operates a live browser, phone, or desktop exactly as a human would —
-              tapping, typing, navigating — so it can complete tasks end to end without you.
-            </p>
-            <ul class="checklist">
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Live browser, phone &amp; desktop</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Real surface — no mock-ups</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Take over in one click</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="feature-block">
-          <div class="feature-visual reveal">
-            <div class="cap" aria-hidden="true">
-              <span style="background:#e26e61"></span>
-              <span style="background:#e0b24a"></span>
-              <span style="background:#4bbf85"></span>
-            </div>
-            <div class="shot-pair">
-              <img class="lm" src="images/memory-light.png" alt="NeoAgent memory" loading="lazy">
-              <img class="dm" src="images/memory-dark.png" alt="NeoAgent memory" loading="lazy">
-            </div>
-          </div>
-          <div class="feature-copy reveal" data-d="1">
-            <span class="eyebrow">Memory</span>
-            <h3>Remembers what matters to you.</h3>
-            <p>
-              Long-term memory stores facts, entities, and reflections about your preferences
-              so NeoAgent never needs re-briefing — and you can edit or erase anything, anytime.
-            </p>
-            <ul class="checklist">
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Structured long-term recall</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Entities, facts &amp; reflections</li>
-              <li><span class="chk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Your data, fully erasable</li>
-            </ul>
-          </div>
+          <p class="channels-note">— and it keeps one shared context across all of them. Tell it something on Telegram, it knows in the dashboard.</p>
         </div>
       </div>
     </section>
 
-    <section class="section-tight" id="privacy">
+    <!-- ============================== SELF-HOST ============================== -->
+    <section class="section" id="selfhost">
       <div class="wrap">
-        <div class="section-head center reveal">
-          <span class="eyebrow">Built for operators</span>
-          <h2>Calm power. Clear control.</h2>
-          <p class="lede">The same warm olive and gold language as the app — just refined for first impressions and long-term trust.</p>
-        </div>
-        <div class="trust">
-          <article class="trust-card reveal">
-            <div class="kicker">Deployment</div>
-            <h3>Cloud or your own hardware</h3>
-            <p>Run NeoAgent where you want it. Self-host when privacy matters most, or use a hosted path when speed matters more.</p>
-          </article>
-          <article class="trust-card reveal" data-d="1">
-            <div class="kicker">Transparency</div>
-            <h3>Every action is inspectable</h3>
-            <p>Live tool streams, run logs, and memory records stay visible. You can intervene, edit, or stop anything.</p>
-          </article>
-          <article class="trust-card reveal" data-d="2">
-            <div class="kicker">Multi-surface</div>
-            <h3>One agent, many doors</h3>
-            <p>Dashboard, messaging bridges, devices, and voice all feed the same operator — without fragmenting context.</p>
-          </article>
+        <div class="split rev">
+          <div class="split-copy reveal">
+            <span class="eyebrow">Yours, actually</span>
+            <h2>Self-hosted isn't a feature. It's the point.</h2>
+            <p>
+              NeoAgent runs on your hardware — a Mac mini in the closet, an old ThinkPad, a VPS
+              if you insist. Your memory, credentials, and logs live where you can
+              <code>ls</code> them. The desktop installer sets everything up without a terminal;
+              the CLI is there when you'd rather have one.
+            </p>
+            <ul class="plainlist">
+              <li>Open source, AGPL-3.0 — read every line</li>
+              <li>Structured memory stored as local data, erasable any time</li>
+              <li>Every tool call logged and inspectable</li>
+            </ul>
+          </div>
+          <div class="term reveal" data-d="1" data-term>
+            <div class="term-chrome">
+              <span class="dv-traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="term-title">neo@mac-mini — zsh</span>
+            </div>
+            <div class="term-body" aria-label="Terminal showing NeoAgent installation">
+              <div class="term-line"><span class="prompt">$</span> <span data-term-cmd="npm install -g neoagent"></span></div>
+              <div class="term-out" data-term-out>
+                <div>added 1 package in 4s</div>
+                <div><span class="prompt">$</span> <span class="cmd2">neoagent setup --quick</span></div>
+                <div class="ok">✓ backend verified &amp; started</div>
+                <div class="ok">✓ control surface on http://localhost:3000</div>
+                <div class="ok">✓ memory initialized · 0 facts (for now)</div>
+                <div class="dim-line">NeoAgent is running. It'll be here when you get back.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- ============================== CTA ============================== -->
     <section class="section-tight" id="cta">
       <div class="wrap">
         <div class="final reveal">
-          <span class="eyebrow">Beta · limited spots</span>
-          <h2>The agent that just <em>handles it.</em></h2>
+          <h2>Give it something<br>to do <em>overnight.</em></h2>
           <p>
-            Put NeoAgent to work across your devices, channels, and routines.
-            Open the control surface and start with one real workflow.
+            The honest pitch: install it, hand it one real chore you've been putting off,
+            and check the log in the morning.
           </p>
           <div class="hero-actions">
-            <a class="btn btn-primary btn-lg" href="/app">
-              Open NeoAgent
+            <a class="btn btn-primary btn-lg" href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest">
+              Download NeoAgent
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             </a>
-            <a class="btn btn-secondary btn-lg" href="#features">Explore features</a>
+            <a class="btn btn-secondary btn-lg" href="https://neolabs-systems.github.io/NeoAgent/">Read the docs</a>
           </div>
         </div>
       </div>
@@ -487,15 +420,15 @@
             </span>
             NeoAgent
           </a>
-          <p>One agent for your whole digital life. Built as a calm control surface, not another noisy chat window.</p>
+          <p>A self-hosted AI agent that keeps working after the chat ends. Built by people who wanted one, for people who want one.</p>
         </div>
 
         <div>
           <h4>Product</h4>
           <nav class="footer-links" aria-label="Product">
-            <a href="#features">Features</a>
-            <a href="#channels">Channels</a>
-            <a href="#how">How it works</a>
+            <a href="#surface">The surface</a>
+            <a href="#devices">Devices</a>
+            <a href="#selfhost">Self-host</a>
             <a href="/app" class="signin">Open app</a>
           </nav>
         </div>
@@ -512,8 +445,8 @@
         <div>
           <h4>Trust</h4>
           <nav class="footer-links" aria-label="Trust">
-            <a href="#privacy">Privacy</a>
             <a href="https://github.com/NeoLabs-Systems/NeoAgent/blob/main/SECURITY.md">Security</a>
+            <a href="https://github.com/NeoLabs-Systems/NeoAgent/blob/main/LICENSE">AGPL-3.0 license</a>
             <a href="https://discord.gg/f59rg2RwUT">Community</a>
           </nav>
         </div>

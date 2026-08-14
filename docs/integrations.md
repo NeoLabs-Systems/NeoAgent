@@ -38,19 +38,23 @@ or delete data.
 
 ### Setup
 
+Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth
+application credentials on the server. The callback URL for every provider is
+`PUBLIC_URL/api/integrations/oauth/callback`.
 
-Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth application credentials on the server. The default callback is:
-`PUBLIC_URL/api/integrations/oauth/callback`
+GitHub as the example:
 
-**GitHub OAuth Configuration:**
-1. Navigate to your GitHub Developer Settings and create a new **OAuth App**.
-2. Set the Authorization callback URL to: `PUBLIC_URL/api/integrations/oauth/callback`.
-3. Generate a **Client ID** and **Client Secret**.
-4. Add these to your server environment configuration:
-   - `GITHUB_CLIENT_ID=your_id_here`
-   - `GITHUB_CLIENT_SECRET=your_secret_here`
+1. Create an **OAuth App** under GitHub Developer Settings.
+2. Set the authorization callback URL to the one above.
+3. Add the credentials to the server environment:
+   - `GITHUB_OAUTH_CLIENT_ID`
+   - `GITHUB_OAUTH_CLIENT_SECRET`
 
-NeoArchive, NeoRecall, Home Assistant, and Trello can be configured for a user from the application. See Configuration.
+The other providers follow the same pattern with their own `*_OAUTH_`
+prefixes, listed in [Configuration](configuration.md).
+
+NeoArchive, NeoRecall, Home Assistant, and Trello need no server-side app
+registration; users configure them from the application.
 
 ### NeoRecall
 

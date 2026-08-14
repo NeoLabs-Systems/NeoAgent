@@ -1,16 +1,14 @@
 ---
 slug: /migration
-title: Migration Guide
+title: Migrating from OpenClaw or Hermes
 sidebar_label: Migration
 ---
 
-# Migration Guide
+# Migrating from OpenClaw or Hermes
 
 NeoAgent can copy supported files and selected configuration from a default
 OpenClaw or Hermes installation. Run a dry run first and review imported
 content before using it with an agent.
-
-## Quick Start
 
 ```bash
 neoagent migrate           # detect and migrate interactively
@@ -31,67 +29,28 @@ neoagent migrate status    # check what's detected
 - NeoAgent installed: `npm install -g neoagent`
 - An existing OpenClaw (`~/.openclaw/`) or Hermes (`~/.hermes/`) installation
 
-## Running Migration
+## Running the migration
 
-### 1. Check what's detected
+1. `neoagent migrate status` — reports which source installations were found
+2. `neoagent migrate dry-run` — lists the skills, memory files, and API keys each source would contribute, without writing anything
+3. `neoagent migrate` — asks which sources to import
 
-```bash
-neoagent migrate status
-```
-
-```
-Source agents:
-  OpenClaw: FOUND
-  Hermes: FOUND
-
-Run `neoagent migrate` to start migration.
-```
-
-### 2. Preview (optional)
-
-```bash
-neoagent migrate dry-run
-```
+When an API key already exists in your NeoAgent `.env`, the interactive flow
+stops and asks per key:
 
 ```
-=== Migration Dry Run ===
-
-OpenClaw detection: FOUND
-  Skills: 5
-  Memories: 3
-  API keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN
-
-Hermes detection: FOUND
-  Skills: 3
-  Memories: 2
-  API keys: OPENAI_API_KEY, XAI_API_KEY
-
-Would migrate to:
-  Skills → ~/.neoagent/agent-data/skills/
-  Memories → ~/.neoagent/agent-data/memory/
-  API keys → ~/.neoagent/.env
+  ⚠️  Conflict: OPENAI_API_KEY
+      Existing in: neoagent
+      Incoming from: openclaw
+    [1] Keep existing
+    [2] Overwrite with new
+    [3] Skip this key
+  Choice [1]:
 ```
 
-### 3. Migrate
+The default keeps your existing key.
 
-```bash
-neoagent migrate
-```
-
-The interactive flow asks which sources to migrate and prompts when an API key exists in multiple sources:
-
-```
-⚠️  API Key conflicts detected:
-  OPENAI_API_KEY exists in both sources
-    Existing in: neoagent
-    Incoming from: openclaw
-  [1] Keep existing
-  [2] Overwrite with new
-  [3] Skip this key
-Choice [1]:
-```
-
-## Source Paths
+## Source paths
 
 ### OpenClaw
 
@@ -111,7 +70,7 @@ Choice [1]:
 | Memory | `~/.hermes/memories/MEMORY.md`, `USER.md` |
 | API keys | `~/.hermes/.env` |
 
-## API Keys Detected and Merged
+## API keys detected and merged
 
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, `GOOGLE_AI_KEY`, `MINIMAX_API_KEY`, `BRAVE_SEARCH_API_KEY`, `DEEPGRAM_API_KEY`, `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`, `SLACK_BOT_TOKEN`, `DISCORD_BOT_TOKEN`
 
