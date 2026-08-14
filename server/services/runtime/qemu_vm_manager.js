@@ -214,8 +214,14 @@ function walkVirtualDisks(directory) {
   return files;
 }
 
-function getSparseDiskLiabilityBytes(qemuImgBinary, directory) {
-  return walkVirtualDisks(directory).reduce((total, diskPath) => {
+// Only disks a running guest can still grow into are a liability. Retired system disks are
+// frozen copies, and a disk that is about to be retired stops growing the moment it is
+// replaced, so neither may be charged against the host storage reserve.
+function getSparseDiskLiabilityBytes(qemuImgBinary, directory, retiringDisk = null) {
+  const isFrozen = (diskPath) => (
+    path.basename(diskPath) === 'system.previous.qcow2' || diskPath === retiringDisk
+  );
+  return walkVirtualDisks(directory).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
     try {
       const info = JSON.parse(runChecked(qemuImgBinary, ['info', '--output=json', diskPath]));
       const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
@@ -777,14 +783,24 @@ class QemuVMManager {
     const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== GUEST_IMAGE_REVISION;
     const createsSystemDisk = !fs.existsSync(systemDisk) || replaceSystemDisk;
     const diskCapacity = getDiskCapacity(INSTANCE_ROOT);
-    const sparseLiabilityBytes = getSparseDiskLiabilityBytes(this.qemuImgBinary, INSTANCE_ROOT);
+    const sparseLiabilityBytes = getSparseDiskLiabilityBytes(
+      this.qemuImgBinary,
+      INSTANCE_ROOT,
+      replaceSystemDisk ? systemDisk : null,
+    );
     const newSystemLiabilityBytes = createsSystemDisk ? 8 * 1024 ** 3 : 0;
     const storage = {
       ...diskCapacity,
       sparseLiabilityBytes: sparseLiabilityBytes + newSystemLiabilityBytes,
     };
     if (getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
-      const error = new Error('Starting this cloud computer would violate the host storage reserve.');
+      const gibibytes = (bytes) => (bytes / 1024 ** 3).toFixed(1);
+      const error = new Error(
+        'Starting this cloud computer needs more free storage: '
+        + `${gibibytes(diskCapacity.availableBytes)} GiB free, `
+        + `${this.resourceProfile.storageReservePercent}% held back for the host, and `
+        + `${gibibytes(storage.sparseLiabilityBytes)} GiB still unwritten in existing computer disks.`,
+      );
       error.code = 'COMPUTER_STORAGE_CAPACITY';
       error.status = 507;
       throw error;
@@ -983,6 +999,7 @@ module.exports = {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
   resolveQemuDataDirectory,

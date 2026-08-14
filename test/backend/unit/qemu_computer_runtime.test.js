@@ -5,13 +5,16 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
+  getSparseDiskLiabilityBytes,
   normalizeArchitecture,
+  resolveQemuImgBinary,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 
 test('QEMU computer exposes display and guest agent only on loopback', () => {
@@ -93,6 +96,32 @@ test('ARM64 computer uses VGA so VNC has a framebuffer before the guest starts',
     if (previousFirmware === undefined) delete process.env.NEOAGENT_QEMU_EFI_FIRMWARE;
     else process.env.NEOAGENT_QEMU_EFI_FIRMWARE = previousFirmware;
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('retired system disks are not charged against the host storage reserve', (t) => {
+  const qemuImg = resolveQemuImgBinary();
+  if (!qemuImg) {
+    t.skip('qemu-img is required');
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-storage-'));
+  try {
+    const instanceDir = path.join(root, 'instance');
+    fs.mkdirSync(instanceDir);
+    const systemDisk = path.join(instanceDir, 'system.qcow2');
+    for (const [name, size] of [['system.qcow2', '8G'], ['system.previous.qcow2', '8G'], ['data.qcow2', '4G']]) {
+      spawnSync(qemuImg, ['create', '-f', 'qcow2', path.join(instanceDir, name), size], { stdio: 'ignore' });
+    }
+    const GIB = 1024 ** 3;
+
+    const live = getSparseDiskLiabilityBytes(qemuImg, root);
+    assert.ok(live > 11.5 * GIB && live < 12.5 * GIB, `expected the two live disks, got ${live}`);
+
+    const replacing = getSparseDiskLiabilityBytes(qemuImg, root, systemDisk);
+    assert.ok(replacing > 3.5 * GIB && replacing < 4.5 * GIB, `expected only the data disk, got ${replacing}`);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
