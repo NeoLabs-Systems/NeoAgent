@@ -60,7 +60,7 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
         let upstreamReady = false;
         const pending = [];
         const openedAt = Date.now();
-        const bytes = { toGuest: 0, toViewer: 0, framesToViewer: 0 };
+        const bytes = { toGuest: 0, toViewer: 0, framesToViewer: 0, messagesFromViewer: 0 };
         let firstFrameLogged = false;
         trace('display.ws.open', {
           user: displayUserId,
@@ -72,17 +72,22 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
         // A viewer that is open but receiving nothing is exactly the frozen-desktop report,
         // and it looks identical to a healthy idle one from outside.
         let lastFrames = 0;
+        let lastViewerMessages = 0;
         const heartbeat = setInterval(() => {
           trace('display.ws.flow', {
             user: displayUserId,
             token: requestedToken,
             framesSinceLast: bytes.framesToViewer - lastFrames,
             framesTotal: bytes.framesToViewer,
+            // Updates only arrive while the viewer keeps asking, so a silent guest and a
+            // viewer that stopped requesting look identical without this counter.
+            requestsSinceLast: bytes.messagesFromViewer - lastViewerMessages,
             ageMs: Date.now() - openedAt,
             clientOpen: client.readyState === WebSocket.OPEN,
             upstreamOpen: upstream.readyState === WebSocket.OPEN,
           });
           lastFrames = bytes.framesToViewer;
+          lastViewerMessages = bytes.messagesFromViewer;
         }, 30000);
         heartbeat.unref?.();
         const closeTrace = (reason, detail) => trace('display.ws.close', {
@@ -102,6 +107,7 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
             return;
           }
           bytes.toGuest += data?.length || 0;
+          bytes.messagesFromViewer += 1;
           runtimeManager.touchComputerActivity(displayUserId);
           runtimeManager.touchDisplaySession(displaySession);
           if (!upstreamReady) {
