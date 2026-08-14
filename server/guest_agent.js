@@ -38,8 +38,15 @@ const MIN_FREE_DISK_BYTES = Number(
 const MAX_APK_STREAM_BYTES = Number(process.env.NEOAGENT_GUEST_MAX_APK_STREAM_BYTES || 512 * 1024 * 1024);
 const CLOUD_INIT_BOOT_FINISHED = '/var/lib/cloud/instance/boot-finished';
 
-fs.mkdirSync(FILE_ROOT, { recursive: true });
-fs.mkdirSync(WORKSPACE_ROOT, { recursive: true });
+// The home disk is mounted over these paths during boot, so a directory created at
+// startup can disappear underneath the agent. Everything that writes here re-creates it.
+function ensureAgentDirectory(directory) {
+  fs.mkdirSync(directory, { recursive: true });
+  return directory;
+}
+
+ensureAgentDirectory(FILE_ROOT);
+ensureAgentDirectory(WORKSPACE_ROOT);
 
 const app = express();
 app.use(express.json({ limit: '100mb' }));
@@ -737,7 +744,10 @@ app.post('/desktop/ensure', async (_req, res) => {
 
 app.post('/desktop/screenshot', async (_req, res) => {
   await handle(res, async () => {
-    const outputPath = path.join(FILE_ROOT, `desktop-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.png`);
+    const outputPath = path.join(
+      ensureAgentDirectory(FILE_ROOT),
+      `desktop-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.png`,
+    );
     runDesktopCommand('scrot', ['--silent', outputPath], { timeoutMs: 30000 });
     return { success: true, path: outputPath };
   });
@@ -987,7 +997,7 @@ app.post('/android/install-apk', async (req, res) => {
     if (!contentBase64) {
       return { error: 'contentBase64 is required' };
     }
-    const uploadDir = path.join(FILE_ROOT, 'uploads');
+    const uploadDir = ensureAgentDirectory(path.join(FILE_ROOT, 'uploads'));
     fs.mkdirSync(uploadDir, { recursive: true });
     const tempPath = path.join(uploadDir, `${Date.now()}-${path.basename(filename)}`);
     fs.writeFileSync(tempPath, Buffer.from(contentBase64, 'base64'));
@@ -1003,7 +1013,7 @@ app.post('/android/install-apk-stream', async (req, res) => {
   const filename = decodeURIComponent(
     String(req.headers['x-neoagent-filename'] || 'upload.apk').trim() || 'upload.apk',
   );
-  const uploadDir = path.join(FILE_ROOT, 'uploads');
+  const uploadDir = ensureAgentDirectory(path.join(FILE_ROOT, 'uploads'));
   fs.mkdirSync(uploadDir, { recursive: true });
   const tempPath = path.join(uploadDir, `${Date.now()}-${path.basename(filename)}`);
   const output = fs.createWriteStream(tempPath);
