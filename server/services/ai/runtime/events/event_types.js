@@ -12,6 +12,7 @@ const EVENT_TYPES = Object.freeze({
   NODE_PROGRESS: 'node.progress',
   NODE_COMPLETED: 'node.completed',
   MODEL_STARTED: 'model.started',
+  MODEL_REQUEST_RECORDED: 'model.request_recorded',
   MODEL_COMPLETED: 'model.completed',
   CONTEXT_PRESSURE: 'context.pressure',
   CONTEXT_COMPACTED: 'context.compacted',

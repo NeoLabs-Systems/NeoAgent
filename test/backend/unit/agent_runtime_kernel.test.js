@@ -501,6 +501,46 @@ test('unchanged failed semantic verification is reused until evidence changes', 
   assert.equal(calls, 6);
 });
 
+test('semantic verifier failure does not fail open as completed', async () => {
+  insertRun('verify-error-run');
+  runtime.workGraph.createGraph('verify-error-run', [{
+    id: 'execute',
+    kind: 'execute',
+    objective: 'Produce a verified answer',
+    dependencies: [],
+  }, {
+    id: 'verify',
+    kind: 'verification',
+    objective: 'Verify the answer',
+    dependencies: ['execute'],
+  }]);
+  const execute = runtime.workGraph.listNodes('verify-error-run')
+    .find((node) => node.nodeKey === 'execute');
+  runtime.workGraph.completeNode(execute.id, { evidence: [{ summary: 'Observed result' }] });
+
+  const result = await runtime.verifyRun({
+    runId: 'verify-error-run',
+    contract: {
+      version: 1,
+      goal: 'Produce a verified answer',
+      open_obligations: [],
+      deliverables: [{ id: 'reply', type: 'text', required: true }],
+      evidence_requirements: [],
+      verification_required: true,
+    },
+    contractVersion: 1,
+    claim: { summary: 'Answer', confidence: 0.9 },
+    finalContent: 'Answer',
+    path: 'durable',
+    evidence: [{ id: 'e1', summary: 'Observed result', success: true }],
+    semanticVerifier: async () => { throw new Error('verifier transport failed'); },
+  });
+
+  assert.equal(result.status, 'repair_required');
+  assert.equal(result.defects[0].criterion, 'semantic_verifier_unavailable');
+  assert.match(result.semanticError, /transport failed/);
+});
+
 test('memory write pipeline deduplicates exact candidates', () => {
   const first = runtime.memoryWritePipeline.enqueueCandidate({
     userId,

@@ -191,7 +191,7 @@ function isSubstantiveProgressToolName(toolName = '') {
   const name = String(toolName || '').trim();
   if (!name) return false;
   if (name === 'send_message' || name === 'send_interim_update' || name === 'notify_user') return false;
-  if (name === 'think' || name === 'activate_tools' || name === 'task_complete') return false;
+  if (name === 'think' || name === 'search_tools' || name === 'activate_tools' || name === 'task_complete') return false;
   return true;
 }
 

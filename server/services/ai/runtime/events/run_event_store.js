@@ -26,6 +26,7 @@ function appendEvent({
   actor = null,
   causationId = null,
   correlationId = null,
+  requestId = null,
   stepId = null,
   visibility = VISIBILITY.OPERATOR,
   sensitivity = 'internal',
@@ -60,7 +61,7 @@ function appendEvent({
       userId,
       agentId || null,
       eventType,
-      correlationId || null,
+      requestId || correlationId || null,
       stepId || null,
       nextSequence,
       JSON.stringify(envelope),
@@ -76,6 +77,36 @@ function appendEvent({
   return {
     id: Number(row.id),
     eventId,
+    runId: row.run_id,
+    userId: row.user_id,
+    agentId: row.agent_id || null,
+    eventType: row.event_type,
+    requestId: row.request_id || null,
+    stepId: row.step_id || null,
+    sequenceIndex: Number(row.sequence_index || 0),
+    payload: parseJsonObject(row.payload_json, {}),
+    createdAt: row.created_at,
+  };
+}
+
+function findEventByRequestId(runId, requestId, eventType = null) {
+  if (!runId || !requestId) return null;
+  const row = eventType
+    ? db.prepare(
+      `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
+       FROM agent_run_events
+       WHERE run_id = ? AND request_id = ? AND event_type = ?
+       ORDER BY sequence_index DESC, id DESC LIMIT 1`,
+    ).get(runId, requestId, eventType)
+    : db.prepare(
+      `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
+       FROM agent_run_events
+       WHERE run_id = ? AND request_id = ?
+       ORDER BY sequence_index DESC, id DESC LIMIT 1`,
+    ).get(runId, requestId);
+  if (!row) return null;
+  return {
+    id: Number(row.id),
     runId: row.run_id,
     userId: row.user_id,
     agentId: row.agent_id || null,
@@ -115,5 +146,6 @@ function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
 
 module.exports = {
   appendEvent,
+  findEventByRequestId,
   listEvents,
 };

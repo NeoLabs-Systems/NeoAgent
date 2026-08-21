@@ -5,6 +5,7 @@ const { sanitizeModelOutput } = require('../outputSanitizer');
 const { parseJsonObject } = require('../taskAnalysis');
 const { withProviderRetry, isTransientError } = require('../providerRetry');
 const { normalizeUsage, recordModelUsage } = require('../usage');
+const { journalAndReconstructModelRequest } = require('../runtime/model_request_journal');
 const {
   resolveModelCallTimeoutMs,
   runAbortableModelCall,
@@ -13,6 +14,13 @@ const {
 
 function isoNow() {
   return new Date().toISOString();
+}
+
+function activeJournalIdentity(engine, runId, userId) {
+  if (!runId || !userId || !engine.getRunMeta?.(runId)) {
+    return { runId: null, userId: null };
+  }
+  return { runId, userId };
 }
 
 async function requestStructuredJson(engine, {
@@ -45,18 +53,32 @@ async function requestStructuredJson(engine, {
   }
 
   try {
+    const reasoning = reasoningEffort || engine.getReasoningEffort(providerName, {});
+    const journalIdentity = activeJournalIdentity(engine, telemetry?.runId, telemetry?.userId);
+    const durableRequest = journalAndReconstructModelRequest({
+      ...journalIdentity,
+      agentId: telemetry?.agentId || null,
+      phase,
+      iteration: telemetry?.iteration || 0,
+      provider: providerName,
+      model,
+      messages: sanitizeConversationMessages([
+        ...messages,
+        { role: 'system', content: prompt },
+      ]),
+      tools: [],
+      maxTokens,
+      reasoningEffort: reasoning,
+    });
     const response = await withProviderRetry(
       () => withModelCallTimeout(
         provider.chat(
-          sanitizeConversationMessages([
-            ...messages,
-            { role: 'system', content: prompt },
-          ]),
-          [],
+          durableRequest.messages,
+          durableRequest.tools,
           {
-            model,
-            maxTokens,
-            reasoningEffort: reasoningEffort || engine.getReasoningEffort(providerName, {}),
+            model: durableRequest.header.model,
+            maxTokens: durableRequest.header.maxTokens,
+            reasoningEffort: durableRequest.header.reasoningEffort,
             signal: modelAbortController.signal,
           }
         ),
@@ -115,16 +137,30 @@ async function requestModelResponse(engine, {
   iteration,
 }) {
   const startedAt = Date.now();
-  const requestMessages = sanitizeConversationMessages(messages);
   const modelAbortController = new AbortController();
   const parentSignal = options.signal;
   const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
   if (parentSignal?.aborted) abortFromParent();
   else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
-  const callOptions = {
+  const journalIdentity = activeJournalIdentity(engine, options.runId || runId, options.userId);
+  const durableRequest = journalAndReconstructModelRequest({
+    ...journalIdentity,
+    agentId: options.agentId || null,
+    phase: options.phase || 'model_turn',
+    iteration,
+    provider: providerName,
     model,
+    messages: sanitizeConversationMessages(messages),
+    tools: Array.isArray(tools) ? tools : [],
     maxTokens: options.maxTokens,
     reasoningEffort: engine.getReasoningEffort(providerName, options),
+  });
+  const requestMessages = durableRequest.messages;
+  const requestTools = durableRequest.tools;
+  const callOptions = {
+    model: durableRequest.header.model,
+    maxTokens: durableRequest.header.maxTokens,
+    reasoningEffort: durableRequest.header.reasoningEffort,
     signal: modelAbortController.signal,
   };
 
@@ -134,7 +170,7 @@ async function requestModelResponse(engine, {
 
     if (options.stream !== false) {
       let emittedContent = false;
-      const stream = provider.stream(requestMessages, tools, callOptions);
+      const stream = provider.stream(requestMessages, requestTools, callOptions);
       const iterator = stream[Symbol.asyncIterator]();
       try {
         while (true) {
@@ -176,7 +212,7 @@ async function requestModelResponse(engine, {
       }
     } else {
       response = await withModelCallTimeout(
-        provider.chat(requestMessages, tools, callOptions),
+        provider.chat(requestMessages, requestTools, callOptions),
         { ...options, modelAbortController },
         `Model iteration ${iteration}`,
       );

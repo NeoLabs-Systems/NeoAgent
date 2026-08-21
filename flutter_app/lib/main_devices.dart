@@ -183,6 +183,11 @@ class _DevicesPanelState extends State<DevicesPanel> {
                   deviceTarget: widget.deviceTarget,
                 )
               : null,
+          onInterrupt: state == 'agent_control'
+              ? () => controller.interruptComputerAgentRuntime(
+                  deviceTarget: widget.deviceTarget,
+                )
+              : null,
           onTeach: !local && running && !teaching
               ? () => setState(
                   () => _teachComposerVisible = !_teachComposerVisible,
@@ -214,10 +219,13 @@ class _DevicesPanelState extends State<DevicesPanel> {
         ],
         const SizedBox(height: 8),
         Expanded(
-          child: _buildDesktop(
-            context,
-            running: running,
-            state: starting && !running ? 'starting' : state,
+          child: _ComputerActivityGlow(
+            active: state == 'agent_control',
+            child: _buildDesktop(
+              context,
+              running: running,
+              state: starting && !running ? 'starting' : state,
+            ),
           ),
         ),
       ],
@@ -296,7 +304,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                   deviceTarget: widget.deviceTarget,
                 ),
           icon: const Icon(Icons.desktop_windows_rounded),
-          label: const Text('Connect desktop'),
+          label: const Text('View desktop'),
         ),
       );
     } else if (busy) {
@@ -814,6 +822,96 @@ class _DeviceSurfacePill extends StatelessWidget {
   }
 }
 
+class _ComputerActivityGlow extends StatefulWidget {
+  const _ComputerActivityGlow({required this.active, required this.child});
+
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_ComputerActivityGlow> createState() => _ComputerActivityGlowState();
+}
+
+class _ComputerActivityGlowState extends State<_ComputerActivityGlow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _pulse = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    if (widget.active) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ComputerActivityGlow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active == oldWidget.active) return;
+    if (widget.active) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      child: widget.child,
+      builder: (context, child) {
+        final strength = widget.active ? 0.45 + (_pulse.value * 0.55) : 0.0;
+        return Container(
+          key: widget.active
+              ? const ValueKey<String>('computer-ai-activity-glow')
+              : null,
+          margin: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF7C5CFF).withValues(
+                alpha: 0.28 * strength,
+              ),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: const Color(0xFF4F8CFF).withValues(
+                  alpha: 0.34 * strength,
+                ),
+                blurRadius: 16 + (14 * strength),
+                spreadRadius: 1 + (2 * strength),
+              ),
+              BoxShadow(
+                color: const Color(0xFFB45CFF).withValues(
+                  alpha: 0.2 * strength,
+                ),
+                blurRadius: 28 + (18 * strength),
+                spreadRadius: -2 + (2 * strength),
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 class _ComputerToolbar extends StatelessWidget {
   const _ComputerToolbar({
     required this.provider,
@@ -825,6 +923,7 @@ class _ComputerToolbar extends StatelessWidget {
     required this.onProviderChanged,
     required this.onStart,
     required this.onStop,
+    required this.onInterrupt,
     required this.onTeach,
   });
 
@@ -837,6 +936,7 @@ class _ComputerToolbar extends StatelessWidget {
   final ValueChanged<String> onProviderChanged;
   final VoidCallback? onStart;
   final VoidCallback? onStop;
+  final VoidCallback? onInterrupt;
   final VoidCallback? onTeach;
 
   @override
@@ -925,6 +1025,17 @@ class _ComputerToolbar extends StatelessWidget {
             onPressed: busy ? null : onTeach,
             icon: const Icon(Icons.school_outlined, size: 18),
             label: const Text('Teach'),
+          ),
+        if (onInterrupt != null)
+          FilledButton.icon(
+            key: const ValueKey<String>('computer-interrupt-ai'),
+            onPressed: busy ? null : onInterrupt,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
+            icon: const Icon(Icons.front_hand_rounded, size: 18),
+            label: const Text('Interrupt AI'),
           ),
         if (busy)
           const Padding(

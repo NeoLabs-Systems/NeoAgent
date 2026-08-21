@@ -22,13 +22,9 @@ const COWORK_ONLY_PHRASES = [
   /COWORK WORKSPACE/,
   /CHANNEL: cowork/,
   /already-open project folder/,
-  /ORIENT FIRST/,
-  /THEN DO THE WORK/,
-  /WEB AND INTEGRATIONS/,
-  /If a live-site fetch fails/,
-  /Cowork workspace session/,
-  /already in the attached workspace/,
-  /A remote rate limit is not a reason to stop/,
+  /The open folder is the source/,
+  /attached project folder/,
+  /attached workspace/,
 ];
 
 test('workspace folder name uses the last path segment', () => {
@@ -52,13 +48,12 @@ test('cowork operating contract is workspace-first and does not ask for a URL', 
   assert.match(prompt, /AGENT MODE/);
   assert.match(prompt, /Edit the workspace now/);
   assert.match(prompt, /Computer: this device/);
-  assert.match(prompt, /ORIENT FIRST/);
+  assert.match(prompt, /WORKFLOW/);
   assert.match(prompt, /list_directory\("\."\)/);
-  assert.match(prompt, /Shared attachments/);
-  assert.match(prompt, /If a live-site fetch fails or is rate-limited/);
-  assert.match(prompt, /Do not clone into the workspace if the project is already here/);
-  assert.match(prompt, /Do not permanently delete files unless the user asked/);
-  assert.match(prompt, /request_user_input is for irreversible product choices only/);
+  assert.match(prompt, /Shared chat attachments/);
+  assert.match(prompt, /do not clone or remotely rediscover code already present/i);
+  assert.match(prompt, /Do not permanently delete files unless requested/);
+  assert.match(prompt, /material user-owned choice or destructive scope/);
   assert.doesNotMatch(prompt, /PLAN MODE/);
   assert.equal(buildCoworkOperatingContract({ triggerSource: 'web' }), '');
   assert.equal(buildCoworkOperatingContract({ triggerSource: 'messaging' }), '');
@@ -71,7 +66,7 @@ test('cowork plan mode stays inspect-only', () => {
     interactionMode: 'plan',
   });
   assert.match(prompt, /PLAN MODE/);
-  assert.match(prompt, /Inspect with read-only tools/);
+  assert.match(prompt, /Do not run shell commands/);
   assert.match(prompt, /default NeoAgent workspace/);
   assert.doesNotMatch(prompt, /AGENT MODE/);
 });
@@ -88,8 +83,7 @@ test('cowork system prompt includes the attached folder and channel style', asyn
   assert.match(prompt, /COWORK WORKSPACE/);
   assert.match(prompt, /Neotastisch-Portfolio/);
   assert.match(prompt, /CHANNEL: cowork/);
-  assert.match(prompt, /ORIENT FIRST/);
-  assert.match(prompt, /If a live-site fetch fails or is rate-limited/);
+  assert.match(prompt, /WORKFLOW/);
   assert.doesNotMatch(prompt, /CHANNEL: short paragraphs/);
 });
 
@@ -101,12 +95,10 @@ test('cowork task analysis prefers file tools over web research', () => {
       { name: 'web_search', description: 'Search the web.' },
     ],
   });
-  assert.match(prompt, /Cowork workspace session/);
-  assert.match(prompt, /Do not route/);
-  assert.match(prompt, /list_directory, search_files, read_files, and edit_file/);
-  assert.match(prompt, /must not ask for a URL/);
-  assert.match(prompt, /Never choose mode="direct_answer"/);
-  assert.match(prompt, /treat the open folder as the source of truth/);
+  assert.match(prompt, /attached project folder/);
+  assert.match(prompt, /never "direct_answer"/);
+  assert.match(prompt, /Prefer workspace inspection\/edit tools/);
+  assert.match(prompt, /do not ask for a URL/);
   assert.deepEqual(
     buildCoworkAnalysisInstructions({ triggerSource: 'web' }),
     [],
@@ -126,10 +118,9 @@ test('cowork execution guidance tells the model to edit the attached folder', ()
       success_criteria: ['The local files are updated.'],
     },
   });
-  assert.match(prompt, /already in the attached workspace/);
-  assert.match(prompt, /Do not ask the user to send a URL/);
-  assert.match(prompt, /A remote rate limit is not a reason to stop/);
-  assert.match(prompt, /verify from disk/);
+  assert.match(prompt, /attached workspace/);
+  assert.match(prompt, /make the requested edits now/);
+  assert.match(prompt, /Verify changed state from disk/);
   assert.deepEqual(
     buildCoworkExecutionGuidance({ triggerSource: 'messaging' }),
     [],
@@ -143,10 +134,7 @@ test('web, messaging, and voice prompts stay free of cowork-only rules', async (
     for (const phrase of COWORK_ONLY_PHRASES) {
       assert.doesNotMatch(prompt, phrase, `${phrase} leaked into ${triggerSource}`);
     }
-    assert.match(
-      prompt,
-      /File-by-file GitHub API calls are slow and hit rate limits fast/,
-    );
+    assert.doesNotMatch(prompt, /File-by-file GitHub API calls are slow and hit rate limits fast/);
     assert.doesNotMatch(prompt, /If a Cowork session already has a project folder open/);
   }
 });

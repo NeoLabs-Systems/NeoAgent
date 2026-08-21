@@ -1,11 +1,8 @@
 'use strict';
 
-// Tool discovery regression guard.
-//
-// Provider schema caps mean only a slice of the catalog can be active per turn.
-// If the full catalog stops reaching the model, the agent silently loses every
-// capability it did not happen to start with and reports tools as unavailable
-// instead of activating them. That must hold on every surface, not just chat.
+// Tool discovery regression guard. Provider schema caps mean only a slice of
+// the registry can be active. Every surface must expose compact discovery and
+// let search_tools find inactive built-in and MCP capabilities.
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
@@ -58,6 +55,7 @@ after(() => teardownTestRuntime(ctx));
 function buildLargeCatalog() {
   const tools = [
     'task_complete',
+    'search_tools',
     'activate_tools',
     'think',
     'send_message',
@@ -109,7 +107,7 @@ async function observeFirstTurn(runOptions) {
   });
   engine.getAvailableTools = () => buildLargeCatalog();
 
-  const observed = { catalog: '', activeNames: [], mcpRequested: false };
+  const observed = { discovery: '', activeNames: [], mcpRequested: false, searchResults: [] };
   engine.mcpManager = {
     getAllTools: () => {
       observed.mcpRequested = true;
@@ -120,17 +118,32 @@ async function observeFirstTurn(runOptions) {
       }];
     },
   };
+  let modelTurn = 0;
   engine.requestModelResponse = async ({ messages, tools }) => {
-    // The acknowledgement turn runs without tools and is not an execution turn.
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    if (!observed.catalog) {
-      observed.catalog = messages
+    modelTurn += 1;
+    if (!observed.discovery) {
+      observed.discovery = messages
         .filter((message) => message.role === 'system')
         .map((message) => String(message.content || ''))
-        .find((content) => content.includes('[Available tool catalog]')) || '';
+        .find((content) => content.includes('[Tool discovery]')) || '';
       observed.activeNames = tools.map((tool) => tool.name);
+    }
+    if (modelTurn === 1) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'search',
+            type: 'function',
+            function: {
+              name: 'search_tools',
+              arguments: JSON.stringify({ query: 'Google Calendar events MCP thing', limit: 12 }),
+            },
+          }],
+          usage: { total_tokens: 1 },
+        },
+        streamContent: '',
+      };
     }
     return {
       response: {
@@ -145,7 +158,14 @@ async function observeFirstTurn(runOptions) {
       streamContent: '',
     };
   };
-  engine.executeTool = async () => ({ success: true });
+  engine.executeTool = async (name, args, context) => {
+    if (name === 'search_tools') {
+      const result = engine.searchToolsForRun(context.runId, args.query, args.limit);
+      observed.searchResults = result.results;
+      return result;
+    }
+    return { success: true };
+  };
   engine.isReadOnlyToolCall = () => true;
 
   await engine.run(userId, 'do the thing', {
@@ -181,18 +201,16 @@ const SURFACES = [
 ];
 
 for (const [label, runOptions] of SURFACES) {
-  test(`${label}: the whole tool catalog stays discoverable`, async () => {
+  test(`${label}: inactive tools stay searchable without a full catalog dump`, async () => {
     const observed = await observeFirstTurn(runOptions);
 
-    assert.ok(observed.catalog, 'no tool catalog reached the model');
-    assert.match(
-      observed.catalog,
-      /google_workspace_calendar_list_events/,
-      'integration tools must be discoverable even when not active',
-    );
-    assert.match(observed.catalog, /mcp_srv_do_thing/, 'MCP tools must be in the catalog');
+    assert.ok(observed.discovery, 'no discovery summary reached the model');
+    assert.doesNotMatch(observed.discovery, /google_workspace_calendar_list_events/);
+    assert.ok(observed.searchResults.some((tool) => tool.name === 'google_workspace_calendar_list_events'));
+    assert.ok(observed.searchResults.some((tool) => tool.name === 'mcp_srv_do_thing'));
     assert.ok(observed.mcpRequested, 'MCP tools were never collected');
 
+    assert.ok(observed.activeNames.includes('search_tools'), 'search_tools must always be active');
     assert.ok(observed.activeNames.includes('activate_tools'), 'activate_tools must always be active');
     assert.ok(observed.activeNames.includes('task_complete'), 'task_complete must always be active');
     assert.ok(observed.activeNames.includes('call_user'), 'call_user must always be active');

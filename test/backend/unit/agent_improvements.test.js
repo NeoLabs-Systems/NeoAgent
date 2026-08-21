@@ -15,6 +15,8 @@ const {
   MAX_TOOLS,
   activateTools,
   buildToolCatalog,
+  buildToolDiscoverySummary,
+  searchTools,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
 const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
@@ -110,6 +112,26 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
   assert.equal(result.tools.some((tool) => tool.name === 'tool_39'), true);
   assert.deepEqual(result.unknown, []);
   assert.equal(result.evicted.length, 1);
+});
+
+test('tool discovery stays compact and searches inactive capabilities generically', () => {
+  const tools = [
+    { name: 'search_tools', description: 'Search tools.' },
+    { name: 'activate_tools', description: 'Activate tools.' },
+    { name: 'google_workspace_calendar_list_events', description: 'List Google Calendar events in a time window.' },
+    { name: 'github_create_issue', description: 'Create a GitHub issue.' },
+  ];
+  const active = tools.slice(0, 2);
+  const summary = buildToolDiscoverySummary(tools, active);
+  assert.match(summary, /Discoverable tools: 4/);
+  assert.doesNotMatch(summary, /google_workspace_calendar_list_events/);
+
+  const matches = searchTools(tools, 'calendar events', {
+    activeNames: active.map((tool) => tool.name),
+  });
+  assert.equal(matches[0].name, 'google_workspace_calendar_list_events');
+  assert.equal(matches[0].active, false);
+  assert.match(matches[0].description, /Google Calendar/);
 });
 
 test('execute runs start with core file tools but direct runs stay lean', () => {
@@ -420,6 +442,30 @@ test('calendar compaction surfaces every event instead of truncating the array',
   assert.ok(parsed.timed.some((e) => e.summary === 'Zahnarzt Termin'), 'the real upcoming event is visible');
   assert.ok(!compact.includes('xxxx'), 'verbose description noise is dropped');
   assert.ok(compact.length <= 4800, 'digest stays within the hard budget');
+});
+
+test('truncated workspace results explain how to recover omitted evidence', () => {
+  const file = JSON.parse(compactToolResult('read_file', { path: 'large.js' }, {
+    content: `${'x'.repeat(900)}\n...[truncated, 3000 chars total]`,
+  }, { softLimit: 600, hardLimit: 1000 }));
+  assert.equal(file.truncated, true);
+  assert.match(file.note, /narrower line range/);
+
+  const compactedPreview = JSON.parse(compactToolResult('read_file', { path: 'many-lines.js' }, {
+    content: Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join('\n'),
+  }, { softLimit: 900, hardLimit: 1400 }));
+  assert.equal(compactedPreview.truncated, true);
+  assert.match(compactedPreview.note, /narrower line range/);
+
+  const search = JSON.parse(compactToolResult('search_files', { pattern: 'handler' }, {
+    count: 9,
+    matches: Array.from({ length: 9 }, (_, index) => ({
+      file: `file-${index}.js`, line: index + 1, content: 'handler',
+    })),
+  }, { softLimit: 900, hardLimit: 1400 }));
+  assert.equal(search.truncated, true);
+  assert.equal(search.matches.length, 6);
+  assert.match(search.note, /Narrow the path or search pattern/);
 });
 
 test('new-evidence reads count as progress but churn does not', () => {

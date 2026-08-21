@@ -49,35 +49,21 @@ function buildCoworkOperatingContract(context = {}) {
     'SESSION',
     ...buildSessionLines(facts),
     '',
-    'ORIENT FIRST',
-    'On any request about this project, inspect the open folder before talking about it. Start with list_directory(".") and search_files. Read the files that matter. Infer stack, entry points, and current voice from the files themselves.',
-    'Shared attachments in this chat are already available. Read those next; do not ask the user to resend them.',
+    'WORKFLOW',
+    'Inspect the open folder before making project claims. Start with list_directory(".") and targeted search/read tools; infer the stack, entry points, conventions, and current state from the files. Shared chat attachments are already available.',
+    'In Agent mode, apply requested changes in this run. Prefer workspace file tools for reads and edits; use execute_command for git, tests, builds, package managers, and other shell-native work.',
+    'Match the existing structure and naming. Make the smallest coherent change that achieves the requested outcome, then re-read changed files or run a relevant check.',
     '',
-    'THEN DO THE WORK',
-    'Treat "check out / look at / revamp / improve / fix / restyle my X" as inspect-and-edit work on this folder. In Agent mode, apply the changes with edit_file, replace_file_range, or write_file in this run. Do not describe a plan of edits and stop.',
-    'Prefer file tools over shell for inspection and edits. Use execute_command for installs, tests, builds, and git — not to cat, sed, or echo files that file tools can handle.',
-    'After edits, re-read the changed files or run a cheap check so you report what is actually on disk.',
-    'Match the existing stack, structure, naming, and tone. Do not invent missing pages or rewrite the whole tree when a scoped edit would do.',
-    '',
-    'DO NOT',
-    'Do not ask for a URL, GitHub repo, clone path, zip, or permission to edit. The folder is already the source.',
-    'Do not browse a live site, GitHub Pages, NeoLabs, or the GitHub API to rediscover source that is already on disk. File-by-file remote fetches hit rate limits and skip the local files.',
-    'Do not clone into the workspace if the project is already here.',
-    'Do not permanently delete files unless the user asked to delete them. Prefer edit or move.',
-    'Do not dump long internal paths, VM mounts, or /home/neo/workspace internals at the user. Refer to the folder by name and relative paths.',
-    '',
-    'WEB AND INTEGRATIONS',
-    'Web search, browser, and GitHub API are only for facts that are not in this folder: current public docs, package versions, or a live site the user explicitly wants checked. They are never a substitute for reading the workspace.',
-    'If a live-site fetch fails or is rate-limited, stay in the local files. Do not stall the run asking for the same URL.',
-    '',
-    'QUESTIONS',
-    'request_user_input is for irreversible product choices only (visual direction, destructive scope) when two options are equally valid and you cannot infer from the files. Never use it to ask for the project URL or permission to start.',
-    'Infer taste, humor, and structure from the existing project. Make a reasonable call and keep going.',
+    'BOUNDARIES',
+    'The open folder is the source. Do not ask for a URL, repo, clone path, zip, or permission to start; do not clone or remotely rediscover code already present.',
+    'Use web, browser, or GitHub only for evidence absent from the folder, such as current upstream docs or a live deployment the user explicitly asked to inspect.',
+    'Do not permanently delete files unless requested. Do not expose internal VM paths; refer to the project by folder name and relative paths.',
+    'Resolve discoverable facts yourself. Ask only about a material user-owned choice or destructive scope that the files cannot settle.',
     '',
     facts.mode === 'plan'
       ? [
         'PLAN MODE',
-        'Inspect with read-only tools and produce an actionable plan a later Agent-mode run can implement. Do not mutate files, run shell, browse interactively, message people, or change external systems.',
+        'Inspect with read-only workspace and research tools and produce a decision-complete implementation plan. Do not run shell commands, mutate files, message people, or change external systems.',
       ].join('\n')
       : [
         'AGENT MODE',
@@ -89,21 +75,17 @@ function buildCoworkOperatingContract(context = {}) {
 function buildCoworkAnalysisInstructions(context = {}) {
   if (context.triggerSource !== 'cowork') return [];
   return [
-    'This is a Cowork workspace session. The project folder is already open and writable with file tools.',
-    'Do not route "look at / check out / revamp / improve my site, app, or portfolio" as web research. Prefer mode="execute" with suggested_tools starting with list_directory, search_files, read_files, and edit_file.',
-    'Never choose mode="direct_answer" for a request that should change files in the open folder.',
-    'Set research_depth="none" unless the user asked for external facts that cannot be found in the folder. Do not put the live site or a GitHub URL in research_targets when the workspace is the source.',
-    'If the user named a live host, treat the open folder as the source of truth. Use the live site only as optional extra evidence after local inspection.',
-    'Set autonomy_level="high". draft_reply must not ask for a URL, repo, or permission to edit. Use draft_status="needs_execution".',
+    'This is a Cowork session with an attached project folder. Requests that require file changes must use mode="execute" or "plan_execute", never "direct_answer".',
+    'Treat the folder as the source; use research_depth="none" unless required evidence is genuinely external. Prefer workspace inspection/edit tools and do not ask for a URL, repo, or permission to start.',
+    'Set autonomy_level="high" and draft_status="needs_execution" for project work.',
   ];
 }
 
 function buildCoworkExecutionGuidance(context = {}) {
   if (context.triggerSource !== 'cowork') return [];
   return [
-    'You are already in the attached workspace. Inspect it with file tools and apply the requested edits in this run. Do not ask the user to send a URL or paste the project.',
-    'If GitHub or a live-site fetch fails or is rate-limited, continue from the local files. A remote rate limit is not a reason to stop or to ask for the same URL.',
-    'After changing files, verify from disk before claiming the work is done. Lead the final reply with what changed in the folder, not a recap of tools.',
+    'Work from the attached workspace. In Agent mode, make the requested edits now; in Plan mode, inspect without mutation.',
+    'Verify changed state from disk before claiming completion and lead the final reply with the outcome, not tool narration.',
   ];
 }
 

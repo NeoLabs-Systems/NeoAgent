@@ -290,7 +290,7 @@ jobs:
           $webOutput = Join-Path $env:GITHUB_WORKSPACE "server/public"
           New-Item -ItemType Directory -Force -Path (Join-Path $webOutput "assets/shaders") | Out-Null
           $buildId = node ../scripts/web_build_id.js
-          flutter build web --output $webOutput --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
+          flutter build web --no-wasm-dry-run --output $webOutput --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
 
       - name: Install Windows backend dependencies
         shell: pwsh
@@ -597,6 +597,7 @@ jobs:
         run: |
           BUILD_ID="$(node ../scripts/web_build_id.js)"
           flutter build web \
+            --no-wasm-dry-run \
             --output ../server/public \
             --dart-define=NEOAGENT_BACKEND_URL= \
             --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"
@@ -915,6 +916,7 @@ jobs:
         run: |
           BUILD_ID="$(node ../scripts/web_build_id.js)"
           flutter build web \
+            --no-wasm-dry-run \
             --output ../server/public \
             --dart-define=NEOAGENT_BACKEND_URL= \
             --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"

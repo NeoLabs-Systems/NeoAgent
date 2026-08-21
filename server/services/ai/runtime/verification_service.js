@@ -175,13 +175,33 @@ async function verifyRun({
         };
       }
     } catch (error) {
-      // Semantic verifier is best-effort after deterministic gate passes.
-      return {
-        status: 'verified',
-        gate,
-        defects: [],
+      // A requested semantic check is part of the completion contract. Failing
+      // open here turns a verifier outage or malformed verifier response into a
+      // false claim of success. Reopen the work instead; the orchestrator bounds
+      // repair attempts and will deliver an honest partial result if it persists.
+      const message = error?.message || String(error);
+      const defects = [{
+        severity: 'major',
+        criterion: 'semantic_verifier_unavailable',
+        evidence: `Semantic verification failed: ${message}`,
+        suggested_next_actions: ['retry verification', 'preserve uncertainty if verification remains unavailable'],
+      }];
+      const reopen = ['execute', 'verify'];
+      reopenNodes(runId, reopen, defects);
+      const semanticFailure = {
+        fingerprint,
+        defects,
+        reopen_nodes: reopen,
         final_reply: finalContent,
-        semanticError: error?.message || String(error),
+      };
+      return {
+        status: 'repair_required',
+        gate,
+        defects,
+        reopen_nodes: reopen,
+        final_reply: finalContent,
+        semanticError: message,
+        semanticFailure,
         fingerprint,
       };
     }

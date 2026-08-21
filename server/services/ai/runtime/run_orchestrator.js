@@ -9,7 +9,8 @@ const {
 } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
-  buildToolCatalog,
+  buildToolDiscoverySummary,
+  searchTools,
   selectInitialTools,
   selectToolsForTask,
 } = require('../toolSelector');
@@ -17,10 +18,8 @@ const { resolveToolResultLimits } = require('../loopPolicy');
 const { compactToolResult } = require('../toolResult');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
-  buildAnalysisPrompt,
   buildExecutionGuidance,
   buildInteractiveExecutionGuidance,
-  isDirectAnswerEligibleAnalysis,
   normalizeTaskAnalysis,
   shouldRunVerifier,
   buildVerifierPrompt,
@@ -60,7 +59,6 @@ const stateMachine = require('./run_state_machine');
 const leases = require('./leases');
 const {
   contractFromAnalysis,
-  evaluateFastPathEligibility,
   evaluateOpenObligations,
   saveContract,
   loadLatestContract,
@@ -97,8 +95,10 @@ const { createWorkingMemory } = require('./memory/working_memory');
 const memoryWritePipeline = require('./memory/memory_write_pipeline');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
+const { scheduleToolCalls } = require('../loop/tool_scheduler');
 
 const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
+  'search_tools',
   'activate_tools',
   'request_user_input',
   'send_interim_update',
@@ -657,64 +657,23 @@ class DurableRunRuntime {
       leases.heartbeat(runId, workerId);
       progressBroker.noteActivity('triaging');
 
-      if (options.skipTaskAnalysis === true && options.forceMode) {
-        analysis = normalizeTaskAnalysis({
-          mode: options.forceMode,
-          goal: String(userMessage || '').slice(0, 300),
-          draft_reply: '',
-          draft_status: 'needs_execution',
-          complexity: options.forceMode === 'plan_execute' ? 'complex' : 'standard',
-        }, { goal: String(userMessage || '').slice(0, 300) });
-      } else if (options.skipTaskAnalysis === true) {
-        analysis = normalizeTaskAnalysis({
-          mode: 'execute',
-          goal: String(userMessage || '').slice(0, 300),
-          draft_status: 'needs_execution',
-        }, { goal: String(userMessage || '').slice(0, 300) });
-      } else {
-        try {
-          const analysisPrompt = buildAnalysisPrompt({
-            capabilityHealth: capabilitySummary,
-            tools: allTools,
-            forceMode: options.forceMode || null,
-            triggerSource,
-          });
-          const analysisResponse = await this.engine.requestStructuredJson({
-            provider,
-            providerName,
-            model,
-            messages,
-            prompt: analysisPrompt,
-            maxTokens: 1400,
-            normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
-            fallback: {
-              mode: 'execute',
-              goal: String(userMessage || '').slice(0, 300),
-              draft_status: 'needs_execution',
-            },
-            telemetry: {
-              runId,
-              userId,
-              agentId,
-              signal: abortController.signal,
-            },
-            phase: 'task_analysis',
-          });
-          totalTokens += Number(analysisResponse.usage || 0);
-          analysis = analysisResponse.value || normalizeTaskAnalysis({
-            mode: 'execute',
-            goal: String(userMessage || '').slice(0, 300),
-          });
-        } catch (error) {
-          console.warn('[Runtime] Task analysis failed; defaulting to execute:', error?.message || error);
-          analysis = normalizeTaskAnalysis({
-            mode: 'execute',
-            goal: String(userMessage || '').slice(0, 300),
-            draft_status: 'needs_execution',
-            complexity: 'standard',
-          }, { goal: String(userMessage || '').slice(0, 300) });
-        }
-      }
+      // One model loop owns both routing and execution. The previous mandatory
+      // structured triage call added latency, duplicated the user's request, and
+      // could disagree with the agent that performed the work. Runtime-only
+      // facts remain deterministic; the first ordinary model turn decides
+      // whether to answer, discover tools, or act.
+      const requestedPlan = options.forceMode === 'plan_execute';
+      analysis = normalizeTaskAnalysis({
+        mode: requestedPlan ? 'plan_execute' : 'execute',
+        verification_need: requestedPlan ? 'light' : 'none',
+        needs_verification: requestedPlan,
+        goal: String(userMessage || '').trim().slice(0, 500),
+        draft_reply: '',
+        draft_status: 'needs_execution',
+        complexity: requestedPlan ? 'complex' : 'standard',
+        autonomy_level: triggerSource === 'cowork' || requestedPlan ? 'high' : 'normal',
+        progress_update_policy: requestedPlan ? 'required' : 'optional',
+      }, { goal: String(userMessage || '').trim().slice(0, 500) });
 
       // Tool schemas are capped per model turn, so only a slice of the catalog is
       // active at a time. The full catalog must still be visible in context or the
@@ -723,25 +682,26 @@ class DurableRunRuntime {
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: triggerSource === 'cowork'
-          || analysis.mode === 'execute'
-          || analysis.mode === 'plan_execute',
+        includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
-      tools = selectInitialTools(allTools, analysis.suggested_tools, toolSelectionOptions);
+      const initialMatches = searchTools(allTools, userMessage, { limit: 4 });
+      tools = selectInitialTools(
+        allTools,
+        initialMatches.map((tool) => tool.name),
+        toolSelectionOptions,
+      );
       this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
       messages.push({
         role: 'system',
         content: [
-          '[Available tool catalog]',
-          buildToolCatalog(allTools),
-          '',
-          `Active tools: ${tools.map((tool) => tool.name).join(', ')}`,
+          '[Tool discovery]',
+          buildToolDiscoverySummary(allTools, tools),
           'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
-          'Use activate_tools with exact catalog names when another schema is required.',
         ].join('\n'),
       });
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
         activeToolNames: tools.map((tool) => tool.name),
+        matchedToolNames: initialMatches.map((tool) => tool.name),
         catalogSize: allTools.length,
       }, { agentId });
 
@@ -762,102 +722,14 @@ class DurableRunRuntime {
         startedAtMs,
       });
 
-      const draftReply = String(analysis.draft_reply || '').trim();
-      const fastGate = evaluateFastPathEligibility(contract, {
-        draftReply,
-        analysis,
+      await maybeAck(requestedPlan, analysis.acknowledgement);
+      applyTransition({
+        runId,
+        toState: RUNTIME_STATES.PLANNING,
+        reason: 'single_loop_started',
+        workerId,
+        eventBus: this.eventBus,
       });
-      const directEligible = isDirectAnswerEligibleAnalysis(analysis)
-        && Boolean(normalizeOutgoingMessage(draftReply));
-
-      if (fastGate.eligible && directEligible) {
-        path = 'fast';
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.RESPONDING,
-          reason: 'no_execution_obligations',
-          workerId,
-          eventBus: this.eventBus,
-        });
-        finalContent = sanitizeModelOutput(draftReply, { model });
-        messages.push({ role: 'assistant', content: finalContent });
-        workingMemory.setDraftResponse(finalContent);
-        iterations = 1;
-
-        const gate = await verifyRun({
-          runId,
-          contract,
-          claim: { summary: finalContent, confidence: contract.classification_confidence },
-          finalContent,
-          path: 'fast',
-          eventBus: this.eventBus,
-          userId,
-          agentId,
-        });
-
-        if (gate.status === 'verified') {
-          const delivery = await this.#deliverFinal({
-            runId,
-            userId,
-            agentId,
-            workerId,
-            content: gate.final_reply || finalContent,
-            options,
-            triggerSource,
-            totalTokens,
-          });
-          await this.#finalizeSuccess({
-            runId,
-            userId,
-            agentId,
-            conversationId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            memoryManager,
-            messages,
-          });
-          return {
-            runId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            status: 'completed',
-            path: 'fast',
-          };
-        }
-
-        // Fast path rejected — fall through to durable execution.
-        path = 'durable';
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.PLANNING,
-          reason: 'fast_path_rejected',
-          workerId,
-          eventBus: this.eventBus,
-        });
-      } else {
-        // Only work the model itself judged long-running gets an opening line.
-        // A durable task that finishes in seconds reads better as a single
-        // answer, and the progress heartbeat covers anything that unexpectedly
-        // runs long, so acknowledging every run only made them feel rote.
-        await maybeAck(
-          analysis.progress_update_policy === 'required'
-          || analysis.complexity === 'complex'
-          || analysis.autonomy_level === 'high',
-          analysis.acknowledgement,
-        );
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.PLANNING,
-          reason: 'durable_work_required',
-          workerId,
-          eventBus: this.eventBus,
-          patch: {
-            metadata: { fastPathRejected: fastGate.reasons },
-          },
-        });
-      }
 
       // ── Planning / work graph ──────────────────────────────────────────
       const graphNodes = workGraph.graphFromContract(contract);
@@ -1633,7 +1505,9 @@ class DurableRunRuntime {
           toolCalls: modelResponse.toolCalls || modelResponse.tool_calls || [],
         }, {
           nodeId: activeNode?.id || null,
-          expectTerminalResponse: false,
+          // Like DeepSeek's loop, a normal assistant response without tool calls
+          // ends the turn. The completion gate still checks durable obligations.
+          expectTerminalResponse: true,
         });
         if (!decisionResult.ok) {
           consecutiveProtocolRepairs += 1;
@@ -1849,8 +1723,10 @@ class DurableRunRuntime {
             tool_calls: wireToolCalls,
           });
 
-          // Classify once: the split into parallel reads vs serialized mutations
-          // and the per-call bookkeeping both need the same verdict.
+          // Classify once. Read-only calls may overlap only while they are
+          // contiguous in model order; a mutation is a barrier. Moving every
+          // read ahead of every mutation changes the program the model asked
+          // us to execute (for example read -> edit -> verify-read).
           const plannedCalls = decision.toolCalls.map((call) => {
             const definition = tools.find((tool) => tool?.name === call.name) || null;
             const callShape = call.raw?.function?.name
@@ -1869,8 +1745,6 @@ class DurableRunRuntime {
               isReadOnly: Boolean(this.engine.isReadOnlyToolCall?.(callShape, definition)),
             };
           });
-          const readOnlyCalls = plannedCalls.filter((planned) => planned.isReadOnly);
-          const mutatingCalls = plannedCalls.filter((planned) => !planned.isReadOnly);
           const turnArtifactIds = [];
 
           const executeOne = async ({ call, definition, isReadOnly }) => {
@@ -2002,7 +1876,6 @@ class DurableRunRuntime {
               errorMessage,
               definition,
             );
-            toolExecutions.push(execution);
             const observed = repetitionGuard?.observe(call.name, call.arguments, result);
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
@@ -2102,12 +1975,12 @@ class DurableRunRuntime {
             });
             progressBroker.noteToolFinished(call.name);
 
-            messages.push({
+            const toolMessage = {
               role: 'tool',
               name: call.name,
               tool_call_id: call.id,
               content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
-            });
+            };
 
             // Newly activated schemas only reach the model if the active set is
             // re-read; otherwise activate_tools silently does nothing.
@@ -2171,18 +2044,18 @@ class DurableRunRuntime {
               }
             }
 
-            return { success, result: compacted, errorMessage };
+            return { success, result: compacted, errorMessage, execution, toolMessage };
           };
 
-          // Parallel read-only, sequential mutating.
-          if (readOnlyCalls.length > 1) {
-            await Promise.all(readOnlyCalls.map((planned) => executeOne(planned)));
-          } else if (readOnlyCalls.length === 1) {
-            await executeOne(readOnlyCalls[0]);
-          }
-          for (const planned of mutatingCalls) {
-            await executeOne(planned);
-          }
+          await scheduleToolCalls(plannedCalls, {
+            isParallelSafe: (planned) => planned.isReadOnly,
+            execute: executeOne,
+            maxParallel: options.maxParallelToolCalls,
+            commit: async (outcome) => {
+              toolExecutions.push(outcome.execution);
+              messages.push(outcome.toolMessage);
+            },
+          });
 
           const inputRequest = this.engine.getRunMeta(runId)?.awaitingInput;
           if (inputRequest) {

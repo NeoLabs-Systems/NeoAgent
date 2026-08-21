@@ -5,6 +5,42 @@ import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/computer_display.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
 
+class _ComputerControlBackendClient extends BackendClient {
+  bool acquiredControl = false;
+  int displaySessionCount = 0;
+
+  @override
+  Future<Map<String, dynamic>> acquireComputerControl(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    acquiredControl = true;
+    return const <String, dynamic>{'ownerType': 'user'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> createComputerDisplaySession(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    displaySessionCount++;
+    return <String, dynamic>{
+      'viewUrl': '/api/computer/display/session-$displaySessionCount',
+      'viewOnly': !acquiredControl,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchComputerStatus(
+    String baseUrl, {
+    String? deviceTarget,
+  }) async {
+    return <String, dynamic>{
+      'state': acquiredControl ? 'user_control' : 'agent_control',
+    };
+  }
+}
+
 void main() {
   testWidgets('device navigation contains exactly Computer and Android tabs', (
     tester,
@@ -312,6 +348,59 @@ void main() {
     expect(
       find.textContaining('interactive Linux desktop'),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('viewing an agent-controlled computer does not interrupt it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final backendClient = _ComputerControlBackendClient();
+    final controller = NeoAgentController(
+      backendClient: backendClient,
+      healthBridge: HealthBridge(),
+    )..computerRuntime = const <String, dynamic>{'state': 'agent_control'};
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => DevicesPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('View desktop'), findsOneWidget);
+    expect(find.text('Interrupt AI'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('computer-ai-activity-glow')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('View desktop'));
+    await tester.pump();
+
+    expect(backendClient.displaySessionCount, 1);
+    expect(backendClient.acquiredControl, isFalse);
+    expect(find.byType(ComputerDisplay), findsOneWidget);
+    expect(find.text('Interrupt AI'), findsOneWidget);
+
+    await tester.tap(find.text('Interrupt AI'));
+    await tester.pump();
+
+    expect(backendClient.acquiredControl, isTrue);
+    expect(backendClient.displaySessionCount, 2);
+    expect(controller.computerRuntime['state'], 'user_control');
+    expect(
+      find.byKey(const ValueKey<String>('computer-ai-activity-glow')),
+      findsNothing,
     );
   });
 

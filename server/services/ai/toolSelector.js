@@ -10,6 +10,7 @@
 const MAX_TOOLS = 20;
 const ALWAYS_INCLUDE_BUILT_INS = [
   'task_complete',
+  'search_tools',
   'activate_tools',
   'think',
   'send_message',
@@ -40,17 +41,67 @@ function compactDescription(value, maxChars = 180) {
   return `${text.slice(0, maxChars - 3).trimEnd()}...`;
 }
 
-function buildToolCatalog(tools = []) {
+function toolSearchTerms(value) {
+  return [...new Set(
+    String(value || '')
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .split(/[^a-z0-9]+/)
+      .map((term) => term.trim())
+      .filter((term) => term.length > 1),
+  )];
+}
+
+function searchTools(tools = [], query = '', { limit = 8, activeNames = [] } = {}) {
+  const terms = toolSearchTerms(query);
+  if (terms.length === 0) return [];
+  const active = new Set(activeNames.map(String));
+  const boundedLimit = Math.max(1, Math.min(Number(limit) || 8, 12));
+
   return tools
-    .filter((tool) => String(tool?.name || '').trim())
-    .map((tool) => ({
-      name: String(tool.name).trim(),
-      description: compactDescription(tool.description),
-      source: tool.serverId ? `mcp:${tool.serverId}` : 'built-in',
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .map((tool) => `${tool.name} | ${tool.source} | ${tool.description || 'No description supplied.'}`)
-    .join('\n');
+    .map((tool) => {
+      const name = String(tool?.name || '').trim();
+      if (!name) return null;
+      const nameTerms = toolSearchTerms(name);
+      const description = compactDescription(tool.description, 260);
+      const descriptionTerms = new Set(toolSearchTerms(description));
+      let score = 0;
+      for (const term of terms) {
+        if (name.toLowerCase() === term) score += 12;
+        if (nameTerms.includes(term)) score += 7;
+        else if (nameTerms.some((candidate) => candidate.startsWith(term) || term.startsWith(candidate))) score += 4;
+        if (descriptionTerms.has(term)) score += 2;
+      }
+      if (score === 0) return null;
+      return {
+        name,
+        description,
+        source: tool.serverId ? `mcp:${tool.serverId}` : 'built-in',
+        active: active.has(name),
+        score,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name))
+    .slice(0, boundedLimit)
+    .map(({ score, ...result }) => result);
+}
+
+function buildToolDiscoverySummary(tools = [], activeTools = []) {
+  const sourceCounts = new Map();
+  for (const tool of tools) {
+    const source = tool?.serverId ? `mcp:${tool.serverId}` : 'built-in';
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+  }
+  const sources = [...sourceCounts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([source, count]) => `${source}:${count}`)
+    .join(', ');
+  return [
+    `Active tools: ${activeTools.map((tool) => tool.name).join(', ') || 'none'}.`,
+    `Discoverable tools: ${tools.length}${sources ? ` (${sources})` : ''}.`,
+    'Use search_tools with a capability description, then activate_tools with exact returned names.',
+  ].join('\n');
 }
 
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
@@ -157,7 +208,8 @@ module.exports = {
   CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
-  buildToolCatalog,
+  buildToolDiscoverySummary,
+  searchTools,
   selectInitialTools,
   selectToolsForTask,
   selectMcpTools,

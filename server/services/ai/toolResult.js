@@ -10,6 +10,14 @@ function lineExcerpt(text, maxLines = 12, maxChars = 700) {
   return clampText(str.split('\n').slice(0, maxLines).join('\n'), maxChars);
 }
 
+function lineExcerptWasTruncated(text, maxLines, maxChars) {
+  const str = String(text || '').trim();
+  if (!str) return false;
+  const lines = str.split('\n');
+  if (lines.length > maxLines) return true;
+  return lines.join('\n').length > maxChars;
+}
+
 function toJsonText(value, maxChars) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return clampText(raw, maxChars);
@@ -102,29 +110,55 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'read_file':
-      envelope = trimObject({
-        tool: toolName,
-        path: toolArgs.path,
-        startLine: toolArgs.start_line,
-        endLine: toolArgs.end_line,
-        content: lineExcerpt(toolResult?.content || toolResult, 20, Math.floor(softLimit * 0.7))
-      });
-      break;
+      {
+        const content = String(toolResult?.content || toolResult || '');
+        const contentLimit = Math.floor(softLimit * 0.7);
+        const truncated = toolResult?.truncated === true
+          || content.includes('...[truncated')
+          || lineExcerptWasTruncated(content, 20, contentLimit);
+        envelope = trimObject({
+          tool: toolName,
+          path: toolArgs.path,
+          startLine: toolArgs.start_line,
+          endLine: toolArgs.end_line,
+          rangeShown: toolResult?.rangeShown,
+          totalLines: toolResult?.totalLines,
+          truncated,
+          note: truncated
+            ? 'Only part of the file was returned. Read a narrower line range to recover the omitted content.'
+            : undefined,
+          content: lineExcerpt(content, 20, contentLimit)
+        });
+        break;
+      }
 
     case 'read_files':
-      envelope = trimObject({
-        tool: toolName,
-        count: toolResult?.count || 0,
-        truncated: toolResult?.truncated || false,
-        results: (toolResult?.results || []).slice(0, 6).map((item) => trimObject({
-          path: item.path || item.requestedPath,
-          requestedPath: item.requestedPath,
-          rangeShown: item.rangeShown,
-          error: item.error,
-          content: lineExcerpt(item.content || '', 10, Math.floor(softLimit * 0.22))
-        }))
-      });
-      break;
+      {
+        const sourceResults = toolResult?.results || [];
+        const contentLimit = Math.floor(softLimit * 0.22);
+        const itemWasTruncated = (item) => item?.truncated === true
+          || lineExcerptWasTruncated(item?.content || '', 10, contentLimit);
+        const truncated = toolResult?.truncated === true
+          || sourceResults.length > 6
+          || sourceResults.some(itemWasTruncated);
+        envelope = trimObject({
+          tool: toolName,
+          count: toolResult?.count || 0,
+          truncated,
+          note: truncated
+            ? 'Only part of the requested file set was returned. Split the request or read individual files and narrower line ranges.'
+            : undefined,
+          results: sourceResults.slice(0, 6).map((item) => trimObject({
+            path: item.path || item.requestedPath,
+            requestedPath: item.requestedPath,
+            rangeShown: item.rangeShown,
+            truncated: itemWasTruncated(item),
+            error: item.error,
+            content: lineExcerpt(item.content || '', 10, contentLimit)
+          }))
+        });
+        break;
+      }
 
     case 'replace_file_range':
       envelope = trimObject({
@@ -141,16 +175,25 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'search_files':
-      envelope = trimObject({
-        tool: toolName,
-        count: toolResult?.count || toolResult?.matches?.length || 0,
-        matches: (toolResult?.matches || []).slice(0, 6).map((match) => trimObject({
-          file: match.file,
-          line: match.line,
-          content: clampText(match.content, 160)
-        }))
-      });
-      break;
+      {
+        const matches = toolResult?.matches || [];
+        const count = toolResult?.count || matches.length;
+        const truncated = toolResult?.truncated === true || count > 6 || matches.length > 6;
+        envelope = trimObject({
+          tool: toolName,
+          count,
+          truncated,
+          note: truncated
+            ? 'Only the first matches are shown. Narrow the path or search pattern, or read the matched files around the relevant lines.'
+            : undefined,
+          matches: matches.slice(0, 6).map((match) => trimObject({
+            file: match.file,
+            line: match.line,
+            content: clampText(match.content, 160)
+          }))
+        });
+        break;
+      }
 
     case 'browser_extract':
       envelope = trimObject({
