@@ -126,47 +126,6 @@ test('run leases are exclusive while live', () => {
   assert.ok(c);
 });
 
-test('fast-path gate blocks research and open obligations', () => {
-  const chat = runtime.taskContract.contractFromAnalysis({
-    mode: 'direct_answer',
-    goal: 'Say hello',
-    draft_reply: 'Hello!',
-    draft_status: 'final',
-    confidence: 0.95,
-    research_depth: 'none',
-    needs_verification: false,
-    complexity: 'simple',
-  }, 'hello');
-  const ok = runtime.taskContract.evaluateFastPathEligibility(chat, {
-    draftReply: 'Hello!',
-    analysis: {
-      mode: 'direct_answer',
-      draft_status: 'final',
-      draft_reply: 'Hello!',
-    },
-  });
-  assert.equal(ok.eligible, true);
-
-  const research = runtime.taskContract.contractFromAnalysis({
-    mode: 'execute',
-    goal: 'Research NeoAgent runtime',
-    draft_status: 'needs_execution',
-    research_depth: 'deep',
-    research_targets: ['NeoAgent'],
-    needs_verification: true,
-    confidence: 0.8,
-  }, 'research neoagent');
-  const blocked = runtime.taskContract.evaluateFastPathEligibility(research, {
-    draftReply: 'I will look into it',
-    analysis: {
-      mode: 'execute',
-      draft_status: 'needs_execution',
-    },
-  });
-  assert.equal(blocked.eligible, false);
-  assert.ok(blocked.reasons.length > 0);
-});
-
 test('completion gate rejects open required work nodes', () => {
   insertRun('gate-run');
   runtime.workGraph.createGraph('gate-run', [

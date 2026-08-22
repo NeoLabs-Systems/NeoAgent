@@ -8259,7 +8259,7 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('tasks:task_skipped', (dynamic _) {
       unawaited(refreshTasks());
     });
-    socket.on('skill:draft_created', (dynamic _) {
+    socket.on('skill:learned', (dynamic _) {
       unawaited(refreshSkills());
     });
     socket.connect();

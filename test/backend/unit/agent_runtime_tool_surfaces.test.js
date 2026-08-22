@@ -184,13 +184,11 @@ const SURFACES = [
   ['schedule automation', {
     triggerType: 'schedule',
     triggerSource: 'schedule',
-    skipTaskAnalysis: true,
     bypassUserRateLimits: true,
   }],
   ['background task', {
     triggerType: 'schedule',
     triggerSource: 'tasks',
-    skipTaskAnalysis: true,
     bypassUserRateLimits: true,
   }],
   ['subagent', {

@@ -14,7 +14,6 @@ const {
   normalizeVerificationResult,
   parseJsonObject,
 } = require('../taskAnalysis');
-const { summarizeCapabilityHealth } = require('../capabilityHealth');
 const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');

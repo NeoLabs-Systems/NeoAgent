@@ -845,19 +845,6 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
-  CREATE TABLE IF NOT EXISTS skill_workflow_observations (
-    user_id INTEGER NOT NULL,
-    agent_id TEXT NOT NULL,
-    workflow_signature TEXT NOT NULL,
-    observation_count INTEGER DEFAULT 0,
-    latest_run_id TEXT,
-    first_observed_at TEXT DEFAULT (datetime('now')),
-    last_observed_at TEXT DEFAULT (datetime('now')),
-    PRIMARY KEY (user_id, agent_id, workflow_signature),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-  );
-
   CREATE TABLE IF NOT EXISTS agent_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 
@@ -410,10 +411,16 @@ class SkillRunner {
       metadata: metaToWrite,
     });
 
-    return { success: true, name: safeName, path: filePath };
+    const versionId = this._recordSkillVersion(ownerId, safeName, 'validated');
+    return { success: true, name: safeName, path: filePath, versionId };
   }
 
-  updateSkill(userId, name, { description, instructions, metadata } = {}) {
+  updateSkill(userId, name, {
+    description,
+    instructions,
+    metadata,
+    recordVersion = true,
+  } = {}) {
     const ownerId = normalizeRuntimeUserId(userId);
     const skill = this.getSkill(name, ownerId);
     if (!skill) return { error: `Skill '${name}' not found` };
@@ -454,7 +461,10 @@ class SkillRunner {
       metadata: metaToWrite,
     });
 
-    return { success: true, name: skill.name, path: skill.filePath };
+    const versionId = recordVersion
+      ? this._recordSkillVersion(ownerId, skill.name, 'validated')
+      : null;
+    return { success: true, name: skill.name, path: skill.filePath, versionId };
   }
 
   getSkill(name, userId = null) {
@@ -475,7 +485,7 @@ class SkillRunner {
       return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
     }
     const metadata = { ...skill.metadata, enabled: !!enabled };
-    return this.updateSkill(userId, skill.name, { metadata });
+    return this.updateSkill(userId, skill.name, { metadata, recordVersion: false });
   }
 
   deleteSkill(userId, name) {
@@ -495,6 +505,19 @@ class SkillRunner {
       }
     } catch (e) { /* ignore */ }
 
+    const stored = db.prepare(
+      'SELECT id FROM skills WHERE user_id = ? AND name = ?',
+    ).get(ownerId, skill.name);
+    if (stored) {
+      const versionIds = db.prepare(
+        'SELECT id FROM agent_skill_versions WHERE skill_id = ?',
+      ).all(String(stored.id)).map((row) => row.id);
+      const removeEvaluations = db.prepare(
+        'DELETE FROM agent_skill_evaluations WHERE skill_version_id = ?',
+      );
+      for (const versionId of versionIds) removeEvaluations.run(versionId);
+      db.prepare('DELETE FROM agent_skill_versions WHERE skill_id = ?').run(String(stored.id));
+    }
     db.prepare('DELETE FROM skills WHERE user_id = ? AND name = ?').run(ownerId, skill.name);
     this.skills.delete(skill.key);
 
@@ -515,6 +538,31 @@ class SkillRunner {
     return fm;
   }
 
+  _recordSkillVersion(userId, name, status) {
+    const stored = db.prepare(
+      'SELECT id, file_path, metadata FROM skills WHERE user_id = ? AND name = ?',
+    ).get(userId, name);
+    if (!stored || !fs.existsSync(stored.file_path)) return null;
+    const previous = db.prepare(
+      'SELECT MAX(version) AS version FROM agent_skill_versions WHERE skill_id = ?',
+    ).get(String(stored.id));
+    const versionId = randomUUID();
+    db.prepare(
+      `INSERT INTO agent_skill_versions (
+        id, skill_id, version, name, content_md, metadata_json, validated_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+    ).run(
+      versionId,
+      String(stored.id),
+      Math.max(0, Number(previous?.version || 0)) + 1,
+      name,
+      fs.readFileSync(stored.file_path, 'utf8'),
+      stored.metadata || '{}',
+      status,
+    );
+    return versionId;
+  }
+
   getAll(userId = null) {
     return this._getVisibleSkills(userId).map((s) => ({
       name: s.name,
@@ -526,16 +574,6 @@ class SkillRunner {
       ownerType: s.ownerType,
       readOnly: s.readOnly,
     }));
-  }
-
-  findSkillByWorkflowSignature(userId, workflowSignature) {
-    const ownerId = normalizeRuntimeUserId(userId);
-    if (ownerId === null || !workflowSignature) return null;
-    return Array.from(this.skills.values()).find(
-      (skill) => skill.ownerType === 'user'
-        && skill.userId === ownerId
-        && skill.metadata?.workflow_signature === workflowSignature,
-    ) || null;
   }
 
   _findOwnedSkill(name, userId) {

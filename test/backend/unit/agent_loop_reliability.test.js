@@ -6,7 +6,6 @@ const { test } = require('node:test');
 const {
   normalizeTaskAnalysis,
   isDirectAnswerEligibleAnalysis,
-  buildAnalysisPrompt,
   buildExecutionGuidance,
   buildVerifierPrompt,
   normalizeVerificationResult,
@@ -147,17 +146,7 @@ test('complex research gets more productive read room before hard wrap-up', () =
   );
 });
 
-test('analysis and execution prompts push primary-source research without task ceremony for short work', () => {
-  const analysisPrompt = buildAnalysisPrompt({
-    tools: [
-      { name: 'web_search', description: 'Search the web.' },
-      { name: 'create_task', description: 'Create a task.' },
-    ],
-  });
-  assert.match(analysisPrompt, /direct_answer/);
-  assert.match(analysisPrompt, /research_targets/);
-  assert.match(analysisPrompt, /Never invent entities/);
-
+test('execution and verification prompts require primary-source research', () => {
   const guidance = buildExecutionGuidance({
     analysis: {
       mode: 'plan_execute',

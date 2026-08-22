@@ -1,4 +1,4 @@
-const { buildCoworkAnalysisInstructions, buildCoworkExecutionGuidance } = require('../cowork/prompt');
+const { buildCoworkExecutionGuidance } = require('../cowork/prompt');
 
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
@@ -20,23 +20,6 @@ const TASK_ANALYSIS_CONFIDENCE_DEFAULT = 0.55;
 const VERIFICATION_CONFIDENCE_VERIFIED = 0.85;
 const VERIFICATION_CONFIDENCE_DEFAULT = 0.5;
 const JSON_ONLY_RESPONSE_RULE = 'Return JSON only. No markdown, no prose, no code fences.';
-const ANALYSIS_SCHEMA_EXAMPLE = {
-  mode: 'execute',
-  needs_verification: true,
-  draft_reply: '',
-  draft_status: 'needs_execution',
-  acknowledgement: '',
-  goal: 'Answer the user accurately.',
-  success_criteria: ['Final reply is correct and specific.'],
-  research_targets: [],
-  research_depth: 'none',
-  suggested_tools: ['web_search', 'browser_navigate'],
-  complexity: 'standard',
-  autonomy_level: 'normal',
-  progress_update_policy: 'optional',
-  parallel_work: false,
-  completion_confidence_required: 'medium',
-};
 const PLAN_SCHEMA_EXAMPLE = {
   steps: [
     {
@@ -49,30 +32,6 @@ const PLAN_SCHEMA_EXAMPLE = {
   success_criteria: ['The final answer is correct and verifiable.'],
   verification_focus: ['Confirm the most time-sensitive claim before replying.'],
 };
-const ANALYSIS_PROMPT_INSTRUCTIONS = [
-  'Choose the lightest routing mode that still handles the task well. Prefer speed for simple work and depth only when the request needs tools or multi-step evidence.',
-  'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work. The draft_reply must be the actual answer, not a promise to check later.',
-  'Set draft_status="final" only when draft_reply fully answers the request now. Use "needs_execution" when any autonomous work remains, and "needs_user_input" only when the draft asks for information that is genuinely required before work can continue.',
-  'For short immediate questions, greetings, small explanations, quick conversational replies, or pure opinion/advice that does not need live lookup, prefer mode="direct_answer" with progress_update_policy="none", complexity="simple", autonomy_level="minimal", and an empty research_targets list. Speed matters more than creating plans or tasks.',
-  'Use mode="execute" for normal tool-driven work without a separate planning step.',
-  'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
-  'Never invent entities, products, people, files, or outcomes to fill gaps. If the user refers to multiple targets but only one is known, ask once or research only the known ones and mark the rest unknown.',
-  'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
-  'Set goal to a concise restatement of what the user is asking for in this message. Never leave goal empty.',
-  'Keep goal and success_criteria short and practical.',
-  'suggested_tools are optional hints, not a required plan.',
-  'Set complexity from the actual work shape, not from keywords: simple, standard, or complex.',
-  'Set autonomy_level="high" when the agent should decide sequencing, retries, evidence gathering, and verification without asking the user unless blocked.',
-  'Set progress_update_policy="required" for long, slow, voice, messaging, or externally visible work where silence would be confusing.',
-  'When a spoken or interactive request needs durable work, acknowledgement may contain one short request-specific spoken sentence. It must not claim completion. Otherwise use an empty string.',
-  'Do not suggest create_task, update_task, delete_task, or list_tasks for ordinary immediate work. Use task tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
-  'When the user asks to start an in-app voice call, use mode="execute" and suggest call_user. Never claim that voice calling is unavailable when call_user appears in the tool catalog. call_user does not dial phone numbers.',
-  'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
-  'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
-  'For research, product/device comparisons, reviews, fact-checks, or multi-entity look-into requests, use mode="execute" or mode="plan_execute", never direct_answer. Set needs_verification=true, freshness_risk="possible" or higher, and completion_confidence_required="high".',
-  'Set research_depth="none" when external source research is not needed, "light" for a focused lookup, and "deep" for comparisons, multi-source synthesis, disputed claims, or broad investigation. This is the authoritative research-routing field; do not infer it from tool names.',
-  'When the user asks to look into multiple devices, products, options, or entities, put each named target into research_targets and success_criteria and keep them exact. Prefer suggested_tools that can open primary sources (web_search plus browser_navigate/http_request) rather than answering from memory.',
-];
 const PLAN_PROMPT_INSTRUCTIONS = [
   'Create a concise execution plan for the current task.',
   'Focus on practical steps, success criteria, and what needs verification.',
@@ -325,18 +284,6 @@ function summarizeTools(tools = []) {
   return tools
     .map((tool) => String(tool?.name || '').trim())
     .filter(Boolean);
-}
-
-function summarizeToolCatalog(tools = []) {
-  return tools
-    .map((tool) => {
-      const name = String(tool?.name || '').trim();
-      if (!name) return '';
-      const description = String(tool?.description || '').replace(/\s+/g, ' ').trim();
-      return description ? `${name}: ${description}` : name;
-    })
-    .filter(Boolean)
-    .join('\n');
 }
 
 function normalizeTaskAnalysis(raw = {}, fallback = {}) {
@@ -643,27 +590,6 @@ function shouldRunVerifier({ analysis, toolExecutions = [], finalReply = '' }) {
   return meaningfulExecutions.some((item) => item.stateChanged || item.dependsOnOutput || item.evidenceRelevant);
 }
 
-function buildAnalysisPrompt({
-  capabilityHealth,
-  tools = [],
-  forceMode = null,
-  triggerSource = null,
-} = {}) {
-  const toolCatalog = summarizeToolCatalog(tools);
-  const forceModeLine = forceMode && ANALYSIS_MODES.includes(forceMode)
-    ? `Preferred mode override from the runtime: ${forceMode}. Honor it unless it is clearly unsafe or impossible.`
-    : '';
-
-  return composeJsonPrompt([
-    JSON_ONLY_RESPONSE_RULE,
-    ...ANALYSIS_PROMPT_INSTRUCTIONS,
-    ...buildCoworkAnalysisInstructions({ triggerSource }),
-    forceModeLine,
-    formatRuntimeCapabilityHealth(capabilityHealth),
-    toolCatalog ? `Complete available tool catalog:\n${toolCatalog}` : '',
-  ], ANALYSIS_SCHEMA_EXAMPLE);
-}
-
 function buildPlanPrompt(analysis, capabilityHealth) {
   const taskGoal = analysis.goal || 'Complete the user request.';
   return composeJsonPrompt([
@@ -730,7 +656,6 @@ function buildVerifierPrompt({ analysis, tools = [], toolExecutionSummary, evide
 
 module.exports = {
   ANALYSIS_MODES,
-  buildAnalysisPrompt,
   buildExecutionGuidance,
   buildInteractiveExecutionGuidance,
   buildPlanPrompt,

@@ -9,6 +9,7 @@ const {
   serializeInstalledSkill,
   sortInstalledSkills,
 } = require('../services/skills/runtime');
+const { markLearningUserEdited } = require('../services/skills/learning_documents');
 
 router.use(requireAuth);
 
@@ -161,10 +162,12 @@ router.put('/:name', async (req, res) => {
     if (parsed.metadata?.command && !isValidCommandTemplate(parsed.metadata.command)) {
       return res.status(400).json({ error: 'Skill command template contains invalid characters' });
     }
+    const current = runner.getSkill(req.params.name, req.session.userId);
+    const metadata = markLearningUserEdited(current?.metadata, parsed.metadata);
     const result = runner.updateSkill(req.session.userId, req.params.name, {
       description: parsed.description,
       instructions: parsed.instructions,
-      metadata: parsed.metadata
+      metadata,
     });
     if (result.code === 'forbidden') return res.status(403).json(result);
     if (result.error) return res.status(404).json(result);

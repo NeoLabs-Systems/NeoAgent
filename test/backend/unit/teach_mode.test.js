@@ -2,7 +2,6 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const { test } = require('node:test');
 
 const {
@@ -71,66 +70,38 @@ test('Teach Mode creates an active adaptive skill and purges encrypted raw data'
         };
       },
     };
-    let inference = 0;
     const agentEngine = {
       async inferStructured() {
-        inference += 1;
-        if (inference === 1) {
-          return {
-            parsed: {
-              name: 'export-report',
-              description: 'Export the current report.',
-              inputs: ['Report period'],
-              steps: [
-                'Open the reports view and locate the Export action by its accessible name.',
-                'Choose the requested period and verify that the report file appears.',
-              ],
-              successCriteria: ['The requested report exists in the workspace.'],
-              recovery: ['Refresh the report state and locate the Export action again.'],
-              askUserWhen: ['The report period is missing.'],
-            },
-          };
-        }
         return {
           parsed: {
             approved: true,
-            revised: {
+            skill: {
               name: 'export-report',
               description: 'Export the current report.',
-              inputs: ['Report period'],
+              trigger: 'Use when exporting a report for a selected period through the reports interface.',
+              category: 'computer',
+              workflowKey: 'export-report',
+              requiredInputs: ['Report period'],
               steps: [
                 'Inspect the reports view and activate Export using semantic UI information.',
                 'Choose the requested period and verify that the report file appears.',
               ],
-              successCriteria: ['The requested report exists in the workspace.'],
-              recovery: ['Reinspect the page and retry the semantic Export action.'],
-              askUserWhen: ['The report period is missing.'],
+              verification: ['The requested report exists in the workspace.'],
+              pitfalls: ['Reinspect the page and locate Export again if the report state changes.'],
             },
           },
         };
       },
     };
-    const skillRunner = {
-      createSkill(userId, name, description, instructions, metadata) {
-        const directory = path.join(ctx.dataDir, 'skills', String(userId), name);
-        fs.mkdirSync(directory, { recursive: true });
-        const filePath = path.join(directory, 'SKILL.md');
-        fs.writeFileSync(filePath, instructions);
-        ctx.db.prepare(
-          `INSERT INTO skills (user_id, name, description, file_path, metadata, enabled, auto_created)
-           VALUES (?, ?, ?, ?, ?, 1, 1)`,
-        ).run(userId, name, description, filePath, JSON.stringify(metadata));
-        return { success: true, name, path: filePath };
-      },
-      updateSkill() {
-        throw new Error('Unexpected skill update');
-      },
-    };
+    const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+    const { SkillLearningService } = require('../../../server/services/skills/learning_service');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+    const skillLearningService = new SkillLearningService({ skillRunner, agentEngine });
 
     service = new TeachService({
       runtimeManager,
-      agentEngine,
-      skillRunner,
+      skillLearningService,
       imageAnalyzer: async () => ({ description: 'Chromium shows the Reports page and an Export button.' }),
     });
     const started = await service.start(user.userId, { goal: 'Export a report for a chosen period' });
@@ -169,13 +140,17 @@ test('Teach Mode creates an active adaptive skill and purges encrypted raw data'
     ).get(user.userId, 'export-report');
     assert.equal(skill.enabled, 1);
     assert.equal(skill.auto_created, 1);
-    assert.equal(JSON.parse(skill.metadata).teach_provenance.goal, 'Export a report for a chosen period');
+    const metadata = JSON.parse(skill.metadata);
+    assert.equal(metadata.source, 'learned');
+    assert.equal(metadata.category, 'computer');
+    assert.equal(metadata.learning.origin, 'computer-demonstration');
+    assert.equal(metadata.learning.managed, true);
     const version = ctx.db.prepare(
       'SELECT version, status, content_md FROM agent_skill_versions WHERE skill_id = (SELECT id FROM skills WHERE user_id = ? AND name = ?)',
     ).get(user.userId, 'export-report');
     assert.equal(version.version, 1);
     assert.equal(version.status, 'validated');
-    assert.match(version.content_md, /normal NeoAgent agent loop/);
+    assert.match(version.content_md, /normal NeoAgent loop/);
     assert.doesNotMatch(version.content_md, /never-store-this-secret/);
   } finally {
     service?.shutdown();

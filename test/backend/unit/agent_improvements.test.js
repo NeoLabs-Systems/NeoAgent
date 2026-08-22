@@ -14,12 +14,11 @@ const {
   CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
-  buildToolCatalog,
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
-const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
+const { buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 const {
   buildCompletionDecisionPrompt,
 } = require('../../../server/services/ai/loop/completion_judge');
@@ -86,9 +85,10 @@ test('repetition guard normalizes repeated read-only shell evidence fetches', ()
   assert.deepEqual(normalizeReadOnlyShellIntent(first.command), normalizeReadOnlyShellIntent(second.command));
 });
 
-test('tool catalog retains every tool and activation replaces unrelated schemas', () => {
+test('tool activation replaces unrelated schemas while preserving control tools', () => {
   const required = [
     'task_complete',
+    'search_tools',
     'activate_tools',
     'think',
     'send_message',
@@ -102,9 +102,6 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
       description: `Capability ${index}`,
     })),
   ];
-  const catalog = buildToolCatalog(tools);
-  for (const tool of tools) assert.match(catalog, new RegExp(`^${tool.name} \\|`, 'm'));
-
   const initial = selectInitialTools(tools, tools.slice(5, 20).map((tool) => tool.name));
   assert.equal(initial.length, MAX_TOOLS);
   const result = activateTools(initial, tools, ['tool_39']);
@@ -137,6 +134,7 @@ test('tool discovery stays compact and searches inactive capabilities genericall
 test('execute runs start with core file tools but direct runs stay lean', () => {
   const required = [
     'task_complete',
+    'search_tools',
     'activate_tools',
     'think',
     'send_message',
@@ -173,42 +171,6 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   for (const toolName of CORE_FILE_TOOLS) {
     assert.equal(activated.tools.some((tool) => tool.name === toolName), true, `${toolName} should remain active`);
   }
-});
-
-test('task analysis receives the complete tool inventory', () => {
-  const tools = Array.from({ length: 140 }, (_, index) => ({
-    name: `capability_${index}`,
-    description: `Description for capability ${index}`,
-  }));
-  const prompt = buildAnalysisPrompt({ tools });
-  assert.match(prompt, /capability_0: Description for capability 0/);
-  assert.match(prompt, /capability_139: Description for capability 139/);
-  assert.doesNotMatch(prompt, /\.\.\.\(\d+ more\)/);
-});
-
-test('task analysis keeps short immediate work out of task automation flow', () => {
-  const prompt = buildAnalysisPrompt({
-    tools: [
-      { name: 'create_task', description: 'Create a background task.' },
-      { name: 'send_message', description: 'Send a message.' },
-    ],
-  });
-
-  assert.match(prompt, /short immediate questions/);
-  assert.match(prompt, /mode="direct_answer"/);
-  assert.match(prompt, /progress_update_policy="none"/);
-  assert.match(prompt, /Do not suggest create_task/);
-  assert.match(prompt, /future, recurring, scheduled, monitored, background/);
-});
-
-test('task analysis routes in-app voice calls through call_user', () => {
-  const prompt = buildAnalysisPrompt({
-    tools: [{ name: 'call_user', description: 'Start an in-app voice call.' }],
-  });
-
-  assert.match(prompt, /use mode="execute" and suggest call_user/);
-  assert.match(prompt, /Never claim that voice calling is unavailable/);
-  assert.match(prompt, /does not dial phone numbers/);
 });
 
 test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
@@ -341,7 +303,7 @@ test('calendar summarizeListedEvents exposes timed events separately for reminde
   assert.deepEqual(result.events.map((event) => event.id), ['timed', 'all-day']);
 });
 
-test('task analysis keeps source checkouts in the shared workspace', () => {
+test('execution guidance keeps source checkouts in the shared workspace', () => {
   const prompt = buildExecutionGuidance({
     analysis: {
       mode: 'execute',

@@ -27,7 +27,7 @@ const { WorkspaceManager } = require('./workspace/manager');
 const { CodeNavigationService } = require('./workspace/code_navigation');
 const { StructuredDataService } = require('./workspace/structured_data');
 const { TaskWebhookService } = require('./tasks/webhooks');
-const { LearningManager } = require('./ai/learning');
+const { SkillLearningService } = require('./skills/learning_service');
 const { CapabilityAuditService } = require('./security/capability_audit');
 const { ToolPolicyService } = require('./security/tool_policy_service');
 const { ApprovalGateService } = require('./security/approval_gate_service');
@@ -503,14 +503,18 @@ async function startServices(app, io) {
       skillRunner,
       workspaceManager: app.locals.workspaceManager,
     });
+    const skillLearningService = registerLocal(
+      app,
+      'skillLearningService',
+      new SkillLearningService({ skillRunner, agentEngine, io }),
+    );
+    agentEngine.skillLearningService = skillLearningService;
     registerLocal(app, 'teachService', new TeachService({
       runtimeManager,
-      agentEngine,
-      skillRunner,
+      skillLearningService,
       io,
     }));
     logServiceReady('Teach Mode ready');
-    registerLocal(app, 'learningManager', new LearningManager(skillRunner, io));
     registerLocal(app, 'capabilityAuditService', new CapabilityAuditService({
       mcpClient,
       skillRunner,
@@ -519,8 +523,6 @@ async function startServices(app, io) {
     const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
     registerToolSecurityHooks(toolPolicyService, approvalGateService);
     logServiceReady('Tool security hooks registered');
-    agentEngine.learningManager = app.locals.learningManager;
-
     createMultiStep(app, agentEngine, io);
     createCommandRouter(app);
     const voiceRuntimeManager = createVoiceRuntimeManager(app, io, {
@@ -599,6 +601,15 @@ async function stopServices(app) {
       logServiceReady('Teach Mode sessions purged');
     } catch (err) {
       console.error('[TeachMode] Shutdown error:', getErrorMessage(err));
+    }
+  }
+  if (app.locals.skillLearningService) {
+    try {
+      await app.locals.skillLearningService.shutdown();
+      app.locals.skillLearningService = null;
+      logServiceReady('Skill learning review queue drained');
+    } catch (err) {
+      console.error('[SkillLearning] Shutdown error:', getErrorMessage(err));
     }
   }
   if (app.locals.setupDiscovery) {

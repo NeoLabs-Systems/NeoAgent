@@ -4,13 +4,12 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
-  buildCoworkAnalysisInstructions,
   buildCoworkExecutionGuidance,
   buildCoworkOperatingContract,
   workspaceFolderName,
 } = require('../../../server/services/cowork/prompt');
 const { buildSystemPromptSections } = require('../../../server/services/ai/systemPrompt');
-const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
+const { buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 
 const memoryManager = {
   async buildContext() {
@@ -87,28 +86,6 @@ test('cowork system prompt includes the attached folder and channel style', asyn
   assert.doesNotMatch(prompt, /CHANNEL: short paragraphs/);
 });
 
-test('cowork task analysis prefers file tools over web research', () => {
-  const prompt = buildAnalysisPrompt({
-    triggerSource: 'cowork',
-    tools: [
-      { name: 'list_directory', description: 'List workspace files.' },
-      { name: 'web_search', description: 'Search the web.' },
-    ],
-  });
-  assert.match(prompt, /attached project folder/);
-  assert.match(prompt, /never "direct_answer"/);
-  assert.match(prompt, /Prefer workspace inspection\/edit tools/);
-  assert.match(prompt, /do not ask for a URL/);
-  assert.deepEqual(
-    buildCoworkAnalysisInstructions({ triggerSource: 'web' }),
-    [],
-  );
-  assert.deepEqual(
-    buildCoworkAnalysisInstructions({ triggerSource: 'messaging' }),
-    [],
-  );
-});
-
 test('cowork execution guidance tells the model to edit the attached folder', () => {
   const prompt = buildExecutionGuidance({
     triggerSource: 'cowork',
@@ -139,12 +116,8 @@ test('web, messaging, and voice prompts stay free of cowork-only rules', async (
   }
 });
 
-test('non-cowork analysis and execution prompts stay free of cowork-only rules', () => {
+test('non-cowork execution prompts stay free of cowork-only rules', () => {
   for (const triggerSource of [undefined, 'web', 'messaging', 'voice_live']) {
-    const analysis = buildAnalysisPrompt({
-      triggerSource,
-      tools: [{ name: 'web_search', description: 'Search the web.' }],
-    });
     const guidance = buildExecutionGuidance({
       triggerSource,
       analysis: {
@@ -154,7 +127,6 @@ test('non-cowork analysis and execution prompts stay free of cowork-only rules',
       },
     });
     for (const phrase of COWORK_ONLY_PHRASES) {
-      assert.doesNotMatch(analysis, phrase, `${phrase} leaked into ${triggerSource} analysis`);
       assert.doesNotMatch(guidance, phrase, `${phrase} leaked into ${triggerSource} guidance`);
     }
   }

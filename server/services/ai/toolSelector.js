@@ -3,8 +3,9 @@
 /**
  * Tool selection strategy:
  *
- * Every tool stays visible in the catalog. Only full JSON schemas are limited
- * per model turn because several providers enforce schema-count limits.
+ * Full JSON schemas are capped per model turn because several providers impose
+ * schema-count limits. The stable search_tools control surface discovers the
+ * remaining registry without injecting the complete catalog into every prompt.
  */
 
 const MAX_TOOLS = 20;

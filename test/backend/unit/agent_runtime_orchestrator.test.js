@@ -91,6 +91,13 @@ test('ordinary chat completes in one model turn without a triage model call', as
     suggested_tools: [],
   });
   let structuredCalls = 0;
+  const learningInputs = [];
+  engine.skillLearningService = {
+    enqueueCompletedRun(input) {
+      learningInputs.push(input);
+      return Promise.resolve(null);
+    },
+  };
   engine.requestStructuredJson = async () => {
     structuredCalls += 1;
     throw new Error('ordinary chat must not use structured triage');
@@ -121,6 +128,13 @@ test('ordinary chat completes in one model turn without a triage model call', as
      WHERE run_id = ? AND message_kind = 'final'`,
   ).get(result.runId);
   assert.equal(Number(finals.n), 1);
+  assert.equal(learningInputs.length, 1);
+  assert.equal(learningInputs[0].runId, result.runId);
+  assert.equal(learningInputs[0].triggerType, 'user');
+  assert.equal(learningInputs[0].triggerSource, 'web');
+  assert.equal(learningInputs[0].task, 'hi');
+  assert.equal(learningInputs[0].taskId, null);
+  assert.equal(learningInputs[0].finalContent, 'Hello!');
 
 });
 
@@ -466,12 +480,18 @@ test('schedule background run keeps tool_calls.function across turns', async () 
     lastSentMessage: '',
     sentMessages: [],
   };
+  const taskLearningInputs = [];
+  engine.skillLearningService = {
+    enqueueCompletedRun(input) {
+      taskLearningInputs.push(input);
+      return Promise.resolve(null);
+    },
+  };
 
   const result = await engine.run(userId, '[SYSTEM: Executing Background Task]\nTask Name: Kalender-Reminder', {
     triggerType: 'schedule',
     triggerSource: 'schedule',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,
@@ -499,6 +519,10 @@ test('schedule background run keeps tool_calls.function across turns', async () 
      WHERE run_id = ? AND message_kind = 'ack'`,
   ).get(result.runId);
   assert.equal(Number(acks.n), 0);
+  assert.equal(taskLearningInputs.length, 1);
+  assert.equal(taskLearningInputs[0].runId, result.runId);
+  assert.equal(taskLearningInputs[0].taskId, 'task-1');
+  assert.equal(taskLearningInputs[0].triggerType, 'schedule');
 });
 
 test('tool execution preserves mutation barriers and model-order results', async () => {
@@ -614,7 +638,6 @@ test('task_complete message field becomes final content', async () => {
   const result = await engine.run(userId, 'Review calendar', {
     triggerSource: 'web',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 3,
@@ -1353,7 +1376,6 @@ test('background run searches for an inactive tool and activates it', async () =
     triggerType: 'schedule',
     triggerSource: 'schedule',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,
@@ -1428,7 +1450,6 @@ test('execution turns keep the agent system prompt and persist tool steps', asyn
   const result = await engine.run(userId, 'Read a.txt', {
     triggerSource: 'web',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 4,
@@ -1528,7 +1549,6 @@ test('messaging final is not transmitted twice after send_message delivered it',
     source: 'whatsapp',
     chatId: 'chat-1',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,

@@ -675,10 +675,9 @@ class DurableRunRuntime {
         progress_update_policy: requestedPlan ? 'required' : 'optional',
       }, { goal: String(userMessage || '').trim().slice(0, 500) });
 
-      // Tool schemas are capped per model turn, so only a slice of the catalog is
-      // active at a time. The full catalog must still be visible in context or the
-      // model cannot know a capability exists — it then reports the tool as
-      // unavailable instead of activating it.
+      // Tool schemas are capped per model turn. Seed the active slice with a
+      // generic registry search; search_tools provides exact on-demand discovery
+      // without copying the complete catalog into every request.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
@@ -1107,6 +1106,10 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            task: userMessage,
+            taskId: options.taskId || null,
+            triggerType,
+            triggerSource,
           });
           return {
             runId,
@@ -1150,6 +1153,10 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            task: userMessage,
+            taskId: options.taskId || null,
+            triggerType,
+            triggerSource,
           });
           return {
             runId,
@@ -2188,6 +2195,10 @@ class DurableRunRuntime {
         iterations,
         memoryManager: this.engine.memoryManager,
         messages,
+        task: userMessage,
+        taskId: options.taskId || null,
+        triggerType,
+        triggerSource,
       });
       return {
         runId,
@@ -2348,6 +2359,10 @@ class DurableRunRuntime {
     iterations,
     memoryManager,
     messages,
+    task,
+    taskId,
+    triggerType,
+    triggerSource,
   }) {
     if (conversationId && content) {
       try {
@@ -2423,6 +2438,19 @@ class DurableRunRuntime {
     console.info(
       `[Run ${shortenRunId(runId)}] completed kernel=v2 steps=${iterations} tokens=${totalTokens} finalResponse=${content ? 'yes' : 'no'}`,
     );
+
+    this.engine.skillLearningService?.enqueueCompletedRun({
+      userId,
+      agentId,
+      runId,
+      triggerType,
+      triggerSource,
+      task,
+      taskId,
+      finalContent: content,
+      iterations,
+      messages,
+    });
   }
 
   /**
