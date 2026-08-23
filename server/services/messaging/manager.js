@@ -44,6 +44,7 @@ const {
 } = require('../../utils/abort');
 const { waitForAbortableResult, waitForBoundedResult } = require('../network/http');
 const { resolveUserFileReference } = require('../files/user_file_access');
+const { createServiceLogger } = require('../../utils/logger');
 const {
   claimInboundJob,
   enqueueInboundMessage,
@@ -55,6 +56,9 @@ const {
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const MESSAGING_OPERATION_TIMEOUT_MS = 60000;
+const MESSAGING_RECONNECT_BASE_DELAY_MS = 2000;
+const MESSAGING_RECONNECT_MAX_DELAY_MS = 60000;
+const messagingLogger = createServiceLogger('Messaging');
 
 function messagingShutdownError() {
   const error = new Error('Messaging is shutting down and cannot accept new work.');
@@ -94,6 +98,10 @@ class MessagingManager extends EventEmitter {
     this.activeOperations = new Set();
     this.activeInboundJobs = new Set();
     this.activeInboundRecoveries = new Map();
+    this.reconnectTimers = new Map();
+    this.reconnectAttempts = new Map();
+    this.reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? MESSAGING_RECONNECT_BASE_DELAY_MS;
+    this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
     this.inboundJobsReconciled = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
@@ -383,6 +391,44 @@ class MessagingManager extends EventEmitter {
     return `${userId}:${agentId}:${platformName}`;
   }
 
+  _clearReconnect(key, { resetAttempts = true } = {}) {
+    const timer = this.reconnectTimers.get(key);
+    if (timer) clearTimeout(timer);
+    this.reconnectTimers.delete(key);
+    if (resetAttempts) this.reconnectAttempts.delete(key);
+  }
+
+  _scheduleReconnect({ userId, agentId, platformName, config }) {
+    const key = this._key(userId, agentId, platformName);
+    if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
+
+    const attempt = (this.reconnectAttempts.get(key) || 0) + 1;
+    this.reconnectAttempts.set(key, attempt);
+    const delayMs = Math.min(
+      this.reconnectBaseDelayMs * (2 ** Math.min(attempt - 1, 10)),
+      this.reconnectMaxDelayMs,
+    );
+    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .run('reconnecting', userId, agentId, platformName);
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(key);
+      if (this.isShuttingDown) return;
+      const platform = this.platforms.get(key);
+      if (String(platform?.getStatus?.() || platform?.status || '').toLowerCase() === 'connected') {
+        this.reconnectAttempts.delete(key);
+        return;
+      }
+      this.connectPlatform(userId, platformName, config, { agentId }).catch((error) => {
+        if (this.isShuttingDown) return;
+        messagingLogger.warn(`${platformName} reconnect failed:`, error?.message || error);
+        this._scheduleReconnect({ userId, agentId, platformName, config });
+      });
+    }, delayMs);
+    timer.unref?.();
+    this.reconnectTimers.set(key, timer);
+  }
+
   _setting(userId, agentId, key) {
     const agentRow = db.prepare(
       'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
@@ -552,8 +598,7 @@ class MessagingManager extends EventEmitter {
       let shouldMigrateLegacyAuth = true;
       if (
         existingConnection &&
-        existingConnection.status !== 'connected' &&
-        existingConnection.status !== 'awaiting_qr'
+        !['connected', 'connecting', 'reconnecting', 'awaiting_qr'].includes(existingConnection.status)
       ) {
         fs.rmSync(config.authDir, { recursive: true, force: true });
         shouldMigrateLegacyAuth = false;
@@ -564,11 +609,13 @@ class MessagingManager extends EventEmitter {
     }
 
     const storedConfig = this._encodeStoredConfig(config);
+    const reconnectConfig = this._persistableConfig(config);
 
     const key = this._key(userId, agentId, platformName);
     let platform = this.platforms.get(key);
 
     if (platform) {
+      this.platforms.delete(key);
       await platform.disconnect().catch(() => {});
     }
 
@@ -585,6 +632,7 @@ class MessagingManager extends EventEmitter {
 
     platform.on('connected', () => {
       if (!currentPlatform() || this.isShuttingDown) return;
+      this._clearReconnect(key);
       this.io.to(`user:${userId}`).emit('messaging:connected', { agentId, platform: platformName });
       db.prepare('UPDATE platform_connections SET status = ?, last_connected = datetime(\'now\') WHERE user_id = ? AND agent_id = ? AND platform = ?')
         .run('connected', userId, agentId, platformName);
@@ -611,13 +659,22 @@ class MessagingManager extends EventEmitter {
         });
       }
       if (!this.isShuttingDown) {
+        const willReconnect = info?.manual !== true
+          && info?.requiresUserAction !== true
+          && info?.shouldReconnect !== false;
+        platform.status = willReconnect ? 'reconnecting' : 'disconnected';
+        if (!willReconnect) this._clearReconnect(key);
         db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-          .run('disconnected', userId, agentId, platformName);
+          .run(willReconnect ? 'reconnecting' : 'disconnected', userId, agentId, platformName);
+        if (willReconnect && info?.willReconnect !== true) {
+          this._scheduleReconnect({ userId, agentId, platformName, config: reconnectConfig });
+        }
       }
     });
 
     platform.on('logged_out', () => {
       if (!currentPlatform() || this.isShuttingDown) return;
+      this._clearReconnect(key);
       this.io.to(`user:${userId}`).emit('messaging:logged_out', { agentId, platform: platformName });
       this.io.to(`user:${userId}`).emit('messaging:attention_required', {
         agentId,
@@ -630,14 +687,21 @@ class MessagingManager extends EventEmitter {
     });
 
     platform.on('error', (info) => {
-      if (!currentPlatform() || this.isShuttingDown || info?.requiresUserAction !== true) return;
-      this.io.to(`user:${userId}`).emit('messaging:attention_required', {
-        agentId,
-        platform: platformName,
-        reason: info.reason || 'reconnect_required',
-      });
-      db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-        .run('error', userId, agentId, platformName);
+      if (!currentPlatform() || this.isShuttingDown) return;
+      if (info?.requiresUserAction === true) {
+        this._clearReconnect(key);
+        this.io.to(`user:${userId}`).emit('messaging:attention_required', {
+          agentId,
+          platform: platformName,
+          reason: info.reason || 'reconnect_required',
+        });
+        db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+          .run('error', userId, agentId, platformName);
+        return;
+      }
+      if (info?.willReconnect !== true) {
+        this._scheduleReconnect({ userId, agentId, platformName, config: reconnectConfig });
+      }
     });
 
     // Adapter-level blocked sender notification with suggestions
@@ -690,6 +754,7 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
+    this._clearReconnect(key);
 
     if (platform) {
       await platform.disconnect();
@@ -919,7 +984,7 @@ class MessagingManager extends EventEmitter {
   async restoreConnections() {
     this._assertRunning();
     const rows = db.prepare(
-      "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'awaiting_qr')"
+      "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'reconnecting', 'awaiting_qr')"
     ).all();
     for (const row of rows) {
       try {
@@ -964,6 +1029,7 @@ class MessagingManager extends EventEmitter {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.isShuttingDown = true;
     this.lifecycleAbortController.abort(messagingShutdownError());
+    for (const key of this.reconnectTimers.keys()) this._clearReconnect(key);
 
     this.shutdownPromise = (async () => {
       const activeOperationTasks = Array.from(this.activeOperations, (operation) =>

@@ -73,6 +73,7 @@ class DiscordPlatform extends BasePlatform {
         console.warn(`[Discord] Shard ${shardId} disconnected (${event?.code || 'unknown'})`);
         this.emit('disconnected', {
           manual: false,
+          willReconnect: true,
           shardId,
           code: event?.code || null,
           reason: event?.reason || null,

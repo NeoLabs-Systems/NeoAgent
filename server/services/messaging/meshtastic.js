@@ -189,7 +189,10 @@ class MeshtasticPlatform extends BasePlatform {
         this._transport = null;
       }
       this.status = 'disconnected';
-      this.emit('disconnected', { reason: info?.reason || 'device_disconnected' });
+      this.emit('disconnected', {
+        reason: info?.reason || 'device_disconnected',
+        willReconnect: true,
+      });
       this._scheduleReconnect();
     });
 
