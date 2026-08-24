@@ -105,7 +105,16 @@ jobs:
               }]
             }' <<<"$release_json")"
 
-          curl \
+          webhook_url="$DISCORD_WEBHOOK_URL"
+          if [[ "$webhook_url" != *"wait="* ]]; then
+            separator="?"
+            if [[ "$webhook_url" == *"?"* ]]; then
+              separator="&"
+            fi
+            webhook_url="${webhook_url}${separator}wait=true"
+          fi
+
+          discord_response="$(curl \
             --fail-with-body \
             --retry 3 \
             --retry-all-errors \
@@ -113,4 +122,8 @@ jobs:
             --show-error \
             --header "Content-Type: application/json" \
             --data "$payload" \
-            "$DISCORD_WEBHOOK_URL"
+            "$webhook_url")"
+
+          message_id="$(jq -er '.id' <<<"$discord_response")"
+          channel_id="$(jq -er '.channel_id' <<<"$discord_response")"
+          echo "Discord release notification sent (message ${message_id}, channel ${channel_id})."

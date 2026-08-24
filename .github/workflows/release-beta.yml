@@ -137,16 +137,27 @@ jobs:
       - name: Set package version
         run: npm version "${{ steps.beta_version.outputs.version }}" --no-git-tag-version --allow-same-version
 
-      - name: Commit and tag beta release
+      - name: Commit beta release
         run: |
           git add package.json package-lock.json
           git commit -m "chore(beta-release): v${{ steps.beta_version.outputs.version }} [skip ci]"
-          git tag "${{ env.NEW_VERSION }}" -m "chore(beta-release): v${{ steps.beta_version.outputs.version }}"
 
       - name: Push beta release commit and tag
         run: |
-          git push origin HEAD:beta
-          git push origin "${{ env.NEW_VERSION }}"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin beta
+            git rebase origin/beta
+            git tag --force "${{ env.NEW_VERSION }}" -m "chore(beta-release): v${{ steps.beta_version.outputs.version }}"
+
+            if git push origin HEAD:beta; then
+              git push origin "${{ env.NEW_VERSION }}"
+              exit 0
+            fi
+
+            echo "Beta branch changed during release push (attempt ${attempt}); retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
 
       - name: Install dependencies
         run: npm ci
