@@ -72,6 +72,15 @@ function buildCoworkOperatingContract(context = {}) {
   ].join('\n');
 }
 
+function buildCoworkAnalysisInstructions(context = {}) {
+  if (context.triggerSource !== 'cowork') return [];
+  return [
+    'This is a Cowork session with an attached project folder. Requests that require file changes must use mode="execute" or "plan_execute", never "direct_answer".',
+    'Treat the folder as the source; use research_depth="none" unless required evidence is genuinely external. Prefer workspace inspection/edit tools and do not ask for a URL, repo, or permission to start.',
+    'Set autonomy_level="high" and draft_status="needs_execution" for project work.',
+  ];
+}
+
 function buildCoworkExecutionGuidance(context = {}) {
   if (context.triggerSource !== 'cowork') return [];
   return [
@@ -81,6 +90,7 @@ function buildCoworkExecutionGuidance(context = {}) {
 }
 
 module.exports = {
+  buildCoworkAnalysisInstructions,
   buildCoworkExecutionGuidance,
   buildCoworkOperatingContract,
   buildCoworkWorkspaceFacts,

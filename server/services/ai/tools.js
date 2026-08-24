@@ -1186,7 +1186,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'search_tools',
-            description: 'Search the complete tool registry by capability. Use this when the needed tool is not active; the result returns exact names and descriptions for activate_tools.',
+            description: 'Search the complete tool registry by capability. Matching tool schemas are activated automatically for the next model turn.',
             access: 'read',
             parameters: {
                 type: 'object',

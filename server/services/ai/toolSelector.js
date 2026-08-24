@@ -53,16 +53,21 @@ function toolSearchTerms(value) {
   )];
 }
 
-function searchTools(tools = [], query = '', { limit = 8, activeNames = [] } = {}) {
+function searchTools(tools = [], query = '', {
+  limit = 8,
+  activeNames = [],
+  excludeNames = [],
+} = {}) {
   const terms = toolSearchTerms(query);
   if (terms.length === 0) return [];
   const active = new Set(activeNames.map(String));
+  const excluded = new Set(excludeNames.map(String));
   const boundedLimit = Math.max(1, Math.min(Number(limit) || 8, 12));
 
   return tools
     .map((tool) => {
       const name = String(tool?.name || '').trim();
-      if (!name) return null;
+      if (!name || excluded.has(name)) return null;
       const nameTerms = toolSearchTerms(name);
       const description = compactDescription(tool.description, 260);
       const descriptionTerms = new Set(toolSearchTerms(description));
@@ -101,7 +106,7 @@ function buildToolDiscoverySummary(tools = [], activeTools = []) {
   return [
     `Active tools: ${activeTools.map((tool) => tool.name).join(', ') || 'none'}.`,
     `Discoverable tools: ${tools.length}${sources ? ` (${sources})` : ''}.`,
-    'Use search_tools with a capability description, then activate_tools with exact returned names.',
+    'Use search_tools with a capability description when a needed schema is missing. Matching tools become active on the next model turn; use activate_tools only to select different exact names.',
   ].join('\n');
 }
 
@@ -206,6 +211,7 @@ function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {
 }
 
 module.exports = {
+  ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
