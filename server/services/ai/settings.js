@@ -34,12 +34,8 @@ function createDefaultAiSettings() {
     tool_replay_budget_file_chars: null,
     tool_replay_budget_browser_chars: null,
     tool_replay_budget_command_chars: null,
-    max_iterations: null,
     max_consecutive_read_only_iterations: null,
     max_consecutive_tool_failures: null,
-    max_model_failure_recoveries: null,
-    compaction_threshold: null,
-    subagent_max_iterations: 6,
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: true,
@@ -230,12 +226,8 @@ function getAiSettings(userId, agentId = null) {
   settings.tool_replay_budget_file_chars = normalizeOptionalNumber(settings.tool_replay_budget_file_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_browser_chars = normalizeOptionalNumber(settings.tool_replay_budget_browser_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_command_chars = normalizeOptionalNumber(settings.tool_replay_budget_command_chars, 500, 500_000, { integer: true });
-  settings.max_iterations = normalizeOptionalNumber(settings.max_iterations, 1, 400, { integer: true });
   settings.max_consecutive_read_only_iterations = normalizeOptionalNumber(settings.max_consecutive_read_only_iterations, 3, 25, { integer: true });
   settings.max_consecutive_tool_failures = normalizeOptionalNumber(settings.max_consecutive_tool_failures, 1, 50, { integer: true });
-  settings.max_model_failure_recoveries = normalizeOptionalNumber(settings.max_model_failure_recoveries, 0, 10, { integer: true });
-  settings.compaction_threshold = normalizeOptionalNumber(settings.compaction_threshold, 0.1, 1);
-  settings.subagent_max_iterations = Math.max(2, Math.min(Number(settings.subagent_max_iterations) || DEFAULT_AI_SETTINGS.subagent_max_iterations, 12));
   settings.subagent_max_children_per_run = Math.max(
     1,
     Math.min(

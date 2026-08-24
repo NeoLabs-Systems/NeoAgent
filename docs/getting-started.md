@@ -29,11 +29,11 @@ release, make it executable on macOS or Linux, and run `neoagent`. The
 standalone CLI contains Node and verifies the same runtime packages used by the
 desktop app.
 
-The npm package remains compatible for machines that already have Node.js:
+To install from source, run the repository installer. It clones NeoAgent
+directly from GitHub and requires Git, Node.js 20+, and npm for dependencies:
 
 ```bash
-npm install -g neoagent
-neoagent
+bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
 The first CLI run detects an existing, incomplete, or damaged installation and

@@ -3,19 +3,18 @@
 const { buildLoopPolicy } = require('../loopPolicy');
 
 const DEFAULTS = Object.freeze({
-  modelTurns: 250,
-  inputTokens: 2_000_000,
-  outputTokens: 500_000,
-  monetaryCostUsd: 25,
-  wallClockMs: 60 * 60 * 1000,
-  toolRuntimeMs: 20 * 60 * 1000,
-  retriesPerNode: 5,
-  failuresPerErrorClass: 8,
-  evidenceBudget: 24,
-  sideEffectBudget: 20,
-  subagentCount: 10,
-  subagentTurns: 30,
+  modelTurns: 5_000,
+  inputTokens: null,
+  outputTokens: null,
+  wallClockMs: null,
+  toolRuntimeMs: null,
 });
+
+function optionalLimit(value) {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
 
 function createBudgetManager({
   aiSettings = {},
@@ -25,31 +24,12 @@ function createBudgetManager({
   startedAtMs = Date.now(),
 } = {}) {
   const loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysisMode, options);
-  const autonomyPolicy = options.autonomyPolicy && typeof options.autonomyPolicy === 'object'
-    ? options.autonomyPolicy
-    : {};
-  const longHorizon = analysisMode === 'plan_execute'
-    || autonomyPolicy.complexity === 'complex'
-    || autonomyPolicy.autonomy_level === 'high'
-    || autonomyPolicy.autonomyLevel === 'high';
-  const defaultEvidenceBudget = longHorizon
-    ? DEFAULTS.evidenceBudget * 2
-    : analysisMode === 'direct_answer'
-      ? 8
-      : DEFAULTS.evidenceBudget;
   const limits = {
     modelTurns: loopPolicy.maxIterations || DEFAULTS.modelTurns,
-    inputTokens: Number(options.maxInputTokens) || DEFAULTS.inputTokens,
-    outputTokens: Number(options.maxOutputTokens) || DEFAULTS.outputTokens,
-    monetaryCostUsd: Number(options.maxCostUsd) || DEFAULTS.monetaryCostUsd,
-    wallClockMs: Number(options.maxWallClockMs) || DEFAULTS.wallClockMs,
-    toolRuntimeMs: Number(options.maxToolRuntimeMs) || DEFAULTS.toolRuntimeMs,
-    retriesPerNode: Number(options.maxRetriesPerNode) || DEFAULTS.retriesPerNode,
-    failuresPerErrorClass: Number(options.maxFailuresPerErrorClass) || DEFAULTS.failuresPerErrorClass,
-    evidenceBudget: Number(options.maxEvidenceItems) || defaultEvidenceBudget,
-    sideEffectBudget: Number(options.maxSideEffects) || DEFAULTS.sideEffectBudget,
-    subagentCount: Number(aiSettings.subagent_max_children_per_run) || DEFAULTS.subagentCount,
-    subagentTurns: Number(aiSettings.subagent_max_turns) || DEFAULTS.subagentTurns,
+    inputTokens: optionalLimit(options.maxInputTokens),
+    outputTokens: optionalLimit(options.maxOutputTokens),
+    wallClockMs: optionalLimit(options.maxWallClockMs),
+    toolRuntimeMs: optionalLimit(options.maxToolRuntimeMs),
     consecutiveNoProgress: loopPolicy.maxConsecutiveReadOnlyIterations || 8,
     consecutiveToolFailures: loopPolicy.maxConsecutiveToolFailures || 5,
   };
@@ -59,23 +39,18 @@ function createBudgetManager({
     modelTurns: 0,
     inputTokens: 0,
     outputTokens: 0,
-    monetaryCostUsd: 0,
     toolRuntimeMs: 0,
     evidenceItems: 0,
     sideEffects: 0,
-    subagentCount: 0,
-    subagentTurns: 0,
     consecutiveNoProgress: 0,
     consecutiveToolFailures: 0,
     failuresByClass: Object.create(null),
-    retriesByNode: Object.create(null),
   };
 
-  function recordModelTurn({ inputTokens = 0, outputTokens = 0, costUsd = 0 } = {}) {
+  function recordModelTurn({ inputTokens = 0, outputTokens = 0 } = {}) {
     usage.modelTurns += 1;
     usage.inputTokens += Math.max(0, Number(inputTokens) || 0);
     usage.outputTokens += Math.max(0, Number(outputTokens) || 0);
-    usage.monetaryCostUsd += Math.max(0, Number(costUsd) || 0);
   }
 
   function recordToolRuntime(ms = 0) {
@@ -107,12 +82,6 @@ function createBudgetManager({
     }
   }
 
-  function recordNodeRetry(nodeId) {
-    const key = String(nodeId || 'unknown');
-    usage.retriesByNode[key] = (usage.retriesByNode[key] || 0) + 1;
-    return usage.retriesByNode[key];
-  }
-
   function wallClockMs() {
     return Math.max(0, Date.now() - startedAtMs);
   }
@@ -130,12 +99,8 @@ function createBudgetManager({
       modelTurns: dimensionStatus(usage.modelTurns, limits.modelTurns),
       inputTokens: dimensionStatus(usage.inputTokens, limits.inputTokens),
       outputTokens: dimensionStatus(usage.outputTokens, limits.outputTokens),
-      monetaryCostUsd: dimensionStatus(usage.monetaryCostUsd, limits.monetaryCostUsd),
       wallClockMs: dimensionStatus(wall, limits.wallClockMs),
       toolRuntimeMs: dimensionStatus(usage.toolRuntimeMs, limits.toolRuntimeMs),
-      evidenceBudget: dimensionStatus(usage.evidenceItems, limits.evidenceBudget),
-      sideEffectBudget: dimensionStatus(usage.sideEffects, limits.sideEffectBudget),
-      subagentCount: dimensionStatus(usage.subagentCount, limits.subagentCount),
       consecutiveNoProgress: dimensionStatus(usage.consecutiveNoProgress, limits.consecutiveNoProgress),
       consecutiveToolFailures: dimensionStatus(
         usage.consecutiveToolFailures,
@@ -209,7 +174,6 @@ function createBudgetManager({
     recordSideEffect,
     recordNoProgressTurn,
     recordToolFailure,
-    recordNodeRetry,
     snapshot,
     shouldContinue,
   };

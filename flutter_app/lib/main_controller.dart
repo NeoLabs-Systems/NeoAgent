@@ -5685,7 +5685,6 @@ class NeoAgentController extends ChangeNotifier {
         'message': updateStatus.message,
         'releaseChannel': nextChannel,
         'targetBranch': response['targetBranch'],
-        'npmDistTag': response['npmDistTag'],
         'versionBefore': updateStatus.versionBefore,
         'versionAfter': updateStatus.versionAfter,
         'backendVersion': updateStatus.backendVersion,
@@ -5698,7 +5697,6 @@ class NeoAgentController extends ChangeNotifier {
           ...versionInfo!,
           'releaseChannel': nextChannel,
           'targetBranch': response['targetBranch'],
-          'npmDistTag': response['npmDistTag'],
         };
       }
       await refreshUpdateStatus();

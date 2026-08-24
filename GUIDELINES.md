@@ -162,3 +162,4 @@ scripts/         Build and release utility scripts
 - Do not commit `.env`, `data/`, `agent-data/`, or anything matched by `.gitignore`.
 - Do not bypass git hooks with `--no-verify`.
 - Do not run `flutter build web` outside the release pipeline.
+- Do not create `CHANGELOG.md`; GitHub Releases are the canonical release history.

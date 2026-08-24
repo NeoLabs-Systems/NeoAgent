@@ -7,7 +7,6 @@ const { APP_DIR } = require('../../runtime/paths');
 const {
   readConfiguredReleaseChannel,
   getReleaseChannelBranchPolicy,
-  getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
 const { getDeploymentInfo } = require('./deployment');
 
@@ -69,7 +68,6 @@ function buildVersionInfo() {
     installedVersion: packageVersion,
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
     deploymentMode: deployment.mode,
     deploymentProfile: deployment.profile,
     managedDeployment: deployment.managed,

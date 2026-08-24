@@ -316,20 +316,20 @@ test('budget manager hard-stops on model turn ceiling', () => {
   assert.equal(decision.reason, 'hard_budget');
 });
 
-test('budget manager hard-stops after the configured evidence budget', () => {
+test('budget manager does not stop productive evidence collection', () => {
   const budget = runtime.createBudgetManager({
     options: { maxEvidenceItems: 2 },
     analysisMode: 'execute',
   });
-  budget.recordEvidence();
-  budget.recordEvidence();
+  budget.recordEvidence(200);
   const decision = budget.shouldContinue({
     openObligations: [{ id: 'result' }],
     hasNextAction: true,
   });
-  assert.equal(decision.continue, false);
-  assert.equal(decision.reason, 'hard_budget');
-  assert.deepEqual(decision.snapshot.hardDimensions, ['evidenceBudget']);
+  assert.equal(decision.continue, true);
+  assert.equal(decision.reason, 'ok');
+  assert.deepEqual(decision.snapshot.hardDimensions, []);
+  assert.equal(decision.snapshot.usage.evidenceItems, 200);
 });
 
 test('verification reopens nodes instead of terminal failure', async () => {

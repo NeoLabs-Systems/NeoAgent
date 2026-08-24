@@ -137,11 +137,7 @@ async function requestModelResponse(engine, {
   iteration,
 }) {
   const startedAt = Date.now();
-  const modelAbortController = new AbortController();
   const parentSignal = options.signal;
-  const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
-  if (parentSignal?.aborted) abortFromParent();
-  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   const journalIdentity = activeJournalIdentity(engine, options.runId || runId, options.userId);
   const durableRequest = journalAndReconstructModelRequest({
     ...journalIdentity,
@@ -157,91 +153,91 @@ async function requestModelResponse(engine, {
   });
   const requestMessages = durableRequest.messages;
   const requestTools = durableRequest.tools;
-  const callOptions = {
-    model: durableRequest.header.model,
-    maxTokens: durableRequest.header.maxTokens,
-    reasoningEffort: durableRequest.header.reasoningEffort,
-    signal: modelAbortController.signal,
-  };
-
   const attemptModelCall = async () => {
+    const modelAbortController = new AbortController();
+    const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
+    if (parentSignal?.aborted) abortFromParent();
+    else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+    const callOptions = {
+      model: durableRequest.header.model,
+      maxTokens: durableRequest.header.maxTokens,
+      reasoningEffort: durableRequest.header.reasoningEffort,
+      signal: modelAbortController.signal,
+    };
     let response = null;
     let streamContent = '';
 
-    if (options.stream !== false) {
-      let emittedContent = false;
-      const stream = provider.stream(requestMessages, requestTools, callOptions);
-      const iterator = stream[Symbol.asyncIterator]();
-      try {
-        while (true) {
-          const next = await withModelCallTimeout(
-            iterator.next(),
-            { ...options, modelAbortController },
-            `Model stream iteration ${iteration}`,
-          );
-          if (next.done) break;
-          const chunk = next.value;
-          if (chunk.type === 'content') {
-            emittedContent = true;
-            streamContent += chunk.content;
-            engine.emit(options.userId, 'run:stream', {
-              runId,
-              content: sanitizeModelOutput(streamContent, { model }),
-              iteration,
-            });
+    try {
+      if (options.stream !== false) {
+        const stream = provider.stream(requestMessages, requestTools, callOptions);
+        const iterator = stream[Symbol.asyncIterator]();
+        try {
+          while (true) {
+            const next = await withModelCallTimeout(
+              iterator.next(),
+              { ...options, modelAbortController },
+              `Model stream iteration ${iteration}`,
+            );
+            if (next.done) break;
+            const chunk = next.value;
+            if (chunk.type === 'content') {
+              streamContent += chunk.content;
+              engine.emit(options.userId, 'run:stream', {
+                runId,
+                content: sanitizeModelOutput(streamContent, { model }),
+                iteration,
+              });
+            }
+            if (chunk.type === 'done') {
+              response = chunk;
+            }
+            if (chunk.type === 'tool_calls') {
+              response = {
+                content: chunk.content || streamContent,
+                toolCalls: chunk.toolCalls,
+                providerContentBlocks: chunk.providerContentBlocks || null,
+                finishReason: 'tool_calls',
+                usage: chunk.usage || null,
+              };
+            }
           }
-          if (chunk.type === 'done') {
-            response = chunk;
-          }
-          if (chunk.type === 'tool_calls') {
-            response = {
-              content: chunk.content || streamContent,
-              toolCalls: chunk.toolCalls,
-              providerContentBlocks: chunk.providerContentBlocks || null,
-              finishReason: 'tool_calls',
-              usage: chunk.usage || null,
-            };
-          }
+        } catch (err) {
+          Promise.resolve(iterator.return?.()).catch(() => {});
+          throw err;
         }
-      } catch (err) {
-        Promise.resolve(iterator.return?.()).catch(() => {});
-        // Once tokens have streamed to the client a retry would duplicate
-        // output, so only the pre-stream window is safe to replay.
-        if (emittedContent) err.__providerRetryUnsafe = true;
-        throw err;
+      } else {
+        response = await withModelCallTimeout(
+          provider.chat(requestMessages, requestTools, callOptions),
+          { ...options, modelAbortController },
+          `Model iteration ${iteration}`,
+        );
       }
-    } else {
-      response = await withModelCallTimeout(
-        provider.chat(requestMessages, requestTools, callOptions),
-        { ...options, modelAbortController },
-        `Model iteration ${iteration}`,
-      );
+      return { response, streamContent };
+    } finally {
+      parentSignal?.removeEventListener('abort', abortFromParent);
     }
-
-    return { response, streamContent };
   };
 
   let response;
   let streamContent;
-  try {
-    ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
-      ...(options.retry || {}),
-      label: `Engine ${model}`,
-      isRetryable: (err) => !modelAbortController.signal.aborted
-        && !err?.__providerRetryUnsafe
-        && isTransientError(err),
-      onRetry: ({ attempt, delayMs }) => {
-        engine.emit(options.userId, 'run:interim', {
-          runId,
-          message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
-          phase: 'recovering',
-        });
-      },
-      signal: modelAbortController.signal,
-    }));
-  } finally {
-    parentSignal?.removeEventListener('abort', abortFromParent);
-  }
+  ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
+    ...(options.retry || {}),
+    label: `Engine ${model}`,
+    isRetryable: (err) => !parentSignal?.aborted && isTransientError(err),
+    onRetry: ({ attempt, delayMs }) => {
+      // Stream payloads are full snapshots for one iteration, so clearing and
+      // replaying the same durable request cannot duplicate a visible message.
+      if (options.stream !== false) {
+        engine.emit(options.userId, 'run:stream', { runId, content: '', iteration });
+      }
+      engine.emit(options.userId, 'run:interim', {
+        runId,
+        message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`,
+        phase: 'recovering',
+      });
+    },
+    signal: parentSignal,
+  }));
 
   const resolvedResponse = response || {
     content: streamContent,

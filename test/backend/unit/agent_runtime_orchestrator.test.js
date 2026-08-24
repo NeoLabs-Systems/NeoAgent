@@ -149,6 +149,55 @@ test('ordinary chat completes from one analyzed response without entering execut
 
 });
 
+test('completed conversations queue source-grounded learning instead of run receipts', async () => {
+  const conversationId = `learning-${Date.now()}`;
+  ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
+    .run(conversationId, userId);
+  const analysis = {
+    mode: 'direct_answer',
+    draft_reply: 'Use the existing release checklist.',
+    draft_status: 'final',
+    goal: 'Answer with the preferred workflow',
+    confidence: 0.98,
+    complexity: 'simple',
+    autonomy_level: 'minimal',
+    progress_update_policy: 'none',
+    research_depth: 'none',
+    needs_verification: false,
+    success_criteria: ['Answer directly'],
+    suggested_tools: [],
+  };
+  const engine = createEngine(analysis);
+  engine.memoryManager = {};
+  const learningInputs = [];
+  engine.refreshConversationState = async (input) => {
+    learningInputs.push(input);
+    return { summary: 'Learned thread state' };
+  };
+
+  const result = await engine.run(userId, 'Remember how I prefer releases.', {
+    conversationId,
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  await Promise.allSettled([...engine.backgroundTasks]);
+
+  assert.equal(result.status, 'completed');
+  assert.equal(learningInputs.length, 1);
+  assert.equal(learningInputs[0].conversationId, conversationId);
+  assert.equal(learningInputs[0].runId, result.runId);
+  assert.equal(learningInputs[0].finalReply, result.content);
+  assert.equal(learningInputs[0].options.userId, userId);
+  assert.ok(learningInputs[0].options.signal instanceof AbortSignal);
+  const stored = ctx.db.prepare(
+    `SELECT content FROM conversation_messages
+     WHERE conversation_id = ? AND run_id = ? AND role = 'assistant'`,
+  ).get(conversationId, result.runId);
+  assert.equal(stored.content, result.content);
+});
+
 test('voice uses the same one-turn loop and canonical outbox adapter', async () => {
   const engine = createEngine({
     mode: 'direct_answer',
@@ -906,7 +955,7 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
 });
 
-test('evidence soft limit tells a productive research loop to synthesize', async () => {
+test('productive evidence collection is not treated as budget exhaustion', async () => {
   const engine = createEngine({
     mode: 'execute',
     draft_reply: '',
@@ -923,19 +972,19 @@ test('evidence soft limit tells a productive research loop to synthesize', async
   ]);
 
   let modelTurns = 0;
-  let sawSoftLimit = false;
+  let sawEvidenceBudget = false;
   engine.requestModelResponse = async ({ messages }) => {
     modelTurns += 1;
-    sawSoftLimit = sawSoftLimit || messages.some((message) => (
-      /Run budget is nearing its limit \(evidenceBudget\)/.test(String(message.content || ''))
+    sawEvidenceBudget = sawEvidenceBudget || messages.some((message) => (
+      /evidenceBudget/.test(String(message.content || ''))
     ));
-    const call = sawSoftLimit
+    const call = modelTurns > 6
       ? {
         id: 'done',
         type: 'function',
         function: {
           name: 'task_complete',
-          arguments: JSON.stringify({ message: 'Synthesized from four sources.' }),
+          arguments: JSON.stringify({ message: 'Synthesized from six sources.' }),
         },
       }
       : {
@@ -961,9 +1010,9 @@ test('evidence soft limit tells a productive research loop to synthesize', async
   });
 
   assert.equal(result.status, 'completed');
-  assert.equal(result.content, 'Synthesized from four sources.');
-  assert.equal(sawSoftLimit, true);
-  assert.equal(modelTurns, 5);
+  assert.equal(result.content, 'Synthesized from six sources.');
+  assert.equal(sawEvidenceBudget, false);
+  assert.equal(modelTurns, 7);
 });
 
 test('the opening line is written from the real conversation, and only for long work', async () => {

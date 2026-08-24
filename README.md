@@ -13,10 +13,12 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/neoagent"><img src="https://img.shields.io/npm/v/neoagent?style=flat-square&label=npm" alt="npm version"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20%2B-5fa04e?style=flat-square" alt="Node.js 20 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-a855f7?style=flat-square" alt="AGPL-3.0 license"></a>
 </p>
+
+> [!IMPORTANT]
+> **npm distribution has been shut down.** Install NeoAgent directly from GitHub using the desktop app, standalone CLI, or repository installer below.
 
 <p align="center">
   <a href="https://discord.gg/f59rg2RwUT"><img src="https://img.shields.io/badge/Join%20NeoLabs-Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join the NeoLabs Discord"></a>
@@ -56,11 +58,11 @@ defaults; **Full setup** adds providers, integrations, voice, and tools.
 neoagent
 ```
 
-**npm** — if you already have Node.js 20+:
+**Repository installer** — clones NeoAgent directly from GitHub (requires Git,
+Node.js 20+, and npm for dependencies):
 
 ```bash
-npm install -g neoagent
-neoagent setup --quick
+bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
 Good to know:

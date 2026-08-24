@@ -13,7 +13,6 @@ const {
   parseReleaseChannel,
   writeReleaseChannelToEnvFile,
   getReleaseChannelBranchPolicy,
-  getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
 const { APP_DIR, ENV_FILE, upsertEnvValue } = require('../../runtime/paths');
 const { isManagedDeployment } = require('../utils/deployment');
@@ -335,7 +334,6 @@ router.put('/api/update/channel', requireAdminAuth, (req, res) => {
     ok: true,
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
   });
 });
 

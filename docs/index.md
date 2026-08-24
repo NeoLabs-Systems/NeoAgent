@@ -17,8 +17,7 @@ sensitive accounts.
 ## 🚀 Start here
 
 ```bash
-npm install -g neoagent
-neoagent
+bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
 On a new machine, the bare command detects that NeoAgent is not installed,

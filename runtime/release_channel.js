@@ -11,17 +11,9 @@ const RELEASE_CHANNEL_BRANCHES = Object.freeze({
   stable: 'main',
   beta: 'beta',
 });
-const RELEASE_CHANNEL_DIST_TAGS = Object.freeze({
-  stable: 'latest',
-  beta: 'beta',
-});
 const RELEASE_CHANNEL_BRANCH_POLICIES = Object.freeze({
   stable: 'main only',
   beta: 'newest of beta or main',
-});
-const RELEASE_CHANNEL_NPM_POLICIES = Object.freeze({
-  stable: 'latest only',
-  beta: 'newest of beta or latest',
 });
 
 function parseReleaseChannel(value) {
@@ -49,10 +41,6 @@ function normalizeReleaseChannel(value) {
 
 function getReleaseChannelBranch(channel) {
   return RELEASE_CHANNEL_BRANCHES[normalizeReleaseChannel(channel)];
-}
-
-function getReleaseChannelDistTag(channel) {
-  return RELEASE_CHANNEL_DIST_TAGS[normalizeReleaseChannel(channel)];
 }
 
 function getReleaseChannelLabel(channel) {
@@ -130,15 +118,11 @@ function maxVersion(leftVersion, rightVersion) {
 
 function describeReleaseChannelPolicy(channel) {
   const normalized = normalizeReleaseChannel(channel);
-  return `${getReleaseChannelLabel(normalized)} (git ${RELEASE_CHANNEL_BRANCH_POLICIES[normalized]}, npm ${RELEASE_CHANNEL_NPM_POLICIES[normalized]})`;
+  return `${getReleaseChannelLabel(normalized)} (git ${RELEASE_CHANNEL_BRANCH_POLICIES[normalized]})`;
 }
 
 function getReleaseChannelBranchPolicy(channel) {
   return RELEASE_CHANNEL_BRANCH_POLICIES[normalizeReleaseChannel(channel)];
-}
-
-function getReleaseChannelNpmPolicy(channel) {
-  return RELEASE_CHANNEL_NPM_POLICIES[normalizeReleaseChannel(channel)];
 }
 
 function choosePreferredBranchForChannel(channel, versions = {}) {
@@ -153,20 +137,6 @@ function choosePreferredBranchForChannel(channel, versions = {}) {
     return 'beta';
   }
   return 'main';
-}
-
-function choosePreferredNpmTagForChannel(channel, versions = {}) {
-  const normalized = normalizeReleaseChannel(channel);
-  if (normalized === 'stable') {
-    return 'latest';
-  }
-
-  const stableVersion = versions.latest;
-  const betaVersion = versions.beta;
-  if (compareVersions(betaVersion, stableVersion) > 0) {
-    return 'beta';
-  }
-  return 'latest';
 }
 
 function readReleaseChannelFromRaw(raw) {
@@ -221,16 +191,13 @@ module.exports = {
   parseReleaseChannel,
   normalizeReleaseChannel,
   getReleaseChannelBranch,
-  getReleaseChannelDistTag,
   getReleaseChannelLabel,
   parseSemver,
   compareVersions,
   maxVersion,
   describeReleaseChannelPolicy,
   getReleaseChannelBranchPolicy,
-  getReleaseChannelNpmPolicy,
   choosePreferredBranchForChannel,
-  choosePreferredNpmTagForChannel,
   readReleaseChannelFromRaw,
   readReleaseChannelFromEnvFile,
   readConfiguredReleaseChannel,
