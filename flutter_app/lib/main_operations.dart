@@ -183,8 +183,6 @@ class _LogsPanelState extends State<LogsPanel> {
         'targetBranch':
             versionInfo?['targetBranch'] ??
             controller.updateStatus.targetBranch,
-        'npmDistTag':
-            versionInfo?['npmDistTag'] ?? controller.updateStatus.npmDistTag,
       },
       'ai': <String, dynamic>{
         'defaultChatModel': controller.defaultChatModel,
@@ -244,7 +242,6 @@ class _LogsPanelState extends State<LogsPanel> {
             controller.updateStatus.runtimeValidationIssues,
         'releaseChannel': controller.updateStatus.releaseChannel,
         'targetBranch': controller.updateStatus.targetBranch,
-        'npmDistTag': controller.updateStatus.npmDistTag,
         'changelog': controller.updateStatus.changelog,
         'updateLogs': controller.updateStatus.logs,
       },

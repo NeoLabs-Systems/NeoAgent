@@ -26,7 +26,7 @@ neoagent migrate status    # check what's detected
 
 ## Prerequisites
 
-- NeoAgent installed: `npm install -g neoagent`
+- NeoAgent installed from [GitHub Releases](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest) or with the [repository installer](getting-started.md)
 - An existing OpenClaw (`~/.openclaw/`) or Hermes (`~/.hermes/`) installation
 
 ## Running the migration

@@ -1,5 +1,6 @@
 {
   "name": "neoagent",
+  "private": true,
   "version": "3.4.2-beta.8",
   "description": "Self-hosted AI agent for long-running tasks, automation, messaging, device control, and local memory",
   "license": "AGPL-3.0-only",

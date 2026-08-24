@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # NeoAgent install smoke test
 #
-# Tests that the installation process works end-to-end via two paths:
-#   A) npm pack → npm install -g → neoagent install
-#   B) install.sh (the curl-pipe-to-bash script) → neoagent install
+# Tests that the GitHub repository installation process works end-to-end via
+# install.sh (the curl-pipe-to-bash script) → neoagent install.
 #
 # Both paths use isolated temp directories so the existing ~/.neoagent
 # and any running service are never touched.
 #
 # Usage:
-#   bash test/install/install_smoke_test.sh [--path A|B|both] [--no-cleanup]
+#   bash test/install/install_smoke_test.sh [--static-only] [--no-cleanup]
 #
 # Requires: node 20+, npm, git, curl
 
@@ -30,7 +29,7 @@ warn()  { echo -e "  ${YEL}▲${RESET}  $*"; }
 title() { echo -e "\n${BOLD}${CYN}$*${RESET}"; }
 
 # ── defaults ───────────────────────────────────────────────────────────────────
-INSTALL_PATH="both"     # which path to test: A, B, or both
+STATIC_ONLY=false
 NO_CLEANUP=false
 TEST_PORT=13337         # avoids colliding with a running instance on 3333
 STARTUP_TIMEOUT=30      # seconds to wait for the server to become ready
@@ -41,15 +40,13 @@ RESULTS=()              # accumulates "PASS <label>" or "FAIL <label>"
 # ── argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --path)     INSTALL_PATH="$2"; shift 2 ;;
     --no-cleanup) NO_CLEANUP=true; shift ;;
     --timeout)  STARTUP_TIMEOUT="$2"; shift 2 ;;
     --port)     TEST_PORT="$2"; shift 2 ;;
-    --static-only) INSTALL_PATH="static"; shift ;;
+    --static-only) STATIC_ONLY=true; shift ;;
     --help|-h)
-      echo "Usage: $0 [--path A|B|both] [--static-only] [--no-cleanup] [--timeout N] [--port N]"
+      echo "Usage: $0 [--static-only] [--no-cleanup] [--timeout N] [--port N]"
       echo
-      echo "  --path A|B|both   Which install path to test (default: both)"
       echo "  --static-only     Only run static checks (no live install, no temp dirs)"
       echo "  --no-cleanup      Keep temp directories after the test"
       echo "  --timeout N       Seconds to wait for server startup (default: 30)"
@@ -213,71 +210,12 @@ stop_test_server() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PATH A — npm pack → npm install -g → neoagent install
-# This simulates what a user does with `npm install -g neoagent && neoagent install`
-# except we pack the local source instead of downloading from the registry.
-# ══════════════════════════════════════════════════════════════════════════════
-run_path_a() {
-  title "Path A — npm pack + global install"
-
-  local tmp_npm_prefix tmp_runtime_home pack_dir tarball
-  tmp_npm_prefix=$(mktemp -d /tmp/neoagent-test-npm-XXXXX)
-  tmp_runtime_home=$(mktemp -d /tmp/neoagent-test-home-XXXXX)
-  CLEANUP_DIRS+=("$tmp_npm_prefix" "$tmp_runtime_home")
-
-  # Pack the local repo into a tarball
-  pack_dir=$(mktemp -d /tmp/neoagent-pack-XXXXX)
-  CLEANUP_DIRS+=("$pack_dir")
-  info "Packing local repo…"
-  npm pack --pack-destination "$pack_dir" "$REPO_ROOT" --quiet 2>/dev/null
-  tarball=$(ls "$pack_dir"/neoagent-*.tgz 2>/dev/null | head -1)
-
-  if [[ -z "$tarball" ]]; then
-    record "FAIL" "Path A: npm pack produced no tarball"
-    return
-  fi
-  pass "Packed: $(basename "$tarball")"
-
-  # Install globally under tmp prefix
-  info "Installing globally under $tmp_npm_prefix …"
-  if npm install -g --prefix "$tmp_npm_prefix" "$tarball" --quiet 2>/dev/null; then
-    record "PASS" "Path A: npm install -g succeeded"
-  else
-    record "FAIL" "Path A: npm install -g failed"
-    return
-  fi
-
-  local neoagent_bin="$tmp_npm_prefix/bin/neoagent"
-  if [[ ! -x "$neoagent_bin" ]]; then
-    record "FAIL" "Path A: neoagent binary not found at $neoagent_bin"
-    return
-  fi
-  pass "Binary: $neoagent_bin"
-
-  # Write pre-seeded config so install skips interactive wizard
-  write_test_env "$tmp_runtime_home"
-
-  # Run install (the binary points back to the packed repo's lib/manager.js)
-  if NEOAGENT_HOME="$tmp_runtime_home" "$neoagent_bin" install < /dev/null \
-      > "$tmp_runtime_home/install.log" 2>&1; then
-    record "PASS" "Path A: neoagent install exited 0"
-  else
-    record "FAIL" "Path A: neoagent install failed (see $tmp_runtime_home/install.log)"
-    cat "$tmp_runtime_home/install.log" | tail -20
-    return
-  fi
-
-  verify_server "Path A" "$tmp_runtime_home"
-  stop_test_server "$tmp_runtime_home"
-}
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PATH B — install.sh (the curl-pipe-to-bash script)
+# GITHUB REPOSITORY INSTALLER — install.sh (the curl-pipe-to-bash script)
 # Runs the local install.sh which clones the repo (or reuses an existing dir)
 # and then invokes `node bin/neoagent.js install`.
 # ══════════════════════════════════════════════════════════════════════════════
-run_path_b() {
-  title "Path B — install.sh (curl-to-bash path)"
+run_repository_installer() {
+  title "GitHub repository installer"
 
   local tmp_install_dir tmp_runtime_home
   tmp_install_dir=$(mktemp -d /tmp/neoagent-test-clone-XXXXX)
@@ -292,14 +230,14 @@ run_path_b() {
   if NEOAGENT_HOME="$tmp_runtime_home" \
       bash "$REPO_ROOT/install.sh" < <(echo "$tmp_install_dir") \
       > "$tmp_runtime_home/install_sh.log" 2>&1; then
-    record "PASS" "Path B: install.sh exited 0"
+    record "PASS" "Repository installer: install.sh exited 0"
   else
-    record "FAIL" "Path B: install.sh failed (see $tmp_runtime_home/install_sh.log)"
+    record "FAIL" "Repository installer: install.sh failed (see $tmp_runtime_home/install_sh.log)"
     tail -20 "$tmp_runtime_home/install_sh.log"
     return
   fi
 
-  verify_server "Path B" "$tmp_runtime_home"
+  verify_server "Repository installer" "$tmp_runtime_home"
   stop_test_server "$tmp_runtime_home"
 }
 
@@ -405,21 +343,14 @@ run_cli_checks() {
 title "NeoAgent install smoke test"
 echo -e "${DIM}  Repo: $REPO_ROOT${RESET}"
 echo -e "${DIM}  Port: $TEST_PORT${RESET}"
-echo -e "${DIM}  Path: $INSTALL_PATH${RESET}"
 
 check_prerequisites
 run_static_checks
 run_cli_checks
 
-case "$INSTALL_PATH" in
-  A|a)      run_path_a ;;
-  B|b)      run_path_b ;;
-  both)     run_path_a; run_path_b ;;
-  static)   : ;;  # static checks already ran above
-  *)
-    fail "Unknown --path value: $INSTALL_PATH (use A, B, both, or --static-only)"
-    exit 1 ;;
-esac
+if [[ "$STATIC_ONLY" != "true" ]]; then
+  run_repository_installer
+fi
 
 # ── summary ───────────────────────────────────────────────────────────────────
 title "Summary"

@@ -35,7 +35,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: https://registry.npmjs.org
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -161,16 +160,6 @@ jobs:
             echo "Bundled web client still points at localhost."
             exit 1
           fi
-
-      - name: Check npm auth
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm whoami --registry=https://registry.npmjs.org/
-
-      - name: Publish beta package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --tag beta
 
       - name: Create GitHub prerelease
         env:

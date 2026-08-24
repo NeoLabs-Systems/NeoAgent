@@ -15,7 +15,6 @@ const {
   parseReleaseChannel,
   writeReleaseChannelToEnvFile,
   getReleaseChannelBranchPolicy,
-  getReleaseChannelNpmPolicy,
 } = require('../../runtime/release_channel');
 const {
   createDefaultAiSettings,
@@ -123,7 +122,6 @@ router.get('/update/status', requireAuth, (req, res) => {
     gitBranch: version.gitBranch,
     releaseChannel: status.releaseChannel || version.releaseChannel,
     targetBranch: status.targetBranch || version.targetBranch,
-    npmDistTag: status.npmDistTag || version.npmDistTag,
     deploymentMode: version.deploymentMode,
     deploymentProfile: version.deploymentProfile,
     managedDeployment: version.managedDeployment,
@@ -661,7 +659,6 @@ router.put('/update/channel', requireAuth, requireAdminSession, (req, res) => {
     success: true,
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
   });
 });
 

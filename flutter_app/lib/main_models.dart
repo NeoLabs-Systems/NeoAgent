@@ -2481,7 +2481,6 @@ class UpdateStatusSnapshot {
     this.deploymentMode = 'self_hosted',
     this.deploymentProfile = 'private',
     this.targetBranch,
-    this.npmDistTag,
     this.versionBefore,
     this.versionAfter,
     this.backendVersion,
@@ -2503,7 +2502,6 @@ class UpdateStatusSnapshot {
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
       deploymentProfile: json['deploymentProfile']?.toString() ?? 'private',
       targetBranch: json['targetBranch']?.toString(),
-      npmDistTag: json['npmDistTag']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
       backendVersion: json['backendVersion']?.toString(),
@@ -2532,7 +2530,6 @@ class UpdateStatusSnapshot {
   final String deploymentMode;
   final String deploymentProfile;
   final String? targetBranch;
-  final String? npmDistTag;
   final String? versionBefore;
   final String? versionAfter;
   final String? backendVersion;
@@ -2592,14 +2589,11 @@ class UpdateStatusSnapshot {
     final branch = targetBranch?.trim().isNotEmpty == true
         ? ' | Branch: $targetBranch'
         : '';
-    final npm = npmDistTag?.trim().isNotEmpty == true
-        ? ' | npm: $npmDistTag'
-        : '';
     final installed = installedVersion == null
         ? ''
         : ' | Installed: $installedVersion';
     final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Profile: $deploymentProfileLabel | Channel: $releaseChannelLabel$branch$npm | Update Version: $updateVersion$installed$backend';
+    return 'Profile: $deploymentProfileLabel | Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>

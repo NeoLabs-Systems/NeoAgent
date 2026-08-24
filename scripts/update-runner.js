@@ -17,13 +17,10 @@ const {
 } = require('../runtime/paths');
 const {
   getReleaseChannelBranch,
-  getReleaseChannelDistTag,
   getReleaseChannelLabel,
   readConfiguredReleaseChannel,
   choosePreferredBranchForChannel,
-  choosePreferredNpmTagForChannel,
   getReleaseChannelBranchPolicy,
-  getReleaseChannelNpmPolicy,
 } = require('../runtime/release_channel');
 const {
   readUpdateStatus,
@@ -59,7 +56,6 @@ function appendLog(line) {
     releaseChannel: status.releaseChannel,
     releaseChannelLabel: status.releaseChannelLabel,
     targetBranch: status.targetBranch,
-    npmDistTag: status.npmDistTag,
     changelog: status.changelog,
     logs,
   }, STATUS_FILE);
@@ -92,19 +88,6 @@ function commandExists(cmd) {
   return sharedCommandExists((command, args) => run(command, args), cmd);
 }
 
-function parseJsonObject(value) {
-  if (!value || typeof value !== 'string') {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 const {
   latestGitTagVersion,
   gitWorkingTreeDirty,
@@ -126,22 +109,6 @@ function resolvePreferredGitBranch(channel) {
     return 'main';
   }
   return preferred;
-}
-
-function resolvePreferredNpmTag(channel) {
-  if (channel === 'stable') {
-    return getReleaseChannelDistTag(channel);
-  }
-
-  const tagsRes = run('npm', ['view', 'neoagent', 'dist-tags', '--json'], {
-    env: withInstallEnv(),
-  });
-  const distTags = tagsRes.status === 0 ? parseJsonObject(tagsRes.stdout) : {};
-
-  return choosePreferredNpmTagForChannel(channel, {
-    latest: distTags.latest,
-    beta: distTags.beta,
-  });
 }
 
 function ensureGitBranchForReleaseChannel(targetBranch) {
@@ -232,7 +199,6 @@ function main() {
     releaseChannel,
     releaseChannelLabel: getReleaseChannelLabel(releaseChannel),
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-    npmDistTag: getReleaseChannelNpmPolicy(releaseChannel),
     versionBefore: null,
     versionAfter: null,
     runnerPid: process.pid,
@@ -244,38 +210,9 @@ function main() {
   const hasGit = fs.existsSync(gitDir) && commandExists('git');
 
   if (!hasGit) {
-    info(20, 'checking', 'No git repository detected. Trying package-based update.');
-    if (!commandExists('npm')) {
-      fail('Update unavailable: no git repository detected and npm is not installed.');
-    }
-
-    const resolvedNpmTag = resolvePreferredNpmTag(releaseChannel);
-    writeStatus({ npmDistTag: resolvedNpmTag, runnerPid: process.pid }, STATUS_FILE);
-    info(45, 'updating', `Installing NeoAgent from the ${resolvedNpmTag} channel`);
-    const npmUpdate = run('npm', ['install', '-g', `neoagent@${resolvedNpmTag}`, '--force'], {
-      env: withInstallEnv()
-    });
-    if (npmUpdate.status !== 0) {
-      fail('npm global update failed');
-    }
-
-    if (!hasBundledWebClient(WEB_CLIENT_DIR)) {
-      fail('No bundled Flutter web client found after package update.');
-    }
-
-    info(70, 'restarting', 'Restarting NeoAgent service');
-    const restart = run(process.execPath, ['bin/neoagent.js', 'restart']);
-    if (restart.status !== 0) fail('Restart failed while trying to refresh runtime');
-
-    writeStatus({
-      state: 'completed',
-      progress: 100,
-      phase: 'completed',
-      message: 'Package update completed and service restarted.',
-      completedAt: nowIso(),
-      runnerPid: null,
-    }, STATUS_FILE);
-    return;
+    fail(
+      'Automatic source updates require a Git checkout. Install the latest build from https://github.com/NeoLabs-Systems/NeoAgent/releases/latest.',
+    );
   }
 
   info(8, 'checking', `Preparing ${releaseChannel} channel update`);
