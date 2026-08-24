@@ -6,37 +6,14 @@ should keep working.
 
 ## Install NeoAgent
 
-### Desktop app
-
-Download the desktop app from
-[GitHub Releases](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest)
-and select **Set up NeoAgent on this computer**. The app downloads the matching
-signed runtime, verifies its signature and checksum, activates it atomically,
-starts the per-user service, and connects to the selected port.
-
-No terminal, Node.js, npm, Git, Docker, or backend address is required.
-
-![NeoAgent setup hub](images/zero-terminal-setup-hub.png)
-
-Quickstart is recommended, while Full setup stays directly available:
-
-![Quickstart and Full setup choices](images/zero-terminal-setup-modes.png)
-
-### Standalone CLI
-
-Download the executable for your operating system and processor from the same
-release, make it executable on macOS or Linux, and run `neoagent`. The
-standalone CLI contains Node and verifies the same runtime packages used by the
-desktop app.
-
-To install from source, run the repository installer. It clones NeoAgent
+Run the repository installer. It clones NeoAgent
 directly from GitHub and requires Git, Node.js 20+, and npm for dependencies:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
-The first CLI run detects an existing, incomplete, or damaged installation and
+The first run detects an existing, incomplete, or damaged installation and
 offers the appropriate status, resume, or repair action.
 
 ## Choose a setup mode

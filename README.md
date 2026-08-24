@@ -18,7 +18,7 @@
 </p>
 
 > [!IMPORTANT]
-> **npm distribution has been shut down.** Install NeoAgent directly from GitHub using the desktop app, standalone CLI, or repository installer below.
+> **npm distribution has been shut down.** Install NeoAgent directly from GitHub using the repository installer below.
 
 <p align="center">
   <a href="https://discord.gg/f59rg2RwUT"><img src="https://img.shields.io/badge/Join%20NeoLabs-Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join the NeoLabs Discord"></a>
@@ -38,27 +38,9 @@
   <img src="marketing/final/trailer.gif" alt="NeoAgent trailer" width="100%">
 </p>
 
-<p align="center">
-  <img src="demo.gif" alt="NeoAgent demo" width="100%">
-</p>
-
 ## 🚀 Install
 
-**Desktop app** — installs and starts everything on macOS, Windows, and Linux.
-No terminal, Node.js, npm, Git, or Docker needed. **Quickstart** picks safe
-defaults; **Full setup** adds providers, integrations, voice, and tools.
-
-<p align="center">
-  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Download NeoAgent" src="https://img.shields.io/badge/Desktop_and_CLI-download-black?style=flat-square"></a>
-</p>
-
-**Standalone CLI** — in the same releases, with its own bundled Node runtime:
-
-```bash
-neoagent
-```
-
-**Repository installer** — clones NeoAgent directly from GitHub (requires Git,
+The repository installer clones NeoAgent directly from GitHub (requires Git,
 Node.js 20+, and npm for dependencies):
 
 ```bash
