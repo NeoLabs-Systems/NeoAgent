@@ -211,23 +211,26 @@ stop_test_server() {
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GITHUB REPOSITORY INSTALLER — install.sh (the curl-pipe-to-bash script)
-# Runs the local install.sh which clones the repo (or reuses an existing dir)
-# and then invokes `node bin/neoagent.js install`.
+# Runs the local install.sh which clones the repo (or reuses an existing dir),
+# globally links its CLI, and invokes that global command.
 # ══════════════════════════════════════════════════════════════════════════════
 run_repository_installer() {
   title "GitHub repository installer"
 
-  local tmp_install_dir tmp_runtime_home
+  local tmp_install_dir tmp_runtime_home tmp_cli_prefix
   tmp_install_dir=$(mktemp -d /tmp/neoagent-test-clone-XXXXX)
   tmp_runtime_home=$(mktemp -d /tmp/neoagent-test-home-XXXXX)
-  CLEANUP_DIRS+=("$tmp_install_dir" "$tmp_runtime_home")
+  tmp_cli_prefix=$(mktemp -d /tmp/neoagent-test-cli-XXXXX)
+  CLEANUP_DIRS+=("$tmp_install_dir" "$tmp_runtime_home" "$tmp_cli_prefix")
   rm -rf "$tmp_install_dir"   # install.sh clones into the dir; it must not pre-exist
 
   info "Running install.sh into $tmp_install_dir …"
   # install.sh prompts for install directory; we feed the answer via stdin.
-  # It then calls `exec node ./bin/neoagent.js install`, which in non-interactive
-  # mode (stdin closed after the one prompt reply) writes a default config.
+  # The npm prefix and PATH are isolated so the global CLI link cannot affect
+  # the developer's normal environment.
   if NEOAGENT_HOME="$tmp_runtime_home" \
+      npm_config_prefix="$tmp_cli_prefix" \
+      PATH="$tmp_cli_prefix/bin:$PATH" \
       bash "$REPO_ROOT/install.sh" < <(echo "$tmp_install_dir") \
       > "$tmp_runtime_home/install_sh.log" 2>&1; then
     record "PASS" "Repository installer: install.sh exited 0"
@@ -235,6 +238,13 @@ run_repository_installer() {
     record "FAIL" "Repository installer: install.sh failed (see $tmp_runtime_home/install_sh.log)"
     tail -20 "$tmp_runtime_home/install_sh.log"
     return
+  fi
+
+  if [[ -x "$tmp_cli_prefix/bin/neoagent" ]] \
+      && "$tmp_cli_prefix/bin/neoagent" --help >/dev/null 2>&1; then
+    record "PASS" "Repository installer: neoagent CLI installed globally"
+  else
+    record "FAIL" "Repository installer: global neoagent CLI is missing or unusable"
   fi
 
   verify_server "Repository installer" "$tmp_runtime_home"
@@ -277,11 +287,17 @@ run_static_checks() {
     record "FAIL" "install.sh: HTTPS clone URL not found or wrong"
   fi
 
-  # Delegates to node install
-  if grep -q 'node.*bin/neoagent.js install' "$script"; then
-    record "PASS" "install.sh: delegates to node bin/neoagent.js install"
+  # Runs installation through the global command it just created.
+  if grep -q 'exec.*GLOBAL_CLI.*install' "$script"; then
+    record "PASS" "install.sh: runs installation through the global CLI"
   else
-    record "FAIL" "install.sh: does not delegate to node install"
+    record "FAIL" "install.sh: does not run installation through the global CLI"
+  fi
+
+  if grep -q 'npm link' "$script" && grep -q 'npm prefix --global' "$script"; then
+    record "PASS" "install.sh: installs and verifies the global neoagent CLI"
+  else
+    record "FAIL" "install.sh: global neoagent CLI installation is missing"
   fi
 }
 
