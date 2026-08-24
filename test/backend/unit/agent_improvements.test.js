@@ -11,13 +11,15 @@ const {
 } = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
+  ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
-  buildToolCatalog,
+  buildToolDiscoverySummary,
+  searchTools,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
-const { buildAnalysisPrompt, buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
+const { buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 const {
   buildCompletionDecisionPrompt,
 } = require('../../../server/services/ai/loop/completion_judge');
@@ -84,9 +86,10 @@ test('repetition guard normalizes repeated read-only shell evidence fetches', ()
   assert.deepEqual(normalizeReadOnlyShellIntent(first.command), normalizeReadOnlyShellIntent(second.command));
 });
 
-test('tool catalog retains every tool and activation replaces unrelated schemas', () => {
+test('tool activation replaces unrelated schemas while preserving control tools', () => {
   const required = [
     'task_complete',
+    'search_tools',
     'activate_tools',
     'think',
     'send_message',
@@ -100,9 +103,6 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
       description: `Capability ${index}`,
     })),
   ];
-  const catalog = buildToolCatalog(tools);
-  for (const tool of tools) assert.match(catalog, new RegExp(`^${tool.name} \\|`, 'm'));
-
   const initial = selectInitialTools(tools, tools.slice(5, 20).map((tool) => tool.name));
   assert.equal(initial.length, MAX_TOOLS);
   const result = activateTools(initial, tools, ['tool_39']);
@@ -112,9 +112,32 @@ test('tool catalog retains every tool and activation replaces unrelated schemas'
   assert.equal(result.evicted.length, 1);
 });
 
+test('tool discovery stays compact and searches inactive capabilities generically', () => {
+  const tools = [
+    { name: 'search_tools', description: 'Search tools.' },
+    { name: 'activate_tools', description: 'Activate tools.' },
+    { name: 'google_workspace_calendar_list_events', description: 'List Google Calendar events in a time window.' },
+    { name: 'github_create_issue', description: 'Create a GitHub issue.' },
+  ];
+  const active = tools.slice(0, 2);
+  const summary = buildToolDiscoverySummary(tools, active);
+  assert.match(summary, /Discoverable tools: 4/);
+  assert.doesNotMatch(summary, /google_workspace_calendar_list_events/);
+
+  const matches = searchTools(tools, 'task calendar events', {
+    activeNames: active.map((tool) => tool.name),
+    excludeNames: ALWAYS_INCLUDE_BUILT_INS,
+  });
+  assert.equal(matches[0].name, 'google_workspace_calendar_list_events');
+  assert.equal(matches.some((tool) => ALWAYS_INCLUDE_BUILT_INS.includes(tool.name)), false);
+  assert.equal(matches[0].active, false);
+  assert.match(matches[0].description, /Google Calendar/);
+});
+
 test('execute runs start with core file tools but direct runs stay lean', () => {
   const required = [
     'task_complete',
+    'search_tools',
     'activate_tools',
     'think',
     'send_message',
@@ -153,43 +176,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 });
 
-test('task analysis receives the complete tool inventory', () => {
-  const tools = Array.from({ length: 140 }, (_, index) => ({
-    name: `capability_${index}`,
-    description: `Description for capability ${index}`,
-  }));
-  const prompt = buildAnalysisPrompt({ tools });
-  assert.match(prompt, /capability_0: Description for capability 0/);
-  assert.match(prompt, /capability_139: Description for capability 139/);
-  assert.doesNotMatch(prompt, /\.\.\.\(\d+ more\)/);
-});
-
-test('task analysis keeps short immediate work out of task automation flow', () => {
-  const prompt = buildAnalysisPrompt({
-    tools: [
-      { name: 'create_task', description: 'Create a background task.' },
-      { name: 'send_message', description: 'Send a message.' },
-    ],
-  });
-
-  assert.match(prompt, /short immediate questions/);
-  assert.match(prompt, /mode="direct_answer"/);
-  assert.match(prompt, /progress_update_policy="none"/);
-  assert.match(prompt, /Do not suggest create_task/);
-  assert.match(prompt, /future, recurring, scheduled, monitored, background/);
-});
-
-test('task analysis routes in-app voice calls through call_user', () => {
-  const prompt = buildAnalysisPrompt({
-    tools: [{ name: 'call_user', description: 'Start an in-app voice call.' }],
-  });
-
-  assert.match(prompt, /use mode="execute" and suggest call_user/);
-  assert.match(prompt, /Never claim that voice calling is unavailable/);
-  assert.match(prompt, /does not dial phone numbers/);
-});
-
-test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
+test('loop policy gives deep work room while keeping a realistic runaway ceiling', () => {
   const standard = buildLoopPolicy({}, 'messaging', 'execute');
   const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
     autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
@@ -200,11 +187,10 @@ test('loop policy keeps the iteration ceiling high and relies on the read-only n
     'execute',
   );
 
-  // The ceiling is a runaway safety net, not the primary stop signal.
-  assert.equal(standard.maxIterations, 250);
-  assert.equal(complex.maxIterations, 250);
+  assert.equal(standard.maxIterations, 40);
+  assert.equal(complex.maxIterations, 80);
   assert.equal(clamped.maxIterations, 400);
-  // The real "stop when stuck" guard: consecutive read-only turns without progress.
+  // Churn still stops much sooner than the final runaway ceiling.
   assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
   assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
 });
@@ -319,7 +305,7 @@ test('calendar summarizeListedEvents exposes timed events separately for reminde
   assert.deepEqual(result.events.map((event) => event.id), ['timed', 'all-day']);
 });
 
-test('task analysis keeps source checkouts in the shared workspace', () => {
+test('execution guidance keeps source checkouts in the shared workspace', () => {
   const prompt = buildExecutionGuidance({
     analysis: {
       mode: 'execute',
@@ -420,6 +406,30 @@ test('calendar compaction surfaces every event instead of truncating the array',
   assert.ok(parsed.timed.some((e) => e.summary === 'Zahnarzt Termin'), 'the real upcoming event is visible');
   assert.ok(!compact.includes('xxxx'), 'verbose description noise is dropped');
   assert.ok(compact.length <= 4800, 'digest stays within the hard budget');
+});
+
+test('truncated workspace results explain how to recover omitted evidence', () => {
+  const file = JSON.parse(compactToolResult('read_file', { path: 'large.js' }, {
+    content: `${'x'.repeat(900)}\n...[truncated, 3000 chars total]`,
+  }, { softLimit: 600, hardLimit: 1000 }));
+  assert.equal(file.truncated, true);
+  assert.match(file.note, /narrower line range/);
+
+  const compactedPreview = JSON.parse(compactToolResult('read_file', { path: 'many-lines.js' }, {
+    content: Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join('\n'),
+  }, { softLimit: 900, hardLimit: 1400 }));
+  assert.equal(compactedPreview.truncated, true);
+  assert.match(compactedPreview.note, /narrower line range/);
+
+  const search = JSON.parse(compactToolResult('search_files', { pattern: 'handler' }, {
+    count: 9,
+    matches: Array.from({ length: 9 }, (_, index) => ({
+      file: `file-${index}.js`, line: index + 1, content: 'handler',
+    })),
+  }, { softLimit: 900, hardLimit: 1400 }));
+  assert.equal(search.truncated, true);
+  assert.equal(search.matches.length, 6);
+  assert.match(search.note, /Narrow the path or search pattern/);
 });
 
 test('new-evidence reads count as progress but churn does not', () => {

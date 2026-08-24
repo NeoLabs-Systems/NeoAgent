@@ -8,6 +8,7 @@ const {
   inferToolFailureMessage,
   resolveDeclaredToolAccess,
 } = require('../toolEvidence');
+const { scheduleToolCalls } = require('./tool_scheduler');
 
 function getAvailableTools(_engine, app, options = {}) {
   const { getAvailableTools: loadAvailableTools } = require('../tools');
@@ -50,6 +51,7 @@ function isReadOnlyToolCall(toolCall, toolDefinition = null) {
     'list_skills',
     'list_subagents',
     'read_health_data',
+    'search_tools',
     'browser_extract',
     'browser_screenshot',
     'desktop_observe',
@@ -164,7 +166,10 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
     toolNames: prepared.map((item) => item.toolName),
     count: prepared.length,
   }, { agentId });
-  const results = await Promise.all(prepared.map(async (item) => {
+  const results = await scheduleToolCalls(prepared, {
+    isParallelSafe: () => true,
+    maxParallel: options.maxParallelToolCalls,
+    execute: async (item) => {
     if (item.blocked) return item;
     const runMeta = engine.getRunMeta(runId);
     if (!runMeta || runMeta.status !== 'running') {
@@ -242,7 +247,8 @@ async function executeReadOnlyBatch(engine, toolCalls, context = {}) {
       }, { agentId, stepId: item.stepId });
       return { ...item, result: { error: err.message }, error: err.message };
     }
-  }));
+    },
+  });
   engine.recordRunEvent(userId, runId, 'parallel_batch_completed', {
     toolNames: results.map((item) => item.toolName),
     failedCount: results.filter((item) => item.error).length,

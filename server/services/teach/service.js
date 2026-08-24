@@ -3,10 +3,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const db = require('../../db/database');
 const { DATA_DIR, ensurePrivateDirectory, ensurePrivateFile } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
-const { sanitizeSkillName } = require('../ai/learning');
 const { analyzeImageForUser } = require('../ai/imageAnalysis');
 
 const logger = createServiceLogger('TeachMode');
@@ -17,70 +15,6 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 
 function normalizeString(value, maximum = 500) {
   return String(value || '').trim().slice(0, maximum);
-}
-
-function normalizeStringList(value, maximumItems = 20, maximumLength = 500) {
-  return Array.isArray(value)
-    ? value.map((item) => normalizeString(item, maximumLength)).filter(Boolean).slice(0, maximumItems)
-    : [];
-}
-
-function normalizeSynthesis(value, fallbackName, goal) {
-  const source = value && typeof value === 'object' ? value : {};
-  const steps = Array.isArray(source.steps)
-    ? source.steps.map((step) => {
-      if (typeof step === 'string') return normalizeString(step, 1000);
-      if (!step || typeof step !== 'object') return '';
-      return normalizeString(step.instruction || step.action || step.description, 1000);
-    }).filter(Boolean).slice(0, 30)
-    : [];
-  return {
-    name: sanitizeSkillName(source.name || fallbackName),
-    description: normalizeString(source.description || `Workflow taught for: ${goal}`, 300),
-    inputs: normalizeStringList(source.inputs, 20, 300),
-    steps,
-    successCriteria: normalizeStringList(source.successCriteria || source.success_criteria, 20, 500),
-    recovery: normalizeStringList(source.recovery || source.recoveryStrategies, 20, 500),
-    askUserWhen: normalizeStringList(source.askUserWhen || source.ask_user_when, 20, 500),
-  };
-}
-
-function buildSkillInstructions(goal, synthesis) {
-  const lines = [
-    `# ${synthesis.name}`,
-    '',
-    '## Purpose',
-    synthesis.description,
-    '',
-    '## Taught Goal',
-    goal,
-  ];
-  if (synthesis.inputs.length > 0) {
-    lines.push('', '## Required Inputs', ...synthesis.inputs.map((item) => `- ${item}`));
-  }
-  lines.push(
-    '',
-    '## Adaptive Procedure',
-    'Inspect the current computer state before every action. Use semantic labels, visible state, DOM or accessibility information, and tool results; do not replay recorded coordinates.',
-    ...synthesis.steps.map((step, index) => `${index + 1}. ${step}`),
-  );
-  if (synthesis.successCriteria.length > 0) {
-    lines.push('', '## Success Criteria', ...synthesis.successCriteria.map((item) => `- ${item}`));
-  }
-  if (synthesis.recovery.length > 0) {
-    lines.push('', '## Recovery', ...synthesis.recovery.map((item) => `- ${item}`));
-  }
-  if (synthesis.askUserWhen.length > 0) {
-    lines.push('', '## Ask The User When', ...synthesis.askUserWhen.map((item) => `- ${item}`));
-  }
-  lines.push(
-    '',
-    '## Execution Contract',
-    '- Execute through the normal NeoAgent agent loop and preserve all approval and security rules.',
-    '- Re-evaluate the plan when the application state differs from the demonstration.',
-    '- Verify the outcome instead of assuming an action succeeded.',
-  );
-  return lines.join('\n');
 }
 
 function encryptJson(key, value) {
@@ -157,8 +91,7 @@ function parseEvaluationResult(value) {
 class TeachService {
   constructor(options = {}) {
     this.runtimeManager = options.runtimeManager;
-    this.agentEngine = options.agentEngine;
-    this.skillRunner = options.skillRunner;
+    this.skillLearningService = options.skillLearningService;
     this.imageAnalyzer = options.imageAnalyzer || analyzeImageForUser;
     this.io = options.io || null;
     this.sessions = new Map();
@@ -392,60 +325,25 @@ class TeachService {
       if (finalScreenshot) session.screenshotCount += 1;
       this.#persist(session);
       const visualFrames = await this.#describeScreenshots(session);
-      const proposedSynthesis = await this.#synthesize(session, context, visualFrames);
-      const synthesis = await this.#validateSynthesis(session, proposedSynthesis);
       if (session.abortController.signal.aborted) throw session.abortController.signal.reason;
-      if (synthesis.steps.length === 0) throw new Error('The demonstration did not contain a reusable procedure.');
-      const metadata = {
-        category: 'taught',
-        enabled: true,
-        source: 'teach',
-        auto_created: true,
-        required_capabilities: ['computer'],
-        taught_at: new Date().toISOString(),
-        teach_provenance: {
-          goal: session.goal,
+      const result = await this.skillLearningService.learnFromComputerDemonstration({
+        userId: session.userId,
+        agentId: session.agentId,
+        goal: session.goal,
+        evidence: {
           recorder: 'semantic-v1',
+          timeline: buildSynthesisTimeline(session.events),
+          activeWindow: context.activeWindow,
+          browser: context.browser,
+          visualFrames,
           sourceEventCount: session.events.length,
         },
-      };
-      const existing = db.prepare(
-        'SELECT name, metadata FROM skills WHERE user_id = ? AND name = ?',
-      ).get(session.userId, synthesis.name);
-      let updateExisting = false;
-      if (existing) {
-        let existingMetadata = {};
-        try { existingMetadata = JSON.parse(existing.metadata || '{}'); } catch {}
-        updateExisting = existingMetadata?.source === 'teach'
-          && existingMetadata?.teach_provenance?.goal === session.goal;
-        if (!updateExisting) {
-          const baseName = synthesis.name;
-          let sequence = 2;
-          while (db.prepare(
-            'SELECT 1 FROM skills WHERE user_id = ? AND name = ?',
-          ).get(session.userId, `${baseName}-${sequence}`)) sequence += 1;
-          synthesis.name = `${baseName}-${sequence}`;
-        }
-      }
-      const instructions = buildSkillInstructions(session.goal, synthesis);
-      const result = updateExisting
-        ? this.skillRunner.updateSkill(session.userId, synthesis.name, {
-          description: synthesis.description,
-          instructions,
-          metadata,
-        })
-        : this.skillRunner.createSkill(
-          session.userId,
-          synthesis.name,
-          synthesis.description,
-          instructions,
-          metadata,
-        );
+        signal: session.abortController.signal,
+      });
       if (!result?.success) throw new Error(result?.error || 'Skill creation failed.');
-      this.#createSkillVersion(session.userId, synthesis.name);
       session.status = 'completed';
-      this.#emit(session, { skill: synthesis.name });
-      return { success: true, skill: synthesis.name, description: synthesis.description };
+      this.#emit(session, { skill: result.name });
+      return { success: true, skill: result.name, description: result.description };
     } catch (error) {
       if (!['cancelled', 'expired'].includes(session.status)) {
         session.status = 'error';
@@ -591,94 +489,6 @@ class TeachService {
     return descriptions;
   }
 
-  async #synthesize(session, context, visualFrames) {
-    const timeline = buildSynthesisTimeline(session.events);
-    const fallbackName = sanitizeSkillName(session.goal);
-    const response = await this.agentEngine.inferStructured({
-      userId: session.userId,
-      agentId: session.agentId,
-      purpose: 'general',
-      system: [
-        'You convert a demonstrated Linux computer workflow into an adaptive NeoAgent skill.',
-        'Return JSON only with name, description, inputs, steps, successCriteria, recovery, and askUserWhen.',
-        'Steps must describe goals and semantic UI targets, never screen coordinates, brittle selectors, literal passwords, or macro replay.',
-        'The later agent must inspect current state, adapt through its normal loop, verify outcomes, and ask only when judgment or authorization is required.',
-      ].join(' '),
-      prompt: JSON.stringify({
-        goal: session.goal,
-        timeline,
-        activeWindow: context.activeWindow,
-        browser: context.browser,
-        visualFrames,
-      }),
-      maxTokens: 1800,
-      signal: session.abortController.signal,
-      fallback: {
-        name: fallbackName,
-        description: `Adaptive workflow for ${session.goal}`,
-        inputs: [],
-        steps: [],
-        successCriteria: [],
-        recovery: [],
-        askUserWhen: [],
-      },
-    });
-    return normalizeSynthesis(response.parsed, fallbackName, session.goal);
-  }
-
-  async #validateSynthesis(session, proposed) {
-    const response = await this.agentEngine.inferStructured({
-      userId: session.userId,
-      agentId: session.agentId,
-      purpose: 'general',
-      system: [
-        'You validate and repair a skill synthesized from a Linux computer demonstration.',
-        'Return JSON only with approved and revised. revised must contain name, description, inputs, steps, successCriteria, recovery, and askUserWhen.',
-        'Approve only an adaptive workflow that uses semantic state and the normal agent loop.',
-        'The skill must contain no recorded coordinates, rigid macro replay, brittle timing, literal secrets, passwords, clipboard data, or unconditional destructive actions.',
-        'Repair issues in revised when possible. Set approved false when the demonstration is insufficient to make a safe reusable skill.',
-      ].join(' '),
-      prompt: JSON.stringify({ goal: session.goal, proposed }),
-      maxTokens: 1800,
-      signal: session.abortController.signal,
-      fallback: { approved: false, revised: proposed },
-    });
-    if (response.parsed?.approved !== true) {
-      const error = new Error('The demonstrated workflow could not be validated as a safe adaptive skill.');
-      error.code = 'TEACH_VALIDATION_FAILED';
-      throw error;
-    }
-    return normalizeSynthesis(
-      response.parsed.revised,
-      proposed.name,
-      session.goal,
-    );
-  }
-
-  #createSkillVersion(userId, skillName) {
-    const skill = db.prepare(
-      'SELECT id, file_path, metadata FROM skills WHERE user_id = ? AND name = ?',
-    ).get(userId, skillName);
-    if (!skill) return;
-    const content = fs.readFileSync(skill.file_path, 'utf8');
-    const previous = db.prepare(
-      'SELECT MAX(version) AS version FROM agent_skill_versions WHERE skill_id = ?',
-    ).get(String(skill.id));
-    const version = Math.max(0, Number(previous?.version || 0)) + 1;
-    db.prepare(
-      `INSERT INTO agent_skill_versions (
-        id, skill_id, version, name, content_md, metadata_json, validated_at, status
-      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 'validated')`,
-    ).run(
-      crypto.randomUUID(),
-      String(skill.id),
-      version,
-      skillName,
-      content,
-      skill.metadata || '{}',
-    );
-  }
-
   cancel(userId, sessionId) {
     const session = this.sessions.get(String(sessionId || ''));
     if (!session || session.userId !== String(userId || '').trim()) return false;
@@ -746,8 +556,6 @@ module.exports = {
   TEMP_ROOT,
   TeachService,
   buildSynthesisTimeline,
-  buildSkillInstructions,
   decryptJson,
   encryptJson,
-  normalizeSynthesis,
 };

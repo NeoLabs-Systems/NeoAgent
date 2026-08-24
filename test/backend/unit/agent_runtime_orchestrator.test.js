@@ -75,8 +75,8 @@ function createEngine(analysis) {
   return engine;
 }
 
-test('fast path completes ordinary chat without planning ceremony', async () => {
-  const engine = createEngine({
+test('ordinary chat completes from one analyzed response without entering execution', async () => {
+  const analysis = {
     mode: 'direct_answer',
     draft_reply: 'Hello!',
     draft_status: 'final',
@@ -89,7 +89,29 @@ test('fast path completes ordinary chat without planning ceremony', async () => 
     needs_verification: false,
     success_criteria: ['Friendly greeting'],
     suggested_tools: [],
-  });
+  };
+  const engine = createEngine(analysis);
+  let structuredCalls = 0;
+  let executionCalls = 0;
+  const learningInputs = [];
+  engine.skillLearningService = {
+    enqueueCompletedRun(input) {
+      learningInputs.push(input);
+      return Promise.resolve(null);
+    },
+  };
+  engine.requestStructuredJson = async ({ normalize, fallback }) => {
+    structuredCalls += 1;
+    return {
+      value: normalize(analysis, fallback),
+      raw: JSON.stringify(analysis),
+      usage: 4,
+    };
+  };
+  engine.requestModelResponse = async () => {
+    executionCalls += 1;
+    throw new Error('direct answers must not enter the execution loop');
+  };
 
   const result = await engine.run(userId, 'hi', {
     triggerSource: 'web',
@@ -101,6 +123,8 @@ test('fast path completes ordinary chat without planning ceremony', async () => 
   assert.equal(result.path, 'fast');
   assert.equal(result.content, 'Hello!');
   assert.equal(result.iterations, 1);
+  assert.equal(structuredCalls, 1);
+  assert.equal(executionCalls, 0);
 
   const row = ctx.db.prepare(
     'SELECT status, runtime_state, final_delivery_id, final_response FROM agent_runs WHERE id = ?',
@@ -115,9 +139,17 @@ test('fast path completes ordinary chat without planning ceremony', async () => 
      WHERE run_id = ? AND message_kind = 'final'`,
   ).get(result.runId);
   assert.equal(Number(finals.n), 1);
+  assert.equal(learningInputs.length, 1);
+  assert.equal(learningInputs[0].runId, result.runId);
+  assert.equal(learningInputs[0].triggerType, 'user');
+  assert.equal(learningInputs[0].triggerSource, 'web');
+  assert.equal(learningInputs[0].task, 'hi');
+  assert.equal(learningInputs[0].taskId, null);
+  assert.equal(learningInputs[0].finalContent, 'Hello!');
+
 });
 
-test('voice fast path uses one canonical run and the voice outbox adapter', async () => {
+test('voice uses the same one-turn loop and canonical outbox adapter', async () => {
   const engine = createEngine({
     mode: 'direct_answer',
     draft_reply: 'The shared runtime handled this.',
@@ -459,12 +491,18 @@ test('schedule background run keeps tool_calls.function across turns', async () 
     lastSentMessage: '',
     sentMessages: [],
   };
+  const taskLearningInputs = [];
+  engine.skillLearningService = {
+    enqueueCompletedRun(input) {
+      taskLearningInputs.push(input);
+      return Promise.resolve(null);
+    },
+  };
 
   const result = await engine.run(userId, '[SYSTEM: Executing Background Task]\nTask Name: Kalender-Reminder', {
     triggerType: 'schedule',
     triggerSource: 'schedule',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,
@@ -492,6 +530,91 @@ test('schedule background run keeps tool_calls.function across turns', async () 
      WHERE run_id = ? AND message_kind = 'ack'`,
   ).get(result.runId);
   assert.equal(Number(acks.n), 0);
+  assert.equal(taskLearningInputs.length, 1);
+  assert.equal(taskLearningInputs[0].runId, result.runId);
+  assert.equal(taskLearningInputs[0].taskId, 'task-1');
+  assert.equal(taskLearningInputs[0].triggerType, 'schedule');
+});
+
+test('tool execution preserves mutation barriers and model-order results', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Read, update, then verify a file',
+    confidence: 0.9,
+    suggested_tools: ['read_before', 'write_middle', 'read_after'],
+    needs_verification: false,
+  });
+
+  const trace = [];
+  let modelTurn = 0;
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurn += 1;
+    if (modelTurn === 1) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [
+            { id: 'read-1', type: 'function', function: { name: 'read_before', arguments: '{}' } },
+            { id: 'write-1', type: 'function', function: { name: 'write_middle', arguments: '{}' } },
+            { id: 'read-2', type: 'function', function: { name: 'read_after', arguments: '{}' } },
+          ],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+
+    const toolResultIds = messages
+      .filter((message) => message.role === 'tool')
+      .map((message) => message.tool_call_id);
+    assert.deepEqual(toolResultIds.slice(-3), ['read-1', 'write-1', 'read-2']);
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'done',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Verified.' }) },
+        }],
+        usage: { total_tokens: 3 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.getAvailableTools = () => ([
+    { name: 'read_before', description: 'read', parameters: { type: 'object', properties: {} } },
+    { name: 'write_middle', description: 'write', parameters: { type: 'object', properties: {} } },
+    { name: 'read_after', description: 'read', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.isReadOnlyToolCall = (call) => String(call?.function?.name || '').startsWith('read_');
+  engine.executeTool = async (name) => {
+    trace.push(`${name}:start`);
+    if (name === 'read_before') await new Promise((resolve) => setTimeout(resolve, 10));
+    trace.push(`${name}:end`);
+    return { success: true, name };
+  };
+
+  const result = await engine.run(userId, 'Read it, change it, then read it again.', {
+    triggerSource: 'cowork',
+    interactionMode: 'agent',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 4,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(trace.slice(0, 6), [
+    'read_before:start',
+    'read_before:end',
+    'write_middle:start',
+    'write_middle:end',
+    'read_after:start',
+    'read_after:end',
+  ]);
 });
 
 test('task_complete message field becomes final content', async () => {
@@ -526,7 +649,6 @@ test('task_complete message field becomes final content', async () => {
   const result = await engine.run(userId, 'Review calendar', {
     triggerSource: 'web',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 3,
@@ -784,6 +906,66 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
 });
 
+test('evidence soft limit tells a productive research loop to synthesize', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Research the answer without open-ended exploration',
+    confidence: 0.85,
+    complexity: 'standard',
+    needs_verification: false,
+    suggested_tools: ['lookup'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'lookup', description: 'Look up a new source', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+
+  let modelTurns = 0;
+  let sawSoftLimit = false;
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurns += 1;
+    sawSoftLimit = sawSoftLimit || messages.some((message) => (
+      /Run budget is nearing its limit \(evidenceBudget\)/.test(String(message.content || ''))
+    ));
+    const call = sawSoftLimit
+      ? {
+        id: 'done',
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message: 'Synthesized from four sources.' }),
+        },
+      }
+      : {
+        id: `lookup-${modelTurns}`,
+        type: 'function',
+        function: { name: 'lookup', arguments: JSON.stringify({ page: modelTurns }) },
+      };
+    return {
+      response: { content: '', toolCalls: [call], usage: { total_tokens: 2 } },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async (_name, args) => ({ source: `source-${args.page}`, facts: [args.page] });
+  engine.isReadOnlyToolCall = (call) => call?.function?.name === 'lookup';
+
+  const result = await engine.run(userId, 'Research this.', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 10,
+    maxEvidenceItems: 5,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.content, 'Synthesized from four sources.');
+  assert.equal(sawSoftLimit, true);
+  assert.equal(modelTurns, 5);
+});
+
 test('the opening line is written from the real conversation, and only for long work', async () => {
   const longWork = {
     mode: 'execute',
@@ -848,6 +1030,7 @@ test('the opening line is written from the real conversation, and only for long 
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 3,
+    forceMode: 'plan_execute',
   });
   assert.equal(result.status, 'completed');
 
@@ -1079,6 +1262,7 @@ test('an acknowledgement reaches a web client as a visible message', async () =>
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 3,
+    forceMode: 'plan_execute',
   });
 
   // run:interim carries short status notes under `message`; user-facing interim
@@ -1143,7 +1327,7 @@ test('a blank model turn is recovered instead of ending the run', async () => {
   assert.equal(row.runtime_state, 'completed');
 });
 
-test('background run discovers a catalog tool and activates it into the next turn', async () => {
+test('background run searches for an inactive tool and activates it', async () => {
   const engine = createEngine({
     mode: 'execute',
     draft_reply: '',
@@ -1156,6 +1340,7 @@ test('background run discovers a catalog tool and activates it into the next tur
   // is reachable through the catalog + activate_tools, never as a hidden schema.
   engine.getAvailableTools = () => ([
     { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+    { name: 'search_tools', description: 'search tools', parameters: { type: 'object', properties: {} } },
     { name: 'activate_tools', description: 'activate', parameters: { type: 'object', properties: {} } },
     { name: 'think', description: 'think', parameters: { type: 'object', properties: {} } },
     { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
@@ -1168,16 +1353,29 @@ test('background run discovers a catalog tool and activates it into the next tur
   ]);
 
   const turnToolNames = [];
-  let catalogMessage = '';
+  let searchResult = null;
   let modelTurns = 0;
   engine.requestModelResponse = async ({ messages, tools }) => {
     modelTurns += 1;
     turnToolNames.push((tools || []).map((tool) => tool.name));
     if (modelTurns === 1) {
-      catalogMessage = messages
-        .filter((msg) => msg.role === 'system')
-        .map((msg) => String(msg.content || ''))
-        .find((content) => content.includes('[Available tool catalog]')) || '';
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
+            id: 'search1',
+            type: 'function',
+            function: {
+              name: 'search_tools',
+              arguments: JSON.stringify({ query: 'list Google Calendar events' }),
+            },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    if (modelTurns === 2) {
       return {
         response: {
           content: '',
@@ -1194,7 +1392,7 @@ test('background run discovers a catalog tool and activates it into the next tur
         streamContent: '',
       };
     }
-    if (modelTurns === 2) {
+    if (modelTurns === 3) {
       return {
         response: {
           content: '',
@@ -1231,6 +1429,10 @@ test('background run discovers a catalog tool and activates it into the next tur
   const executed = [];
   engine.executeTool = async (name, args, context) => {
     executed.push(name);
+    if (name === 'search_tools') {
+      searchResult = engine.searchToolsForRun(context.runId, args.query, args.limit);
+      return searchResult;
+    }
     if (name === 'activate_tools') {
       return engine.activateToolsForRun(context.runId, args.names || []);
     }
@@ -1245,22 +1447,21 @@ test('background run discovers a catalog tool and activates it into the next tur
     triggerType: 'schedule',
     triggerSource: 'schedule',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,
-    maxIterations: 5,
+    maxIterations: 6,
     bypassUserRateLimits: true,
   });
 
   assert.equal(result.status, 'completed');
-  assert.match(catalogMessage, /google_workspace_calendar_list_events/);
+  assert.ok(searchResult.results.some((tool) => tool.name === 'google_workspace_calendar_list_events'));
   assert.ok(
     !turnToolNames[0].includes('google_workspace_calendar_list_events'),
     'catalog tool must not start active',
   );
   assert.ok(
-    turnToolNames[1].includes('google_workspace_calendar_list_events'),
+    turnToolNames[2].includes('google_workspace_calendar_list_events'),
     'activate_tools must put the schema into the next model turn',
   );
   assert.ok(executed.includes('google_workspace_calendar_list_events'));
@@ -1320,7 +1521,6 @@ test('execution turns keep the agent system prompt and persist tool steps', asyn
   const result = await engine.run(userId, 'Read a.txt', {
     triggerSource: 'web',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipVerifier: true,
     maxIterations: 4,
@@ -1420,7 +1620,6 @@ test('messaging final is not transmitted twice after send_message delivered it',
     source: 'whatsapp',
     chatId: 'chat-1',
     stream: false,
-    skipTaskAnalysis: true,
     skipGlobalRecall: true,
     skipConversationHistory: true,
     skipVerifier: true,

@@ -42,7 +42,7 @@ function createDefaultAiSettings() {
     subagent_max_iterations: 6,
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
-    auto_skill_learning: false,
+    auto_skill_learning: true,
     fallback_model_id: 'openai::gpt-5-nano',
     smarter_model_selector: true,
     enabled_models: [],

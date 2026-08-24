@@ -14,7 +14,6 @@ class WhatsAppPlatform extends BasePlatform {
     this.sock = null;
     this.qrCode = null;
     this.reconnectAttempts = 0;
-    this.maxReconnect = 5;
     this.authDir = config.authDir || AUTH_DIR;
     this.artifactStore = config.artifactStore || null;
     this.userId = config.userId;
@@ -136,27 +135,19 @@ class WhatsAppPlatform extends BasePlatform {
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
-        const reconnectExhausted = shouldReconnect && this.reconnectAttempts >= this.maxReconnect;
 
         this.status = 'disconnected';
         this.emit('disconnected', {
           statusCode,
           shouldReconnect,
+          willReconnect: shouldReconnect,
           manual: this._manualDisconnect,
-          requiresUserAction: reconnectExhausted,
-          reason: reconnectExhausted ? 'reconnect_exhausted' : null,
+          requiresUserAction: false,
+          reason: shouldReconnect ? 'connection_lost' : null,
         });
 
-        if (shouldReconnect && this.reconnectAttempts < this.maxReconnect) {
-          this.reconnectAttempts++;
-          const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-          this._reconnectTimer = setTimeout(() => {
-            this._reconnectTimer = null;
-            if (this._manualDisconnect) return;
-            this.connect().catch((err) => {
-              console.error('[WhatsApp] Reconnect failed:', err.message);
-            });
-          }, delay);
+        if (shouldReconnect) {
+          this._scheduleReconnect();
         } else if (statusCode === DisconnectReason.loggedOut) {
           fs.rmSync(this.authDir, { recursive: true, force: true });
           this.emit('logged_out');
@@ -305,6 +296,21 @@ class WhatsAppPlatform extends BasePlatform {
     });
 
     return { status: this.status };
+  }
+
+  _scheduleReconnect() {
+    if (this._manualDisconnect || this._reconnectTimer) return;
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * (2 ** Math.min(this.reconnectAttempts, 10)), 60000);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      if (this._manualDisconnect) return;
+      this.connect().catch((err) => {
+        console.error('[WhatsApp] Reconnect failed:', err.message);
+        this._scheduleReconnect();
+      });
+    }, delay);
+    this._reconnectTimer.unref?.();
   }
 
   async disconnect() {

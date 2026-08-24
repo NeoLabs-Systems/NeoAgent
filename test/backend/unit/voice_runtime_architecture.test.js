@@ -124,7 +124,6 @@ test('ChatTurnGateway dispatches one normal interactive chat run with shared his
     assert.equal(calls[0].options.triggerSource, 'voice_live');
     assert.equal(calls[0].options.latencyPriority, 'interactive');
     assert.equal(calls[0].options.conversationId, 'shared-web-conversation');
-    assert.equal(calls[0].options.skipTaskAnalysis, undefined);
     assert.equal(calls[0].options.forceMode, undefined);
     assert.ok(dispatchedAt - dispatchStartedAt < 100);
 

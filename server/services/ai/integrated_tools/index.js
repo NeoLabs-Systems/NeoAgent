@@ -2,9 +2,13 @@
 
 const { generateSlideDeck } = require('./slidev');
 const { generateVideoWithRemotion } = require('./remotion');
+const {
+  detectSynthIdWatermark,
+  isSynthIdDetectorAvailable,
+} = require('./synthid');
 
-function getIntegratedToolDefinitions() {
-  return [
+function getIntegratedToolDefinitions(options = {}) {
+  const tools = [
     {
       name: 'generate_slide_deck',
       description: 'Generate a polished presentation using Slidev and export finished artifacts. Prefer this for decks instead of raw file-writing. Best practice: pass a clear title and a complete slides array, and request export_formats ["pdf"] or ["pdf","pptx"] for a shareable final result.',
@@ -79,6 +83,24 @@ function getIntegratedToolDefinitions() {
       },
     },
   ];
+  if (isSynthIdDetectorAvailable(options)) {
+    tools.push({
+      name: 'detect_synthid_watermark',
+      access: 'read',
+      description: 'Check a PNG or JPEG image for Google\'s invisible SynthID watermark using the official Vertex AI detector. A negative result does not prove that an image is human-made or not AI-generated.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_path: {
+            type: 'string',
+            description: 'Workspace image path, owned artifact path, artifact ID, or artifact content URL.',
+          },
+        },
+        required: ['image_path'],
+      },
+    });
+  }
+  return tools;
 }
 
 async function executeIntegratedTool(toolName, args, context = {}) {
@@ -87,6 +109,8 @@ async function executeIntegratedTool(toolName, args, context = {}) {
       return generateSlideDeck(args, context);
     case 'generate_video_with_remotion':
       return generateVideoWithRemotion(args, context);
+    case 'detect_synthid_watermark':
+      return detectSynthIdWatermark(args, context);
     default:
       return null;
   }

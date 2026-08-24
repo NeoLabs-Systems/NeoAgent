@@ -9,7 +9,9 @@ const {
 } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
-  buildToolCatalog,
+  ALWAYS_INCLUDE_BUILT_INS,
+  buildToolDiscoverySummary,
+  searchTools,
   selectInitialTools,
   selectToolsForTask,
 } = require('../toolSelector');
@@ -97,8 +99,10 @@ const { createWorkingMemory } = require('./memory/working_memory');
 const memoryWritePipeline = require('./memory/memory_write_pipeline');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
+const { scheduleToolCalls } = require('../loop/tool_scheduler');
 
 const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
+  'search_tools',
   'activate_tools',
   'request_user_input',
   'send_interim_update',
@@ -194,6 +198,49 @@ class DurableRunRuntime {
     let contextPressure = null;
     let runRecordCreated = false;
     let runSignal = null;
+    let initialIterationHookPassed = false;
+
+    const stopForIterationHook = async (iteration) => {
+      const iterationHook = await globalHooks.run('on_loop_iteration', {
+        userId,
+        runId,
+        agentId,
+        iteration,
+        triggerType,
+        triggerSource,
+        totalTokens,
+      });
+      if (iterationHook?.stop !== true) return null;
+
+      const reason = String(iterationHook.reason || 'Stopped by policy hook.');
+      const meta = this.engine.getRunMeta(runId);
+      if (meta) meta.aborted = true;
+      db.prepare(
+        `UPDATE agent_runs
+         SET status = 'stopped',
+             runtime_state = ?,
+             error = ?,
+             completed_at = COALESCE(completed_at, datetime('now')),
+             updated_at = datetime('now')
+         WHERE id = ?`,
+      ).run(RUNTIME_STATES.CANCELLED, reason, runId);
+      this.eventBus.publish({
+        runId,
+        userId,
+        agentId,
+        eventType: EVENT_TYPES.RUN_CANCELLED,
+        payload: { reason, source: 'on_loop_iteration' },
+        visibility: VISIBILITY.USER,
+      });
+      return {
+        runId,
+        content: '',
+        totalTokens,
+        iterations,
+        status: 'stopped',
+        path,
+      };
+    };
 
     const { releaseReservation } = enforceRateLimits(userId, {
       bypass: options.bypassUserRateLimits === true,
@@ -657,41 +704,45 @@ class DurableRunRuntime {
       leases.heartbeat(runId, workerId);
       progressBroker.noteActivity('triaging');
 
-      if (options.skipTaskAnalysis === true && options.forceMode) {
-        analysis = normalizeTaskAnalysis({
-          mode: options.forceMode,
-          goal: String(userMessage || '').slice(0, 300),
-          draft_reply: '',
-          draft_status: 'needs_execution',
-          complexity: options.forceMode === 'plan_execute' ? 'complex' : 'standard',
-        }, { goal: String(userMessage || '').slice(0, 300) });
-      } else if (options.skipTaskAnalysis === true) {
-        analysis = normalizeTaskAnalysis({
-          mode: 'execute',
-          goal: String(userMessage || '').slice(0, 300),
-          draft_status: 'needs_execution',
-        }, { goal: String(userMessage || '').slice(0, 300) });
+      // The first reliability gate covers both triage and the first execution
+      // turn. It must run before structured analysis so a policy stop cannot
+      // leak one otherwise avoidable model call.
+      const preflightStop = await stopForIterationHook(iterations + 1);
+      if (preflightStop) return preflightStop;
+      initialIterationHookPassed = true;
+
+      const requestedPlan = options.forceMode === 'plan_execute';
+      const analysisFallback = {
+        mode: options.forceMode || 'execute',
+        goal: String(userMessage || '').trim().slice(0, 500),
+        draft_reply: '',
+        draft_status: 'needs_execution',
+        complexity: requestedPlan ? 'complex' : 'standard',
+      };
+      if (options.skipTaskAnalysis === true) {
+        const skippedAnalysis = {
+          ...analysisFallback,
+          needs_verification: requestedPlan,
+          autonomy_level: triggerSource === 'cowork' || requestedPlan ? 'high' : 'normal',
+          progress_update_policy: requestedPlan ? 'required' : 'optional',
+        };
+        analysis = normalizeTaskAnalysis(skippedAnalysis, skippedAnalysis);
       } else {
         try {
-          const analysisPrompt = buildAnalysisPrompt({
-            capabilityHealth: capabilitySummary,
-            tools: allTools,
-            forceMode: options.forceMode || null,
-            triggerSource,
-          });
           const analysisResponse = await this.engine.requestStructuredJson({
             provider,
             providerName,
             model,
             messages,
-            prompt: analysisPrompt,
+            prompt: buildAnalysisPrompt({
+              capabilityHealth: capabilitySummary,
+              tools: allTools,
+              forceMode: options.forceMode || null,
+              triggerSource,
+            }),
             maxTokens: 1400,
             normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
-            fallback: {
-              mode: 'execute',
-              goal: String(userMessage || '').slice(0, 300),
-              draft_status: 'needs_execution',
-            },
+            fallback: analysisFallback,
             telemetry: {
               runId,
               userId,
@@ -701,47 +752,46 @@ class DurableRunRuntime {
             phase: 'task_analysis',
           });
           totalTokens += Number(analysisResponse.usage || 0);
-          analysis = analysisResponse.value || normalizeTaskAnalysis({
-            mode: 'execute',
-            goal: String(userMessage || '').slice(0, 300),
-          });
+          analysis = analysisResponse.value || normalizeTaskAnalysis(analysisFallback, analysisFallback);
         } catch (error) {
-          console.warn('[Runtime] Task analysis failed; defaulting to execute:', error?.message || error);
-          analysis = normalizeTaskAnalysis({
-            mode: 'execute',
-            goal: String(userMessage || '').slice(0, 300),
-            draft_status: 'needs_execution',
-            complexity: 'standard',
-          }, { goal: String(userMessage || '').slice(0, 300) });
+          console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
+          analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
         }
       }
 
-      // Tool schemas are capped per model turn, so only a slice of the catalog is
-      // active at a time. The full catalog must still be visible in context or the
-      // model cannot know a capability exists — it then reports the tool as
-      // unavailable instead of activating it.
+      // Start with the model's exact suggestions, then fill any remaining slice
+      // from lexical matches. Always-active control tools are excluded from the
+      // matcher because selecting them again would crowd out actual capabilities.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: triggerSource === 'cowork'
-          || analysis.mode === 'execute'
-          || analysis.mode === 'plan_execute',
+        includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
-      tools = selectInitialTools(allTools, analysis.suggested_tools, toolSelectionOptions);
+      const initialMatches = searchTools(allTools, userMessage, {
+        limit: 8,
+        excludeNames: ALWAYS_INCLUDE_BUILT_INS,
+      });
+      const suggestedToolNames = [...new Set([
+        ...(analysis.suggested_tools || []),
+        ...initialMatches.map((tool) => tool.name),
+      ])];
+      tools = selectInitialTools(
+        allTools,
+        suggestedToolNames,
+        toolSelectionOptions,
+      );
       this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
       messages.push({
         role: 'system',
         content: [
-          '[Available tool catalog]',
-          buildToolCatalog(allTools),
-          '',
-          `Active tools: ${tools.map((tool) => tool.name).join(', ')}`,
+          '[Tool discovery]',
+          buildToolDiscoverySummary(allTools, tools),
           'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
-          'Use activate_tools with exact catalog names when another schema is required.',
         ].join('\n'),
       });
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
         activeToolNames: tools.map((tool) => tool.name),
+        matchedToolNames: initialMatches.map((tool) => tool.name),
         catalogSize: allTools.length,
       }, { agentId });
 
@@ -758,24 +808,22 @@ class DurableRunRuntime {
         aiSettings,
         triggerType,
         analysisMode: analysis.mode || 'execute',
-        options,
+        options: { ...options, autonomyPolicy: analysis },
         startedAtMs,
       });
 
       const draftReply = String(analysis.draft_reply || '').trim();
-      const fastGate = evaluateFastPathEligibility(contract, {
-        draftReply,
-        analysis,
-      });
+      const fastGate = evaluateFastPathEligibility(contract, { draftReply, analysis });
       const directEligible = isDirectAnswerEligibleAnalysis(analysis)
         && Boolean(normalizeOutgoingMessage(draftReply));
+      const attemptedFastPath = fastGate.eligible && directEligible;
 
-      if (fastGate.eligible && directEligible) {
+      if (attemptedFastPath) {
         path = 'fast';
         applyTransition({
           runId,
           toState: RUNTIME_STATES.RESPONDING,
-          reason: 'no_execution_obligations',
+          reason: 'direct_answer_ready',
           workerId,
           eventBus: this.eventBus,
         });
@@ -794,7 +842,6 @@ class DurableRunRuntime {
           userId,
           agentId,
         });
-
         if (gate.status === 'verified') {
           const delivery = await this.#deliverFinal({
             runId,
@@ -816,6 +863,10 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            task: userMessage,
+            taskId: options.taskId || null,
+            triggerType,
+            triggerSource,
           });
           return {
             runId,
@@ -823,41 +874,26 @@ class DurableRunRuntime {
             totalTokens,
             iterations,
             status: 'completed',
-            path: 'fast',
+            path,
           };
         }
-
-        // Fast path rejected — fall through to durable execution.
         path = 'durable';
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.PLANNING,
-          reason: 'fast_path_rejected',
-          workerId,
-          eventBus: this.eventBus,
-        });
-      } else {
-        // Only work the model itself judged long-running gets an opening line.
-        // A durable task that finishes in seconds reads better as a single
-        // answer, and the progress heartbeat covers anything that unexpectedly
-        // runs long, so acknowledging every run only made them feel rote.
-        await maybeAck(
-          analysis.progress_update_policy === 'required'
+      }
+
+      await maybeAck(
+        analysis.progress_update_policy === 'required'
           || analysis.complexity === 'complex'
           || analysis.autonomy_level === 'high',
-          analysis.acknowledgement,
-        );
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.PLANNING,
-          reason: 'durable_work_required',
-          workerId,
-          eventBus: this.eventBus,
-          patch: {
-            metadata: { fastPathRejected: fastGate.reasons },
-          },
-        });
-      }
+        analysis.acknowledgement,
+      );
+      applyTransition({
+        runId,
+        toState: RUNTIME_STATES.PLANNING,
+        reason: attemptedFastPath ? 'fast_path_rejected' : 'durable_work_required',
+        workerId,
+        eventBus: this.eventBus,
+        patch: { metadata: { fastPathRejected: fastGate.reasons } },
+      });
 
       // ── Planning / work graph ──────────────────────────────────────────
       const graphNodes = workGraph.graphFromContract(contract);
@@ -918,6 +954,7 @@ class DurableRunRuntime {
       const maxVerificationRepairs = 3;
       let blankOutputRecoveries = 0;
       const maxBlankOutputRecoveries = 2;
+      const warnedSoftDimensions = new Set();
       const getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
       );
@@ -982,45 +1019,13 @@ class DurableRunRuntime {
           return this.#cancelledResult(runId, totalTokens, iterations);
         }
 
-        // Reliability / policy hooks: may stop the loop before a model call.
-        const iterationHook = await globalHooks.run('on_loop_iteration', {
-          userId,
-          runId,
-          agentId,
-          iteration: iterations + 1,
-          triggerType,
-          triggerSource,
-          totalTokens,
-        });
-        if (iterationHook?.stop === true) {
-          const reason = String(iterationHook.reason || 'Stopped by policy hook.');
-          const meta = this.engine.getRunMeta(runId);
-          if (meta) meta.aborted = true;
-          db.prepare(
-            `UPDATE agent_runs
-             SET status = 'stopped',
-                 runtime_state = ?,
-                 error = ?,
-                 completed_at = COALESCE(completed_at, datetime('now')),
-                 updated_at = datetime('now')
-             WHERE id = ?`,
-          ).run(RUNTIME_STATES.CANCELLED, reason, runId);
-          this.eventBus.publish({
-            runId,
-            userId,
-            agentId,
-            eventType: EVENT_TYPES.RUN_CANCELLED,
-            payload: { reason, source: 'on_loop_iteration' },
-            visibility: VISIBILITY.USER,
-          });
-          return {
-            runId,
-            content: '',
-            totalTokens,
-            iterations,
-            status: 'stopped',
-            path,
-          };
+        // The preflight hook already gates the first execution turn. Starting
+        // with turn two, run it here before every subsequent model request.
+        if (initialIterationHookPassed && iterations === 0) {
+          initialIterationHookPassed = false;
+        } else {
+          const iterationStop = await stopForIterationHook(iterations + 1);
+          if (iterationStop) return iterationStop;
         }
 
         if (run.runtimeState === RUNTIME_STATES.VERIFYING) {
@@ -1235,6 +1240,10 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            task: userMessage,
+            taskId: options.taskId || null,
+            triggerType,
+            triggerSource,
           });
           return {
             runId,
@@ -1278,6 +1287,10 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            task: userMessage,
+            taskId: options.taskId || null,
+            triggerType,
+            triggerSource,
           });
           return {
             runId,
@@ -1383,14 +1396,27 @@ class DurableRunRuntime {
           }
         }
         if (continuation.softWarning) {
-          this.eventBus.publish({
-            runId,
-            userId,
-            agentId,
-            eventType: EVENT_TYPES.BUDGET_SOFT_LIMIT,
-            payload: { dimensions: continuation.snapshot.softDimensions },
-            visibility: VISIBILITY.OPERATOR,
-          });
+          const newDimensions = continuation.snapshot.softDimensions
+            .filter((dimension) => !warnedSoftDimensions.has(dimension));
+          if (newDimensions.length > 0) {
+            for (const dimension of newDimensions) warnedSoftDimensions.add(dimension);
+            this.eventBus.publish({
+              runId,
+              userId,
+              agentId,
+              eventType: EVENT_TYPES.BUDGET_SOFT_LIMIT,
+              payload: { dimensions: newDimensions },
+              visibility: VISIBILITY.OPERATOR,
+            });
+            messages.push({
+              role: 'system',
+              content: [
+                `Run budget is nearing its limit (${newDimensions.join(', ')}).`,
+                'Stop optional exploration now. Use the evidence already gathered to finish the required deliverable, or return an honest partial result naming the concrete missing requirement.',
+                'Do not start a new research branch unless it is the only way to close a required obligation.',
+              ].join(' '),
+            });
+          }
         }
 
         // Steering
@@ -1633,7 +1659,9 @@ class DurableRunRuntime {
           toolCalls: modelResponse.toolCalls || modelResponse.tool_calls || [],
         }, {
           nodeId: activeNode?.id || null,
-          expectTerminalResponse: false,
+          // Like DeepSeek's loop, a normal assistant response without tool calls
+          // ends the turn. The completion gate still checks durable obligations.
+          expectTerminalResponse: true,
         });
         if (!decisionResult.ok) {
           consecutiveProtocolRepairs += 1;
@@ -1849,8 +1877,10 @@ class DurableRunRuntime {
             tool_calls: wireToolCalls,
           });
 
-          // Classify once: the split into parallel reads vs serialized mutations
-          // and the per-call bookkeeping both need the same verdict.
+          // Classify once. Read-only calls may overlap only while they are
+          // contiguous in model order; a mutation is a barrier. Moving every
+          // read ahead of every mutation changes the program the model asked
+          // us to execute (for example read -> edit -> verify-read).
           const plannedCalls = decision.toolCalls.map((call) => {
             const definition = tools.find((tool) => tool?.name === call.name) || null;
             const callShape = call.raw?.function?.name
@@ -1869,8 +1899,6 @@ class DurableRunRuntime {
               isReadOnly: Boolean(this.engine.isReadOnlyToolCall?.(callShape, definition)),
             };
           });
-          const readOnlyCalls = plannedCalls.filter((planned) => planned.isReadOnly);
-          const mutatingCalls = plannedCalls.filter((planned) => !planned.isReadOnly);
           const turnArtifactIds = [];
 
           const executeOne = async ({ call, definition, isReadOnly }) => {
@@ -2002,14 +2030,13 @@ class DurableRunRuntime {
               errorMessage,
               definition,
             );
-            toolExecutions.push(execution);
             const observed = repetitionGuard?.observe(call.name, call.arguments, result);
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
             // research run is never mistaken for churn.
-            budget.recordNoProgressTurn(
-              !execution.stateChanged && !gatheredNewEvidence(execution, observed),
-            );
+            const addedEvidence = gatheredNewEvidence(execution, observed);
+            budget.recordNoProgressTurn(!execution.stateChanged && !addedEvidence);
+            if (addedEvidence) budget.recordEvidence(1);
             if (success) budget.recordToolFailure(false);
 
             // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
@@ -2102,12 +2129,12 @@ class DurableRunRuntime {
             });
             progressBroker.noteToolFinished(call.name);
 
-            messages.push({
+            const toolMessage = {
               role: 'tool',
               name: call.name,
               tool_call_id: call.id,
               content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
-            });
+            };
 
             // Newly activated schemas only reach the model if the active set is
             // re-read; otherwise activate_tools silently does nothing.
@@ -2171,18 +2198,18 @@ class DurableRunRuntime {
               }
             }
 
-            return { success, result: compacted, errorMessage };
+            return { success, result: compacted, errorMessage, execution, toolMessage };
           };
 
-          // Parallel read-only, sequential mutating.
-          if (readOnlyCalls.length > 1) {
-            await Promise.all(readOnlyCalls.map((planned) => executeOne(planned)));
-          } else if (readOnlyCalls.length === 1) {
-            await executeOne(readOnlyCalls[0]);
-          }
-          for (const planned of mutatingCalls) {
-            await executeOne(planned);
-          }
+          await scheduleToolCalls(plannedCalls, {
+            isParallelSafe: (planned) => planned.isReadOnly,
+            execute: executeOne,
+            maxParallel: options.maxParallelToolCalls,
+            commit: async (outcome) => {
+              toolExecutions.push(outcome.execution);
+              messages.push(outcome.toolMessage);
+            },
+          });
 
           const inputRequest = this.engine.getRunMeta(runId)?.awaitingInput;
           if (inputRequest) {
@@ -2315,6 +2342,10 @@ class DurableRunRuntime {
         iterations,
         memoryManager: this.engine.memoryManager,
         messages,
+        task: userMessage,
+        taskId: options.taskId || null,
+        triggerType,
+        triggerSource,
       });
       return {
         runId,
@@ -2475,6 +2506,10 @@ class DurableRunRuntime {
     iterations,
     memoryManager,
     messages,
+    task,
+    taskId,
+    triggerType,
+    triggerSource,
   }) {
     if (conversationId && content) {
       try {
@@ -2550,6 +2585,19 @@ class DurableRunRuntime {
     console.info(
       `[Run ${shortenRunId(runId)}] completed kernel=v2 steps=${iterations} tokens=${totalTokens} finalResponse=${content ? 'yes' : 'no'}`,
     );
+
+    this.engine.skillLearningService?.enqueueCompletedRun({
+      userId,
+      agentId,
+      runId,
+      triggerType,
+      triggerSource,
+      task,
+      taskId,
+      finalContent: content,
+      iterations,
+      messages,
+    });
   }
 
   /**

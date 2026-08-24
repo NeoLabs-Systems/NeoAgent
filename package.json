@@ -1,6 +1,6 @@
 {
   "name": "neoagent",
-  "version": "3.4.2-beta.2",
+  "version": "3.4.2-beta.8",
   "description": "Self-hosted AI agent for long-running tasks, automation, messaging, device control, and local memory",
   "license": "AGPL-3.0-only",
   "main": "server/index.js",
@@ -37,7 +37,7 @@
     "docs:build": "docusaurus build",
     "docs:preview": "docusaurus serve --dir build",
     "flutter:run:web": "cd flutter_app && flutter run -d chrome --dart-define=NEOAGENT_WEB_BUILD_ID=$(node ../scripts/web_build_id.js)",
-    "flutter:build:web": "cd flutter_app && BUILD_ID=$(node ../scripts/web_build_id.js) && flutter build web --output ../server/public --dart-define=NEOAGENT_BACKEND_URL=${NEOAGENT_BACKEND_URL:-} --dart-define=NEOAGENT_WEB_BUILD_ID=$BUILD_ID && printf '%s' \"$BUILD_ID\" > ../server/public/.last_build_id",
+    "flutter:build:web": "cd flutter_app && BUILD_ID=$(node ../scripts/web_build_id.js) && flutter build web --no-wasm-dry-run --output ../server/public --dart-define=NEOAGENT_BACKEND_URL=${NEOAGENT_BACKEND_URL:-} --dart-define=NEOAGENT_WEB_BUILD_ID=$BUILD_ID && printf '%s' \"$BUILD_ID\" > ../server/public/.last_build_id",
     "manage": "node bin/neoagent.js",
     "test": "npm run test:backend",
     "test:unit": "node --test --test-reporter=spec test/backend/unit/*.test.js",

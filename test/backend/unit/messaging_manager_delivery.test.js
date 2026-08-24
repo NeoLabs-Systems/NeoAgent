@@ -239,3 +239,133 @@ test('messaging manager requests user attention when a platform logs out', async
     },
   );
 });
+
+test('messaging manager keeps retrying transient platform disconnects until recovery', async () => {
+  const instances = [];
+  let connectCalls = 0;
+  class RecoveringPlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+      instances.push(this);
+    }
+
+    async connect() {
+      connectCalls += 1;
+      if (connectCalls === 2 || connectCalls === 3) {
+        throw new Error('temporary upstream outage');
+      }
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  }, {
+    reconnectBaseDelayMs: 1,
+    reconnectMaxDelayMs: 2,
+  });
+  manager.platformTypes.recovering = RecoveringPlatform;
+
+  await manager.connectPlatform(user.userId, 'recovering');
+  instances[0].status = 'disconnected';
+  instances[0].emit('disconnected', {
+    manual: false,
+    requiresUserAction: false,
+    reason: 'connection_lost',
+  });
+
+  await assert.doesNotReject(async () => {
+    const deadline = Date.now() + 1000;
+    while (connectCalls < 4 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(connectCalls, 4);
+  });
+  const agentId = manager._agentId(user.userId, {});
+  const key = manager._key(user.userId, agentId, 'recovering');
+  assert.equal(manager.platforms.get(key).getStatus(), 'connected');
+  assert.equal(manager.reconnectTimers.size, 0);
+  assert.equal(manager.reconnectAttempts.size, 0);
+  assert.equal(
+    ctx.db.prepare(
+      'SELECT status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?',
+    ).get(user.userId, agentId, 'recovering').status,
+    'connected',
+  );
+  await manager.shutdown();
+});
+
+test('messaging manager records adapter-owned recovery without starting a competing reconnect', async () => {
+  class SelfRecoveringPlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  }, { reconnectBaseDelayMs: 1, reconnectMaxDelayMs: 1 });
+  manager.platformTypes.self_recovering = SelfRecoveringPlatform;
+  await manager.connectPlatform(user.userId, 'self_recovering');
+
+  const agentId = manager._agentId(user.userId, {});
+  const key = manager._key(user.userId, agentId, 'self_recovering');
+  manager.platforms.get(key).emit('disconnected', {
+    manual: false,
+    willReconnect: true,
+    reason: 'connection_lost',
+  });
+
+  assert.equal(manager.platforms.get(key).getStatus(), 'reconnecting');
+  assert.equal(manager.reconnectTimers.size, 0);
+  assert.equal(
+    ctx.db.prepare(
+      'SELECT status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?',
+    ).get(user.userId, agentId, 'self_recovering').status,
+    'reconnecting',
+  );
+  await manager.shutdown();
+
+  const restoredManager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  restoredManager.platformTypes.self_recovering = SelfRecoveringPlatform;
+  await restoredManager.restoreConnections();
+  assert.equal(
+    restoredManager.platforms.get(key).getStatus(),
+    'connected',
+  );
+  await restoredManager.shutdown();
+});

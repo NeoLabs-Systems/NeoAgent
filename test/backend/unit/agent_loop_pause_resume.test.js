@@ -73,7 +73,6 @@ test('a full loop pauses during a model call and resumes the same run to complet
     const runPromise = engine.run(user.userId, 'Complete this after a pause.', {
       runId,
       stream: false,
-      skipTaskAnalysis: true,
       skipDeliverableWorkflow: true,
       forceMode: 'execute',
       skipGlobalRecall: true,

@@ -1,15 +1,13 @@
 // Limits resolve in priority order: per-run options → agent AI settings → conservative defaults.
 // They are safety nets only; task_complete / progress guards are the real exit signals.
 
-// The iteration ceiling is a pure runaway safety net, NOT the primary stop signal.
-// A run stops when it makes no real progress (consecutiveReadOnlyIterations cap,
-// which resets on a state change or genuinely new evidence), or when the
-// repetition / tool-failure / model-recovery guards fire, or when the model signals
-// task_complete. These ceilings are set high so they only ever catch a genuine
-// runaway and never guillotine a long, legitimately-progressing complex task.
-const DEFAULT_MAX_ITERATIONS = 250;
-const DEFAULT_SIMPLE_MAX_ITERATIONS = 16;
-const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 250;
+// The iteration ceiling is the final runaway guard. Productive evidence can
+// reset the churn counter forever, so the ceiling still needs to be realistic:
+// enough room for deep work without allowing one task to consume hundreds of
+// full-context model calls.
+const DEFAULT_MAX_ITERATIONS = 40;
+const DEFAULT_SIMPLE_MAX_ITERATIONS = 8;
+const DEFAULT_PLAN_EXECUTE_MAX_ITERATIONS = 80;
 // Less aggressive than 0.60 so the model retains file contents it already read for
 // longer, instead of losing them to compaction and re-reading the same files.
 const DEFAULT_COMPACTION_THRESHOLD = 0.80;

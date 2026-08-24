@@ -507,7 +507,10 @@ class MessagingPlatformStatus {
   final Map<String, dynamic> authInfo;
 
   bool get isConnected => status == 'connected';
-  bool get isConnecting => status == 'connecting' || status == 'awaiting_qr';
+  bool get isConnecting =>
+      status == 'connecting' ||
+      status == 'reconnecting' ||
+      status == 'awaiting_qr';
 
   String get statusLabel => status.replaceAll('_', ' ');
 
@@ -530,6 +533,7 @@ class MessagingPlatformStatus {
         return _success;
       case 'awaiting_qr':
       case 'connecting':
+      case 'reconnecting':
         return _warning;
       case 'logged_out':
         return _danger;

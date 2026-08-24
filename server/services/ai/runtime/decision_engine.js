@@ -146,17 +146,6 @@ function decisionFromModelResponse(response = {}, context = {}) {
     });
   }
 
-  // Intent-to-continue prose is not completion.
-  if (/^(i('| a)?m going to|i will|let me|i'll)\b/i.test(content) && content.length < 280) {
-    return validateDecision({
-      kind: DECISION_KINDS.ACT,
-      nodeId: context.nodeId || null,
-      toolCalls: [],
-      content,
-      protocolNote: 'continuation_intent_not_complete',
-    });
-  }
-
   if (context.forceComplete === true) {
     return validateDecision({
       kind: DECISION_KINDS.COMPLETE,

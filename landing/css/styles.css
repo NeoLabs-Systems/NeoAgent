@@ -443,7 +443,7 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
 .surface-app {
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
-  min-height: 460px;
+  height: 460px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--app-line-2);
@@ -540,7 +540,12 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   color: var(--app-ink);
 }
 
-.sa-main { display: flex; flex-direction: column; min-width: 0; }
+.sa-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 
 .sa-topbar {
   display: flex;
@@ -1573,7 +1578,7 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   .hero-actions .btn { width: 100%; }
   .final .hero-actions .btn { width: 100%; }
 
-  .surface-app { grid-template-columns: 1fr; min-height: 420px; font-size: 12px; }
+  .surface-app { grid-template-columns: 1fr; height: 420px; font-size: 12px; }
   .sa-side { display: none; }
 
   .story-stage-wrap { top: 70px; }

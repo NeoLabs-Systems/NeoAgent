@@ -386,7 +386,7 @@ function getAvailableTools(app, options = {}) {
     const tools = [
         {
             name: 'execute_command',
-            description: 'Execute a terminal/shell command as a normal recoverable agent step inside the user\'s isolated cloud computer. The command shares the same persistent filesystem as browser, desktop, and file tools.',
+            description: 'Execute a terminal/shell command as a recoverable step inside the user\'s isolated cloud computer. The command shares the persistent workspace with browser, desktop, and file tools. Prefer this for git, tests, builds, package managers, and shell-native work; prefer workspace file tools for direct file reads and edits. A timeout, signal, or non-zero exit is not success, and a chained command may have stopped before later segments ran.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1185,15 +1185,28 @@ function getAvailableTools(app, options = {}) {
             }
         },
         {
+            name: 'search_tools',
+            description: 'Search the complete tool registry by capability. Use this when the needed tool is not active; the result returns exact names and descriptions for activate_tools.',
+            access: 'read',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Describe the capability or action you need.' },
+                    limit: { type: 'integer', minimum: 1, maximum: 12, description: 'Maximum matches to return (default 8).' }
+                },
+                required: ['query']
+            }
+        },
+        {
             name: 'activate_tools',
-            description: 'Activate tools by exact catalog name for later model turns. When the schema limit is full, unrelated active schemas are replaced; every catalog tool remains available for later activation.',
+            description: 'Activate tools by exact name returned from search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.',
             parameters: {
                 type: 'object',
                 properties: {
                     names: {
                         type: 'array',
                         items: { type: 'string' },
-                        description: 'Exact tool names from the available tool catalog.'
+                        description: 'Exact tool names returned by search_tools.'
                     }
                 },
                 required: ['names']
@@ -1269,7 +1282,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'create_task',
-            description: 'Create a future, recurring, monitored, or background automation with a named trigger and self-contained prompt. Do not use for immediate short answers.',
+            description: 'Create a future, recurring, monitored, or background automation. Do not use for immediate work. Resolve references into a self-contained prompt with exact targets, action, notification condition (every run, change, error, or matched condition), destination when known, and any supplied expiry. Use manual for run-on-demand, schedule for one-time/recurring time triggers, and an integration trigger for incoming app events. A successful result is required before claiming the task exists.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1758,6 +1771,7 @@ async function executeTool(toolName, args, context, engine) {
             : null,
         workspaceManager: wc(),
         artifactStore,
+        signal,
     });
     if (integratedToolResult !== null) {
         return integratedToolResult;
@@ -3171,6 +3185,13 @@ async function executeTool(toolName, args, context, engine) {
                 return { error: `Sub-agent failed: ${err.message}` };
             }
         }
+
+        case 'search_tools':
+            try {
+                return engine.searchToolsForRun(runId, args.query, args.limit);
+            } catch (err) {
+                return { error: `search_tools failed: ${err.message}` };
+            }
 
         case 'activate_tools':
             try {

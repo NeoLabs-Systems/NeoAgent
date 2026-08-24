@@ -2,7 +2,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../../db/database');
-const { activateTools } = require('../toolSelector');
+const { activateTools, searchTools } = require('../toolSelector');
 const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
 const { mergeGoalContracts } = require('./completion_judge');
@@ -162,6 +162,27 @@ function initializeToolRuntime(engine, runId, allTools, initialTools, options = 
 
 function getActiveTools(engine, runId) {
   return engine.getRunMeta(runId)?.activeTools || [];
+}
+
+function searchToolsForRun(engine, runId, query, limit = 8) {
+  const runMeta = engine.getRunMeta(runId);
+  if (!runMeta) throw new Error('Run is not active.');
+  const results = searchTools(runMeta.toolCatalog, query, {
+    limit,
+    activeNames: runMeta.activeTools.map((tool) => tool.name),
+  });
+  recordRunEventSafe(engine, runMeta.userId, runId, 'tools_searched', {
+    query: String(query || '').slice(0, 300),
+    resultNames: results.map((tool) => tool.name),
+  }, { agentId: runMeta.agentId });
+  return {
+    success: true,
+    query: String(query || ''),
+    results,
+    instruction: results.length
+      ? 'Activate the exact tools you need with activate_tools.'
+      : 'No matching tool was found. Try a broader capability description.',
+  };
 }
 
 function activateToolsForRun(engine, runId, names = []) {
@@ -360,6 +381,7 @@ module.exports = {
   findSteerableRunForUser,
   getActiveTools,
   initializeToolRuntime,
+  searchToolsForRun,
   isRunStopped,
   markRunFinalDelivery,
   markRunVisibleProgress,

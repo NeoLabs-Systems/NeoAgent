@@ -8,15 +8,12 @@ const {
 } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
-  buildAnalysisPrompt,
   buildPlanPrompt,
   buildVerifierPrompt,
   normalizeExecutionPlan,
-  normalizeTaskAnalysis,
   normalizeVerificationResult,
   parseJsonObject,
 } = require('../taskAnalysis');
-const { summarizeCapabilityHealth } = require('../capabilityHealth');
 const { shouldAcceptTaskComplete } = require('../completion');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
@@ -61,6 +58,7 @@ const {
   persistProgressLedger: persistProgressLedgerImpl,
   persistRunMetadata: persistRunMetadataImpl,
   recordRunEventSafe,
+  searchToolsForRun: searchToolsForRunImpl,
   updateRunGoalContract: updateRunGoalContractImpl,
   updateRunProgress: updateRunProgressImpl,
 } = require('./run_state');
@@ -123,24 +121,6 @@ function buildInitialRunMetadata(options = {}) {
 
 function isoNow() {
   return new Date().toISOString();
-}
-
-function planningDepthForForceMode(forceMode) {
-  return forceMode === 'plan_execute' ? 'deep' : 'light';
-}
-
-function buildAnalyzeTaskFallback(forceMode, userMessage = '') {
-  return {
-    mode: forceMode || 'execute',
-    verification_need: 'light',
-    planning_depth: planningDepthForForceMode(forceMode),
-    goal: userMessage ? String(userMessage).trim().slice(0, 300) : '',
-    complexity: forceMode === 'plan_execute' ? 'complex' : 'standard',
-    autonomy_level: forceMode === 'plan_execute' ? 'high' : 'normal',
-    progress_update_policy: 'optional',
-    parallel_work: false,
-    completion_confidence_required: forceMode === 'plan_execute' ? 'high' : 'medium',
-  };
 }
 
 function estimateTokenValue(value) {
@@ -743,45 +723,6 @@ class AgentEngine {
     });
   }
 
-  async analyzeTask({
-    provider,
-    providerName,
-    model,
-    messages,
-    tools,
-    capabilityHealth,
-    forceMode,
-    userMessage,
-    options,
-  }) {
-    const summary = summarizeCapabilityHealth(capabilityHealth);
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildAnalysisPrompt({
-        capabilityHealth: summary,
-        tools,
-        forceMode,
-        triggerSource: options.triggerSource || null,
-      }),
-      maxTokens: 1100,
-      normalize: normalizeTaskAnalysis,
-      fallback: buildAnalyzeTaskFallback(forceMode, userMessage),
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'task_analysis',
-    });
-
-    return {
-      analysis: response.value,
-      raw: response.raw,
-      usage: response.usage,
-      capabilitySummary: summary,
-    };
-  }
-
   async createExecutionPlan({
     provider,
     providerName,
@@ -1207,6 +1148,10 @@ class AgentEngine {
 
   getActiveTools(runId) {
     return getActiveToolsImpl(this, runId);
+  }
+
+  searchToolsForRun(runId, query, limit = 8) {
+    return searchToolsForRunImpl(this, runId, query, limit);
   }
 
   activateToolsForRun(runId, names = []) {

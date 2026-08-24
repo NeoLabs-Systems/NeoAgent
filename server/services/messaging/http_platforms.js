@@ -955,7 +955,7 @@ class IrcPlatform extends BasePlatform {
         if (this._manualDisconnect) return;
         this.emit('disconnected', {
           manual: false,
-          requiresUserAction: true,
+          requiresUserAction: false,
           reason: 'connection_lost',
         });
       });

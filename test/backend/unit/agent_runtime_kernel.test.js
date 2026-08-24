@@ -126,47 +126,6 @@ test('run leases are exclusive while live', () => {
   assert.ok(c);
 });
 
-test('fast-path gate blocks research and open obligations', () => {
-  const chat = runtime.taskContract.contractFromAnalysis({
-    mode: 'direct_answer',
-    goal: 'Say hello',
-    draft_reply: 'Hello!',
-    draft_status: 'final',
-    confidence: 0.95,
-    research_depth: 'none',
-    needs_verification: false,
-    complexity: 'simple',
-  }, 'hello');
-  const ok = runtime.taskContract.evaluateFastPathEligibility(chat, {
-    draftReply: 'Hello!',
-    analysis: {
-      mode: 'direct_answer',
-      draft_status: 'final',
-      draft_reply: 'Hello!',
-    },
-  });
-  assert.equal(ok.eligible, true);
-
-  const research = runtime.taskContract.contractFromAnalysis({
-    mode: 'execute',
-    goal: 'Research NeoAgent runtime',
-    draft_status: 'needs_execution',
-    research_depth: 'deep',
-    research_targets: ['NeoAgent'],
-    needs_verification: true,
-    confidence: 0.8,
-  }, 'research neoagent');
-  const blocked = runtime.taskContract.evaluateFastPathEligibility(research, {
-    draftReply: 'I will look into it',
-    analysis: {
-      mode: 'execute',
-      draft_status: 'needs_execution',
-    },
-  });
-  assert.equal(blocked.eligible, false);
-  assert.ok(blocked.reasons.length > 0);
-});
-
 test('completion gate rejects open required work nodes', () => {
   insertRun('gate-run');
   runtime.workGraph.createGraph('gate-run', [
@@ -357,6 +316,22 @@ test('budget manager hard-stops on model turn ceiling', () => {
   assert.equal(decision.reason, 'hard_budget');
 });
 
+test('budget manager hard-stops after the configured evidence budget', () => {
+  const budget = runtime.createBudgetManager({
+    options: { maxEvidenceItems: 2 },
+    analysisMode: 'execute',
+  });
+  budget.recordEvidence();
+  budget.recordEvidence();
+  const decision = budget.shouldContinue({
+    openObligations: [{ id: 'result' }],
+    hasNextAction: true,
+  });
+  assert.equal(decision.continue, false);
+  assert.equal(decision.reason, 'hard_budget');
+  assert.deepEqual(decision.snapshot.hardDimensions, ['evidenceBudget']);
+});
+
 test('verification reopens nodes instead of terminal failure', async () => {
   insertRun('verify-run');
   runtime.workGraph.createGraph('verify-run', [
@@ -499,6 +474,46 @@ test('unchanged failed semantic verification is reused until evidence changes', 
     previousSemanticFailure: changedFinal.semanticFailure,
   });
   assert.equal(calls, 6);
+});
+
+test('semantic verifier failure does not fail open as completed', async () => {
+  insertRun('verify-error-run');
+  runtime.workGraph.createGraph('verify-error-run', [{
+    id: 'execute',
+    kind: 'execute',
+    objective: 'Produce a verified answer',
+    dependencies: [],
+  }, {
+    id: 'verify',
+    kind: 'verification',
+    objective: 'Verify the answer',
+    dependencies: ['execute'],
+  }]);
+  const execute = runtime.workGraph.listNodes('verify-error-run')
+    .find((node) => node.nodeKey === 'execute');
+  runtime.workGraph.completeNode(execute.id, { evidence: [{ summary: 'Observed result' }] });
+
+  const result = await runtime.verifyRun({
+    runId: 'verify-error-run',
+    contract: {
+      version: 1,
+      goal: 'Produce a verified answer',
+      open_obligations: [],
+      deliverables: [{ id: 'reply', type: 'text', required: true }],
+      evidence_requirements: [],
+      verification_required: true,
+    },
+    contractVersion: 1,
+    claim: { summary: 'Answer', confidence: 0.9 },
+    finalContent: 'Answer',
+    path: 'durable',
+    evidence: [{ id: 'e1', summary: 'Observed result', success: true }],
+    semanticVerifier: async () => { throw new Error('verifier transport failed'); },
+  });
+
+  assert.equal(result.status, 'repair_required');
+  assert.equal(result.defects[0].criterion, 'semantic_verifier_unavailable');
+  assert.match(result.semanticError, /transport failed/);
 });
 
 test('memory write pipeline deduplicates exact candidates', () => {

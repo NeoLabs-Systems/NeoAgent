@@ -3545,19 +3545,39 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> openComputerDisplayRuntime({String? deviceTarget}) async {
+    await _connectComputerDisplayRuntime(
+      deviceTarget: deviceTarget,
+      interruptAgent: false,
+    );
+  }
+
+  Future<void> interruptComputerAgentRuntime({String? deviceTarget}) async {
+    await _connectComputerDisplayRuntime(
+      deviceTarget: deviceTarget,
+      interruptAgent: true,
+    );
+  }
+
+  Future<void> _connectComputerDisplayRuntime({
+    String? deviceTarget,
+    required bool interruptAgent,
+  }) async {
     if (isRunningDeviceAction) return;
     isRunningDeviceAction = true;
     errorMessage = null;
     notifyListeners();
     try {
-      if ((deviceTarget ?? computerProvider) == 'local') {
+      final provider = deviceTarget ?? computerProvider;
+      if (interruptAgent) {
+        await _backendClient.acquireComputerControl(
+          backendUrl,
+          deviceTarget: deviceTarget,
+        );
+      }
+      if (provider == 'local') {
         await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
         return;
       }
-      await _backendClient.acquireComputerControl(
-        backendUrl,
-        deviceTarget: deviceTarget,
-      );
       final display = await _backendClient.createComputerDisplaySession(
         backendUrl,
         deviceTarget: deviceTarget,
@@ -8239,7 +8259,7 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('tasks:task_skipped', (dynamic _) {
       unawaited(refreshTasks());
     });
-    socket.on('skill:draft_created', (dynamic _) {
+    socket.on('skill:learned', (dynamic _) {
       unawaited(refreshSkills());
     });
     socket.connect();
