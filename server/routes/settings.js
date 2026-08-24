@@ -42,12 +42,8 @@ const AGENT_SETTING_KEYS = new Set([
   'tool_replay_budget_file_chars',
   'tool_replay_budget_browser_chars',
   'tool_replay_budget_command_chars',
-  'max_iterations',
   'max_consecutive_read_only_iterations',
   'max_consecutive_tool_failures',
-  'max_model_failure_recoveries',
-  'compaction_threshold',
-  'subagent_max_iterations',
   'subagent_max_children_per_run',
   'assistant_behavior_notes',
   'auto_skill_learning',
@@ -87,7 +83,7 @@ const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
 ]);
 
-const RETIRED_RUNTIME_SETTING_KEYS = new Set([
+const RETIRED_SETTING_KEYS = new Set([
   'browser_backend',
   'browser_extension_token_id',
   'selected_browser_extension_token_id',
@@ -95,6 +91,10 @@ const RETIRED_RUNTIME_SETTING_KEYS = new Set([
   'cli_desktop_device_id',
   'desktop_backend',
   'desktop_device_id',
+  'max_iterations',
+  'max_model_failure_recoveries',
+  'compaction_threshold',
+  'subagent_max_iterations',
 ]);
 
 function isProtectedSecretSettingKey(key) {
@@ -223,11 +223,13 @@ router.get('/', (req, res) => {
   ensureDefaultRuntimeSettings(req.session.userId);
   const includeLegacyAgentSettings = isMainAgent(req.session.userId, agentId);
   const userRows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId)
-    .filter((row) => !RETIRED_RUNTIME_SETTING_KEYS.has(row.key))
+    .filter((row) => !RETIRED_SETTING_KEYS.has(row.key))
     .filter((row) => includeLegacyAgentSettings || !isAgentScopedSettingKey(row.key));
   const rows = [
     ...userRows,
-    ...db.prepare('SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ?').all(req.session.userId, agentId),
+    ...db.prepare('SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ?')
+      .all(req.session.userId, agentId)
+      .filter((row) => !RETIRED_SETTING_KEYS.has(row.key)),
   ];
   const settings = createDefaultAiSettings();
   for (const row of rows) {
@@ -262,7 +264,7 @@ router.put('/', async (req, res) => {
   const upsertAgent = db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value');
   const normalizedBody = { ...req.body };
 
-  for (const key of RETIRED_RUNTIME_SETTING_KEYS) delete normalizedBody[key];
+  for (const key of RETIRED_SETTING_KEYS) delete normalizedBody[key];
 
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
@@ -458,6 +460,7 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
+  if (RETIRED_SETTING_KEYS.has(req.params.key)) return res.json({ value: null });
   if (isEnvBackedSettingKey(req.params.key)) {
     return res.json({ value: readEnvBackedSettingValue(req.params.key) });
   }
@@ -486,6 +489,9 @@ router.get('/:key', (req, res) => {
 
 // Set single setting
 router.put('/:key', async (req, res) => {
+  if (RETIRED_SETTING_KEYS.has(req.params.key)) {
+    return res.status(410).json({ success: false, error: `${req.params.key} has been retired` });
+  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
@@ -568,6 +574,13 @@ router.delete('/:key', (req, res) => {
   }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  if (RETIRED_SETTING_KEYS.has(req.params.key)) {
+    db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
+      .run(userId, agentId, req.params.key);
+    db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?')
+      .run(userId, req.params.key);
+    return res.json({ success: true });
+  }
   if (
     isAgentScopedSettingKey(req.params.key)
   ) {

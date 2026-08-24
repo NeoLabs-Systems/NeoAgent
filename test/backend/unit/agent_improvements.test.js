@@ -176,7 +176,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 });
 
-test('loop policy gives deep work room while keeping a realistic runaway ceiling', () => {
+test('loop policy uses one emergency ceiling and progress-based stall guards', () => {
   const standard = buildLoopPolicy({}, 'messaging', 'execute');
   const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
     autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
@@ -187,40 +187,31 @@ test('loop policy gives deep work room while keeping a realistic runaway ceiling
     'execute',
   );
 
-  assert.equal(standard.maxIterations, 40);
-  assert.equal(complex.maxIterations, 80);
-  assert.equal(clamped.maxIterations, 400);
-  // Churn still stops much sooner than the final runaway ceiling.
+  assert.equal(standard.maxIterations, 5000);
+  assert.equal(complex.maxIterations, 5000);
+  assert.equal(clamped.maxIterations, 5000);
+  // Stored legacy turn budgets are ignored; genuine churn still stops sooner.
   assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
   assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
 });
 
-test('loop policy supports bounded agent settings and per-run overrides', () => {
+test('loop policy supports bounded stall settings and per-run emergency overrides', () => {
   const configured = buildLoopPolicy({
-    max_iterations: 320,
     max_consecutive_read_only_iterations: 14,
     max_consecutive_tool_failures: 12,
-    max_model_failure_recoveries: 7,
-    compaction_threshold: 0.72,
   });
-  assert.equal(configured.maxIterations, 320);
+  assert.equal(configured.maxIterations, 5000);
   assert.equal(configured.maxConsecutiveReadOnlyIterations, 14);
   assert.equal(configured.maxConsecutiveToolFailures, 12);
-  assert.equal(configured.maxModelFailureRecoveries, 7);
-  assert.equal(configured.compactionThreshold, 0.72);
 
   const overridden = buildLoopPolicy(configured, 'messaging', 'execute', {
     maxIterations: 350,
     maxConsecutiveReadOnlyIterations: 18,
     maxConsecutiveToolFailures: 16,
-    maxModelFailureRecoveries: 9,
-    compactionThreshold: 0.9,
   });
   assert.equal(overridden.maxIterations, 350);
   assert.equal(overridden.maxConsecutiveReadOnlyIterations, 18);
   assert.equal(overridden.maxConsecutiveToolFailures, 16);
-  assert.equal(overridden.maxModelFailureRecoveries, 9);
-  assert.equal(overridden.compactionThreshold, 0.9);
 });
 
 test('create_task accepts schedule config as object, JSON string, or bare cron', () => {

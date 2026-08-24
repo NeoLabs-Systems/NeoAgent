@@ -54,6 +54,7 @@ const {
   isAbortError,
   throwIfAborted,
 } = require('../../../utils/abort');
+const { createServiceLogger } = require('../../../utils/logger');
 
 const { RUNTIME_STATES, MESSAGE_KINDS } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
@@ -96,7 +97,6 @@ const {
   appendToolEvidence,
 } = require('./context/evidence_packet_builder');
 const { createWorkingMemory } = require('./memory/working_memory');
-const memoryWritePipeline = require('./memory/memory_write_pipeline');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
@@ -108,6 +108,7 @@ const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
   'send_interim_update',
   'task_complete',
 ]);
+const logger = createServiceLogger('Runtime');
 
 function isoNow() {
   return new Date().toISOString();
@@ -863,6 +864,13 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            provider,
+            providerName,
+            model,
+            analysis,
+            verification: gate,
+            historyWindow,
+            options,
             task: userMessage,
             taskId: options.taskId || null,
             triggerType,
@@ -1240,6 +1248,13 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            provider,
+            providerName,
+            model,
+            analysis,
+            verification,
+            historyWindow,
+            options,
             task: userMessage,
             taskId: options.taskId || null,
             triggerType,
@@ -1287,6 +1302,12 @@ class DurableRunRuntime {
             iterations,
             memoryManager,
             messages,
+            provider,
+            providerName,
+            model,
+            analysis,
+            historyWindow,
+            options,
             task: userMessage,
             taskId: options.taskId || null,
             triggerType,
@@ -2342,6 +2363,12 @@ class DurableRunRuntime {
         iterations,
         memoryManager: this.engine.memoryManager,
         messages,
+        provider,
+        providerName,
+        model,
+        analysis,
+        historyWindow,
+        options,
         task: userMessage,
         taskId: options.taskId || null,
         triggerType,
@@ -2506,6 +2533,13 @@ class DurableRunRuntime {
     iterations,
     memoryManager,
     messages,
+    provider,
+    providerName,
+    model,
+    analysis,
+    verification = null,
+    historyWindow = 20,
+    options = {},
     task,
     taskId,
     triggerType,
@@ -2554,32 +2588,35 @@ class DurableRunRuntime {
     // previous bubble, but background runs consume the first event and then
     // render the second one into the chat they were never meant to touch.
 
-    // Episodic memory candidate (not semantic fact dump of run state).
-    if (memoryManager) {
-      memoryWritePipeline.enqueueCandidate({
-        userId,
-        agentId,
-        runId,
-        writeClass: memoryWritePipeline.WRITE_CLASSES.EPISODIC,
-        candidate: {
-          content: `Run ${shortenRunId(runId)} completed: ${String(content || '').slice(0, 400)}`,
-          category: 'episode',
-          confidence: 0.6,
-          source: 'runtime_episode',
-        },
-        eventBus: this.eventBus,
+    // Conversation learning is serialized per thread and runs after delivery.
+    // Store only source-grounded durable facts; generic run receipts belong in
+    // agent_runs and otherwise pollute future recall.
+    if (conversationId && memoryManager && provider && model) {
+      this.engine.trackBackgroundTask(
+        (signal) => this.engine.refreshConversationState({
+          conversationId,
+          runId,
+          provider,
+          providerName,
+          model,
+          finalReply: content,
+          analysis,
+          verification,
+          historyWindow,
+          options: {
+            ...options,
+            runId,
+            userId,
+            agentId,
+            signal,
+          },
+        }),
+        { key: `conversation-learning:${userId}:${agentId || 'main'}:${conversationId}` },
+      ).catch((error) => {
+        if (!isAbortError(error) && !this.engine.shuttingDown) {
+          logger.warn('Conversation learning failed:', error?.message || error);
+        }
       });
-      try {
-        await memoryWritePipeline.flushQueue({
-          memoryManager,
-          userId,
-          agentId,
-          limit: 5,
-          eventBus: this.eventBus,
-        });
-      } catch (error) {
-        console.warn('[Runtime] Memory flush failed:', error?.message || error);
-      }
     }
 
     console.info(

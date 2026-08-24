@@ -140,31 +140,36 @@ test('requestModelResponse does not retry a non-transient failure', async () => 
   assert.equal(calls, 1);
 });
 
-test('requestModelResponse does not retry once stream content has been emitted', async () => {
+test('requestModelResponse retries the durable request after partial stream output', async () => {
   const engine = new AgentEngine(null);
   let calls = 0;
-  await assert.rejects(
-    engine.requestModelResponse({
-      provider: {
-        async *stream() {
-          calls += 1;
+  const result = await engine.requestModelResponse({
+    provider: {
+      async *stream() {
+        calls += 1;
+        if (calls === 1) {
           yield { type: 'content', content: 'partial ' };
           const err = new Error('overloaded');
           err.status = 529;
           throw err;
-        },
+        }
+        yield { type: 'done', content: 'Recovered.', toolCalls: [] };
       },
-      providerName: 'test',
-      model: 'test-model',
-      messages: [{ role: 'user', content: 'Run the task.' }],
-      tools: [],
-      options: { stream: true, userId: 1 },
-      runId: 'stream-unsafe-run',
-      iteration: 1,
-    }),
-    /overloaded/,
-  );
-  assert.equal(calls, 1);
+    },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Run the task.' }],
+    tools: [],
+    options: {
+      stream: true,
+      userId: 1,
+      retry: { baseDelayMs: 0, maxDelayMs: 0 },
+    },
+    runId: 'stream-recovery-run',
+    iteration: 1,
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.response.content, 'Recovered.');
 });
 
 test('requestModelResponse times out a model call that never settles', async () => {
@@ -225,7 +230,7 @@ test('requestStructuredJson aborts a timed-out provider call without retrying it
   assert.equal(providerSignal.aborted, true);
 });
 
-test('requestModelResponse times out a stalled stream without replaying partial output', async () => {
+test('requestModelResponse retries a stalled stream with a fresh attempt controller', async () => {
   const engine = new AgentEngine(null);
   let calls = 0;
 
@@ -254,7 +259,7 @@ test('requestModelResponse times out a stalled stream without replaying partial 
     (error) => error.code === 'MODEL_CALL_TIMEOUT',
   );
 
-  assert.equal(calls, 1);
+  assert.equal(calls, 3);
 });
 
 test('requestModelResponse returns promptly when the parent aborts even if the provider ignores signals', async () => {

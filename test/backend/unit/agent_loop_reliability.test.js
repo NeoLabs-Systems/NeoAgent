@@ -54,7 +54,7 @@ test('simple Q&A stays on the cheap direct-answer path', () => {
       autonomy_level: analysis.autonomy_level,
     },
   });
-  assert.equal(policy.maxIterations, 8);
+  assert.equal(policy.maxIterations, 5000);
   assert.equal(policy.maxConsecutiveReadOnlyIterations, 3);
   assert.equal(resolveChurnNudgeThreshold({ complexity: 'simple' }), 2);
 });
@@ -134,11 +134,11 @@ test('incomplete multi-target research cannot complete but real blockers remain 
   assert.equal(churn.assessment, 'blocked');
 });
 
-test('complex research gets more productive read room before hard wrap-up', () => {
+test('complex research gets more productive read room without a smaller turn budget', () => {
   const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
     autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
   });
-  assert.equal(complex.maxIterations, 80);
+  assert.equal(complex.maxIterations, 5000);
   assert.equal(complex.maxConsecutiveReadOnlyIterations, 14);
   assert.equal(
     resolveChurnNudgeThreshold({ complexity: 'complex', autonomyLevel: 'high' }),

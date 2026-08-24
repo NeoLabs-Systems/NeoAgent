@@ -36,6 +36,18 @@ describe('runtime, settings, memory, tasks, and messaging routes', () => {
   test('settings routes read and write agent-scoped settings', async () => {
     const settings = await client.get('/api/settings').expect(200);
     assert.equal(typeof settings.body, 'object');
+    ctx.db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)')
+      .run(user.userId, 'max_iterations', '12');
+    ctx.db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?)')
+      .run(user.userId, settings.body.agentId, 'compaction_threshold', '0.5');
+    const withoutRetiredBudgets = await client.get('/api/settings').expect(200);
+    assert.equal(Object.hasOwn(withoutRetiredBudgets.body, 'max_iterations'), false);
+    assert.equal(Object.hasOwn(withoutRetiredBudgets.body, 'compaction_threshold'), false);
+    assert.deepEqual(
+      (await client.get('/api/settings/max_iterations').expect(200)).body,
+      { value: null },
+    );
+    await client.put('/api/settings/max_iterations').send({ value: 12 }).expect(410);
     await client.put('/api/settings/default_chat_model').send({ value: 'gpt-test' }).expect(200);
     const one = await client.get('/api/settings/default_chat_model').expect(200);
     assert.equal(one.body.value, 'gpt-test');
