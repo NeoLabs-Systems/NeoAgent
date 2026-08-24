@@ -125,27 +125,38 @@ function contractFromAnalysis(analysis = {}, userMessage = '') {
   });
 }
 
+/**
+ * Deterministic fast-path gate. The model may propose a direct answer, but the
+ * runtime only accepts it when there is no inspection, mutation, research, or
+ * verification obligation left to execute.
+ */
 function evaluateFastPathEligibility(contract, {
   draftReply = '',
   analysis = null,
 } = {}) {
-  const normalized = normalizeContract(contract);
+  const c = normalizeContract(contract);
   const reasons = [];
 
-  if (normalized.intent !== 'respond') reasons.push('execution_required');
-  if (normalized.research_depth !== 'none') reasons.push('research_required');
-  if (normalized.research_targets.length > 0) reasons.push('research_targets_open');
-  if (normalized.freshness_required) reasons.push('freshness_required');
-  if (normalized.verification_required) reasons.push('verification_required');
-  if (normalized.deliverables.some((item) => item.required && item.type !== 'text')) {
+  if (c.intent === 'execute' && c.open_obligations.some((item) => item.required !== false)) {
+    reasons.push('open_execution_obligations');
+  }
+  if (c.research_depth && c.research_depth !== 'none') reasons.push('research_depth_required');
+  if (asArray(c.research_targets).length > 0) reasons.push('research_targets_open');
+  if (c.freshness_required) reasons.push('freshness_required');
+  if (c.verification_required && c.intent !== 'respond') reasons.push('verification_required');
+  if (asArray(c.deliverables).some((item) => item.required && item.type !== 'text')) {
     reasons.push('non_text_deliverable');
   }
-  if (normalized.classification_confidence < 0.7) reasons.push('low_confidence');
-  if (analysis?.mode !== 'direct_answer') reasons.push('not_direct_answer');
-  if (analysis?.draft_status !== 'final') reasons.push('draft_not_final');
-  if (!String(draftReply || '').trim()) reasons.push('missing_reply');
+  if (Number(c.classification_confidence) < 0.7) reasons.push('low_classification_confidence');
+  if (analysis?.draft_status && analysis.draft_status !== 'final') reasons.push('draft_not_final');
+  if (analysis?.mode && analysis.mode !== 'direct_answer') reasons.push('analysis_mode_not_direct');
+  if (!String(draftReply || analysis?.draft_reply || '').trim()) reasons.push('missing_draft_reply');
 
-  return { eligible: reasons.length === 0, reasons };
+  return {
+    eligible: reasons.length === 0,
+    reasons,
+    contract: c,
+  };
 }
 
 function evaluateOpenObligations(contract, {

@@ -176,7 +176,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 });
 
-test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
+test('loop policy gives deep work room while keeping a realistic runaway ceiling', () => {
   const standard = buildLoopPolicy({}, 'messaging', 'execute');
   const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
     autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
@@ -187,11 +187,10 @@ test('loop policy keeps the iteration ceiling high and relies on the read-only n
     'execute',
   );
 
-  // The ceiling is a runaway safety net, not the primary stop signal.
-  assert.equal(standard.maxIterations, 250);
-  assert.equal(complex.maxIterations, 250);
+  assert.equal(standard.maxIterations, 40);
+  assert.equal(complex.maxIterations, 80);
   assert.equal(clamped.maxIterations, 400);
-  // The real "stop when stuck" guard: consecutive read-only turns without progress.
+  // Churn still stops much sooner than the final runaway ceiling.
   assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
   assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
 });

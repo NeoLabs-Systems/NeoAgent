@@ -75,7 +75,7 @@ function createEngine(analysis) {
   return engine;
 }
 
-test('ordinary chat uses the routing response without entering execution', async () => {
+test('ordinary chat completes from one analyzed response without entering execution', async () => {
   const analysis = {
     mode: 'direct_answer',
     draft_reply: 'Hello!',
@@ -110,7 +110,7 @@ test('ordinary chat uses the routing response without entering execution', async
   };
   engine.requestModelResponse = async () => {
     executionCalls += 1;
-    throw new Error('direct answers must not enter execution');
+    throw new Error('direct answers must not enter the execution loop');
   };
 
   const result = await engine.run(userId, 'hi', {
@@ -904,6 +904,66 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
 
   assert.equal(result.content, 'Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.');
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
+});
+
+test('evidence soft limit tells a productive research loop to synthesize', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Research the answer without open-ended exploration',
+    confidence: 0.85,
+    complexity: 'standard',
+    needs_verification: false,
+    suggested_tools: ['lookup'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'lookup', description: 'Look up a new source', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+
+  let modelTurns = 0;
+  let sawSoftLimit = false;
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurns += 1;
+    sawSoftLimit = sawSoftLimit || messages.some((message) => (
+      /Run budget is nearing its limit \(evidenceBudget\)/.test(String(message.content || ''))
+    ));
+    const call = sawSoftLimit
+      ? {
+        id: 'done',
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message: 'Synthesized from four sources.' }),
+        },
+      }
+      : {
+        id: `lookup-${modelTurns}`,
+        type: 'function',
+        function: { name: 'lookup', arguments: JSON.stringify({ page: modelTurns }) },
+      };
+    return {
+      response: { content: '', toolCalls: [call], usage: { total_tokens: 2 } },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async (_name, args) => ({ source: `source-${args.page}`, facts: [args.page] });
+  engine.isReadOnlyToolCall = (call) => call?.function?.name === 'lookup';
+
+  const result = await engine.run(userId, 'Research this.', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 10,
+    maxEvidenceItems: 5,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.content, 'Synthesized from four sources.');
+  assert.equal(sawSoftLimit, true);
+  assert.equal(modelTurns, 5);
 });
 
 test('the opening line is written from the real conversation, and only for long work', async () => {

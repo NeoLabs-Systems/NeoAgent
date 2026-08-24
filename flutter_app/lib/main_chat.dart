@@ -2405,7 +2405,6 @@ class RunsPanel extends StatefulWidget {
 
 class _RunsPanelState extends State<RunsPanel> {
   late final TextEditingController _searchController;
-  Timer? _elapsedTimer;
   String? _selectedRunId;
   String _statusFilter = 'all';
   RunDetailSnapshot? _detail;
@@ -2418,20 +2417,11 @@ class _RunsPanelState extends State<RunsPanel> {
     super.initState();
     _searchController = TextEditingController()
       ..addListener(_handleSearchChanged);
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted &&
-          widget.controller.recentRuns.any(
-            (run) => run.status == 'running' && run.completedAt == null,
-          )) {
-        setState(() {});
-      }
-    });
     _syncSelection();
   }
 
   @override
   void dispose() {
-    _elapsedTimer?.cancel();
     _searchController
       ..removeListener(_handleSearchChanged)
       ..dispose();

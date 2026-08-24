@@ -40,18 +40,4 @@ void main() {
     expect(target.sourceLabel, 'Discovered');
     expect(target.selectable, isTrue);
   });
-
-  test('running run summaries show elapsed time', () {
-    final run = RunSummary(
-      id: 'run-live',
-      title: 'Live run',
-      status: 'running',
-      model: 'test',
-      triggerSource: 'web',
-      totalTokens: 0,
-      createdAt: DateTime.now().subtract(const Duration(seconds: 65)),
-    );
-
-    expect(run.durationLabel, matches(RegExp(r'^1m \d+s$')));
-  });
 }

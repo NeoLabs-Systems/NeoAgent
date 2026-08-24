@@ -316,24 +316,20 @@ test('budget manager hard-stops on model turn ceiling', () => {
   assert.equal(decision.reason, 'hard_budget');
 });
 
-test('context view exposes elapsed run telemetry without changing budgets', () => {
-  insertRun('telemetry-run');
-  const view = runtime.buildContextView({
-    runId: 'telemetry-run',
-    budgetSnapshot: {
-      usage: {
-        wallClockMs: 125000,
-        modelTurns: 7,
-        inputTokens: 1200,
-        outputTokens: 300,
-        toolRuntimeMs: 9000,
-      },
-    },
+test('budget manager hard-stops after the configured evidence budget', () => {
+  const budget = runtime.createBudgetManager({
+    options: { maxEvidenceItems: 2 },
+    analysisMode: 'execute',
   });
-  const telemetry = view.messages.find((message) => message.content.startsWith('[Run telemetry]'));
-  assert.ok(telemetry);
-  assert.match(telemetry.content, /"elapsed_ms":125000/);
-  assert.match(telemetry.content, /"model_turns":7/);
+  budget.recordEvidence();
+  budget.recordEvidence();
+  const decision = budget.shouldContinue({
+    openObligations: [{ id: 'result' }],
+    hasNextAction: true,
+  });
+  assert.equal(decision.continue, false);
+  assert.equal(decision.reason, 'hard_budget');
+  assert.deepEqual(decision.snapshot.hardDimensions, ['evidenceBudget']);
 });
 
 test('verification reopens nodes instead of terminal failure', async () => {

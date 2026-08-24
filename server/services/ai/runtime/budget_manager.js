@@ -11,7 +11,7 @@ const DEFAULTS = Object.freeze({
   toolRuntimeMs: 20 * 60 * 1000,
   retriesPerNode: 5,
   failuresPerErrorClass: 8,
-  evidenceBudget: 40,
+  evidenceBudget: 24,
   sideEffectBudget: 20,
   subagentCount: 10,
   subagentTurns: 30,
@@ -25,6 +25,18 @@ function createBudgetManager({
   startedAtMs = Date.now(),
 } = {}) {
   const loopPolicy = buildLoopPolicy(aiSettings, triggerType, analysisMode, options);
+  const autonomyPolicy = options.autonomyPolicy && typeof options.autonomyPolicy === 'object'
+    ? options.autonomyPolicy
+    : {};
+  const longHorizon = analysisMode === 'plan_execute'
+    || autonomyPolicy.complexity === 'complex'
+    || autonomyPolicy.autonomy_level === 'high'
+    || autonomyPolicy.autonomyLevel === 'high';
+  const defaultEvidenceBudget = longHorizon
+    ? DEFAULTS.evidenceBudget * 2
+    : analysisMode === 'direct_answer'
+      ? 8
+      : DEFAULTS.evidenceBudget;
   const limits = {
     modelTurns: loopPolicy.maxIterations || DEFAULTS.modelTurns,
     inputTokens: Number(options.maxInputTokens) || DEFAULTS.inputTokens,
@@ -34,7 +46,7 @@ function createBudgetManager({
     toolRuntimeMs: Number(options.maxToolRuntimeMs) || DEFAULTS.toolRuntimeMs,
     retriesPerNode: Number(options.maxRetriesPerNode) || DEFAULTS.retriesPerNode,
     failuresPerErrorClass: Number(options.maxFailuresPerErrorClass) || DEFAULTS.failuresPerErrorClass,
-    evidenceBudget: Number(options.maxEvidenceItems) || DEFAULTS.evidenceBudget,
+    evidenceBudget: Number(options.maxEvidenceItems) || defaultEvidenceBudget,
     sideEffectBudget: Number(options.maxSideEffects) || DEFAULTS.sideEffectBudget,
     subagentCount: Number(aiSettings.subagent_max_children_per_run) || DEFAULTS.subagentCount,
     subagentTurns: Number(aiSettings.subagent_max_turns) || DEFAULTS.subagentTurns,
