@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NeoAgent standalone installer
+# NeoAgent repository installer
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 
 set -euo pipefail
@@ -63,5 +63,30 @@ npm install --omit=dev --no-audit --no-fund
 ok "Dependencies ready"
 
 echo
-info "Running Node manager installer..."
-exec node ./bin/neoagent.js install
+info "Installing the neoagent CLI globally..."
+if ! npm link --ignore-scripts --no-audit --no-fund; then
+  err "Could not install the global neoagent command. Check permissions for your npm global prefix: $(npm prefix --global)"
+  exit 1
+fi
+
+GLOBAL_BIN_DIR="$(npm prefix --global)/bin"
+GLOBAL_CLI="${GLOBAL_BIN_DIR}/neoagent"
+if [[ ! -x "$GLOBAL_CLI" ]]; then
+  err "Global CLI installation did not create ${GLOBAL_CLI}."
+  exit 1
+fi
+
+case ":${PATH}:" in
+  *":${GLOBAL_BIN_DIR}:"*) ;;
+  *)
+    err "The global CLI was installed at ${GLOBAL_CLI}, but ${GLOBAL_BIN_DIR} is not on PATH."
+    echo "     Add this directory to PATH, then rerun the installer: ${GLOBAL_BIN_DIR}" >&2
+    exit 1
+    ;;
+esac
+hash -r
+ok "Global CLI ready: ${GLOBAL_CLI}"
+
+echo
+info "Running the global NeoAgent manager..."
+exec "$GLOBAL_CLI" install
