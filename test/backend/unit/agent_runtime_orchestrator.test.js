@@ -75,7 +75,7 @@ function createEngine(analysis) {
   return engine;
 }
 
-test('ordinary chat completes from one analyzed response without entering execution', async () => {
+test('ordinary chat uses the routing response without entering execution', async () => {
   const analysis = {
     mode: 'direct_answer',
     draft_reply: 'Hello!',
@@ -110,7 +110,7 @@ test('ordinary chat completes from one analyzed response without entering execut
   };
   engine.requestModelResponse = async () => {
     executionCalls += 1;
-    throw new Error('direct answers must not enter the execution loop');
+    throw new Error('direct answers must not enter execution');
   };
 
   const result = await engine.run(userId, 'hi', {
@@ -906,66 +906,6 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
 });
 
-test('evidence soft limit tells a productive research loop to synthesize', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Research the answer without open-ended exploration',
-    confidence: 0.85,
-    complexity: 'standard',
-    needs_verification: false,
-    suggested_tools: ['lookup'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'lookup', description: 'Look up a new source', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-
-  let modelTurns = 0;
-  let sawSoftLimit = false;
-  engine.requestModelResponse = async ({ messages }) => {
-    modelTurns += 1;
-    sawSoftLimit = sawSoftLimit || messages.some((message) => (
-      /Run budget is nearing its limit \(evidenceBudget\)/.test(String(message.content || ''))
-    ));
-    const call = sawSoftLimit
-      ? {
-        id: 'done',
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message: 'Synthesized from four sources.' }),
-        },
-      }
-      : {
-        id: `lookup-${modelTurns}`,
-        type: 'function',
-        function: { name: 'lookup', arguments: JSON.stringify({ page: modelTurns }) },
-      };
-    return {
-      response: { content: '', toolCalls: [call], usage: { total_tokens: 2 } },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async (_name, args) => ({ source: `source-${args.page}`, facts: [args.page] });
-  engine.isReadOnlyToolCall = (call) => call?.function?.name === 'lookup';
-
-  const result = await engine.run(userId, 'Research this.', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 10,
-    maxEvidenceItems: 5,
-  });
-
-  assert.equal(result.status, 'completed');
-  assert.equal(result.content, 'Synthesized from four sources.');
-  assert.equal(sawSoftLimit, true);
-  assert.equal(modelTurns, 5);
-});
-
 test('the opening line is written from the real conversation, and only for long work', async () => {
   const longWork = {
     mode: 'execute',
@@ -1327,7 +1267,7 @@ test('a blank model turn is recovered instead of ending the run', async () => {
   assert.equal(row.runtime_state, 'completed');
 });
 
-test('background run search activates an inactive tool without an extra model turn', async () => {
+test('background run searches for an inactive tool and activates it', async () => {
   const engine = createEngine({
     mode: 'execute',
     draft_reply: '',
@@ -1337,7 +1277,7 @@ test('background run search activates an inactive tool without an extra model tu
   });
 
   // Only the always-active built-ins get a schema on turn one. The calendar tool
-  // is reachable through the registry and is activated by the search itself.
+  // is reachable through the catalog + activate_tools, never as a hidden schema.
   engine.getAvailableTools = () => ([
     { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
     { name: 'search_tools', description: 'search tools', parameters: { type: 'object', properties: {} } },
@@ -1380,6 +1320,23 @@ test('background run search activates an inactive tool without an extra model tu
         response: {
           content: '',
           toolCalls: [{
+            id: 'act1',
+            type: 'function',
+            function: {
+              name: 'activate_tools',
+              arguments: JSON.stringify({ names: ['google_workspace_calendar_list_events'] }),
+            },
+          }],
+          usage: { total_tokens: 5 },
+        },
+        streamContent: '',
+      };
+    }
+    if (modelTurns === 3) {
+      return {
+        response: {
+          content: '',
+          toolCalls: [{
             id: 'cal1',
             type: 'function',
             function: {
@@ -1416,6 +1373,9 @@ test('background run search activates an inactive tool without an extra model tu
       searchResult = engine.searchToolsForRun(context.runId, args.query, args.limit);
       return searchResult;
     }
+    if (name === 'activate_tools') {
+      return engine.activateToolsForRun(context.runId, args.names || []);
+    }
     if (name === 'google_workspace_calendar_list_events') {
       return { count: 1, events: [{ summary: 'Zahnarzt', start: '2026-08-05T17:00:00Z' }] };
     }
@@ -1441,10 +1401,9 @@ test('background run search activates an inactive tool without an extra model tu
     'catalog tool must not start active',
   );
   assert.ok(
-    turnToolNames[1].includes('google_workspace_calendar_list_events'),
-    'search_tools must put the matching schema into the next model turn',
+    turnToolNames[2].includes('google_workspace_calendar_list_events'),
+    'activate_tools must put the schema into the next model turn',
   );
-  assert.equal(executed.includes('activate_tools'), false);
   assert.ok(executed.includes('google_workspace_calendar_list_events'));
 });
 

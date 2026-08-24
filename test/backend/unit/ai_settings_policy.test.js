@@ -30,7 +30,7 @@ test('agent loop policy settings persist, normalize, and preserve contextual def
   const defaults = ensureDefaultAiSettings(user.userId, agentId);
   assert.equal(defaults.max_iterations, null);
   assert.equal(defaults.max_consecutive_read_only_iterations, null);
-  assert.equal(buildLoopPolicy(defaults, 'tasks', 'execute').maxIterations, 40);
+  assert.equal(buildLoopPolicy(defaults, 'tasks', 'execute').maxIterations, 250);
 
   const upsert = ctx.db.prepare(
     `INSERT INTO agent_settings (user_id, agent_id, key, value)

@@ -106,7 +106,7 @@ function buildToolDiscoverySummary(tools = [], activeTools = []) {
   return [
     `Active tools: ${activeTools.map((tool) => tool.name).join(', ') || 'none'}.`,
     `Discoverable tools: ${tools.length}${sources ? ` (${sources})` : ''}.`,
-    'Use search_tools with a capability description when a needed schema is missing. Matching tools become active on the next model turn; use activate_tools only to select different exact names.',
+    'Use search_tools with a capability description, then activate_tools with exact returned names.',
   ].join('\n');
 }
 

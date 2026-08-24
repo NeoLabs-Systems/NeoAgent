@@ -87,6 +87,19 @@ function buildContextView({
     });
   }
 
+  if (budgetSnapshot?.usage) {
+    stableMessages.push({
+      role: 'system',
+      content: `[Run telemetry]\n${JSON.stringify({
+        elapsed_ms: Number(budgetSnapshot.usage.wallClockMs) || 0,
+        model_turns: Number(budgetSnapshot.usage.modelTurns) || 0,
+        input_tokens: Number(budgetSnapshot.usage.inputTokens) || 0,
+        output_tokens: Number(budgetSnapshot.usage.outputTokens) || 0,
+        tool_runtime_ms: Number(budgetSnapshot.usage.toolRuntimeMs) || 0,
+      })}`,
+    });
+  }
+
   if (budgetSnapshot?.softLimitReached || budgetSnapshot?.hardLimitReached) {
     stableMessages.push({
       role: 'system',

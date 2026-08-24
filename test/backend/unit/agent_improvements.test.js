@@ -11,6 +11,7 @@ const {
 } = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
+  ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
@@ -123,10 +124,12 @@ test('tool discovery stays compact and searches inactive capabilities genericall
   assert.match(summary, /Discoverable tools: 4/);
   assert.doesNotMatch(summary, /google_workspace_calendar_list_events/);
 
-  const matches = searchTools(tools, 'calendar events', {
+  const matches = searchTools(tools, 'task calendar events', {
     activeNames: active.map((tool) => tool.name),
+    excludeNames: ALWAYS_INCLUDE_BUILT_INS,
   });
   assert.equal(matches[0].name, 'google_workspace_calendar_list_events');
+  assert.equal(matches.some((tool) => ALWAYS_INCLUDE_BUILT_INS.includes(tool.name)), false);
   assert.equal(matches[0].active, false);
   assert.match(matches[0].description, /Google Calendar/);
 });
@@ -173,7 +176,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 });
 
-test('loop policy gives deep work room while keeping a realistic runaway ceiling', () => {
+test('loop policy keeps the iteration ceiling high and relies on the read-only no-progress cap', () => {
   const standard = buildLoopPolicy({}, 'messaging', 'execute');
   const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
     autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
@@ -184,10 +187,11 @@ test('loop policy gives deep work room while keeping a realistic runaway ceiling
     'execute',
   );
 
-  assert.equal(standard.maxIterations, 40);
-  assert.equal(complex.maxIterations, 80);
+  // The ceiling is a runaway safety net, not the primary stop signal.
+  assert.equal(standard.maxIterations, 250);
+  assert.equal(complex.maxIterations, 250);
   assert.equal(clamped.maxIterations, 400);
-  // Churn still stops much sooner than the final runaway ceiling.
+  // The real "stop when stuck" guard: consecutive read-only turns without progress.
   assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
   assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
 });

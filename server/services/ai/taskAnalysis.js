@@ -1,4 +1,4 @@
-const { buildCoworkAnalysisInstructions, buildCoworkExecutionGuidance } = require('../cowork/prompt');
+const { buildCoworkExecutionGuidance } = require('../cowork/prompt');
 
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
@@ -21,22 +21,31 @@ const VERIFICATION_CONFIDENCE_VERIFIED = 0.85;
 const VERIFICATION_CONFIDENCE_DEFAULT = 0.5;
 const JSON_ONLY_RESPONSE_RULE = 'Return JSON only. No markdown, no prose, no code fences.';
 const ANALYSIS_SCHEMA_EXAMPLE = {
-  mode: 'execute',
-  needs_verification: true,
-  draft_reply: '',
-  draft_status: 'needs_execution',
+  mode: 'direct_answer',
+  needs_verification: false,
+  draft_reply: 'The complete user-facing reply, or empty when work remains.',
+  draft_status: 'final',
   acknowledgement: '',
-  goal: 'Answer the user accurately.',
-  success_criteria: ['Final reply is correct and specific.'],
+  goal: 'Answer the current request.',
+  success_criteria: [],
   research_targets: [],
   research_depth: 'none',
-  suggested_tools: ['web_search', 'browser_navigate'],
-  complexity: 'standard',
-  autonomy_level: 'normal',
-  progress_update_policy: 'optional',
+  suggested_tools: [],
+  complexity: 'simple',
+  autonomy_level: 'minimal',
+  progress_update_policy: 'none',
   parallel_work: false,
   completion_confidence_required: 'medium',
 };
+const ANALYSIS_PROMPT_INSTRUCTIONS = [
+  'Route the current user message using the lightest mode that completes it correctly.',
+  'Use direct_answer for conversational statements, acknowledgements, greetings, opinions, explanations, and questions that need no current/private/tool evidence. Put the complete reply in draft_reply and set draft_status to final.',
+  'Use execute when files, integrations, current facts, private data, external actions, or verification are needed. Use plan_execute only for genuinely broad multi-step work.',
+  'When work remains, leave draft_reply empty and set draft_status to needs_execution. Ask for user input only when it is actually required before any useful work can continue.',
+  'Keep goal and success_criteria scoped to the request. For research, preserve every named target exactly and choose light or deep research based on the requested coverage.',
+  'suggested_tools must contain exact names from the catalog and only tools likely needed for the first useful step.',
+  'Do not route an immediate request into task-management tools unless the user asked to schedule, repeat, monitor, defer, or manage saved work.',
+];
 const PLAN_SCHEMA_EXAMPLE = {
   steps: [
     {
@@ -49,27 +58,6 @@ const PLAN_SCHEMA_EXAMPLE = {
   success_criteria: ['The final answer is correct and verifiable.'],
   verification_focus: ['Confirm the most time-sensitive claim before replying.'],
 };
-const ANALYSIS_PROMPT_INSTRUCTIONS = [
-  'Choose the lightest routing mode that still handles the task well. Prefer speed for simple work and depth only when the request needs tools or multi-step evidence.',
-  'Use mode="direct_answer" only when a final user-facing reply can be given immediately without tool work. The draft_reply must be the actual answer, not a promise to check later.',
-  'Set draft_status="final" only when draft_reply fully answers the request now. Use "needs_execution" when any autonomous work remains, and "needs_user_input" only when the draft asks for information that is genuinely required before work can continue.',
-  'For short immediate questions, greetings, small explanations, quick conversational replies, or pure opinion/advice that does not need live lookup, prefer mode="direct_answer" with progress_update_policy="none", complexity="simple", autonomy_level="minimal", and an empty research_targets list.',
-  'Use mode="execute" for normal tool-driven work without a separate planning step.',
-  'Use mode="plan_execute" only when the task is genuinely multi-step, broad, or coordination-heavy.',
-  'Never invent entities, products, people, files, or outcomes to fill gaps.',
-  'Set needs_verification=true when the final answer should be checked against tool evidence before it is sent.',
-  'Set goal to a concise restatement of the current request and keep success_criteria practical.',
-  'suggested_tools must use exact names from the available tool catalog. They are routing hints, not a required plan.',
-  'Set complexity from the actual work shape, not from keywords.',
-  'Set autonomy_level="high" when the agent should decide sequencing, retries, evidence gathering, and verification without asking unless blocked.',
-  'Set progress_update_policy="required" for long, slow, messaging, or externally visible work where silence would be confusing.',
-  'When a spoken or interactive request needs durable work, acknowledgement may contain one short request-specific sentence. It must not claim completion. Otherwise use an empty string.',
-  'Use task-management tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
-  'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
-  'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
-  'For research, comparisons, reviews, fact-checks, or multi-entity requests, use mode="execute" or "plan_execute", set needs_verification=true, and name each research target explicitly.',
-  'Set research_depth="none" when external research is not needed, "light" for a focused lookup, and "deep" for comparisons, multi-source synthesis, disputed claims, or broad investigation.',
-];
 const PLAN_PROMPT_INSTRUCTIONS = [
   'Create a concise execution plan for the current task.',
   'Focus on practical steps, success criteria, and what needs verification.',
@@ -650,17 +638,20 @@ function buildAnalysisPrompt({
   triggerSource = null,
 } = {}) {
   const toolCatalog = summarizeToolCatalog(tools);
-  const forceModeLine = forceMode && ANALYSIS_MODES.includes(forceMode)
-    ? `Preferred mode override from the runtime: ${forceMode}. Honor it unless it is clearly unsafe or impossible.`
-    : '';
+  const runtimeRules = [];
+  if (forceMode && ANALYSIS_MODES.includes(forceMode)) {
+    runtimeRules.push(`Runtime mode override: ${forceMode}.`);
+  }
+  if (triggerSource === 'cowork') {
+    runtimeRules.push('Cowork has an attached writable project folder. File-change requests require execute or plan_execute, use workspace tools, and do not ask for a URL or permission to begin.');
+  }
 
   return composeJsonPrompt([
     JSON_ONLY_RESPONSE_RULE,
     ...ANALYSIS_PROMPT_INSTRUCTIONS,
-    ...buildCoworkAnalysisInstructions({ triggerSource }),
-    forceModeLine,
+    ...runtimeRules,
     formatRuntimeCapabilityHealth(capabilityHealth),
-    toolCatalog ? `Available tool catalog (name: compact description):\n${toolCatalog}` : '',
+    toolCatalog ? `Available tools (name: description):\n${toolCatalog}` : '',
   ], ANALYSIS_SCHEMA_EXAMPLE);
 }
 

@@ -198,49 +198,6 @@ class DurableRunRuntime {
     let contextPressure = null;
     let runRecordCreated = false;
     let runSignal = null;
-    let initialIterationHookPassed = false;
-
-    const stopForIterationHook = async (iteration) => {
-      const iterationHook = await globalHooks.run('on_loop_iteration', {
-        userId,
-        runId,
-        agentId,
-        iteration,
-        triggerType,
-        triggerSource,
-        totalTokens,
-      });
-      if (iterationHook?.stop !== true) return null;
-
-      const reason = String(iterationHook.reason || 'Stopped by policy hook.');
-      const meta = this.engine.getRunMeta(runId);
-      if (meta) meta.aborted = true;
-      db.prepare(
-        `UPDATE agent_runs
-         SET status = 'stopped',
-             runtime_state = ?,
-             error = ?,
-             completed_at = COALESCE(completed_at, datetime('now')),
-             updated_at = datetime('now')
-         WHERE id = ?`,
-      ).run(RUNTIME_STATES.CANCELLED, reason, runId);
-      this.eventBus.publish({
-        runId,
-        userId,
-        agentId,
-        eventType: EVENT_TYPES.RUN_CANCELLED,
-        payload: { reason, source: 'on_loop_iteration' },
-        visibility: VISIBILITY.USER,
-      });
-      return {
-        runId,
-        content: '',
-        totalTokens,
-        iterations,
-        status: 'stopped',
-        path,
-      };
-    };
 
     const { releaseReservation } = enforceRateLimits(userId, {
       bypass: options.bypassUserRateLimits === true,
@@ -704,13 +661,6 @@ class DurableRunRuntime {
       leases.heartbeat(runId, workerId);
       progressBroker.noteActivity('triaging');
 
-      // The first reliability gate covers both triage and the first execution
-      // turn. It must run before structured analysis so a policy stop cannot
-      // leak one otherwise avoidable model call.
-      const preflightStop = await stopForIterationHook(iterations + 1);
-      if (preflightStop) return preflightStop;
-      initialIterationHookPassed = true;
-
       const requestedPlan = options.forceMode === 'plan_execute';
       const analysisFallback = {
         mode: options.forceMode || 'execute',
@@ -720,13 +670,7 @@ class DurableRunRuntime {
         complexity: requestedPlan ? 'complex' : 'standard',
       };
       if (options.skipTaskAnalysis === true) {
-        const skippedAnalysis = {
-          ...analysisFallback,
-          needs_verification: requestedPlan,
-          autonomy_level: triggerSource === 'cowork' || requestedPlan ? 'high' : 'normal',
-          progress_update_policy: requestedPlan ? 'required' : 'optional',
-        };
-        analysis = normalizeTaskAnalysis(skippedAnalysis, skippedAnalysis);
+        analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
       } else {
         try {
           const analysisResponse = await this.engine.requestStructuredJson({
@@ -752,35 +696,30 @@ class DurableRunRuntime {
             phase: 'task_analysis',
           });
           totalTokens += Number(analysisResponse.usage || 0);
-          analysis = analysisResponse.value || normalizeTaskAnalysis(analysisFallback, analysisFallback);
+          analysis = analysisResponse.value
+            || normalizeTaskAnalysis(analysisFallback, analysisFallback);
         } catch (error) {
           console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
           analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
         }
       }
 
-      // Start with the model's exact suggestions, then fill any remaining slice
-      // from lexical matches. Always-active control tools are excluded from the
-      // matcher because selecting them again used to crowd out the real tool and
-      // force two extra discovery turns.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: triggerSource === 'cowork'
-          || analysis.mode === 'execute'
-          || analysis.mode === 'plan_execute',
+        includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
       const initialMatches = searchTools(allTools, userMessage, {
         limit: 8,
         excludeNames: ALWAYS_INCLUDE_BUILT_INS,
       });
-      const suggestedToolNames = [...new Set([
+      const initialToolNames = [...new Set([
         ...(analysis.suggested_tools || []),
         ...initialMatches.map((tool) => tool.name),
       ])];
       tools = selectInitialTools(
         allTools,
-        suggestedToolNames,
+        initialToolNames,
         toolSelectionOptions,
       );
       this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
@@ -811,7 +750,7 @@ class DurableRunRuntime {
         aiSettings,
         triggerType,
         analysisMode: analysis.mode || 'execute',
-        options: { ...options, autonomyPolicy: analysis },
+        options,
         startedAtMs,
       });
 
@@ -819,9 +758,8 @@ class DurableRunRuntime {
       const fastGate = evaluateFastPathEligibility(contract, { draftReply, analysis });
       const directEligible = isDirectAnswerEligibleAnalysis(analysis)
         && Boolean(normalizeOutgoingMessage(draftReply));
-      const attemptedFastPath = fastGate.eligible && directEligible;
 
-      if (attemptedFastPath) {
+      if (fastGate.eligible && directEligible) {
         path = 'fast';
         applyTransition({
           runId,
@@ -881,22 +819,29 @@ class DurableRunRuntime {
           };
         }
         path = 'durable';
+        applyTransition({
+          runId,
+          toState: RUNTIME_STATES.PLANNING,
+          reason: 'fast_path_rejected',
+          workerId,
+          eventBus: this.eventBus,
+        });
+      } else {
+        await maybeAck(
+          analysis.progress_update_policy === 'required'
+            || analysis.complexity === 'complex'
+            || analysis.autonomy_level === 'high',
+          analysis.acknowledgement,
+        );
+        applyTransition({
+          runId,
+          toState: RUNTIME_STATES.PLANNING,
+          reason: 'durable_work_required',
+          workerId,
+          eventBus: this.eventBus,
+          patch: { metadata: { fastPathRejected: fastGate.reasons } },
+        });
       }
-
-      await maybeAck(
-        analysis.progress_update_policy === 'required'
-          || analysis.complexity === 'complex'
-          || analysis.autonomy_level === 'high',
-        analysis.acknowledgement,
-      );
-      applyTransition({
-        runId,
-        toState: RUNTIME_STATES.PLANNING,
-        reason: attemptedFastPath ? 'fast_path_rejected' : 'durable_work_required',
-        workerId,
-        eventBus: this.eventBus,
-        patch: { metadata: { fastPathRejected: fastGate.reasons } },
-      });
 
       // ── Planning / work graph ──────────────────────────────────────────
       const graphNodes = workGraph.graphFromContract(contract);
@@ -957,7 +902,6 @@ class DurableRunRuntime {
       const maxVerificationRepairs = 3;
       let blankOutputRecoveries = 0;
       const maxBlankOutputRecoveries = 2;
-      const warnedSoftDimensions = new Set();
       const getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
       );
@@ -1022,13 +966,45 @@ class DurableRunRuntime {
           return this.#cancelledResult(runId, totalTokens, iterations);
         }
 
-        // The preflight hook already gates the first execution turn. Starting
-        // with turn two, run it here before every subsequent model request.
-        if (initialIterationHookPassed && iterations === 0) {
-          initialIterationHookPassed = false;
-        } else {
-          const iterationStop = await stopForIterationHook(iterations + 1);
-          if (iterationStop) return iterationStop;
+        // Reliability / policy hooks: may stop the loop before a model call.
+        const iterationHook = await globalHooks.run('on_loop_iteration', {
+          userId,
+          runId,
+          agentId,
+          iteration: iterations + 1,
+          triggerType,
+          triggerSource,
+          totalTokens,
+        });
+        if (iterationHook?.stop === true) {
+          const reason = String(iterationHook.reason || 'Stopped by policy hook.');
+          const meta = this.engine.getRunMeta(runId);
+          if (meta) meta.aborted = true;
+          db.prepare(
+            `UPDATE agent_runs
+             SET status = 'stopped',
+                 runtime_state = ?,
+                 error = ?,
+                 completed_at = COALESCE(completed_at, datetime('now')),
+                 updated_at = datetime('now')
+             WHERE id = ?`,
+          ).run(RUNTIME_STATES.CANCELLED, reason, runId);
+          this.eventBus.publish({
+            runId,
+            userId,
+            agentId,
+            eventType: EVENT_TYPES.RUN_CANCELLED,
+            payload: { reason, source: 'on_loop_iteration' },
+            visibility: VISIBILITY.USER,
+          });
+          return {
+            runId,
+            content: '',
+            totalTokens,
+            iterations,
+            status: 'stopped',
+            path,
+          };
         }
 
         if (run.runtimeState === RUNTIME_STATES.VERIFYING) {
@@ -1399,27 +1375,14 @@ class DurableRunRuntime {
           }
         }
         if (continuation.softWarning) {
-          const newDimensions = continuation.snapshot.softDimensions
-            .filter((dimension) => !warnedSoftDimensions.has(dimension));
-          if (newDimensions.length > 0) {
-            for (const dimension of newDimensions) warnedSoftDimensions.add(dimension);
-            this.eventBus.publish({
-              runId,
-              userId,
-              agentId,
-              eventType: EVENT_TYPES.BUDGET_SOFT_LIMIT,
-              payload: { dimensions: newDimensions },
-              visibility: VISIBILITY.OPERATOR,
-            });
-            messages.push({
-              role: 'system',
-              content: [
-                `Run budget is nearing its limit (${newDimensions.join(', ')}).`,
-                'Stop optional exploration now. Use the evidence already gathered to finish the required deliverable, or return an honest partial result naming the concrete missing requirement.',
-                'Do not start a new research branch unless it is the only way to close a required obligation.',
-              ].join(' '),
-            });
-          }
+          this.eventBus.publish({
+            runId,
+            userId,
+            agentId,
+            eventType: EVENT_TYPES.BUDGET_SOFT_LIMIT,
+            payload: { dimensions: continuation.snapshot.softDimensions },
+            visibility: VISIBILITY.OPERATOR,
+          });
         }
 
         // Steering
@@ -2037,9 +2000,9 @@ class DurableRunRuntime {
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
             // research run is never mistaken for churn.
-            const addedEvidence = gatheredNewEvidence(execution, observed);
-            budget.recordNoProgressTurn(!execution.stateChanged && !addedEvidence);
-            if (addedEvidence) budget.recordEvidence(1);
+            budget.recordNoProgressTurn(
+              !execution.stateChanged && !gatheredNewEvidence(execution, observed),
+            );
             if (success) budget.recordToolFailure(false);
 
             // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
@@ -2141,7 +2104,7 @@ class DurableRunRuntime {
 
             // Newly activated schemas only reach the model if the active set is
             // re-read; otherwise activate_tools silently does nothing.
-            if ((call.name === 'search_tools' || call.name === 'activate_tools') && success) {
+            if (call.name === 'activate_tools' && success) {
               const activeTools = this.engine.getActiveTools?.(runId);
               if (Array.isArray(activeTools) && activeTools.length) tools = activeTools;
             }

@@ -175,23 +175,12 @@ function searchToolsForRun(engine, runId, query, limit = 8) {
     query: String(query || '').slice(0, 300),
     resultNames: results.map((tool) => tool.name),
   }, { agentId: runMeta.agentId });
-  const activation = activateToolsForRun(
-    engine,
-    runId,
-    results.map((tool) => tool.name),
-  );
-  const activeNames = new Set(activation.active_tools);
   return {
-    success: activation.success,
+    success: true,
     query: String(query || ''),
-    results: results.map((tool) => ({
-      ...tool,
-      active: activeNames.has(tool.name),
-    })),
-    activated: activation.activated,
-    not_activated: activation.not_activated,
+    results,
     instruction: results.length
-      ? 'Matching tools are active for the next model turn. Call the needed tool directly.'
+      ? 'Activate the exact tools you need with activate_tools.'
       : 'No matching tool was found. Try a broader capability description.',
   };
 }

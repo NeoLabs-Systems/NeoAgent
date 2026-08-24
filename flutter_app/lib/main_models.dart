@@ -2325,10 +2325,10 @@ class RunSummary {
 
   String get modelLabel => model.ifEmpty('Model pending');
 
-  Duration? get duration => completedAt?.difference(createdAt);
+  Duration get duration =>
+      (completedAt ?? DateTime.now()).difference(createdAt);
 
-  String get durationLabel =>
-      completedAt == null ? 'In progress' : _formatElapsed(duration!);
+  String get durationLabel => _formatElapsed(duration);
 
   Color get statusColor {
     switch (status) {
