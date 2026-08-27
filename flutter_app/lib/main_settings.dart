@@ -234,13 +234,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _smarterSelector = controller.smarterSelector;
-    // Remove catalog entries that are explicitly unavailable, but retain ids
-    // missing from this catalog snapshot. Dynamic discovery can temporarily
-    // omit a provider, and saving unrelated settings must not erase its pool.
-    _enabledModels = controller.enabledModelIds.where((id) {
-      final model = _modelForValue(id, controller.supportedModels);
-      return model == null || availableModels.contains(model.id);
-    }).toSet();
+    // Saved selections are user-owned. Catalog availability may affect whether
+    // a run can use a model, but it must never rewrite the saved routing pool.
+    _enabledModels = controller.enabledModelIds.toSet();
     if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
       _enabledModels = availableModels;
     }

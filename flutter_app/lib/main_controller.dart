@@ -6993,12 +6993,10 @@ class NeoAgentController extends ChangeNotifier {
         final savedId = item.toString().trim();
         if (savedId.isEmpty) continue;
         final model = _modelForValue(savedId, supportedModels);
-        // Skip models the admin has since disabled or whose provider lost
-        // its credentials. Preserve models missing from the current catalog,
-        // though: dynamic provider discovery can fail temporarily, and a later
-        // settings save must not replace those saved selections.
         final id = model?.id ?? savedId;
-        if ((model == null || model.available) && !filtered.contains(id)) {
+        // Availability belongs to execution-time routing, not persistence.
+        // A saved choice remains selected until the user explicitly changes it.
+        if (!filtered.contains(id)) {
           filtered.add(id);
         }
       }
@@ -7033,18 +7031,13 @@ class NeoAgentController extends ChangeNotifier {
     preserveUnknown: true,
   );
 
-  String get fallbackModel {
-    final savedId =
-        settings['fallback_model_id']?.toString().trim() ??
-        _firstAvailableModelId(supportedModels);
-    final model = _modelForValue(savedId, supportedModels);
-    if (model == null) {
-      return savedId.isNotEmpty
-          ? savedId
-          : _firstAvailableModelId(supportedModels);
-    }
-    return model.available ? model.id : _firstAvailableModelId(supportedModels);
-  }
+  String get fallbackModel => _ensureModelValue(
+    settings['fallback_model_id']?.toString() ??
+        _firstAvailableModelId(supportedModels),
+    supportedModels,
+    allowAuto: false,
+    preserveUnknown: true,
+  );
 
   String get voiceSttProvider =>
       _settingString('voice_stt_provider', '', lowercase: true);
