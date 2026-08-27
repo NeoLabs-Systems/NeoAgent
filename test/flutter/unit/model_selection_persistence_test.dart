@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
@@ -125,7 +126,7 @@ void main() {
     }
   });
 
-  test('known unavailable models are still removed from the routing pool', () {
+  test('known unavailable models remain selected until explicitly changed', () {
     final controller = NeoAgentController(
       backendClient: BackendClient(),
       healthBridge: HealthBridge(),
@@ -157,8 +158,82 @@ void main() {
       ),
     ];
 
-    expect(controller.enabledModelIds, <String>['openai::gpt-5-nano']);
-    expect(controller.fallbackModel, 'openai::gpt-5-nano');
+    expect(controller.enabledModelIds, <String>[
+      'openrouter::anthropic/claude-sonnet-4.5',
+      'openai::gpt-5-nano',
+    ]);
+    expect(controller.fallbackModel, 'openrouter::anthropic/claude-sonnet-4.5');
+  });
+
+  testWidgets('settings save never rewrites an unavailable saved model', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final backend = _DelayedSettingsBackendClient();
+    final controller = NeoAgentController(
+      backendClient: backend,
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+
+    const savedModel = 'openrouter::anthropic/claude-sonnet-4.5';
+    controller.settings = <String, dynamic>{
+      'enabled_models': <String>[savedModel],
+      'default_chat_model': savedModel,
+      'default_subagent_model': savedModel,
+      'default_speech_model': savedModel,
+      'fallback_model_id': savedModel,
+    };
+    controller.supportedModels = const <ModelMeta>[
+      ModelMeta(
+        id: savedModel,
+        modelId: 'anthropic/claude-sonnet-4.5',
+        label: 'Claude Sonnet 4.5 (OpenRouter)',
+        provider: 'openrouter',
+        purpose: 'general',
+        available: false,
+      ),
+      ModelMeta(
+        id: 'openai::gpt-5-nano',
+        modelId: 'gpt-5-nano',
+        label: 'GPT-5 nano',
+        provider: 'openai',
+        purpose: 'fast',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsPanel(controller: controller, embedded: true),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+
+    expect(backend.settingsPayloads, hasLength(1));
+    expect(backend.settingsPayloads.single['enabled_models'], <String>[
+      savedModel,
+    ]);
+    expect(backend.settingsPayloads.single['default_chat_model'], savedModel);
+    expect(
+      backend.settingsPayloads.single['default_subagent_model'],
+      savedModel,
+    );
+    expect(backend.settingsPayloads.single['default_speech_model'], savedModel);
+    expect(backend.settingsPayloads.single['fallback_model_id'], savedModel);
+
+    backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
+    await tester.pump();
+    backend.behaviorWrite.complete(<String, dynamic>{
+      'config': <String, dynamic>{},
+    });
+    await tester.pumpAndSettle();
   });
 
   test(
