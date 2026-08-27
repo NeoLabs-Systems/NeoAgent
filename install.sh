@@ -52,9 +52,14 @@ DEFAULT_DIR="$HOME/NeoAgent"
 ask INSTALL_DIR "Install directory" "$DEFAULT_DIR"
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then
-  info "Existing repo found at ${INSTALL_DIR} — pulling latest..."
-  git -C "$INSTALL_DIR" pull --rebase origin "$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref HEAD)"
-  ok "Updated"
+  INSTALL_BRANCH="$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref HEAD)"
+  info "Existing repo found at ${INSTALL_DIR} — replacing it with origin/${INSTALL_BRANCH}..."
+  git -C "$INSTALL_DIR" fetch origin --tags
+  git -C "$INSTALL_DIR" reset --hard HEAD
+  git -C "$INSTALL_DIR" clean -fd
+  git -C "$INSTALL_DIR" checkout -B "$INSTALL_BRANCH" "origin/$INSTALL_BRANCH"
+  git -C "$INSTALL_DIR" reset --hard "origin/$INSTALL_BRANCH"
+  ok "Source checkout replaced"
 elif [[ -d "$INSTALL_DIR" && -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
   err "Directory ${INSTALL_DIR} exists and is not empty. Choose a different path or remove it."
   exit 1

@@ -31,6 +31,7 @@ const { createGitHelpers } = require('../runtime/git_helpers');
 const {
   defaultSourceInstallDirectory,
   prepareSourceInstallation,
+  replaceSourceCheckoutWithRemote,
 } = require('../lib/source_install');
 
 const MAX_LOG_LINES = 220;
@@ -95,8 +96,6 @@ function commandExists(cmd) {
 
 const {
   latestGitTagVersion,
-  gitWorkingTreeDirty,
-  gitLocalBranchExists,
   gitRemoteBranchExists,
 } = createGitHelpers((cmd, args) => run(cmd, args));
 
@@ -117,36 +116,16 @@ function resolvePreferredGitBranch(channel) {
 }
 
 function ensureGitBranchForReleaseChannel(targetBranch) {
-  const branchRes = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
-  const currentBranch = (branchRes.stdout || '').trim();
-  if (currentBranch === targetBranch) {
-    return currentBranch;
+  try {
+    return replaceSourceCheckoutWithRemote({
+      run,
+      sourceDirectory: APP_DIR,
+      targetBranch,
+      onInfo: (message) => appendLog(message),
+    });
+  } catch (error) {
+    fail(error.message);
   }
-
-  if (!gitRemoteBranchExists(targetBranch)) {
-    fail(`Release channel branch "${targetBranch}" was not found on origin.`);
-  }
-
-  if (gitWorkingTreeDirty()) {
-    fail(
-      `Cannot switch to ${targetBranch} while the git worktree has local changes. Commit or stash them first, then retry the update.`,
-    );
-  }
-
-  const checkout = gitLocalBranchExists(targetBranch)
-    ? run('git', ['checkout', targetBranch])
-    : run('git', ['checkout', '-b', targetBranch, '--track', `origin/${targetBranch}`]);
-
-  if (checkout.status !== 0) {
-    fail(`git checkout ${targetBranch} failed`);
-  }
-
-  appendLog(
-    currentBranch
-      ? `Switched git branch ${currentBranch} -> ${targetBranch}`
-      : `Checked out git branch ${targetBranch}`,
-  );
-  return targetBranch;
 }
 
 function buildBundledWebClientIfPossible({ required = false } = {}) {
@@ -275,11 +254,8 @@ function main() {
   writeStatus({ targetBranch: resolvedBranch, runnerPid: process.pid }, STATUS_FILE);
   appendLog(`Using git branch ${resolvedBranch} for the ${releaseChannel} channel.`);
 
+  info(35, 'pulling', `Replacing the source checkout with origin/${resolvedBranch}`);
   ensureGitBranchForReleaseChannel(resolvedBranch);
-
-  info(35, 'pulling', `Rebasing with origin/${resolvedBranch}`);
-  const pull = run('git', ['pull', '--rebase', '--autostash', 'origin', resolvedBranch]);
-  if (pull.status !== 0) fail('git pull --rebase failed');
 
   const nextRes = run('git', ['rev-parse', '--short', 'HEAD']);
   const next = (nextRes.stdout || '').trim() || null;

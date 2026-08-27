@@ -100,30 +100,31 @@ test('source install clones, selects the beta branch, installs, and links', (t) 
   assert.equal(result.targetBranch, 'beta');
   assert.equal(result.version, '4.0.0');
   assert.ok(calls.some((call) => call.command === 'git' && call.args[0] === 'clone'));
-  assert.ok(calls.some((call) => call.command === 'git' && call.args.join(' ') === 'checkout -b beta --track origin/beta'));
+  assert.ok(calls.some((call) => call.command === 'git' && call.args.join(' ') === 'checkout -B beta origin/beta'));
   assert.ok(calls.some((call) => call.command === 'npm' && call.args[0] === 'install'));
   assert.ok(calls.some((call) => call.command === 'npm' && call.args[0] === 'link'));
 });
 
-test('source install does not mutate an existing checkout with local changes', (t) => {
+test('source install replaces local checkout changes with the selected remote branch', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-source-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const sourceDirectory = path.join(root, 'NeoAgent');
   createCheckout(sourceDirectory);
   const calls = [];
   const run = successfulRun(calls);
-  assert.throws(
-    () => prepareSourceInstallation({
-      run: (command, args, options) => {
-        if (command === 'git' && args.join(' ') === 'status --porcelain') {
-          return { status: 0, stdout: ' M local.txt\n', stderr: '' };
-        }
-        return run(command, args, options);
-      },
-      releaseChannel: 'stable',
-      sourceDirectory,
-    }),
-    /has local changes/,
-  );
-  assert.equal(calls.some((call) => call.command === 'npm'), false);
+  prepareSourceInstallation({
+    run: (command, args, options) => {
+      if (command === 'git' && args.join(' ') === 'status --porcelain') {
+        calls.push({ command, args, cwd: options?.cwd });
+        return { status: 0, stdout: ' M local.txt\n?? scratch.txt\n', stderr: '' };
+      }
+      return run(command, args, options);
+    },
+    releaseChannel: 'stable',
+    sourceDirectory,
+  });
+  assert.ok(calls.some((call) => call.command === 'git' && call.args.join(' ') === 'reset --hard HEAD'));
+  assert.ok(calls.some((call) => call.command === 'git' && call.args.join(' ') === 'clean -fd'));
+  assert.ok(calls.some((call) => call.command === 'git' && call.args.join(' ') === 'checkout -B main origin/main'));
+  assert.ok(calls.some((call) => call.command === 'npm' && call.args[0] === 'link'));
 });
