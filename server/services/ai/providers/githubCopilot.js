@@ -99,6 +99,11 @@ class GithubCopilotProvider extends OpenAIProvider {
     );
   }
 
+  async listModels(signal = null) {
+    await this._refreshCopilotToken(signal);
+    return super.listModels(signal);
+  }
+
   async chat(messages, tools = [], options = {}) {
     await this._refreshCopilotToken(options.signal);
     return super.chat(messages, tools, options);

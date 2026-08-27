@@ -212,6 +212,22 @@ class ClaudeCodeProvider extends AnthropicProvider {
     return true;
   }
 
+  async listModels(signal = null) {
+    try {
+      return await super.listModels(signal);
+    } catch (err) {
+      if ((!isAuthenticationError(err) && !isInferenceScopeError(err)) || !this.refreshToken) {
+        throw formatClaudeCodeCredentialError(err);
+      }
+      await this.refreshClient(signal);
+      try {
+        return await super.listModels(signal);
+      } catch (retryErr) {
+        throw formatClaudeCodeCredentialError(retryErr);
+      }
+    }
+  }
+
   convertMessages(messages) {
     const converted = super.convertMessages(messages);
     if (!converted.system) {

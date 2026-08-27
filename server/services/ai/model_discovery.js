@@ -86,10 +86,8 @@ async function runDiscovery(factory, timeoutMs = DISCOVERY_TIMEOUT_MS) {
   }
 }
 
-function normalizeRawModels(rawModels, providerId, fallbackIds = []) {
-  const source = Array.isArray(rawModels) && rawModels.length > 0
-    ? rawModels
-    : fallbackIds;
+function normalizeRawModels(rawModels, providerId) {
+  const source = Array.isArray(rawModels) ? rawModels : [];
   const labelModel = PROVIDER_LABELS[providerId] || ((model) => model.name || model.id);
   const normalized = [];
   const seen = new Set();
@@ -129,22 +127,19 @@ function isPermanentDiscoveryError(error) {
 }
 
 async function loadProviderModels({ providerId, factory, apiKey, baseUrl, existing }) {
-  let provider = null;
   try {
     const config = {};
     if (factory.apiKey) config.apiKey = apiKey;
     if (factory.baseUrl) config.baseUrl = baseUrl;
-    provider = new factory.Provider(config);
+    const provider = new factory.Provider(config);
     const rawModels = await runDiscovery((signal) => provider.listModels(signal));
     if (providerId === 'openrouter') updateOpenRouterPricing(rawModels);
-    const models = normalizeRawModels(rawModels, providerId, provider.models);
+    const models = normalizeRawModels(rawModels, providerId);
     const entry = { models, expiresAt: Date.now() + REFRESH_INTERVAL_MS };
     return entry;
   } catch (error) {
     console.warn(`[Models] Failed to refresh ${providerId} models:`, error.message);
-    const models = existing?.models?.length
-      ? existing.models
-      : normalizeRawModels([], providerId, provider?.models || []);
+    const models = existing?.models || [];
     const retryAfterMs = isPermanentDiscoveryError(error)
       ? PERMANENT_ERROR_BACKOFF_MS
       : REFRESH_INTERVAL_MS;

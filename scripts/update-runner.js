@@ -11,6 +11,7 @@ const {
 } = require('../lib/install_helpers');
 const {
   APP_DIR,
+  RUNTIME_HOME,
   UPDATE_STATUS_FILE: STATUS_FILE,
   migrateLegacyRuntime,
   ensureRuntimeDirs
@@ -27,6 +28,10 @@ const {
   writeUpdateStatusFile: writeStatus,
 } = require('../server/utils/update_status');
 const { createGitHelpers } = require('../runtime/git_helpers');
+const {
+  defaultSourceInstallDirectory,
+  prepareSourceInstallation,
+} = require('../lib/source_install');
 
 const MAX_LOG_LINES = 220;
 const FLUTTER_APP_DIR = path.join(APP_DIR, 'flutter_app');
@@ -210,9 +215,51 @@ function main() {
   const hasGit = fs.existsSync(gitDir) && commandExists('git');
 
   if (!hasGit) {
-    fail(
-      'Automatic source updates require a Git checkout. Install the latest build from https://github.com/NeoLabs-Systems/NeoAgent/releases/latest.',
-    );
+    info(10, 'migrating', 'Migrating the legacy package installation to a Git checkout');
+    const sourceDirectory = defaultSourceInstallDirectory();
+    let prepared;
+    try {
+      prepared = prepareSourceInstallation({
+        run,
+        releaseChannel,
+        sourceDirectory,
+        onInfo: (message) => appendLog(message),
+      });
+    } catch (error) {
+      fail(error.message);
+    }
+    writeStatus({
+      targetBranch: prepared.targetBranch,
+      versionAfter: prepared.version,
+      runnerPid: process.pid,
+    }, STATUS_FILE);
+    info(82, 'activating', 'Preserving runtime data and switching the service to the source checkout');
+    const adoption = run(process.execPath, [
+      path.join(sourceDirectory, 'bin', 'neoagent.js'),
+      'install',
+      '--adopt-existing',
+    ], {
+      cwd: sourceDirectory,
+      env: {
+        ...process.env,
+        NEOAGENT_HOME: RUNTIME_HOME,
+      },
+    });
+    if (adoption.status !== 0) {
+      fail(
+        `The source checkout is ready at ${sourceDirectory}, but the service migration failed. `
+        + 'Runtime data was not removed.',
+      );
+    }
+    writeStatus({
+      state: 'completed',
+      progress: 100,
+      phase: 'completed',
+      message: `Legacy installation migrated to ${prepared.version}. Future updates will use Git.`,
+      completedAt: nowIso(),
+      runnerPid: null,
+    }, STATUS_FILE);
+    return;
   }
 
   info(8, 'checking', `Preparing ${releaseChannel} channel update`);

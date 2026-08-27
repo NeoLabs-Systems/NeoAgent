@@ -27,6 +27,14 @@ ask()  {
 echo -e "${CYN}${BOLD}NeoAgent installer${RESET}"
 echo
 
+RUNTIME_DIR="${NEOAGENT_HOME:-$HOME/.neoagent}"
+EXISTING_RUNTIME=false
+if [[ -f "$RUNTIME_DIR/.env" || -f "$RUNTIME_DIR/data/neoagent.db" \
+  || ( -d "$RUNTIME_DIR/agent-data" && -n "$(ls -A "$RUNTIME_DIR/agent-data" 2>/dev/null)" ) ]]; then
+  EXISTING_RUNTIME=true
+  info "Existing runtime data found at ${RUNTIME_DIR}; it will be preserved."
+fi
+
 MISSING=()
 command -v git  &>/dev/null && ok "git $(git --version | awk '{print $3}')"   || MISSING+=("git")
 command -v node &>/dev/null && ok "Node.js $(node --version)"                  || MISSING+=("node (https://nodejs.org)")
@@ -89,4 +97,7 @@ ok "Global CLI ready: ${GLOBAL_CLI}"
 
 echo
 info "Running the global NeoAgent manager..."
+if [[ "$EXISTING_RUNTIME" == "true" ]]; then
+  exec "$GLOBAL_CLI" install --adopt-existing
+fi
 exec "$GLOBAL_CLI" install

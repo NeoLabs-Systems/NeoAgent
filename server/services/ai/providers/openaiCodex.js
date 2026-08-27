@@ -255,6 +255,27 @@ class OpenAICodexProvider extends BaseProvider {
     });
   }
 
+  async listModels(signal = null) {
+    try {
+      const response = this.usesCodexBackend
+        ? await this.client.get('/models', {
+            query: { client_version: NEOAGENT_VERSION },
+            signal,
+          })
+        : await this.client.models.list({ signal });
+      const models = this.usesCodexBackend ? response.models : response.data;
+      return (Array.isArray(models) ? models : [])
+        .filter((model) => model?.supported_in_api !== false && model?.visibility !== 'hide')
+        .map((model) => ({
+          id: model.slug || model.id,
+          name: model.display_name || model.id || model.slug,
+        }))
+        .filter((model) => model.id);
+    } catch (error) {
+      throw wrapProviderError(error, 'Failed to list OpenAI Codex models', { signal });
+    }
+  }
+
   formatTools(tools) {
     return (Array.isArray(tools) ? tools : [])
       .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())

@@ -32,100 +32,6 @@ const { getDisabledModelIds } = require('./model_visibility');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
-const STATIC_MODELS = [
-    // — xAI OAuth — fallback entries shown when grok-oauth token is invalid/exhausted.
-    // When the token is valid, DYNAMIC_PROVIDERS will replace these with the live list.
-    {
-        id: 'grok-4',
-        label: 'Grok 4 (xAI OAuth)',
-        provider: 'grok-oauth',
-        purpose: 'general',
-    },
-    {
-        id: 'grok-4-mini',
-        label: 'Grok 4 Mini (xAI OAuth)',
-        provider: 'grok-oauth',
-        purpose: 'fast',
-    },
-    // — GitHub Copilot (subscription; no public /models endpoint) ————————
-    {
-        id: 'gpt-5.3',
-        label: 'GPT-5.3 (Copilot Default)',
-        provider: 'github-copilot',
-        purpose: 'general'
-    },
-    {
-        id: 'gpt-4.1',
-        label: 'GPT-4.1 (Copilot Fast)',
-        provider: 'github-copilot',
-        purpose: 'coding'
-    },
-    // — OpenAI Codex ——————————————————————————————————————————————————————
-    {
-        id: 'gpt-5.5',
-        label: 'GPT-5.5 (Codex Default)',
-        provider: 'openai-codex',
-        purpose: 'general'
-    },
-    {
-        id: 'gpt-5.4-mini',
-        label: 'GPT-5.4 mini (Codex Fast)',
-        provider: 'openai-codex',
-        purpose: 'coding'
-    },
-    {
-        id: 'gpt-5.4',
-        label: 'GPT-5.4 (Codex Fallback)',
-        provider: 'openai-codex',
-        purpose: 'general'
-    },
-    // — Claude Code ————————————————————————————————————————————————————————
-    {
-        id: 'claude-opus-4-8',
-        label: 'Claude Opus 4.8 (Claude Code / Flagship)',
-        provider: 'claude-code',
-        purpose: 'general'
-    },
-    {
-        id: 'claude-opus-4-7',
-        label: 'Claude Opus 4.7 (Claude Code / Default)',
-        provider: 'claude-code',
-        purpose: 'general'
-    },
-    {
-        id: 'claude-sonnet-4-6',
-        label: 'Claude Sonnet 4.6 (Claude Code / Fast)',
-        provider: 'claude-code',
-        purpose: 'coding'
-    },
-    {
-        id: 'claude-haiku-4-5-20251001',
-        label: 'Claude Haiku 4.5 (Claude Code / Subagents)',
-        provider: 'claude-code',
-        purpose: 'fast'
-    },
-    // — MiniMax ————————————————————————————————————————————————————————————
-    {
-        id: 'MiniMax-M2.7',
-        label: 'MiniMax M2.7 (Coding Plan)',
-        provider: 'minimax',
-        purpose: 'coding'
-    },
-    // — Ollama — default suggestions (full list loaded dynamically) ————————
-    {
-        id: 'qwen3.5:4b',
-        label: 'Qwen 3.5 4B (Local / Ollama)',
-        provider: 'ollama',
-        purpose: 'general',
-    },
-    {
-        id: 'gemma4:12b',
-        label: 'Gemma 4 12B (Local / Ollama)',
-        provider: 'ollama',
-        purpose: 'general',
-    }
-];
-
 // Maps a provider id to its class and which runtime fields its constructor takes.
 // Adding a provider is a one-line entry here instead of another dispatch branch.
 // `apiKey`/`baseUrl` mirror exactly what each constructor was historically given;
@@ -148,18 +54,10 @@ const PROVIDER_FACTORIES = Object.freeze({
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
 });
 
-// Providers whose full model list is fetched from their API at runtime.
-// grok-oauth inherits listModels() from GrokProvider and uses the same xAI endpoint.
-const DYNAMIC_PROVIDERS = [
-    'openai',
-    'openai-compatible',
-    'anthropic',
-    'google',
-    'nvidia',
-    'grok',
-    'grok-oauth',
-    'openrouter',
-];
+// Ollama has a shorter cache lifetime and dedicated discovery path. Every other
+// provider is discovered through its live model-list API.
+const DYNAMIC_PROVIDERS = Object.keys(PROVIDER_FACTORIES)
+    .filter((providerId) => providerId !== 'ollama');
 
 function isValidHttpUrl(value) {
     try {
@@ -366,10 +264,8 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         || await getProviderHealthCatalog(userId, agentId, { signal: options.signal });
     const providerById = new Map(providerCatalog.map((provider) => [provider.id, provider]));
 
-    const all = [...STATIC_MODELS];
-    const seenModelIds = new Set(
-        STATIC_MODELS.map((model) => createModelSelectionId(model.provider, model.id)),
-    );
+    const all = [];
+    const seenModelIds = new Set();
 
     // Ollama: dynamic list from local server
     const ollama = providerById.get('ollama');

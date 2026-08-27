@@ -112,7 +112,7 @@ describe('model discovery', () => {
     pending.resolve([{ id: 'eventual-model' }]);
   });
 
-  test('uses provider-curated models when discovery fails', async () => {
+  test('does not synthesize models when live discovery fails', async () => {
     class Provider {
       constructor() {
         this.models = ['curated-a', 'curated-b'];
@@ -127,6 +127,6 @@ describe('model discovery', () => {
       providerId: uniqueProviderId('fallback'),
       factory: { Provider, apiKey: false, baseUrl: false },
     });
-    assert.deepEqual(models.map((model) => model.id), ['curated-a', 'curated-b']);
+    assert.deepEqual(models, []);
   });
 });
