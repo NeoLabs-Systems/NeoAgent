@@ -2198,18 +2198,6 @@ class _OfficialIntegrationIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.icon == 'neomail') {
-      return Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: SvgPicture.asset(_neoMailLogoAsset, fit: BoxFit.cover),
-      );
-    }
     final color = switch (item.icon) {
       'neoarchive' => const Color(0xFFE3B655),
       'neorecall' => const Color(0xFFD98AA6),
@@ -2263,7 +2251,6 @@ int _compareOfficialIntegrationItems(
 int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
     'neoarchive' => 1,
-    'neomail' => 0,
     'neorecall' => 2,
     'google_workspace' => 3,
     _ => 10,

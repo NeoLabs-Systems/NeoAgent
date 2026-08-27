@@ -299,6 +299,18 @@ run_static_checks() {
   else
     record "FAIL" "install.sh: global neoagent CLI installation is missing"
   fi
+
+  if grep -q 'install --adopt-existing' "$script" && grep -q 'EXISTING_RUNTIME' "$script"; then
+    record "PASS" "install.sh: preserves and adopts existing runtime data"
+  else
+    record "FAIL" "install.sh: existing runtime adoption is missing"
+  fi
+
+  if grep -q 'reset --hard' "$script" && grep -q 'clean -fd' "$script"; then
+    record "PASS" "install.sh: replaces local source changes with the remote checkout"
+  else
+    record "FAIL" "install.sh: local source replacement policy is missing"
+  fi
 }
 
 # ══════════════════════════════════════════════════════════════════════════════

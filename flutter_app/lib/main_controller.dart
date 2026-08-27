@@ -6990,11 +6990,16 @@ class NeoAgentController extends ChangeNotifier {
     if (raw is List) {
       final filtered = <String>[];
       for (final item in raw) {
-        final model = _modelForValue(item.toString(), supportedModels);
+        final savedId = item.toString().trim();
+        if (savedId.isEmpty) continue;
+        final model = _modelForValue(savedId, supportedModels);
         // Skip models the admin has since disabled or whose provider lost
-        // its credentials -- a stale saved pool must not resurrect them.
-        if (model != null && model.available && !filtered.contains(model.id)) {
-          filtered.add(model.id);
+        // its credentials. Preserve models missing from the current catalog,
+        // though: dynamic provider discovery can fail temporarily, and a later
+        // settings save must not replace those saved selections.
+        final id = model?.id ?? savedId;
+        if ((model == null || model.available) && !filtered.contains(id)) {
+          filtered.add(id);
         }
       }
       if (filtered.isNotEmpty) {
@@ -7028,12 +7033,18 @@ class NeoAgentController extends ChangeNotifier {
     preserveUnknown: true,
   );
 
-  String get fallbackModel => _ensureModelValue(
-    settings['fallback_model_id']?.toString() ??
-        _firstAvailableModelId(supportedModels),
-    supportedModels,
-    allowAuto: false,
-  );
+  String get fallbackModel {
+    final savedId =
+        settings['fallback_model_id']?.toString().trim() ??
+        _firstAvailableModelId(supportedModels);
+    final model = _modelForValue(savedId, supportedModels);
+    if (model == null) {
+      return savedId.isNotEmpty
+          ? savedId
+          : _firstAvailableModelId(supportedModels);
+    }
+    return model.available ? model.id : _firstAvailableModelId(supportedModels);
+  }
 
   String get voiceSttProvider =>
       _settingString('voice_stt_provider', '', lowercase: true);

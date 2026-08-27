@@ -234,12 +234,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _smarterSelector = controller.smarterSelector;
-    // Only keep ids that are still available -- a model the admin has since
-    // disabled (or whose provider lost its credentials) must not survive
-    // hydration, or saving would silently re-persist it into the pool.
-    _enabledModels = controller.enabledModelIds
-        .where((id) => availableModels.contains(id))
-        .toSet();
+    // Remove catalog entries that are explicitly unavailable, but retain ids
+    // missing from this catalog snapshot. Dynamic discovery can temporarily
+    // omit a provider, and saving unrelated settings must not erase its pool.
+    _enabledModels = controller.enabledModelIds.where((id) {
+      final model = _modelForValue(id, controller.supportedModels);
+      return model == null || availableModels.contains(model.id);
+    }).toSet();
     if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
       _enabledModels = availableModels;
     }
@@ -1482,6 +1483,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             _fallbackModel,
                             routingModels,
                             allowAuto: false,
+                            preserveUnknown: true,
                           ),
                           options: _modelPickerOptions(routingModels),
                           onChanged: (value) {

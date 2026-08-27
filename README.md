@@ -18,7 +18,9 @@
 </p>
 
 > [!IMPORTANT]
-> **npm distribution has been shut down.** Install NeoAgent directly from GitHub using the repository installer below.
+> **npm registry distribution has been shut down.** Install NeoAgent directly
+> from GitHub using the repository installer below. The npm command is still
+> used locally to install Node.js dependencies and link the CLI to the checkout.
 
 <p align="center">
   <a href="https://discord.gg/f59rg2RwUT"><img src="https://img.shields.io/badge/Join%20NeoLabs-Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join the NeoLabs Discord"></a>
@@ -49,6 +51,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/mai
 
 Good to know:
 
+- Re-running the installer over an older package installation preserves
+  `~/.neoagent`, creates a backup, and switches the service to the Git checkout.
 - The first account is protected by a short-lived one-time setup claim.
 - The app finds the server's port automatically and discovers nearby NeoAgent servers on the local network.
 - The CLI downloads the signed QEMU runtime, firmware, and guest image for the isolated cloud computer — no separate VM product.

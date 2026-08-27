@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -103,7 +102,6 @@ const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';
-const String _neoMailLogoAsset = 'assets/branding/neomail_logo.svg';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
 const String _sessionCookieSecureStorageKey = 'auth.sessionCookie.secure';

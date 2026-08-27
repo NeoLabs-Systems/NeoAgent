@@ -49,15 +49,20 @@ describe('model catalog', () => {
     teardownTestRuntime(ctx);
   });
 
-  test('keeps equal raw model ids from different providers independently addressable', async () => {
+  test('returns only models reported by live provider discovery', async () => {
     const { getSupportedModels } = require('../../../server/services/ai/models');
-    const models = await getSupportedModels(user.userId, agentId);
+    const models = await getSupportedModels(user.userId, agentId, {
+      providerCatalog: [{
+        id: 'openai',
+        available: true,
+        status: 'healthy',
+        statusLabel: 'Healthy',
+      }],
+    });
 
-    const copilot = models.find((model) => model.id === 'github-copilot::gpt-5.3');
     const openai = models.find((model) => model.id === 'openai::gpt-5.3');
-    assert.equal(copilot?.modelId, 'gpt-5.3');
-    assert.equal(copilot?.available, false);
     assert.equal(openai?.modelId, 'gpt-5.3');
     assert.equal(openai?.available, true);
+    assert.equal(models.some((model) => model.provider !== 'openai'), false);
   });
 });

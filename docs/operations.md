@@ -27,8 +27,26 @@ neoagent update
 ```
 
 Stable is intended for normal installations. Beta receives prerelease builds.
-`update` follows the selected channel, updates the package or Git checkout,
-verifies the bundled client, and restarts the service.
+`update` follows the selected channel, updates the Git checkout, verifies the
+bundled client, and restarts the service. Legacy globally copied package
+installations are migrated once to `~/NeoAgent` (or `NEOAGENT_SOURCE_DIR`),
+after backing up configuration, database, and agent data. Signed standalone
+CLI installations update through their verified GitHub runtime packages.
+
+To migrate an older installation manually without resetting its data:
+
+```bash
+neoagent stop
+BACKUP_ARCHIVE="$HOME/neoagent-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -C "$HOME" -czf "$BACKUP_ARCHIVE" .neoagent
+bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
+neoagent doctor
+```
+
+Choose the default `~/NeoAgent` source directory unless it is already used for
+something else. Runtime state remains under `~/.neoagent`; the installer does
+not rerun onboarding when it detects existing state. If `NEOAGENT_HOME` points
+somewhere else, archive that directory instead of `~/.neoagent`.
 
 ## Recovery
 

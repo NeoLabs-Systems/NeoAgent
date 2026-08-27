@@ -76,6 +76,91 @@ void main() {
     expect(controller.modelIndicator, 'Grok 4.5 (xAI OAuth)');
   });
 
+  test('provider routing survives a partial catalog gap', () {
+    final controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+
+    const modelSelections = <String>[
+      'openai::gpt-5.3',
+      'openai-compatible::custom-model',
+      'anthropic::claude-sonnet-4-6',
+      'google::gemini-3.1-pro-preview',
+      'grok::grok-4',
+      'grok-oauth::grok-4',
+      'nvidia::moonshotai/kimi-k2.5',
+      'minimax::MiniMax-M2.7',
+      'github-copilot::gpt-5.3',
+      'openai-codex::gpt-5.5',
+      'claude-code::claude-opus-4-8',
+      'openrouter::anthropic/claude-sonnet-4.5',
+      'ollama::qwen3.5:4b',
+    ];
+    controller.supportedModels = const <ModelMeta>[
+      ModelMeta(
+        id: 'openai::gpt-5-nano',
+        modelId: 'gpt-5-nano',
+        label: 'GPT-5 nano',
+        provider: 'openai',
+        purpose: 'fast',
+      ),
+    ];
+
+    controller.settings = <String, dynamic>{'enabled_models': modelSelections};
+    expect(controller.enabledModelIds, modelSelections);
+
+    for (final selection in modelSelections) {
+      controller.settings = <String, dynamic>{
+        'default_chat_model': selection,
+        'default_subagent_model': selection,
+        'default_speech_model': selection,
+        'fallback_model_id': selection,
+      };
+      expect(controller.defaultChatModel, selection);
+      expect(controller.defaultSubagentModel, selection);
+      expect(controller.defaultSpeechModel, selection);
+      expect(controller.fallbackModel, selection);
+    }
+  });
+
+  test('known unavailable models are still removed from the routing pool', () {
+    final controller = NeoAgentController(
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+
+    controller.settings = <String, dynamic>{
+      'enabled_models': <String>[
+        'openrouter::anthropic/claude-sonnet-4.5',
+        'openai::gpt-5-nano',
+      ],
+      'fallback_model_id': 'openrouter::anthropic/claude-sonnet-4.5',
+    };
+    controller.supportedModels = const <ModelMeta>[
+      ModelMeta(
+        id: 'openrouter::anthropic/claude-sonnet-4.5',
+        modelId: 'anthropic/claude-sonnet-4.5',
+        label: 'Claude Sonnet 4.5 (OpenRouter)',
+        provider: 'openrouter',
+        purpose: 'general',
+        available: false,
+      ),
+      ModelMeta(
+        id: 'openai::gpt-5-nano',
+        modelId: 'gpt-5-nano',
+        label: 'GPT-5 nano',
+        provider: 'openai',
+        purpose: 'fast',
+      ),
+    ];
+
+    expect(controller.enabledModelIds, <String>['openai::gpt-5-nano']);
+    expect(controller.fallbackModel, 'openai::gpt-5-nano');
+  });
+
   test(
     'model selection saves while another settings operation is active',
     () async {

@@ -39,6 +39,16 @@ test('every factory exposes a constructable Provider class', () => {
   }
 });
 
+test('every provider supports live model discovery', () => {
+  for (const [id, factory] of Object.entries(PROVIDER_FACTORIES)) {
+    assert.equal(
+      typeof factory.Provider.prototype.listModels,
+      'function',
+      `factory ${id} must expose listModels()`,
+    );
+  }
+});
+
 test('createProviderInstance rejects unknown providers before touching runtime config', () => {
   assert.throws(
     () => createProviderInstance('does-not-exist', null, {}),
