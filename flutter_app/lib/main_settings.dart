@@ -186,6 +186,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late bool _behaviorObservabilityEnabled;
 
   bool _hasUnsavedChanges = false;
+  Object? _hydratedSettingsSource;
+  Object? _hydratedBehaviorSource;
+  Object? _hydratedMemorySource;
+  Object? _hydratedProvidersSource;
+  Object? _hydratedModelsSource;
 
   // Inline runtime test state — ephemeral, not stored in controller.
   bool _cliTestRunning = false;
@@ -200,10 +205,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _searchController = TextEditingController();
     _behaviorNotesController = TextEditingController();
     _hydrate();
+    widget.controller.addListener(_handleControllerChanged);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
     _searchController.dispose();
     _behaviorNotesController.dispose();
     for (final controller in _providerBaseUrlControllers.values) {
@@ -215,16 +222,36 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   void didUpdateWidget(covariant SettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller.settings != widget.controller.settings ||
-        oldWidget.controller.behaviorConfig !=
-            widget.controller.behaviorConfig ||
-        oldWidget.controller.memoryOverview !=
-            widget.controller.memoryOverview ||
-        oldWidget.controller.aiProviders != widget.controller.aiProviders ||
-        oldWidget.controller.supportedModels !=
-            widget.controller.supportedModels) {
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+      _hydrate();
+    } else if (!_hasUnsavedChanges && _hydrationSourcesChanged()) {
       _hydrate();
     }
+  }
+
+  void _handleControllerChanged() {
+    if (!mounted || _hasUnsavedChanges || !_hydrationSourcesChanged()) return;
+    setState(_hydrate);
+  }
+
+  bool _hydrationSourcesChanged() {
+    final controller = widget.controller;
+    return !identical(_hydratedSettingsSource, controller.settings) ||
+        !identical(_hydratedBehaviorSource, controller.behaviorConfig) ||
+        !identical(_hydratedMemorySource, controller.memoryOverview) ||
+        !identical(_hydratedProvidersSource, controller.aiProviders) ||
+        !identical(_hydratedModelsSource, controller.supportedModels);
+  }
+
+  void _rememberHydrationSources() {
+    final controller = widget.controller;
+    _hydratedSettingsSource = controller.settings;
+    _hydratedBehaviorSource = controller.behaviorConfig;
+    _hydratedMemorySource = controller.memoryOverview;
+    _hydratedProvidersSource = controller.aiProviders;
+    _hydratedModelsSource = controller.supportedModels;
   }
 
   void _hydrate() {
@@ -309,6 +336,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
     _pruneControllers(_providerBaseUrlControllers, providerIds);
     _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
+    _rememberHydrationSources();
   }
 
   @override
@@ -636,7 +664,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
       );
       if (controller.errorMessage != null) return;
     }
-    if (mounted) setState(() => _hasUnsavedChanges = false);
+    if (mounted) {
+      setState(() {
+        _hasUnsavedChanges = false;
+        _rememberHydrationSources();
+      });
+    }
   }
 
   Widget _settingsSaveButton(NeoAgentController controller) {
