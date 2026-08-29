@@ -101,13 +101,32 @@ describe('provider selector', () => {
     assert.equal(selected.providerName, 'openai');
   });
 
-  test('does not silently widen an explicitly configured but invalid model pool', async () => {
+  test('recovers from an explicitly configured but stale model pool', async () => {
     setSetting('enabled_models', ['missing-provider::missing-model']);
 
-    await assert.rejects(
-      getProviderForUser(user.userId, '', false, null, { agentId }),
-      /None of the enabled AI models are currently available/,
+    const statuses = [];
+    const selected = await getProviderForUser(user.userId, '', false, null, {
+      agentId,
+      onStatus: (status) => statuses.push(status),
+    });
+
+    assert.equal(selected.modelSelectionId, 'github-copilot::gpt-5.3');
+    assert.equal(statuses[0]?.phase, 'model_fallback');
+  });
+
+  test('treats a missing explicit task override as a preference and falls back', async () => {
+    setSetting('enabled_models', catalog.map((model) => model.id));
+    setSetting('fallback_model_id', 'openai::gpt-5.3');
+
+    const selected = await getProviderForUser(
+      user.userId,
+      '',
+      false,
+      'google::retired-model',
+      { agentId },
     );
+
+    assert.equal(selected.modelSelectionId, 'openai::gpt-5.3');
   });
 
   test('skips a model that recently returned a permanent not-found error', async () => {
@@ -129,5 +148,23 @@ describe('provider selector', () => {
 
     assert.equal(selected.modelSelectionId, 'openai::gpt-5.3');
     assert.equal(statuses[0]?.phase, 'model_fallback');
+  });
+
+  test('model quarantine survives a module reload', () => {
+    const selectionId = 'github-copilot::gpt-5.3';
+    modelFailureCache.recordModelFailure(
+      user.userId,
+      agentId,
+      selectionId,
+      Object.assign(new Error('provider returned not found'), { status: 404 }),
+    );
+
+    const cachePath = require.resolve('../../../server/services/ai/model_failure_cache');
+    delete require.cache[cachePath];
+    const reloadedCache = require(cachePath);
+    assert.equal(
+      reloadedCache.isModelCoolingDown(user.userId, agentId, selectionId),
+      true,
+    );
   });
 });

@@ -7,7 +7,8 @@ const calendarToolDefinitions = [
   {
     name: 'google_workspace_calendar_list_events',
     access: 'read',
-    description: 'List or search Google Calendar events for the connected account. Results include all-day/multi-day events (birthdays, anniversaries, full-day markers) that overlap the window. Each event has an allDay flag, timedCount/allDayCount summarize the mix, and timedEvents/nextTimedEvent expose the real timed appointments directly. For "what is scheduled / starting soon", decide from that single result instead of re-querying nearby windows to filter out all-day entries.',
+    description:
+      'List or search Google Calendar events for the connected account. Google returns events that overlap the requested window, including multi-day events that started earlier. When time_min is provided, upcomingTimedEvents contains only timed events that start at or after that bound, while ongoingTimedEvents contains timed events that started earlier and merely continue into the window. For reminders about events starting soon, use upcomingTimedEvents/nextUpcomingTimedEvent and the event\'s actual start; never treat ongoingTimedEvents or the query bounds as a new start time. All-day events remain separate in allDayEvents.',
     parameters: {
       type: 'object',
       properties: {
@@ -19,8 +20,14 @@ const calendarToolDefinitions = [
           type: 'string',
           description: 'Optional full-text event search query.',
         },
-        time_min: { type: 'string', description: 'ISO datetime lower bound.' },
-        time_max: { type: 'string', description: 'ISO datetime upper bound.' },
+        time_min: {
+          type: 'string',
+          description: 'RFC3339 lower bound for the overlap window. Also separates already-running timed events from events that start in the window.',
+        },
+        time_max: {
+          type: 'string',
+          description: 'RFC3339 exclusive upper bound for an event start.',
+        },
         max_results: {
           type: 'number',
           description: 'Maximum events to return (default 10).',
@@ -167,21 +174,57 @@ function summarizeEvent(event) {
   };
 }
 
-function summarizeListedEvents(items) {
+function normalizeQueryWindow(window = {}) {
+  const timeMin = String(window.timeMin || window.time_min || '').trim() || null;
+  const timeMax = String(window.timeMax || window.time_max || '').trim() || null;
+  return { timeMin, timeMax };
+}
+
+function summarizeListedEvents(items, window = {}) {
   const events = Array.isArray(items) ? items.map(summarizeEvent) : [];
-  const timedEvents = events.filter((event) => !event.allDay);
+  const listedTimedEvents = events.filter((event) => !event.allDay);
   const allDayEvents = events.filter((event) => event.allDay);
+  const queryWindow = normalizeQueryWindow(window);
+  const windowStartMs = Date.parse(queryWindow.timeMin || '');
+  const windowEndMs = Date.parse(queryWindow.timeMax || '');
+  const hasWindowStart = Number.isFinite(windowStartMs);
+  const hasWindowEnd = Number.isFinite(windowEndMs);
+  const ongoingTimedEvents = hasWindowStart
+    ? listedTimedEvents.filter((event) => {
+      const startMs = Date.parse(event.start || '');
+      const endMs = Date.parse(event.end || '');
+      return Number.isFinite(startMs)
+        && startMs < windowStartMs
+        && (!Number.isFinite(endMs) || endMs > windowStartMs);
+    })
+    : [];
+  const upcomingTimedEvents = listedTimedEvents.filter((event) => {
+    const startMs = Date.parse(event.start || '');
+    return Number.isFinite(startMs)
+      && (!hasWindowStart || startMs >= windowStartMs)
+      && (!hasWindowEnd || startMs < windowEndMs);
+  });
+  const timedEvents = [...upcomingTimedEvents, ...ongoingTimedEvents];
   return {
     count: events.length,
     timedCount: timedEvents.length,
+    upcomingTimedCount: upcomingTimedEvents.length,
+    ongoingTimedCount: ongoingTimedEvents.length,
     allDayCount: allDayEvents.length,
     hasTimedEvents: timedEvents.length > 0,
+    hasUpcomingTimedEvents: upcomingTimedEvents.length > 0,
+    hasOngoingTimedEvents: ongoingTimedEvents.length > 0,
+    hasOnlyOngoingTimedEvents: upcomingTimedEvents.length === 0 && ongoingTimedEvents.length > 0,
     hasOnlyAllDayEvents: timedEvents.length === 0 && allDayEvents.length > 0,
-    nextTimedEvent: timedEvents[0] || null,
+    nextUpcomingTimedEvent: upcomingTimedEvents[0] || null,
+    nextTimedEvent: upcomingTimedEvents[0] || null,
+    queryWindow,
+    upcomingTimedEvents,
+    ongoingTimedEvents,
     timedEvents,
     allDayEvents,
-    // Keep the legacy merged list for existing callers, but put timed items first so
-    // the most actionable event is visible without extra filtering.
+    // Keep the legacy merged list for existing callers, but put events that really
+    // start in the requested window before already-running and all-day entries.
     events: [...timedEvents, ...allDayEvents],
   };
 }
@@ -206,7 +249,7 @@ async function executeCalendarTool(toolName, args, auth) {
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
       });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
-      return summarizeListedEvents(items);
+      return summarizeListedEvents(items, { timeMin, timeMax });
     }
 
     case 'google_workspace_calendar_create_event': {

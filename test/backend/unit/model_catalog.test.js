@@ -65,4 +65,29 @@ describe('model catalog', () => {
     assert.equal(openai?.available, true);
     assert.equal(models.some((model) => model.provider !== 'openai'), false);
   });
+
+  test('marks a model with persisted runtime failures unavailable without deleting it', async () => {
+    const { recordModelFailure } = require('../../../server/services/ai/model_failure_cache');
+    const { getSupportedModels } = require('../../../server/services/ai/models');
+    recordModelFailure(
+      user.userId,
+      agentId,
+      'openai::gpt-5.3',
+      Object.assign(new Error('provider returned not found'), { status: 404 }),
+    );
+
+    const models = await getSupportedModels(user.userId, agentId, {
+      providerCatalog: [{
+        id: 'openai',
+        available: true,
+        status: 'healthy',
+        statusLabel: 'Healthy',
+      }],
+    });
+    const failed = models.find((model) => model.id === 'openai::gpt-5.3');
+
+    assert.equal(failed?.available, false);
+    assert.equal(failed?.runtimeUnavailable, true);
+    assert.equal(models.find((model) => model.id === 'openai::gpt-5.6')?.available, true);
+  });
 });

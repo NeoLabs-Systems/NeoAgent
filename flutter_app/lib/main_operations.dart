@@ -3631,6 +3631,39 @@ TaskDeliveryTarget? _taskDeliveryTargetFromTask(TaskItem? task) {
   );
 }
 
+List<DropdownMenuItem<String>> _taskModelOverrideItems({
+  required String selectedModel,
+  required List<ModelMeta> models,
+}) {
+  final availableModels = models.where((model) => model.available).toList();
+  final availableIds = availableModels.map((model) => model.id).toSet();
+  final selectedModelMeta = _modelForValue(selectedModel, models);
+  final selectedModelIsUnavailable =
+      selectedModel != 'auto' && !availableIds.contains(selectedModel);
+
+  return <DropdownMenuItem<String>>[
+    const DropdownMenuItem<String>(
+      value: 'auto',
+      child: Text('Auto (default routing)'),
+    ),
+    if (selectedModelIsUnavailable)
+      DropdownMenuItem<String>(
+        value: selectedModel,
+        enabled: false,
+        child: Text(
+          '${selectedModelMeta?.label ?? selectedModel} (Unavailable saved override)',
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ...availableModels.map(
+      (model) => DropdownMenuItem<String>(
+        value: model.id,
+        child: Text(model.label, overflow: TextOverflow.ellipsis),
+      ),
+    ),
+  ];
+}
+
 Future<TaskDeliveryTarget?> _pickTaskDeliveryTarget(
   BuildContext context, {
   required NeoAgentController controller,
@@ -5036,21 +5069,14 @@ class _TasksPanelState extends State<TasksPanel> {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: selectedModel,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Model Override',
                         ),
-                        items: <DropdownMenuItem<String>>[
-                          const DropdownMenuItem<String>(
-                            value: 'auto',
-                            child: Text('Auto (default routing)'),
-                          ),
-                          ...controller.supportedModels.map(
-                            (model) => DropdownMenuItem<String>(
-                              value: model.id,
-                              child: Text(model.label),
-                            ),
-                          ),
-                        ],
+                        items: _taskModelOverrideItems(
+                          selectedModel: selectedModel,
+                          models: controller.supportedModels,
+                        ),
                         onChanged: (value) => setLocalState(
                           () => selectedModel = value ?? 'auto',
                         ),

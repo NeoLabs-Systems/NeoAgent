@@ -29,6 +29,7 @@ const {
     refreshProviderModelList,
 } = require('./model_discovery');
 const { getDisabledModelIds } = require('./model_visibility');
+const { getModelHealthSnapshot } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
@@ -312,6 +313,7 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
+    const runtimeHealth = getModelHealthSnapshot(userId, agentId);
 
     // Plan-based model allowlist (billing optional feature).
     let planAllowedModels = null;
@@ -344,6 +346,9 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
             available = false;
         }
+        const runtimeUnavailable = runtimeHealth.modelIds.has(selectableModel.id)
+            || runtimeHealth.providerIds.has(selectableModel.provider);
+        if (available && runtimeUnavailable) available = false;
 
         const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
         const inputCostPerM = model.provider === 'ollama'
@@ -355,6 +360,7 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             priceTier,
             inputCostPerM,
             available,
+            runtimeUnavailable,
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown'
         };

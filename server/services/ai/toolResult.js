@@ -361,12 +361,9 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'google_workspace_calendar_list_events': {
-      // The raw result leads with a verbose `nextTimedEvent` plus full event
-      // objects (description/htmlLink/attendees), so generic JSON truncation
-      // cuts the actual `events` array off mid-object — the model never sees
-      // what is scheduled and re-queries adjacent windows forever. Emit a
-      // compact, COMPLETE digest instead: every event the model needs to reason
-      // about "what's coming up", none of the noise it doesn't.
+      // Emit a compact, complete digest and preserve the provider's window-aware
+      // distinction: an event can be timed yet already running when the queried
+      // window begins. Reminder logic must only treat upcomingTimed as a new start.
       const events = Array.isArray(toolResult?.events)
         ? toolResult.events
         : [
@@ -374,16 +371,47 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           ...(Array.isArray(toolResult?.allDayEvents) ? toolResult.allDayEvents : []),
         ];
       const timed = events.filter((event) => !event?.allDay);
-      const allDay = events.filter((event) => event?.allDay);
+      const hasTimedPartitions = Array.isArray(toolResult?.upcomingTimedEvents)
+        || Array.isArray(toolResult?.ongoingTimedEvents);
+      const upcomingTimed = hasTimedPartitions
+        ? (Array.isArray(toolResult?.upcomingTimedEvents) ? toolResult.upcomingTimedEvents : [])
+        : timed;
+      const ongoingTimed = hasTimedPartitions
+        ? (Array.isArray(toolResult?.ongoingTimedEvents) ? toolResult.ongoingTimedEvents : [])
+        : [];
+      const allDay = Array.isArray(toolResult?.allDayEvents)
+        ? toolResult.allDayEvents
+        : events.filter((event) => event?.allDay);
+      const queryWindow = trimObject({
+        timeMin: toolResult?.queryWindow?.timeMin || toolArgs.time_min || toolArgs.timeMin,
+        timeMax: toolResult?.queryWindow?.timeMax || toolArgs.time_max || toolArgs.timeMax,
+      });
       envelope = trimObject({
         tool: toolName,
+        queryWindow: Object.keys(queryWindow).length > 0 ? queryWindow : undefined,
         count: typeof toolResult?.count === 'number' ? toolResult.count : events.length,
         timedCount: typeof toolResult?.timedCount === 'number' ? toolResult.timedCount : timed.length,
+        upcomingTimedCount: typeof toolResult?.upcomingTimedCount === 'number'
+          ? toolResult.upcomingTimedCount
+          : upcomingTimed.length,
+        ongoingTimedCount: typeof toolResult?.ongoingTimedCount === 'number'
+          ? toolResult.ongoingTimedCount
+          : ongoingTimed.length,
         allDayCount: typeof toolResult?.allDayCount === 'number' ? toolResult.allDayCount : allDay.length,
-        hasOnlyAllDayEvents: toolResult?.hasOnlyAllDayEvents === true ? true : undefined,
-        // Timed appointments are what "starting soon" cares about — keep them all,
-        // with the fields a reminder actually uses.
-        timed: timed.map((event) => trimObject({
+        hasUpcomingTimedEvents: toolResult?.hasUpcomingTimedEvents === true || upcomingTimed.length > 0,
+        hasOngoingTimedEvents: toolResult?.hasOngoingTimedEvents === true || ongoingTimed.length > 0,
+        hasOnlyOngoingTimedEvents: toolResult?.hasOnlyOngoingTimedEvents === true
+          || (upcomingTimed.length === 0 && ongoingTimed.length > 0),
+        hasOnlyAllDayEvents: toolResult?.hasOnlyAllDayEvents === true
+          || (timed.length === 0 && allDay.length > 0),
+        upcomingTimed: upcomingTimed.map((event) => trimObject({
+          summary: clampText(event?.summary || '(no title)', 140),
+          start: event?.start || null,
+          end: event?.end || null,
+          location: event?.location ? clampText(event.location, 80) : undefined,
+          status: event?.status && event.status !== 'confirmed' ? event.status : undefined,
+        })),
+        ongoingTimed: ongoingTimed.map((event) => trimObject({
           summary: clampText(event?.summary || '(no title)', 140),
           start: event?.start || null,
           end: event?.end || null,

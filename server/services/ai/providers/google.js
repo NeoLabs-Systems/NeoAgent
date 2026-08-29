@@ -90,28 +90,40 @@ class GoogleProvider extends BaseProvider {
 
   async listModels(signal = null) {
     const DROP = /tts|lyria|robotics|deep-research|antigravity|computer-use|-image(?!.*it)/i;
-    const { response, text } = await fetchResponseText(
-      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',
-      {
-        headers: { 'x-goog-api-key': this.apiKey },
-        maxResponseBytes: 5 * 1024 * 1024,
-        serviceName: 'Google model catalog',
-        signal,
-      },
-    );
-    if (!response.ok) {
-      const error = new Error(`Google models API returned ${response.status}`);
-      error.status = response.status;
-      error.headers = response.headers;
-      throw error;
-    }
-    let payload;
-    try {
-      payload = JSON.parse(text || '{}');
-    } catch {
-      throw new Error('Google models API returned invalid JSON.');
-    }
-    const { models = [] } = payload;
+    const models = [];
+    const seenPageTokens = new Set();
+    let pageToken = '';
+    do {
+      const query = new URLSearchParams({ pageSize: '1000' });
+      if (pageToken) query.set('pageToken', pageToken);
+      const { response, text } = await fetchResponseText(
+        `https://generativelanguage.googleapis.com/v1beta/models?${query}`,
+        {
+          headers: { 'x-goog-api-key': this.apiKey },
+          maxResponseBytes: 5 * 1024 * 1024,
+          serviceName: 'Google model catalog',
+          signal,
+        },
+      );
+      if (!response.ok) {
+        const error = new Error(`Google models API returned ${response.status}`);
+        error.status = response.status;
+        error.headers = response.headers;
+        throw error;
+      }
+      let payload;
+      try {
+        payload = JSON.parse(text || '{}');
+      } catch {
+        throw new Error('Google models API returned invalid JSON.');
+      }
+      if (Array.isArray(payload.models)) models.push(...payload.models);
+      const nextPageToken = String(payload.nextPageToken || '').trim();
+      if (!nextPageToken || seenPageTokens.has(nextPageToken)) break;
+      seenPageTokens.add(nextPageToken);
+      pageToken = nextPageToken;
+    } while (pageToken);
+
     return models
       .filter((m) => {
         const id = m.name.replace('models/', '');

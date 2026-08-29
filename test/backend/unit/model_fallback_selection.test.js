@@ -52,7 +52,7 @@ describe('model fallback selection', () => {
     teardownTestRuntime(ctx);
   });
 
-  test('does not fall back outside the enabled model pool', async () => {
+  test('widens beyond a failed enabled-only pool to keep the run alive', async () => {
     const fallback = await getFailureFallbackModelId(
       user.userId,
       agentId,
@@ -61,7 +61,7 @@ describe('model fallback selection', () => {
       new Error('Model google/gemini-2.5-flash-lite returned an empty response.'),
     );
 
-    assert.equal(fallback, null);
+    assert.equal(fallback, 'openai/gpt-5-nano');
   });
 
   test('does not cycle back to models that already failed in the same run', async () => {

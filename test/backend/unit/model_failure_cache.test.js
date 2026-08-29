@@ -1,28 +1,34 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { afterEach, test } = require('node:test');
+const { afterEach, beforeEach, test } = require('node:test');
 
-const {
-  clearModelFailureCache,
-  isModelCoolingDown,
-  isPermanentModelFailure,
-  isRecoverableModelFailure,
-  recordModelFailure,
-  recordModelSuccess,
-} = require('../../../server/services/ai/model_failure_cache');
+const { createTestRuntime, createTestUser, teardownTestRuntime } = require('../../helpers/db');
 
-afterEach(() => clearModelFailureCache());
+let ctx;
+let userId;
+let modelHealth;
+
+beforeEach(async () => {
+  ctx = createTestRuntime();
+  ({ userId } = await createTestUser(ctx.db));
+  modelHealth = require('../../../server/services/ai/model_failure_cache');
+});
+
+afterEach(() => {
+  modelHealth.clearModelFailureCache();
+  teardownTestRuntime(ctx);
+});
 
 test('404 model failures enter a bounded cooldown and successes clear it', () => {
   const error = Object.assign(new Error('NVIDIA NIM request failed: 404 status code'), {
     status: 404,
   });
-  assert.equal(isPermanentModelFailure(error), true);
-  assert.equal(recordModelFailure(7, 'main', 'nvidia::removed-model', error, 1_000), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'nvidia::removed-model', 1_001), true);
-  assert.equal(recordModelSuccess(7, 'main', 'nvidia::removed-model'), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'nvidia::removed-model', 1_002), false);
+  assert.equal(modelHealth.isPermanentModelFailure(error), true);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'nvidia::removed-model', error, 1_000), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'nvidia::removed-model', 1_001), true);
+  assert.equal(modelHealth.recordModelSuccess(userId, 'main', 'nvidia::removed-model'), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'nvidia::removed-model', 1_002), false);
 });
 
 test('request-shape failures do not quarantine a model', () => {
@@ -30,18 +36,28 @@ test('request-shape failures do not quarantine a model', () => {
     status: 400,
   });
 
-  assert.equal(recordModelFailure(7, 'main', 'google::gemini', invalidRole), false);
-  assert.equal(isModelCoolingDown(7, 'main', 'google::gemini'), false);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'google::gemini', invalidRole), false);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini'), false);
 });
 
 test('an endpoint-specific unsupported model response quarantines that model', () => {
-  const unsupported = Object.assign(new Error('The requested model is not supported.'), {
+  const unsupported = Object.assign(new Error('Provider rejected the selection.'), {
+    status: 400,
+    code: 'MODEL_UNSUPPORTED',
+  });
+
+  assert.equal(modelHealth.isPermanentModelFailure(unsupported), true);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'copilot::unsupported', unsupported), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'copilot::unsupported'), true);
+});
+
+test('message wording alone never decides model health', () => {
+  const unstructured = Object.assign(new Error('The requested model is not supported.'), {
     status: 400,
   });
 
-  assert.equal(isPermanentModelFailure(unsupported), true);
-  assert.equal(recordModelFailure(7, 'main', 'copilot::unsupported', unsupported), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'copilot::unsupported'), true);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'copilot::unsupported', unstructured), false);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'copilot::unsupported'), false);
 });
 
 test('exhausted transient and empty-response failures enter a short cooldown', () => {
@@ -52,13 +68,13 @@ test('exhausted transient and empty-response failures enter a short cooldown', (
     code: 'MODEL_EMPTY_RESPONSE',
   });
 
-  assert.equal(isRecoverableModelFailure(unavailable), true);
-  assert.equal(recordModelFailure(7, 'main', 'google::gemini', unavailable, 1_000), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'google::gemini', 1_001), true);
+  assert.equal(modelHealth.isRecoverableModelFailure(unavailable), true);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'google::gemini', unavailable, 1_000), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini', 1_001), true);
 
-  assert.equal(isRecoverableModelFailure(empty), true);
-  assert.equal(recordModelFailure(7, 'main', 'openrouter::gemini', empty, 1_000), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'openrouter::gemini', 1_001), true);
+  assert.equal(modelHealth.isRecoverableModelFailure(empty), true);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'openrouter::gemini', empty, 1_000), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'openrouter::gemini', 1_001), true);
 });
 
 test('provider retry-after extends the recovery cooldown without exceeding its cap', () => {
@@ -67,7 +83,7 @@ test('provider retry-after extends the recovery cooldown without exceeding its c
     headers: { 'retry-after': '120' },
   });
 
-  assert.equal(recordModelFailure(7, 'main', 'google::gemini', rateLimit, 1_000), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'google::gemini', 120_999), true);
-  assert.equal(isModelCoolingDown(7, 'main', 'google::gemini', 121_001), false);
+  assert.equal(modelHealth.recordModelFailure(userId, 'main', 'google::gemini', rateLimit, 1_000), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini', 120_999), true);
+  assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini', 121_001), false);
 });

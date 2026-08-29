@@ -40,6 +40,7 @@ const { shortenRunId, summarizeForLog } = require('../logFormat');
 const {
   recordModelFailure,
   recordModelSuccess,
+  shouldSwitchModel,
 } = require('../model_failure_cache');
 const { getProviderForUser } = require('../provider_selector');
 const {
@@ -180,6 +181,7 @@ class DurableRunRuntime {
     let model = null;
     let modelSelectionId = null;
     let providerName = null;
+    const failedModelIds = new Set();
     let messages = [];
     let ackContextMessages = [];
     let tools = [];
@@ -1634,8 +1636,9 @@ class DurableRunRuntime {
           });
           budget.recordToolFailure(true, recovery.errorClass);
           recordModelFailure(userId, agentId, modelSelectionId, error);
+          failedModelIds.add(modelSelectionId);
 
-          if (recovery.retryable && recovery.action === 'switch_provider_or_backoff') {
+          if (shouldSwitchModel(error)) {
             const fallbackId = await getFailureFallbackModelId(
               userId,
               agentId,
@@ -1643,7 +1646,7 @@ class DurableRunRuntime {
               aiSettings.fallback_model_id,
               error,
               getActiveSignal(),
-              [modelSelectionId],
+              failedModelIds,
             );
             if (fallbackId) {
               const fallback = await getProviderForUser(
@@ -1811,14 +1814,18 @@ class DurableRunRuntime {
           if (decision.blocker?.code === 'blank_model_output') {
             blankOutputRecoveries += 1;
             if (blankOutputRecoveries <= maxBlankOutputRecoveries) {
+              const blankOutputError = new Error('Model returned no content and no tool calls');
+              blankOutputError.code = 'MODEL_EMPTY_RESPONSE';
+              recordModelFailure(userId, agentId, modelSelectionId, blankOutputError);
+              failedModelIds.add(modelSelectionId);
               const fallbackId = await getFailureFallbackModelId(
                 userId,
                 agentId,
                 modelSelectionId,
                 aiSettings.fallback_model_id,
-                new Error('Model returned no content and no tool calls'),
+                blankOutputError,
                 getActiveSignal(),
-                [modelSelectionId],
+                failedModelIds,
               );
               if (fallbackId) {
                 const fallback = await getProviderForUser(
