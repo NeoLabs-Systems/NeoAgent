@@ -360,7 +360,8 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
 
-    case 'google_workspace_calendar_list_events': {
+    case 'google_workspace_calendar_list_events':
+    case 'microsoft_365_calendar_list_events': {
       // Emit a compact, complete digest and preserve the provider's window-aware
       // distinction: an event can be timed yet already running when the queried
       // window begins. Reminder logic must only treat upcomingTimed as a new start.
@@ -388,8 +389,13 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       envelope = trimObject({
         tool: toolName,
+        windowMode: toolResult?.windowMode,
         queryWindow: Object.keys(queryWindow).length > 0 ? queryWindow : undefined,
         count: typeof toolResult?.count === 'number' ? toolResult.count : events.length,
+        overlapCount: toolResult?.overlapCount,
+        omittedOngoingTimedCount: toolResult?.omittedOngoingTimedCount,
+        omittedAllDayCount: toolResult?.omittedAllDayCount,
+        hasOnlyOmittedOverlaps: toolResult?.hasOnlyOmittedOverlaps === true || undefined,
         timedCount: typeof toolResult?.timedCount === 'number' ? toolResult.timedCount : timed.length,
         upcomingTimedCount: typeof toolResult?.upcomingTimedCount === 'number'
           ? toolResult.upcomingTimedCount
