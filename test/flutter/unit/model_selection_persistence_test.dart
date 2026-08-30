@@ -117,12 +117,10 @@ void main() {
         'default_chat_model': selection,
         'default_subagent_model': selection,
         'default_speech_model': selection,
-        'fallback_model_id': selection,
       };
       expect(controller.defaultChatModel, selection);
       expect(controller.defaultSubagentModel, selection);
       expect(controller.defaultSpeechModel, selection);
-      expect(controller.fallbackModel, selection);
     }
   });
 
@@ -138,7 +136,6 @@ void main() {
         'openrouter::anthropic/claude-sonnet-4.5',
         'openai::gpt-5-nano',
       ],
-      'fallback_model_id': 'openrouter::anthropic/claude-sonnet-4.5',
     };
     controller.supportedModels = const <ModelMeta>[
       ModelMeta(
@@ -162,7 +159,6 @@ void main() {
       'openrouter::anthropic/claude-sonnet-4.5',
       'openai::gpt-5-nano',
     ]);
-    expect(controller.fallbackModel, 'openrouter::anthropic/claude-sonnet-4.5');
   });
 
   testWidgets('late settings hydration never rewrites a saved model', (
@@ -197,7 +193,6 @@ void main() {
       'default_chat_model': savedModel,
       'default_subagent_model': savedModel,
       'default_speech_model': savedModel,
-      'fallback_model_id': savedModel,
     };
     controller.supportedModels = const <ModelMeta>[
       ModelMeta(
@@ -232,7 +227,10 @@ void main() {
       savedModel,
     );
     expect(backend.settingsPayloads.single['default_speech_model'], savedModel);
-    expect(backend.settingsPayloads.single['fallback_model_id'], savedModel);
+    expect(
+      backend.settingsPayloads.single.containsKey('fallback_model_id'),
+      isFalse,
+    );
 
     backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
     await tester.pump();
@@ -264,7 +262,6 @@ void main() {
       'default_chat_model': openRouterModel,
       'default_subagent_model': 'auto',
       'default_speech_model': 'auto',
-      'fallback_model_id': openAiModel,
     };
     controller.supportedModels = const <ModelMeta>[
       ModelMeta(

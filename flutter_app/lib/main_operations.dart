@@ -187,7 +187,6 @@ class _LogsPanelState extends State<LogsPanel> {
       'ai': <String, dynamic>{
         'defaultChatModel': controller.defaultChatModel,
         'defaultSubagentModel': controller.defaultSubagentModel,
-        'fallbackModel': controller.fallbackModel,
         'smarterSelector': controller.smarterSelector,
         'enabledModelCount': controller.enabledModelIds.length,
         'availableModelCount': controller.supportedModels

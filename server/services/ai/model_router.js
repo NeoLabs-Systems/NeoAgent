@@ -143,10 +143,6 @@ function selectInitialModel({
     if (requested) return { model: requested, reason: null };
   }
 
-  const configuredFallback = resolveReadyModel(
-    pools.readyModels,
-    settings.fallback_model_id,
-  );
   const preferredPool = pools.configuredReadyModels.length > 0
     ? pools.configuredReadyModels
     : pools.readyModels;
@@ -155,11 +151,7 @@ function selectInitialModel({
     selectionHint,
     settings,
   });
-  const shouldUseConfiguredFallback = requestedId !== 'auto'
-    || (pools.configuredIds.length > 0 && pools.configuredReadyModels.length === 0);
-  const selected = shouldUseConfiguredFallback
-    ? (configuredFallback || automatic)
-    : automatic;
+  const selected = automatic;
 
   let reason = null;
   if (requestedId !== 'auto') reason = 'requested_model_unavailable';
@@ -175,7 +167,6 @@ function selectFallbackModel({
   userId,
   agentId,
   currentModelId,
-  preferredFallbackId = null,
   excludedModelIds = [],
   excludedProviderIds = [],
 }) {
@@ -188,9 +179,6 @@ function selectFallbackModel({
     excludedProviderIds,
   });
   if (pools.readyModels.length === 0) return null;
-
-  const preferred = resolveReadyModel(pools.readyModels, preferredFallbackId);
-  if (preferred && preferred.id !== currentModelId) return preferred;
 
   const currentModel = resolveModelSelection(pools.selectableModels, currentModelId)
     || resolveModelSelection(models, currentModelId);

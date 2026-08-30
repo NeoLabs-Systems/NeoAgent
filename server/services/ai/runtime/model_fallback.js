@@ -9,7 +9,6 @@ async function getFailureFallbackModelId(
   userId,
   agentId,
   currentModelId,
-  preferredFallbackId = null,
   failureError = null,
   signal = null,
   excludedModelIds = [],
@@ -33,7 +32,6 @@ async function getFailureFallbackModelId(
     userId,
     agentId,
     currentModelId,
-    preferredFallbackId,
     excludedModelIds: failedModelIds,
     excludedProviderIds,
   });

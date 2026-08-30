@@ -4,6 +4,7 @@ const { google } = require('googleapis');
 const { coerceStringList, executeGoogleApiRequest } = require('./common');
 const {
   applyCalendarListMode,
+  excludeStartedTimedEvents,
   partitionCalendarEvents,
 } = require('../calendar_window');
 
@@ -191,7 +192,7 @@ function summarizeListedEvents(items, window = {}) {
   return partitionCalendarEvents(events, window);
 }
 
-async function executeCalendarTool(toolName, args, auth) {
+async function executeCalendarTool(toolName, args, auth, executionOptions = {}) {
   const calendar = google.calendar({ version: 'v3', auth });
   const calendarId = String(args.calendar_id || 'primary').trim() || 'primary';
   // Models sometimes emit camelCase timeMin/timeMax despite the snake_case
@@ -201,6 +202,15 @@ async function executeCalendarTool(toolName, args, auth) {
 
   switch (toolName) {
     case 'google_workspace_calendar_list_events': {
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && (!timeMin || !timeMax)
+      ) {
+        throw new Error(
+          'Automatic calendar checks require both time_min and time_max. Query a bounded event-start window derived from the task schedule and requested reminder offset.',
+        );
+      }
       const response = await calendar.events.list({
         calendarId,
         q: String(args.query || '').trim() || undefined,
@@ -211,7 +221,15 @@ async function executeCalendarTool(toolName, args, auth) {
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
       });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
-      const summary = summarizeListedEvents(items, { timeMin, timeMax });
+      const summarizedItems = items.map(summarizeEvent);
+      const automaticReminderEvents = (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && args.include_ongoing !== true
+      )
+        ? excludeStartedTimedEvents(summarizedItems, executionOptions.scheduledAt)
+        : summarizedItems;
+      const summary = partitionCalendarEvents(automaticReminderEvents, { timeMin, timeMax });
       const hasWindowStart = Boolean(timeMin);
       return applyCalendarListMode(summary, {
         includeOngoing: !hasWindowStart || args.include_ongoing === true,
@@ -307,6 +325,16 @@ async function executeCalendarTool(toolName, args, auth) {
     }
 
     case 'google_workspace_calendar_api_request': {
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && String(args.method || 'GET').trim().toUpperCase() === 'GET'
+        && /\/calendar\/v3\/calendars\/[^/]+\/events(?:\?|$)/i.test(String(args.path || ''))
+      ) {
+        throw new Error(
+          'Automatic calendar checks must use google_workspace_calendar_list_events with explicit time_min and time_max bounds.',
+        );
+      }
       return executeGoogleApiRequest(auth, args, {
         baseUrl: 'https://www.googleapis.com',
       });

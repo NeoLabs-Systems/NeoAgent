@@ -637,7 +637,6 @@ class AgentEngine {
     signal = null,
   }) {
     const { getFailureFallbackModelId } = require('../runtime/model_fallback');
-    const configuredFallbackId = getAiSettings(userId, agentId).fallback_model_id;
     const failedModelIds = new Set();
     let requestedModelId = modelId;
     let selected = null;
@@ -682,7 +681,6 @@ class AgentEngine {
           userId,
           agentId,
           selected.modelSelectionId,
-          configuredFallbackId,
           error,
           signal,
           failedModelIds,

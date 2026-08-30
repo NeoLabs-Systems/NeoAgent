@@ -271,7 +271,7 @@ async function executeGoogleWorkspaceTool(
     throw new Error(`Unknown tool: ${toolName}`);
   }
   const result = await waitForAbortableResult(
-    app.executor(toolName, args, auth),
+    app.executor(toolName, args, auth, executionOptions),
     executionOptions.signal,
   );
   if (result === null) {

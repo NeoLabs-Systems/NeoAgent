@@ -1219,7 +1219,7 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     task: { type: 'string', description: 'The task for the sub-agent to complete' },
-                    model: { type: 'string', description: 'Model override for the sub-agent (e.g. gpt-4o-mini for cheap tasks)' },
+                    model: { type: 'string', description: 'Optional model override selected from the live model catalog.' },
                     context: { type: 'string', description: 'Only the constraints and evidence the sub-agent needs.' },
                     required_artifacts: { type: 'array', items: { type: 'string' }, description: 'Artifacts the sub-agent must return.' },
                     tools: { type: 'array', items: { type: 'string' }, description: 'Exact active tool names the sub-agent may need.' }
@@ -1669,6 +1669,7 @@ async function executeTool(toolName, args, context, engine) {
         app,
         triggerSource,
         taskId,
+        scheduledAt,
         deliveryState = null,
         allowMultipleProactiveMessages = false,
         signal = null,
@@ -1741,7 +1742,12 @@ async function executeTool(toolName, args, context, engine) {
             toolName,
             args,
             agentId,
-            { signal },
+            {
+                signal,
+                triggerSource,
+                taskId,
+                scheduledAt,
+            },
         );
         if (
             integrationResult &&

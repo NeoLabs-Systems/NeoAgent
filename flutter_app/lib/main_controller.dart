@@ -5009,7 +5009,6 @@ class NeoAgentController extends ChangeNotifier {
     required String defaultChatModel,
     required String defaultSubagentModel,
     required String defaultSpeechModel,
-    required String fallbackModel,
     required String voiceSttProvider,
     required String voiceSttModel,
     required String voiceTtsProvider,
@@ -5030,7 +5029,6 @@ class NeoAgentController extends ChangeNotifier {
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
       'default_speech_model': defaultSpeechModel,
-      'fallback_model_id': fallbackModel,
       'voice_stt_provider': voiceSttProvider,
       'voice_stt_model': voiceSttModel,
       'voice_tts_provider': voiceTtsProvider,
@@ -7028,14 +7026,6 @@ class NeoAgentController extends ChangeNotifier {
     settings['default_speech_model']?.toString() ?? 'auto',
     supportedModels,
     allowAuto: true,
-    preserveUnknown: true,
-  );
-
-  String get fallbackModel => _ensureModelValue(
-    settings['fallback_model_id']?.toString() ??
-        _firstAvailableModelId(supportedModels),
-    supportedModels,
-    allowAuto: false,
     preserveUnknown: true,
   );
 

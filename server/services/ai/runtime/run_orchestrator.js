@@ -1643,7 +1643,6 @@ class DurableRunRuntime {
               userId,
               agentId,
               modelSelectionId,
-              aiSettings.fallback_model_id,
               error,
               getActiveSignal(),
               failedModelIds,
@@ -1822,7 +1821,6 @@ class DurableRunRuntime {
                 userId,
                 agentId,
                 modelSelectionId,
-                aiSettings.fallback_model_id,
                 blankOutputError,
                 getActiveSignal(),
                 failedModelIds,
@@ -2024,6 +2022,7 @@ class DurableRunRuntime {
                     source: options.source || null,
                     chatId: options.chatId || null,
                     taskId: options.taskId || null,
+                    scheduledAt: options.scheduledAt || null,
                     deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
                     stageProactiveMessages: options.stageProactiveMessages === true,
                     allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true

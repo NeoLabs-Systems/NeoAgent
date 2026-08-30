@@ -123,7 +123,7 @@ class OllamaProvider extends BaseProvider {
 
   buildChatBody(messages, tools, options, stream) {
     const body = {
-      model: options.model || this.config.model || 'llama3.1',
+      model: this.requireModel(options),
       messages: messages.map(m => {
         const msg = {
           role: m.role,
@@ -203,7 +203,7 @@ class OllamaProvider extends BaseProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || 'llama3.1';
+    const model = this.requireModel(options);
     await this.ensureModel(model, options.signal);
 
     let data;
@@ -246,7 +246,7 @@ class OllamaProvider extends BaseProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || 'llama3.1';
+    const model = this.requireModel(options);
     await this.ensureModel(model, options.signal);
 
     let requestTools = tools;

@@ -206,6 +206,19 @@ test('Microsoft calendar reminders return event starts instead of overlapping lo
   assert.equal(calls[0].options.headers.Prefer, 'outlook.timezone="UTC"');
 });
 
+test('automatic Microsoft calendar checks reject unbounded event lists', async () => {
+  const provider = createMicrosoftProvider();
+  await assert.rejects(
+    provider.executeTool(
+      'microsoft_365_calendar_list_events',
+      {},
+      activeMicrosoftConnection(),
+      { triggerSource: 'schedule', taskId: 'calendar-task' },
+    ),
+    /require both start and end/i,
+  );
+});
+
 test('Slack persists both halves of a rotated user token pair', async () => {
   const calls = [];
   global.fetch = async (url, options) => {

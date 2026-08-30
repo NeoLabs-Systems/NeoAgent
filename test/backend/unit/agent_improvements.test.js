@@ -379,6 +379,22 @@ test('calendar partitions a three-day timed event as ongoing within a later quer
   assert.match(listDefinition.description, /include_ongoing/i);
 });
 
+test('automatic reminder windows exclude events that already reached their start', () => {
+  const { excludeStartedTimedEvents } = require('../../../server/services/integrations/calendar_window');
+  const events = [
+    { id: 'past', start: '2026-08-30T15:59:00+02:00', allDay: false },
+    { id: 'now', start: '2026-08-30T16:00:00+02:00', allDay: false },
+    { id: 'future', start: '2026-08-30T16:01:00+02:00', allDay: false },
+    { id: 'all-day', start: '2026-08-30', allDay: true },
+  ];
+
+  assert.deepEqual(
+    excludeStartedTimedEvents(events, '2026-08-30T16:00:00+02:00')
+      .map((event) => event.id),
+    ['future', 'all-day'],
+  );
+});
+
 test('Google calendar list hides an ongoing event when only time_min is supplied', async () => {
   const { google } = require('googleapis');
   const { executeCalendarTool } = require('../../../server/services/integrations/google/calendar');
@@ -421,6 +437,33 @@ test('Google calendar list hides an ongoing event when only time_min is supplied
   } finally {
     google.calendar = originalCalendar;
   }
+});
+
+test('automatic Google calendar checks require a bounded dedicated query', async () => {
+  const { executeCalendarTool } = require('../../../server/services/integrations/google/calendar');
+  const executionOptions = { triggerSource: 'schedule', taskId: 'calendar-task' };
+
+  await assert.rejects(
+    executeCalendarTool(
+      'google_workspace_calendar_list_events',
+      { time_min: '2026-08-30T20:00:00+02:00' },
+      {},
+      executionOptions,
+    ),
+    /require both time_min and time_max/i,
+  );
+  await assert.rejects(
+    executeCalendarTool(
+      'google_workspace_calendar_api_request',
+      {
+        method: 'GET',
+        path: '/calendar/v3/calendars/primary/events',
+      },
+      {},
+      executionOptions,
+    ),
+    /must use google_workspace_calendar_list_events/i,
+  );
 });
 
 test('execution guidance keeps source checkouts in the shared workspace', () => {

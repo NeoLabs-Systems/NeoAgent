@@ -10,6 +10,16 @@ function normalizeQueryWindow(window = {}) {
   return { timeMin, timeMax };
 }
 
+function excludeStartedTimedEvents(events, executionInstant) {
+  const instantMs = Date.parse(String(executionInstant || ''));
+  if (!Number.isFinite(instantMs)) return Array.isArray(events) ? events : [];
+  return (Array.isArray(events) ? events : []).filter((event) => {
+    if (event?.allDay) return true;
+    const startMs = Date.parse(String(event?.start || ''));
+    return Number.isFinite(startMs) && startMs > instantMs;
+  });
+}
+
 function partitionCalendarEvents(events, window = {}) {
   const listedEvents = Array.isArray(events) ? events : [];
   const listedTimedEvents = listedEvents.filter((event) => !event.allDay);
@@ -100,6 +110,7 @@ function applyCalendarListMode(summary, options = {}) {
 
 module.exports = {
   applyCalendarListMode,
+  excludeStartedTimedEvents,
   normalizeQueryWindow,
   partitionCalendarEvents,
 };

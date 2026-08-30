@@ -147,7 +147,6 @@ class GrokOAuthProvider extends GrokProvider {
       baseUrl: GROK_OAUTH_BASE_URL,
     });
     this.name = 'grok-oauth';
-    this.models = ['grok-4', 'grok-4-mini'];
 
     if (!authToken) {
       console.warn('[GrokOAuth] No access token. Run `neoagent login grok-oauth` to authenticate.');

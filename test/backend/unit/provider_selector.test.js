@@ -114,9 +114,8 @@ describe('provider selector', () => {
     assert.equal(statuses[0]?.phase, 'model_fallback');
   });
 
-  test('treats a missing explicit task override as a preference and falls back', async () => {
+  test('treats a missing explicit task override as a preference and routes dynamically', async () => {
     setSetting('enabled_models', catalog.map((model) => model.id));
-    setSetting('fallback_model_id', 'openai::gpt-5.3');
 
     const selected = await getProviderForUser(
       user.userId,
@@ -126,13 +125,12 @@ describe('provider selector', () => {
       { agentId },
     );
 
-    assert.equal(selected.modelSelectionId, 'openai::gpt-5.3');
+    assert.equal(selected.modelSelectionId, 'github-copilot::gpt-5.3');
   });
 
   test('skips a model that recently returned a permanent not-found error', async () => {
     setSetting('enabled_models', catalog.map((model) => model.id));
     setSetting('default_chat_model', 'github-copilot::gpt-5.3');
-    setSetting('fallback_model_id', 'openai::gpt-5.3');
     modelFailureCache.recordModelFailure(
       user.userId,
       agentId,

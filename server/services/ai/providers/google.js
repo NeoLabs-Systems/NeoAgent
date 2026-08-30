@@ -62,28 +62,7 @@ class GoogleProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'google';
-    this.models = [
-      'gemini-3.5-pro',
-      'gemini-3.5-flash',
-      'gemini-3.1-pro',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-2.5-pro',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-    ];
-    this.contextWindows = {
-      'gemini-3.5-pro': 2097152,
-      'gemini-3.5-flash': 1048576,
-      'gemini-3.1-pro': 2097152,
-      'gemini-3.1-flash-lite-preview': 1048576,
-      'gemini-2.5-pro': 1048576,
-      'gemini-2.5-flash': 1048576,
-      'gemini-2.0-flash': 1048576,
-      'gemini-1.5-pro': 2097152,
-      'gemini-1.5-flash': 1048576,
-    };
+    this.contextWindows = {};
     this.apiKey = config.apiKey || process.env.GOOGLE_AI_KEY;
     this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
   }
@@ -256,7 +235,7 @@ class GoogleProvider extends BaseProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const { systemInstruction, history } = this.convertMessages(messages);
     const response = await this.genAI.models.generateContent({
       model,
@@ -275,7 +254,7 @@ class GoogleProvider extends BaseProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const { systemInstruction, history } = this.convertMessages(messages);
     const responseStream = await this.genAI.models.generateContentStream({
       model,

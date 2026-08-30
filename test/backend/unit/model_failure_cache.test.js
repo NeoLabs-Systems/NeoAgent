@@ -31,6 +31,26 @@ test('404 model failures enter a bounded cooldown and successes clear it', () =>
   assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'nvidia::removed-model', 1_002), false);
 });
 
+test('JSON-wrapped provider errors preserve their structured model status', () => {
+  const error = new Error(JSON.stringify({
+    error: {
+      code: 404,
+      status: 'NOT_FOUND',
+      message: 'Unavailable selection.',
+    },
+  }));
+
+  assert.equal(modelHealth.isPermanentModelFailure(error), true);
+  assert.equal(
+    modelHealth.recordModelFailure(userId, 'main', 'google::catalog-entry', error),
+    true,
+  );
+  assert.equal(
+    modelHealth.isModelCoolingDown(userId, 'main', 'google::catalog-entry'),
+    true,
+  );
+});
+
 test('request-shape failures do not quarantine a model', () => {
   const invalidRole = Object.assign(new Error("Role 'function' is not supported"), {
     status: 400,

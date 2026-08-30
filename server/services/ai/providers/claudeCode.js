@@ -153,16 +153,6 @@ class ClaudeCodeProvider extends AnthropicProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'claude-code';
-    this.models = [
-      'claude-opus-4-7',
-      'claude-sonnet-4-6',
-      'claude-haiku-4-5-20251001',
-    ];
-    this.contextWindows = {
-      'claude-opus-4-7': 200000,
-      'claude-sonnet-4-6': 200000,
-      'claude-haiku-4-5-20251001': 200000,
-    };
 
     const cliTokenRecord = readClaudeCliTokenRecord();
     const authToken = config.apiKey || process.env.CLAUDE_CODE_OAUTH_TOKEN || cliTokenRecord.access;

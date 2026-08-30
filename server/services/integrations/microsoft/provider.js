@@ -9,6 +9,7 @@ const {
 } = require('../oauth_provider');
 const {
   applyCalendarListMode,
+  excludeStartedTimedEvents,
   partitionCalendarEvents,
 } = require('../calendar_window');
 
@@ -323,7 +324,7 @@ function summarizeMicrosoftCalendarEvent(event) {
   };
 }
 
-async function executeMicrosoftTool(toolName, args, context) {
+async function executeMicrosoftTool(toolName, args, context, executionOptions = {}) {
   switch (toolName) {
     case 'microsoft_365_outlook_list_messages': {
       const folder = String(args.folder_id || 'inbox').trim();
@@ -364,6 +365,15 @@ async function executeMicrosoftTool(toolName, args, context) {
     case 'microsoft_365_calendar_list_events': {
       const hasWindow = args.start && args.end;
       const hasWindowStart = Boolean(args.start);
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && !hasWindow
+      ) {
+        throw new Error(
+          'Automatic calendar checks require both start and end. Query a bounded event-start window derived from the task schedule and requested reminder offset.',
+        );
+      }
       const payload = await graphRequest(context, {
         path: hasWindow ? '/v1.0/me/calendarView' : '/v1.0/me/events',
         query: {
@@ -374,9 +384,16 @@ async function executeMicrosoftTool(toolName, args, context) {
         },
         headers: { Prefer: 'outlook.timezone="UTC"' },
       });
-      const events = Array.isArray(payload?.value)
+      const listedEvents = Array.isArray(payload?.value)
         ? payload.value.map(summarizeMicrosoftCalendarEvent)
         : [];
+      const events = (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && args.include_ongoing !== true
+      )
+        ? excludeStartedTimedEvents(listedEvents, executionOptions.scheduledAt)
+        : listedEvents;
       const summary = partitionCalendarEvents(events, {
         start: args.start,
         end: args.end,
@@ -447,6 +464,16 @@ async function executeMicrosoftTool(toolName, args, context) {
       if (/^microsoft_365_.*_graph_request$/.test(toolName)) {
         if (process.env.NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST !== 'true') {
           throw new Error('microsoft_365_*_graph_request tools are disabled by default. Set NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST=true to enable them.');
+        }
+        if (
+          (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+          && executionOptions.taskId
+          && String(args.method || 'GET').trim().toUpperCase() === 'GET'
+          && /\/calendar(?:View)?(?:\?|$)|\/events(?:\?|$)/i.test(String(args.path || ''))
+        ) {
+          throw new Error(
+            'Automatic calendar checks must use microsoft_365_calendar_list_events with an explicit start and end window.',
+          );
         }
         return {
           result: await graphRequest(context, {

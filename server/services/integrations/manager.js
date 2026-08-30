@@ -912,7 +912,7 @@ class IntegrationManager {
             toolName,
             args,
             connection,
-            { signal: options.signal || null },
+            { ...options, signal: options.signal || null },
           );
         } catch (err) {
           if (

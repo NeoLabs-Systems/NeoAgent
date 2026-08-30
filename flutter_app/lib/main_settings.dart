@@ -161,7 +161,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
-  late String _fallbackModel;
   late String _defaultSpeechModel;
   late String _voiceSttProvider;
   late String _voiceSttModel;
@@ -269,7 +268,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
-    _fallbackModel = controller.fallbackModel;
     _defaultSpeechModel = controller.defaultSpeechModel;
     _voiceSttProvider = controller.voiceSttProvider;
     _voiceSttModel = controller.voiceSttModel;
@@ -617,7 +615,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
       defaultSubagentModel: _defaultSubagentModel,
-      fallbackModel: _fallbackModel,
       defaultSpeechModel: _defaultSpeechModel,
       voiceSttProvider: _voiceSttProvider,
       voiceSttModel: _voiceSttModel,
@@ -1497,28 +1494,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             if (value != null) {
                               setState(() {
                                 _defaultSubagentModel = value;
-                                _hasUnsavedChanges = true;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: cardWidth,
-                        child: _RoutingSelectCard(
-                          label: 'Fallback',
-                          icon: Icons.shield_outlined,
-                          value: _ensureModelValue(
-                            _fallbackModel,
-                            routingModels,
-                            allowAuto: false,
-                            preserveUnknown: true,
-                          ),
-                          options: _modelPickerOptions(routingModels),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _fallbackModel = value;
                                 _hasUnsavedChanges = true;
                               });
                             }

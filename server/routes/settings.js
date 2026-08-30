@@ -47,7 +47,6 @@ const AGENT_SETTING_KEYS = new Set([
   'subagent_max_children_per_run',
   'assistant_behavior_notes',
   'auto_skill_learning',
-  'fallback_model_id',
   'smarter_model_selector',
   'ai_provider_configs',
   'default_chat_model',

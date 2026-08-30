@@ -102,7 +102,11 @@ test('Grok OAuth refreshes proactively before an expiring token is used', async 
     },
   };
 
-  const response = await provider.chat([{ role: 'user', content: 'Hello' }]);
+  const response = await provider.chat(
+    [{ role: 'user', content: 'Hello' }],
+    [],
+    { model: 'catalog-model' },
+  );
   assert.equal(response.content, 'ok');
   assert.deepEqual(calls, ['refresh', 'chat']);
 });
@@ -162,7 +166,11 @@ test('Grok OAuth refreshes and retries structured early-invalidated credentials 
     },
   };
 
-  const response = await provider.chat([{ role: 'user', content: 'Hello' }]);
+  const response = await provider.chat(
+    [{ role: 'user', content: 'Hello' }],
+    [],
+    { model: 'catalog-model' },
+  );
   assert.equal(response.content, 'ok');
   assert.equal(refreshCalls, 1);
   assert.equal(chatCalls, 2);
@@ -193,7 +201,11 @@ test('Grok OAuth does not refresh for unrelated forbidden responses', async () =
   };
 
   await assert.rejects(
-    provider.chat([{ role: 'user', content: 'Hello' }]),
+    provider.chat(
+      [{ role: 'user', content: 'Hello' }],
+      [],
+      { model: 'catalog-model' },
+    ),
     (caught) => caught === error,
   );
   assert.equal(refreshCalls, 0);

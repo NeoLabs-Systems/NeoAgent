@@ -15,6 +15,7 @@ const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 const { isTransientError } = require('../ai/providerRetry');
+const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
@@ -570,10 +571,15 @@ class TaskRuntime {
       const triggerPayloadText = executionMeta.triggerPayload
         ? `\nTrigger event context:\n${JSON.stringify(executionMeta.triggerPayload, null, 2)}\n`
         : '';
+      const executionInstant = executionMeta.scheduledAt || new Date().toISOString();
+      const temporalAccuracyHint = task.trigger_type === 'schedule'
+        ? `Execution instant: ${executionInstant}. For any requested lead time before a calendar event, derive the target event-start time from this instant plus that lead time and use an explicit, bounded start window around that target. An event is eligible only from its actual start timestamp; never notify for an event that has already started, merely overlaps the window, or is all-day unless the task explicitly asks for those cases.`
+        : '';
       const basePrompt = [
         '[SYSTEM: Executing Background Task]',
         `Task Name: ${taskName}`,
         `Trigger: ${triggerSummary}`,
+        temporalAccuracyHint,
         '',
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
@@ -594,6 +600,7 @@ class TaskRuntime {
           app: this.app,
           conversationId,
           taskId,
+          scheduledAt: executionInstant,
           bypassUserRateLimits: true,
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
@@ -957,17 +964,10 @@ class TaskRuntime {
   // Returns null when the failure should NOT be surfaced (transient infra limits).
   _buildTaskFailureMessage(taskName, err) {
     const raw = String(err?.message || '').trim();
-    const lower = raw.toLowerCase();
-    // Rate/quota limits are transient, self-healing, and not user-actionable. Every
-    // scheduled run during the window would hit the same error, so a per-run notice
-    // would just be spam. Log only (done by the caller), no user message.
-    if (
-      lower.includes('rate limit')
-      || lower.includes('rate_limit')
-      || lower.includes('quota')
-      || lower.includes('tokens in the last')
-      || /\b429\b/.test(lower)
-    ) {
+    // Provider/model health failures are handled by the dynamic router and its
+    // cooldown store. Repeating the raw provider payload on every schedule tick
+    // is not actionable and can flood the delivery channel.
+    if (getFailureDisposition(err) || isTransientError(err)) {
       return null;
     }
     // Genuine failure: tell the user the actual reason instead of "check the logs",
