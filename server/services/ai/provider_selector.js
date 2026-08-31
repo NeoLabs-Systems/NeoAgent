@@ -16,10 +16,10 @@ function buildSelection(model, userId, providerConfig) {
 
 function reportRoutingFallback(providerConfig, route) {
   if (!route.reason) return;
-  const message = route.reason === 'configured_pool_unavailable'
-    ? `Configured models are unavailable; using ${route.model.id}.`
-    : `Requested model is unavailable; using ${route.model.id}.`;
-  providerConfig.onStatus?.({ phase: 'model_fallback', message });
+  providerConfig.onStatus?.({
+    phase: 'model_fallback',
+    message: `Requested model is unavailable; using ${route.model.id}.`,
+  });
 }
 
 async function getProviderForUser(

@@ -17,6 +17,7 @@ const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting
 const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
+const { parseErrorEnvelope } = require('../../utils/retry');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -966,13 +967,25 @@ class TaskRuntime {
     const raw = String(err?.message || '').trim();
     // Provider/model health failures are handled by the dynamic router and its
     // cooldown store. Repeating the raw provider payload on every schedule tick
-    // is not actionable and can flood the delivery channel.
-    if (getFailureDisposition(err) || isTransientError(err)) {
+    // is not actionable and can flood the delivery channel. The same applies to
+    // routing exhaustion (AI_MODELS_UNAVAILABLE): it repeats every tick for as
+    // long as the recorded health cooldowns last.
+    if (
+      getFailureDisposition(err)
+      || isTransientError(err)
+      || err?.code === 'AI_MODELS_UNAVAILABLE'
+    ) {
       return null;
     }
     // Genuine failure: tell the user the actual reason instead of "check the logs",
-    // which they cannot do. Collapse whitespace and cap length to keep it readable.
-    const reason = raw ? raw.replace(/\s+/g, ' ').slice(0, 200) : 'an unknown error';
+    // which they cannot do. Providers wrap that reason in JSON envelopes; surface
+    // the human message inside, never the raw payload. Collapse whitespace and cap
+    // length to keep it readable.
+    const envelopeMessage = String(parseErrorEnvelope(err)?.error?.message || '').trim();
+    const reasonSource = envelopeMessage || raw;
+    const reason = reasonSource
+      ? reasonSource.replace(/\s+/g, ' ').slice(0, 200)
+      : 'an unknown error';
     return `Background task "${taskName}" could not complete: ${reason}`;
   }
 

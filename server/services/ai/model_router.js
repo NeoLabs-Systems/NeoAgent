@@ -114,6 +114,12 @@ function resolveReadyModel(readyModels, selectionId) {
   return resolveModelSelection(readyModels, selectionId);
 }
 
+function routingUnavailableError(message) {
+  const error = new Error(message);
+  error.code = 'AI_MODELS_UNAVAILABLE';
+  return error;
+}
+
 function selectInitialModel({
   models,
   settings,
@@ -125,10 +131,14 @@ function selectInitialModel({
 }) {
   const pools = buildRoutingPools({ models, settings, userId, agentId });
   if (pools.selectableModels.length === 0) {
-    throw new Error('No AI providers are currently available. Open Settings and configure at least one provider.');
+    const coolingDown = (Array.isArray(models) ? models : [])
+      .some((model) => model?.runtimeUnavailable === true);
+    throw routingUnavailableError(coolingDown
+      ? 'All AI models are temporarily unavailable after provider errors. The next run will retry after their recovery window.'
+      : 'No AI providers are currently available. Open Settings and configure at least one provider.');
   }
   if (pools.readyModels.length === 0) {
-    throw new Error('All discovered AI models are temporarily unavailable. The next run will retry after their recovery window.');
+    throw routingUnavailableError('All discovered AI models are temporarily unavailable. The next run will retry after their recovery window.');
   }
 
   const requestedId = typeof modelOverride === 'string' && modelOverride.trim()
@@ -143,22 +153,25 @@ function selectInitialModel({
     if (requested) return { model: requested, reason: null };
   }
 
-  const preferredPool = pools.configuredReadyModels.length > 0
+  // With enabled_models configured, automatic routing may only ever pick from
+  // that pool. Falling back to the full discovered catalog would silently run
+  // models the user never enabled.
+  if (pools.configuredIds.length > 0 && pools.configuredReadyModels.length === 0) {
+    throw routingUnavailableError('None of the enabled AI models are currently usable. Enable another model in Settings or wait for their recovery window.');
+  }
+  const automaticPool = pools.configuredIds.length > 0
     ? pools.configuredReadyModels
     : pools.readyModels;
-  const automatic = chooseAutomaticModel(preferredPool, {
+  const selected = chooseAutomaticModel(automaticPool, {
     isSubagent,
     selectionHint,
     settings,
   });
-  const selected = automatic;
 
-  let reason = null;
-  if (requestedId !== 'auto') reason = 'requested_model_unavailable';
-  else if (pools.configuredIds.length > 0 && pools.configuredReadyModels.length === 0) {
-    reason = 'configured_pool_unavailable';
-  }
-  return { model: selected, reason };
+  return {
+    model: selected,
+    reason: requestedId !== 'auto' ? 'requested_model_unavailable' : null,
+  };
 }
 
 function selectFallbackModel({
@@ -178,17 +191,19 @@ function selectFallbackModel({
     excludedModelIds,
     excludedProviderIds,
   });
-  if (pools.readyModels.length === 0) return null;
+  // Failure fallback follows the same rule as automatic routing: it never
+  // leaves the enabled_models pool when one is configured.
+  const basePool = pools.configuredIds.length > 0
+    ? pools.configuredReadyModels
+    : pools.readyModels;
+  if (basePool.length === 0) return null;
 
   const currentModel = resolveModelSelection(pools.selectableModels, currentModelId)
     || resolveModelSelection(models, currentModelId);
-  const configuredPool = pools.configuredReadyModels.length > 0
-    ? pools.configuredReadyModels
-    : pools.readyModels;
   const diversePool = currentModel?.provider
-    ? configuredPool.filter((model) => model.provider !== currentModel.provider)
+    ? basePool.filter((model) => model.provider !== currentModel.provider)
     : [];
-  const candidatePool = diversePool.length > 0 ? diversePool : configuredPool;
+  const candidatePool = diversePool.length > 0 ? diversePool : basePool;
   return rankModels(candidatePool, {
     selectionHint: { purpose: currentModel?.purpose || 'general' },
     settings,

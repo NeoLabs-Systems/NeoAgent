@@ -5,13 +5,16 @@ function createGitHelpers(run) {
     throw new TypeError('createGitHelpers(run) requires a run function');
   }
 
-  function latestGitTagVersion(pattern) {
+  function latestGitTagVersion(pattern, { excludePrerelease = false } = {}) {
     const res = run('git', ['tag', '--list', pattern, '--sort=-v:refname']);
     if (res.status !== 0) return null;
+    // Globs like v[0-9]*.[0-9]*.[0-9]* also match prerelease tags
+    // (v3.4.5-beta.6), so a stable lookup must filter them out explicitly.
     const tag = String(res.stdout || '')
       .split('\n')
       .map((value) => value.trim())
-      .find(Boolean);
+      .filter(Boolean)
+      .find((value) => !excludePrerelease || !value.includes('-'));
     return tag ? tag.replace(/^v/, '') : null;
   }
 

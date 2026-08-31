@@ -51,6 +51,22 @@ test('JSON-wrapped provider errors preserve their structured model status', () =
   );
 });
 
+test('a prefixed JSON provider error still preserves its structured status', () => {
+  const error = new Error(`Google provider error: ${JSON.stringify({
+    error: {
+      code: 404,
+      status: 'NOT_FOUND',
+      message: 'This model is no longer available to new users.',
+    },
+  })}`);
+
+  assert.equal(modelHealth.isPermanentModelFailure(error), true);
+  assert.equal(
+    modelHealth.recordModelFailure(userId, 'main', 'google::retired-entry', error),
+    true,
+  );
+});
+
 test('request-shape failures do not quarantine a model', () => {
   const invalidRole = Object.assign(new Error("Role 'function' is not supported"), {
     status: 400,
