@@ -134,6 +134,7 @@ module.exports = {
   getErrorCode,
   getHttpStatus,
   isTransientIoError,
+  parseErrorEnvelope,
   readHeader,
   retryAfterMilliseconds,
 };

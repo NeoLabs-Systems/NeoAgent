@@ -337,6 +337,29 @@ describe('scheduled task result delivery', () => {
     assert.match(messagingManager.sent[0].content, /without producing a result or an explicit no-response decision/);
   });
 
+  test('surfaced provider failures report the envelope message, not raw JSON', async () => {
+    const messagingManager = createMessagingManager();
+    const requestError = new Error(JSON.stringify({
+      error: { code: 400, status: 'INVALID_ARGUMENT', message: 'Request contains an invalid argument.' },
+    }));
+    const task = await createScheduledTask({
+      async runWithModel() {
+        throw requestError;
+      },
+    }, messagingManager);
+
+    await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(messagingManager.sent[0].content, /Request contains an invalid argument/);
+    assert.doesNotMatch(messagingManager.sent[0].content, /\{"error"/);
+  });
+
   test('does not deliver repeated raw model-health failures', async () => {
     const messagingManager = createMessagingManager();
     const modelError = new Error(JSON.stringify({
