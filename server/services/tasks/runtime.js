@@ -966,8 +966,14 @@ class TaskRuntime {
     const raw = String(err?.message || '').trim();
     // Provider/model health failures are handled by the dynamic router and its
     // cooldown store. Repeating the raw provider payload on every schedule tick
-    // is not actionable and can flood the delivery channel.
-    if (getFailureDisposition(err) || isTransientError(err)) {
+    // is not actionable and can flood the delivery channel. The same applies to
+    // routing exhaustion (AI_MODELS_UNAVAILABLE): it repeats every tick for as
+    // long as the recorded health cooldowns last.
+    if (
+      getFailureDisposition(err)
+      || isTransientError(err)
+      || err?.code === 'AI_MODELS_UNAVAILABLE'
+    ) {
       return null;
     }
     // Genuine failure: tell the user the actual reason instead of "check the logs",

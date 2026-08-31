@@ -23,9 +23,14 @@ const RETRYABLE_NETWORK_CODES = new Set([
 
 function parseErrorEnvelope(error) {
   const message = typeof error?.message === 'string' ? error.message.trim() : '';
-  if (!message.startsWith('{')) return null;
+  // Provider errors are often re-wrapped as `Prefix: {json}` and lose their
+  // status/code properties along the way, so accept an embedded envelope too.
+  const start = message.indexOf('{');
+  if (start === -1) return null;
+  const end = message.lastIndexOf('}');
+  if (end <= start) return null;
   try {
-    const parsed = JSON.parse(message);
+    const parsed = JSON.parse(message.slice(start, end + 1));
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
     return null;
