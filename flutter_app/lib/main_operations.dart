@@ -3630,37 +3630,27 @@ TaskDeliveryTarget? _taskDeliveryTargetFromTask(TaskItem? task) {
   );
 }
 
-List<DropdownMenuItem<String>> _taskModelOverrideItems({
+// Same picker as the Settings routing cards; a saved override that is no
+// longer available stays visible so the stored value is never hidden.
+List<_ModelPickerOption> _taskModelOverrideOptions({
   required String selectedModel,
   required List<ModelMeta> models,
 }) {
   final availableModels = models.where((model) => model.available).toList();
-  final availableIds = availableModels.map((model) => model.id).toSet();
-  final selectedModelMeta = _modelForValue(selectedModel, models);
-  final selectedModelIsUnavailable =
-      selectedModel != 'auto' && !availableIds.contains(selectedModel);
-
-  return <DropdownMenuItem<String>>[
-    const DropdownMenuItem<String>(
-      value: 'auto',
-      child: Text('Auto (default routing)'),
-    ),
-    if (selectedModelIsUnavailable)
-      DropdownMenuItem<String>(
-        value: selectedModel,
-        enabled: false,
-        child: Text(
-          '${selectedModelMeta?.label ?? selectedModel} (Unavailable saved override)',
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    ...availableModels.map(
-      (model) => DropdownMenuItem<String>(
-        value: model.id,
-        child: Text(model.label, overflow: TextOverflow.ellipsis),
-      ),
-    ),
-  ];
+  final options = _modelPickerOptions(
+    availableModels.isEmpty ? models : availableModels,
+    allowAuto: true,
+  );
+  if (selectedModel != 'auto' &&
+      !options.any((option) => option.value == selectedModel)) {
+    final saved = _modelForValue(selectedModel, models);
+    options.add(_ModelPickerOption(
+      value: selectedModel,
+      label: '${saved?.label ?? selectedModel} (unavailable saved override)',
+      icon: Icons.history_rounded,
+    ));
+  }
+  return options;
 }
 
 Future<TaskDeliveryTarget?> _pickTaskDeliveryTarget(
@@ -5066,13 +5056,11 @@ class _TasksPanelState extends State<TasksPanel> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedModel,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Model Override',
-                        ),
-                        items: _taskModelOverrideItems(
+                      _RoutingSelectCard(
+                        label: 'Model Override',
+                        icon: Icons.memory_rounded,
+                        value: selectedModel,
+                        options: _taskModelOverrideOptions(
                           selectedModel: selectedModel,
                           models: controller.supportedModels,
                         ),

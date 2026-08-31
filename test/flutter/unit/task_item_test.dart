@@ -18,7 +18,7 @@ TaskItem _taskWithModel(String model) => TaskItem.fromJson(<String, dynamic>{
   'enabled': true,
 });
 
-Future<DropdownButton<String>> _openTaskModelEditor(
+Future<void> _openTaskModelEditor(
   WidgetTester tester, {
   required String selectedModel,
   required List<ModelMeta> models,
@@ -42,18 +42,7 @@ Future<DropdownButton<String>> _openTaskModelEditor(
   await tester.tap(find.text('Edit'));
   await tester.pumpAndSettle();
 
-  final formFinder = find.byWidgetPredicate(
-    (widget) =>
-        widget is DropdownButtonFormField<String> &&
-        widget.decoration.labelText == 'Model Override',
-  );
-  expect(formFinder, findsOneWidget);
-  final dropdownFinder = find.descendant(
-    of: formFinder,
-    matching: find.byType(DropdownButton<String>),
-  );
-  expect(dropdownFinder, findsOneWidget);
-  return tester.widget<DropdownButton<String>>(dropdownFinder);
+  expect(find.text('Model Override'), findsOneWidget);
 }
 
 void main() {
@@ -96,7 +85,7 @@ void main() {
     expect(target.selectable, isTrue);
   });
 
-  testWidgets('task editor displays an unknown saved model as unavailable', (
+  testWidgets('task editor picker hides unavailable models but keeps the saved override', (
     tester,
   ) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -105,7 +94,7 @@ void main() {
     const availableModel = 'openai::gpt-5-nano';
     const unavailableModel = 'google::gemini-2.5-pro';
 
-    final dropdown = await _openTaskModelEditor(
+    await _openTaskModelEditor(
       tester,
       selectedModel: unknownModel,
       models: const <ModelMeta>[
@@ -127,27 +116,23 @@ void main() {
       ],
     );
 
-    final items = dropdown.items!;
-    expect(dropdown.value, unknownModel);
-    expect(items.map((item) => item.value), <String>[
-      'auto',
-      unknownModel,
-      availableModel,
-    ]);
-    expect(
-      items.singleWhere((item) => item.value == unknownModel).enabled,
-      isFalse,
-    );
-    expect(items.singleWhere((item) => item.value == 'auto').enabled, isTrue);
-    expect(
-      items.singleWhere((item) => item.value == availableModel).enabled,
-      isTrue,
-    );
-    expect(items.any((item) => item.value == unavailableModel), isFalse);
-    expect(
-      find.text('$unknownModel (Unavailable saved override)'),
-      findsOneWidget,
-    );
+    // The saved-but-gone override stays visible on the picker button.
+    const savedLabel = '$unknownModel (unavailable saved override)';
+    expect(find.text(savedLabel), findsOneWidget);
+
+    // The same searchable picker dialog as Settings opens on tap.
+    await tester.tap(find.text(savedLabel));
+    await tester.pumpAndSettle();
+    expect(find.text('Smart Selector'), findsOneWidget);
+    expect(find.text('GPT-5 nano'), findsOneWidget);
+    expect(find.text('Gemini 2.5 Pro'), findsNothing);
+
+    // Choosing an available model closes the dialog and updates the button.
+    await tester.tap(find.text('GPT-5 nano'));
+    await tester.pumpAndSettle();
+    expect(find.text('Smart Selector'), findsNothing);
+    expect(find.text('GPT-5 nano'), findsOneWidget);
+    expect(find.text(savedLabel), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -159,7 +144,7 @@ void main() {
     const unavailableModel = 'google::gemini-2.5-pro';
     const availableModel = 'openai::gpt-5-nano';
 
-    final dropdown = await _openTaskModelEditor(
+    await _openTaskModelEditor(
       tester,
       selectedModel: unavailableModel,
       models: const <ModelMeta>[
@@ -181,13 +166,8 @@ void main() {
       ],
     );
 
-    final savedItem = dropdown.items!.singleWhere(
-      (item) => item.value == unavailableModel,
-    );
-    expect(dropdown.value, unavailableModel);
-    expect(savedItem.enabled, isFalse);
     expect(
-      find.text('Gemini 2.5 Pro (Unavailable saved override)'),
+      find.text('Gemini 2.5 Pro (unavailable saved override)'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);

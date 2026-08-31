@@ -3284,7 +3284,21 @@ async function executeTool(toolName, args, context, engine) {
                 if (skillResult !== null) return skillResult;
             }
 
-            return { error: `Unknown tool: ${toolName}` };
+            // Recoverable dead end: point the model at the real catalog instead
+            // of leaving it to guess the same wrong name again.
+            let suggestions = [];
+            try {
+                const search = engine?.searchToolsForRun?.(runId, toolName);
+                suggestions = (search?.results || []).map((tool) => tool.name);
+            } catch {
+                // Suggestions are best-effort; the error below is still actionable.
+            }
+            return {
+                error: `Unknown tool: ${toolName}. It is not part of this run's toolset.`,
+                recovery: suggestions.length > 0
+                    ? `Closest available tools: ${suggestions.join(', ')}. Activate what you need with activate_tools, then retry with the exact name.`
+                    : 'Use search_tools with a capability description, activate the result with activate_tools, then retry with the exact name.',
+            };
         }
     }
 }
