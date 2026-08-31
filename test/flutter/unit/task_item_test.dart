@@ -136,6 +136,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('task editor defaults to the Settings model, not auto', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _openTaskModelEditor(
+      tester,
+      selectedModel: '',
+      models: const <ModelMeta>[
+        ModelMeta(
+          id: 'openai::gpt-5-nano',
+          modelId: 'gpt-5-nano',
+          label: 'GPT-5 nano',
+          provider: 'openai',
+          purpose: 'fast',
+        ),
+      ],
+    );
+
+    // No stored override renders as Default (follow Settings), with the smart
+    // selector available only as an explicit choice in the picker.
+    expect(find.text('Default'), findsOneWidget);
+    await tester.tap(find.text('Default'));
+    await tester.pumpAndSettle();
+    expect(find.text('Smart Selector'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('task editor keeps a known unavailable saved model visible', (
     tester,
   ) async {

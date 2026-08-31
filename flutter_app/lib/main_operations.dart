@@ -3632,16 +3632,26 @@ TaskDeliveryTarget? _taskDeliveryTargetFromTask(TaskItem? task) {
 
 // Same picker as the Settings routing cards; a saved override that is no
 // longer available stays visible so the stored value is never hidden.
+// 'default' means no override at all: the task follows the chat model
+// configured in Settings.
 List<_ModelPickerOption> _taskModelOverrideOptions({
   required String selectedModel,
   required List<ModelMeta> models,
 }) {
   final availableModels = models.where((model) => model.available).toList();
-  final options = _modelPickerOptions(
-    availableModels.isEmpty ? models : availableModels,
-    allowAuto: true,
-  );
-  if (selectedModel != 'auto' &&
+  final options = <_ModelPickerOption>[
+    const _ModelPickerOption(
+      value: 'default',
+      label: 'Default',
+      subtitle: 'Uses the chat model configured in Settings',
+      icon: Icons.tune_rounded,
+    ),
+    ..._modelPickerOptions(
+      availableModels.isEmpty ? models : availableModels,
+      allowAuto: true,
+    ),
+  ];
+  if (selectedModel != 'default' &&
       !options.any((option) => option.value == selectedModel)) {
     final saved = _modelForValue(selectedModel, models);
     options.add(_ModelPickerOption(
@@ -4456,12 +4466,17 @@ class _TasksPanelState extends State<TasksPanel> {
     var loopPaused = task?.loopPaused ?? false;
     var unreadOnly = task?.triggerConfig['unreadOnly'] == true;
     var ignoreGroups = task?.triggerConfig['ignoreGroups'] == true;
-    var selectedModel = _ensureModelValue(
-      task?.model ?? 'auto',
-      controller.supportedModels,
-      allowAuto: true,
-      preserveUnknown: true,
-    );
+    // No saved model means "follow the Settings default"; 'auto' is a real,
+    // explicitly stored override for the smart selector.
+    final savedTaskModel = (task?.model ?? '').trim();
+    var selectedModel = savedTaskModel.isEmpty
+        ? 'default'
+        : _ensureModelValue(
+            savedTaskModel,
+            controller.supportedModels,
+            allowAuto: true,
+            preserveUnknown: true,
+          );
     var selectedAgentId =
         task?.agentId ?? defaultAgentId ?? controller.selectedAgentId;
     if (selectedAgentId != null &&
@@ -5065,7 +5080,7 @@ class _TasksPanelState extends State<TasksPanel> {
                           models: controller.supportedModels,
                         ),
                         onChanged: (value) => setLocalState(
-                          () => selectedModel = value ?? 'auto',
+                          () => selectedModel = value ?? 'default',
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -5286,7 +5301,7 @@ class _TasksPanelState extends State<TasksPanel> {
                       triggerConfig: triggerConfig,
                       prompt: promptController.text.trim(),
                       taskConfig: taskConfig,
-                      model: selectedModel == 'auto' ? null : selectedModel,
+                      model: selectedModel == 'default' ? null : selectedModel,
                       enabled: enabled,
                       agentId: selectedAgentId,
                     );
