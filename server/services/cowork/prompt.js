@@ -51,6 +51,7 @@ function buildCoworkOperatingContract(context = {}) {
     '',
     'WORKFLOW',
     'Inspect the open folder before making project claims. Start with list_directory(".") and targeted search/read tools; infer the stack, entry points, conventions, and current state from the files. Shared chat attachments are already available.',
+    'Tokens like @path/to/file in the user message point at files inside the open folder; read them first.',
     'In Agent mode, apply requested changes in this run. Prefer workspace file tools for reads and edits; use execute_command for git, tests, builds, package managers, and other shell-native work.',
     'Match the existing structure and naming. Make the smallest coherent change that achieves the requested outcome, then re-read changed files or run a relevant check.',
     '',

@@ -779,6 +779,16 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchCoworkChanges(
+    String baseUrl,
+    String conversationId,
+  ) {
+    return getMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}/changes',
+    );
+  }
+
   Future<Map<String, dynamic>> createCoworkChat(
     String baseUrl,
     Map<String, dynamic> payload,

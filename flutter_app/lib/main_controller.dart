@@ -1808,10 +1808,10 @@ class NeoAgentController extends ChangeNotifier {
       final activity = <CoworkActivityItem>[];
       String? activeRunId;
       String? runStatus;
-      for (final run in _jsonMapList(
-        response['activity'],
-        fallbackToMapValues: true,
-      )) {
+      DateTime? runStartedAt;
+      final runs = _jsonMapList(response['activity'], fallbackToMapValues: true)
+          .reversed;
+      for (final run in runs) {
         final runId = run['id']?.toString() ?? '';
         final status = run['status']?.toString() ?? 'pending';
         if (activeRunId == null &&
@@ -1824,26 +1824,37 @@ class NeoAgentController extends ChangeNotifier {
             }.contains(status)) {
           activeRunId = runId;
           runStatus = status;
+          runStartedAt = _parseTimestamp(run['createdAt']?.toString());
         }
-        for (final event in _jsonMapList(
-          run['events'],
+        for (final step in _jsonMapList(
+          run['steps'],
           fallbackToMapValues: true,
         )) {
-          final payload = _jsonMap(event['payload']);
+          final toolName = step['toolName']?.toString() ?? '';
+          final result = step['result'];
+          final startedAt = _parseTimestamp(step['startedAt']?.toString());
+          final completedAt = step['completedAt']?.toString();
           activity.add(
             CoworkActivityItem(
-              id: 'event-${event['id']}',
+              id: step['id']?.toString() ?? 'step-${step['index']}',
               runId: runId,
-              kind: event['eventType']?.toString() ?? 'activity',
-              label:
-                  payload['tool']?.toString() ??
-                  event['eventType']?.toString() ??
-                  'Activity',
-              status: status,
-              summary: _summarizeToolResult(payload),
-              createdAt: _parseTimestamp(event['createdAt']?.toString()),
-              durationMs: payload['elapsed_ms'] is num
-                  ? (payload['elapsed_ms'] as num).toInt()
+              kind: step['type']?.toString() ?? 'tool',
+              label: toolName.isEmpty
+                  ? (step['type']?.toString() ?? 'step')
+                  : toolName,
+              status: step['status']?.toString() ?? 'completed',
+              summary:
+                  step['error']?.toString() ?? _summarizeToolResult(result),
+              createdAt: startedAt,
+              durationMs: completedAt == null
+                  ? null
+                  : _parseTimestamp(completedAt)
+                        .difference(startedAt)
+                        .inMilliseconds,
+              toolArgs: _jsonMap(step['toolInput']),
+              detail: _coworkToolDetail(toolName, result),
+              screenshotPath: result is Map
+                  ? result['screenshotPath']?.toString()
                   : null,
             ),
           );
@@ -1853,8 +1864,12 @@ class NeoAgentController extends ChangeNotifier {
         messages: messages,
         activity: activity,
         inputRequests: inputRequests,
+        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
+            .map(CoworkChangedFile.fromJson)
+            .toList(growable: false),
         activeRunId: activeRunId,
         runStatus: runStatus,
+        runStartedAt: runStartedAt,
       );
     } catch (error) {
       _coworkThreads[conversationId] = coworkThreadFor(
@@ -1882,11 +1897,24 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> createCoworkChat() async {
+  /// Starts a session. When [template] is given the new chat inherits its
+  /// agent, mode, device, workspace folder and model, so "New session" keeps
+  /// working in the same project.
+  Future<void> createCoworkChat({CoworkChat? template}) async {
     try {
       final response = await _backendClient.createCoworkChat(
         backendUrl,
-        <String, dynamic>{},
+        template == null
+            ? <String, dynamic>{}
+            : <String, dynamic>{
+                'agentId': template.agentId,
+                'mode': template.mode == CoworkInteractionMode.plan
+                    ? 'plan'
+                    : 'agent',
+                'deviceTargetOverride': template.device.override,
+                'workspacePathOverride': template.workspacePathOverride,
+                'modelOverride': template.modelOverride,
+              },
       );
       final chat = CoworkChat.fromJson(_jsonMap(response['chat']));
       coworkChats = <CoworkChat>[chat, ...coworkChats];
@@ -1960,6 +1988,54 @@ class NeoAgentController extends ChangeNotifier {
   void setCoworkWorkSurfacePinned(bool pinned) {
     coworkWorkSurfacePinned = pinned;
     notifyListeners();
+  }
+
+  Future<void> refreshCoworkChanges(String conversationId) async {
+    try {
+      final response = await _backendClient.fetchCoworkChanges(
+        backendUrl,
+        conversationId,
+      );
+      _coworkThreads[conversationId] = coworkThreadFor(conversationId).copyWith(
+        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
+            .map(CoworkChangedFile.fromJson)
+            .toList(growable: false),
+      );
+      notifyListeners();
+    } catch (_) {
+      // The list is rebuilt on the next full thread load.
+    }
+  }
+
+  /// Lists a folder of the chat's workspace on the chat's device. Throws on
+  /// failure so the workbench can show the error inline.
+  Future<List<CoworkWorkspaceEntry>> browseCoworkWorkspace(
+    CoworkChat chat,
+    String path,
+  ) async {
+    final response = await _backendClient.fetchWorkspaceDirectory(
+      backendUrl,
+      path: path.isEmpty ? '.' : path,
+      deviceTarget: chat.device.effective,
+      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
+    );
+    final error = response['error']?.toString() ?? '';
+    if (error.isNotEmpty) throw Exception(error);
+    return _jsonMapList(response['entries'], fallbackToMapValues: true)
+        .map(CoworkWorkspaceEntry.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<String> readCoworkWorkspaceFile(CoworkChat chat, String path) async {
+    final response = await _backendClient.fetchWorkspaceFile(
+      backendUrl,
+      path: path,
+      deviceTarget: chat.device.effective,
+      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
+    );
+    final error = response['error']?.toString() ?? '';
+    if (error.isNotEmpty) throw Exception(error);
+    return response['content']?.toString() ?? '';
   }
 
   Future<void> sendCoworkMessage(
@@ -2117,6 +2193,7 @@ class NeoAgentController extends ChangeNotifier {
         next = current.copyWith(
           activeRunId: runId,
           runStatus: 'running',
+          runStartedAt: DateTime.now(),
           phase: 'Starting',
           sending: true,
           streamingContent: '',
@@ -2150,6 +2227,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'running',
           summary: _summarizeToolArgs(payload['toolArgs']),
           createdAt: DateTime.now(),
+          toolArgs: _jsonMap(payload['toolArgs']),
         );
         next = current.copyWith(
           phase: 'Running $toolName',
@@ -2162,19 +2240,39 @@ class NeoAgentController extends ChangeNotifier {
         final stepId = payload['stepId']?.toString() ?? '';
         final toolName = payload['toolName']?.toString() ?? 'tool';
         final toolResult = _jsonMap(payload['result']);
-        final item = CoworkActivityItem(
-          id: stepId.isEmpty
-              ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
-              : stepId,
-          runId: runId,
-          kind: payload['type']?.toString() ?? 'tool',
-          label: toolName,
-          status: payload['status']?.toString() ?? 'completed',
-          summary:
-              payload['error']?.toString() ??
-              _summarizeToolResult(payload['result']),
-          createdAt: DateTime.now(),
-        );
+        final itemId = stepId.isEmpty
+            ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
+            : stepId;
+        final started = current.activity
+            .where((entry) => entry.id == itemId)
+            .firstOrNull;
+        final status = payload['status']?.toString() ?? 'completed';
+        final summary =
+            payload['error']?.toString() ??
+            _summarizeToolResult(payload['result']);
+        final detail = _coworkToolDetail(toolName, payload['result']);
+        final screenshot = toolResult['screenshotPath']?.toString();
+        final item = started == null
+            ? CoworkActivityItem(
+                id: itemId,
+                runId: runId,
+                kind: payload['type']?.toString() ?? 'tool',
+                label: toolName,
+                status: status,
+                summary: summary,
+                createdAt: DateTime.now(),
+                detail: detail,
+                screenshotPath: screenshot,
+              )
+            : started.copyWith(
+                status: status,
+                summary: summary,
+                durationMs: DateTime.now()
+                    .difference(started.createdAt)
+                    .inMilliseconds,
+                detail: detail,
+                screenshotPath: screenshot,
+              );
         next = current.copyWith(
           phase: 'Working',
           activity: <CoworkActivityItem>[
@@ -2182,6 +2280,9 @@ class NeoAgentController extends ChangeNotifier {
             item,
           ],
         );
+        if (CoworkActivityItem.writeTools.contains(toolName)) {
+          unawaited(refreshCoworkChanges(conversationId));
+        }
         final selectedChat = selectedCoworkChatId == conversationId
             ? selectedCoworkChat
             : null;

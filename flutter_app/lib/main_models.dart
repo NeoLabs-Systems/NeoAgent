@@ -4158,6 +4158,7 @@ class CoworkChat {
     required this.mode,
     required this.device,
     this.workspacePathOverride,
+    this.modelOverride,
     required this.manuallyTitled,
     required this.createdAt,
     required this.updatedAt,
@@ -4179,6 +4180,9 @@ class CoworkChat {
       workspacePathOverride: (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
           ? json['workspacePathOverride'].toString().trim()
           : null,
+      modelOverride: (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
+          ? json['modelOverride'].toString().trim()
+          : null,
       manuallyTitled: json['manuallyTitled'] == true,
       createdAt: _parseTimestamp(json['createdAt']?.toString()),
       updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
@@ -4197,12 +4201,28 @@ class CoworkChat {
   final CoworkInteractionMode mode;
   final CoworkDeviceSelection device;
   final String? workspacePathOverride;
+  final String? modelOverride;
   final bool manuallyTitled;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int messageCount;
   final int pendingInputCount;
   final CoworkRunSummary? latestRun;
+
+  bool get isLocal => device.effective == 'local';
+
+  /// Folder shown in the UI: the last path segment of the override, or the
+  /// default workspace name.
+  String get workspaceLabel {
+    final override = workspacePathOverride;
+    if (override == null) return 'NeoAgent Workspace';
+    final segments = override
+        .replaceAll('\\', '/')
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: false);
+    return segments.isEmpty ? override : segments.last;
+  }
 }
 
 class CoworkRunSummary {
@@ -4212,6 +4232,8 @@ class CoworkRunSummary {
     required this.title,
     required this.mode,
     required this.deviceTarget,
+    this.model,
+    this.totalTokens = 0,
   });
 
   factory CoworkRunSummary.fromJson(Map<String, dynamic> json) {
@@ -4223,6 +4245,10 @@ class CoworkRunSummary {
           ? CoworkInteractionMode.plan
           : CoworkInteractionMode.agent,
       deviceTarget: json['deviceTarget']?.toString(),
+      model: (json['model']?.toString().trim().isNotEmpty ?? false)
+          ? json['model'].toString().trim()
+          : null,
+      totalTokens: _asInt(json['totalTokens']),
     );
   }
 
@@ -4231,6 +4257,8 @@ class CoworkRunSummary {
   final String title;
   final CoworkInteractionMode mode;
   final String? deviceTarget;
+  final String? model;
+  final int totalTokens;
 
   bool get isLive => <String>{
     'pending',
@@ -4251,16 +4279,135 @@ class CoworkActivityItem {
     required this.summary,
     required this.createdAt,
     this.durationMs,
+    this.toolArgs = const <String, dynamic>{},
+    this.detail = '',
+    this.screenshotPath,
   });
+
+  static const Set<String> writeTools = <String>{
+    'write_file',
+    'edit_file',
+    'replace_file_range',
+  };
+  static const Set<String> readTools = <String>{
+    'read_file',
+    'read_files',
+    'read_artifact',
+    'list_directory',
+    'search_files',
+    'code_navigate',
+  };
 
   final String id;
   final String runId;
+
+  /// Step type from the server (tool, verification, subagent, steering).
   final String kind;
+
+  /// Tool name for tool steps, otherwise a display label.
   final String label;
   final String status;
   final String summary;
   final DateTime createdAt;
   final int? durationMs;
+  final Map<String, dynamic> toolArgs;
+
+  /// Long-form output (command stdout, error text) shown when expanded.
+  final String detail;
+  final String? screenshotPath;
+
+  bool get isRunning => status == 'running';
+  bool get isFailed => status == 'failed';
+  bool get isWriteTool => writeTools.contains(label);
+  bool get isReadTool => readTools.contains(label);
+  bool get isCommand => label == 'execute_command';
+  bool get isDesktopTool => label.startsWith('desktop_');
+  bool get isBrowserTool => label.startsWith('browser_');
+
+  /// Workspace path targeted by a file tool, if any.
+  String? get filePath {
+    final raw = toolArgs['path'] ?? toolArgs['file_path'];
+    final path = raw?.toString().trim() ?? '';
+    return path.isEmpty ? null : path;
+  }
+
+  CoworkActivityItem copyWith({
+    String? status,
+    String? summary,
+    int? durationMs,
+    Map<String, dynamic>? toolArgs,
+    String? detail,
+    String? screenshotPath,
+  }) {
+    return CoworkActivityItem(
+      id: id,
+      runId: runId,
+      kind: kind,
+      label: label,
+      status: status ?? this.status,
+      summary: summary ?? this.summary,
+      createdAt: createdAt,
+      durationMs: durationMs ?? this.durationMs,
+      toolArgs: toolArgs ?? this.toolArgs,
+      detail: detail ?? this.detail,
+      screenshotPath: screenshotPath ?? this.screenshotPath,
+    );
+  }
+}
+
+class CoworkChangedFile {
+  const CoworkChangedFile({
+    required this.path,
+    required this.action,
+    required this.edits,
+    required this.runId,
+    required this.changedAt,
+  });
+
+  factory CoworkChangedFile.fromJson(Map<String, dynamic> json) {
+    return CoworkChangedFile(
+      path: json['path']?.toString() ?? '',
+      action: json['action']?.toString() == 'written' ? 'written' : 'edited',
+      edits: _asInt(json['edits']),
+      runId: json['runId']?.toString() ?? '',
+      changedAt: _parseTimestamp(json['changedAt']?.toString()),
+    );
+  }
+
+  final String path;
+  final String action;
+  final int edits;
+  final String runId;
+  final DateTime changedAt;
+
+  String get name => path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
+  String get directory {
+    final index = path.lastIndexOf('/');
+    return index <= 0 ? '' : path.substring(0, index);
+  }
+}
+
+class CoworkWorkspaceEntry {
+  const CoworkWorkspaceEntry({
+    required this.name,
+    required this.path,
+    required this.isDirectory,
+    this.sizeBytes,
+  });
+
+  factory CoworkWorkspaceEntry.fromJson(Map<String, dynamic> json) {
+    return CoworkWorkspaceEntry(
+      name: json['name']?.toString() ?? '',
+      path: json['path']?.toString() ?? '',
+      isDirectory: json['type']?.toString() == 'directory',
+      sizeBytes: json['size'] is num ? (json['size'] as num).toInt() : null,
+    );
+  }
+
+  final String name;
+  final String path;
+  final bool isDirectory;
+  final int? sizeBytes;
 }
 
 class CoworkInputOption {
@@ -4346,10 +4493,12 @@ class CoworkThreadState {
     this.messages = const <ChatEntry>[],
     this.activity = const <CoworkActivityItem>[],
     this.inputRequests = const <CoworkInputRequest>[],
+    this.changes = const <CoworkChangedFile>[],
     this.streamingContent = '',
     this.phase = '',
     this.activeRunId,
     this.runStatus,
+    this.runStartedAt,
     this.loading = false,
     this.sending = false,
   });
@@ -4357,6 +4506,8 @@ class CoworkThreadState {
   final List<ChatEntry> messages;
   final List<CoworkActivityItem> activity;
   final List<CoworkInputRequest> inputRequests;
+  final List<CoworkChangedFile> changes;
+  final DateTime? runStartedAt;
   final String streamingContent;
   final String phase;
   final String? activeRunId;
@@ -4374,15 +4525,20 @@ class CoworkThreadState {
         'resuming',
       }.contains(runStatus);
 
+  List<CoworkActivityItem> activityForRun(String runId) =>
+      activity.where((item) => item.runId == runId).toList(growable: false);
+
   CoworkThreadState copyWith({
     List<ChatEntry>? messages,
     List<CoworkActivityItem>? activity,
     List<CoworkInputRequest>? inputRequests,
+    List<CoworkChangedFile>? changes,
     String? streamingContent,
     String? phase,
     String? activeRunId,
     bool clearActiveRunId = false,
     String? runStatus,
+    DateTime? runStartedAt,
     bool? loading,
     bool? sending,
   }) {
@@ -4390,10 +4546,12 @@ class CoworkThreadState {
       messages: messages ?? this.messages,
       activity: activity ?? this.activity,
       inputRequests: inputRequests ?? this.inputRequests,
+      changes: changes ?? this.changes,
       streamingContent: streamingContent ?? this.streamingContent,
       phase: phase ?? this.phase,
       activeRunId: clearActiveRunId ? null : activeRunId ?? this.activeRunId,
       runStatus: runStatus ?? this.runStatus,
+      runStartedAt: clearActiveRunId ? null : runStartedAt ?? this.runStartedAt,
       loading: loading ?? this.loading,
       sending: sending ?? this.sending,
     );

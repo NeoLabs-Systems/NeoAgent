@@ -3,6 +3,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const cowork = require('../services/cowork/service');
+const { listChangedFiles } = require('../services/cowork/changes');
 
 const router = express.Router();
 
@@ -50,7 +51,13 @@ router.get('/chats/:id', (req, res) => {
     }),
     activity: cowork.listActivity(req.session.userId, req.params.id),
     inputRequests: cowork.listInputRequests(req.session.userId, req.params.id),
+    changes: listChangedFiles(req.session.userId, req.params.id),
   });
+});
+
+router.get('/chats/:id/changes', (req, res) => {
+  cowork.requireConversation(req.session.userId, req.params.id);
+  res.json({ changes: listChangedFiles(req.session.userId, req.params.id) });
 });
 
 router.patch('/chats/:id', (req, res) => {

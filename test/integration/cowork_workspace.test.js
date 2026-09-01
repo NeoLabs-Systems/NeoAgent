@@ -148,6 +148,52 @@ describe('Cowork desktop workspace', () => {
       .expect(404);
   });
 
+  test('per-chat model override is durable and clears with "default"', async () => {
+    const created = await ownerClient.post('/api/cowork/chats').send({
+      modelOverride: 'openai:gpt-5',
+    }).expect(201);
+    assert.equal(created.body.chat.modelOverride, 'openai:gpt-5');
+    const cleared = await ownerClient.patch(`/api/cowork/chats/${created.body.chat.id}`).send({
+      modelOverride: 'default',
+    }).expect(200);
+    assert.equal(cleared.body.chat.modelOverride, null);
+    await ownerClient.patch(`/api/cowork/chats/${created.body.chat.id}`).send({
+      modelOverride: 'x'.repeat(121),
+    }).expect(400);
+  });
+
+  test('changed files are derived from completed workspace edits and the latest run carries usage', async () => {
+    const created = await ownerClient.post('/api/cowork/chats').send({}).expect(201);
+    const chat = created.body.chat;
+    const runId = randomUUID();
+    ctx.db.prepare(
+      `INSERT INTO agent_runs (
+        id, user_id, agent_id, title, status, runtime_state, conversation_id, model, total_tokens
+      ) VALUES (?, ?, ?, 'Refactor', 'completed', 'completed', ?, 'anthropic:claude', 1234)`,
+    ).run(runId, owner.userId, chat.agentId, chat.id);
+    const insertStep = ctx.db.prepare(
+      `INSERT INTO agent_steps (
+        id, run_id, step_index, type, status, tool_name, tool_input, started_at, completed_at
+      ) VALUES (?, ?, ?, 'tool', ?, ?, ?, datetime('now', ?), datetime('now', ?))`,
+    );
+    insertStep.run(randomUUID(), runId, 0, 'completed', 'read_file', JSON.stringify({ path: 'README.md' }), '-4 minutes', '-4 minutes');
+    insertStep.run(randomUUID(), runId, 1, 'completed', 'write_file', JSON.stringify({ path: './src/new.js' }), '-3 minutes', '-3 minutes');
+    insertStep.run(randomUUID(), runId, 2, 'completed', 'edit_file', JSON.stringify({ file_path: 'src/new.js' }), '-2 minutes', '-2 minutes');
+    insertStep.run(randomUUID(), runId, 3, 'failed', 'edit_file', JSON.stringify({ path: 'src/broken.js' }), '-1 minutes', '-1 minutes');
+    insertStep.run(randomUUID(), runId, 4, 'completed', 'replace_file_range', JSON.stringify({ path: 'docs/guide.md' }), '-30 seconds', '-30 seconds');
+
+    const changes = await ownerClient.get(`/api/cowork/chats/${chat.id}/changes`).expect(200);
+    assert.deepEqual(
+      changes.body.changes.map((change) => [change.path, change.action, change.edits]),
+      [['docs/guide.md', 'edited', 1], ['src/new.js', 'written', 2]],
+    );
+    const detail = await ownerClient.get(`/api/cowork/chats/${chat.id}`).expect(200);
+    assert.equal(detail.body.changes.length, 2);
+    assert.equal(detail.body.chat.latestRun.model, 'anthropic:claude');
+    assert.equal(detail.body.chat.latestRun.totalTokens, 1234);
+    await otherClient.get(`/api/cowork/chats/${chat.id}/changes`).expect(404);
+  });
+
   test('deleting a chat stops its active run and removes chat-owned records', async () => {
     const created = await ownerClient.post('/api/cowork/chats').send({}).expect(201);
     const chat = created.body.chat;

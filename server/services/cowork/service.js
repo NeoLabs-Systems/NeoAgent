@@ -49,6 +49,13 @@ function normalizeWorkspacePathOverride(value) {
   return path;
 }
 
+function normalizeModelOverride(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const model = String(value).trim();
+  if (model.length > 120) throw serviceError('Model override is too long.');
+  return model === 'default' ? null : model;
+}
+
 function resolveAgent(userId, agentId) {
   if (agentId == null || String(agentId).trim() === '') return getDefaultAgent(userId);
   const agent = getAgentById(userId, String(agentId).trim());
@@ -104,6 +111,7 @@ function serializeConversation(row, options = {}) {
     mode: normalizeMode(row.interaction_mode, 'agent'),
     device,
     workspacePathOverride: row.workspace_path_override || null,
+    modelOverride: row.model_override || null,
     manuallyTitled: row.manually_titled === 1 || row.manually_titled === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -113,6 +121,8 @@ function serializeConversation(row, options = {}) {
       title: row.latest_run_title || '',
       mode: row.latest_run_mode || 'agent',
       deviceTarget: row.latest_run_device_target || null,
+      model: row.latest_run_model || null,
+      totalTokens: Number(row.latest_run_total_tokens || 0),
       createdAt: row.latest_run_created_at || null,
       updatedAt: row.latest_run_updated_at || null,
     } : null,
@@ -152,6 +162,10 @@ function listConversations(userId, options = {}) {
           ORDER BY ar.created_at DESC LIMIT 1) AS latest_run_mode,
        (SELECT ar.device_target FROM agent_runs ar WHERE ar.conversation_id = c.id
           ORDER BY ar.created_at DESC LIMIT 1) AS latest_run_device_target,
+       (SELECT ar.model FROM agent_runs ar WHERE ar.conversation_id = c.id
+          ORDER BY ar.created_at DESC LIMIT 1) AS latest_run_model,
+       (SELECT ar.total_tokens FROM agent_runs ar WHERE ar.conversation_id = c.id
+          ORDER BY ar.created_at DESC LIMIT 1) AS latest_run_total_tokens,
        (SELECT ar.created_at FROM agent_runs ar WHERE ar.conversation_id = c.id
           ORDER BY ar.created_at DESC LIMIT 1) AS latest_run_created_at,
        (SELECT ar.updated_at FROM agent_runs ar WHERE ar.conversation_id = c.id
@@ -176,12 +190,13 @@ function createConversation(userId, input = {}, options = {}) {
   const workspacePathOverride = normalizeWorkspacePathOverride(
     input.workspacePathOverride ?? input.workspace_path_override,
   );
+  const modelOverride = normalizeModelOverride(input.modelOverride ?? input.model_override);
   const id = randomUUID();
   db.prepare(
     `INSERT INTO conversations (
       id, user_id, agent_id, platform, title, interaction_mode,
-      device_target_override, manually_titled, workspace_path_override
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      device_target_override, manually_titled, workspace_path_override, model_override
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     userId,
@@ -192,6 +207,7 @@ function createConversation(userId, input = {}, options = {}) {
     deviceOverride,
     input.title == null ? 0 : 1,
     workspacePathOverride,
+    modelOverride,
   );
   return serializeConversation(getConversationRow(userId, id), options);
 }
@@ -220,11 +236,17 @@ function updateConversation(userId, conversationId, input = {}, options = {}) {
   const workspacePathOverride = hasWorkspaceOverride
     ? normalizeWorkspacePathOverride(input.workspacePathOverride ?? input.workspace_path_override)
     : current.workspace_path_override;
+  const hasModelOverride = Object.prototype.hasOwnProperty.call(input, 'modelOverride')
+    || Object.prototype.hasOwnProperty.call(input, 'model_override');
+  const modelOverride = hasModelOverride
+    ? normalizeModelOverride(input.modelOverride ?? input.model_override)
+    : current.model_override;
 
   db.prepare(
     `UPDATE conversations
      SET title = ?, agent_id = ?, interaction_mode = ?, device_target_override = ?,
-         manually_titled = ?, workspace_path_override = ?, updated_at = datetime('now')
+         manually_titled = ?, workspace_path_override = ?, model_override = ?,
+         updated_at = datetime('now')
      WHERE id = ? AND user_id = ? AND platform = ?`,
   ).run(
     title,
@@ -233,6 +255,7 @@ function updateConversation(userId, conversationId, input = {}, options = {}) {
     deviceOverride,
     hasTitle ? 1 : current.manually_titled,
     workspacePathOverride,
+    modelOverride,
     conversationId,
     userId,
     COWORK_PLATFORM,
@@ -475,6 +498,7 @@ function getRunContext(userId, conversationId, runtimeManager = null) {
     workspacePathOverride: device.effective === 'local'
       ? (conversation.workspace_path_override || null)
       : null,
+    modelOverride: conversation.model_override || null,
   };
 }
 
@@ -514,6 +538,7 @@ module.exports = {
   listMessages,
   normalizeDeviceOverride,
   normalizeMode,
+  normalizeModelOverride,
   requireConversation,
   resolveEffectiveDeviceTarget,
   updateConversation,
