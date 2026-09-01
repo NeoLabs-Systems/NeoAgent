@@ -1,4 +1,4 @@
-const { buildCoworkAnalysisInstructions, buildCoworkExecutionGuidance } = require('../cowork/prompt');
+const { buildCoworkExecutionGuidance } = require('../cowork/prompt');
 
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
@@ -647,7 +647,6 @@ function buildAnalysisPrompt({
   capabilityHealth,
   tools = [],
   forceMode = null,
-  triggerSource = null,
 } = {}) {
   const toolCatalog = summarizeToolCatalog(tools);
   const forceModeLine = forceMode && ANALYSIS_MODES.includes(forceMode)
@@ -657,7 +656,6 @@ function buildAnalysisPrompt({
   return composeJsonPrompt([
     JSON_ONLY_RESPONSE_RULE,
     ...ANALYSIS_PROMPT_INSTRUCTIONS,
-    ...buildCoworkAnalysisInstructions({ triggerSource }),
     forceModeLine,
     formatRuntimeCapabilityHealth(capabilityHealth),
     toolCatalog ? `Available tool catalog (name: compact description):\n${toolCatalog}` : '',

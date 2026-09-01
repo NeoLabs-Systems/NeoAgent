@@ -2,6 +2,7 @@ import Cocoa
 import FlutterMacOS
 import ApplicationServices
 import CoreGraphics
+import ScreenCaptureKit
 
 @main
 class AppDelegate: FlutterAppDelegate {
@@ -56,7 +57,7 @@ final class DesktopCompanionNativePlugin: NSObject {
         result(
           FlutterError(
             code: "screen_capture_permission_denied",
-            message: "Screen Recording permission is required.",
+            message: "Screen Recording permission is required. Allow NeoAgent under System Settings › Privacy & Security › Screen Recording, then reopen the app.",
             details: nil
           )
         )
@@ -64,16 +65,21 @@ final class DesktopCompanionNativePlugin: NSObject {
       }
       let arguments = call.arguments as? [String: Any]
       let displayId = arguments?["displayId"] as? String
-      do {
-        result(try captureFrame(displayId: displayId))
-      } catch {
-        result(
-          FlutterError(
-            code: "capture_failed",
-            message: "Desktop capture failed.",
-            details: "\(error)"
-          )
-        )
+      captureFrame(displayId: displayId) { outcome in
+        DispatchQueue.main.async {
+          switch outcome {
+          case .success(let payload):
+            result(payload)
+          case .failure(let error):
+            result(
+              FlutterError(
+                code: "capture_failed",
+                message: "Desktop capture failed.",
+                details: "\(error)"
+              )
+            )
+          }
+        }
       }
     case "click":
       guard isAccessibilityTrusted() else {
@@ -312,12 +318,63 @@ final class DesktopCompanionNativePlugin: NSObject {
     }
   }
 
-  private func captureFrame(displayId: String?) throws -> [String: Any] {
+  /// Captures one display. macOS 14+ goes through ScreenCaptureKit, which is
+  /// the only path that does not trip the legacy-capture reminder dialog on
+  /// macOS 15 and fails cleanly when Screen Recording was not granted.
+  private func captureFrame(
+    displayId: String?,
+    completion: @escaping (Result<[String: Any], Error>) -> Void
+  ) {
     let resolvedDisplayId = resolveDisplayId(displayId)
-    guard let image = CGDisplayCreateImage(resolvedDisplayId) else {
-      throw NSError(domain: "NeoAgentDesktop", code: 1)
+    if #available(macOS 14.0, *) {
+      Task {
+        do {
+          let content = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+          )
+          guard let display = content.displays.first(where: { $0.displayID == resolvedDisplayId })
+            ?? content.displays.first
+          else {
+            throw NSError(
+              domain: "NeoAgentDesktop",
+              code: 3,
+              userInfo: [NSLocalizedDescriptionKey: "No display is available for capture."]
+            )
+          }
+          let scale = await MainActor.run {
+            self.screenForDisplayId(String(display.displayID))?.backingScaleFactor ?? 1
+          }
+          let configuration = SCStreamConfiguration()
+          configuration.width = Int(CGFloat(display.width) * scale)
+          configuration.height = Int(CGFloat(display.height) * scale)
+          configuration.showsCursor = true
+          let filter = SCContentFilter(display: display, excludingWindows: [])
+          let image = try await SCScreenshotManager.captureImage(
+            contentFilter: filter,
+            configuration: configuration
+          )
+          let payload = try await MainActor.run {
+            try self.framePayload(image: image, displayId: display.displayID)
+          }
+          completion(.success(payload))
+        } catch {
+          completion(.failure(error))
+        }
+      }
+      return
     }
+    do {
+      guard let image = CGDisplayCreateImage(resolvedDisplayId) else {
+        throw NSError(domain: "NeoAgentDesktop", code: 1)
+      }
+      completion(.success(try framePayload(image: image, displayId: resolvedDisplayId)))
+    } catch {
+      completion(.failure(error))
+    }
+  }
 
+  private func framePayload(image: CGImage, displayId resolvedDisplayId: CGDirectDisplayID) throws -> [String: Any] {
     let rep = NSBitmapImageRep(cgImage: image)
     guard let data = rep.representation(using: .png, properties: [:]) else {
       throw NSError(domain: "NeoAgentDesktop", code: 2)
@@ -336,18 +393,12 @@ final class DesktopCompanionNativePlugin: NSObject {
     ]
   }
 
+  // Status must not touch capture APIs: a probe capture counts as screen
+  // recording and macOS 15 re-shows its reminder dialog for every launch that
+  // does it. A grant made in System Settings applies after the app reopens,
+  // which is also what the preflight reports.
   private func preflightScreenCapturePermission() -> Bool {
-    if CGPreflightScreenCaptureAccess() { return true }
-    // CGPreflightScreenCaptureAccess() caches the result per-process on macOS 14+
-    // and won't reflect a System Settings grant until the app restarts. Fall back to
-    // a live 1×1 capture probe which returns nil when recording is actually blocked.
-    let probe = CGWindowListCreateImage(
-      CGRect(x: 0, y: 0, width: 1, height: 1),
-      .optionOnScreenOnly,
-      kCGNullWindowID,
-      .bestResolution
-    )
-    return probe != nil
+    CGPreflightScreenCaptureAccess()
   }
 
   private func isAccessibilityTrusted() -> Bool {

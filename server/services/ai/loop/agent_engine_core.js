@@ -335,7 +335,7 @@ class AgentEngine {
     }
 
     const decision = shouldEnhanceRetrieval(initial);
-    if (!decision.enhance) {
+    if (!decision.enhance || options.enhanceRecall === false) {
       const message = await memoryManager.buildRecallMessage(userId, query, {
         agentId,
         recalled: initial.slice(0, 5),

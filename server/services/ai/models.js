@@ -72,6 +72,19 @@ function isValidHttpUrl(value) {
     }
 }
 
+// Every run consults the provider catalog; an offline Ollama must not add a
+// full probe timeout to each of them, so the outcome is reused briefly.
+const OLLAMA_PROBE_TTL_MS = 30 * 1000;
+const ollamaProbeCache = new Map();
+
+async function probeOllamaCached(baseUrl, timeoutMs, signal) {
+    const cached = ollamaProbeCache.get(baseUrl);
+    if (cached && cached.expiresAt > Date.now()) return cached.probe;
+    const probe = await probeOllama(baseUrl, timeoutMs, signal);
+    ollamaProbeCache.set(baseUrl, { probe, expiresAt: Date.now() + OLLAMA_PROBE_TTL_MS });
+    return probe;
+}
+
 async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
     try {
         const { response, text } = await fetchResponseText(`${baseUrl}/api/tags`, {
@@ -212,7 +225,7 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
         let availabilityReason = provider.availabilityReason;
 
         if (provider.id === 'ollama' && options.probeLocal !== false) {
-            const probe = await probeOllama(
+            const probe = await probeOllamaCached(
                 provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
                 1500,
                 options.signal,

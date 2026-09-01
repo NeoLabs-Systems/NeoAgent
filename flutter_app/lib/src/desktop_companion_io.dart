@@ -97,6 +97,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   String get activationId => _activationId;
   Map<String, Object?> get status => _status;
   String? get pendingPermission => _pendingPermission;
+  bool get _screenCaptureAllowed => grantedPermissions.contains('screen');
   Set<String> get grantedPermissions => <String>{
     ..._persistentPermissions,
     ..._sessionPermissions,
@@ -356,6 +357,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     final status = await _actions.getStatus(
       label: _label,
       paused: _paused,
+      captureAllowed: _screenCaptureAllowed,
       activeDisplayId: _activeDisplayId,
     );
     _status = <String, Object?>{
@@ -446,6 +448,7 @@ class DesktopCompanionManager extends ChangeNotifier {
             label: _label,
             companionEnabled: _enabled,
             paused: _paused,
+            captureAllowed: _screenCaptureAllowed,
             activeDisplayId: _activeDisplayId,
           )
           .timeout(const Duration(seconds: 10));
@@ -842,6 +845,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         return _actions.getStatus(
           label: _label,
           paused: _paused,
+          captureAllowed: _screenCaptureAllowed,
           activeDisplayId: _activeDisplayId,
         );
       case 'captureFrame':
@@ -923,6 +927,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         final status = await _actions.getStatus(
           label: _label,
           paused: _paused,
+          captureAllowed: _screenCaptureAllowed,
           activeDisplayId: _activeDisplayId,
         );
         return <String, Object?>{
@@ -1148,6 +1153,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     final status = await _actions.getStatus(
       label: _label,
       paused: _paused,
+      captureAllowed: _screenCaptureAllowed,
       activeDisplayId: _activeDisplayId,
     );
     return resolveDesktopDisplaySelection(

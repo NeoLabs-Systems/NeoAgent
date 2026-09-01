@@ -2198,6 +2198,9 @@ class NeoAgentController extends ChangeNotifier {
           sending: true,
           streamingContent: '',
         );
+      case 'phase':
+        final label = payload['label']?.toString().trim() ?? '';
+        if (label.isNotEmpty) next = current.copyWith(phase: label);
       case 'thinking':
         next = current.copyWith(phase: 'Thinking');
       case 'analysis':
@@ -7729,6 +7732,12 @@ class NeoAgentController extends ChangeNotifier {
       _streamingIteration = 0;
       isSendingMessage = true;
       notifyListeners();
+    });
+    socket.on('run:phase', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('phase', payload);
+      }
     });
     socket.on('run:thinking', (dynamic data) {
       final payload = _jsonMap(data);
