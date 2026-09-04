@@ -11,7 +11,7 @@ const TOOLS = Object.freeze([
   {
     name: 'neorecall_search',
     access: 'read',
-    description: 'Search NeoRecall memories, mini-memories, daily summaries, and transcript evidence with local hybrid retrieval. This does not invoke NeoRecall Ask or another LLM.',
+    description: 'Search personal NeoRecall memories, mini-memories, daily summaries, and transcript evidence with local hybrid retrieval. Use for open-ended recall of past events, discussions, people, facts, tasks, or promises. Does not invoke NeoRecall Ask or another LLM.',
     parameters: {
       type: 'object',
       properties: {
@@ -29,7 +29,7 @@ const TOOLS = Object.freeze([
   {
     name: 'neorecall_list_memories',
     access: 'read',
-    description: 'List typed episodic memories from NeoRecall, optionally filtered by date, type, or topic.',
+    description: 'List typed episodic NeoRecall memories, optionally filtered by date window (from/to), type, or topic. Use when reconstructing what happened across a day or period.',
     parameters: {
       type: 'object',
       properties: {
@@ -61,15 +61,20 @@ const TOOLS = Object.freeze([
   {
     name: 'neorecall_list_daily_summaries',
     access: 'read',
-    description: 'List NeoRecall daily summaries for a date range.',
+    description: 'List NeoRecall daily summaries for a date range. Prefer this first for questions about what happened today, yesterday, or on a specific calendar day.',
     parameters: {
-      type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, limit: { type: 'number' } },
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Inclusive local date YYYY-MM-DD.' },
+        to: { type: 'string', description: 'Inclusive local date YYYY-MM-DD.' },
+        limit: { type: 'number' },
+      },
     },
   },
   {
     name: 'neorecall_list_conversations',
     access: 'read',
-    description: 'List transcript conversations from NeoRecall, including their time ranges and memory-processing state.',
+    description: 'List NeoRecall transcript conversations for a time range, including titles/summaries and memory-processing state. Use for who the user talked with today or recently.',
     parameters: {
       type: 'object', properties: { state: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, limit: { type: 'number' } },
     },

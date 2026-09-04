@@ -68,6 +68,15 @@ evidence. It does not expose audio, recording, memory mutation, consolidation,
 or NeoRecall Ask. This keeps the products isolated and avoids a second LLM call
 when NeoAgent only needs retrieval context.
 
+When a NeoRecall account is connected, NeoAgent injects connected-integration
+guidance into the run and keeps daily-summary, search, and conversation tools
+active so questions about the user's day can be answered from NeoRecall without
+manual tool discovery.
+
+OAuth authorize always opens the NeoRecall base URL you configured (not a
+possibly-local `NEORECALL_PUBLIC_URL`). NeoAgent's own `PUBLIC_URL` must still
+be reachable from the browser so the callback can finish.
+
 ## Messaging channels
 
 Configure messaging under **Settings > Messaging**. Supported bridges include

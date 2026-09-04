@@ -945,6 +945,11 @@ Future<void> _showNeoRecallSetupDialog(
                 'Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.',
                 style: TextStyle(color: _textSecondary),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Use a NeoRecall URL the NeoAgent server can reach. NeoAgent\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
               const SizedBox(height: 16),
               const _IntegrationSetupStatusItem(
                 label: 'Connection Method',

@@ -695,6 +695,14 @@ class DurableRunRuntime {
       if (capabilitySummary) {
         messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
       }
+      const connectedIntegrations = app?.locals?.integrationManager
+        ?.summarizeConnectedProviders?.(userId, agentId);
+      if (connectedIntegrations) {
+        messages.push({
+          role: 'system',
+          content: `[Connected integrations]\n${connectedIntegrations}`,
+        });
+      }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
       // Snapshot before the tool catalog and execution guidance are appended:
@@ -808,9 +816,17 @@ class DurableRunRuntime {
         limit: 8,
         excludeNames: ALWAYS_INCLUDE_BUILT_INS,
       });
+      // When NeoRecall is connected, keep day/search tools active so personal
+      // recall questions do not depend on lexical discovery under the tool cap.
+      const preferredNeoRecallTools = [
+        'neorecall_list_daily_summaries',
+        'neorecall_search',
+        'neorecall_list_conversations',
+      ].filter((name) => allTools.some((tool) => tool?.name === name));
       const suggestedToolNames = [...new Set([
         ...(analysis.suggested_tools || []),
         ...initialMatches.map((tool) => tool.name),
+        ...preferredNeoRecallTools,
       ])];
       tools = selectInitialTools(
         allTools,
