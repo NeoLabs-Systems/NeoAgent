@@ -131341,33 +131341,35 @@ $1(a){var s=this
 return new A.fz(new A.bgY(s.a,s.b,s.c,s.d,s.e,s.f,s.r),null)},
 $S:28}
 A.bgY.prototype={
-$2(a,b){var s,r,q,p,o,n,m=this,l=null
+$2(a,b){var s,r,q,p,o,n,m,l=this,k=null
 $.c.toString
 s=$.u()
-r=A.m("Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.",l,l,l,l,l,A.y(l,l,(s.d.d===B.f?B.d:B.c).f,l,l,l,l,l,l,l,l,l,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)
-q=m.b
-if(q){p=m.c
-o=p===1?"connected user":"connected users"
-o=""+p+" "+o
-p=o}else p="Not connected"
-o=A.bm(l,B.I,!1,l,!0,B.t,l,A.bq(),m.d,l,l,l,l,l,2,B.a_k,B.v,!0,l,!0,l,!1,l,B.K,l,l,l,l,B.fA,l,l,l,1,l,l,!1,"\u2022",l,l,l,l,l,!1,l,l,!1,l,!0,l,B.H,l,l,l,l,l,l,l,l,l,l,l,l,!0,B.E,l,B.M,l,l,l,l)
+r=A.m("Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.",k,k,k,k,k,A.y(k,k,(s.d.d===B.f?B.d:B.c).f,k,k,k,k,k,k,k,k,k,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k,k,k)
 $.c.toString
-n=t.p
-o=A.a([r,B.Z,B.as9,B.u,new A.nl("Connected NeoRecall User",p,q,l),B.u,o,B.X,A.m("Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.",l,l,l,l,l,A.y(l,l,(s.d.d===B.f?B.d:B.c).f,l,l,l,l,l,l,l,l,12,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],n)
-r=m.a
-p=r.a
-if(p.length!==0){$.c.toString
-B.e.B(o,A.a([B.u,A.m(p,l,l,l,l,l,A.y(l,l,(s.d.d===B.f?B.d:B.c).ay,l,l,l,l,l,l,l,l,12,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],n))}s=A.bd(A.Y(o,B.p,B.h,B.J,0,B.n),l,540)
-n=A.a([],n)
-if(m.e.length!==0)n.push(A.ca(!1,B.e6,l,l,l,l,l,l,r.b?l:new A.bgU(r,a,b,m.f),l,l))
-n.push(A.ca(!1,B.fC,l,l,l,l,l,l,r.b?l:new A.bgV(a),l,l))
-n.push(A.ca(!1,B.JG,l,l,l,l,l,l,r.b?l:new A.bgW(m.r,b,a),l,l))
+q=A.m("Use a NeoRecall URL the NeoAgent server can reach. NeoAgent's PUBLIC_URL must also be reachable from this browser for the OAuth callback.",k,k,k,k,k,A.y(k,k,(s.d.d===B.f?B.d:B.c).f,k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k,k,k)
+p=l.b
+if(p){o=l.c
+n=o===1?"connected user":"connected users"
+n=""+o+" "+n
+o=n}else o="Not connected"
+n=A.bm(k,B.I,!1,k,!0,B.t,k,A.bq(),l.d,k,k,k,k,k,2,B.a_k,B.v,!0,k,!0,k,!1,k,B.K,k,k,k,k,B.fA,k,k,k,1,k,k,!1,"\u2022",k,k,k,k,k,!1,k,k,!1,k,!0,k,B.H,k,k,k,k,k,k,k,k,k,k,k,k,!0,B.E,k,B.M,k,k,k,k)
+$.c.toString
+m=t.p
+n=A.a([r,B.X,q,B.Z,B.as9,B.u,new A.nl("Connected NeoRecall User",o,p,k),B.u,n,B.X,A.m("Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.",k,k,k,k,k,A.y(k,k,(s.d.d===B.f?B.d:B.c).f,k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k,k,k)],m)
+r=l.a
+q=r.a
+if(q.length!==0){$.c.toString
+B.e.B(n,A.a([B.u,A.m(q,k,k,k,k,k,A.y(k,k,(s.d.d===B.f?B.d:B.c).ay,k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k,k,k)],m))}s=A.bd(A.Y(n,B.p,B.h,B.J,0,B.n),k,540)
+m=A.a([],m)
+if(l.e.length!==0)m.push(A.ca(!1,B.e6,k,k,k,k,k,k,r.b?k:new A.bgU(r,a,b,l.f),k,k))
+m.push(A.ca(!1,B.fC,k,k,k,k,k,k,r.b?k:new A.bgV(a),k,k))
+m.push(A.ca(!1,B.JG,k,k,k,k,k,k,r.b?k:new A.bgW(l.r,b,a),k,k))
 r=r.b
-p=r?l:new A.bgX(m.r,b,a)
+q=r?k:new A.bgX(l.r,b,a)
 if(r)r="Working..."
-else r=q?"Connect Another Account":"Save & Connect"
-n.push(A.d_(!1,A.m(r,l,l,l,l,l,l,l,l,l),B.k,l,l,l,l,l,p,l,l))
-return A.ec(n,l,s,l,l,B.aoI,l)},
+else r=p?"Connect Another Account":"Save & Connect"
+m.push(A.d_(!1,A.m(r,k,k,k,k,k,k,k,k,k),B.k,k,k,k,k,k,q,k,k))
+return A.ec(m,k,s,k,k,B.aoI,k)},
 $S:36}
 A.bgU.prototype={
 $0(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h
@@ -135781,7 +135783,7 @@ if(r){r=s.d
 r===$&&A.b()
 p.push(A.ka(q,A.i5(!1,new A.Z(B.vx,A.cN(new A.cA(B.n7,new A.a7j(r,q),q),q,q),q),!1,B.F,!0),q,q,0,0,0,q))}if(!s.ax){r=s.e
 r===$&&A.b()
-r=B.b.q("mtmozq7j-d759dbb").length!==0&&r.b}else r=!1
+r=B.b.q("mtn6kar5-6638dea").length!==0&&r.b}else r=!1
 if(r){r=s.d
 r===$&&A.b()
 r=r.br&&!r.bb?84:0
@@ -141647,7 +141649,7 @@ $S:12}
 A.ZW.prototype={}
 A.SR.prototype={
 q9(a){var s=this
-if(B.b.q("mtmozq7j-d759dbb").length===0||s.a!=null)return
+if(B.b.q("mtn6kar5-6638dea").length===0||s.a!=null)return
 s.Ap()
 s.a=A.jt(B.Tu,new A.bcY(s))},
 Ap(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f
@@ -141665,7 +141667,7 @@ if(!t.f.b(k)){s=1
 break}i=J.O(k,"buildId")
 h=i==null?null:B.b.q(J.o(i))
 j=h==null?"":h
-if(J.bg(j)===0||J.e(j,"mtmozq7j-d759dbb")){s=1
+if(J.bg(j)===0||J.e(j,"mtn6kar5-6638dea")){s=1
 break}n.b=!0
 n.C()
 p=2
@@ -141682,7 +141684,7 @@ case 2:return A.h(o.at(-1),r)}})
 return A.j($async$Ap,r)},
 vl(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
 var $async$vl=A.l(function(a2,a3){if(a2===1){o.push(a3)
-s=p}while(true)switch(s){case 0:if(B.b.q("mtmozq7j-d759dbb").length===0||n.c){s=1
+s=p}while(true)switch(s){case 0:if(B.b.q("mtn6kar5-6638dea").length===0||n.c){s=1
 break}n.c=!0
 n.C()
 p=4
