@@ -226,7 +226,7 @@ class _CoworkSessionRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? _accentMuted : Colors.transparent,
+        color: selected ? _bgCard : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -236,9 +236,7 @@ class _CoworkSessionRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
-                    ? _accent.withValues(alpha: 0.35)
-                    : Colors.transparent,
+                color: selected ? _borderLight : Colors.transparent,
               ),
             ),
             child: Row(

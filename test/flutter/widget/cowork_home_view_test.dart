@@ -39,6 +39,12 @@ Map<String, dynamic> _chatJson() => <String, dynamic>{
 };
 
 class _CoworkBackendClient extends BackendClient {
+  _CoworkBackendClient({this.extraTurns = 0});
+
+  /// Additional user/assistant pairs appended after the fixed thread, to make
+  /// the transcript long enough to scroll.
+  final int extraTurns;
+
   @override
   Future<Map<String, dynamic>> fetchCoworkChat(
     String baseUrl,
@@ -64,6 +70,23 @@ class _CoworkBackendClient extends BackendClient {
           'metadata': <String, dynamic>{},
           'createdAt': '2026-09-01T09:04:00Z',
         },
+        for (var turn = 0; turn < extraTurns; turn++) ...<Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 100 + turn * 2,
+            'role': 'user',
+            'content': 'Follow-up question number $turn.',
+            'metadata': <String, dynamic>{},
+            'createdAt': '2026-09-01T09:1${turn % 10}:00Z',
+          },
+          <String, dynamic>{
+            'id': 101 + turn * 2,
+            'role': 'assistant',
+            'agentName': 'Builder',
+            'content': 'Answer number $turn with a few lines of detail so the thread grows.',
+            'metadata': <String, dynamic>{},
+            'createdAt': '2026-09-01T09:1${turn % 10}:30Z',
+          },
+        ],
       ],
       'inputRequests': <Map<String, dynamic>>[],
       'activity': <Map<String, dynamic>>[
@@ -153,13 +176,14 @@ class _CoworkBackendClient extends BackendClient {
 Future<NeoAgentController> _mount(
   WidgetTester tester, {
   required Size size,
+  int extraTurns = 0,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final controller = NeoAgentController(
-    backendClient: _CoworkBackendClient(),
+    backendClient: _CoworkBackendClient(extraTurns: extraTurns),
     healthBridge: HealthBridge(),
   );
   addTearDown(controller.dispose);
@@ -201,10 +225,11 @@ void main() {
       find.textContaining('The startup test is fixed', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('2 steps · 1 file edited'), findsOneWidget);
-    await tester.tap(find.text('2 steps · 1 file edited'));
+    expect(find.text('Explored 1 file · Edited 1 file'), findsOneWidget);
+    expect(find.text('Edited lib/main.dart'), findsNothing);
+    await tester.tap(find.text('Explored 1 file · Edited 1 file'));
     await tester.pump();
-    expect(find.text('Read README.md'), findsOneWidget);
+    expect(find.text('Explored README.md'), findsOneWidget);
     expect(find.text('Edited lib/main.dart'), findsOneWidget);
 
     // Composer controls.
@@ -229,6 +254,48 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('hello'), findsOneWidget);
     expect(find.text('world'), findsOneWidget);
+  });
+
+  testWidgets('transcript follows output and offers a jump back to latest', (
+    tester,
+  ) async {
+    await _mount(tester, size: const Size(1480, 700), extraTurns: 30);
+    // Assistant replies render as selectable markdown, so match the editable
+    // text they produce rather than a plain Text widget.
+    final latest = find.byWidgetPredicate(
+      (widget) =>
+          widget is EditableText &&
+          widget.controller.text.contains('Answer number 29'),
+    );
+
+    // The thread opens pinned to the newest message.
+    expect(latest, findsOneWidget);
+    expect(find.text('Jump to latest'), findsNothing);
+
+    // Scrolling up detaches from the bottom and reveals the pill. The
+    // transcript is the tallest scrollable on screen.
+    final scrollables = find.byType(Scrollable);
+    ScrollableState? transcript;
+    for (var index = 0; index < tester.widgetList(scrollables).length; index++) {
+      final state = tester.state<ScrollableState>(scrollables.at(index));
+      if (transcript == null ||
+          state.position.maxScrollExtent > transcript.position.maxScrollExtent) {
+        transcript = state;
+      }
+    }
+    // Reversed list: moving away from offset zero scrolls up into history.
+    transcript!.position.jumpTo(1500);
+    await tester.pump();
+    expect(find.text('Jump to latest'), findsOneWidget);
+
+    await tester.tap(find.text('Jump to latest'));
+    await tester.pump();
+    // The scroll animation starts on the first tick and finishes on the next.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(transcript.position.pixels, 0);
+    expect(find.text('Jump to latest'), findsNothing);
+    expect(latest, findsOneWidget);
   });
 
   testWidgets('compact layout collapses the rail behind a toggle', (

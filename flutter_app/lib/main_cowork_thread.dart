@@ -71,6 +71,7 @@ class _CoworkConversation extends StatelessWidget {
                     thread: thread,
                     scrollController: scrollController,
                     compact: compact,
+                    detailed: controller.coworkThreadDetailed,
                     onOpenFile: onOpenFile,
                   ),
           ),
@@ -138,6 +139,20 @@ class _CoworkThreadHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _CoworkRunStatus(thread: thread, latest: latest),
+              const SizedBox(width: 6),
+              _CoworkIconChip(
+                size: 34,
+                tooltip: controller.coworkThreadDetailed
+                    ? 'Show work as summaries'
+                    : 'Show every step',
+                icon: controller.coworkThreadDetailed
+                    ? Icons.unfold_less_rounded
+                    : Icons.unfold_more_rounded,
+                selected: controller.coworkThreadDetailed,
+                onPressed: () => controller.setCoworkThreadDetailed(
+                  !controller.coworkThreadDetailed,
+                ),
+              ),
               if (thread.hasLiveRun) ...<Widget>[
                 const SizedBox(width: 6),
                 _CoworkIconChip(
@@ -216,23 +231,24 @@ class _CoworkRunStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (thread.hasLiveRun) {
-      final color = _coworkStatusColor(thread.runStatus);
+      final paused = thread.runStatus == 'paused';
+      final color = paused ? _warning : _textSecondary;
       return Container(
         padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
+          color: _bgSecondary,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(color: _borderLight),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (thread.runStatus == 'paused')
+            if (paused)
               Icon(Icons.pause_circle_outline, size: 14, color: color)
             else
               SizedBox.square(
                 dimension: 12,
-                child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
               ),
             const SizedBox(width: 7),
             ConstrainedBox(
@@ -250,7 +266,7 @@ class _CoworkRunStatus extends StatelessWidget {
             ),
             if (thread.runStartedAt != null) ...<Widget>[
               const SizedBox(width: 7),
-              _CoworkRunClock(since: thread.runStartedAt!, color: color),
+              _CoworkRunClock(since: thread.runStartedAt!, color: _textMuted),
             ],
           ],
         ),
@@ -469,7 +485,6 @@ class _CoworkWorkspaceMenuState extends State<_CoworkWorkspaceMenu> {
         child: _CoworkContextPill(
           icon: Icons.folder_outlined,
           label: widget.chat.workspaceLabel,
-          accent: widget.chat.workspacePathOverride != null,
           onTap: _openMenu,
         ),
       ),
@@ -612,13 +627,20 @@ class _CoworkStarters extends StatelessWidget {
 
 // ─── Transcript ──────────────────────────────────────────────────────────────
 
-class _CoworkTranscript extends StatelessWidget {
+/// The transcript follows new output while the reader sits at the bottom and
+/// stops following the moment they scroll up, offering a "jump to latest"
+/// pill instead of yanking the view. The list is reversed so offset zero is
+/// the newest content: growth at the bottom then stays anchored without any
+/// programmatic scrolling. Interleaves each run's work between the request
+/// that started it and the reply, so the thread reads as a log.
+class _CoworkTranscript extends StatefulWidget {
   const _CoworkTranscript({
     required this.controller,
     required this.chat,
     required this.thread,
     required this.scrollController,
     required this.compact,
+    required this.detailed,
     required this.onOpenFile,
   });
 
@@ -627,39 +649,155 @@ class _CoworkTranscript extends StatelessWidget {
   final CoworkThreadState thread;
   final ScrollController scrollController;
   final bool compact;
+  final bool detailed;
   final ValueChanged<String> onOpenFile;
 
-  /// Interleaves each run's activity between the user request that started
-  /// it and the assistant reply, so the transcript reads like a log of work.
+  @override
+  State<_CoworkTranscript> createState() => _CoworkTranscriptState();
+}
+
+class _CoworkTranscriptState extends State<_CoworkTranscript> {
+  static const double _followThreshold = 72;
+
+  bool _following = true;
+  bool _hasUnseen = false;
+  // True while a programmatic scroll back to the bottom is in flight, so the
+  // intermediate offsets do not read as the user scrolling away again.
+  bool _settling = false;
+  String _lastSignature = '';
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScroll);
+    _lastSignature = _signature(widget.thread);
+    _scrollToBottom(animate: false);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CoworkTranscript oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
+    final signature = _signature(widget.thread);
+    if (signature == _lastSignature) return;
+    _lastSignature = signature;
+    final messages = widget.thread.messages;
+    final sentJustNow =
+        messages.length > oldWidget.thread.messages.length &&
+        messages.last.role == 'user';
+    if (sentJustNow) _following = true;
+    if (_following) {
+      _scrollToBottom(animate: false);
+    } else if (!_hasUnseen) {
+      setState(() => _hasUnseen = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  String _signature(CoworkThreadState thread) {
+    final last = thread.activity.isEmpty ? null : thread.activity.last;
+    return '${thread.messages.length}:${thread.streamingContent.length}:'
+        '${thread.activity.length}:${last?.status}:${thread.inputRequests.length}:'
+        '${thread.phase}';
+  }
+
+  bool get _atBottom {
+    final controller = widget.scrollController;
+    if (!controller.hasClients) return true;
+    return controller.position.pixels <= _followThreshold;
+  }
+
+  void _onScroll() {
+    if (_settling) return;
+    final atBottom = _atBottom;
+    if (atBottom == _following) return;
+    setState(() {
+      _following = atBottom;
+      if (atBottom) _hasUnseen = false;
+    });
+  }
+
+  void _scrollToBottom({required bool animate}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = widget.scrollController;
+      if (!controller.hasClients) return;
+      if (animate) {
+        _settling = true;
+        controller
+            .animateTo(
+              0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+            )
+            .whenComplete(() {
+              _settling = false;
+              if (mounted) _onScroll();
+            });
+      } else {
+        controller.jumpTo(0);
+      }
+    });
+  }
+
+  void _jumpToLatest() {
+    setState(() {
+      _following = true;
+      _hasUnseen = false;
+    });
+    _scrollToBottom(animate: true);
+  }
+
   List<Widget> _blocks() {
+    final thread = widget.thread;
+    final chat = widget.chat;
+    final controller = widget.controller;
     final blocks = <Widget>[];
     final emittedRuns = <String>{};
-    void emitActivity(String? runId) {
+    final liveRunId = thread.hasLiveRun ? thread.activeRunId : null;
+
+    void emitWork(String? runId) {
       if (runId == null || runId.isEmpty || emittedRuns.contains(runId)) return;
       final items = thread.activityForRun(runId);
       if (items.isEmpty) return;
       emittedRuns.add(runId);
       blocks.add(
-        _CoworkActivityGroup(
-          key: ValueKey<String>('activity-$runId'),
+        _CoworkWorkBlock(
+          key: ValueKey<String>('work-$runId'),
           items: items,
-          live: thread.hasLiveRun && thread.activeRunId == runId,
-          onOpenFile: onOpenFile,
+          live: runId == liveRunId,
+          detailed: widget.detailed,
+          onOpenFile: widget.onOpenFile,
         ),
       );
     }
 
+    // Progress notes are status, not conversation: the newest one shows while
+    // the run is live; finished runs keep only their reply unless detailed.
+    ChatEntry? latestLiveNote;
     for (final message in thread.messages) {
-      if (message.role != 'user') emitActivity(message.runId);
+      final interim = message.metadata['interim'] == true;
+      if (interim && !widget.detailed) {
+        if (message.runId == liveRunId) latestLiveNote = message;
+        continue;
+      }
+      if (message.role != 'user') emitWork(message.runId);
       blocks.add(_CoworkMessageBubble(message: message));
       if (message.role == 'user' && message.metadata['steering'] != true) {
-        emitActivity(message.runId);
+        emitWork(message.runId);
       }
     }
-    emitActivity(thread.activeRunId);
-    // A run may have finished before its reply was persisted client-side.
+    emitWork(liveRunId);
     for (final item in thread.activity) {
-      emitActivity(item.runId);
+      emitWork(item.runId);
     }
     if (thread.streamingContent.trim().isNotEmpty) {
       blocks.add(
@@ -676,7 +814,12 @@ class _CoworkTranscript extends StatelessWidget {
         ),
       );
     } else if (thread.hasLiveRun && thread.runStatus != 'paused') {
-      blocks.add(_CoworkWorkingIndicator(phase: thread.phase));
+      blocks.add(
+        _CoworkLiveStatus(
+          phase: thread.phase,
+          note: latestLiveNote?.content,
+        ),
+      );
     }
     for (final request in thread.inputRequests.where((item) => item.isPending)) {
       blocks.add(
@@ -710,38 +853,113 @@ class _CoworkTranscript extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      controller: scrollController,
-      padding: EdgeInsets.fromLTRB(
-        compact ? 14 : 24,
-        16,
-        compact ? 14 : 24,
-        12,
-      ),
-      children: _blocks(),
+    final horizontal = widget.compact ? 14.0 : 28.0;
+    return Stack(
+      children: <Widget>[
+        ListView(
+          controller: widget.scrollController,
+          reverse: true,
+          padding: EdgeInsets.fromLTRB(horizontal, 18, horizontal, 16),
+          children: _blocks().reversed.toList(growable: false),
+        ),
+        if (!_following)
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _CoworkJumpToLatest(
+                highlighted: _hasUnseen,
+                onTap: _jumpToLatest,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _CoworkWorkingIndicator extends StatelessWidget {
-  const _CoworkWorkingIndicator({required this.phase});
+class _CoworkJumpToLatest extends StatelessWidget {
+  const _CoworkJumpToLatest({required this.highlighted, required this.onTap});
 
-  final String phase;
+  final bool highlighted;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: _bgCard,
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 7, 14, 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(color: highlighted ? _accent : _borderLight),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.arrow_downward_rounded,
+                size: 15,
+                color: highlighted ? _accentHover : _textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                highlighted ? 'New activity' : 'Jump to latest',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: highlighted ? _accentHover : _textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One quiet line under the work block while a run is live: the phase, or the
+/// newest progress note from the model.
+class _CoworkLiveStatus extends StatelessWidget {
+  const _CoworkLiveStatus({required this.phase, this.note});
+
+  final String phase;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = note?.trim().isNotEmpty == true ? note!.trim() : phase.ifEmpty('Working');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14, left: 4),
+      padding: const EdgeInsets.only(bottom: 14, left: 2),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox.square(
-            dimension: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: SizedBox.square(
+              dimension: 13,
+              child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+            ),
           ),
           const SizedBox(width: 10),
-          Text(
-            phase.ifEmpty('Working'),
-            style: GoogleFonts.geistMono(fontSize: 12, color: _textSecondary),
+          Expanded(
+            child: Text(
+              _condenseRunText(text, maxLength: 240),
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: _textSecondary,
+                fontStyle: note == null ? FontStyle.normal : FontStyle.italic,
+              ),
+            ),
           ),
         ],
       ),
@@ -749,80 +967,83 @@ class _CoworkWorkingIndicator extends StatelessWidget {
   }
 }
 
-// ─── Activity ────────────────────────────────────────────────────────────────
+// ─── Work block ──────────────────────────────────────────────────────────────
 
-class _CoworkActivityGroup extends StatefulWidget {
-  const _CoworkActivityGroup({
+/// A run's tool activity, folded into one summary row. Consecutive reads,
+/// listings and searches merge into a single "Explored" row so the thread
+/// shows what happened rather than every call.
+class _CoworkWorkBlock extends StatefulWidget {
+  const _CoworkWorkBlock({
     super.key,
     required this.items,
     required this.live,
+    required this.detailed,
     required this.onOpenFile,
   });
 
   final List<CoworkActivityItem> items;
   final bool live;
+  final bool detailed;
   final ValueChanged<String> onOpenFile;
 
   @override
-  State<_CoworkActivityGroup> createState() => _CoworkActivityGroupState();
+  State<_CoworkWorkBlock> createState() => _CoworkWorkBlockState();
 }
 
-class _CoworkActivityGroupState extends State<_CoworkActivityGroup> {
+class _CoworkWorkBlockState extends State<_CoworkWorkBlock> {
   bool? _expanded;
 
-  bool get expanded => _expanded ?? widget.live;
+  bool get expanded => _expanded ?? widget.detailed;
 
   @override
   Widget build(BuildContext context) {
     final items = widget.items;
+    final rows = _coworkWorkRows(items);
+    final explored = items.where((item) => item.isReadTool).length;
     final edited = items
         .where((item) => item.isWriteTool && item.filePath != null)
         .map((item) => item.filePath!)
-        .toSet();
+        .toSet()
+        .length;
     final commands = items.where((item) => item.isCommand).length;
+    final actions = items
+        .where((item) => item.isDesktopTool || item.isBrowserTool)
+        .length;
     final failed = items.where((item) => item.isFailed).length;
     final totalMs = items.fold<int>(0, (sum, item) => sum + (item.durationMs ?? 0));
-    final parts = <String>[
-      '${items.length} ${items.length == 1 ? 'step' : 'steps'}',
-      if (edited.isNotEmpty)
-        '${edited.length} ${edited.length == 1 ? 'file' : 'files'} edited',
-      if (commands > 0) '$commands ${commands == 1 ? 'command' : 'commands'}',
-      if (failed > 0) '$failed failed',
-      if (totalMs > 0 && !widget.live) _formatDuration(totalMs),
-    ];
     final running = widget.live
         ? items.where((item) => item.isRunning).lastOrNull
         : null;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: _bgSecondary.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: widget.live ? _accent.withValues(alpha: 0.25) : _border,
-        ),
-      ),
+    final summary = <String>[
+      if (explored > 0) 'Explored ${_coworkCount(explored, 'file')}',
+      if (edited > 0) 'Edited ${_coworkCount(edited, 'file')}',
+      if (commands > 0) 'Ran ${_coworkCount(commands, 'command')}',
+      if (actions > 0) _coworkCount(actions, 'screen action'),
+      if (failed > 0) '${_coworkCount(failed, 'step')} failed',
+    ];
+    final headline = running != null && !expanded
+        ? _coworkActivityTitle(running)
+        : summary.isEmpty
+        ? _coworkCount(items.length, 'step')
+        : summary.join(' · ');
+    final trailing = widget.live
+        ? _coworkCount(items.length, 'step')
+        : totalMs > 0
+        ? 'Worked for ${_formatDuration(totalMs)}'
+        : '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             onTap: () => setState(() => _expanded = !expanded),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
               child: Row(
                 children: <Widget>[
-                  AnimatedRotation(
-                    turns: expanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 160),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: _textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  if (widget.live)
+                  if (widget.live && running != null)
                     SizedBox.square(
                       dimension: 14,
                       child: CircularProgressIndicator(
@@ -834,23 +1055,44 @@ class _CoworkActivityGroupState extends State<_CoworkActivityGroup> {
                     Icon(
                       failed > 0
                           ? Icons.error_outline_rounded
-                          : Icons.check_circle_outline_rounded,
-                      size: 16,
-                      color: failed > 0 ? _warning : _success,
+                          : Icons.check_rounded,
+                      size: 15,
+                      color: failed > 0 ? _danger : _textMuted,
                     ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      running != null && !expanded
-                          ? _coworkActivityTitle(running)
-                          : parts.join(' · '),
+                      headline,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: _textSecondary,
+                        fontFamily: running != null && !expanded
+                            ? GoogleFonts.geistMono().fontFamily
+                            : null,
                       ),
+                    ),
+                  ),
+                  if (trailing.isNotEmpty) ...<Widget>[
+                    const SizedBox(width: 10),
+                    Text(
+                      trailing,
+                      style: GoogleFonts.geistMono(
+                        fontSize: 10.5,
+                        color: _textMuted,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 17,
+                      color: _textMuted,
                     ),
                   ),
                 ],
@@ -858,14 +1100,19 @@ class _CoworkActivityGroupState extends State<_CoworkActivityGroup> {
             ),
           ),
           if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            Container(
+              margin: const EdgeInsets.only(left: 10, top: 2),
+              padding: const EdgeInsets.only(left: 12),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: _border, width: 2)),
+              ),
               child: Column(
                 children: <Widget>[
-                  for (final item in items)
-                    _CoworkActivityRow(
-                      key: ValueKey<String>(item.id),
-                      item: item,
+                  for (final row in rows)
+                    _CoworkWorkRow(
+                      key: ValueKey<String>(row.id),
+                      row: row,
+                      detailed: widget.detailed,
                       onOpenFile: widget.onOpenFile,
                     ),
                 ],
@@ -877,60 +1124,136 @@ class _CoworkActivityGroupState extends State<_CoworkActivityGroup> {
   }
 }
 
-class _CoworkActivityRow extends StatefulWidget {
-  const _CoworkActivityRow({
+String _coworkCount(int count, String noun) =>
+    '$count ${count == 1 ? noun : '${noun}s'}';
+
+/// A display row: either one tool step or a merged cluster of exploration
+/// steps (reads, listings, searches) that ran back to back.
+class _CoworkWorkEntry {
+  const _CoworkWorkEntry({required this.id, required this.items});
+
+  final String id;
+  final List<CoworkActivityItem> items;
+
+  bool get isCluster => items.length > 1 || items.first.isReadTool;
+  CoworkActivityItem get primary => items.last;
+  bool get running => items.any((item) => item.isRunning);
+  bool get failed => items.any((item) => item.isFailed);
+  int get durationMs => items.fold<int>(0, (sum, item) => sum + (item.durationMs ?? 0));
+}
+
+List<_CoworkWorkEntry> _coworkWorkRows(List<CoworkActivityItem> items) {
+  final rows = <_CoworkWorkEntry>[];
+  var cluster = <CoworkActivityItem>[];
+  void flush() {
+    if (cluster.isEmpty) return;
+    rows.add(_CoworkWorkEntry(id: 'explore-${cluster.first.id}', items: cluster));
+    cluster = <CoworkActivityItem>[];
+  }
+
+  for (final item in items) {
+    if (item.isReadTool && !item.isFailed) {
+      cluster.add(item);
+      continue;
+    }
+    flush();
+    rows.add(_CoworkWorkEntry(id: item.id, items: <CoworkActivityItem>[item]));
+  }
+  flush();
+  return rows;
+}
+
+String _coworkExploreSummary(List<CoworkActivityItem> items) {
+  final names = <String>[];
+  for (final item in items) {
+    final path = item.filePath;
+    if (item.label == 'read_files') {
+      final paths = item.toolArgs['paths'];
+      if (paths is List) names.addAll(paths.map((p) => _coworkFolderName(p.toString())));
+      continue;
+    }
+    if (item.label == 'search_files' || item.label == 'code_navigate') {
+      final query = _coworkArg(item, <String>['query', 'pattern', 'glob', 'symbol']);
+      if (query.isNotEmpty) names.add('"${_condenseRunText(query, maxLength: 32)}"');
+      continue;
+    }
+    if (item.label == 'list_directory') {
+      names.add(path == null || path == '.' || path.isEmpty ? 'root' : '${_coworkFolderName(path)}/');
+      continue;
+    }
+    if (path != null) names.add(_coworkFolderName(path));
+  }
+  final unique = names.toSet().toList(growable: false);
+  if (unique.isEmpty) return 'Explored the workspace';
+  final shown = unique.take(4).join(', ');
+  final rest = unique.length - 4;
+  return 'Explored $shown${rest > 0 ? ' +$rest more' : ''}';
+}
+
+class _CoworkWorkRow extends StatefulWidget {
+  const _CoworkWorkRow({
     super.key,
-    required this.item,
+    required this.row,
+    required this.detailed,
     required this.onOpenFile,
   });
 
-  final CoworkActivityItem item;
+  final _CoworkWorkEntry row;
+  final bool detailed;
   final ValueChanged<String> onOpenFile;
 
   @override
-  State<_CoworkActivityRow> createState() => _CoworkActivityRowState();
+  State<_CoworkWorkRow> createState() => _CoworkWorkRowState();
 }
 
-class _CoworkActivityRowState extends State<_CoworkActivityRow> {
-  bool _open = false;
+class _CoworkWorkRowState extends State<_CoworkWorkRow> {
+  bool? _open;
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
-    final color = item.isFailed
+    final row = widget.row;
+    final item = row.primary;
+    final cluster = row.isCluster;
+    final detail = cluster ? '' : item.detail.trim();
+    final hasDetail = detail.isNotEmpty;
+    final open = _open ?? (widget.detailed && item.isCommand);
+    final failed = row.failed;
+    final color = failed
         ? _danger
-        : item.isRunning
+        : row.running
         ? _accent
         : _textMuted;
-    final hasDetail = item.detail.trim().isNotEmpty;
+    final title = cluster
+        ? _coworkExploreSummary(row.items)
+        : _coworkActivityTitle(item);
+    final subtitle = failed && !cluster ? item.summary : '';
     final path = item.filePath;
-    final subtitle = item.isFailed
-        ? item.summary
-        : item.isCommand || item.isWriteTool
-        ? ''
-        : item.summary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: hasDetail ? () => setState(() => _open = !_open) : null,
+          borderRadius: BorderRadius.circular(8),
+          onTap: hasDetail ? () => setState(() => _open = !open) : null,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: item.isRunning
+                  padding: const EdgeInsets.only(top: 2),
+                  child: row.running
                       ? SizedBox.square(
-                          dimension: 14,
+                          dimension: 13,
                           child: CircularProgressIndicator(
                             strokeWidth: 1.8,
                             color: color,
                           ),
                         )
-                      : Icon(_coworkActivityIcon(item), size: 15, color: color),
+                      : Icon(
+                          cluster ? Icons.manage_search_rounded : _coworkActivityIcon(item),
+                          size: 14,
+                          color: color,
+                        ),
                 ),
                 const SizedBox(width: 9),
                 Expanded(
@@ -938,13 +1261,14 @@ class _CoworkActivityRowState extends State<_CoworkActivityRow> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        _coworkActivityTitle(item),
+                        title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: item.isFailed ? _danger : _textPrimary,
-                          fontFamily: item.isCommand || path != null
+                          height: 1.35,
+                          color: failed ? _danger : _textPrimary,
+                          fontFamily: !cluster && (item.isCommand || path != null)
                               ? GoogleFonts.geistMono().fontFamily
                               : null,
                         ),
@@ -959,7 +1283,7 @@ class _CoworkActivityRowState extends State<_CoworkActivityRow> {
                     ],
                   ),
                 ),
-                if (item.isWriteTool && path != null) ...<Widget>[
+                if (!cluster && item.isWriteTool && path != null) ...<Widget>[
                   const SizedBox(width: 6),
                   Tooltip(
                     message: 'Open in workbench',
@@ -971,23 +1295,23 @@ class _CoworkActivityRowState extends State<_CoworkActivityRow> {
                         child: Icon(
                           Icons.open_in_new_rounded,
                           size: 14,
-                          color: _accentHover,
+                          color: _textSecondary,
                         ),
                       ),
                     ),
                   ),
                 ],
-                if (item.durationMs != null && item.durationMs! > 0) ...<Widget>[
+                if (row.durationMs > 0) ...<Widget>[
                   const SizedBox(width: 8),
                   Text(
-                    _formatDuration(item.durationMs!),
+                    _formatDuration(row.durationMs),
                     style: GoogleFonts.geistMono(fontSize: 10.5, color: _textMuted),
                   ),
                 ],
                 if (hasDetail) ...<Widget>[
                   const SizedBox(width: 4),
                   Icon(
-                    _open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                     size: 16,
                     color: _textMuted,
                   ),
@@ -996,19 +1320,19 @@ class _CoworkActivityRowState extends State<_CoworkActivityRow> {
             ),
           ),
         ),
-        if (_open && hasDetail)
+        if (open && hasDetail)
           Container(
-            margin: const EdgeInsets.fromLTRB(30, 2, 6, 8),
+            margin: const EdgeInsets.fromLTRB(27, 2, 4, 8),
             padding: const EdgeInsets.all(10),
             constraints: const BoxConstraints(maxHeight: 260),
             decoration: BoxDecoration(
-              color: _bgTertiary,
+              color: _bgSecondary,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _border),
             ),
             child: SingleChildScrollView(
               child: SelectableText(
-                item.detail,
+                detail,
                 style: GoogleFonts.geistMono(
                   fontSize: 11.5,
                   height: 1.45,
@@ -1218,17 +1542,12 @@ class _CoworkMessageBubble extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 14),
-            padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             decoration: BoxDecoration(
-              color: _accentMuted,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(6),
-              ),
-              border: Border.all(color: _accent.withValues(alpha: 0.22)),
+              color: _bgSecondary,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1242,7 +1561,7 @@ class _CoworkMessageBubble extends StatelessWidget {
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
-                        color: _accentHover,
+                        color: _textMuted,
                       ),
                     ),
                   ),
@@ -1261,9 +1580,24 @@ class _CoworkMessageBubble extends StatelessWidget {
       );
     }
 
+    if (interim) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12, left: 2),
+        child: Text(
+          _condenseRunText(message.content, maxLength: 400),
+          style: TextStyle(
+            fontSize: 12.5,
+            height: 1.45,
+            fontStyle: FontStyle.italic,
+            color: _textMuted,
+          ),
+        ),
+      );
+    }
+
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1272,9 +1606,7 @@ class _CoworkMessageBubble extends StatelessWidget {
               const _LogoBadge(size: 16),
               const SizedBox(width: 7),
               Text(
-                interim
-                    ? 'Progress'
-                    : (message.senderName?.ifEmpty('NeoAgent') ?? 'NeoAgent'),
+                message.senderName?.ifEmpty('NeoAgent') ?? 'NeoAgent',
                 style: GoogleFonts.geist(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1294,45 +1626,41 @@ class _CoworkMessageBubble extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Container(
-            padding: interim
-                ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
-                : const EdgeInsets.fromLTRB(4, 0, 12, 0),
-            decoration: interim
-                ? BoxDecoration(
-                    color: _accentAlt.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _accentAlt.withValues(alpha: 0.3)),
-                  )
-                : null,
+          Padding(
+            padding: const EdgeInsets.only(left: 2, right: 12),
             child: MarkdownBody(
               data: message.content,
               selectable: true,
               styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
                 p: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.6,
-                  color: interim ? _textSecondary : _textPrimary,
+                  color: _textPrimary,
+                ),
+                listBullet: theme.textTheme.bodyMedium?.copyWith(
+                  color: _textPrimary,
                 ),
                 code: theme.textTheme.bodyMedium?.copyWith(
                   fontFamily: GoogleFonts.geistMono().fontFamily,
                   fontSize: 12.5,
-                  backgroundColor: _bgTertiary,
+                  backgroundColor: _bgSecondary,
                 ),
                 codeblockDecoration: BoxDecoration(
-                  color: _bgTertiary,
+                  color: _bgSecondary,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: _border),
                 ),
                 codeblockPadding: const EdgeInsets.all(12),
                 blockquoteDecoration: BoxDecoration(
-                  color: _bgTertiary,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _border),
+                  border: Border(left: BorderSide(color: _borderLight, width: 3)),
                 ),
+                blockquotePadding: const EdgeInsets.only(left: 12),
                 h1: _displayTitleStyle(20),
                 h2: _displayTitleStyle(18),
                 h3: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                ),
+                horizontalRuleDecoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: _border)),
                 ),
               ),
             ),

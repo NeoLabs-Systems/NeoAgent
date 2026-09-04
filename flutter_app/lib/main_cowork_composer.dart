@@ -69,11 +69,7 @@ class _CoworkComposer extends StatelessWidget {
             decoration: BoxDecoration(
               color: _bgCard,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: steering
-                    ? _accentAlt.withValues(alpha: 0.5)
-                    : _borderLight,
-              ),
+              border: Border.all(color: _borderLight),
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.08),
@@ -281,7 +277,6 @@ class _CoworkModelPill extends StatelessWidget {
           ? Icons.auto_awesome_outlined
           : current.icon ?? Icons.memory_rounded,
       label: label,
-      accent: current.value != 'default',
       maxWidth: 160,
       onTap: () => showDialog<void>(
         context: context,

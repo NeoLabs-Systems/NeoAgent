@@ -50,6 +50,7 @@ class NeoAgentController extends ChangeNotifier {
   static const String _selectedSectionPrefsKey = 'ui.selectedSection';
   static const String _selectedAgentPrefsKey = 'ui.selectedAgentId';
   static const String _desktopWorkspaceModePrefsKey = 'desktop.workspaceMode';
+  static const String _coworkThreadDetailPrefsKey = 'cowork.threadDetail';
   static const Set<String> _workspaceToolNames = <String>{
     'read_file',
     'read_files',
@@ -115,6 +116,9 @@ class NeoAgentController extends ChangeNotifier {
   bool networkStatusKnown = false;
   bool isDiscoveringBackends = false;
   bool desktopCoworkMode = false;
+
+  /// Cowork transcript density: summaries per run (false) or every step (true).
+  bool coworkThreadDetailed = false;
   bool isLoadingCowork = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
@@ -676,6 +680,7 @@ class NeoAgentController extends ChangeNotifier {
     desktopCoworkMode = _supportsDesktopShell
         ? _prefs?.getString(_desktopWorkspaceModePrefsKey) == 'cowork'
         : false;
+    coworkThreadDetailed = _prefs?.getBool(_coworkThreadDetailPrefsKey) ?? false;
     _restoreSelectedSectionFromPrefs();
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
@@ -1987,6 +1992,12 @@ class NeoAgentController extends ChangeNotifier {
 
   void setCoworkWorkSurfacePinned(bool pinned) {
     coworkWorkSurfacePinned = pinned;
+    notifyListeners();
+  }
+
+  void setCoworkThreadDetailed(bool detailed) {
+    coworkThreadDetailed = detailed;
+    unawaited(_prefs?.setBool(_coworkThreadDetailPrefsKey, detailed));
     notifyListeners();
   }
 

@@ -128,8 +128,9 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
+      // The transcript is a reversed list: offset zero is the newest content.
       _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
+        0,
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOut,
       );
@@ -722,19 +723,16 @@ class _CoworkContextPill extends StatelessWidget {
     required this.icon,
     required this.label,
     this.onTap,
-    this.accent = false,
     this.maxWidth = 180,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool accent;
   final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ? _accentHover : _textSecondary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -743,18 +741,14 @@ class _CoworkContextPill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: accent
-                ? _accentMuted.withValues(alpha: 0.7)
-                : _bgSecondary.withValues(alpha: 0.82),
+            color: _bgSecondary.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(
-              color: accent ? _accent.withValues(alpha: 0.35) : _borderLight,
-            ),
+            border: Border.all(color: _borderLight),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, size: 14, color: color),
+              Icon(icon, size: 14, color: _textSecondary),
               const SizedBox(width: 6),
               ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxWidth),
@@ -765,7 +759,7 @@ class _CoworkContextPill extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 12.5,
-                    color: accent ? _accentHover : _textPrimary,
+                    color: _textPrimary,
                   ),
                 ),
               ),
