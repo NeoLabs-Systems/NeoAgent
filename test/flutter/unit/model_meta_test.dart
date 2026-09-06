@@ -29,4 +29,22 @@ void main() {
     expect(model.id, 'gpt-5.3');
     expect(model.modelId, 'gpt-5.3');
   });
+
+  test('AiProviderMeta preserves authentication metadata from the catalog', () {
+    final provider = AiProviderMeta.fromJson(<String, dynamic>{
+      'id': 'openai-compatible',
+      'label': 'Custom OpenAI-compatible',
+      'authentication': 'api_key',
+      'supportsApiKey': true,
+      'supportsBaseUrl': true,
+      'requiresBaseUrl': true,
+      'credentialConfigured': false,
+      'available': false,
+    });
+
+    expect(provider.authentication, 'api_key');
+    expect(provider.requiresBaseUrl, isTrue);
+    expect(provider.usesApiKey, isTrue);
+    expect(provider.usesOAuth, isFalse);
+  });
 }

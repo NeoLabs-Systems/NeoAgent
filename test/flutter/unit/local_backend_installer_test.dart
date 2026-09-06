@@ -143,6 +143,22 @@ void main() {
     },
   );
 
+  test('runtime manifest signature accepts SPKI-wrapped Ed25519 public keys', () async {
+    final algorithm = Ed25519();
+    final keyPair = await algorithm.newKeyPair();
+    final publicKey = await keyPair.extractPublicKey();
+    final manifestBytes = utf8.encode('{"schemaVersion":1}');
+    final signature = await algorithm.sign(manifestBytes, keyPair: keyPair);
+    final spkiPrefix = <int>[
+      0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+    ];
+    await verifyRuntimeManifestSignature(
+      manifestBytes: manifestBytes,
+      signatureBase64: base64Encode(signature.bytes),
+      publicKeyBase64: base64Encode(<int>[...spkiPrefix, ...publicKey.bytes]),
+    );
+  });
+
   test('setup engine parser accepts only versioned complete events', () {
     final parsed = parseSetupEngineEvent(
       jsonEncode(<String, dynamic>{

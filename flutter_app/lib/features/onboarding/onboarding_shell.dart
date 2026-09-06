@@ -4,6 +4,7 @@ import '../../src/theme/palette.dart';
 import 'onboarding_video_step.dart';
 import 'onboarding_welcome_step.dart';
 import 'onboarding_messaging_step.dart';
+import 'onboarding_provider_step.dart';
 import 'onboarding_model_step.dart';
 
 class OnboardingShell extends StatefulWidget {
@@ -47,6 +48,10 @@ class _OnboardingShellState extends State<OnboardingShell> {
           OnboardingVideoStep(onComplete: _nextStep),
           OnboardingWelcomeStep(onNext: _nextStep),
           OnboardingMessagingStep(
+            onNext: _nextStep,
+            controller: widget.controller,
+          ),
+          OnboardingProviderStep(
             onNext: _nextStep,
             controller: widget.controller,
           ),

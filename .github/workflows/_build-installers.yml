@@ -21,8 +21,6 @@ on:
         required: false
       ANDROID_KEY_PASSWORD:
         required: false
-      NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY:
-        required: false
       WINDOWS_SIGNING_CERTIFICATE_BASE64:
         required: false
       WINDOWS_SIGNING_CERTIFICATE_PASSWORD:
@@ -115,13 +113,10 @@ jobs:
 
       - name: Resolve runtime signing key
         shell: pwsh
-        env:
-          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
-          $publicKey = $env:RUNTIME_SIGNING_PUBLIC_KEY
+          $publicKey = (node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()").Trim()
           if ([string]::IsNullOrWhiteSpace($publicKey)) {
-            Write-Warning "No NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY secret configured; building with an ephemeral key. This build is unsigned."
-            $publicKey = (node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');const d=k.publicKey.export({type:'spki',format:'der'});console.log(d.subarray(d.length-32).toString('base64'))").Trim()
+            throw "The embedded runtime signing public key is missing."
           }
           "RUNTIME_SIGNING_PUBLIC_KEY=$publicKey" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -154,7 +149,7 @@ jobs:
         shell: pwsh
         run: |
           $channel = if ("${{ inputs.release_tag }}" -match "-beta\\.") { "beta" } else { "stable" }
-          flutter build windows --release --dart-define=NEOAGENT_RUNTIME_PUBLIC_KEY=$env:RUNTIME_SIGNING_PUBLIC_KEY --dart-define=NEOAGENT_RELEASE_CHANNEL=$channel
+          flutter build windows --release "--dart-define=NEOAGENT_RUNTIME_PUBLIC_KEY=$($env:RUNTIME_SIGNING_PUBLIC_KEY)" "--dart-define=NEOAGENT_RELEASE_CHANNEL=$channel"
 
       - name: Sign Windows application
         if: env.WINDOWS_SIGN_ENABLED == 'True'
@@ -418,14 +413,8 @@ jobs:
         run: flutter pub get
 
       - name: Resolve runtime signing key
-        env:
-          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
-          PUBLIC_KEY="$RUNTIME_SIGNING_PUBLIC_KEY"
-          if [ -z "$PUBLIC_KEY" ]; then
-            echo "::warning::No NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY secret configured; building with an ephemeral key. This build is unsigned."
-            PUBLIC_KEY="$(node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');const d=k.publicKey.export({type:'spki',format:'der'});console.log(d.subarray(d.length-32).toString('base64'))")"
-          fi
+          PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
 
       - name: Resolve macOS signing configuration
@@ -736,14 +725,8 @@ jobs:
         run: flutter pub get
 
       - name: Resolve runtime signing key
-        env:
-          RUNTIME_SIGNING_PUBLIC_KEY: ${{ secrets.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY }}
         run: |
-          PUBLIC_KEY="$RUNTIME_SIGNING_PUBLIC_KEY"
-          if [ -z "$PUBLIC_KEY" ]; then
-            echo "::warning::No NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY secret configured; building with an ephemeral key. This build is unsigned."
-            PUBLIC_KEY="$(node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');const d=k.publicKey.export({type:'spki',format:'der'});console.log(d.subarray(d.length-32).toString('base64'))")"
-          fi
+          PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
 
       - name: Build Linux app

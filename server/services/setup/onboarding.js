@@ -9,6 +9,7 @@ const {
 } = require('../../../lib/setup/contract');
 const { getDeploymentPolicy } = require('../../utils/deployment');
 const { getVersionInfo } = require('../../utils/version');
+const { ENV_FILE, upsertEnvValue } = require('../../../runtime/paths');
 
 const CONTROL_CHAR_PATTERN = new RegExp(
   '[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + String.fromCharCode(127) + ']',
@@ -88,8 +89,25 @@ function getSetupProgress() {
   };
 }
 
+function markSetupSectionComplete(sectionId) {
+  const section = String(sectionId || '').trim();
+  if (!SETUP_COMPLETION_SECTIONS.includes(section)) return getSetupProgress();
+  const completed = new Set(
+    String(process.env.NEOAGENT_SETUP_COMPLETED_SECTIONS || 'core')
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => SETUP_COMPLETION_SECTIONS.includes(item)),
+  );
+  completed.add(section);
+  const value = SETUP_COMPLETION_SECTIONS.filter((item) => completed.has(item)).join(',');
+  process.env.NEOAGENT_SETUP_COMPLETED_SECTIONS = value;
+  upsertEnvValue(ENV_FILE, 'NEOAGENT_SETUP_COMPLETED_SECTIONS', value);
+  return getSetupProgress();
+}
+
 module.exports = {
   ensureInstance,
   getSetupHandshake,
   getSetupProgress,
+  markSetupSectionComplete,
 };

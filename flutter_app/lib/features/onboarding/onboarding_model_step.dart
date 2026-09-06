@@ -83,7 +83,8 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       totalSteps: 4,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
-      description: 'Pick the model NeoAgent should use by default.',
+      description:
+          'Pick the model NeoAgent should use by default. Connect a provider first if the list is empty.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
@@ -97,7 +98,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       child: _models.isEmpty
           ? Center(
               child: Text(
-                'No available models found.\nYou can configure providers later in Settings.',
+                'No available models yet.\nConnect a provider on the previous step, or later in Settings.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: paletteOf(context).textMuted,

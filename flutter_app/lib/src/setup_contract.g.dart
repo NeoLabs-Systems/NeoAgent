@@ -3,6 +3,7 @@
 const int setupContractSchemaVersion = 1;
 const int neoAgentDefaultPort = 3333;
 const String neoAgentDefaultPortText = '3333';
+const String embeddedRuntimeSigningPublicKey = 'uDNavzHE5LnKMnSPWetl8RVaDYfcI29PFmrBg28qE8U=';
 
 const List<String> setupProfileIds = <String>['quick', 'full'];
 

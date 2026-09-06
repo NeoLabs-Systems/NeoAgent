@@ -2161,6 +2161,8 @@ class AiProviderMeta {
     required this.availabilityReason,
     required this.modelCount,
     required this.availableModelCount,
+    this.authentication = 'api_key',
+    this.requiresBaseUrl = false,
   });
 
   factory AiProviderMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2180,6 +2182,8 @@ class AiProviderMeta {
       availabilityReason: json['availabilityReason']?.toString() ?? '',
       modelCount: _asInt(json['modelCount']),
       availableModelCount: _asInt(json['availableModelCount']),
+      authentication: json['authentication']?.toString() ?? 'api_key',
+      requiresBaseUrl: json['requiresBaseUrl'] == true,
     );
   }
 
@@ -2198,6 +2202,12 @@ class AiProviderMeta {
   final String availabilityReason;
   final int modelCount;
   final int availableModelCount;
+  final String authentication;
+  final bool requiresBaseUrl;
+
+  bool get usesApiKey => authentication == 'api_key' && supportsApiKey;
+  bool get isLocal => authentication == 'local';
+  bool get usesOAuth => authentication == 'oauth';
 
   IconData get icon {
     switch (id) {

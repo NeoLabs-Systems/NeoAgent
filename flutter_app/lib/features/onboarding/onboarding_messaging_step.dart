@@ -32,7 +32,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
     final useGrid = width >= 700;
 
     return OnboardingScaffold(
-      step: 2,
+      step: 1,
       totalSteps: 4,
       eyebrow: 'COMMUNICATION',
       title: 'Connect a\nmessaging platform.',

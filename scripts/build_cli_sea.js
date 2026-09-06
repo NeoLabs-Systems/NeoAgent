@@ -6,6 +6,9 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const esbuild = require('esbuild');
+const {
+  canonicalRuntimeSigningPublicKey,
+} = require('../lib/setup/runtime_manifest');
 
 function argument(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -32,14 +35,7 @@ async function main() {
   const packageVersion = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'),
   ).version;
-  const publicKey = String(
-    process.env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY || '',
-  ).trim();
-  if (Buffer.from(publicKey, 'base64').length !== 32) {
-    throw new Error(
-      'NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY must be a base64-encoded raw Ed25519 public key.',
-    );
-  }
+  const publicKey = canonicalRuntimeSigningPublicKey();
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-sea-'));
   try {
     const bundle = path.join(temporary, 'bootstrap.cjs');

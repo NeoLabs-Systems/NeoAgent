@@ -4,9 +4,12 @@
 const fs = require('fs');
 const path = require('path');
 const {
+  assertRuntimeSigningKeypair,
+  canonicalRuntimeSigningPublicKey,
   createRuntimeManifest,
   serializeRuntimeManifest,
   signRuntimeManifest,
+  verifyRuntimeManifest,
 } = require('../lib/setup/runtime_manifest');
 
 function argument(name) {
@@ -26,9 +29,17 @@ const metadata = fs.readdirSync(inputDirectory)
   .map((name) => JSON.parse(fs.readFileSync(path.join(inputDirectory, name), 'utf8')));
 const manifest = createRuntimeManifest(version, metadata);
 const serialized = serializeRuntimeManifest(manifest);
+assertRuntimeSigningKeypair(process.env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY);
 const signature = signRuntimeManifest(
   Buffer.from(serialized),
   process.env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY,
 );
+if (!verifyRuntimeManifest(
+  Buffer.from(serialized),
+  signature,
+  canonicalRuntimeSigningPublicKey(),
+)) {
+  throw new Error('Runtime manifest signature verification failed.');
+}
 fs.writeFileSync(outputPath, serialized);
 fs.writeFileSync(`${outputPath}.sig`, `${signature}\n`);

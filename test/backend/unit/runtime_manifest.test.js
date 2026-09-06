@@ -85,3 +85,32 @@ test('runtime manifest Ed25519 signature detects tampering', () => {
     false,
   );
 });
+
+test('canonical runtime signing public key is a raw Ed25519 key', () => {
+  const {
+    canonicalRuntimeSigningPublicKey,
+    normalizeRuntimeSigningPublicKey,
+    assertRuntimeSigningKeypair,
+  } = require('../../../lib/setup/runtime_manifest');
+  const encoded = canonicalRuntimeSigningPublicKey();
+  assert.equal(Buffer.from(encoded, 'base64').length, 32);
+  assert.equal(normalizeRuntimeSigningPublicKey(encoded), encoded);
+
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+  const otherPrivate = privateKey.export({
+    format: 'der',
+    type: 'pkcs8',
+  }).toString('base64');
+  const otherPublic = publicKey.export({
+    format: 'der',
+    type: 'spki',
+  }).subarray(-32).toString('base64');
+  assert.equal(
+    assertRuntimeSigningKeypair(otherPrivate, otherPublic),
+    otherPublic,
+  );
+  assert.throws(
+    () => assertRuntimeSigningKeypair(otherPrivate),
+    (error) => error.code === 'RUNTIME_SIGNING_KEY_MISMATCH',
+  );
+});

@@ -3098,15 +3098,7 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
-      setupProfile = setupStatusResponse['profile']?.toString() == 'full'
-          ? 'full'
-          : 'quick';
-      setupComplete = setupStatusResponse['complete'] != false;
-      setupOpenSections =
-          (setupStatusResponse['openSections'] as List? ?? const [])
-              .map((section) => section.toString())
-              .where((section) => section.isNotEmpty)
-              .toList(growable: false);
+      _applySetupProgress(setupStatusResponse);
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
       usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
@@ -5216,6 +5208,68 @@ class NeoAgentController extends ChangeNotifier {
           .map(LinkedAuthProviderItem.fromJson)
           .toList();
     }
+  }
+
+  void _applySetupProgress(Object? raw) {
+    if (raw is! Map) return;
+    final setup = Map<String, dynamic>.from(raw);
+    setupProfile = setup['profile']?.toString() == 'full' ? 'full' : 'quick';
+    setupComplete = setup['complete'] != false;
+    setupOpenSections = (setup['openSections'] as List? ?? const [])
+        .map((section) => section.toString())
+        .where((section) => section.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  void _mergeProviderConfig(Object? rawProvider) {
+    if (rawProvider is! Map) return;
+    final parsed = AiProviderMeta.fromJson(rawProvider);
+    final current = settings['ai_provider_configs'];
+    final configs = current is Map
+        ? Map<String, dynamic>.from(current)
+        : <String, dynamic>{};
+    configs[parsed.id] = <String, dynamic>{
+      'enabled': parsed.enabled,
+      'baseUrl': parsed.baseUrl,
+    };
+    settings = <String, dynamic>{
+      ...settings,
+      'ai_provider_configs': configs,
+    };
+  }
+
+  Future<void> saveAiProviderCredentials({
+    required String providerId,
+    String? apiKey,
+    String? baseUrl,
+    bool clearApiKey = false,
+  }) async {
+    final trimmedKey = apiKey?.trim();
+    final trimmedUrl = baseUrl?.trim();
+    final response = await _backendClient.saveAiProviderCredentials(
+      backendUrl,
+      providerId,
+      apiKey: (trimmedKey != null && trimmedKey.isNotEmpty) ? trimmedKey : null,
+      baseUrlOverride: trimmedUrl,
+      clearApiKey: clearApiKey,
+      agentId: _scopedAgentId,
+    );
+    _applySetupProgress(response['setup']);
+    _mergeProviderConfig(response['provider']);
+    notifyListeners();
+    await refreshAiCatalog();
+  }
+
+  Future<void> clearAiProviderCredentials(String providerId) async {
+    final response = await _backendClient.clearAiProviderCredentials(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    _applySetupProgress(response['setup']);
+    _mergeProviderConfig(response['provider']);
+    notifyListeners();
+    await refreshAiCatalog();
   }
 
   Future<void> refreshAiCatalog() async {
