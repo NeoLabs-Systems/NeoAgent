@@ -289,11 +289,181 @@ test('calendar summarizeListedEvents exposes timed events separately for reminde
   assert.equal(result.timedCount, 1);
   assert.equal(result.allDayCount, 1);
   assert.equal(result.hasTimedEvents, true);
+  assert.equal(result.hasUpcomingTimedEvents, true);
+  assert.equal(result.hasOngoingTimedEvents, false);
   assert.equal(result.hasOnlyAllDayEvents, false);
+  assert.equal(result.nextUpcomingTimedEvent?.id, 'timed');
   assert.equal(result.nextTimedEvent?.id, 'timed');
+  assert.deepEqual(result.upcomingTimedEvents.map((event) => event.id), ['timed']);
+  assert.deepEqual(result.ongoingTimedEvents, []);
   assert.deepEqual(result.timedEvents.map((event) => event.id), ['timed']);
   assert.deepEqual(result.allDayEvents.map((event) => event.id), ['all-day']);
   assert.deepEqual(result.events.map((event) => event.id), ['timed', 'all-day']);
+});
+
+test('calendar partitions a three-day timed event as ongoing within a later query window', () => {
+  const {
+    calendarToolDefinitions,
+    summarizeListedEvents,
+  } = require('../../../server/services/integrations/google/calendar');
+  const { applyCalendarListMode } = require('../../../server/services/integrations/calendar_window');
+  const queryWindow = {
+    timeMin: '2026-08-29T14:00:00+02:00',
+    timeMax: '2026-08-29T15:00:00+02:00',
+  };
+  const duesseldorf = {
+    id: 'duesseldorf',
+    status: 'confirmed',
+    summary: 'Düsseldorf',
+    location: 'Düsseldorf Hauptbahnhof',
+    start: { dateTime: '2026-08-27T07:30:00+02:00' },
+    end: { dateTime: '2026-08-30T18:00:00+02:00' },
+  };
+
+  const ongoingOnly = summarizeListedEvents([duesseldorf], queryWindow);
+  assert.equal(ongoingOnly.upcomingTimedCount, 0);
+  assert.equal(ongoingOnly.ongoingTimedCount, 1);
+  assert.equal(ongoingOnly.hasUpcomingTimedEvents, false);
+  assert.equal(ongoingOnly.hasOnlyOngoingTimedEvents, true);
+  assert.equal(ongoingOnly.nextUpcomingTimedEvent, null);
+  assert.equal(ongoingOnly.nextTimedEvent, null);
+  assert.equal(ongoingOnly.ongoingTimedEvents[0].start, '2026-08-27T07:30:00+02:00');
+
+  const reminderResult = applyCalendarListMode(ongoingOnly);
+  assert.equal(reminderResult.count, 0);
+  assert.equal(reminderResult.events.length, 0);
+  assert.equal(reminderResult.ongoingTimedCount, 0);
+  assert.equal(reminderResult.omittedOngoingTimedCount, 1);
+  assert.equal(reminderResult.hasOnlyOmittedOverlaps, true);
+
+  const withUpcomingAppointment = summarizeListedEvents([
+    duesseldorf,
+    {
+      id: 'dentist',
+      status: 'confirmed',
+      summary: 'Zahnarzt',
+      start: { dateTime: '2026-08-29T14:30:00+02:00' },
+      end: { dateTime: '2026-08-29T15:00:00+02:00' },
+    },
+  ], queryWindow);
+  assert.deepEqual(withUpcomingAppointment.queryWindow, queryWindow);
+  assert.deepEqual(
+    withUpcomingAppointment.upcomingTimedEvents.map((event) => event.id),
+    ['dentist'],
+  );
+  assert.deepEqual(
+    withUpcomingAppointment.ongoingTimedEvents.map((event) => event.id),
+    ['duesseldorf'],
+  );
+  assert.deepEqual(
+    withUpcomingAppointment.timedEvents.map((event) => event.id),
+    ['dentist', 'duesseldorf'],
+  );
+  assert.equal(withUpcomingAppointment.nextUpcomingTimedEvent?.id, 'dentist');
+
+  const exclusiveUpperBound = summarizeListedEvents([
+    {
+      id: 'next-window',
+      status: 'confirmed',
+      summary: 'Starts at exclusive upper bound',
+      start: { dateTime: queryWindow.timeMax },
+      end: { dateTime: '2026-08-29T15:30:00+02:00' },
+    },
+  ], queryWindow);
+  assert.equal(exclusiveUpperBound.upcomingTimedCount, 0);
+
+  const listDefinition = calendarToolDefinitions.find(
+    (definition) => definition.name === 'google_workspace_calendar_list_events',
+  );
+  assert.match(listDefinition.description, /real start/i);
+  assert.match(listDefinition.description, /include_ongoing/i);
+});
+
+test('automatic reminder windows exclude events that already reached their start', () => {
+  const { excludeStartedTimedEvents } = require('../../../server/services/integrations/calendar_window');
+  const events = [
+    { id: 'past', start: '2026-08-30T15:59:00+02:00', allDay: false },
+    { id: 'now', start: '2026-08-30T16:00:00+02:00', allDay: false },
+    { id: 'future', start: '2026-08-30T16:01:00+02:00', allDay: false },
+    { id: 'all-day', start: '2026-08-30', allDay: true },
+  ];
+
+  assert.deepEqual(
+    excludeStartedTimedEvents(events, '2026-08-30T16:00:00+02:00')
+      .map((event) => event.id),
+    ['future', 'all-day'],
+  );
+});
+
+test('Google calendar list hides an ongoing event when only time_min is supplied', async () => {
+  const { google } = require('googleapis');
+  const { executeCalendarTool } = require('../../../server/services/integrations/google/calendar');
+  const originalCalendar = google.calendar;
+  google.calendar = () => ({
+    events: {
+      list: async () => ({
+        data: {
+          items: [{
+            id: 'long-event',
+            status: 'confirmed',
+            summary: 'Düsseldorf',
+            start: { dateTime: '2026-08-27T07:30:00+02:00' },
+            end: { dateTime: '2026-08-30T18:00:00+02:00' },
+          }],
+        },
+      }),
+    },
+  });
+
+  try {
+    const reminderResult = await executeCalendarTool(
+      'google_workspace_calendar_list_events',
+      { time_min: '2026-08-29T14:00:00+02:00' },
+      {},
+    );
+    assert.equal(reminderResult.count, 0);
+    assert.deepEqual(reminderResult.events, []);
+    assert.equal(reminderResult.omittedOngoingTimedCount, 1);
+
+    const overlapResult = await executeCalendarTool(
+      'google_workspace_calendar_list_events',
+      {
+        time_min: '2026-08-29T14:00:00+02:00',
+        include_ongoing: true,
+      },
+      {},
+    );
+    assert.equal(overlapResult.events[0].summary, 'Düsseldorf');
+  } finally {
+    google.calendar = originalCalendar;
+  }
+});
+
+test('automatic Google calendar checks require a bounded dedicated query', async () => {
+  const { executeCalendarTool } = require('../../../server/services/integrations/google/calendar');
+  const executionOptions = { triggerSource: 'schedule', taskId: 'calendar-task' };
+
+  await assert.rejects(
+    executeCalendarTool(
+      'google_workspace_calendar_list_events',
+      { time_min: '2026-08-30T20:00:00+02:00' },
+      {},
+      executionOptions,
+    ),
+    /require both time_min and time_max/i,
+  );
+  await assert.rejects(
+    executeCalendarTool(
+      'google_workspace_calendar_api_request',
+      {
+        method: 'GET',
+        path: '/calendar/v3/calendars/primary/events',
+      },
+      {},
+      executionOptions,
+    ),
+    /must use google_workspace_calendar_list_events/i,
+  );
 });
 
 test('execution guidance keeps source checkouts in the shared workspace', () => {
@@ -362,41 +532,67 @@ test('structured data parser handles quoted delimiters and newlines', () => {
   ]);
 });
 
-test('calendar compaction surfaces every event instead of truncating the array', () => {
-  // A realistic flood: one stale verbose timed event followed by many all-day
-  // markers. The generic JSON path would clamp this and drop the events; the
-  // dedicated digest must keep them all so the model never re-queries blindly.
-  const events = [
+test('calendar compaction excludes overlapping events from start-window reminders', () => {
+  const { summarizeListedEvents } = require('../../../server/services/integrations/google/calendar');
+  const { applyCalendarListMode } = require('../../../server/services/integrations/calendar_window');
+  const queryWindow = {
+    time_min: '2026-08-29T14:00:00+02:00',
+    time_max: '2026-08-29T15:00:00+02:00',
+  };
+  // A realistic flood: one verbose three-day timed event overlaps the later
+  // query window, followed by a real upcoming appointment and all-day markers.
+  // Default reminder semantics must expose only the real start in this window.
+  const items = [
     {
-      id: 'stale', status: 'confirmed', summary: 'Abreise Bali', allDay: false,
-      start: '2018-09-01T10:00:00+02:00', end: '2018-09-01T12:00:00+02:00',
+      id: 'duesseldorf', status: 'confirmed', summary: 'Düsseldorf',
+      start: { dateTime: '2026-08-27T07:30:00+02:00' },
+      end: { dateTime: '2026-08-30T18:00:00+02:00' },
       description: 'x'.repeat(4000), htmlLink: 'https://calendar.google.com/'.padEnd(300, 'y'),
       attendees: ['a@example.com', 'b@example.com'],
     },
     {
-      id: 'real', status: 'confirmed', summary: 'Zahnarzt Termin', allDay: false,
-      start: '2026-06-22T14:30:00+02:00', end: '2026-06-22T15:00:00+02:00',
+      id: 'real', status: 'confirmed', summary: 'Zahnarzt Termin',
+      start: { dateTime: '2026-08-29T14:30:00+02:00' },
+      end: { dateTime: '2026-08-29T15:00:00+02:00' },
       location: 'Praxis Dr. Müller',
     },
     ...Array.from({ length: 9 }, (_, i) => ({
-      id: `ad${i}`, status: 'confirmed', summary: `Geburtstag Person ${i}`, allDay: true,
-      start: '2026-06-22', end: '2026-06-23',
+      id: `ad${i}`, status: 'confirmed', summary: `Geburtstag Person ${i}`,
+      start: { date: '2026-08-29' }, end: { date: '2026-08-30' },
     })),
   ];
-  const result = {
-    count: events.length, timedCount: 2, allDayCount: 9,
-    hasTimedEvents: true, hasOnlyAllDayEvents: false,
-    nextTimedEvent: events[0], timedEvents: events.slice(0, 2), allDayEvents: events.slice(2), events,
-  };
-  const compact = compactToolResult('google_workspace_calendar_list_events', {}, result, {
+  const summary = summarizeListedEvents(items, queryWindow);
+  const result = applyCalendarListMode(summary);
+  const compact = compactToolResult('google_workspace_calendar_list_events', queryWindow, result, {
     softLimit: 2400, hardLimit: 4800,
   });
   const parsed = JSON.parse(compact);
-  assert.equal(parsed.timed.length, 2, 'all timed events survive compaction');
-  assert.equal(parsed.allDay.length, 9, 'all all-day events survive compaction');
-  assert.ok(parsed.timed.some((e) => e.summary === 'Zahnarzt Termin'), 'the real upcoming event is visible');
+  assert.deepEqual(parsed.queryWindow, {
+    timeMin: queryWindow.time_min,
+    timeMax: queryWindow.time_max,
+  });
+  assert.equal(parsed.upcomingTimedCount, 1);
+  assert.equal(parsed.ongoingTimedCount, 0);
+  assert.equal(parsed.upcomingTimed.length, 1);
+  assert.equal(parsed.ongoingTimed.length, 0);
+  assert.equal(parsed.allDay.length, 0);
+  assert.equal(parsed.overlapCount, 11);
+  assert.equal(parsed.omittedOngoingTimedCount, 1);
+  assert.equal(parsed.omittedAllDayCount, 9);
+  assert.equal(parsed.upcomingTimed[0].summary, 'Zahnarzt Termin');
+  assert.equal(parsed.hasUpcomingTimedEvents, true);
+  assert.equal(parsed.hasOngoingTimedEvents, false);
+  assert.ok(!compact.includes('Düsseldorf'));
+  assert.ok(!compact.includes('Geburtstag Person'));
   assert.ok(!compact.includes('xxxx'), 'verbose description noise is dropped');
   assert.ok(compact.length <= 4800, 'digest stays within the hard budget');
+
+  const overlapMode = applyCalendarListMode(summary, {
+    includeOngoing: true,
+    includeAllDay: true,
+  });
+  assert.equal(overlapMode.ongoingTimedEvents[0].summary, 'Düsseldorf');
+  assert.equal(overlapMode.allDayEvents.length, 9);
 });
 
 test('truncated workspace results explain how to recover omitted evidence', () => {

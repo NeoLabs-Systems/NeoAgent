@@ -84,7 +84,7 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = this._buildParams(model, messages, tools, options);
     let response;
     try {
@@ -104,7 +104,7 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = {
       ...this._buildParams(model, messages, tools, options),
       stream: true,

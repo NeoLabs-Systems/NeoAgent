@@ -50,7 +50,7 @@ class CustomOpenAIProvider extends OpenAICompatibleProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     try {
       const response = await this.client.chat.completions.create(
         this._buildParams(model, messages, tools, options),
@@ -65,7 +65,7 @@ class CustomOpenAIProvider extends OpenAICompatibleProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     let stream;
     try {
       stream = await this.client.chat.completions.create({

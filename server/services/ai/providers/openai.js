@@ -6,63 +6,6 @@ class OpenAIProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'openai';
-    this.models = [
-      'gpt-5.6',
-      'gpt-5.6-sol',
-      'gpt-5.6-terra',
-      'gpt-5.6-luna',
-      'gpt-5.5',
-      'gpt-5.4',
-      'gpt-5.4-mini',
-      'gpt-5.4-nano',
-      'gpt-5',
-      'gpt-5-mini',
-      'gpt-5-nano',
-      'gpt-5.2',
-      'o3',
-      'o3-pro',
-      'o4-mini'
-    ];
-    // Reasoning models: no temperature, use max_completion_tokens, support reasoning_effort
-    this.reasoningModels = new Set([
-      'gpt-5.6',
-      'gpt-5.6-sol',
-      'gpt-5.6-terra',
-      'gpt-5.6-luna',
-      'gpt-5.5',
-      'gpt-5.4',
-      'gpt-5.4-mini',
-      'gpt-5.4-nano',
-      'gpt-5',
-      'gpt-5-mini',
-      'gpt-5-nano',
-      'gpt-5.2',
-      'gpt-5.1',
-      'o1',
-      'o3',
-      'o3-pro',
-      'o4-mini',
-      'o3-mini',
-    ]);
-    this.contextWindows = {
-      'gpt-5.6': 1050000,
-      'gpt-5.6-sol': 1050000,
-      'gpt-5.6-terra': 1050000,
-      'gpt-5.6-luna': 1050000,
-      'gpt-5.5': 1050000,
-      'gpt-5.4': 1050000,
-      'gpt-5.4-mini': 400000,
-      'gpt-5.4-nano': 400000,
-      'gpt-5': 400000,
-      'gpt-5-mini': 400000,
-      'gpt-5-nano': 128000,
-      'gpt-5.2': 400000,
-      'gpt-5.1': 400000,
-      'o3': 200000,
-      'o3-pro': 200000,
-      'o4-mini': 200000,
-      'o3-mini': 200000
-    };
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_API_KEY,
       baseURL: config.baseUrl || process.env.OPENAI_BASE_URL || undefined,
@@ -83,26 +26,18 @@ class OpenAIProvider extends OpenAICompatibleProvider {
   }
 
   isReasoningModel(model) {
-    // Match exact IDs and prefix variants (gpt-5-2025-08-07 etc)
-    for (const id of this.reasoningModels) {
-      if (model === id || model.startsWith(id + '-')) return true;
-    }
-    return false;
+    const id = String(model || '').trim().toLowerCase();
+    return /^o\d/.test(id)
+      || /^gpt-(?:[5-9]|\d{2,})(?:[.\-]|$)/.test(id)
+      || id.includes('reasoning');
   }
 
-  getContextWindow(model) {
-    for (const [id, size] of Object.entries(this.contextWindows)) {
-      if (model === id || model.startsWith(id + '-')) return size;
-    }
+  getContextWindow() {
     return 128000;
   }
 
   supportsVision() {
     return true;
-  }
-
-  getDefaultVisionModel() {
-    return 'gpt-4.1-mini';
   }
 
   _buildParams(model, messages, tools, options) {
@@ -139,7 +74,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = this._buildParams(model, messages, tools, options);
 
     const response = await this.client.chat.completions.create(params, { signal: options.signal });
@@ -155,7 +90,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = this._buildParams(model, messages, tools, options);
     params.stream = true;
     params.stream_options = { include_usage: true };

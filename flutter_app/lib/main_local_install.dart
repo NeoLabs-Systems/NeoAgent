@@ -150,7 +150,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               icon: Icons.bolt_rounded,
               title: 'Quickstart',
               description:
-                  'Install the secure core automatically, then create your account.',
+                  'Install the secure core, then create your account. Connect an AI provider in the app after that — Quickstart and Full both use the same provider setup.',
               badge: 'Recommended',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.quick),
@@ -161,7 +161,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               icon: Icons.tune_rounded,
               title: 'Full setup',
               description:
-                  'Install the core, then continue through providers, integrations, voice, and optional tools.',
+                  'Install the core with extra optional setup. You still connect an AI provider in the app after account creation, same as Quickstart.',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.full),
             ),

@@ -271,7 +271,7 @@ async function executeGoogleWorkspaceTool(
     throw new Error(`Unknown tool: ${toolName}`);
   }
   const result = await waitForAbortableResult(
-    app.executor(toolName, args, auth),
+    app.executor(toolName, args, auth, executionOptions),
     executionOptions.signal,
   );
   if (result === null) {
@@ -318,7 +318,13 @@ async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], sign
     const timeMax = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     const { result } = await executeGoogleWorkspaceTool(
       'google_workspace_calendar_list_events',
-      { time_min: timeMin, time_max: timeMax, max_results: 12 },
+      {
+        time_min: timeMin,
+        time_max: timeMax,
+        max_results: 12,
+        include_ongoing: true,
+        include_all_day: true,
+      },
       connection,
       { signal },
     );

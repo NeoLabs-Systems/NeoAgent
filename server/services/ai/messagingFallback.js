@@ -133,7 +133,7 @@ function hasFailureSignal(text) {
 function isInternalToolingFailure(text) {
   const normalized = normalizeOutgoingMessage(text);
   if (!normalized) return false;
-  return /(purpose=no_response requires content|failed to read file for user|enoent|eisdir|illegal operation on a directory|outside the per-user workspace|outside the shared workspace|path is not a file|file not found:|no such file or directory|can.?t cd to|no such directory)/i.test(normalized);
+  return /(purpose=no_response requires content|failed to read file for user|enoent|eisdir|illegal operation on a directory|outside the per-user workspace|outside the shared workspace|path is not a file|file not found:|no such file or directory|can.?t cd to|no such directory|unknown tool:)/i.test(normalized);
 }
 
 function summarizeUserVisibleBlocker(text) {

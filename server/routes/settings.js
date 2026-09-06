@@ -20,6 +20,7 @@ const {
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
+  upsertProviderCredential,
 } = require('../services/ai/settings');
 const {
   readMeshtasticEnabled,
@@ -33,7 +34,11 @@ const {
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
-const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
+const { getProviderHealthCatalog, getSupportedModels, getProviderCatalog } = require('../services/ai/models');
+const {
+  getSetupProgress,
+  markSetupSectionComplete,
+} = require('../services/setup/onboarding');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -47,7 +52,6 @@ const AGENT_SETTING_KEYS = new Set([
   'subagent_max_children_per_run',
   'assistant_behavior_notes',
   'auto_skill_learning',
-  'fallback_model_id',
   'smarter_model_selector',
   'ai_provider_configs',
   'default_chat_model',
@@ -105,6 +109,14 @@ const updateTriggerLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 3,
   message: { success: false, error: 'Too many update requests, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const providerCredentialLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { success: false, error: 'Too many provider credential updates, try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -214,6 +226,51 @@ router.get('/meta/ai-providers', async (req, res) => {
       availableModelCount: modelCounts[`${provider.id}:available`] || 0,
     })),
   });
+});
+
+router.put('/ai-providers/:id/credentials', providerCredentialLimiter, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+    const result = upsertProviderCredential(userId, agentId, req.params.id, {
+      apiKey: req.body?.apiKey,
+      baseUrl: req.body?.baseUrl,
+      clearApiKey: req.body?.clearApiKey === true,
+    });
+    const setup = result.ready
+      ? markSetupSectionComplete('providers')
+      : getSetupProgress();
+    const provider = getProviderCatalog(userId, agentId)
+      .find((item) => item.id === result.providerId) || null;
+    res.json({
+      success: true,
+      provider,
+      setup,
+    });
+  } catch (error) {
+    const status = Number(error.statusCode) || 400;
+    res.status(status).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/ai-providers/:id/credentials', providerCredentialLimiter, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+    const result = upsertProviderCredential(userId, agentId, req.params.id, {
+      clearApiKey: true,
+    });
+    const provider = getProviderCatalog(userId, agentId)
+      .find((item) => item.id === result.providerId) || null;
+    res.json({
+      success: true,
+      provider,
+      setup: getSetupProgress(),
+    });
+  } catch (error) {
+    const status = Number(error.statusCode) || 400;
+    res.status(status).json({ success: false, error: error.message });
+  }
 });
 
 // Get all settings

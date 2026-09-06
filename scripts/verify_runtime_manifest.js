@@ -3,7 +3,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { verifyRuntimeManifest } = require('../lib/setup/runtime_manifest');
+const {
+  canonicalRuntimeSigningPublicKey,
+  verifyRuntimeManifest,
+} = require('../lib/setup/runtime_manifest');
 
 function argument(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -19,7 +22,8 @@ const signaturePath = argument('signature');
 const valid = verifyRuntimeManifest(
   fs.readFileSync(manifestPath),
   fs.readFileSync(signaturePath, 'utf8').trim(),
-  process.env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY,
+  process.env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY
+    || canonicalRuntimeSigningPublicKey(),
 );
 if (!valid) {
   const error = new Error(

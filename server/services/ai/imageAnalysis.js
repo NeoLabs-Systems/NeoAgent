@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { getProviderForUser } = require('./engine');
-const { createProviderInstance, getProviderCatalog } = require('./models');
+const { createProviderInstance, getSupportedModels } = require('./models');
 const { withProviderRetry } = require('./providerRetry');
 
 function resolveImageMimeType(imagePath, overrideMimeType = null) {
@@ -51,27 +51,34 @@ async function analyzeImageForUser({
     candidates.push({
       providerName: preferred.providerName,
       provider: preferred.provider,
+      model: preferred.model,
     });
   } catch (error) {
     if (signal?.aborted) throw signal.reason || error;
     attempted.push(`default-provider lookup failed: ${error.message}`);
   }
 
-  for (const providerInfo of getProviderCatalog(userId, agentId)) {
-    if (!providerInfo.available) continue;
-    if (candidates.some((candidate) => candidate.providerName === providerInfo.id)) {
-      continue;
+  try {
+    const discoveredModels = await getSupportedModels(userId, agentId, { signal });
+    for (const discovered of discoveredModels) {
+      if (discovered.available === false) continue;
+      if (candidates.some((candidate) => candidate.providerName === discovered.provider)) {
+        continue;
+      }
+      try {
+        candidates.push({
+          providerName: discovered.provider,
+          provider: createProviderInstance(discovered.provider, userId, { agentId }),
+          model: discovered.modelId,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason || error;
+        attempted.push(`${discovered.provider}: ${error.message}`);
+      }
     }
-    if (!['grok', 'openai'].includes(providerInfo.id)) continue;
-    try {
-      candidates.push({
-        providerName: providerInfo.id,
-        provider: createProviderInstance(providerInfo.id, userId, { agentId }),
-      });
-    } catch (error) {
-      if (signal?.aborted) throw signal.reason || error;
-      attempted.push(`${providerInfo.id}: ${error.message}`);
-    }
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason || error;
+    attempted.push(`live model discovery failed: ${error.message}`);
   }
 
   for (const candidate of candidates) {
@@ -92,6 +99,7 @@ async function analyzeImageForUser({
           imageBase64: encodedImage || null,
           mimeType: resolveImageMimeType(imagePath, mimeType),
           question,
+          model: candidate.model,
           signal,
         }),
         { label: `ImageAnalysis ${candidate.providerName}`, signal },
@@ -110,7 +118,7 @@ async function analyzeImageForUser({
   throw new Error(
     attempted.length > 0
       ? `Image analysis failed. ${attempted.join(' | ')}`
-      : 'No vision-capable provider is currently available. Configure OpenAI or xAI for image analysis.',
+      : 'No vision-capable model is currently available in the live provider catalogs.',
   );
 }
 

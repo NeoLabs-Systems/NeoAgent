@@ -50,6 +50,7 @@ class NeoAgentController extends ChangeNotifier {
   static const String _selectedSectionPrefsKey = 'ui.selectedSection';
   static const String _selectedAgentPrefsKey = 'ui.selectedAgentId';
   static const String _desktopWorkspaceModePrefsKey = 'desktop.workspaceMode';
+  static const String _coworkThreadDetailPrefsKey = 'cowork.threadDetail';
   static const Set<String> _workspaceToolNames = <String>{
     'read_file',
     'read_files',
@@ -115,6 +116,9 @@ class NeoAgentController extends ChangeNotifier {
   bool networkStatusKnown = false;
   bool isDiscoveringBackends = false;
   bool desktopCoworkMode = false;
+
+  /// Cowork transcript density: summaries per run (false) or every step (true).
+  bool coworkThreadDetailed = false;
   bool isLoadingCowork = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
@@ -676,6 +680,7 @@ class NeoAgentController extends ChangeNotifier {
     desktopCoworkMode = _supportsDesktopShell
         ? _prefs?.getString(_desktopWorkspaceModePrefsKey) == 'cowork'
         : false;
+    coworkThreadDetailed = _prefs?.getBool(_coworkThreadDetailPrefsKey) ?? false;
     _restoreSelectedSectionFromPrefs();
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
@@ -1808,10 +1813,10 @@ class NeoAgentController extends ChangeNotifier {
       final activity = <CoworkActivityItem>[];
       String? activeRunId;
       String? runStatus;
-      for (final run in _jsonMapList(
-        response['activity'],
-        fallbackToMapValues: true,
-      )) {
+      DateTime? runStartedAt;
+      final runs = _jsonMapList(response['activity'], fallbackToMapValues: true)
+          .reversed;
+      for (final run in runs) {
         final runId = run['id']?.toString() ?? '';
         final status = run['status']?.toString() ?? 'pending';
         if (activeRunId == null &&
@@ -1824,26 +1829,37 @@ class NeoAgentController extends ChangeNotifier {
             }.contains(status)) {
           activeRunId = runId;
           runStatus = status;
+          runStartedAt = _parseTimestamp(run['createdAt']?.toString());
         }
-        for (final event in _jsonMapList(
-          run['events'],
+        for (final step in _jsonMapList(
+          run['steps'],
           fallbackToMapValues: true,
         )) {
-          final payload = _jsonMap(event['payload']);
+          final toolName = step['toolName']?.toString() ?? '';
+          final result = step['result'];
+          final startedAt = _parseTimestamp(step['startedAt']?.toString());
+          final completedAt = step['completedAt']?.toString();
           activity.add(
             CoworkActivityItem(
-              id: 'event-${event['id']}',
+              id: step['id']?.toString() ?? 'step-${step['index']}',
               runId: runId,
-              kind: event['eventType']?.toString() ?? 'activity',
-              label:
-                  payload['tool']?.toString() ??
-                  event['eventType']?.toString() ??
-                  'Activity',
-              status: status,
-              summary: _summarizeToolResult(payload),
-              createdAt: _parseTimestamp(event['createdAt']?.toString()),
-              durationMs: payload['elapsed_ms'] is num
-                  ? (payload['elapsed_ms'] as num).toInt()
+              kind: step['type']?.toString() ?? 'tool',
+              label: toolName.isEmpty
+                  ? (step['type']?.toString() ?? 'step')
+                  : toolName,
+              status: step['status']?.toString() ?? 'completed',
+              summary:
+                  step['error']?.toString() ?? _summarizeToolResult(result),
+              createdAt: startedAt,
+              durationMs: completedAt == null
+                  ? null
+                  : _parseTimestamp(completedAt)
+                        .difference(startedAt)
+                        .inMilliseconds,
+              toolArgs: _jsonMap(step['toolInput']),
+              detail: _coworkToolDetail(toolName, result),
+              screenshotPath: result is Map
+                  ? result['screenshotPath']?.toString()
                   : null,
             ),
           );
@@ -1853,8 +1869,12 @@ class NeoAgentController extends ChangeNotifier {
         messages: messages,
         activity: activity,
         inputRequests: inputRequests,
+        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
+            .map(CoworkChangedFile.fromJson)
+            .toList(growable: false),
         activeRunId: activeRunId,
         runStatus: runStatus,
+        runStartedAt: runStartedAt,
       );
     } catch (error) {
       _coworkThreads[conversationId] = coworkThreadFor(
@@ -1882,11 +1902,24 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> createCoworkChat() async {
+  /// Starts a session. When [template] is given the new chat inherits its
+  /// agent, mode, device, workspace folder and model, so "New session" keeps
+  /// working in the same project.
+  Future<void> createCoworkChat({CoworkChat? template}) async {
     try {
       final response = await _backendClient.createCoworkChat(
         backendUrl,
-        <String, dynamic>{},
+        template == null
+            ? <String, dynamic>{}
+            : <String, dynamic>{
+                'agentId': template.agentId,
+                'mode': template.mode == CoworkInteractionMode.plan
+                    ? 'plan'
+                    : 'agent',
+                'deviceTargetOverride': template.device.override,
+                'workspacePathOverride': template.workspacePathOverride,
+                'modelOverride': template.modelOverride,
+              },
       );
       final chat = CoworkChat.fromJson(_jsonMap(response['chat']));
       coworkChats = <CoworkChat>[chat, ...coworkChats];
@@ -1960,6 +1993,60 @@ class NeoAgentController extends ChangeNotifier {
   void setCoworkWorkSurfacePinned(bool pinned) {
     coworkWorkSurfacePinned = pinned;
     notifyListeners();
+  }
+
+  void setCoworkThreadDetailed(bool detailed) {
+    coworkThreadDetailed = detailed;
+    unawaited(_prefs?.setBool(_coworkThreadDetailPrefsKey, detailed));
+    notifyListeners();
+  }
+
+  Future<void> refreshCoworkChanges(String conversationId) async {
+    try {
+      final response = await _backendClient.fetchCoworkChanges(
+        backendUrl,
+        conversationId,
+      );
+      _coworkThreads[conversationId] = coworkThreadFor(conversationId).copyWith(
+        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
+            .map(CoworkChangedFile.fromJson)
+            .toList(growable: false),
+      );
+      notifyListeners();
+    } catch (_) {
+      // The list is rebuilt on the next full thread load.
+    }
+  }
+
+  /// Lists a folder of the chat's workspace on the chat's device. Throws on
+  /// failure so the workbench can show the error inline.
+  Future<List<CoworkWorkspaceEntry>> browseCoworkWorkspace(
+    CoworkChat chat,
+    String path,
+  ) async {
+    final response = await _backendClient.fetchWorkspaceDirectory(
+      backendUrl,
+      path: path.isEmpty ? '.' : path,
+      deviceTarget: chat.device.effective,
+      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
+    );
+    final error = response['error']?.toString() ?? '';
+    if (error.isNotEmpty) throw Exception(error);
+    return _jsonMapList(response['entries'], fallbackToMapValues: true)
+        .map(CoworkWorkspaceEntry.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<String> readCoworkWorkspaceFile(CoworkChat chat, String path) async {
+    final response = await _backendClient.fetchWorkspaceFile(
+      backendUrl,
+      path: path,
+      deviceTarget: chat.device.effective,
+      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
+    );
+    final error = response['error']?.toString() ?? '';
+    if (error.isNotEmpty) throw Exception(error);
+    return response['content']?.toString() ?? '';
   }
 
   Future<void> sendCoworkMessage(
@@ -2117,10 +2204,14 @@ class NeoAgentController extends ChangeNotifier {
         next = current.copyWith(
           activeRunId: runId,
           runStatus: 'running',
+          runStartedAt: DateTime.now(),
           phase: 'Starting',
           sending: true,
           streamingContent: '',
         );
+      case 'phase':
+        final label = payload['label']?.toString().trim() ?? '';
+        if (label.isNotEmpty) next = current.copyWith(phase: label);
       case 'thinking':
         next = current.copyWith(phase: 'Thinking');
       case 'analysis':
@@ -2150,6 +2241,7 @@ class NeoAgentController extends ChangeNotifier {
           status: 'running',
           summary: _summarizeToolArgs(payload['toolArgs']),
           createdAt: DateTime.now(),
+          toolArgs: _jsonMap(payload['toolArgs']),
         );
         next = current.copyWith(
           phase: 'Running $toolName',
@@ -2162,19 +2254,39 @@ class NeoAgentController extends ChangeNotifier {
         final stepId = payload['stepId']?.toString() ?? '';
         final toolName = payload['toolName']?.toString() ?? 'tool';
         final toolResult = _jsonMap(payload['result']);
-        final item = CoworkActivityItem(
-          id: stepId.isEmpty
-              ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
-              : stepId,
-          runId: runId,
-          kind: payload['type']?.toString() ?? 'tool',
-          label: toolName,
-          status: payload['status']?.toString() ?? 'completed',
-          summary:
-              payload['error']?.toString() ??
-              _summarizeToolResult(payload['result']),
-          createdAt: DateTime.now(),
-        );
+        final itemId = stepId.isEmpty
+            ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
+            : stepId;
+        final started = current.activity
+            .where((entry) => entry.id == itemId)
+            .firstOrNull;
+        final status = payload['status']?.toString() ?? 'completed';
+        final summary =
+            payload['error']?.toString() ??
+            _summarizeToolResult(payload['result']);
+        final detail = _coworkToolDetail(toolName, payload['result']);
+        final screenshot = toolResult['screenshotPath']?.toString();
+        final item = started == null
+            ? CoworkActivityItem(
+                id: itemId,
+                runId: runId,
+                kind: payload['type']?.toString() ?? 'tool',
+                label: toolName,
+                status: status,
+                summary: summary,
+                createdAt: DateTime.now(),
+                detail: detail,
+                screenshotPath: screenshot,
+              )
+            : started.copyWith(
+                status: status,
+                summary: summary,
+                durationMs: DateTime.now()
+                    .difference(started.createdAt)
+                    .inMilliseconds,
+                detail: detail,
+                screenshotPath: screenshot,
+              );
         next = current.copyWith(
           phase: 'Working',
           activity: <CoworkActivityItem>[
@@ -2182,6 +2294,9 @@ class NeoAgentController extends ChangeNotifier {
             item,
           ],
         );
+        if (CoworkActivityItem.writeTools.contains(toolName)) {
+          unawaited(refreshCoworkChanges(conversationId));
+        }
         final selectedChat = selectedCoworkChatId == conversationId
             ? selectedCoworkChat
             : null;
@@ -2983,15 +3098,7 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
-      setupProfile = setupStatusResponse['profile']?.toString() == 'full'
-          ? 'full'
-          : 'quick';
-      setupComplete = setupStatusResponse['complete'] != false;
-      setupOpenSections =
-          (setupStatusResponse['openSections'] as List? ?? const [])
-              .map((section) => section.toString())
-              .where((section) => section.isNotEmpty)
-              .toList(growable: false);
+      _applySetupProgress(setupStatusResponse);
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
       usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
@@ -5009,7 +5116,6 @@ class NeoAgentController extends ChangeNotifier {
     required String defaultChatModel,
     required String defaultSubagentModel,
     required String defaultSpeechModel,
-    required String fallbackModel,
     required String voiceSttProvider,
     required String voiceSttModel,
     required String voiceTtsProvider,
@@ -5030,7 +5136,6 @@ class NeoAgentController extends ChangeNotifier {
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
       'default_speech_model': defaultSpeechModel,
-      'fallback_model_id': fallbackModel,
       'voice_stt_provider': voiceSttProvider,
       'voice_stt_model': voiceSttModel,
       'voice_tts_provider': voiceTtsProvider,
@@ -5103,6 +5208,68 @@ class NeoAgentController extends ChangeNotifier {
           .map(LinkedAuthProviderItem.fromJson)
           .toList();
     }
+  }
+
+  void _applySetupProgress(Object? raw) {
+    if (raw is! Map) return;
+    final setup = Map<String, dynamic>.from(raw);
+    setupProfile = setup['profile']?.toString() == 'full' ? 'full' : 'quick';
+    setupComplete = setup['complete'] != false;
+    setupOpenSections = (setup['openSections'] as List? ?? const [])
+        .map((section) => section.toString())
+        .where((section) => section.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  void _mergeProviderConfig(Object? rawProvider) {
+    if (rawProvider is! Map) return;
+    final parsed = AiProviderMeta.fromJson(rawProvider);
+    final current = settings['ai_provider_configs'];
+    final configs = current is Map
+        ? Map<String, dynamic>.from(current)
+        : <String, dynamic>{};
+    configs[parsed.id] = <String, dynamic>{
+      'enabled': parsed.enabled,
+      'baseUrl': parsed.baseUrl,
+    };
+    settings = <String, dynamic>{
+      ...settings,
+      'ai_provider_configs': configs,
+    };
+  }
+
+  Future<void> saveAiProviderCredentials({
+    required String providerId,
+    String? apiKey,
+    String? baseUrl,
+    bool clearApiKey = false,
+  }) async {
+    final trimmedKey = apiKey?.trim();
+    final trimmedUrl = baseUrl?.trim();
+    final response = await _backendClient.saveAiProviderCredentials(
+      backendUrl,
+      providerId,
+      apiKey: (trimmedKey != null && trimmedKey.isNotEmpty) ? trimmedKey : null,
+      baseUrlOverride: trimmedUrl,
+      clearApiKey: clearApiKey,
+      agentId: _scopedAgentId,
+    );
+    _applySetupProgress(response['setup']);
+    _mergeProviderConfig(response['provider']);
+    notifyListeners();
+    await refreshAiCatalog();
+  }
+
+  Future<void> clearAiProviderCredentials(String providerId) async {
+    final response = await _backendClient.clearAiProviderCredentials(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    _applySetupProgress(response['setup']);
+    _mergeProviderConfig(response['provider']);
+    notifyListeners();
+    await refreshAiCatalog();
   }
 
   Future<void> refreshAiCatalog() async {
@@ -7031,14 +7198,6 @@ class NeoAgentController extends ChangeNotifier {
     preserveUnknown: true,
   );
 
-  String get fallbackModel => _ensureModelValue(
-    settings['fallback_model_id']?.toString() ??
-        _firstAvailableModelId(supportedModels),
-    supportedModels,
-    allowAuto: false,
-    preserveUnknown: true,
-  );
-
   String get voiceSttProvider =>
       _settingString('voice_stt_provider', '', lowercase: true);
 
@@ -7638,6 +7797,12 @@ class NeoAgentController extends ChangeNotifier {
       _streamingIteration = 0;
       isSendingMessage = true;
       notifyListeners();
+    });
+    socket.on('run:phase', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (_coworkConversationId(payload) != null) {
+        _updateCoworkRunEvent('phase', payload);
+      }
     });
     socket.on('run:thinking', (dynamic data) {
       final payload = _jsonMap(data);

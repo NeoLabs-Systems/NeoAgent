@@ -4,6 +4,9 @@
 const fs = require('fs');
 const path = require('path');
 const { SETUP_CONTRACT } = require('../lib/setup/contract');
+const {
+  canonicalRuntimeSigningPublicKey,
+} = require('../lib/setup/runtime_manifest');
 
 const outputPath = path.join(
   __dirname,
@@ -38,6 +41,7 @@ function renderContract() {
     `const int setupContractSchemaVersion = ${SETUP_CONTRACT.schemaVersion};`,
     `const int neoAgentDefaultPort = ${SETUP_CONTRACT.defaultPort};`,
     `const String neoAgentDefaultPortText = '${SETUP_CONTRACT.defaultPort}';`,
+    `const String embeddedRuntimeSigningPublicKey = ${dartString(canonicalRuntimeSigningPublicKey())};`,
     '',
     renderStringList(
       'setupProfileIds',

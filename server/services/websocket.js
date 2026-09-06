@@ -414,6 +414,7 @@ function setupWebSocket(io, services) {
           interactionMode: runContext?.mode || 'agent',
           deviceTarget: runContext?.deviceTarget || null,
           workspaceRoot: runContext?.workspacePathOverride || null,
+          ...(runContext?.modelOverride ? { model: runContext.modelOverride } : {}),
           ...(coworkMessage || {}),
           priorMessages: prior,
           priorSummary: webContext.summary

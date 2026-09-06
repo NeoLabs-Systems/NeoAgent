@@ -58,6 +58,19 @@ function expiredConnection(credentials) {
   };
 }
 
+function activeMicrosoftConnection() {
+  return {
+    ...expiredConnection({}),
+    provider_key: 'microsoft_365',
+    app_key: 'calendar',
+    credentials_json: JSON.stringify({
+      access_token: 'microsoft-access-active',
+      refresh_token: 'microsoft-refresh-active',
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    }),
+  };
+}
+
 beforeEach(() => {
   for (const name of ENV_NAMES) {
     savedEnvironment[name] = process.env[name];
@@ -141,6 +154,69 @@ test('Microsoft refreshes expired credentials before a Graph request', async () 
   assert.equal(execution.credentials.refresh_token, 'microsoft-refresh-new');
   assert.equal(calls.length, 2);
   assert.match(calls[0].options.body, /grant_type=refresh_token/);
+});
+
+test('Microsoft calendar reminders return event starts instead of overlapping long events', async () => {
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    return responseJson({
+      value: [
+        {
+          id: 'long-event',
+          subject: 'Düsseldorf',
+          start: { dateTime: '2026-08-27T05:30:00', timeZone: 'UTC' },
+          end: { dateTime: '2026-08-30T16:00:00', timeZone: 'UTC' },
+          isAllDay: false,
+        },
+        {
+          id: 'upcoming-event',
+          subject: 'Zahnarzt',
+          start: { dateTime: '2026-08-29T12:30:00', timeZone: 'UTC' },
+          end: { dateTime: '2026-08-29T13:00:00', timeZone: 'UTC' },
+          isAllDay: false,
+        },
+        {
+          id: 'all-day-event',
+          subject: 'Geburtstag',
+          start: { dateTime: '2026-08-29T00:00:00', timeZone: 'UTC' },
+          end: { dateTime: '2026-08-30T00:00:00', timeZone: 'UTC' },
+          isAllDay: true,
+        },
+      ],
+    });
+  };
+
+  const provider = createMicrosoftProvider();
+  const execution = await provider.executeTool(
+    'microsoft_365_calendar_list_events',
+    {
+      start: '2026-08-29T12:00:00Z',
+      end: '2026-08-29T13:00:00Z',
+    },
+    activeMicrosoftConnection(),
+  );
+
+  assert.deepEqual(execution.result.events.map((event) => event.id), [
+    'upcoming-event',
+  ]);
+  assert.equal(execution.result.omittedOngoingTimedCount, 1);
+  assert.equal(execution.result.omittedAllDayCount, 1);
+  assert.equal(execution.result.windowMode, 'starts_within_window');
+  assert.equal(calls[0].options.headers.Prefer, 'outlook.timezone="UTC"');
+});
+
+test('automatic Microsoft calendar checks reject unbounded event lists', async () => {
+  const provider = createMicrosoftProvider();
+  await assert.rejects(
+    provider.executeTool(
+      'microsoft_365_calendar_list_events',
+      {},
+      activeMicrosoftConnection(),
+      { triggerSource: 'schedule', taskId: 'calendar-task' },
+    ),
+    /require both start and end/i,
+  );
 });
 
 test('Slack persists both halves of a rotated user token pair', async () => {

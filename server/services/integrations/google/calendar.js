@@ -2,12 +2,18 @@
 
 const { google } = require('googleapis');
 const { coerceStringList, executeGoogleApiRequest } = require('./common');
+const {
+  applyCalendarListMode,
+  excludeStartedTimedEvents,
+  partitionCalendarEvents,
+} = require('../calendar_window');
 
 const calendarToolDefinitions = [
   {
     name: 'google_workspace_calendar_list_events',
     access: 'read',
-    description: 'List or search Google Calendar events for the connected account. Results include all-day/multi-day events (birthdays, anniversaries, full-day markers) that overlap the window. Each event has an allDay flag, timedCount/allDayCount summarize the mix, and timedEvents/nextTimedEvent expose the real timed appointments directly. For "what is scheduled / starting soon", decide from that single result instead of re-querying nearby windows to filter out all-day entries.',
+    description:
+      'List or search Google Calendar events for the connected account. When time_min is supplied, the default starts_within_window mode returns only timed events whose real start is at or after time_min (and before time_max when present). Multi-day events that started earlier and merely overlap the window are omitted unless include_ongoing is true. All-day events are omitted unless include_all_day is true. For reminders about events starting soon, keep both options false and decide only from upcomingTimedEvents.',
     parameters: {
       type: 'object',
       properties: {
@@ -19,11 +25,25 @@ const calendarToolDefinitions = [
           type: 'string',
           description: 'Optional full-text event search query.',
         },
-        time_min: { type: 'string', description: 'ISO datetime lower bound.' },
-        time_max: { type: 'string', description: 'ISO datetime upper bound.' },
+        time_min: {
+          type: 'string',
+          description: 'RFC3339 lower bound for the overlap window. Also separates already-running timed events from events that start in the window.',
+        },
+        time_max: {
+          type: 'string',
+          description: 'RFC3339 exclusive upper bound for an event start.',
+        },
         max_results: {
           type: 'number',
           description: 'Maximum events to return (default 10).',
+        },
+        include_ongoing: {
+          type: 'boolean',
+          description: 'Include timed events that started before time_min and are still running. Defaults to false for bounded windows.',
+        },
+        include_all_day: {
+          type: 'boolean',
+          description: 'Include all-day and multi-day date events. Defaults to false for bounded windows.',
         },
       },
     },
@@ -167,26 +187,12 @@ function summarizeEvent(event) {
   };
 }
 
-function summarizeListedEvents(items) {
+function summarizeListedEvents(items, window = {}) {
   const events = Array.isArray(items) ? items.map(summarizeEvent) : [];
-  const timedEvents = events.filter((event) => !event.allDay);
-  const allDayEvents = events.filter((event) => event.allDay);
-  return {
-    count: events.length,
-    timedCount: timedEvents.length,
-    allDayCount: allDayEvents.length,
-    hasTimedEvents: timedEvents.length > 0,
-    hasOnlyAllDayEvents: timedEvents.length === 0 && allDayEvents.length > 0,
-    nextTimedEvent: timedEvents[0] || null,
-    timedEvents,
-    allDayEvents,
-    // Keep the legacy merged list for existing callers, but put timed items first so
-    // the most actionable event is visible without extra filtering.
-    events: [...timedEvents, ...allDayEvents],
-  };
+  return partitionCalendarEvents(events, window);
 }
 
-async function executeCalendarTool(toolName, args, auth) {
+async function executeCalendarTool(toolName, args, auth, executionOptions = {}) {
   const calendar = google.calendar({ version: 'v3', auth });
   const calendarId = String(args.calendar_id || 'primary').trim() || 'primary';
   // Models sometimes emit camelCase timeMin/timeMax despite the snake_case
@@ -196,6 +202,15 @@ async function executeCalendarTool(toolName, args, auth) {
 
   switch (toolName) {
     case 'google_workspace_calendar_list_events': {
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && (!timeMin || !timeMax)
+      ) {
+        throw new Error(
+          'Automatic calendar checks require both time_min and time_max. Query a bounded event-start window derived from the task schedule and requested reminder offset.',
+        );
+      }
       const response = await calendar.events.list({
         calendarId,
         q: String(args.query || '').trim() || undefined,
@@ -206,7 +221,20 @@ async function executeCalendarTool(toolName, args, auth) {
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
       });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
-      return summarizeListedEvents(items);
+      const summarizedItems = items.map(summarizeEvent);
+      const automaticReminderEvents = (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && args.include_ongoing !== true
+      )
+        ? excludeStartedTimedEvents(summarizedItems, executionOptions.scheduledAt)
+        : summarizedItems;
+      const summary = partitionCalendarEvents(automaticReminderEvents, { timeMin, timeMax });
+      const hasWindowStart = Boolean(timeMin);
+      return applyCalendarListMode(summary, {
+        includeOngoing: !hasWindowStart || args.include_ongoing === true,
+        includeAllDay: !hasWindowStart || args.include_all_day === true,
+      });
     }
 
     case 'google_workspace_calendar_create_event': {
@@ -297,6 +325,16 @@ async function executeCalendarTool(toolName, args, auth) {
     }
 
     case 'google_workspace_calendar_api_request': {
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && String(args.method || 'GET').trim().toUpperCase() === 'GET'
+        && /\/calendar\/v3\/calendars\/[^/]+\/events(?:\?|$)/i.test(String(args.path || ''))
+      ) {
+        throw new Error(
+          'Automatic calendar checks must use google_workspace_calendar_list_events with explicit time_min and time_max bounds.',
+        );
+      }
       return executeGoogleApiRequest(auth, args, {
         baseUrl: 'https://www.googleapis.com',
       });

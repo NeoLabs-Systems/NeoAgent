@@ -11,8 +11,14 @@ class BaseProvider {
     this.onStatus = typeof config.onStatus === 'function' ? config.onStatus : null;
   }
 
-  getDefaultModel() {
-    return this.models[0] || '';
+  requireModel(options = {}) {
+    const model = String(options.model || '').trim();
+    if (model) return model;
+    const error = new Error(
+      `Provider '${this.name}' requires a model selected from its live catalog.`,
+    );
+    error.code = 'MODEL_SELECTION_REQUIRED';
+    throw error;
   }
 
   formatTools(tools) {
@@ -46,10 +52,6 @@ class BaseProvider {
 
   supportsVision() {
     return false;
-  }
-
-  getDefaultVisionModel() {
-    return null;
   }
 
   async analyzeImage(_options = {}) {

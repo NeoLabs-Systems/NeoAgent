@@ -451,6 +451,7 @@ function createOAuthProvider(options = {}) {
         toolName,
         args,
         context,
+        executionOptions,
       );
       if (!execution || execution.credentials || !credentialsWereUpdated()) {
         return execution;

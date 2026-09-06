@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const {
+  assertRuntimeSigningKeypair,
+  canonicalRuntimeSigningPublicKey,
   signRuntimeManifest,
   verifyRuntimeManifest,
 } = require('../lib/setup/runtime_manifest');
@@ -46,6 +48,7 @@ const serialized = `${JSON.stringify({
   version,
   assets,
 }, null, 2)}\n`;
+assertRuntimeSigningKeypair(process.env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY);
 const signature = signRuntimeManifest(
   Buffer.from(serialized),
   process.env.NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY,
@@ -53,7 +56,7 @@ const signature = signRuntimeManifest(
 if (!verifyRuntimeManifest(
   Buffer.from(serialized),
   signature,
-  process.env.NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY,
+  canonicalRuntimeSigningPublicKey(),
 )) {
   throw new Error('Release manifest signature verification failed.');
 }

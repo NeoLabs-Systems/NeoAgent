@@ -151,3 +151,59 @@ test('NeoRecall disconnect revokes durable credentials before removing local set
   assert.equal(ctx.db.prepare("SELECT COUNT(*) count FROM integration_connections WHERE provider_key='neorecall'").get().count, 0);
   assert.equal(provider.getEnvStatus({ userId: user.userId, agentId: agent.id }).configured, false);
 });
+
+test('NeoRecall OAuth authorize uses the configured base URL even when bootstrap advertises localhost', async () => {
+  ctx = createTestRuntime();
+  process.env.PUBLIC_URL = 'https://agent.example.test';
+  const user = await createTestUser(ctx.db, { username: 'neorecall_oauth_url' });
+  const { ensureMainAgent } = require('../../../server/services/agents/manager');
+  const agent = ensureMainAgent(user.userId);
+  const { createNeoRecallProvider } = require('../../../server/services/integrations/neorecall/provider');
+  const provider = createNeoRecallProvider();
+  global.fetch = async (url) => {
+    const target = String(url);
+    if (target === 'http://192.168.1.50:4500/health') {
+      return jsonResponse({ status: 'ok', process: 'http' });
+    }
+    if (target === 'http://192.168.1.50:4500/api/oauth/companion/neoagent/bootstrap') {
+      return jsonResponse({
+        companion: 'neoagent',
+        clientId: 'nrc_lan',
+        redirectUri: 'https://agent.example.test/api/integrations/oauth/callback',
+        scopes: ['search:read', 'memories:read', 'recordings:read'],
+        authorizationEndpoint: 'http://localhost:4500/oauth/authorize',
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  await provider.saveUserConfig({
+    userId: user.userId,
+    agentId: agent.id,
+    config: { baseUrl: 'http://192.168.1.50:4500' },
+  });
+  const started = await provider.beginOAuth({
+    state: '0123456789abcdef0123456789abcdef',
+    codeVerifier: 'verifier-value-for-pkce-challenge-tests',
+    userId: user.userId,
+    agentId: agent.id,
+    appKey: 'recall',
+  });
+  const authorize = new URL(started.url);
+  assert.equal(authorize.origin, 'http://192.168.1.50:4500');
+  assert.equal(authorize.pathname, '/oauth/authorize');
+  assert.equal(authorize.searchParams.get('client_id'), 'nrc_lan');
+  assert.equal(
+    authorize.searchParams.get('redirect_uri'),
+    'https://agent.example.test/api/integrations/oauth/callback',
+  );
+
+  const summary = provider.summarizeForModel({
+    env: { configured: true },
+    connection: { connected: true },
+  });
+  assert.match(summary, /lived day/i);
+  assert.match(summary, /today/i);
+  assert.match(summary, /neorecall_list_daily_summaries/);
+  assert.match(summary, /neorecall_search/);
+});

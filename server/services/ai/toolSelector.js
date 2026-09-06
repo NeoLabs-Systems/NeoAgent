@@ -28,6 +28,8 @@ const CORE_FILE_TOOLS = [
   'edit_file',
   'replace_file_range',
   'write_file',
+  'code_navigate',
+  'execute_command',
 ];
 
 function requiredToolNames(options = {}) {

@@ -3017,15 +3017,6 @@ ModelMeta? _modelForValue(String value, List<ModelMeta> models) {
   return null;
 }
 
-String _firstAvailableModelId(List<ModelMeta> models) {
-  for (final model in models) {
-    if (model.available) {
-      return model.id;
-    }
-  }
-  return models.isNotEmpty ? models.first.id : 'auto';
-}
-
 String _modelLabelForValue(String value, List<ModelMeta> models) {
   if (value == 'auto' || value.trim().isEmpty) {
     return 'Auto';

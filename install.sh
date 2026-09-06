@@ -51,8 +51,19 @@ fi
 DEFAULT_DIR="$HOME/NeoAgent"
 ask INSTALL_DIR "Install directory" "$DEFAULT_DIR"
 
+RELEASE_CHANNEL=""
+while [[ "$RELEASE_CHANNEL" != "stable" && "$RELEASE_CHANNEL" != "beta" ]]; do
+  ask RELEASE_CHANNEL "Release channel (stable/beta)" "stable"
+  RELEASE_CHANNEL="$(echo "$RELEASE_CHANNEL" | tr '[:upper:]' '[:lower:]')"
+done
+if [[ "$RELEASE_CHANNEL" == "beta" ]]; then
+  INSTALL_BRANCH="beta"
+else
+  INSTALL_BRANCH="main"
+fi
+ok "Channel: ${RELEASE_CHANNEL} (git branch ${INSTALL_BRANCH})"
+
 if [[ -d "$INSTALL_DIR/.git" ]]; then
-  INSTALL_BRANCH="$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref HEAD)"
   info "Existing repo found at ${INSTALL_DIR} — replacing it with origin/${INSTALL_BRANCH}..."
   git -C "$INSTALL_DIR" fetch origin --tags
   git -C "$INSTALL_DIR" reset --hard HEAD
@@ -65,8 +76,8 @@ elif [[ -d "$INSTALL_DIR" && -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
   exit 1
 else
   info "Cloning into ${INSTALL_DIR}..."
-  git clone https://github.com/NeoLabs-Systems/NeoAgent.git "$INSTALL_DIR"
-  ok "Cloned"
+  git clone --branch "$INSTALL_BRANCH" https://github.com/NeoLabs-Systems/NeoAgent.git "$INSTALL_DIR"
+  ok "Cloned (${INSTALL_BRANCH})"
 fi
 
 echo
@@ -99,6 +110,10 @@ case ":${PATH}:" in
 esac
 hash -r
 ok "Global CLI ready: ${GLOBAL_CLI}"
+
+echo
+info "Persisting release channel (${RELEASE_CHANNEL})..."
+"$GLOBAL_CLI" channel "$RELEASE_CHANNEL"
 
 echo
 info "Running the global NeoAgent manager..."

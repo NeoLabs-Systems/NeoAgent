@@ -51,6 +51,7 @@ function buildCoworkOperatingContract(context = {}) {
     '',
     'WORKFLOW',
     'Inspect the open folder before making project claims. Start with list_directory(".") and targeted search/read tools; infer the stack, entry points, conventions, and current state from the files. Shared chat attachments are already available.',
+    'Tokens like @path/to/file in the user message point at files inside the open folder; read them first.',
     'In Agent mode, apply requested changes in this run. Prefer workspace file tools for reads and edits; use execute_command for git, tests, builds, package managers, and other shell-native work.',
     'Match the existing structure and naming. Make the smallest coherent change that achieves the requested outcome, then re-read changed files or run a relevant check.',
     '',
@@ -72,15 +73,6 @@ function buildCoworkOperatingContract(context = {}) {
   ].join('\n');
 }
 
-function buildCoworkAnalysisInstructions(context = {}) {
-  if (context.triggerSource !== 'cowork') return [];
-  return [
-    'This is a Cowork session with an attached project folder. Requests that require file changes must use mode="execute" or "plan_execute", never "direct_answer".',
-    'Treat the folder as the source; use research_depth="none" unless required evidence is genuinely external. Prefer workspace inspection/edit tools and do not ask for a URL, repo, or permission to start.',
-    'Set autonomy_level="high" and draft_status="needs_execution" for project work.',
-  ];
-}
-
 function buildCoworkExecutionGuidance(context = {}) {
   if (context.triggerSource !== 'cowork') return [];
   return [
@@ -90,7 +82,6 @@ function buildCoworkExecutionGuidance(context = {}) {
 }
 
 module.exports = {
-  buildCoworkAnalysisInstructions,
   buildCoworkExecutionGuidance,
   buildCoworkOperatingContract,
   buildCoworkWorkspaceFacts,

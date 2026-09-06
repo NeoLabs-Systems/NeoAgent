@@ -1241,11 +1241,32 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
     ),
   };
 
+  /// OS-level grants the app permission depends on but cannot give itself.
+  /// macOS applies a Screen Recording grant only after the app reopens, so
+  /// the hint says so instead of leaving the user re-granting in a loop.
+  List<String> _systemPermissionGaps(NeoAgentController controller) {
+    final granted = controller.localComputerPermissions;
+    final system = _jsonMap(controller.localComputerStatus['permissions']);
+    final gaps = <String>[];
+    if (granted.contains('screen') && system['screenCapture'] == 'required') {
+      gaps.add(
+        'macOS Screen Recording is not granted to NeoAgent. Allow it in System Settings › Privacy & Security › Screen Recording, then reopen NeoAgent.',
+      );
+    }
+    if (granted.contains('input') && system['inputControl'] == 'required') {
+      gaps.add(
+        'macOS Accessibility is not granted to NeoAgent. Allow it in System Settings › Privacy & Security › Accessibility.',
+      );
+    }
+    return gaps;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final pending = controller.localComputerPendingPermission;
     final permissions = controller.localComputerPermissions;
+    final systemGaps = _systemPermissionGaps(controller);
     final permissionControls = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1339,13 +1360,31 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
         subtitle: Text(
           controller.localComputerConnecting
               ? 'Connecting…'
+              : systemGaps.isNotEmpty
+              ? 'System permission missing'
               : controller.localComputerConnected
               ? '${permissions.length} of 4 allowed'
               : 'Reconnecting this device…',
+          style: systemGaps.isNotEmpty
+              ? TextStyle(color: theme.colorScheme.error)
+              : null,
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         children: <Widget>[
           Align(alignment: Alignment.centerLeft, child: permissionControls),
+          for (final gap in systemGaps) ...<Widget>[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                gap,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
           if (controller.localComputerError?.isNotEmpty == true) ...<Widget>[
             const SizedBox(height: 8),
             Align(

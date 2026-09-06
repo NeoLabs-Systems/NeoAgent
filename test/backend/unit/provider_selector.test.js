@@ -101,19 +101,50 @@ describe('provider selector', () => {
     assert.equal(selected.providerName, 'openai');
   });
 
-  test('does not silently widen an explicitly configured but invalid model pool', async () => {
+  test('never routes outside a configured pool, even when it is stale', async () => {
     setSetting('enabled_models', ['missing-provider::missing-model']);
 
     await assert.rejects(
       getProviderForUser(user.userId, '', false, null, { agentId }),
-      /None of the enabled AI models are currently available/,
+      (error) => error.code === 'AI_MODELS_UNAVAILABLE',
     );
+  });
+
+  test('automatic routing after a quarantine stays inside the configured pool', async () => {
+    setSetting('enabled_models', ['openai::gpt-5.3']);
+    setSetting('default_chat_model', 'openai::gpt-5.3');
+    modelFailureCache.recordModelFailure(
+      user.userId,
+      agentId,
+      'openai::gpt-5.3',
+      Object.assign(new Error('model request returned 404'), { status: 404 }),
+    );
+
+    // github-copilot::gpt-5.3 is still healthy but not enabled; the router must
+    // fail rather than silently run it.
+    await assert.rejects(
+      getProviderForUser(user.userId, '', false, null, { agentId }),
+      (error) => error.code === 'AI_MODELS_UNAVAILABLE',
+    );
+  });
+
+  test('treats a missing explicit task override as a preference and routes dynamically', async () => {
+    setSetting('enabled_models', catalog.map((model) => model.id));
+
+    const selected = await getProviderForUser(
+      user.userId,
+      '',
+      false,
+      'google::retired-model',
+      { agentId },
+    );
+
+    assert.equal(selected.modelSelectionId, 'github-copilot::gpt-5.3');
   });
 
   test('skips a model that recently returned a permanent not-found error', async () => {
     setSetting('enabled_models', catalog.map((model) => model.id));
     setSetting('default_chat_model', 'github-copilot::gpt-5.3');
-    setSetting('fallback_model_id', 'openai::gpt-5.3');
     modelFailureCache.recordModelFailure(
       user.userId,
       agentId,
@@ -129,5 +160,47 @@ describe('provider selector', () => {
 
     assert.equal(selected.modelSelectionId, 'openai::gpt-5.3');
     assert.equal(statuses[0]?.phase, 'model_fallback');
+  });
+
+  test('failure fallback never leaves the configured pool', () => {
+    const { selectFallbackModel } = require('../../../server/services/ai/model_router');
+
+    const insidePool = selectFallbackModel({
+      models: catalog,
+      settings: { enabled_models: ['openai::gpt-5.3'] },
+      userId: user.userId,
+      agentId,
+      currentModelId: 'openai::gpt-5.3',
+      excludedModelIds: [],
+    });
+    assert.equal(insidePool?.id, 'openai::gpt-5.3');
+
+    const exhausted = selectFallbackModel({
+      models: catalog,
+      settings: { enabled_models: ['openai::gpt-5.3'] },
+      userId: user.userId,
+      agentId,
+      currentModelId: 'openai::gpt-5.3',
+      excludedModelIds: ['openai::gpt-5.3'],
+    });
+    assert.equal(exhausted, null);
+  });
+
+  test('model quarantine survives a module reload', () => {
+    const selectionId = 'github-copilot::gpt-5.3';
+    modelFailureCache.recordModelFailure(
+      user.userId,
+      agentId,
+      selectionId,
+      Object.assign(new Error('provider returned not found'), { status: 404 }),
+    );
+
+    const cachePath = require.resolve('../../../server/services/ai/model_failure_cache');
+    delete require.cache[cachePath];
+    const reloadedCache = require(cachePath);
+    assert.equal(
+      reloadedCache.isModelCoolingDown(user.userId, agentId, selectionId),
+      true,
+    );
   });
 });

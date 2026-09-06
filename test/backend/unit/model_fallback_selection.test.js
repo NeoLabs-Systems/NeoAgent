@@ -28,12 +28,6 @@ describe('model fallback selection', () => {
        VALUES (?, ?, ?, ?)
        ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
     ).run(user.userId, agentId, 'enabled_models', JSON.stringify(['google/gemini-2.5-flash-lite']));
-    ctx.db.prepare(
-      `INSERT INTO agent_settings (user_id, agent_id, key, value)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
-    ).run(user.userId, agentId, 'fallback_model_id', JSON.stringify('google/gemini-2.5-flash-lite'));
-
     modelsModule = require('../../../server/services/ai/models');
     originalGetSupportedModels = modelsModule.getSupportedModels;
     modelsModule.getSupportedModels = async () => ([
@@ -52,15 +46,16 @@ describe('model fallback selection', () => {
     teardownTestRuntime(ctx);
   });
 
-  test('does not fall back outside the enabled model pool', async () => {
+  test('never widens beyond the enabled pool, even when it is exhausted', async () => {
     const fallback = await getFailureFallbackModelId(
       user.userId,
       agentId,
       'google/gemini-2.5-flash-lite',
-      'google/gemini-2.5-flash-lite',
       new Error('Model google/gemini-2.5-flash-lite returned an empty response.'),
     );
 
+    // openai/gpt-5-nano is healthy but not enabled; running it anyway would
+    // silently override the user's model configuration.
     assert.equal(fallback, null);
   });
 
@@ -85,7 +80,6 @@ describe('model fallback selection', () => {
       user.userId,
       agentId,
       modelIds[1],
-      modelIds[0],
       new Error('Model returned an empty response.'),
       null,
       new Set([modelIds[0], modelIds[1]]),
@@ -115,7 +109,6 @@ describe('model fallback selection', () => {
       user.userId,
       agentId,
       modelIds[0],
-      modelIds[1],
       Object.assign(new Error('Google service unavailable'), { status: 503 }),
     );
 

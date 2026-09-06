@@ -912,7 +912,7 @@ class IntegrationManager {
             toolName,
             args,
             connection,
-            { signal: options.signal || null },
+            { ...options, signal: options.signal || null },
           );
         } catch (err) {
           if (
@@ -999,10 +999,10 @@ class IntegrationManager {
         );
         return ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot;
       })(),
-    }));
+    })).filter(({ snapshot }) => snapshot?.connection?.connected);
 
     if (providers.length === 0) {
-      return 'No official integrations are available in this run.';
+      return '';
     }
 
     return providers
@@ -1013,17 +1013,6 @@ class IntegrationManager {
 
         if (typeof provider.summarizeForModel === 'function') {
           return `${provider.summarizeForModel(snapshot)}${memoryCoverage}`;
-        }
-
-        if (!snapshot?.env?.configured) {
-          if (snapshot?.env?.setupMode === 'user') {
-            return `${provider.label}: setup is not complete for this user yet. If the user wants to use it, tell them to finish setup in Official Integrations first.${memoryCoverage}`;
-          }
-          return `${provider.label}: available but not configured on the server yet. If the user wants to use it, tell them to finish setup in Official Integrations first.${memoryCoverage}`;
-        }
-
-        if (!snapshot.connection?.connected) {
-          return `${provider.label}: server setup is ready, but no accounts are connected. If the user wants to use it, tell them to connect an account in Official Integrations first.${memoryCoverage}`;
         }
 
         return `${provider.label}: native built-in access is connected in this run.${memoryCoverage}`;

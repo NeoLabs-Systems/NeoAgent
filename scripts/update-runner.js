@@ -105,7 +105,7 @@ function resolvePreferredGitBranch(channel) {
   }
 
   const preferred = choosePreferredBranchForChannel(channel, {
-    stable: latestGitTagVersion('v[0-9]*.[0-9]*.[0-9]*'),
+    stable: latestGitTagVersion('v[0-9]*.[0-9]*.[0-9]*', { excludePrerelease: true }),
     beta: latestGitTagVersion('v[0-9]*.[0-9]*.[0-9]*-beta.*'),
   });
 

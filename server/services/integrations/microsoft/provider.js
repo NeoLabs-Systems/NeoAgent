@@ -7,6 +7,11 @@ const {
   escapeScope,
   fetchJson,
 } = require('../oauth_provider');
+const {
+  applyCalendarListMode,
+  excludeStartedTimedEvents,
+  partitionCalendarEvents,
+} = require('../calendar_window');
 
 const MICROSOFT_BASE_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
 
@@ -90,13 +95,21 @@ const microsoftToolDefinitions = [
     appId: 'calendar',
     name: 'microsoft_365_calendar_list_events',
     access: 'read',
-    description: 'List Microsoft 365 calendar events.',
+    description: 'List Microsoft 365 calendar events. When start is supplied, only events whose real start is at or after start (and before end when present) are returned by default. Set include_ongoing=true to include events that began earlier but still overlap, or include_all_day=true for all-day entries. Keep both false for upcoming-event reminders.',
     parameters: {
       type: 'object',
       properties: {
         start: { type: 'string', description: 'Optional ISO start datetime.' },
         end: { type: 'string', description: 'Optional ISO end datetime.' },
         top: { type: 'number', description: 'Maximum events, default 10.' },
+        include_ongoing: {
+          type: 'boolean',
+          description: 'Include events that began before start and are still running. Defaults to false for bounded windows.',
+        },
+        include_all_day: {
+          type: 'boolean',
+          description: 'Include all-day and multi-day date events. Defaults to false for bounded windows.',
+        },
       },
     },
   },
@@ -250,7 +263,9 @@ async function refreshMicrosoftCredentials(credentials, signal) {
   };
 }
 
-async function graphRequest(context, { method = 'GET', path, query, body }) {
+async function graphRequest(context, {
+  method = 'GET', path, query, body, headers = {},
+}) {
   const { signal } = context;
   let credentials = context.credentials;
   if (tokenExpiresSoon(credentials)) {
@@ -261,7 +276,10 @@ async function graphRequest(context, { method = 'GET', path, query, body }) {
     graphUrl(path, query),
     {
       method: String(method || 'GET').toUpperCase(),
-      headers: { Authorization: `Bearer ${activeCredentials.access_token}` },
+      headers: {
+        Authorization: `Bearer ${activeCredentials.access_token}`,
+        ...headers,
+      },
       ...(body === undefined ? {} : { json: body }),
       signal,
     },
@@ -278,7 +296,35 @@ async function graphRequest(context, { method = 'GET', path, query, body }) {
   }
 }
 
-async function executeMicrosoftTool(toolName, args, context) {
+function microsoftDateTime(value) {
+  const dateTime = String(value?.dateTime || '').trim();
+  if (!dateTime) return null;
+  if (/z$|[+-]\d{2}:?\d{2}$/i.test(dateTime)) return dateTime;
+  return String(value?.timeZone || '').toUpperCase() === 'UTC'
+    ? `${dateTime}Z`
+    : dateTime;
+}
+
+function summarizeMicrosoftCalendarEvent(event) {
+  return {
+    id: event.id || '',
+    status: event.isCancelled ? 'cancelled' : 'confirmed',
+    summary: event.subject || '',
+    description: event.bodyPreview || null,
+    location: event.location?.displayName || null,
+    htmlLink: event.webLink || null,
+    allDay: event.isAllDay === true,
+    start: microsoftDateTime(event.start),
+    end: microsoftDateTime(event.end),
+    attendees: Array.isArray(event.attendees)
+      ? event.attendees
+        .map((attendee) => attendee.emailAddress?.address)
+        .filter(Boolean)
+      : [],
+  };
+}
+
+async function executeMicrosoftTool(toolName, args, context, executionOptions = {}) {
   switch (toolName) {
     case 'microsoft_365_outlook_list_messages': {
       const folder = String(args.folder_id || 'inbox').trim();
@@ -318,15 +364,44 @@ async function executeMicrosoftTool(toolName, args, context) {
       };
     case 'microsoft_365_calendar_list_events': {
       const hasWindow = args.start && args.end;
+      const hasWindowStart = Boolean(args.start);
+      if (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && !hasWindow
+      ) {
+        throw new Error(
+          'Automatic calendar checks require both start and end. Query a bounded event-start window derived from the task schedule and requested reminder offset.',
+        );
+      }
+      const payload = await graphRequest(context, {
+        path: hasWindow ? '/v1.0/me/calendarView' : '/v1.0/me/events',
+        query: {
+          '$top': Math.max(1, Math.min(Number(args.top) || 10, 50)),
+          ...(hasWindow
+            ? { startDateTime: String(args.start), endDateTime: String(args.end) }
+            : { '$orderby': 'start/dateTime' }),
+        },
+        headers: { Prefer: 'outlook.timezone="UTC"' },
+      });
+      const listedEvents = Array.isArray(payload?.value)
+        ? payload.value.map(summarizeMicrosoftCalendarEvent)
+        : [];
+      const events = (
+        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+        && executionOptions.taskId
+        && args.include_ongoing !== true
+      )
+        ? excludeStartedTimedEvents(listedEvents, executionOptions.scheduledAt)
+        : listedEvents;
+      const summary = partitionCalendarEvents(events, {
+        start: args.start,
+        end: args.end,
+      });
       return {
-        result: await graphRequest(context, {
-          path: hasWindow ? '/v1.0/me/calendarView' : '/v1.0/me/events',
-          query: {
-            '$top': Math.max(1, Math.min(Number(args.top) || 10, 50)),
-            ...(hasWindow
-              ? { startDateTime: String(args.start), endDateTime: String(args.end) }
-              : { '$orderby': 'start/dateTime' }),
-          },
+        result: applyCalendarListMode(summary, {
+          includeOngoing: !hasWindowStart || args.include_ongoing === true,
+          includeAllDay: !hasWindowStart || args.include_all_day === true,
         }),
       };
     }
@@ -389,6 +464,16 @@ async function executeMicrosoftTool(toolName, args, context) {
       if (/^microsoft_365_.*_graph_request$/.test(toolName)) {
         if (process.env.NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST !== 'true') {
           throw new Error('microsoft_365_*_graph_request tools are disabled by default. Set NEOAGENT_ENABLE_MICROSOFT_DYNAMIC_GRAPH_REQUEST=true to enable them.');
+        }
+        if (
+          (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+          && executionOptions.taskId
+          && String(args.method || 'GET').trim().toUpperCase() === 'GET'
+          && /\/calendar(?:View)?(?:\?|$)|\/events(?:\?|$)/i.test(String(args.path || ''))
+        ) {
+          throw new Error(
+            'Automatic calendar checks must use microsoft_365_calendar_list_events with an explicit start and end window.',
+          );
         }
         return {
           result: await graphRequest(context, {

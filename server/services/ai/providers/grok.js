@@ -24,17 +24,12 @@ class GrokProvider extends OpenAICompatibleProvider {
     }
   }
 
-  getContextWindow(model) {
-    if (model === 'grok-4.3') return 1000000;
+  getContextWindow() {
     return 131072;
   }
 
   supportsVision() {
     return true;
-  }
-
-  getDefaultVisionModel() {
-    return 'grok-4.20-beta-latest-non-reasoning';
   }
 
   _buildParams(model, messages, tools, options) {
@@ -44,8 +39,7 @@ class GrokProvider extends OpenAICompatibleProvider {
       max_tokens: options.maxTokens || 16384
     };
 
-    // grok-4-1-fast-reasoning is a reasoning model: no temperature
-    const isReasoning = model.includes('reasoning') || model.startsWith('grok-4');
+    const isReasoning = model.includes('reasoning');
     if (!isReasoning) {
       params.temperature = options.temperature ?? 0.9;
     }
@@ -59,7 +53,7 @@ class GrokProvider extends OpenAICompatibleProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || 'grok-4-1-fast-reasoning';
+    const model = this.requireModel(options);
     const params = this._buildParams(model, messages, tools, options);
 
     const response = await this.client.chat.completions.create(params, { signal: options.signal });
@@ -67,7 +61,7 @@ class GrokProvider extends OpenAICompatibleProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || 'grok-4-1-fast-reasoning';
+    const model = this.requireModel(options);
     const params = {
       ...this._buildParams(model, messages, tools, options),
       stream: true,

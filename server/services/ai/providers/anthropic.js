@@ -5,26 +5,6 @@ class AnthropicProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'anthropic';
-    this.models = [
-      'claude-opus-4-8',
-      'claude-opus-4-7',
-      'claude-sonnet-4-6',
-      'claude-sonnet-4-20250514',
-      'claude-haiku-4-5-20251001',
-      'claude-3-5-haiku-20241022',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-opus-20240229',
-    ];
-    this.contextWindows = {
-      'claude-opus-4-8': 1000000,
-      'claude-opus-4-7': 200000,
-      'claude-sonnet-4-6': 200000,
-      'claude-sonnet-4-20250514': 200000,
-      'claude-haiku-4-5-20251001': 200000,
-      'claude-3-5-haiku-20241022': 200000,
-      'claude-3-5-sonnet-20241022': 200000,
-      'claude-3-opus-20240229': 200000,
-    };
     this.client = new Anthropic({
       apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
       baseURL: config.baseUrl || process.env.ANTHROPIC_BASE_URL || undefined
@@ -37,7 +17,7 @@ class AnthropicProvider extends BaseProvider {
   }
 
   getContextWindow(model) {
-    return this.contextWindows[model] || 200000;
+    return 200000;
   }
 
   formatTools(tools) {
@@ -169,7 +149,7 @@ class AnthropicProvider extends BaseProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const { system, messages: converted } = this.convertMessages(messages);
 
     const params = {
@@ -230,7 +210,7 @@ class AnthropicProvider extends BaseProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const { system, messages: converted } = this.convertMessages(messages);
 
     const params = {

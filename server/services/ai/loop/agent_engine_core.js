@@ -335,7 +335,7 @@ class AgentEngine {
     }
 
     const decision = shouldEnhanceRetrieval(initial);
-    if (!decision.enhance) {
+    if (!decision.enhance || options.enhanceRecall === false) {
       const message = await memoryManager.buildRecallMessage(userId, query, {
         agentId,
         recalled: initial.slice(0, 5),
@@ -637,7 +637,6 @@ class AgentEngine {
     signal = null,
   }) {
     const { getFailureFallbackModelId } = require('../runtime/model_fallback');
-    const configuredFallbackId = getAiSettings(userId, agentId).fallback_model_id;
     const failedModelIds = new Set();
     let requestedModelId = modelId;
     let selected = null;
@@ -682,7 +681,6 @@ class AgentEngine {
           userId,
           agentId,
           selected.modelSelectionId,
-          configuredFallbackId,
           error,
           signal,
           failedModelIds,

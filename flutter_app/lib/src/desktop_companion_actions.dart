@@ -112,6 +112,7 @@ class DesktopCompanionActions {
     required String label,
     required bool companionEnabled,
     required bool paused,
+    required bool captureAllowed,
     String? activeDisplayId,
   }) async {
     final platformStatus = await _platformStatus();
@@ -119,6 +120,7 @@ class DesktopCompanionActions {
     final snapshot = await _safeSnapshotForStatus(
       activeDisplayId: activeDisplayId,
       platformStatus: platformStatus,
+      captureAllowed: captureAllowed,
     );
     final reportedDisplays = _coerceDisplays(platformStatus['displays']);
     final packageInfo = await PackageInfo.fromPlatform();
@@ -218,6 +220,7 @@ class DesktopCompanionActions {
   Future<Map<String, Object?>> getStatus({
     required String label,
     required bool paused,
+    required bool captureAllowed,
     String? activeDisplayId,
   }) async {
     final platformStatus = await _platformStatus();
@@ -225,6 +228,7 @@ class DesktopCompanionActions {
     final snapshot = await _safeSnapshotForStatus(
       activeDisplayId: activeDisplayId,
       platformStatus: platformStatus,
+      captureAllowed: captureAllowed,
     );
     final reportedDisplays = _coerceDisplays(platformStatus['displays']);
     return <String, Object?>{
@@ -1132,10 +1136,17 @@ class DesktopCompanionActions {
     }
   }
 
+  /// Status only needs display geometry. A screenshot is taken solely when
+  /// the platform cannot report displays itself and the user has allowed
+  /// screen access; otherwise every status refresh would hit the OS screen
+  /// recording gate (and macOS re-prompts for that).
   Future<DesktopCompanionSnapshot?> _safeSnapshotForStatus({
     required String? activeDisplayId,
     required Map<String, Object?> platformStatus,
+    required bool captureAllowed,
   }) async {
+    if (!captureAllowed) return null;
+    if (_coerceDisplays(platformStatus['displays']).isNotEmpty) return null;
     final permissions = _permissions(
       const <String, Object?>{},
       platformStatus: platformStatus,

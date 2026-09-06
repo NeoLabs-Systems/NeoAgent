@@ -21,13 +21,36 @@ const RETRYABLE_NETWORK_CODES = new Set([
   'INTEGRATION_HTTP_TIMEOUT',
 ]);
 
+function parseErrorEnvelope(error) {
+  const message = typeof error?.message === 'string' ? error.message.trim() : '';
+  // Provider errors are often re-wrapped as `Prefix: {json}` and lose their
+  // status/code properties along the way, so accept an embedded envelope too.
+  const start = message.indexOf('{');
+  if (start === -1) return null;
+  const end = message.lastIndexOf('}');
+  if (end <= start) return null;
+  try {
+    const parsed = JSON.parse(message.slice(start, end + 1));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function getHttpStatus(error) {
   if (!error || typeof error !== 'object') return null;
+  const envelope = parseErrorEnvelope(error);
   const candidates = [
     error.status,
     error.statusCode,
+    error.error?.status,
+    error.error?.code,
     error.response?.status,
     error.cause?.status,
+    error.cause?.error?.code,
+    envelope?.status,
+    envelope?.error?.status,
+    envelope?.error?.code,
   ];
   for (const value of candidates) {
     const status = Number(value);
@@ -38,7 +61,16 @@ function getHttpStatus(error) {
 
 function getErrorCode(error) {
   if (!error || typeof error !== 'object') return null;
-  return error.code || error.errno || error.cause?.code || null;
+  const envelope = parseErrorEnvelope(error);
+  return error.code
+    || error.errno
+    || error.error?.status
+    || error.error?.code
+    || error.cause?.code
+    || error.cause?.error?.status
+    || envelope?.error?.status
+    || envelope?.error?.code
+    || null;
 }
 
 function readHeader(headers, name) {
@@ -102,6 +134,7 @@ module.exports = {
   getErrorCode,
   getHttpStatus,
   isTransientIoError,
+  parseErrorEnvelope,
   readHeader,
   retryAfterMilliseconds,
 };

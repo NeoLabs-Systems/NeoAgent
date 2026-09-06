@@ -14,21 +14,22 @@ Release CI creates:
 - a Node Single Executable Application for the standalone CLI
 
 The Flutter app and CLI are compiled with the same raw 32-byte Ed25519 public
-key. The private PKCS#8 key is available only to the release manifest job.
-Release CI refuses to publish if the private key does not match the embedded
-public key.
+key from `lib/setup/runtime_signing_public_key.txt`. The private PKCS#8 key is
+a GitHub Actions secret named `NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY`. Release
+CI refuses to publish if that private key is missing or does not match the
+embedded public key.
 
-Generate a key pair locally and copy the two printed base64 values directly
-into the named GitHub Actions secrets:
+Generate a key pair locally, commit the public value, and store only the
+private value as a GitHub Actions secret:
 
 ```bash
 node - <<'NODE'
 const crypto = require('crypto');
 const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+console.log('commit lib/setup/runtime_signing_public_key.txt =');
+console.log(publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64'));
 console.log('NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY=' +
   privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64'));
-console.log('NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY=' +
-  publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64'));
 NODE
 ```
 

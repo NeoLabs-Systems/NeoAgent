@@ -40,6 +40,7 @@ const { shortenRunId, summarizeForLog } = require('../logFormat');
 const {
   recordModelFailure,
   recordModelSuccess,
+  shouldSwitchModel,
 } = require('../model_failure_cache');
 const { getProviderForUser } = require('../provider_selector');
 const {
@@ -180,6 +181,7 @@ class DurableRunRuntime {
     let model = null;
     let modelSelectionId = null;
     let providerName = null;
+    const failedModelIds = new Set();
     let messages = [];
     let ackContextMessages = [];
     let tools = [];
@@ -431,16 +433,34 @@ class DurableRunRuntime {
         deviceTarget,
         runtimeKernel: 'v2',
       });
+      // Coarse startup phases so a client can show what the run is doing
+      // before the first tool call instead of a static "starting" label.
+      const emitPhase = (phase, label) => {
+        this.engine.emit(userId, 'run:phase', {
+          runId,
+          conversationId: conversationId || null,
+          phase,
+          label,
+        });
+      };
+      emitPhase('model', 'Choosing a model');
 
       // Opening line for work that will keep the user waiting. The runtime only
       // decides whether to speak; the model writes the line from the real
       // conversation and may decline. Background automation reports through its
       // own delivery target and never gets one.
+      // Cowork sessions carry their operating contract in the system prompt and
+      // the client shows live phases and tool activity, so the pre-turn model
+      // calls (memory query planning, structured triage, a spoken opening line)
+      // only delay the first real turn.
+      const leanStartup = options.skipTaskAnalysis === true || triggerSource === 'cowork';
+      const startupTiming = { acceptedAt: Date.now() };
+
       const maybeAck = async (force = false, analysisAck = '') => {
         if (!force) return;
         // Background schedule/task automation delivers via send_message only.
         if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
-        if (triggerType === 'subagent') return;
+        if (triggerType === 'subagent' || triggerSource === 'cowork') return;
 
         let ackText = options.latencyPriority === 'interactive'
           ? String(analysisAck || '').trim()
@@ -503,6 +523,33 @@ class DurableRunRuntime {
           },
         });
       };
+
+      // Independent startup work runs concurrently with provider selection.
+      // A rejected branch is still surfaced by its await below; the no-op
+      // catch only keeps an early failure elsewhere from leaving it unhandled.
+      const startConcurrently = (promise) => {
+        promise.catch(() => {});
+        return promise;
+      };
+      const capabilityHealthPromise = startConcurrently(getCapabilityHealth({
+        userId,
+        agentId,
+        app,
+        engine: this.engine,
+        deviceTarget,
+        triggerSource,
+        workspaceRoot,
+      }));
+      const systemPromptPromise = startConcurrently(this.engine.buildSystemPrompt(userId, {
+        ...(options.context || {}),
+        userMessage,
+        agentId,
+        triggerSource,
+        memoryAudience: options.memoryAudience || 'owner',
+        interactionMode,
+        deviceTarget,
+        workspaceRoot,
+      }));
 
       // ── Provider selection ─────────────────────────────────────────────
       const providerStatusConfig = {
@@ -587,20 +634,28 @@ class DurableRunRuntime {
       });
 
       // ── Context assembly ───────────────────────────────────────────────
+      startupTiming.providerMs = Date.now() - startupTiming.acceptedAt;
+      emitPhase('context', 'Gathering context');
       const historyWindow = Math.max(
         1,
         Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
       );
-      systemPrompt = await this.engine.buildSystemPrompt(userId, {
-        ...(options.context || {}),
-        userMessage,
-        agentId,
-        triggerSource,
-        memoryAudience: options.memoryAudience || 'owner',
-        interactionMode,
-        deviceTarget,
-        workspaceRoot,
-      });
+      const { MemoryManager } = require('../../memory/manager');
+      const memoryManager = this.engine.memoryManager || new MemoryManager();
+      const recallPromise = options.skipGlobalRecall === true
+        ? null
+        : startConcurrently(this.engine.buildMemoryRecall({
+          memoryManager,
+          userId,
+          agentId,
+          query: options.context?.rawUserMessage || userMessage,
+          provider,
+          providerName,
+          model,
+          runId,
+          options: { ...options, enhanceRecall: !leanStartup },
+        }));
+      systemPrompt = await systemPromptPromise;
 
       const builtInTools = this.engine.getAvailableTools(app, {
         includeDescriptions: true,
@@ -619,21 +674,7 @@ class DurableRunRuntime {
       const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options)
         .filter((tool) => !disallowedToolNames.has(tool?.name));
 
-      const { MemoryManager } = require('../../memory/manager');
-      const memoryManager = this.engine.memoryManager || new MemoryManager();
-      const recallMsg = options.skipGlobalRecall === true
-        ? null
-        : await this.engine.buildMemoryRecall({
-          memoryManager,
-          userId,
-          agentId,
-          query: options.context?.rawUserMessage || userMessage,
-          provider,
-          providerName,
-          model,
-          runId,
-          options,
-        });
+      const recallMsg = recallPromise ? await recallPromise : null;
 
       let summaryMessage = null;
       let historyMessages = [];
@@ -649,18 +690,18 @@ class DurableRunRuntime {
       }
 
       messages = this.engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
-      const capabilityHealth = await getCapabilityHealth({
-        userId,
-        agentId,
-        app,
-        engine: this.engine,
-        deviceTarget,
-        triggerSource,
-        workspaceRoot,
-      });
+      const capabilityHealth = await capabilityHealthPromise;
       const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
       if (capabilitySummary) {
         messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
+      }
+      const connectedIntegrations = app?.locals?.integrationManager
+        ?.summarizeConnectedProviders?.(userId, agentId);
+      if (connectedIntegrations) {
+        messages.push({
+          role: 'system',
+          content: `[Connected integrations]\n${connectedIntegrations}`,
+        });
       }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
@@ -695,6 +736,7 @@ class DurableRunRuntime {
       }
 
       // ── Triage ─────────────────────────────────────────────────────────
+      emitPhase('analysis', 'Reading the request');
       applyTransition({
         runId,
         toState: RUNTIME_STATES.TRIAGING,
@@ -720,7 +762,8 @@ class DurableRunRuntime {
         draft_status: 'needs_execution',
         complexity: requestedPlan ? 'complex' : 'standard',
       };
-      if (options.skipTaskAnalysis === true) {
+      startupTiming.contextMs = Date.now() - startupTiming.acceptedAt - startupTiming.providerMs;
+      if (leanStartup) {
         const skippedAnalysis = {
           ...analysisFallback,
           needs_verification: requestedPlan,
@@ -739,7 +782,6 @@ class DurableRunRuntime {
               capabilityHealth: capabilitySummary,
               tools: allTools,
               forceMode: options.forceMode || null,
-              triggerSource,
             }),
             maxTokens: 1400,
             normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
@@ -760,6 +802,8 @@ class DurableRunRuntime {
         }
       }
 
+      startupTiming.analysisMs = Date.now() - startupTiming.acceptedAt
+        - startupTiming.providerMs - startupTiming.contextMs;
       // Start with the model's exact suggestions, then fill any remaining slice
       // from lexical matches. Always-active control tools are excluded from the
       // matcher because selecting them again would crowd out actual capabilities.
@@ -772,9 +816,17 @@ class DurableRunRuntime {
         limit: 8,
         excludeNames: ALWAYS_INCLUDE_BUILT_INS,
       });
+      // When NeoRecall is connected, keep day/search tools active so personal
+      // recall questions do not depend on lexical discovery under the tool cap.
+      const preferredNeoRecallTools = [
+        'neorecall_list_daily_summaries',
+        'neorecall_search',
+        'neorecall_list_conversations',
+      ].filter((name) => allTools.some((tool) => tool?.name === name));
       const suggestedToolNames = [...new Set([
         ...(analysis.suggested_tools || []),
         ...initialMatches.map((tool) => tool.name),
+        ...preferredNeoRecallTools,
       ])];
       tools = selectInitialTools(
         allTools,
@@ -946,6 +998,14 @@ class DurableRunRuntime {
         workerId,
         eventBus: this.eventBus,
       });
+
+      this.engine.recordRunEvent?.(userId, runId, 'startup_timing', {
+        providerMs: startupTiming.providerMs,
+        contextMs: startupTiming.contextMs,
+        analysisMs: startupTiming.analysisMs,
+        totalMs: Date.now() - startupTiming.acceptedAt,
+        leanStartup,
+      }, { agentId });
 
       // ── Execution loop ─────────────────────────────────────────────────
       // The heartbeat runs only while the run is executing: it keeps a run that
@@ -1493,6 +1553,7 @@ class DurableRunRuntime {
         ]);
 
         iterations += 1;
+        emitPhase('thinking', 'Thinking');
         progressBroker.noteActivity('model_started', { iteration: iterations });
         this.eventBus.publish({
           runId,
@@ -1634,16 +1695,16 @@ class DurableRunRuntime {
           });
           budget.recordToolFailure(true, recovery.errorClass);
           recordModelFailure(userId, agentId, modelSelectionId, error);
+          failedModelIds.add(modelSelectionId);
 
-          if (recovery.retryable && recovery.action === 'switch_provider_or_backoff') {
+          if (shouldSwitchModel(error)) {
             const fallbackId = await getFailureFallbackModelId(
               userId,
               agentId,
               modelSelectionId,
-              aiSettings.fallback_model_id,
               error,
               getActiveSignal(),
-              [modelSelectionId],
+              failedModelIds,
             );
             if (fallbackId) {
               const fallback = await getProviderForUser(
@@ -1811,14 +1872,17 @@ class DurableRunRuntime {
           if (decision.blocker?.code === 'blank_model_output') {
             blankOutputRecoveries += 1;
             if (blankOutputRecoveries <= maxBlankOutputRecoveries) {
+              const blankOutputError = new Error('Model returned no content and no tool calls');
+              blankOutputError.code = 'MODEL_EMPTY_RESPONSE';
+              recordModelFailure(userId, agentId, modelSelectionId, blankOutputError);
+              failedModelIds.add(modelSelectionId);
               const fallbackId = await getFailureFallbackModelId(
                 userId,
                 agentId,
                 modelSelectionId,
-                aiSettings.fallback_model_id,
-                new Error('Model returned no content and no tool calls'),
+                blankOutputError,
                 getActiveSignal(),
-                [modelSelectionId],
+                failedModelIds,
               );
               if (fallbackId) {
                 const fallback = await getProviderForUser(
@@ -2017,6 +2081,7 @@ class DurableRunRuntime {
                     source: options.source || null,
                     chatId: options.chatId || null,
                     taskId: options.taskId || null,
+                    scheduledAt: options.scheduledAt || null,
                     deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
                     stageProactiveMessages: options.stageProactiveMessages === true,
                     allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true

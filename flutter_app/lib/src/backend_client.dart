@@ -588,6 +588,43 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> saveAiProviderCredentials(
+    String baseUrl,
+    String providerId, {
+    String? apiKey,
+    String? baseUrlOverride,
+    bool clearApiKey = false,
+    String? agentId,
+  }) async {
+    final payload = <String, dynamic>{
+      if (apiKey != null) 'apiKey': apiKey,
+      if (baseUrlOverride != null) 'baseUrl': baseUrlOverride,
+      if (clearApiKey) 'clearApiKey': true,
+    };
+    return putMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/settings/ai-providers/${Uri.encodeComponent(providerId)}/credentials',
+        agentId,
+      ),
+      payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> clearAiProviderCredentials(
+    String baseUrl,
+    String providerId, {
+    String? agentId,
+  }) async {
+    return deleteMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/settings/ai-providers/${Uri.encodeComponent(providerId)}/credentials',
+        agentId,
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> saveSettings(
     String baseUrl,
     Map<String, dynamic> payload, {
@@ -776,6 +813,16 @@ class BackendClient {
     return getMap(
       baseUrl,
       '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchCoworkChanges(
+    String baseUrl,
+    String conversationId,
+  ) {
+    return getMap(
+      baseUrl,
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}/changes',
     );
   }
 

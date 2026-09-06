@@ -15,7 +15,9 @@ const scheduleAdapter = require('./adapters/schedule');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 const { isTransientError } = require('../ai/providerRetry');
+const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
+const { parseErrorEnvelope } = require('../../utils/retry');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -570,10 +572,15 @@ class TaskRuntime {
       const triggerPayloadText = executionMeta.triggerPayload
         ? `\nTrigger event context:\n${JSON.stringify(executionMeta.triggerPayload, null, 2)}\n`
         : '';
+      const executionInstant = executionMeta.scheduledAt || new Date().toISOString();
+      const temporalAccuracyHint = task.trigger_type === 'schedule'
+        ? `Execution instant: ${executionInstant}. For any requested lead time before a calendar event, derive the target event-start time from this instant plus that lead time and use an explicit, bounded start window around that target. An event is eligible only from its actual start timestamp; never notify for an event that has already started, merely overlaps the window, or is all-day unless the task explicitly asks for those cases.`
+        : '';
       const basePrompt = [
         '[SYSTEM: Executing Background Task]',
         `Task Name: ${taskName}`,
         `Trigger: ${triggerSummary}`,
+        temporalAccuracyHint,
         '',
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
@@ -594,6 +601,7 @@ class TaskRuntime {
           app: this.app,
           conversationId,
           taskId,
+          scheduledAt: executionInstant,
           bypassUserRateLimits: true,
           deliveryState,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
@@ -957,22 +965,27 @@ class TaskRuntime {
   // Returns null when the failure should NOT be surfaced (transient infra limits).
   _buildTaskFailureMessage(taskName, err) {
     const raw = String(err?.message || '').trim();
-    const lower = raw.toLowerCase();
-    // Rate/quota limits are transient, self-healing, and not user-actionable. Every
-    // scheduled run during the window would hit the same error, so a per-run notice
-    // would just be spam. Log only (done by the caller), no user message.
+    // Provider/model health failures are handled by the dynamic router and its
+    // cooldown store. Repeating the raw provider payload on every schedule tick
+    // is not actionable and can flood the delivery channel. The same applies to
+    // routing exhaustion (AI_MODELS_UNAVAILABLE): it repeats every tick for as
+    // long as the recorded health cooldowns last.
     if (
-      lower.includes('rate limit')
-      || lower.includes('rate_limit')
-      || lower.includes('quota')
-      || lower.includes('tokens in the last')
-      || /\b429\b/.test(lower)
+      getFailureDisposition(err)
+      || isTransientError(err)
+      || err?.code === 'AI_MODELS_UNAVAILABLE'
     ) {
       return null;
     }
     // Genuine failure: tell the user the actual reason instead of "check the logs",
-    // which they cannot do. Collapse whitespace and cap length to keep it readable.
-    const reason = raw ? raw.replace(/\s+/g, ' ').slice(0, 200) : 'an unknown error';
+    // which they cannot do. Providers wrap that reason in JSON envelopes; surface
+    // the human message inside, never the raw payload. Collapse whitespace and cap
+    // length to keep it readable.
+    const envelopeMessage = String(parseErrorEnvelope(err)?.error?.message || '').trim();
+    const reasonSource = envelopeMessage || raw;
+    const reason = reasonSource
+      ? reasonSource.replace(/\s+/g, ' ').slice(0, 200)
+      : 'an unknown error';
     return `Background task "${taskName}" could not complete: ${reason}`;
   }
 

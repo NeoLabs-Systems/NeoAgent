@@ -128,6 +128,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(calls.length, 2);
     assert.equal(calls[0].options.bypassUserRateLimits, true);
     assert.equal(calls[0].options.triggerSource, 'schedule');
+    assert.match(calls[0].options.scheduledAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.match(calls[1].prompt, /Previous task attempt failed/);
     assert.equal(result.content, 'The daily summary is ready.');
     assert.equal(messagingManager.sent.length, 1);
@@ -334,6 +335,51 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent.length, 1);
     assert.match(messagingManager.sent[0].content, /could not complete:/);
     assert.match(messagingManager.sent[0].content, /without producing a result or an explicit no-response decision/);
+  });
+
+  test('surfaced provider failures report the envelope message, not raw JSON', async () => {
+    const messagingManager = createMessagingManager();
+    const requestError = new Error(JSON.stringify({
+      error: { code: 400, status: 'INVALID_ARGUMENT', message: 'Request contains an invalid argument.' },
+    }));
+    const task = await createScheduledTask({
+      async runWithModel() {
+        throw requestError;
+      },
+    }, messagingManager);
+
+    await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(messagingManager.sent[0].content, /Request contains an invalid argument/);
+    assert.doesNotMatch(messagingManager.sent[0].content, /\{"error"/);
+  });
+
+  test('does not deliver repeated raw model-health failures', async () => {
+    const messagingManager = createMessagingManager();
+    const modelError = new Error(JSON.stringify({
+      error: { code: 404, status: 'NOT_FOUND', message: 'Unavailable selection.' },
+    }));
+    const task = await createScheduledTask({
+      async runWithModel() {
+        throw modelError;
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.error, modelError.message);
+    assert.equal(messagingManager.sent.length, 0);
   });
 
   test('accepts an explicit no-response decision without fallback delivery', async () => {

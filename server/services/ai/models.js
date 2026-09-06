@@ -29,6 +29,7 @@ const {
     refreshProviderModelList,
 } = require('./model_discovery');
 const { getDisabledModelIds } = require('./model_visibility');
+const { getModelHealthSnapshot } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
@@ -69,6 +70,19 @@ function isValidHttpUrl(value) {
     } catch {
         return false;
     }
+}
+
+// Every run consults the provider catalog; an offline Ollama must not add a
+// full probe timeout to each of them, so the outcome is reused briefly.
+const OLLAMA_PROBE_TTL_MS = 30 * 1000;
+const ollamaProbeCache = new Map();
+
+async function probeOllamaCached(baseUrl, timeoutMs, signal) {
+    const cached = ollamaProbeCache.get(baseUrl);
+    if (cached && cached.expiresAt > Date.now()) return cached.probe;
+    const probe = await probeOllama(baseUrl, timeoutMs, signal);
+    ollamaProbeCache.set(baseUrl, { probe, expiresAt: Date.now() + OLLAMA_PROBE_TTL_MS });
+    return probe;
 }
 
 async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
@@ -182,8 +196,10 @@ function getProviderCatalog(userId, agentId = null) {
             id: definition.id,
             label: definition.label,
             description: definition.description,
+            authentication: definition.authentication,
             supportsApiKey: definition.supportsApiKey,
             supportsBaseUrl: definition.supportsBaseUrl,
+            requiresBaseUrl: Boolean(definition.requiresBaseUrl),
             defaultBaseUrl: definition.defaultBaseUrl,
             enabled: runtime.enabled,
             available,
@@ -211,7 +227,7 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
         let availabilityReason = provider.availabilityReason;
 
         if (provider.id === 'ollama' && options.probeLocal !== false) {
-            const probe = await probeOllama(
+            const probe = await probeOllamaCached(
                 provider.baseUrl || AI_PROVIDER_DEFINITIONS.ollama.defaultBaseUrl,
                 1500,
                 options.signal,
@@ -312,6 +328,7 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
+    const runtimeHealth = getModelHealthSnapshot(userId, agentId);
 
     // Plan-based model allowlist (billing optional feature).
     let planAllowedModels = null;
@@ -344,6 +361,9 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
             available = false;
         }
+        const runtimeUnavailable = runtimeHealth.modelIds.has(selectableModel.id)
+            || runtimeHealth.providerIds.has(selectableModel.provider);
+        if (available && runtimeUnavailable) available = false;
 
         const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
         const inputCostPerM = model.provider === 'ollama'
@@ -355,6 +375,7 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             priceTier,
             inputCostPerM,
             available,
+            runtimeUnavailable,
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown'
         };

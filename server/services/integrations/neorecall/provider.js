@@ -81,11 +81,15 @@ function createNeoRecallProvider() {
     getEnvStatus: envStatus,
     async beginOAuth({ state, codeVerifier, userId, agentId, signal }) {
       const baseUrl = normalizeBaseUrl(storedConfig(userId, resolveAgentId(userId, agentId)).baseUrl);
-      const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
+      const redirectUri = callbackUrl();
+      const boot = await bootstrap(baseUrl, redirectUri, { signal });
       const challenge = crypto.createHash('sha256').update(String(codeVerifier)).digest('base64url');
+      // Always authorize against the user-configured base URL. Bootstrap may
+      // advertise NeoRecall's NEORECALL_PUBLIC_URL (often localhost), which the
+      // browser cannot reach when NeoAgent talks to NeoRecall over a LAN IP.
       return {
-        url: appendQuery(text(boot.authorizationEndpoint) || `${baseUrl}/oauth/authorize`, {
-          response_type: 'code', client_id: boot.clientId, redirect_uri: text(boot.redirectUri) || callbackUrl(),
+        url: appendQuery(`${baseUrl}/oauth/authorize`, {
+          response_type: 'code', client_id: boot.clientId, redirect_uri: text(boot.redirectUri) || redirectUri,
           state, code_challenge: challenge, code_challenge_method: 'S256',
           scope: Array.isArray(boot.scopes) ? boot.scopes.join(' ') : SCOPES.join(' '),
         }),
@@ -93,10 +97,11 @@ function createNeoRecallProvider() {
     },
     async finishOAuth({ userId, agentId, code, codeVerifier, signal }) {
       const baseUrl = normalizeBaseUrl(storedConfig(userId, resolveAgentId(userId, agentId)).baseUrl);
-      const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
+      const redirectUri = callbackUrl();
+      const boot = await bootstrap(baseUrl, redirectUri, { signal });
       const issued = await token(baseUrl, {
         grant_type: 'authorization_code', client_id: boot.clientId, code: text(code),
-        redirect_uri: text(boot.redirectUri) || callbackUrl(), code_verifier: text(codeVerifier),
+        redirect_uri: text(boot.redirectUri) || redirectUri, code_verifier: text(codeVerifier),
       }, { signal });
       const accessToken = text(issued.access_token);
       const refreshToken = text(issued.refresh_token);
@@ -160,7 +165,18 @@ function createNeoRecallProvider() {
     if (text(health?.status) !== 'ok' || text(health?.process) !== 'http') {
       throw new Error('The configured endpoint did not identify itself as a healthy NeoRecall HTTP service.');
     }
-    const boot = await bootstrap(baseUrl, callbackUrl(), { signal });
+    let boot;
+    try {
+      boot = await bootstrap(baseUrl, callbackUrl(), { signal });
+    } catch (error) {
+      const detail = text(error?.message) || 'companion bootstrap failed';
+      throw new Error(
+        `NeoRecall rejected NeoAgent OAuth setup (${detail}). `
+        + 'Confirm NeoAgent PUBLIC_URL is reachable from this browser and uses '
+        + 'HTTPS, or HTTP on a private/loopback address, ending at '
+        + '/api/integrations/oauth/callback.',
+      );
+    }
     if (text(boot?.companion) !== 'neoagent' || !text(boot?.clientId)) {
       throw new Error('The NeoRecall server does not expose the NeoAgent companion OAuth contract.');
     }
@@ -185,7 +201,16 @@ function createNeoRecallProvider() {
     ? 'NeoRecall: setup is not complete yet.'
     : !snapshot.connection?.connected
       ? 'NeoRecall: setup is ready, but no recall account is connected.'
-      : 'NeoRecall: connected with token-free hybrid search and read-only access to memories, mini-memories, daily summaries, conversations, and transcript evidence. Use neorecall_search when the user asks to recall past events, discussions, people, facts, tasks, or promises.';
+      : [
+        'NeoRecall: connected. Treat it as the source of truth for the user\'s lived day,',
+        'conversations, people, promises, and personal facts captured by NeoRecall.',
+        'When the user asks what happened today/yesterday/this week, what they discussed,',
+        'who they met, or any personal recall question, use NeoRecall tools before guessing.',
+        'Start with neorecall_list_daily_summaries for calendar-day questions,',
+        'neorecall_list_conversations or neorecall_list_memories with from/to for a date window,',
+        'and neorecall_search for open-ended recall. Pull transcript evidence with',
+        'neorecall_get_conversation or neorecall_get_memory when detail is needed.',
+      ].join(' ');
   return provider;
 }
 

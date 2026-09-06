@@ -161,7 +161,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
-  late String _fallbackModel;
   late String _defaultSpeechModel;
   late String _voiceSttProvider;
   late String _voiceSttModel;
@@ -173,6 +172,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   final Map<String, bool> _providerEnabled = <String, bool>{};
   final Map<String, TextEditingController> _providerBaseUrlControllers =
       <String, TextEditingController>{};
+  final Map<String, TextEditingController> _providerApiKeyControllers =
+      <String, TextEditingController>{};
+  String? _savingProviderId;
   late final TextEditingController _behaviorNotesController;
   late bool _behaviorEnabled;
   late String _behaviorParticipationMode;
@@ -186,6 +188,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late bool _behaviorObservabilityEnabled;
 
   bool _hasUnsavedChanges = false;
+  Object? _hydratedSettingsSource;
+  Object? _hydratedBehaviorSource;
+  Object? _hydratedMemorySource;
+  Object? _hydratedProvidersSource;
+  Object? _hydratedModelsSource;
 
   // Inline runtime test state — ephemeral, not stored in controller.
   bool _cliTestRunning = false;
@@ -200,13 +207,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _searchController = TextEditingController();
     _behaviorNotesController = TextEditingController();
     _hydrate();
+    widget.controller.addListener(_handleControllerChanged);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
     _searchController.dispose();
     _behaviorNotesController.dispose();
     for (final controller in _providerBaseUrlControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _providerApiKeyControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -215,16 +227,36 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   void didUpdateWidget(covariant SettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller.settings != widget.controller.settings ||
-        oldWidget.controller.behaviorConfig !=
-            widget.controller.behaviorConfig ||
-        oldWidget.controller.memoryOverview !=
-            widget.controller.memoryOverview ||
-        oldWidget.controller.aiProviders != widget.controller.aiProviders ||
-        oldWidget.controller.supportedModels !=
-            widget.controller.supportedModels) {
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+      _hydrate();
+    } else if (!_hasUnsavedChanges && _hydrationSourcesChanged()) {
       _hydrate();
     }
+  }
+
+  void _handleControllerChanged() {
+    if (!mounted || _hasUnsavedChanges || !_hydrationSourcesChanged()) return;
+    setState(_hydrate);
+  }
+
+  bool _hydrationSourcesChanged() {
+    final controller = widget.controller;
+    return !identical(_hydratedSettingsSource, controller.settings) ||
+        !identical(_hydratedBehaviorSource, controller.behaviorConfig) ||
+        !identical(_hydratedMemorySource, controller.memoryOverview) ||
+        !identical(_hydratedProvidersSource, controller.aiProviders) ||
+        !identical(_hydratedModelsSource, controller.supportedModels);
+  }
+
+  void _rememberHydrationSources() {
+    final controller = widget.controller;
+    _hydratedSettingsSource = controller.settings;
+    _hydratedBehaviorSource = controller.behaviorConfig;
+    _hydratedMemorySource = controller.memoryOverview;
+    _hydratedProvidersSource = controller.aiProviders;
+    _hydratedModelsSource = controller.supportedModels;
   }
 
   void _hydrate() {
@@ -242,7 +274,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     _defaultChatModel = controller.defaultChatModel;
     _defaultSubagentModel = controller.defaultSubagentModel;
-    _fallbackModel = controller.fallbackModel;
     _defaultSpeechModel = controller.defaultSpeechModel;
     _voiceSttProvider = controller.voiceSttProvider;
     _voiceSttModel = controller.voiceSttModel;
@@ -308,7 +339,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
 
     _pruneControllers(_providerBaseUrlControllers, providerIds);
+    _pruneControllers(_providerApiKeyControllers, providerIds);
     _providerEnabled.removeWhere((id, _) => !providerIds.contains(id));
+    _rememberHydrationSources();
   }
 
   @override
@@ -589,7 +622,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
       defaultSubagentModel: _defaultSubagentModel,
-      fallbackModel: _fallbackModel,
       defaultSpeechModel: _defaultSpeechModel,
       voiceSttProvider: _voiceSttProvider,
       voiceSttModel: _voiceSttModel,
@@ -636,7 +668,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
       );
       if (controller.errorMessage != null) return;
     }
-    if (mounted) setState(() => _hasUnsavedChanges = false);
+    if (mounted) {
+      setState(() {
+        _hasUnsavedChanges = false;
+        _rememberHydrationSources();
+      });
+    }
   }
 
   Widget _settingsSaveButton(NeoAgentController controller) {
@@ -1408,6 +1445,33 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 16),
             Text(
+              'AI Providers',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connect a provider here after Quickstart or Full setup. Keys are stored for this account and never shown again.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            if (controller.aiProviders.isEmpty)
+              Text(
+                'Provider catalog is unavailable on this server version.',
+                style: TextStyle(color: _textSecondary),
+              )
+            else
+              ...controller.aiProviders.map(
+                (provider) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildProviderCredentialCard(controller, provider),
+                ),
+              ),
+            const SizedBox(height: 8),
+            const Divider(height: 32),
+            Text(
               'Default Routing',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
@@ -1464,28 +1528,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             if (value != null) {
                               setState(() {
                                 _defaultSubagentModel = value;
-                                _hasUnsavedChanges = true;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: cardWidth,
-                        child: _RoutingSelectCard(
-                          label: 'Fallback',
-                          icon: Icons.shield_outlined,
-                          value: _ensureModelValue(
-                            _fallbackModel,
-                            routingModels,
-                            allowAuto: false,
-                            preserveUnknown: true,
-                          ),
-                          options: _modelPickerOptions(routingModels),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _fallbackModel = value;
                                 _hasUnsavedChanges = true;
                               });
                             }
@@ -1927,6 +1969,203 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ),
       ),
     );
+  }
+
+  Widget _buildProviderCredentialCard(
+    NeoAgentController controller,
+    AiProviderMeta provider,
+  ) {
+    final keyController = _providerApiKeyControllers.putIfAbsent(
+      provider.id,
+      TextEditingController.new,
+    );
+    if (provider.supportsBaseUrl) {
+      _providerBaseUrlControllers.putIfAbsent(
+        provider.id,
+        () => TextEditingController(
+          text: provider.baseUrl.isNotEmpty
+              ? provider.baseUrl
+              : provider.defaultBaseUrl,
+        ),
+      );
+    }
+    final busy = _savingProviderId == provider.id;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(provider.icon, size: 20, color: provider.statusColor),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  provider.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                provider.credentialConfigured
+                    ? (provider.statusLabel.isEmpty
+                          ? 'Connected'
+                          : provider.statusLabel)
+                    : 'Not connected',
+                style: TextStyle(
+                  color: provider.credentialConfigured
+                      ? provider.statusColor
+                      : _textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            provider.description,
+            style: TextStyle(color: _textSecondary, height: 1.4, fontSize: 13),
+          ),
+          if (provider.usesOAuth) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              'Sign in with `neoagent login ${provider.id}` in a terminal. API keys are not used for this provider.',
+              style: TextStyle(color: _textSecondary, height: 1.4, fontSize: 13),
+            ),
+          ] else ...<Widget>[
+            if (provider.usesApiKey) ...<Widget>[
+              const SizedBox(height: 12),
+              TextField(
+                controller: keyController,
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: provider.credentialConfigured
+                      ? 'Replace API key'
+                      : 'API key',
+                  hintText: provider.credentialConfigured ? '••••••••' : null,
+                ),
+              ),
+            ],
+            if (provider.supportsBaseUrl) ...<Widget>[
+              const SizedBox(height: 10),
+              TextField(
+                controller: _providerBaseUrlControllers[provider.id],
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: (_) => setState(() => _hasUnsavedChanges = true),
+                decoration: InputDecoration(
+                  labelText: provider.requiresBaseUrl
+                      ? 'Base URL (required)'
+                      : 'Base URL (optional)',
+                  hintText: provider.defaultBaseUrl.isEmpty
+                      ? null
+                      : provider.defaultBaseUrl,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () => _saveProviderCredentials(controller, provider),
+                  style: FilledButton.styleFrom(backgroundColor: _accent),
+                  child: Text(busy ? 'Saving…' : 'Save provider'),
+                ),
+                if (provider.usesApiKey && provider.credentialConfigured)
+                  TextButton(
+                    onPressed: busy
+                        ? null
+                        : () => _clearProviderCredentials(controller, provider),
+                    child: const Text('Remove key'),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveProviderCredentials(
+    NeoAgentController controller,
+    AiProviderMeta provider,
+  ) async {
+    final apiKey = _providerApiKeyControllers[provider.id]?.text.trim() ?? '';
+    final baseUrl = _providerBaseUrlControllers[provider.id]?.text.trim() ?? '';
+    if (provider.usesApiKey &&
+        apiKey.isEmpty &&
+        !provider.credentialConfigured &&
+        !provider.isLocal) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Enter an API key for ${provider.label}.')),
+      );
+      return;
+    }
+    if (provider.requiresBaseUrl && baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('A base URL is required for ${provider.label}.')),
+      );
+      return;
+    }
+    setState(() => _savingProviderId = provider.id);
+    try {
+      await controller.saveAiProviderCredentials(
+        providerId: provider.id,
+        apiKey: provider.usesApiKey && apiKey.isNotEmpty ? apiKey : null,
+        baseUrl: provider.supportsBaseUrl
+            ? (baseUrl.isNotEmpty ? baseUrl : provider.defaultBaseUrl)
+            : null,
+      );
+      if (!mounted) return;
+      _providerApiKeyControllers[provider.id]?.clear();
+      if (controller.errorMessage != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(controller.errorMessage!)));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save ${provider.label}: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingProviderId = null);
+    }
+  }
+
+  Future<void> _clearProviderCredentials(
+    NeoAgentController controller,
+    AiProviderMeta provider,
+  ) async {
+    setState(() => _savingProviderId = provider.id);
+    try {
+      await controller.clearAiProviderCredentials(provider.id);
+      if (!mounted) return;
+      _providerApiKeyControllers[provider.id]?.clear();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove ${provider.label}: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingProviderId = null);
+    }
   }
 
   Map<String, dynamic> _buildProviderPayload() {

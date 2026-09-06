@@ -6,9 +6,11 @@ import 'package:http/http.dart' as http;
 
 import 'app_release_updater.dart';
 import 'local_backend_installer_models.dart';
+import 'setup_contract.g.dart';
 
 const String runtimeSigningPublicKey = String.fromEnvironment(
   'NEOAGENT_RUNTIME_PUBLIC_KEY',
+  defaultValue: embeddedRuntimeSigningPublicKey,
 );
 const String runtimeReleaseChannel = String.fromEnvironment(
   'NEOAGENT_RELEASE_CHANNEL',
@@ -58,11 +60,16 @@ class RuntimeReleaseService {
   final RuntimeDownloadProgress _onDownloadProgress;
   final RuntimeCancellationCheck _checkCancelled;
 
-  Map<String, String> get _headers => <String, String>{
+  Map<String, String> get _apiHeaders => <String, String>{
     'Accept': 'application/vnd.github+json',
     'User-Agent': 'NeoAgent Desktop Installer',
     if (appUpdaterGithubToken.trim().isNotEmpty)
       'Authorization': 'Bearer ${appUpdaterGithubToken.trim()}',
+  };
+
+  Map<String, String> get _downloadHeaders => <String, String>{
+    'Accept': 'application/octet-stream',
+    'User-Agent': 'NeoAgent Desktop Installer',
   };
 
   Future<PreparedRuntimeRelease> prepare({
@@ -119,7 +126,7 @@ class RuntimeReleaseService {
       'GET',
       validateRuntimeDownloadUri(release.downloadUrl),
     );
-    request.headers.addAll(_headers);
+    request.headers.addAll(_downloadHeaders);
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw const LocalBackendInstallerException(
@@ -164,6 +171,7 @@ class RuntimeReleaseService {
     final responseBytes = await _downloadBytes(
       releasesUrl,
       maxBytes: _metadataLimitBytes,
+      githubApi: true,
       errorCode: 'SETUP_RELEASE_LOOKUP_FAILED',
       errorMessage: 'NeoAgent could not check the available backend runtime.',
     );
@@ -214,12 +222,13 @@ class RuntimeReleaseService {
   Future<List<int>> _downloadBytes(
     String url, {
     required int maxBytes,
+    bool githubApi = false,
     String errorCode = 'SETUP_DOWNLOAD_FAILED',
     String errorMessage =
         'A required NeoAgent setup file could not be downloaded.',
   }) async {
     final request = http.Request('GET', validateRuntimeDownloadUri(url));
-    request.headers.addAll(_headers);
+    request.headers.addAll(githubApi ? _apiHeaders : _downloadHeaders);
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw LocalBackendInstallerException(errorCode, errorMessage);
@@ -240,6 +249,13 @@ class RuntimeReleaseService {
   }
 }
 
+List<int> decodeRuntimeSigningPublicKey(String publicKeyBase64) {
+  final decoded = base64Decode(publicKeyBase64.trim());
+  if (decoded.length == 32) return decoded;
+  if (decoded.length > 32) return decoded.sublist(decoded.length - 32);
+  throw const FormatException('Runtime signing public key must be 32 bytes.');
+}
+
 Future<void> verifyRuntimeManifestSignatureData({
   required List<int> manifestBytes,
   required String signatureBase64,
@@ -252,11 +268,22 @@ Future<void> verifyRuntimeManifestSignatureData({
       retryable: false,
     );
   }
+  late final SimplePublicKey publicKey;
   try {
-    final publicKey = SimplePublicKey(
-      base64Decode(publicKeyBase64.trim()),
+    publicKey = SimplePublicKey(
+      decodeRuntimeSigningPublicKey(publicKeyBase64),
       type: KeyPairType.ed25519,
     );
+  } on LocalBackendInstallerException {
+    rethrow;
+  } on Object {
+    throw const LocalBackendInstallerException(
+      'SETUP_TRUST_NOT_CONFIGURED',
+      'This NeoAgent build is not configured to verify backend runtimes.',
+      retryable: false,
+    );
+  }
+  try {
     final signature = Signature(
       base64Decode(signatureBase64.trim()),
       publicKey: publicKey,

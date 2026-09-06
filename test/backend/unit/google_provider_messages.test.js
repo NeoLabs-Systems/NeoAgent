@@ -136,7 +136,7 @@ test('Google system-only structured requests receive a user generation turn', as
 
   const result = await provider.chat([
     { role: 'system', content: 'Return JSON only.' },
-  ]);
+  ], [], { model: 'catalog-model' });
 
   assert.match(request.contents[0].parts[0].text, /requested response/i);
   assert.equal(request.config.systemInstruction, 'Return JSON only.');
@@ -188,7 +188,7 @@ test('Google streaming ignores thought text and deduplicates repeated tool calls
   const chunks = [];
   for await (const chunk of provider.stream([
     { role: 'user', content: 'Weather?' },
-  ])) {
+  ], [], { model: 'catalog-model' })) {
     chunks.push(chunk);
   }
 

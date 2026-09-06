@@ -215,16 +215,6 @@ class OpenAICodexProvider extends BaseProvider {
     }
 
     this.name = 'openai-codex';
-    this.models = [
-      'gpt-5.5',
-      'gpt-5.4',
-      'gpt-5.4-mini',
-    ];
-    this.reasoningModels = new Set([
-      'gpt-5.5',
-      'gpt-5.4',
-      'gpt-5.4-mini',
-    ]);
 
     let accountId = process.env.OPENAI_CODEX_ACCOUNT_ID || '';
     if (!accountId && this.usesCodexBackend) {
@@ -289,11 +279,11 @@ class OpenAICodexProvider extends BaseProvider {
   }
 
   _isReasoningModel(model) {
-    if (!model) return false;
-    for (const id of this.reasoningModels) {
-      if (model === id || model.startsWith(`${id}-`)) return true;
-    }
-    return false;
+    const id = String(model || '').trim().toLowerCase();
+    return this.usesCodexBackend
+      || /^o\d/.test(id)
+      || /^gpt-(?:[5-9]|\d{2,})(?:[.\-]|$)/.test(id)
+      || id.includes('reasoning');
   }
 
   _buildRequest(messages = [], tools = [], options = {}, model = '') {
@@ -452,11 +442,11 @@ class OpenAICodexProvider extends BaseProvider {
         toolCalls: final?.toolCalls || [],
         finishReason: final?.finishReason || (final?.toolCalls?.length > 0 ? 'tool_calls' : 'stop'),
         usage: final?.usage || null,
-        model: final?.model || options.model || this.config.model || this.getDefaultModel(),
+        model: final?.model || this.requireModel(options),
       };
     }
 
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const request = this._buildRequest(messages, tools, options, model);
     let response;
     try {
@@ -487,7 +477,7 @@ class OpenAICodexProvider extends BaseProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.config.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const request = this._buildRequest(messages, tools, options, model);
     let stream;
     try {

@@ -52,7 +52,7 @@ class OpenAICompatibleProvider extends BaseProvider {
       throw new Error(`Provider '${this.name}' does not support image analysis`);
     }
 
-    const model = options.model || this.getDefaultVisionModel();
+    const model = this.requireModel(options);
     const b64 = options.imageBase64 || BaseProvider.readImageAsBase64(options.imagePath);
     const response = await this.client.chat.completions.create({
       model,

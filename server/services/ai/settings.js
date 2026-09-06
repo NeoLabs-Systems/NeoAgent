@@ -39,7 +39,6 @@ function createDefaultAiSettings() {
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: true,
-    fallback_model_id: 'openai::gpt-5-nano',
     smarter_model_selector: true,
     enabled_models: [],
     default_chat_model: 'auto',
@@ -155,6 +154,158 @@ function setProviderSecrets(userId, agentId, secrets = {}) {
   ).run(userId, scopedAgentId, 'ai_provider_api_keys', encryptValue(JSON.stringify(cleaned)));
 }
 
+function writeProviderConfigs(userId, agentId, configs) {
+  const scopedAgentId = resolveAgentId(userId, agentId);
+  if (!scopedAgentId) return;
+  db.prepare(
+    `INSERT INTO agent_settings (user_id, agent_id, key, value)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
+  ).run(
+    userId,
+    scopedAgentId,
+    'ai_provider_configs',
+    JSON.stringify(normalizeProviderConfigs(configs)),
+  );
+}
+
+function validateProviderBaseUrl(value, { required = false } = {}) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    if (required) {
+      const error = new Error('A base URL is required for this provider.');
+      error.code = 'PROVIDER_BASE_URL_REQUIRED';
+      error.statusCode = 400;
+      throw error;
+    }
+    return '';
+  }
+  let url;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    url = null;
+  }
+  if (
+    !url
+    || !['http:', 'https:'].includes(url.protocol)
+    || !url.hostname
+    || url.username
+    || url.password
+  ) {
+    const error = new Error(
+      'Provider URL must be an HTTP or HTTPS address without embedded credentials.',
+    );
+    error.code = 'PROVIDER_BASE_URL_INVALID';
+    error.statusCode = 400;
+    throw error;
+  }
+  return trimmed;
+}
+
+function upsertProviderCredential(userId, agentId, providerId, {
+  apiKey,
+  baseUrl,
+  clearApiKey = false,
+} = {}) {
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition) {
+    const error = new Error('Unknown AI provider.');
+    error.code = 'PROVIDER_UNKNOWN';
+    error.statusCode = 404;
+    throw error;
+  }
+  if (definition.authentication === 'oauth') {
+    const error = new Error(
+      `${definition.label} uses account login instead of an API key.`,
+    );
+    error.code = 'PROVIDER_OAUTH_REQUIRED';
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const hasApiKeyUpdate = apiKey !== undefined;
+  const hasBaseUrlUpdate = baseUrl !== undefined;
+  if (!hasApiKeyUpdate && !hasBaseUrlUpdate && !clearApiKey) {
+    const error = new Error('Provide an API key or base URL to save.');
+    error.code = 'PROVIDER_UPDATE_EMPTY';
+    error.statusCode = 400;
+    throw error;
+  }
+
+  ensureDefaultAiSettings(userId, agentId);
+  const currentConfigs = getProviderConfigs(userId, agentId);
+  const nextBaseUrl = hasBaseUrlUpdate
+    ? validateProviderBaseUrl(baseUrl, { required: Boolean(definition.requiresBaseUrl) })
+    : String(currentConfigs[definition.id]?.baseUrl || '').trim();
+  if (definition.requiresBaseUrl && !nextBaseUrl) {
+    const error = new Error('A base URL is required for this provider.');
+    error.code = 'PROVIDER_BASE_URL_REQUIRED';
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (hasBaseUrlUpdate) {
+    if (!definition.supportsBaseUrl) {
+      const error = new Error(`${definition.label} does not use a custom base URL.`);
+      error.code = 'PROVIDER_BASE_URL_UNSUPPORTED';
+      error.statusCode = 400;
+      throw error;
+    }
+    const configs = getProviderConfigs(userId, agentId);
+    configs[definition.id] = {
+      ...configs[definition.id],
+      enabled: configs[definition.id]?.enabled !== false,
+      baseUrl: validateProviderBaseUrl(baseUrl, {
+        required: Boolean(definition.requiresBaseUrl),
+      }),
+    };
+    writeProviderConfigs(userId, agentId, configs);
+  }
+
+  if (clearApiKey || hasApiKeyUpdate) {
+    if (!definition.supportsApiKey) {
+      if (hasApiKeyUpdate && String(apiKey || '').trim()) {
+        const error = new Error(`${definition.label} does not use an API key.`);
+        error.code = 'PROVIDER_API_KEY_UNSUPPORTED';
+        error.statusCode = 400;
+        throw error;
+      }
+    } else {
+      const secrets = { ...getProviderSecrets(userId, agentId) };
+      if (clearApiKey) {
+        delete secrets[definition.id];
+      } else {
+        const trimmed = String(apiKey || '').trim();
+        if (!trimmed) {
+          const error = new Error('An API key is required.');
+          error.code = 'PROVIDER_API_KEY_REQUIRED';
+          error.statusCode = 400;
+          throw error;
+        }
+        secrets[definition.id] = trimmed;
+      }
+      setProviderSecrets(userId, agentId, secrets);
+    }
+  }
+
+  const runtimeConfigs = getProviderConfigs(userId, agentId);
+  const secrets = getProviderSecrets(userId, agentId);
+  const envApiKey = definition.envKey ? String(process.env[definition.envKey] || '').trim() : '';
+  const scopedApiKey = String(secrets[definition.id] || '').trim();
+  const resolvedBaseUrl = definition.supportsBaseUrl
+    ? (runtimeConfigs[definition.id]?.baseUrl || definition.defaultBaseUrl || '')
+    : '';
+  const ready = (!definition.supportsApiKey || Boolean(scopedApiKey || envApiKey))
+    && (!definition.requiresBaseUrl || Boolean(resolvedBaseUrl));
+
+  return {
+    providerId: definition.id,
+    ready,
+    credentialConfigured: Boolean(scopedApiKey || envApiKey),
+  };
+}
+
 function getScopedSettingRow(userId, agentId, key) {
   const scopedAgentId = resolveAgentId(userId, agentId);
   if (!scopedAgentId) return null;
@@ -241,7 +392,6 @@ function getAiSettings(userId, agentId = null) {
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
-  settings.fallback_model_id = typeof settings.fallback_model_id === 'string' ? settings.fallback_model_id : DEFAULT_AI_SETTINGS.fallback_model_id;
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;
   settings.default_chat_model = typeof settings.default_chat_model === 'string' && settings.default_chat_model.trim()
     ? settings.default_chat_model
@@ -272,5 +422,6 @@ module.exports = {
   getAiSettings,
   getProviderConfigs,
   getProviderSecrets,
-  normalizeProviderConfigs
+  normalizeProviderConfigs,
+  upsertProviderCredential,
 };

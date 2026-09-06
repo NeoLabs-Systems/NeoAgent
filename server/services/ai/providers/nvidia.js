@@ -4,29 +4,10 @@ const { wrapProviderError } = require('./provider_error');
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
-// Context windows per model (tokens)
-const CONTEXT_WINDOWS = {
-  'nvidia/nemotron-3-super-120b-a12b': 262144,
-  'moonshotai/kimi-k2.5':             262144,
-  'minimaxai/minimax-m2.5':           196608,
-  'z-ai/glm5':                        202752,
-  'meta/llama-4-maverick-17b-128e-instruct': 1048576,
-  'meta/llama-4-scout-17b-16e-instruct':     1048576,
-  'deepseek-ai/deepseek-r1-0528':     163840,
-  'qwen/qwq-32b':                     131072,
-};
-
-// Reasoning models: no temperature, no top_p
-const REASONING_MODELS = new Set([
-  'deepseek-ai/deepseek-r1-0528',
-  'qwen/qwq-32b',
-]);
-
 class NvidiaProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
     super(config);
     this.name = 'nvidia';
-    this.models = Object.keys(CONTEXT_WINDOWS);
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.NVIDIA_API_KEY,
       baseURL: config.baseUrl || NVIDIA_BASE_URL,
@@ -45,12 +26,12 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     }
   }
 
-  getContextWindow(model) {
-    return CONTEXT_WINDOWS[model] ?? 131072;
+  getContextWindow() {
+    return 131072;
   }
 
   _isReasoningModel(model) {
-    return REASONING_MODELS.has(model);
+    return /(?:^|[/_-])(?:r\d+|qwq|reasoning)(?:$|[/_.-])/i.test(String(model || ''));
   }
 
   _buildParams(model, messages, tools, options) {
@@ -73,7 +54,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = this._buildParams(model, messages, tools, options);
     let response;
     try {
@@ -87,7 +68,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
   }
 
   async *stream(messages, tools = [], options = {}) {
-    const model = options.model || this.getDefaultModel();
+    const model = this.requireModel(options);
     const params = {
       ...this._buildParams(model, messages, tools, options),
       stream: true,

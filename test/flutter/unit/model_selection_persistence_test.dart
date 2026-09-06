@@ -117,12 +117,10 @@ void main() {
         'default_chat_model': selection,
         'default_subagent_model': selection,
         'default_speech_model': selection,
-        'fallback_model_id': selection,
       };
       expect(controller.defaultChatModel, selection);
       expect(controller.defaultSubagentModel, selection);
       expect(controller.defaultSpeechModel, selection);
-      expect(controller.fallbackModel, selection);
     }
   });
 
@@ -138,7 +136,6 @@ void main() {
         'openrouter::anthropic/claude-sonnet-4.5',
         'openai::gpt-5-nano',
       ],
-      'fallback_model_id': 'openrouter::anthropic/claude-sonnet-4.5',
     };
     controller.supportedModels = const <ModelMeta>[
       ModelMeta(
@@ -162,10 +159,9 @@ void main() {
       'openrouter::anthropic/claude-sonnet-4.5',
       'openai::gpt-5-nano',
     ]);
-    expect(controller.fallbackModel, 'openrouter::anthropic/claude-sonnet-4.5');
   });
 
-  testWidgets('settings save never rewrites an unavailable saved model', (
+  testWidgets('late settings hydration never rewrites a saved model', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 1000);
@@ -181,12 +177,22 @@ void main() {
     addTearDown(controller.dispose);
 
     const savedModel = 'openrouter::anthropic/claude-sonnet-4.5';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsPanel(controller: controller, embedded: true),
+        ),
+      ),
+    );
+
+    // The settings panel is already mounted when the remote settings and
+    // dynamic catalog arrive. This is the lifecycle that previously left the
+    // panel stuck on Auto with an empty Smart Selector pool.
     controller.settings = <String, dynamic>{
       'enabled_models': <String>[savedModel],
       'default_chat_model': savedModel,
       'default_subagent_model': savedModel,
       'default_speech_model': savedModel,
-      'fallback_model_id': savedModel,
     };
     controller.supportedModels = const <ModelMeta>[
       ModelMeta(
@@ -205,14 +211,9 @@ void main() {
         purpose: 'fast',
       ),
     ];
+    controller.notifyListeners();
+    await tester.pump();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SettingsPanel(controller: controller, embedded: true),
-        ),
-      ),
-    );
     await tester.tap(find.text('Save'));
     await tester.pump();
 
@@ -226,7 +227,89 @@ void main() {
       savedModel,
     );
     expect(backend.settingsPayloads.single['default_speech_model'], savedModel);
-    expect(backend.settingsPayloads.single['fallback_model_id'], savedModel);
+    expect(
+      backend.settingsPayloads.single.containsKey('fallback_model_id'),
+      isFalse,
+    );
+
+    backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
+    await tester.pump();
+    backend.behaviorWrite.complete(<String, dynamic>{
+      'config': <String, dynamic>{},
+    });
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('catalog refresh cannot overwrite an unsaved model choice', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final backend = _DelayedSettingsBackendClient();
+    final controller = NeoAgentController(
+      backendClient: backend,
+      healthBridge: HealthBridge(),
+    );
+    addTearDown(controller.dispose);
+
+    const openRouterModel = 'openrouter::anthropic/claude-sonnet-4.5';
+    const openAiModel = 'openai::gpt-5-nano';
+    controller.settings = <String, dynamic>{
+      'enabled_models': <String>[openRouterModel, openAiModel],
+      'default_chat_model': openRouterModel,
+      'default_subagent_model': 'auto',
+      'default_speech_model': 'auto',
+    };
+    controller.supportedModels = const <ModelMeta>[
+      ModelMeta(
+        id: openRouterModel,
+        modelId: 'anthropic/claude-sonnet-4.5',
+        label: 'Claude Sonnet 4.5 (OpenRouter)',
+        provider: 'openrouter',
+        purpose: 'general',
+      ),
+      ModelMeta(
+        id: openAiModel,
+        modelId: 'gpt-5-nano',
+        label: 'GPT-5 nano',
+        provider: 'openai',
+        purpose: 'fast',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsPanel(controller: controller, embedded: true),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Models & routing'));
+    await tester.pump();
+    await tester.tap(find.text('Claude Sonnet 4.5 (OpenRouter)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GPT-5 nano').last);
+    await tester.pumpAndSettle();
+
+    // Simulate an older settings response or catalog refresh arriving after
+    // the user made a local selection but before Save was pressed.
+    controller.settings = <String, dynamic>{
+      ...controller.settings,
+      'default_chat_model': 'auto',
+    };
+    controller.supportedModels = List<ModelMeta>.from(
+      controller.supportedModels,
+    );
+    controller.notifyListeners();
+    await tester.pump();
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(backend.settingsPayloads, hasLength(1));
+    expect(backend.settingsPayloads.single['default_chat_model'], openAiModel);
 
     backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
     await tester.pump();

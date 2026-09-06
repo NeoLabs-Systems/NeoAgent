@@ -41,6 +41,11 @@ rotating refresh tokens, and read-only scopes. The available tools call
 NeoRecall's local hybrid search and evidence APIs; they cannot access audio or
 trigger NeoRecall's Ask endpoint.
 
+When NeoRecall is connected, the runtime injects the provider's model summary
+into the run context and prefers the daily-summary, search, and conversation
+list tools in the initial active set so personal day questions route to
+NeoRecall automatically.
+
 ## Messaging
 
 Messaging providers are long-running channel adapters managed separately from

@@ -66,6 +66,7 @@ test('Cowork socket runs capture the chat agent, plan mode, and device target', 
   const created = await http.post('/api/cowork/chats').send({
     mode: 'plan',
     deviceTargetOverride: 'local',
+    modelOverride: 'openai:gpt-5',
   }).expect(201);
   const chat = created.body.chat;
 
@@ -90,6 +91,7 @@ test('Cowork socket runs capture the chat agent, plan mode, and device target', 
   assert.equal(observed.options.triggerSource, 'cowork');
   assert.equal(observed.options.interactionMode, 'plan');
   assert.equal(observed.options.deviceTarget, 'local');
+  assert.equal(observed.options.model, 'openai:gpt-5');
   assert.equal(observed.options.priorMessages.length, 0);
   assert.equal(
     ctx.db.prepare('SELECT title FROM conversations WHERE id = ?').get(chat.id).title,
