@@ -112,6 +112,7 @@ jobs:
         run: flutter pub get
 
       - name: Resolve runtime signing key
+        working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
           $publicKey = (node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()").Trim()
@@ -413,6 +414,7 @@ jobs:
         run: flutter pub get
 
       - name: Resolve runtime signing key
+        working-directory: ${{ github.workspace }}
         run: |
           PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
@@ -725,6 +727,7 @@ jobs:
         run: flutter pub get
 
       - name: Resolve runtime signing key
+        working-directory: ${{ github.workspace }}
         run: |
           PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
