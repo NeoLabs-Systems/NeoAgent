@@ -168,9 +168,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload artifacts to GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: ./.github/actions/attach-release-assets
         with:
-          tag_name: ${{ inputs.release_tag }}
+          release_tag: ${{ inputs.release_tag }}
           files: ${{ steps.release_files.outputs.files }}
 
       - name: Refresh release download notes
