@@ -143,21 +143,35 @@ void main() {
     },
   );
 
-  test('runtime manifest signature accepts SPKI-wrapped Ed25519 public keys', () async {
-    final algorithm = Ed25519();
-    final keyPair = await algorithm.newKeyPair();
-    final publicKey = await keyPair.extractPublicKey();
-    final manifestBytes = utf8.encode('{"schemaVersion":1}');
-    final signature = await algorithm.sign(manifestBytes, keyPair: keyPair);
-    final spkiPrefix = <int>[
-      0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
-    ];
-    await verifyRuntimeManifestSignature(
-      manifestBytes: manifestBytes,
-      signatureBase64: base64Encode(signature.bytes),
-      publicKeyBase64: base64Encode(<int>[...spkiPrefix, ...publicKey.bytes]),
-    );
-  });
+  test(
+    'runtime manifest signature accepts SPKI-wrapped Ed25519 public keys',
+    () async {
+      final algorithm = Ed25519();
+      final keyPair = await algorithm.newKeyPair();
+      final publicKey = await keyPair.extractPublicKey();
+      final manifestBytes = utf8.encode('{"schemaVersion":1}');
+      final signature = await algorithm.sign(manifestBytes, keyPair: keyPair);
+      final spkiPrefix = <int>[
+        0x30,
+        0x2a,
+        0x30,
+        0x05,
+        0x06,
+        0x03,
+        0x2b,
+        0x65,
+        0x70,
+        0x03,
+        0x21,
+        0x00,
+      ];
+      await verifyRuntimeManifestSignature(
+        manifestBytes: manifestBytes,
+        signatureBase64: base64Encode(signature.bytes),
+        publicKeyBase64: base64Encode(<int>[...spkiPrefix, ...publicKey.bytes]),
+      );
+    },
+  );
 
   test('setup engine parser accepts only versioned complete events', () {
     final parsed = parseSetupEngineEvent(
@@ -189,6 +203,30 @@ void main() {
       isNull,
     );
   });
+
+  test(
+    'runtime staging is created under versions when the parent is missing',
+    () async {
+      final home = await Directory.systemTemp.createTemp(
+        'neoagent-staging-home-',
+      );
+      addTearDown(() => home.deleteSync(recursive: true));
+      final versionsRoot = Directory(
+        '${home.path}${Platform.pathSeparator}app'
+        '${Platform.pathSeparator}versions',
+      );
+      expect(versionsRoot.existsSync(), isFalse);
+
+      final staging = await createRuntimeStagingDirectory(versionsRoot);
+      final prefix = '${versionsRoot.path}${Platform.pathSeparator}.staging-';
+
+      expect(versionsRoot.existsSync(), isTrue);
+      expect(staging.existsSync(), isTrue);
+      expect(staging.parent.path, versionsRoot.path);
+      expect(staging.path.startsWith(prefix), isTrue);
+      expect(staging.path.length, greaterThan(prefix.length));
+    },
+  );
 
   test(
     'runtime activation returns and restores the current version marker',

@@ -85,10 +85,7 @@ class LocalBackendInstaller {
         '${runtimeRoot.path}${Platform.pathSeparator}app'
         '${Platform.pathSeparator}versions',
       );
-      versionsRoot.createSync(recursive: true);
-      stagingDirectory = await Directory(
-        '${versionsRoot.path}${Platform.pathSeparator}.staging-',
-      ).createTemp();
+      stagingDirectory = await createRuntimeStagingDirectory(versionsRoot);
       archiveFile = File(
         '${stagingDirectory.path}${Platform.pathSeparator}${artifact.assetName}',
       );
@@ -271,6 +268,11 @@ class LocalBackendInstaller {
     _httpClient.close();
     unawaited(_events.close());
   }
+}
+
+Future<Directory> createRuntimeStagingDirectory(Directory versionsRoot) async {
+  versionsRoot.createSync(recursive: true);
+  return versionsRoot.createTemp('.staging-');
 }
 
 Future<void> verifyRuntimeManifestSignature({
