@@ -31,28 +31,6 @@ Color get _warning => _palette.warning;
 Color get _danger => _palette.danger;
 Color get _info => _palette.info;
 
-LinearGradient get _appBackgroundGradient => LinearGradient(
-  colors: <Color>[
-    _bgPrimary,
-    Color.lerp(_bgSecondary, _accentAlt, 0.08)!.withValues(alpha: 0.98),
-    Color.lerp(_bgPrimary, _accent, 0.05)!,
-  ],
-  stops: const <double>[0, 0.52, 1],
-  begin: const Alignment(-0.95, -1),
-  end: const Alignment(1, 0.92),
-);
-
-LinearGradient get _panelGradient => LinearGradient(
-  colors: <Color>[
-    Colors.white.withValues(alpha: 0.10),
-    _bgCard.withValues(alpha: 0.94),
-    _bgSecondary.withValues(alpha: 0.88),
-  ],
-  stops: const <double>[0, 0.2, 1],
-  begin: const Alignment(-0.85, -1),
-  end: const Alignment(1, 1),
-);
-
 List<BoxShadow> get _softPanelShadow => <BoxShadow>[
   BoxShadow(
     color: Colors.black.withValues(alpha: 0.18),
@@ -65,26 +43,6 @@ List<BoxShadow> get _softPanelShadow => <BoxShadow>[
     offset: const Offset(0, 8),
   ),
 ];
-
-Color get _glassFill =>
-    _bgCard.withValues(alpha: _palette == _darkPalette ? 0.82 : 0.9);
-Color get _glassOverlay =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.05 : 0.14);
-Color get _glassBorder =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.11 : 0.24);
-Color get _glassHighlight =>
-    Colors.white.withValues(alpha: _palette == _darkPalette ? 0.12 : 0.2);
-
-LinearGradient get _liquidMetalGradient => LinearGradient(
-  colors: <Color>[
-    _glassOverlay,
-    Colors.white.withValues(alpha: 0.02),
-    _accentMuted.withValues(alpha: 0.16),
-  ],
-  stops: const <double>[0, 0.44, 1],
-  begin: const Alignment(-1, -1),
-  end: const Alignment(1, 1),
-);
 
 TextStyle _displayTitleStyle([double size = 28]) => TextStyle(
   fontSize: size,
@@ -134,10 +92,9 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
     ),
     // Geist is the Control Surface design system's base typeface.
     // Telemetry / mono runs stay on Geist Mono at the call sites.
-    textTheme: GoogleFonts.geistTextTheme(base.textTheme).apply(
-      bodyColor: palette.textPrimary,
-      displayColor: palette.textPrimary,
-    ),
+    textTheme: GoogleFonts.geistTextTheme(
+      base.textTheme,
+    ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),
     cardTheme: CardThemeData(
       color: palette.bgCard.withValues(
         alpha: brightness == Brightness.dark ? 0.86 : 0.96,

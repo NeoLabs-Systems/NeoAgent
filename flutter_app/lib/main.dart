@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';

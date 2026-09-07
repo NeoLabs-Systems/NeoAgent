@@ -811,7 +811,7 @@ class _AuthViewState extends State<AuthView> {
       _qrAutoRequestedForVisibleMode = false;
     }
 
-    return _AmbientBackdrop(
+    return _ControlSurfaceBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -834,12 +834,9 @@ class _AuthViewState extends State<AuthView> {
                           maxWidth: showQrLogin ? 980 : 468,
                         ),
                         child: _EntranceMotion(
-                          child: _GlassSurface(
+                          child: _PanelSurface(
                             borderRadius: BorderRadius.circular(32),
-                            blurSigma: 28,
                             boxShadow: _softPanelShadow,
-                            overlayGradient: _panelGradient,
-                            fillColor: _glassFill,
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 viewportConstraints.maxWidth <
@@ -1133,70 +1130,69 @@ class _HomeViewState extends State<HomeView> {
       );
     }
 
+    // Phones: a four-tab bottom bar over the same four sidebar groups, in
+    // place of the app bar and hamburger drawer. Sections inside a group stay
+    // one tap away via the chip row, so nothing the drawer reached is lost.
+    final group = _sidebarGroupForSection(controller.selectedSection);
+    final groupSections = group == null
+        ? const <AppSection>[]
+        : _groupSections(controller, group);
+
     return _withIncomingCall(
-      _AmbientBackdrop(
+      _ControlSurfaceBackdrop(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          drawer: _MobileDrawer(
-            controller: controller,
-            expandedGroup: _expandedSidebarGroup,
-            onToggleGroup: _toggleSidebarGroup,
-          ),
-          appBar: AppBar(
-            toolbarHeight: 48,
-            titleSpacing: 0,
-            leadingWidth: 44,
-            centerTitle: false,
-            title: Text(
-              controller.selectedSection.navigationTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            titleTextStyle: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            elevation: 0,
-          ),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _bgPrimary,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: _border),
-                  boxShadow: _softPanelShadow,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    switchInCurve: Curves.easeOutBack,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.018),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+            bottom: false,
+            child: Column(
+              children: <Widget>[
+                _MobileTopBar(controller: controller),
+                if (groupSections.length > 1)
+                  _MobileSectionChips(
+                    sections: groupSections,
+                    selected: controller.selectedSection.canonicalSection,
+                    onSelect: controller.setSelectedSection,
+                  ),
+                Expanded(
+                  child: ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.014),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<AppSection>(controller.selectedSection),
+                        child: _SectionBody(
+                          controller: controller,
+                          devicesPanelKey: _devicesPanelKey,
                         ),
-                      );
-                    },
-                    child: KeyedSubtree(
-                      key: ValueKey<AppSection>(controller.selectedSection),
-                      child: _SectionBody(
-                        controller: controller,
-                        devicesPanelKey: _devicesPanelKey,
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
+          bottomNavigationBar: _MobileTabBar(
+            controller: controller,
+            selected: group,
+            onSelect: (nextGroup) {
+              _expandedSidebarGroup = nextGroup;
+              controller.setSelectedSection(
+                _groupDefaultSection(controller, nextGroup),
+              );
+            },
           ),
         ),
       ),
@@ -1461,15 +1457,8 @@ class _Sidebar extends StatelessWidget {
     return Container(
       width: 276,
       decoration: BoxDecoration(
-        color: _bgSecondary.withValues(alpha: 0.96),
+        color: _bgSecondary,
         border: Border(right: BorderSide(color: _border)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 24,
-            offset: const Offset(4, 0),
-          ),
-        ],
       ),
       child: Column(
         children: <Widget>[
@@ -1480,21 +1469,7 @@ class _Sidebar extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: _border),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    _bgCard.withValues(alpha: 0.9),
-                    _bgSecondary.withValues(alpha: 0.55),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: _accent.withValues(alpha: 0.05),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                color: _bgTertiary,
               ),
               child: Row(
                 children: <Widget>[
@@ -1553,14 +1528,7 @@ class _Sidebar extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: _border),
-              color: _bgCard.withValues(alpha: 0.72),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              color: _bgTertiary,
             ),
             child: Row(
               children: <Widget>[
@@ -1606,10 +1574,14 @@ class _Sidebar extends StatelessWidget {
 }
 
 class _AgentSwitcher extends StatefulWidget {
-  const _AgentSwitcher({required this.controller, this.onChanged});
+  const _AgentSwitcher({required this.controller, this.compact = false});
 
   final NeoAgentController controller;
-  final VoidCallback? onChanged;
+
+  /// Phone header treatment: a single-line pill — glyph, name, chevron. Drops
+  /// the DEFAULT tag and the description line, which cost a lot of vertical
+  /// room for something you read once.
+  final bool compact;
 
   @override
   State<_AgentSwitcher> createState() => _AgentSwitcherState();
@@ -1633,7 +1605,6 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
       setState(() {});
       return;
     }
-    widget.onChanged?.call();
     _menuController.close();
     setState(() {});
     await widget.controller.switchAgent(agentId);
@@ -1704,33 +1675,45 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.all(12),
+                padding: widget.compact
+                    ? const EdgeInsets.fromLTRB(6, 5, 8, 5)
+                    : const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(widget.compact ? 999 : 14),
                   color: _bgCard,
                   border: Border.all(
                     color: isMenuOpen
                         ? _accent.withValues(alpha: 0.45)
                         : _borderLight,
                   ),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
                 ),
                 child: Row(
+                  mainAxisSize: widget.compact
+                      ? MainAxisSize.min
+                      : MainAxisSize.max,
                   children: <Widget>[
                     _AgentGlyph(
                       agent: selectedAgent,
                       selected: true,
                       compact: true,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
+                    SizedBox(width: widget.compact ? 7 : 10),
+                    if (widget.compact)
+                      Flexible(
+                        child: Text(
+                          selectedAgent.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.15,
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
@@ -1773,14 +1756,14 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: widget.compact ? 3 : 8),
                     AnimatedRotation(
                       turns: isMenuOpen ? 0.5 : 0,
                       duration: const Duration(milliseconds: 180),
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        size: 20,
+                        size: widget.compact ? 17 : 20,
                         color: isMenuOpen ? _accentHover : _textSecondary,
                       ),
                     ),
@@ -2136,91 +2119,242 @@ class _SidebarAccountAvatar extends StatelessWidget {
   }
 }
 
-class _MobileDrawer extends StatelessWidget {
-  const _MobileDrawer({
-    required this.controller,
-    required this.expandedGroup,
-    required this.onToggleGroup,
-  });
+/// Phone header. Carries what the rail footer carries on desktop — the agent
+/// switcher, account settings and logout — so removing the drawer costs
+/// nothing in reach.
+class _MobileTopBar extends StatelessWidget {
+  const _MobileTopBar({required this.controller});
 
   final NeoAgentController controller;
-  final SidebarGroup? expandedGroup;
-  final ValueChanged<SidebarGroup> onToggleGroup;
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      backgroundColor: _bgSecondary,
-      child: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: const _BrandLockup(
-                          logoSize: 30,
-                          titleFontSize: 18,
-                          direction: Axis.horizontal,
-                          spacing: 10,
-                          alignment: CrossAxisAlignment.start,
-                        ),
-                      ),
-                    ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 4),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: controller.agentProfiles.isNotEmpty
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: _AgentSwitcher(controller: controller, compact: true),
+                  )
+                : const _BrandLockup(
+                    logoSize: 26,
+                    titleFontSize: 16,
+                    direction: Axis.horizontal,
+                    spacing: 9,
+                    alignment: CrossAxisAlignment.start,
                   ),
-                  if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    _AgentSwitcher(
-                      controller: controller,
-                      onChanged: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ],
-              ),
+          ),
+          const SizedBox(width: 8),
+          _ProfileSettingsButton(
+            controller: controller,
+            onTap: () =>
+                controller.setSelectedSection(AppSection.accountSettings),
+          ),
+          const SizedBox(width: 8),
+          _SidebarIconButton(
+            tooltip: 'Logout',
+            icon: Icons.logout,
+            onTap: controller.logout,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The sections of the open group, as a horizontally scrolling chip row.
+///
+/// This is what replaces the drawer's expandable tree on a phone: every
+/// section in the group stays one tap away and visible, rather than hidden
+/// behind a hamburger.
+class _MobileSectionChips extends StatefulWidget {
+  const _MobileSectionChips({
+    required this.sections,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<AppSection> sections;
+  final AppSection selected;
+  final ValueChanged<AppSection> onSelect;
+
+  @override
+  State<_MobileSectionChips> createState() => _MobileSectionChipsState();
+}
+
+class _MobileSectionChipsState extends State<_MobileSectionChips> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        key: const ValueKey<String>('mobile-section-chips'),
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        itemCount: widget.sections.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final section = widget.sections[index];
+          final active = section == widget.selected;
+          return _SectionChip(
+            section: section,
+            active: active,
+            onTap: () => widget.onSelect(section),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SectionChip extends StatelessWidget {
+  const _SectionChip({
+    required this.section,
+    required this.active,
+    required this.onTap,
+  });
+
+  final AppSection section;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(999);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            color: active ? _accentMuted : _bgTertiary,
+            border: Border.all(
+              color: active ? _accent.withValues(alpha: 0.3) : _border,
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                children: _buildSidebarItems(
-                  controller,
-                  onSelect: (section) {
-                    controller.setSelectedSection(section);
-                    Navigator.of(context).pop();
-                  },
-                  expandedGroup: expandedGroup,
-                  onToggleGroup: onToggleGroup,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                section.icon,
+                size: 15,
+                color: active ? _accent : _textMuted,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                section.label,
+                style: GoogleFonts.geist(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: active ? _accentHover : _textSecondary,
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-              child: Row(
-                children: <Widget>[
-                  const Spacer(),
-                  _ProfileSettingsButton(
-                    controller: controller,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      controller.setSelectedSection(AppSection.accountSettings);
-                    },
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Four tabs over the four sidebar groups the app already has.
+class _MobileTabBar extends StatelessWidget {
+  const _MobileTabBar({
+    required this.controller,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final NeoAgentController controller;
+  final SidebarGroup? selected;
+  final ValueChanged<SidebarGroup> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = SidebarGroup.values
+        .where((group) => _groupSections(controller, group).isNotEmpty)
+        .toList(growable: false);
+    return Container(
+      decoration: BoxDecoration(
+        color: _bgPrimary,
+        border: Border(top: BorderSide(color: _border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+          child: Row(
+            children: groups
+                .map(
+                  (group) => Expanded(
+                    child: _MobileTab(
+                      group: group,
+                      active: group == selected,
+                      onTap: () => onSelect(group),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _SidebarIconButton(
-                    tooltip: 'Logout',
-                    icon: Icons.logout,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      controller.logout();
-                    },
-                  ),
-                ],
+                )
+                .toList(growable: false),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileTab extends StatelessWidget {
+  const _MobileTab({
+    required this.group,
+    required this.active,
+    required this.onTap,
+  });
+
+  final SidebarGroup group;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? _accent : _textMuted;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(group.icon, size: 21, color: color),
+              const SizedBox(height: 5),
+              Text(
+                group.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.geist(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

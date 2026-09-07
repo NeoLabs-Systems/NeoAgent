@@ -30,7 +30,7 @@ class _CoworkWorkbench extends StatelessWidget {
   Widget build(BuildContext context) {
     final chat = controller.selectedCoworkChat;
     if (chat == null) {
-      return _GlassSurface(
+      return _PanelSurface(
         borderRadius: BorderRadius.circular(AppRadius.panel),
         fillColor: _bgSecondary.withValues(alpha: 0.78),
         child: const _CoworkEmpty(
@@ -41,7 +41,7 @@ class _CoworkWorkbench extends StatelessWidget {
       );
     }
     final thread = controller.coworkThreadFor(chat.id);
-    return _GlassSurface(
+    return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.panel),
       fillColor: _bgSecondary.withValues(alpha: 0.78),
       child: Column(

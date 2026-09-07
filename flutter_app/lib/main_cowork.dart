@@ -52,9 +52,8 @@ class _DesktopModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      blurSigma: 18,
       fillColor: _bgCard.withValues(alpha: 0.88),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -300,7 +299,7 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return _AmbientBackdrop(
+    return _ControlSurfaceBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

@@ -80,7 +80,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return _AmbientBackdrop(
+    return _ControlSurfaceBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -90,12 +90,9 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: _EntranceMotion(
-                  child: _GlassSurface(
+                  child: _PanelSurface(
                     borderRadius: BorderRadius.circular(34),
-                    blurSigma: 28,
                     boxShadow: _softPanelShadow,
-                    overlayGradient: _panelGradient,
-                    fillColor: _glassFill,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(34, 28, 34, 30),
                       child: Column(

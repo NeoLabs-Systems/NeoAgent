@@ -618,7 +618,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     final batteryIcon = _deviceStatus?.charging == true
         ? Icons.battery_charging_full
         : Icons.battery_full;
-    return _AmbientBackdrop(
+    return _ControlSurfaceBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

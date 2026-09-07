@@ -30,7 +30,7 @@ class _CoworkConversation extends StatelessWidget {
     final chat = controller.selectedCoworkChat;
     final thread = controller.selectedCoworkThread;
     if (chat == null) {
-      return _GlassSurface(
+      return _PanelSurface(
         borderRadius: BorderRadius.circular(AppRadius.panel),
         child: _CoworkEmpty(
           title: 'Work on a project with NeoAgent',
@@ -49,7 +49,7 @@ class _CoworkConversation extends StatelessWidget {
         thread.messages.isEmpty &&
         thread.streamingContent.isEmpty &&
         !thread.hasLiveRun;
-    return _GlassSurface(
+    return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.panel),
       fillColor: _bgCard.withValues(alpha: 0.62),
       child: Column(
@@ -1719,7 +1719,7 @@ class _CoworkInputCardState extends State<_CoworkInputCard> {
     );
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      child: _GlassSurface(
+      child: _PanelSurface(
         borderRadius: BorderRadius.circular(AppRadius.card),
         borderColor: _warning.withValues(alpha: 0.45),
         padding: const EdgeInsets.all(18),
