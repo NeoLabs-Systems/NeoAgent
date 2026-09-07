@@ -1,9 +1,10 @@
 part of 'main.dart';
 
 class ServerPanel extends StatefulWidget {
-  const ServerPanel({super.key, required this.controller});
+  const ServerPanel({super.key, required this.controller, this.runtimeManager});
 
   final NeoAgentController controller;
+  final LocalRuntimeManager? runtimeManager;
 
   @override
   State<ServerPanel> createState() => _ServerPanelState();
@@ -27,7 +28,7 @@ class _ServerPanelState extends State<ServerPanel> {
   @override
   void initState() {
     super.initState();
-    _runtimeManager = LocalRuntimeManager();
+    _runtimeManager = widget.runtimeManager ?? LocalRuntimeManager();
     _installer = LocalBackendInstaller();
     _eventSubscription = _installer.events.listen((event) {
       if (!mounted) return;

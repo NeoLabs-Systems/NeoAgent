@@ -27,6 +27,16 @@ class RuntimeActivationService {
         retryable: false,
       );
     }
+    restoreExtractedRuntimePermissions(directory, nodeExecutable: nodePath);
+  }
+
+  bool isCompleteRuntime(Directory directory) {
+    try {
+      validateExtractedRuntime(directory);
+      return true;
+    } on LocalBackendInstallerException {
+      return false;
+    }
   }
 
   File nodeExecutable(Directory directory) {
@@ -170,6 +180,35 @@ class RuntimeActivationService {
         message: message,
         errorCode: errorCode,
       ),
+    );
+  }
+}
+
+void restoreExtractedRuntimePermissions(
+  Directory directory, {
+  required File nodeExecutable,
+}) {
+  if (Platform.isWindows) return;
+  _chmodUnixExecutable(nodeExecutable);
+  final qemuBin = Directory(
+    '${directory.path}${Platform.pathSeparator}app'
+    '${Platform.pathSeparator}computer-runtime'
+    '${Platform.pathSeparator}qemu'
+    '${Platform.pathSeparator}bin',
+  );
+  if (!qemuBin.existsSync()) return;
+  for (final entity in qemuBin.listSync()) {
+    if (entity is File) _chmodUnixExecutable(entity);
+  }
+}
+
+void _chmodUnixExecutable(File file) {
+  final result = Process.runSync('chmod', <String>['u+rwx,go+rx', file.path]);
+  if (result.exitCode != 0) {
+    throw const LocalBackendInstallerException(
+      'SETUP_RUNTIME_INCOMPLETE',
+      'The verified runtime package could not be marked executable.',
+      retryable: false,
     );
   }
 }

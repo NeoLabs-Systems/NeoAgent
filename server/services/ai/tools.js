@@ -1806,14 +1806,26 @@ async function executeTool(toolName, args, context, engine) {
                 signal,
                 deviceTarget,
             };
-            if (typeof runtimeManager.executeCliCommand === 'function') {
-                return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+            try {
+                if (typeof runtimeManager.executeCliCommand === 'function') {
+                    return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+                }
+                // Legacy fallback — older runtime manager without CLI routing.
+                if (typeof runtimeManager.executeCommand !== 'function') {
+                    return { error: 'Command execution is unavailable. VM runtime is required.' };
+                }
+                return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
+            } catch (err) {
+                const message = String(err?.message || err);
+                return {
+                    error: message,
+                    stderr: message,
+                    stdout: '',
+                    exitCode: null,
+                    timedOut: false,
+                    killed: false,
+                };
             }
-            // Legacy fallback — older runtime manager without CLI routing.
-            if (typeof runtimeManager.executeCommand !== 'function') {
-                return { error: 'Command execution is unavailable. VM runtime is required.' };
-            }
-            return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
         }
 
         case 'browser_navigate': {

@@ -1,9 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
+import 'package:neoagent_flutter/src/local_runtime_manager.dart';
+import 'package:neoagent_flutter/src/local_runtime_paths.dart';
 
 void main() {
   testWidgets(
@@ -14,6 +18,19 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+
+      final runtimeHome = Directory.systemTemp.createTempSync(
+        'neoagent-widget-runtime-',
+      );
+      addTearDown(() => runtimeHome.deleteSync(recursive: true));
+      final runtimeManager = LocalRuntimeManager(
+        paths: LocalRuntimePaths.fromEnvironment(<String, String>{
+          if (Platform.isWindows) 'USERPROFILE': runtimeHome.path,
+          if (!Platform.isWindows) 'HOME': runtimeHome.path,
+          'NEOAGENT_HOME':
+              '${runtimeHome.path}${Platform.pathSeparator}runtime',
+        }, isWindows: Platform.isWindows),
+      );
 
       final controller = NeoAgentController(
         backendClient: BackendClient(),
@@ -43,7 +60,12 @@ void main() {
       expect(find.textContaining('connect an AI provider'), findsOneWidget);
 
       await tester.pumpWidget(
-        MaterialApp(home: ServerPanel(controller: controller)),
+        MaterialApp(
+          home: ServerPanel(
+            controller: controller,
+            runtimeManager: runtimeManager,
+          ),
+        ),
       );
       await tester.pump();
       expect(find.text('NeoAgent on this computer'), findsOneWidget);

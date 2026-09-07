@@ -66,20 +66,55 @@ function commandExists(command) {
   return probe.status === 0;
 }
 
+function executableName(name) {
+  return process.platform === 'win32' ? `${name}.exe` : name;
+}
+
 function bundledExecutableCandidates(name) {
-  const suffix = process.platform === 'win32' ? '.exe' : '';
+  const file = executableName(name);
   return [
-    path.join(APP_DIR, 'computer-runtime', 'qemu', 'bin', `${name}${suffix}`),
-    path.join(RUNTIME_HOME, 'computer-runtime', 'qemu', 'bin', `${name}${suffix}`),
-    path.join(RUNTIME_HOME, 'runtime', 'qemu', 'bin', `${name}${suffix}`),
+    path.join(APP_DIR, 'computer-runtime', 'qemu', 'bin', file),
+    path.join(RUNTIME_HOME, 'computer-runtime', 'qemu', 'bin', file),
+    path.join(RUNTIME_HOME, 'runtime', 'qemu', 'bin', file),
   ];
 }
 
+function wellKnownExecutableCandidates(name) {
+  const file = executableName(name);
+  if (process.platform === 'win32') {
+    return [path.join(process.env.ProgramFiles || 'C:\\Program Files', 'qemu', file)];
+  }
+  return [
+    path.join('/opt/homebrew/bin', file),
+    path.join('/usr/local/bin', file),
+    path.join('/usr/bin', file),
+  ];
+}
+
+function isRunnableFile(candidate) {
+  try {
+    fs.accessSync(candidate, fs.constants.F_OK | fs.constants.X_OK);
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isRunnableCommand(command) {
+  const value = String(command || '').trim();
+  if (!value) return false;
+  if (value.includes(path.sep) || /^[A-Za-z]:[\\/]/.test(value)) return isRunnableFile(value);
+  return commandExists(value);
+}
+
 function resolveExecutable(name, explicit = '') {
-  const candidates = [String(explicit || '').trim(), ...bundledExecutableCandidates(name)]
-    .filter(Boolean);
-  const bundled = candidates.find((candidate) => fs.existsSync(candidate));
-  if (bundled) return bundled;
+  const candidates = [
+    String(explicit || '').trim(),
+    ...bundledExecutableCandidates(name),
+    ...wellKnownExecutableCandidates(name),
+  ].filter(Boolean);
+  const found = candidates.find((candidate) => isRunnableFile(candidate));
+  if (found) return found;
   return commandExists(name) ? name : null;
 }
 
@@ -147,7 +182,7 @@ async function findVncDisplay() {
 // QEMU opens its VNC websocket a moment after the process exists. Handing out a display
 // session before then means the first viewer to connect is refused and sees nothing, so
 // the computer is not considered started until the port answers.
-function waitForLoopbackPort(port, timeoutMs) {
+function waitForLoopbackPort(port, timeoutMs, options = {}) {
   const deadline = Date.now() + timeoutMs;
   const attempt = () => new Promise((resolve) => {
     const socket = net.createConnection({ host: '127.0.0.1', port });
@@ -161,11 +196,25 @@ function waitForLoopbackPort(port, timeoutMs) {
   });
   return (async () => {
     while (Date.now() < deadline) {
+      if (typeof options.isDead === 'function' && options.isDead()) return false;
       if (await attempt()) return true;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return false;
   })();
+}
+
+function readQemuLogTail(logPath, limit = 32 * 1024) {
+  try {
+    return fs.readFileSync(logPath, 'utf8').trim().slice(-limit);
+  } catch {
+    return '';
+  }
+}
+
+function composeQemuFailure(reason, logPath) {
+  const log = readQemuLogTail(logPath);
+  return log ? `${reason}\n${log}` : reason;
 }
 
 function userDirectoryKey(userId) {
@@ -473,7 +522,14 @@ function buildQemuArgs({
 }
 
 function isProcessAlive(processHandle) {
-  return Boolean(processHandle && processHandle.exitCode == null && !processHandle.killed);
+  if (!processHandle || processHandle.killed || processHandle.exitCode != null) return false;
+  if (!Number.isInteger(processHandle.pid) || processHandle.pid <= 0) return false;
+  try {
+    process.kill(processHandle.pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // A QEMU that outlived the server holds the write lock on its disks, so the next start
@@ -597,8 +653,12 @@ class QemuVMManager {
 
   constructor(options = {}) {
     this.architecture = normalizeArchitecture(options.architecture);
-    this.qemuBinary = options.qemuBinary || resolveQemuSystemBinary(this.architecture);
-    this.qemuImgBinary = options.qemuImgBinary || resolveQemuImgBinary();
+    this.qemuBinary = options.qemuBinary !== undefined
+      ? options.qemuBinary
+      : resolveQemuSystemBinary(this.architecture);
+    this.qemuImgBinary = options.qemuImgBinary !== undefined
+      ? options.qemuImgBinary
+      : resolveQemuImgBinary();
     this.qemuDataDirectory = options.qemuDataDirectory || resolveQemuDataDirectory(this.qemuBinary);
     this.accelerators = this.qemuBinary ? selectAccelerators(this.qemuBinary) : [];
     this.resourceProfile = options.resourceProfile || getComputerResourceProfile({
@@ -615,20 +675,46 @@ class QemuVMManager {
   }
 
 
+  #systemBinaryName() {
+    return this.architecture === 'arm64' ? 'qemu-system-aarch64' : 'qemu-system-x86_64';
+  }
+
+  #runtimeUnavailableError() {
+    const missing = this.getReadiness().missing;
+    const searched = [
+      ...bundledExecutableCandidates(this.#systemBinaryName()),
+      ...wellKnownExecutableCandidates(this.#systemBinaryName()),
+    ].join(', ');
+    const error = new Error(
+      `QEMU computer runtime is unavailable (missing ${missing.join(' and ')}). `
+      + `Searched: ${searched}. Run neoagent repair.`,
+    );
+    error.code = 'COMPUTER_RUNTIME_UNAVAILABLE';
+    error.status = 503;
+    return error;
+  }
+
   getReadiness() {
     const image = this.baseImagePath || path.join(IMAGE_ROOT, PINNED_IMAGES[this.architecture].filename);
-    const qemuAvailable = Boolean(this.qemuBinary && this.qemuImgBinary);
+    const qemuBinaryRunnable = isRunnableCommand(this.qemuBinary);
+    const qemuImgRunnable = isRunnableCommand(this.qemuImgBinary);
+    const qemuAvailable = qemuBinaryRunnable && qemuImgRunnable;
+    const missing = [
+      ...(qemuBinaryRunnable ? [] : [this.#systemBinaryName()]),
+      ...(qemuImgRunnable ? [] : ['qemu-img']),
+    ];
     return {
       ready: qemuAvailable,
       qemuAvailable,
-      qemuBinary: this.qemuBinary,
-      qemuImgBinary: this.qemuImgBinary,
+      qemuBinary: this.qemuBinary || null,
+      qemuImgBinary: this.qemuImgBinary || null,
       qemuDataDirectory: this.qemuDataDirectory,
       architecture: this.architecture,
       accelerator: this.accelerators[0] || null,
       compatibilityMode: this.accelerators[0] === 'tcg',
       imageReady: fs.existsSync(image),
       image,
+      missing,
       resources: this.resourceProfile,
     };
   }
@@ -636,9 +722,7 @@ class QemuVMManager {
   async prepareRuntime(options = {}) {
     const readiness = this.getReadiness();
     if (!readiness.qemuAvailable) {
-      const error = new Error('The bundled QEMU computer runtime is unavailable.');
-      error.code = 'COMPUTER_RUNTIME_UNAVAILABLE';
-      throw error;
+      throw this.#runtimeUnavailableError();
     }
     const image = options.downloadImage === false
       ? readiness.image
@@ -737,6 +821,7 @@ class QemuVMManager {
       if (transient) {
         return {
           ...transient,
+          error: transient.lastError || null,
           capabilities: ['desktop', 'browser', 'shell', 'files', 'teach'],
           readiness: this.getReadiness(),
         };
@@ -761,6 +846,7 @@ class QemuVMManager {
         mode: session.directBoot ? 'direct' : 'provisioning',
       },
       lastError: session.lastError || null,
+      error: session.lastError || null,
       desktop: session.desktop || null,
       readiness: this.getReadiness(),
     };
@@ -829,6 +915,7 @@ class QemuVMManager {
         this.#transientStatus.set(key, {
           state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
           lastError: error.message,
+          error: error.message,
           errorCode: error.code || null,
         });
         throw error;
@@ -841,9 +928,8 @@ class QemuVMManager {
   async #startVm(key) {
     const readiness = this.getReadiness();
     if (!readiness.ready) {
-      const error = new Error('QEMU computer runtime is unavailable. Run neoagent repair.');
-      error.code = 'COMPUTER_RUNTIME_UNAVAILABLE';
-      error.status = 503;
+      const error = this.#runtimeUnavailableError();
+      logger.error(error.message);
       throw error;
     }
     const resources = allocateComputerResources(this.resourceProfile, this.#activeAllocations());
@@ -1019,26 +1105,46 @@ class QemuVMManager {
       startupDurationMs: null,
       lastError: null,
       getLastError: () => {
-        try {
-          return fs.readFileSync(logPath, 'utf8').slice(-32 * 1024);
-        } catch {
-          return session.lastError;
+        const log = readQemuLogTail(logPath);
+        if (log && session.lastError && !log.includes(session.lastError)) {
+          return `${session.lastError}\n${log}`;
         }
+        return log || session.lastError;
       },
     };
     this.instances.set(key, session);
+    let spawnFailed = false;
     child.once('error', (error) => {
+      spawnFailed = true;
       session.state = 'error';
-      session.lastError = error.message;
+      session.lastError = composeQemuFailure(`QEMU failed to start: ${error.message}`, logPath);
+      logger.error(`Computer failed to spawn for user ${key}: ${session.lastError}`);
     });
     child.once('exit', (code, signal) => {
       if (session.state !== 'stopping') {
         session.state = 'error';
-        session.lastError = `QEMU exited (${code ?? signal ?? 'unknown'}).`;
+        session.lastError = composeQemuFailure(`QEMU exited (${code ?? signal ?? 'unknown'}).`, logPath);
+        logger.error(`Computer process ended for user ${key}: ${session.lastError}`);
       }
       this.onVmStopped?.(key);
     });
-    await waitForLoopbackPort(websocketPort, 10000);
+    const displayReady = await waitForLoopbackPort(websocketPort, 10000, {
+      isDead: () => spawnFailed || child.exitCode != null || child.killed,
+    });
+    if (!displayReady) {
+      const reason = session.lastError
+        || (isProcessAlive(child)
+          ? 'QEMU display websocket did not become reachable.'
+          : 'QEMU exited before the display was reachable.');
+      const error = new Error(composeQemuFailure(reason, logPath));
+      error.code = 'COMPUTER_START_FAILED';
+      error.status = 503;
+      session.lastError = error.message;
+      session.state = 'error';
+      logger.error(`Computer failed to start for user ${key}: ${error.message}`);
+      await this.killVm(key);
+      throw error;
+    }
     logger.info(`Started computer for user ${key} with ${resources.memoryMb} MiB and ${resources.cpus} vCPU.`);
     return session;
   }
@@ -1069,6 +1175,7 @@ class QemuVMManager {
     this.#transientStatus.set(key, {
       state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
       lastError: String(error?.message || error || 'Cloud computer failed.'),
+      error: String(error?.message || error || 'Cloud computer failed.'),
       errorCode: error?.code || null,
     });
   }
@@ -1093,9 +1200,11 @@ module.exports = {
   buildQemuArgs,
   findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
+  isProcessAlive,
   normalizeArchitecture,
   resolveQemuImgBinary,
   resolveQemuDataDirectory,
   resolveQemuSystemBinary,
   selectAccelerators,
+  waitForLoopbackPort,
 };

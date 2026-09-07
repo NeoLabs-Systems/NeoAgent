@@ -34,6 +34,7 @@ test('systemd rendering quotes only the ExecStart argument list', () => {
     envFile: '/home/neo/Neo Agent/.env',
     logDir: '/home/neo/Neo Agent/logs',
     nodeBin: '/opt/Node Runtime/node',
+    runtimeHome: '/home/neo/Neo Agent',
   });
   assert.match(rendered, /^WorkingDirectory=\/opt\/Neo Agent$/m);
   assert.match(
@@ -41,5 +42,7 @@ test('systemd rendering quotes only the ExecStart argument list', () => {
     /ExecStart="\/opt\/Node Runtime\/node" "\/opt\/Neo Agent\/server\/index\.js"/,
   );
   assert.match(rendered, /^EnvironmentFile=-\/home\/neo\/Neo Agent\/\.env$/m);
+  assert.match(rendered, /^Environment=PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin$/m);
+  assert.match(rendered, /^Environment=NEOAGENT_HOME="\/home\/neo\/Neo Agent"$/m);
   assert.match(rendered, /^StandardError=append:\/home\/neo\/Neo Agent\/logs\//m);
 });

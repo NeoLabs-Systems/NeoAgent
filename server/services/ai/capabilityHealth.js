@@ -56,7 +56,7 @@ async function getBrowserHealth(userId, app, engine, deviceTarget = null) {
     healthy,
     degraded: false,
     summary: state === 'error'
-      ? String(computer.error || 'Cloud computer failed to start.')
+      ? String(computer.error || computer.lastError || 'Cloud computer failed to start.')
       : active
         ? 'The unified cloud computer is available.'
         : 'The unified cloud computer will start on first use.',

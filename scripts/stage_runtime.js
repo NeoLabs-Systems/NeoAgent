@@ -57,6 +57,7 @@ if (!fs.existsSync(nodeModules)) {
 fs.cpSync(nodeModules, path.join(appDirectory, 'node_modules'), {
   recursive: true,
   force: true,
+  dereference: true,
 });
 
 if (computerRuntimeDirectory) {

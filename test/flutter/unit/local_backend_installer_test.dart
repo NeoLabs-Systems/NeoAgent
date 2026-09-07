@@ -94,6 +94,35 @@ void main() {
     );
   });
 
+  test('runtime extract rewrites absolute node_modules links', () {
+    expect(
+      rewriteRuntimeSymlinkTarget(
+        'app/node_modules/.bin/bw',
+        '/Users/runner/work/NeoAgent/NeoAgent/node_modules/@bitwarden/cli/build/bw.js',
+      ),
+      '../@bitwarden/cli/build/bw.js',
+    );
+    expect(
+      rewriteRuntimeSymlinkTarget(
+        'app/node_modules/@slidev/cli/node_modules/.bin/jiti',
+        '/Users/runner/work/NeoAgent/NeoAgent/node_modules/@slidev/cli/node_modules/jiti/lib/jiti-cli.mjs',
+      ),
+      '../jiti/lib/jiti-cli.mjs',
+    );
+    expect(rewriteRuntimeSymlinkTarget('app/bin/tool', '/etc/passwd'), isNull);
+    expect(
+      rewriteRuntimeSymlinkTarget('app/bin/tool', '../../../../etc/passwd'),
+      isNull,
+    );
+    expect(
+      rewriteRuntimeSymlinkTarget(
+        'app/node_modules/.bin/bw',
+        '../@bitwarden/cli/build/bw.js',
+      ),
+      '../@bitwarden/cli/build/bw.js',
+    );
+  });
+
   test('runtime downloads accept only HTTPS addresses', () {
     expect(
       validateRuntimeDownloadUri('https://github.com/NeoAgent').scheme,
@@ -204,6 +233,171 @@ void main() {
     );
   });
 
+  test('setup engine parser surfaces failed event details', () {
+    final parsed = parseSetupEngineEvent(
+      jsonEncode(<String, dynamic>{
+        'schemaVersion': 1,
+        'runId': 'setup-run',
+        'profile': 'quick',
+        'stage': 'service',
+        'state': 'failed',
+        'error': <String, dynamic>{
+          'code': 'SETUP_SERVER_NOT_READY',
+          'retryable': true,
+          'detail': 'NeoAgent did not become reachable on port 3333.',
+        },
+      }),
+    );
+    expect(parsed, isNotNull);
+    expect(parsed!.$1.state, 'failed');
+    expect(parsed.$1.errorCode, 'SETUP_SERVER_NOT_READY');
+    expect(
+      parsed.$1.message,
+      'NeoAgent did not become reachable on port 3333.',
+    );
+  });
+
+  test('setup engine fallback message keeps the last stderr detail', () {
+    expect(
+      setupEngineFallbackMessage(''),
+      'NeoAgent could not finish the local setup.',
+    );
+    expect(
+      setupEngineFallbackMessage('better-sqlite3 failed to load'),
+      'NeoAgent could not finish the local setup. better-sqlite3 failed to load',
+    );
+  });
+
+  test('extracted runtime node stays executable', () async {
+    if (Platform.isWindows) return;
+    final root = await Directory.systemTemp.createTemp('neoagent-zip-exec-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final stage = Directory('${root.path}${Platform.pathSeparator}stage')
+      ..createSync();
+    Directory(
+      '${stage.path}${Platform.pathSeparator}node'
+      '${Platform.pathSeparator}bin',
+    ).createSync(recursive: true);
+    Directory(
+      '${stage.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}bin',
+    ).createSync(recursive: true);
+    final node = File(
+      '${stage.path}${Platform.pathSeparator}node'
+      '${Platform.pathSeparator}bin${Platform.pathSeparator}node',
+    )..writeAsStringSync('#!/bin/sh\necho ok\n');
+    File(
+      '${stage.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js',
+    ).writeAsStringSync('console.log(1);\n');
+    expect(Process.runSync('chmod', <String>['755', node.path]).exitCode, 0);
+    final zipFile = File('${root.path}${Platform.pathSeparator}runtime.zip');
+    final zipped = Process.runSync('zip', <String>[
+      '-qry',
+      zipFile.path,
+      '.',
+    ], workingDirectory: stage.path);
+    expect(zipped.exitCode, 0, reason: zipped.stderr.toString());
+    final extracted = Directory(
+      '${root.path}${Platform.pathSeparator}extracted',
+    )..createSync();
+    await extractVerifiedRuntimeArchive(zipFile.path, extracted.path);
+    final activation = RuntimeActivationService(onEvent: (_) {});
+    activation.validateExtractedRuntime(extracted);
+    expect(activation.isCompleteRuntime(extracted), isTrue);
+    final extractedNode = File(
+      '${extracted.path}${Platform.pathSeparator}node'
+      '${Platform.pathSeparator}bin${Platform.pathSeparator}node',
+    );
+    final run = Process.runSync(extractedNode.path, const <String>[]);
+    expect(run.exitCode, 0, reason: run.stderr.toString());
+    expect(run.stdout.toString(), contains('ok'));
+  });
+
+  test('runtime extract remaps packaged absolute node_modules links', () async {
+    if (Platform.isWindows) return;
+    final root = await Directory.systemTemp.createTemp('neoagent-zip-link-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final stage = Directory('${root.path}${Platform.pathSeparator}stage')
+      ..createSync();
+    Directory(
+      '${stage.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}node_modules'
+      '${Platform.pathSeparator}.bin',
+    ).createSync(recursive: true);
+    Directory(
+      '${stage.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}node_modules'
+      '${Platform.pathSeparator}demo-cli',
+    ).createSync(recursive: true);
+    final cli = File(
+      '${stage.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}node_modules'
+      '${Platform.pathSeparator}demo-cli'
+      '${Platform.pathSeparator}cli.js',
+    )..writeAsStringSync('ok\n');
+    expect(
+      Process.runSync('ln', <String>[
+        '-s',
+        cli.path,
+        '${stage.path}${Platform.pathSeparator}app'
+            '${Platform.pathSeparator}node_modules'
+            '${Platform.pathSeparator}.bin'
+            '${Platform.pathSeparator}demo',
+      ]).exitCode,
+      0,
+    );
+    final zipFile = File('${root.path}${Platform.pathSeparator}runtime.zip');
+    final zipped = Process.runSync('zip', <String>[
+      '-qry',
+      zipFile.path,
+      '.',
+    ], workingDirectory: stage.path);
+    expect(zipped.exitCode, 0, reason: zipped.stderr.toString());
+    final extracted = Directory(
+      '${root.path}${Platform.pathSeparator}extracted',
+    )..createSync();
+    await extractVerifiedRuntimeArchive(zipFile.path, extracted.path);
+    final link = Link(
+      '${extracted.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}node_modules'
+      '${Platform.pathSeparator}.bin'
+      '${Platform.pathSeparator}demo',
+    );
+    expect(link.targetSync(), '../demo-cli/cli.js');
+    expect(File(link.path).readAsStringSync(), 'ok\n');
+  });
+
+  test('runtime extract rejects zip-slip entry names', () async {
+    if (Platform.isWindows) return;
+    final root = await Directory.systemTemp.createTemp('neoagent-zip-slip-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final zipFile = File('${root.path}${Platform.pathSeparator}runtime.zip');
+    final created = Process.runSync('python3', <String>[
+      '-c',
+      'import zipfile, sys\n'
+          'archive = zipfile.ZipFile(sys.argv[1], "w")\n'
+          'archive.writestr("app/ok.txt", "ok\\n")\n'
+          'archive.writestr("../outside.txt", "nope\\n")\n'
+          'archive.close()',
+      zipFile.path,
+    ]);
+    expect(created.exitCode, 0, reason: created.stderr.toString());
+    final extracted = Directory(
+      '${root.path}${Platform.pathSeparator}extracted',
+    )..createSync();
+    await expectLater(
+      extractVerifiedRuntimeArchive(zipFile.path, extracted.path),
+      throwsA(
+        isA<LocalBackendInstallerException>().having(
+          (error) => error.code,
+          'code',
+          'SETUP_RUNTIME_ARCHIVE_INVALID',
+        ),
+      ),
+    );
+  });
+
   test(
     'runtime staging is created under versions when the parent is missing',
     () async {
@@ -225,6 +419,13 @@ void main() {
       expect(staging.parent.path, versionsRoot.path);
       expect(staging.path.startsWith(prefix), isTrue);
       expect(staging.path.length, greaterThan(prefix.length));
+
+      File(
+        '${staging.path}${Platform.pathSeparator}leftover.txt',
+      ).writeAsStringSync('tmp\n');
+      deleteOrphanRuntimeStaging(versionsRoot);
+      expect(staging.existsSync(), isFalse);
+      expect(versionsRoot.existsSync(), isTrue);
     },
   );
 
