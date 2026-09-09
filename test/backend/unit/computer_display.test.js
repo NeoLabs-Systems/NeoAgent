@@ -72,6 +72,9 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.ok(paths.includes('/etc/lightdm/lightdm.conf.d/50-neoagent.conf'));
   assert.ok(paths.includes('/etc/systemd/system/neoagent-desktop-seat.service'));
   assert.ok(paths.includes('/etc/systemd/system/neoagent-framebuffer-desktop.service'));
+  const seat = systemFiles.find((file) => file.path.endsWith('neoagent-desktop-seat.service')).content;
+  assert.match(seat, /chvt 1/);
+  assert.match(seat, /\|\| true/);
   const lightdm = systemFiles.find((file) => file.path.endsWith('50-neoagent.conf')).content;
   assert.match(lightdm, /xserver-command=X -nolisten tcp vt1/);
   assert.doesNotMatch(lightdm, /-core/);

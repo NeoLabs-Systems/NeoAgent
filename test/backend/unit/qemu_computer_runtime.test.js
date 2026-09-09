@@ -13,6 +13,8 @@ const {
   QemuVMManager,
   buildQemuArgs,
   findOrphanedVmPids,
+  parseAccelerators,
+  selectAccelerators,
   getSparseDiskLiabilityBytes,
   isProcessAlive,
   normalizeArchitecture,
@@ -313,4 +315,21 @@ test('display wait fails immediately when QEMU is already dead', async () => {
   });
   assert.equal(ready, false);
   assert.ok(Date.now() - startedAt < 1000);
+});
+
+test('accelerator help output is parsed as a name list', () => {
+  assert.deepEqual(parseAccelerators('Accelerators supported in QEMU binary:\nhvf\ntcg\n'), ['hvf', 'tcg']);
+});
+
+test('hardware acceleration is not selected unless it is actually usable', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('accelerator probes spawn a POSIX helper');
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-accel-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const fake = path.join(root, 'qemu-system-aarch64');
+  fs.writeFileSync(fake, '#!/bin/sh\nprintf "hvf\\ntcg\\n"\n');
+  fs.chmodSync(fake, 0o755);
+  assert.deepEqual(selectAccelerators(fake), ['tcg']);
 });

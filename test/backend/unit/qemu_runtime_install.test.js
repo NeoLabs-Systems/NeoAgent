@@ -51,6 +51,24 @@ test('the activated package is a QEMU search location', (t) => {
   assert.deepEqual(packagedQemuExecutableCandidates('qemu-img', path.join(root, 'missing')), []);
 });
 
+test('restore does not install a host QEMU when a usable runtime already exists elsewhere', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-skip-host-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
+
+  const restored = restoreQemuComputerRuntime({
+    runtimeHome: root,
+    architecture,
+    allowHostInstall: false,
+    runOrThrow() {
+      throw new Error('host QEMU install should stay disabled');
+    },
+  });
+
+  assert.equal(restored.action, 'missing');
+  assert.equal(restored.directory, stagedQemuRuntimeDirectory(root));
+});
+
 test('repair copies the activated QEMU runtime into the user computer-runtime', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-restore-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

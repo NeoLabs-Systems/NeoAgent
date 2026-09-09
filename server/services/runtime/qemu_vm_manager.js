@@ -26,6 +26,10 @@ const {
   packagedQemuRuntimeDirectory,
 } = require('../../../lib/qemu_runtime_install');
 const {
+  ensureMacQemuHypervisorSignature,
+  hasMacHypervisorEntitlement,
+} = require('../../../lib/qemu_mac_sign');
+const {
   allocateComputerResources,
   chooseDataDiskGiB,
   getComputerResourceProfile,
@@ -356,7 +360,37 @@ function parseAccelerators(output) {
   return String(output || '')
     .split(/\r?\n/)
     .map((line) => line.trim().split(/\s+/)[0])
-    .filter((name) => name && !name.includes(':'));
+    .filter((name) => /^[a-z][a-z0-9]*$/.test(name));
+}
+
+function isOwnedQemuBinary(binary) {
+  try {
+    const resolved = fs.realpathSync.native(binary);
+    return [APP_DIR, RUNTIME_HOME].some((root) => {
+      const prefix = path.resolve(root);
+      return resolved === prefix || resolved.startsWith(`${prefix}${path.sep}`);
+    });
+  } catch {
+    return false;
+  }
+}
+
+function enableOwnedMacHvf(qemuBinary) {
+  if (process.platform !== 'darwin' || !isOwnedQemuBinary(qemuBinary)) return;
+  ensureMacQemuHypervisorSignature(qemuBinary);
+}
+
+function hardwareAcceleratorUsable(preferred, qemuBinary) {
+  if (preferred === 'kvm') {
+    try {
+      fs.accessSync('/dev/kvm', fs.constants.R_OK | fs.constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (preferred === 'hvf') return hasMacHypervisorEntitlement(qemuBinary);
+  return true;
 }
 
 function selectAccelerators(qemuBinary) {
@@ -369,19 +403,9 @@ function selectAccelerators(qemuBinary) {
     : process.platform === 'win32'
       ? 'whpx'
       : 'kvm';
-  const preferredUsable = available.includes(preferred)
-    && (
-      process.platform !== 'linux'
-      || (() => {
-        try {
-          fs.accessSync('/dev/kvm', fs.constants.R_OK | fs.constants.W_OK);
-          return true;
-        } catch {
-          return false;
-        }
-      })()
-    );
-  if (preferredUsable) return [preferred];
+  if (available.includes(preferred) && hardwareAcceleratorUsable(preferred, qemuBinary)) {
+    return [preferred];
+  }
   return available.includes('tcg') ? ['tcg'] : [];
 }
 
@@ -673,6 +697,7 @@ class QemuVMManager {
       ? options.qemuImgBinary
       : resolveQemuImgBinary();
     this.qemuDataDirectory = options.qemuDataDirectory || resolveQemuDataDirectory(this.qemuBinary);
+    if (this.qemuBinary) enableOwnedMacHvf(this.qemuBinary);
     this.accelerators = this.qemuBinary ? selectAccelerators(this.qemuBinary) : [];
     this.resourceProfile = options.resourceProfile || getComputerResourceProfile({
       ...loadStoredResourceOptions(),
@@ -1216,6 +1241,7 @@ module.exports = {
   getSparseDiskLiabilityBytes,
   isProcessAlive,
   normalizeArchitecture,
+  parseAccelerators,
   resolveQemuImgBinary,
   resolveQemuDataDirectory,
   resolveQemuSystemBinary,
