@@ -6,18 +6,48 @@ function normalizeText(value, maximum = 1000) {
   return String(value || '').trim().slice(0, maximum);
 }
 
+function splitInstructionText(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split(/\r?\n+/).map((line) => line.trim()).filter(Boolean);
+  const source = lines.length > 1
+    ? lines
+    : trimmed.split(/(?:^|\s)\d+[\.)]\s+/).map((part) => part.trim()).filter(Boolean);
+  return source
+    .map((item) => item.replace(/^(?:\d+[\.)]|[-*])\s+/, '').trim())
+    .filter(Boolean);
+}
+
 function normalizeList(value, { maximumItems = 20, maximumLength = 1000 } = {}) {
-  return Array.isArray(value)
+  const source = Array.isArray(value)
     ? value
-      .map((item) => normalizeText(
-        typeof item === 'string'
-          ? item
-          : item?.instruction || item?.description || item?.text,
-        maximumLength,
-      ))
-      .filter(Boolean)
-      .slice(0, maximumItems)
-    : [];
+    : typeof value === 'string'
+      ? splitInstructionText(value)
+      : value && typeof value === 'object'
+        ? Object.values(value)
+        : [];
+  return source
+    .map((item) => normalizeText(
+      typeof item === 'string'
+        ? item
+        : item?.instruction || item?.description || item?.text,
+      maximumLength,
+    ))
+    .filter(Boolean)
+    .slice(0, maximumItems);
+}
+
+function normalizeApproval(value) {
+  const raw = value?.approved;
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === 'true' || normalized === 'yes') return true;
+    if (normalized === 'false' || normalized === 'no') return false;
+    return null;
+  }
+  if (raw === true || raw === 1) return true;
+  if (raw === false || raw === 0) return false;
+  return null;
 }
 
 function normalizeWorkflowKey(value) {
@@ -44,8 +74,7 @@ function normalizeReview(value) {
 function normalizeProposal(value) {
   const source = value?.skill && typeof value.skill === 'object' ? value.skill : value;
   const skill = source && typeof source === 'object' ? source : {};
-  return {
-    approved: value?.approved === true,
+  const proposal = {
     name: normalizeSkillName(skill.name).slice(0, 64),
     description: normalizeText(skill.description, 300),
     trigger: normalizeText(skill.trigger, 500),
@@ -64,16 +93,46 @@ function normalizeProposal(value) {
       skill.verification || skill.successCriteria || skill.success_criteria,
       { maximumItems: 20, maximumLength: 700 },
     ),
+    rejectionReason: '',
   };
+  const approval = normalizeApproval(value) ?? normalizeApproval(skill);
+  proposal.approved = approval === true || (approval === null && hasRequiredSkillFields(proposal));
+  if (approval === false) {
+    proposal.rejectionReason = normalizeText(value?.reason || skill.reason || value?.message, 500);
+  }
+  return proposal;
+}
+
+function hasRequiredSkillFields(proposal) {
+  return Boolean(proposal?.name)
+    && Boolean(proposal?.description)
+    && Boolean(proposal?.trigger)
+    && Array.isArray(proposal?.steps)
+    && proposal.steps.length > 0
+    && Array.isArray(proposal?.verification)
+    && proposal.verification.length > 0;
 }
 
 function isUsableProposal(proposal) {
-  return proposal.approved
-    && Boolean(proposal.name)
-    && Boolean(proposal.description)
-    && Boolean(proposal.trigger)
-    && proposal.steps.length > 0
-    && proposal.verification.length > 0;
+  return proposal?.approved === true && hasRequiredSkillFields(proposal);
+}
+
+function proposalFailureMessage(proposal) {
+  if (proposal?.rejectionReason) return proposal.rejectionReason;
+  if (!hasRequiredSkillFields(proposal)) {
+    const missing = [
+      !proposal?.name && 'name',
+      !proposal?.description && 'description',
+      !proposal?.trigger && 'trigger',
+      !proposal?.steps?.length && 'steps',
+      !proposal?.verification?.length && 'verification',
+    ].filter(Boolean);
+    if (missing.length) return `Skill synthesis was incomplete (missing ${missing.join(', ')}).`;
+  }
+  if (proposal?.approved === false) {
+    return 'The demonstration did not prove a reusable procedure.';
+  }
+  return 'The demonstration did not produce a reusable skill.';
 }
 
 function buildSkillInstructions(proposal, { computerAdaptive = false } = {}) {
@@ -144,4 +203,5 @@ module.exports = {
   normalizeReview,
   normalizeText,
   normalizeWorkflowKey,
+  proposalFailureMessage,
 };

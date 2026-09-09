@@ -19,7 +19,6 @@ Connect accounts in **Integrations**.
 | Notion | Pages, databases, blocks, search |
 | Slack | Conversations, history, search, messages |
 | Figma | Files, nodes, rendered images, comments |
-| NeoArchive | Documents, extracted text, metadata, search, upload, archive, reprocessing |
 | NeoRecall | Local hybrid recall search, memories, mini-memories, daily summaries, conversations, transcript evidence |
 | Home Assistant | Entity state and service calls |
 | Trello | Boards, lists, cards, comments, search |
@@ -54,7 +53,7 @@ GitHub as the example:
 The other providers follow the same pattern with their own `*_OAUTH_`
 prefixes, listed in [Configuration](configuration.md).
 
-NeoArchive, NeoRecall, Nextcloud, Home Assistant, and Trello need no server-side app
+NeoRecall, Nextcloud, Home Assistant, and Trello need no server-side app
 registration; users configure them from the application.
 
 ### NeoRecall

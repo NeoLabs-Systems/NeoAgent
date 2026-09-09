@@ -236,31 +236,6 @@ void _openOfficialIntegrationSetupDialog(
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
-    case 'neoarchive':
-      _showOfficialIntegrationUrlSetupDialog(
-        context,
-        controller,
-        config: const _OfficialIntegrationUrlSetupConfig(
-          providerId: 'neoarchive',
-          appId: 'archive',
-          title: 'NeoArchive Setup',
-          description:
-              'Add the NeoArchive backend URL once. NeoAgent will open NeoArchive OAuth so the user can sign in and approve archive access without API keys.',
-          connectionMethodLabel: 'OAuth companion flow',
-          accountLabel: 'Connected NeoArchive User',
-          urlLabel: 'NeoArchive Backend URL',
-          urlHint: 'https://archive.example.com',
-          urlHelperText:
-              'Use the public base URL of the NeoArchive server. Local self-hosted URLs are supported when NeoAgent can reach them.',
-          urlRequiredMessage: 'NeoArchive backend URL is required.',
-          saveErrorFallback: 'Could not save NeoArchive setup.',
-          disconnectTitle: 'Disconnect NeoArchive?',
-          disconnectBody:
-              'This removes the NeoArchive backend URL and all connected NeoArchive accounts for this agent.',
-          disconnectErrorFallback: 'Could not disconnect NeoArchive.',
-        ),
-      );
-      return;
     case 'neorecall':
       _showOfficialIntegrationUrlSetupDialog(
         context,
@@ -2119,7 +2094,6 @@ class _OfficialIntegrationIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (item.icon) {
-      'neoarchive' => const Color(0xFFE3B655),
       'neorecall' => const Color(0xFFD98AA6),
       'nextcloud' => const Color(0xFF0082C9),
       'google' => const Color(0xFF4285F4),
@@ -2129,7 +2103,6 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       _ => _accent,
     };
     final label = switch (item.icon) {
-      'neoarchive' => 'A',
       'neorecall' => 'R',
       'nextcloud' => 'N',
       'google' => 'G',
@@ -2172,10 +2145,9 @@ int _compareOfficialIntegrationItems(
 
 int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
-    'neoarchive' => 1,
-    'neorecall' => 2,
-    'nextcloud' => 3,
-    'google_workspace' => 4,
+    'neorecall' => 1,
+    'nextcloud' => 2,
+    'google_workspace' => 3,
     _ => 10,
   };
 }

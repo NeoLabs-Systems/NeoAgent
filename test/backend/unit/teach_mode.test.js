@@ -157,3 +157,61 @@ test('Teach Mode creates an active adaptive skill and purges encrypted raw data'
     teardownTestRuntime(ctx);
   }
 });
+
+test('Teach Mode stop reports a synthesis rejection instead of a server failure', async () => {
+  const ctx = createTestRuntime();
+  let service;
+  try {
+    const user = await createTestUser(ctx.db);
+    const { TeachService } = require('../../../server/services/teach/service');
+    const runtimeManager = {
+      acquireControl() { return { ownerType: 'teach', ownerId: 'teach' }; },
+      releaseControl() { return true; },
+      async requestComputer() {
+        return {
+          activeWindow: 'Chromium',
+          sensitiveInputActive: false,
+          accessibility: [],
+          shellEvents: [],
+          files: [],
+          path: '/tmp/teach.png',
+          content: Buffer.from('test-png-content').toString('base64'),
+        };
+      },
+      async getBrowserProviderForUser() {
+        return {
+          async evaluate() { return false; },
+          async getPageInfo() { return { title: 'Reports' }; },
+          async extractContent() { return { text: 'Reports' }; },
+        };
+      },
+    };
+    service = new TeachService({
+      runtimeManager,
+      skillLearningService: {
+        async learnFromComputerDemonstration() {
+          return {
+            success: false,
+            ignored: true,
+            error: 'Pointer events alone are not a reusable procedure.',
+          };
+        },
+      },
+      imageAnalyzer: async () => ({ description: 'Reports page.' }),
+    });
+    const started = await service.start(user.userId, { goal: 'Export a report' });
+    await assert.rejects(
+      () => service.stop(user.userId, started.id),
+      (error) => {
+        assert.equal(error.status, 422);
+        assert.equal(error.code, 'TEACH_SKILL_NOT_CREATED');
+        assert.equal(error.message, 'Pointer events alone are not a reusable procedure.');
+        return true;
+      },
+    );
+    assert.equal(service.sessions.size, 0);
+  } finally {
+    service?.shutdown();
+    teardownTestRuntime(ctx);
+  }
+});

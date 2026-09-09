@@ -188,13 +188,17 @@ class SkillLearningService {
       },
       signal: input.signal || null,
     });
-    return this.writer.persist({
+    const result = await this.writer.persist({
       userId,
       runId: null,
       proposal,
       review: { workflowKey: proposal.workflowKey, confidence: 1 },
       sourceKind: 'computer-demonstration',
     });
+    if (!result?.success) {
+      logger.warn('Computer demonstration did not produce a skill.', result?.error || 'unusable proposal');
+    }
+    return result;
   }
 
   async #reviewExperience({ userId, agentId, experience }) {
