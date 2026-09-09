@@ -4,6 +4,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { getTrustedPostMessageOrigin } = require('../services/integrations/env');
 
 const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
 const AUTH_PROVIDER_STATE_RE = /^auth_[a-f0-9]{48}$/;

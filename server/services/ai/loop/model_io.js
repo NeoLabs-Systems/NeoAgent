@@ -4,6 +4,7 @@ const { sanitizeConversationMessages } = require('../history');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const { parseJsonObject } = require('../taskAnalysis');
 const { withProviderRetry, isTransientError } = require('../providerRetry');
+const { degenerateOutputDetails, isDegenerateOutputError } = require('../providers/stream_guard');
 const { normalizeUsage, recordModelUsage } = require('../usage');
 const { journalAndReconstructModelRequest } = require('../runtime/model_request_journal');
 const {
@@ -153,6 +154,29 @@ async function requestModelResponse(engine, {
   });
   const requestMessages = durableRequest.messages;
   const requestTools = durableRequest.tools;
+  // A tool call whose arguments ran away is handed back to the loop as that
+  // same call with its arguments discarded. The tool rejects it with the
+  // reason, and the model's next turn is the retry — with the failure in
+  // context, which recovers far more reliably than replaying the request blind.
+  const discardedToolCall = (error) => {
+    const { reason, outputBytes, toolName } = degenerateOutputDetails(error);
+    if (!toolName) return null;
+    return {
+      content: '',
+      toolCalls: [{
+        id: `discarded_${iteration}`,
+        type: 'function',
+        function: {
+          name: toolName,
+          arguments: JSON.stringify({
+            _discarded: `The arguments streamed for this call degenerated into ${reason.replace(/_/g, ' ')} after ${outputBytes} bytes and were discarded. Resend the call with complete, well-formed arguments.`,
+          }),
+        },
+      }],
+      finishReason: 'tool_calls',
+      usage: null,
+    };
+  };
   const attemptModelCall = async () => {
     const modelAbortController = new AbortController();
     const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
@@ -203,7 +227,8 @@ async function requestModelResponse(engine, {
           }
         } catch (err) {
           Promise.resolve(iterator.return?.()).catch(() => {});
-          throw err;
+          if (isDegenerateOutputError(err)) response = discardedToolCall(err);
+          if (!response) throw err;
         }
       } else {
         response = await withModelCallTimeout(

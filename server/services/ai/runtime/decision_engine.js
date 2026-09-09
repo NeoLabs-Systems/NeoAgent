@@ -44,8 +44,14 @@ function normalizeToolCalls(toolCalls) {
     if (typeof args === 'string') {
       try {
         args = JSON.parse(args || '{}');
-      } catch {
-        args = { _raw: args };
+      } catch (error) {
+        // Keep only a preview: the full string can be tens of KB of runaway
+        // output, and everything stored here is replayed into later prompts.
+        args = {
+          _raw_preview: args.slice(0, 400),
+          _raw_length: args.length,
+          _parse_error: String(error.message || error),
+        };
       }
     }
     if (args == null || typeof args !== 'object' || Array.isArray(args)) {

@@ -192,8 +192,65 @@ test('custom provider assembles streamed tool calls', async () => {
       function: { name: 'lookup', arguments: '{"q":"value"}' },
     }],
     content: '',
+    finishReason: 'tool_calls',
     usage: null,
   }]);
+});
+
+test('readStream keeps the usage chunk that arrives after finish_reason', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { content: 'Hello' }, finish_reason: null }] };
+    yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
+    yield { choices: [], usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 } };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks())) events.push(event);
+
+  assert.deepEqual(events[0], { type: 'content', content: 'Hello' });
+  assert.equal(events[1].type, 'done');
+  assert.equal(events[1].finishReason, 'stop');
+  assert.equal(events[1].usage.totalTokens, 15);
+});
+
+test('readStream aborts a runaway tool-call argument stream and closes the source', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  let closed = false;
+  let produced = 0;
+  const source = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          produced += 1;
+          return {
+            done: false,
+            value: {
+              choices: [{
+                delta: { tool_calls: [{ index: 0, id: 'call-1', function: { name: 'write_file', arguments: '\n    \t,\t\t""\n    \t:\t""'.repeat(8) } }] },
+                finish_reason: null,
+              }],
+            },
+          };
+        },
+        async return() {
+          closed = true;
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    (async () => { for await (const event of provider.readStream(source)) void event; })(),
+    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT'
+      && error.reason === 'degenerate_repetition'
+      && error.toolName === 'write_file',
+  );
+  assert.equal(closed, true);
+  assert.ok(produced < 100, `stream should stop early, produced ${produced} chunks`);
 });
 
 test('nvidia analyzeImage throws because it is not vision-capable', async () => {

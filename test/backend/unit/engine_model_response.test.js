@@ -172,6 +172,62 @@ test('requestModelResponse retries the durable request after partial stream outp
   assert.equal(result.response.content, 'Recovered.');
 });
 
+test('requestModelResponse hands a runaway tool call back as that call with discarded arguments', async () => {
+  const engine = new AgentEngine(null);
+  let calls = 0;
+  const result = await engine.requestModelResponse({
+    provider: {
+      async *stream() {
+        calls += 1;
+        const inner = new Error('runaway');
+        inner.code = 'MODEL_DEGENERATE_OUTPUT';
+        inner.reason = 'degenerate_repetition';
+        inner.outputBytes = 2049;
+        inner.toolName = 'write_file';
+        // Providers wrap stream errors; the verdict must survive as `cause`.
+        const wrapped = new Error(`Provider stream failed: ${inner.message}`, { cause: inner });
+        wrapped.code = inner.code;
+        throw wrapped;
+      },
+    },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Run the task.' }],
+    tools: [],
+    options: { stream: true, userId: 1, retry: { maxAttempts: 5, baseDelayMs: 0, maxDelayMs: 0 } },
+    runId: 'degenerate-run',
+    iteration: 4,
+  });
+  assert.equal(calls, 1, 'no blind replay');
+  const [call] = result.response.toolCalls;
+  assert.equal(call.function.name, 'write_file');
+  assert.match(JSON.parse(call.function.arguments)._discarded, /degenerate repetition after 2049 bytes/);
+});
+
+test('requestModelResponse still fails when runaway output was not a tool call', async () => {
+  const engine = new AgentEngine(null);
+  await assert.rejects(
+    engine.requestModelResponse({
+      provider: {
+        async *stream() {
+          const err = new Error('runaway');
+          err.code = 'MODEL_DEGENERATE_OUTPUT';
+          err.reason = 'degenerate_repetition';
+          throw err;
+        },
+      },
+      providerName: 'test',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Run the task.' }],
+      tools: [],
+      options: { stream: true, userId: 1, retry: { maxAttempts: 5, baseDelayMs: 0, maxDelayMs: 0 } },
+      runId: 'degenerate-run-2',
+      iteration: 1,
+    }),
+    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT',
+  );
+});
+
 test('requestModelResponse times out a model call that never settles', async () => {
   const engine = new AgentEngine(null);
   let providerSignal;

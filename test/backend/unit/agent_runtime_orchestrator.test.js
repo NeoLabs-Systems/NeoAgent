@@ -1015,11 +1015,12 @@ test('productive evidence collection is not treated as budget exhaustion', async
   assert.equal(modelTurns, 7);
 });
 
-test('the opening line is written from the real conversation, and only for long work', async () => {
+test('the opening line comes from task analysis, and only for long work', async () => {
   const longWork = {
     mode: 'execute',
     draft_reply: '',
     draft_status: 'needs_execution',
+    acknowledgement: 'Schaue ich mir an.',
     goal: 'Recherchiere die Optionen',
     confidence: 0.8,
     complexity: 'complex',
@@ -1045,18 +1046,12 @@ test('the opening line is written from the real conversation, and only for long 
     return engine;
   }
 
-  // Long work: the acknowledgement call must carry persona + history, and must
-  // not carry the runtime's tool catalog scaffolding.
+  // Long work: the line task analysis wrote is delivered as-is, without a
+  // second model call to compose it.
   const engine = buildEngine(longWork);
-  let ackMessages = null;
-  engine.requestModelResponse = async ({ messages, tools }) => {
-    if (!tools || tools.length === 0) {
-      ackMessages = messages;
-      return {
-        response: { content: 'Schaue ich mir an.', toolCalls: [], usage: {} },
-        streamContent: '',
-      };
-    }
+  let toollessCalls = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) toollessCalls += 1;
     return {
       response: {
         content: '',
@@ -1082,18 +1077,13 @@ test('the opening line is written from the real conversation, and only for long 
     forceMode: 'plan_execute',
   });
   assert.equal(result.status, 'completed');
-
-  assert.ok(ackMessages, 'expected an acknowledgement model call');
-  const ackText = ackMessages.map((m) => String(m.content || '')).join('\n');
-  assert.match(ackText, /PERSONA_MARKER/, 'the opening line must inherit the run persona');
-  assert.match(ackText, /PRIOR_ACK_MARKER/, 'it must see prior turns so it can phrase this one differently');
-  assert.match(ackText, /Vergleich mal die Optionen/, 'it must see the message it is answering');
-  assert.doesNotMatch(ackText, /\[Available tool catalog\]/, 'runtime scaffolding must stay out of it');
+  assert.equal(toollessCalls, 0, 'the opening line must not cost a model call');
 
   const acks = ctx.db.prepare(
-    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
+    `SELECT COUNT(*) AS n, MAX(payload_json) AS payload FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
   ).get(result.runId);
   assert.equal(Number(acks.n), 1);
+  assert.match(String(acks.payload), /Schaue ich mir an\./);
 
   // Ordinary durable work finishes fast enough that an opening line is noise.
   const quick = buildEngine({ ...longWork, complexity: 'standard', autonomy_level: 'normal', progress_update_policy: 'optional' });
@@ -1272,6 +1262,7 @@ test('an acknowledgement reaches a web client as a visible message', async () =>
     mode: 'execute',
     draft_reply: '',
     draft_status: 'needs_execution',
+    acknowledgement: 'Bin dran.',
     goal: 'Long job',
     confidence: 0.8,
     complexity: 'complex',
@@ -1286,9 +1277,7 @@ test('an acknowledgement reaches a web client as a visible message', async () =>
     { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
   ]);
   engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: 'Bin dran.', toolCalls: [], usage: {} }, streamContent: '' };
-    }
+    assert.ok(tools?.length, 'the opening line comes from task analysis, not a second model call');
     return {
       response: {
         content: '',

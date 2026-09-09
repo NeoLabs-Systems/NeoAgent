@@ -239,6 +239,73 @@ test('write and edit tools accept common path and edit aliases', async () => {
   assert.equal(read.content, 'alpha\nBETA\nGAMMA');
 });
 
+test('nested schema descriptions are compacted like top-level ones', () => {
+  ctx = createTestRuntime();
+  const { getAvailableTools } = require('../../../server/services/ai/tools');
+  const nested = (tools) => tools.find((tool) => tool.name === 'edit_file').parameters.properties.edits.items.properties.replace_all;
+  const withDescriptions = nested(getAvailableTools(null, { includeDescriptions: true }));
+  assert.ok(withDescriptions.description.length > 0 && withDescriptions.description.length <= 160);
+  assert.equal(nested(getAvailableTools(null, {})).description, undefined);
+});
+
+test('a call whose arguments were discarded fails with the reason instead of running', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'discarded_args' });
+  const { WorkspaceManager } = require('../../../server/services/workspace/manager');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const workspaceManager = new WorkspaceManager();
+
+  const result = await executeTool('write_file', {
+    _discarded: 'The arguments streamed for this call degenerated and were discarded.',
+  }, { userId: user.userId }, { workspaceManager });
+  assert.equal(result.success, false);
+  assert.match(result.error, /discarded/);
+});
+
+test('write_file refuses a call whose content argument is missing', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'write_no_content' });
+  const { WorkspaceManager } = require('../../../server/services/workspace/manager');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const workspaceManager = new WorkspaceManager();
+
+  const result = await executeTool('write_file', {
+    path: 'missing.py',
+    'content=': 'def f(): pass',
+  }, { userId: user.userId }, { workspaceManager });
+  assert.equal(result.success, false);
+  assert.match(result.error, /content/);
+  assert.equal(workspaceManager.readFile(user.userId, { path: 'missing.py' }).error !== undefined, true);
+});
+
+test('edit_file refuses an ambiguous oldText unless replace_all is set', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'edit_ambiguous' });
+  const { WorkspaceManager } = require('../../../server/services/workspace/manager');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const workspaceManager = new WorkspaceManager();
+  const context = { userId: user.userId };
+  const services = { workspaceManager };
+
+  await executeTool('write_file', { path: 'dup.txt', content: 'x = 1\ny = 1\n' }, context, services);
+
+  const ambiguous = await executeTool('edit_file', {
+    path: 'dup.txt',
+    edits: [{ oldText: '= 1', newText: '= 2' }],
+  }, context, services);
+  assert.equal(ambiguous.success, false);
+  assert.match(ambiguous.report[0].error, /matches 2 locations/);
+  assert.equal(workspaceManager.readFile(user.userId, { path: 'dup.txt' }).content, 'x = 1\ny = 1\n');
+
+  const all = await executeTool('edit_file', {
+    path: 'dup.txt',
+    edits: [{ oldText: '= 1', newText: '= 2', replace_all: true }],
+  }, context, services);
+  assert.equal(all.success, true);
+  assert.equal(all.report[0].replaced, 2);
+  assert.equal(workspaceManager.readFile(user.userId, { path: 'dup.txt' }).content, 'x = 2\ny = 2\n');
+});
+
 test('list_directory and search_files default to workspace root', async () => {
   ctx = createTestRuntime();
   const user = await createTestUser(ctx.db, { username: 'workspace_root_defaults' });

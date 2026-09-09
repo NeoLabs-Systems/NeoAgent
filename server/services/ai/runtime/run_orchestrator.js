@@ -10,6 +10,7 @@ const {
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
   ALWAYS_INCLUDE_BUILT_INS,
+  suggestsCoreFileWork,
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
@@ -47,7 +48,6 @@ const {
   buildDeterministicMessagingFallback,
   buildMaxIterationWrapupPrompt,
   buildProgressUpdatePrompt,
-  buildRunAcknowledgementPrompt,
   normalizeOutgoingMessage,
 } = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
@@ -57,7 +57,7 @@ const {
 } = require('../../../utils/abort');
 const { createServiceLogger } = require('../../../utils/logger');
 
-const { RUNTIME_STATES, MESSAGE_KINDS } = require('./constants');
+const { MESSAGE_KINDS, NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 const stateMachine = require('./run_state_machine');
@@ -183,7 +183,6 @@ class DurableRunRuntime {
     let providerName = null;
     const failedModelIds = new Set();
     let messages = [];
-    let ackContextMessages = [];
     let tools = [];
     let systemPrompt = '';
     let analysis = null;
@@ -390,7 +389,16 @@ class DurableRunRuntime {
         getLastVisibleAt: () => Date.parse(
           this.engine.getRunMeta(runId)?.progressLedger?.lastUserVisibleUpdateAt || '',
         ) || 0,
-        narrator: async ({ delta, liveness }) => this.#narrateProgress({
+        // A model turn that is still streaming has produced nothing to report;
+        // narrating it can only tell the user that nothing has happened.
+        narrator: async ({ delta, liveness }) => (
+          this.engine.getRunMeta(runId)?.progressLedger?.currentPhase === 'model'
+          && !Number(liveness?.runningTools)
+          && !delta?.evidence?.length
+          && !delta?.completed_since_last_update?.length
+          && !delta?.blockers?.length
+            ? ''
+            : this.#narrateProgress({
           provider,
           providerName,
           model,
@@ -403,7 +411,8 @@ class DurableRunRuntime {
           userId,
           agentId,
           signal: abortController.signal,
-        }),
+        })
+        ),
       });
       progressBroker.markAccepted();
 
@@ -462,50 +471,11 @@ class DurableRunRuntime {
         if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
         if (triggerType === 'subagent' || triggerSource === 'cowork') return;
 
-        let ackText = options.latencyPriority === 'interactive'
-          ? String(analysisAck || '').trim()
-          : '';
-        try {
-          if (!ackText) {
-            const ackResponse = await this.engine.requestModelResponse({
-            provider,
-            providerName,
-            model,
-            // The real conversation, not a synthetic prompt: system persona,
-            // recalled memory, recent history, and the message being answered.
-            // Without it the line has no voice and no way to differ from the
-            // last one, which is what made acknowledgements read as canned.
-            messages: sanitizeConversationMessages([
-              ...ackContextMessages,
-              { role: 'system', content: buildRunAcknowledgementPrompt() },
-            ]),
-            tools: [],
-            options: {
-              ...options,
-              stream: false,
-              signal: abortController.signal,
-              runId,
-              userId,
-              agentId,
-            },
-            runId,
-            iteration: 0,
-          });
-            ackText = sanitizeModelOutput(
-              String(ackResponse?.response?.content || ackResponse?.streamContent || '').trim(),
-              { model },
-            );
-            // Strip accidental multi-paragraph model output to one line.
-            ackText = ackText.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
-            if (ackText.length > 220) ackText = `${ackText.slice(0, 217).trimEnd()}...`;
-          }
-        } catch (error) {
-          console.warn('[Runtime] Ack generation failed; continuing without hard-coded text:', error?.message || error);
-          ackText = '';
-        }
-        // An empty answer means the model had nothing worth saying yet. Staying
-        // quiet is the natural outcome; the progress heartbeat still covers a
+        // Task analysis already read the conversation and decided whether an
+        // opening line is worth saying; an empty one means the model had
+        // nothing worth saying yet, and the progress heartbeat still covers a
         // run that then goes long.
+        const ackText = String(analysisAck || '').trim();
         if (!normalizeOutgoingMessage(ackText, options.source || null)) return;
 
         await requestProgressDelivery({
@@ -705,10 +675,6 @@ class DurableRunRuntime {
       }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
-      // Snapshot before the tool catalog and execution guidance are appended:
-      // the acknowledgement should read the conversation, not the runtime's
-      // internal scaffolding.
-      ackContextMessages = [...messages];
 
       if (conversationId) {
         const sharedAttachments = triggerSource === 'cowork'
@@ -779,7 +745,6 @@ class DurableRunRuntime {
             model,
             messages,
             prompt: buildAnalysisPrompt({
-              capabilityHealth: capabilitySummary,
               tools: allTools,
               forceMode: options.forceMode || null,
             }),
@@ -823,8 +788,13 @@ class DurableRunRuntime {
         'neorecall_search',
         'neorecall_list_conversations',
       ].filter((name) => allTools.some((tool) => tool?.name === name));
+      // Code work needs a shell to run what it writes. Only that one tool is
+      // added: every extra schema in the active set measurably raises the rate
+      // of malformed tool calls from small models, so the rest of the file
+      // group stays discoverable through search_tools.
       const suggestedToolNames = [...new Set([
         ...(analysis.suggested_tools || []),
+        ...(suggestsCoreFileWork(analysis.suggested_tools) ? ['execute_command'] : []),
         ...initialMatches.map((tool) => tool.name),
         ...preferredNeoRecallTools,
       ])];
@@ -1135,6 +1105,7 @@ class DurableRunRuntime {
             semanticVerifier: shouldRunVerifier({
               analysis,
               toolExecutions: workingMemory.snapshot().evidence,
+              sideEffects: workingMemory.snapshot().sideEffects,
               finalReply: finalContent,
             })
               ? async ({ finalContent: reply }) => this.#semanticVerify({
@@ -2628,6 +2599,13 @@ class DurableRunRuntime {
       }
     }
 
+    // The running sum only sees the calls the loop itself made; the usage
+    // ledger has every recorded call for the run (verifier, narration, ...).
+    const ledgerTokens = Number(db.prepare(
+      'SELECT COALESCE(SUM(total_tokens), 0) AS total FROM agent_model_usage WHERE run_id = ?',
+    ).get(runId)?.total) || 0;
+    totalTokens = Math.max(Number(totalTokens) || 0, ledgerTokens);
+
     db.prepare(
       `UPDATE agent_runs
        SET total_tokens = ?, final_response = COALESCE(final_response, ?), updated_at = datetime('now')
@@ -2864,6 +2842,7 @@ class DurableRunRuntime {
       tools: [],
       options: {
         ...options,
+        maxTokens: NARRATION_MAX_TOKENS,
         stream: false,
         signal,
         runId,

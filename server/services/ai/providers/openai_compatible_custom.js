@@ -78,63 +78,12 @@ class CustomOpenAIProvider extends OpenAICompatibleProvider {
       });
     }
 
-    const toolCalls = [];
-    let content = '';
-
     try {
-      for await (const chunk of stream) {
-        const choice = chunk?.choices?.[0];
-        const delta = choice?.delta;
-        if (delta?.content) {
-          content += delta.content;
-          yield { type: 'content', content: delta.content };
-        }
-
-        for (const toolCall of delta?.tool_calls || []) {
-          const index = Number.isInteger(toolCall.index) ? toolCall.index : toolCalls.length;
-          if (!toolCalls[index]) {
-            toolCalls[index] = {
-              id: toolCall.id || '',
-              type: 'function',
-              function: { name: '', arguments: '' },
-            };
-          }
-          if (toolCall.id) toolCalls[index].id = toolCall.id;
-          if (toolCall.function?.name) toolCalls[index].function.name += toolCall.function.name;
-          if (toolCall.function?.arguments) {
-            toolCalls[index].function.arguments += toolCall.function.arguments;
-          }
-        }
-
-        if (!choice?.finish_reason) continue;
-        const usage = this.normalizeUsage(chunk.usage);
-        if (toolCalls.length > 0) {
-          yield {
-            type: 'tool_calls',
-            toolCalls: toolCalls.filter(Boolean),
-            content,
-            usage,
-          };
-        } else {
-          yield { type: 'done', content, usage };
-        }
-        return;
-      }
+      yield* this.readStream(stream);
     } catch (error) {
       throw wrapProviderError(error, 'Custom OpenAI-compatible stream failed', {
         signal: options.signal,
       });
-    }
-
-    if (toolCalls.length > 0) {
-      yield {
-        type: 'tool_calls',
-        toolCalls: toolCalls.filter(Boolean),
-        content,
-        usage: null,
-      };
-    } else {
-      yield { type: 'done', content, usage: null };
     }
   }
 }

@@ -22,6 +22,10 @@ const {
 } = require('./computer_display');
 const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 const {
+  packagedQemuExecutableCandidates,
+  packagedQemuRuntimeDirectory,
+} = require('../../../lib/qemu_runtime_install');
+const {
   allocateComputerResources,
   chooseDataDiskGiB,
   getComputerResourceProfile,
@@ -93,8 +97,9 @@ function wellKnownExecutableCandidates(name) {
 
 function isRunnableFile(candidate) {
   try {
-    fs.accessSync(candidate, fs.constants.F_OK | fs.constants.X_OK);
-    return fs.statSync(candidate).isFile();
+    const resolved = fs.realpathSync.native(candidate);
+    fs.accessSync(resolved, fs.constants.F_OK | fs.constants.X_OK);
+    return fs.statSync(resolved).isFile();
   } catch {
     return false;
   }
@@ -111,6 +116,7 @@ function resolveExecutable(name, explicit = '') {
   const candidates = [
     String(explicit || '').trim(),
     ...bundledExecutableCandidates(name),
+    ...packagedQemuExecutableCandidates(name),
     ...wellKnownExecutableCandidates(name),
   ].filter(Boolean);
   const found = candidates.find((candidate) => isRunnableFile(candidate));
@@ -130,11 +136,13 @@ function resolveQemuImgBinary() {
 function resolveQemuDataDirectory(qemuBinary) {
   const explicit = String(process.env.NEOAGENT_QEMU_DATA_DIR || '').trim();
   const executable = String(qemuBinary || '').trim();
+  const packagedRuntime = packagedQemuRuntimeDirectory();
   const candidates = [
     explicit,
     executable && path.resolve(path.dirname(executable), '..', 'share', 'qemu'),
     path.join(APP_DIR, 'computer-runtime', 'qemu', 'share', 'qemu'),
     path.join(RUNTIME_HOME, 'computer-runtime', 'qemu', 'share', 'qemu'),
+    packagedRuntime && path.join(packagedRuntime, 'share', 'qemu'),
   ].filter(Boolean);
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
@@ -379,10 +387,12 @@ function selectAccelerators(qemuBinary) {
 
 function resolveArmFirmwareCode() {
   const explicit = String(process.env.NEOAGENT_QEMU_EFI_FIRMWARE || '').trim();
+  const packagedRuntime = packagedQemuRuntimeDirectory();
   const candidates = [
     explicit,
     path.join(APP_DIR, 'computer-runtime', 'qemu', 'share', 'qemu', 'edk2-aarch64-code.fd'),
     path.join(RUNTIME_HOME, 'computer-runtime', 'qemu', 'share', 'qemu', 'edk2-aarch64-code.fd'),
+    packagedRuntime && path.join(packagedRuntime, 'share', 'qemu', 'edk2-aarch64-code.fd'),
     '/opt/homebrew/share/qemu/edk2-aarch64-code.fd',
     '/usr/local/share/qemu/edk2-aarch64-code.fd',
     '/usr/share/AAVMF/AAVMF_CODE.fd',
@@ -393,10 +403,12 @@ function resolveArmFirmwareCode() {
 
 function resolveArmFirmwareVariablesTemplate() {
   const explicit = String(process.env.NEOAGENT_QEMU_EFI_VARIABLES || '').trim();
+  const packagedRuntime = packagedQemuRuntimeDirectory();
   const candidates = [
     explicit,
     path.join(APP_DIR, 'computer-runtime', 'qemu', 'share', 'qemu', 'edk2-arm-vars.fd'),
     path.join(RUNTIME_HOME, 'computer-runtime', 'qemu', 'share', 'qemu', 'edk2-arm-vars.fd'),
+    packagedRuntime && path.join(packagedRuntime, 'share', 'qemu', 'edk2-arm-vars.fd'),
     '/opt/homebrew/share/qemu/edk2-arm-vars.fd',
     '/usr/local/share/qemu/edk2-arm-vars.fd',
     '/usr/share/AAVMF/AAVMF_VARS.fd',
@@ -683,6 +695,7 @@ class QemuVMManager {
     const missing = this.getReadiness().missing;
     const searched = [
       ...bundledExecutableCandidates(this.#systemBinaryName()),
+      ...packagedQemuExecutableCandidates(this.#systemBinaryName()),
       ...wellKnownExecutableCandidates(this.#systemBinaryName()),
     ].join(', ');
     const error = new Error(

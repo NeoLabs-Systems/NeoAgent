@@ -95,53 +95,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     params.stream = true;
     params.stream_options = { include_usage: true };
     const stream = await this.client.chat.completions.create(params, { signal: options.signal });
-
-    let currentToolCalls = [];
-    let content = '';
-    let finalUsage = null;
-
-    for await (const chunk of stream) {
-      // Final usage-only chunk (empty choices array)
-      if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
-        finalUsage = this.normalizeUsage(chunk.usage);
-        continue;
-      }
-
-      const delta = chunk.choices[0]?.delta;
-      if (!delta) continue;
-
-      if (delta.content) {
-        content += delta.content;
-        yield { type: 'content', content: delta.content };
-      }
-
-      if (delta.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          if (tc.index !== undefined) {
-            if (!currentToolCalls[tc.index]) {
-              currentToolCalls[tc.index] = {
-                id: tc.id || '',
-                type: 'function',
-                function: { name: '', arguments: '' }
-              };
-            }
-            if (tc.id) currentToolCalls[tc.index].id = tc.id;
-            if (tc.function?.name) currentToolCalls[tc.index].function.name += tc.function.name;
-            if (tc.function?.arguments) currentToolCalls[tc.index].function.arguments += tc.function.arguments;
-          }
-        }
-      }
-
-      if (chunk.choices[0]?.finish_reason) {
-        yield {
-          type: 'done',
-          content,
-          toolCalls: currentToolCalls.filter(tc => tc.id),
-          finishReason: chunk.choices[0].finish_reason,
-          usage: this.normalizeUsage(chunk.usage) || finalUsage
-        };
-      }
-    }
+    yield* this.readStream(stream);
   }
 
 }

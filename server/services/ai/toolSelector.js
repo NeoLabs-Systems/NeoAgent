@@ -38,6 +38,11 @@ function requiredToolNames(options = {}) {
   return requiredNames;
 }
 
+function suggestsCoreFileWork(suggestedNames = []) {
+  return (Array.isArray(suggestedNames) ? suggestedNames : [])
+    .some((name) => CORE_FILE_TOOLS.includes(String(name || '').trim()));
+}
+
 function compactDescription(value, maxChars = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (text.length <= maxChars) return text;
@@ -213,6 +218,7 @@ function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {
 }
 
 module.exports = {
+  suggestsCoreFileWork,
   ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
   MAX_TOOLS,
