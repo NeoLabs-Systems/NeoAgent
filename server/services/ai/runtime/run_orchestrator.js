@@ -102,6 +102,8 @@ const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
 
+const FILE_MUTATION_TOOLS = new Set(['write_file', 'edit_file', 'replace_file_range']);
+
 const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
   'search_tools',
   'activate_tools',
@@ -992,6 +994,8 @@ class DurableRunRuntime {
       const maxVerificationRepairs = 3;
       let blankOutputRecoveries = 0;
       const maxBlankOutputRecoveries = 2;
+      // Consecutive writes to one file with nothing read or run in between.
+      const blindWrites = { path: null, count: 0 };
       const warnedSoftDimensions = new Set();
       const getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
@@ -2090,17 +2094,38 @@ class DurableRunRuntime {
             const observed = repetitionGuard?.observe(call.name, call.arguments, result);
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
-            // research run is never mistaken for churn.
+            // research run is never mistaken for churn. A mutation repeated with
+            // identical arguments and an identical result is churn too: the first
+            // call already made that change.
+            const repeatedMutation = execution.stateChanged && Number(observed?.unchangedCount) >= 2;
+            // So is rewriting one file again and again without looking at the
+            // result: the writes may differ by a few bytes, but none of them is
+            // informed by anything the previous one produced.
+            const mutatedPath = FILE_MUTATION_TOOLS.has(call.name) && success
+              ? String(call.arguments?.path || call.arguments?.file_path || '')
+              : '';
+            if (mutatedPath && mutatedPath === blindWrites.path) blindWrites.count += 1;
+            else if (mutatedPath) Object.assign(blindWrites, { path: mutatedPath, count: 1 });
+            else Object.assign(blindWrites, { path: null, count: 0 });
+            const blindRewrite = blindWrites.count >= 3;
             const addedEvidence = gatheredNewEvidence(execution, observed);
-            budget.recordNoProgressTurn(!execution.stateChanged && !addedEvidence);
+            budget.recordNoProgressTurn(
+              (!execution.stateChanged && !addedEvidence) || repeatedMutation || blindRewrite,
+            );
             if (addedEvidence) budget.recordEvidence(1);
             if (success) budget.recordToolFailure(false);
 
+            let churnNote = null;
+            if (repeatedMutation) {
+              churnNote = 'Identical to your previous call: same arguments, same result, nothing changed. Do something different.';
+            } else if (blindRewrite) {
+              churnNote = `Write ${blindWrites.count} to ${mutatedPath} with nothing read or run in between. Run or read the file before writing it again.`;
+            }
             // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
             const compacted = compactToolResult(
               call.name,
               call.arguments || {},
-              result,
+              churnNote ? { ...result, repeated_call: churnNote } : result,
               resolveToolResultLimits(call.name, budget.loopPolicy),
             );
             const commandArtifact = result?.outputArtifact;

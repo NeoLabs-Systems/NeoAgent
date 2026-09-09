@@ -29,12 +29,24 @@ function diagnosticsCommand(filePath) {
   return checker ? checker(shellQuote(filePath)) : null;
 }
 
+// Line numbers move when unrelated lines are edited; the error itself is what
+// identifies a repeat.
+function errorSignature(output) {
+  return output.replace(/\d+/g, '#');
+}
+
 // Returns `{ ok: false, output }` when the checker rejected the file, or null
 // when there is nothing to report: unsupported file type, no runtime, or the
 // checker itself could not run (missing interpreter, timeout).
+//
+// `options.history` is the caller's per-run memory of the last verdict per
+// file. With it, an edit that leaves the same error in place is called out as
+// such — a model patching the same line over and over needs to be told the
+// patches are not working, not handed the same message as if it were new.
 async function runFileDiagnostics(runtimeManager, userId, filePath, options = {}) {
   const command = diagnosticsCommand(filePath);
   if (!command || typeof runtimeManager?.executeCliCommand !== 'function') return null;
+  const history = options.history && typeof options.history === 'object' ? options.history : null;
   let result;
   try {
     result = await runtimeManager.executeCliCommand(userId, command, {
@@ -45,9 +57,25 @@ async function runFileDiagnostics(runtimeManager, userId, filePath, options = {}
   } catch {
     return null;
   }
-  if (result?.exitCode !== 1) return null;
-  const output = String(result.stderr || result.stdout || '').trim().slice(-MAX_OUTPUT_CHARS);
-  return output ? { ok: false, output } : null;
+  const output = result?.exitCode === 1
+    ? String(result.stderr || result.stdout || '').trim().slice(-MAX_OUTPUT_CHARS)
+    : '';
+  if (!output) {
+    if (history) delete history[filePath];
+    return null;
+  }
+  let repeats = 1;
+  if (history) {
+    const signature = errorSignature(output);
+    repeats = history[filePath]?.signature === signature ? history[filePath].repeats + 1 : 1;
+    history[filePath] = { signature, repeats };
+  }
+  if (repeats === 1) return { ok: false, output };
+  return {
+    ok: false,
+    output,
+    note: `This is the same error as after the previous ${repeats - 1} edit(s); those edits did not address it. Rewrite the affected block or the whole file with write_file instead of patching again.`,
+  };
 }
 
 module.exports = { diagnosticsCommand, runFileDiagnostics };

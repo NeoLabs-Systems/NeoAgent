@@ -955,6 +955,114 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
 });
 
+test('rewriting the same content over and over is churn, not progress', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Write the solution file',
+    confidence: 0.8,
+    complexity: 'standard',
+    success_criteria: ['solution.py written and passing'],
+    needs_verification: false,
+    suggested_tools: ['write_file'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  let sawRepeatNote = false;
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: 'Ich komme hier nicht weiter.', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    sawRepeatNote = sawRepeatNote || messages.some((m) => /Identical to your previous call/.test(String(m.content || '')));
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: `w${Math.random()}`,
+          type: 'function',
+          function: { name: 'write_file', arguments: JSON.stringify({ path: 'solution.py', content: 'def f(): pass' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  let writes = 0;
+  engine.executeTool = async () => {
+    writes += 1;
+    return { success: true, path: 'solution.py', bytesWritten: 13 };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Schreib die Lösung', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 60,
+  });
+
+  assert.ok(writes > 2 && writes < 20, `expected the spin to be cut short, got ${writes} identical writes`);
+  assert.equal(sawRepeatNote, true, 'the model must be told its call changed nothing');
+  assert.equal(result.content, 'Ich komme hier nicht weiter.');
+});
+
+test('rewriting a file blindly, without reading or running anything between writes, is churn', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Write the solution file',
+    confidence: 0.8,
+    complexity: 'standard',
+    success_criteria: ['solution.py written and passing'],
+    needs_verification: false,
+    suggested_tools: ['write_file'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  let writes = 0;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: 'Ich komme hier nicht weiter.', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: `w${Math.random()}`,
+          type: 'function',
+          // Alternating variants: never byte-identical, never checked.
+          function: { name: 'write_file', arguments: JSON.stringify({ path: 'solution.py', content: `def f(): return ${writes % 3}` }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async (_name, args) => {
+    writes += 1;
+    return { success: true, path: 'solution.py', bytesWritten: args.content.length };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  const result = await engine.run(userId, 'Schreib die Lösung', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 60,
+  });
+
+  assert.ok(writes > 2 && writes < 20, `expected blind rewrites to be cut short, got ${writes}`);
+  assert.equal(result.content, 'Ich komme hier nicht weiter.');
+});
+
 test('productive evidence collection is not treated as budget exhaustion', async () => {
   const engine = createEngine({
     mode: 'execute',

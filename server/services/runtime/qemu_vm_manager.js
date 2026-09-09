@@ -469,7 +469,6 @@ function buildQemuArgs({
   const args = [
     '-name', 'NeoAgent Computer',
     '-nodefaults',
-    '-no-reboot',
     '-boot', 'order=c,menu=off,reboot-timeout=0,splash-time=0,strict=on',
   ];
   if (architecture === 'arm64') {
@@ -528,7 +527,9 @@ function buildQemuArgs({
     '-qmp', typeof qmpSocket === 'number'
       ? `tcp:127.0.0.1:${qmpSocket},server=on,wait=off`
       : `unix:${qmpSocket},server=on,wait=off`,
-    '-serial', 'mon:stdio',
+    // stdin is /dev/null; mon:stdio treats that EOF as a monitor quit.
+    '-serial', 'stdio',
+    '-monitor', 'none',
   );
   return args;
 }

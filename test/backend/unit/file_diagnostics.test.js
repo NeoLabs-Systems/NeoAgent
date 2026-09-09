@@ -40,6 +40,32 @@ test('runFileDiagnostics reports only a real checker verdict', async () => {
   assert.equal(await runFileDiagnostics(null, 1, 'x.py'), null);
 });
 
+test('a repeated error after another edit is called out, and a clean check forgets it', async () => {
+  const outputs = [
+    'x.py:21: IndentationError: expected an indented block after \'if\' statement on line 21',
+    'x.py:23: IndentationError: expected an indented block after \'if\' statement on line 23',
+    'x.py:23: IndentationError: expected an indented block after \'if\' statement on line 23',
+    '',
+    'x.py:5: SyntaxError: invalid syntax',
+  ];
+  const runtime = {
+    async executeCliCommand() {
+      const stderr = outputs.shift();
+      return { exitCode: stderr ? 1 : 0, stderr, stdout: '' };
+    },
+  };
+  const history = {};
+  const first = await runFileDiagnostics(runtime, 1, 'x.py', { history });
+  assert.equal(first.note, undefined);
+  const second = await runFileDiagnostics(runtime, 1, 'x.py', { history });
+  assert.match(second.note, /previous 1 edit/);
+  const third = await runFileDiagnostics(runtime, 1, 'x.py', { history });
+  assert.match(third.note, /previous 2 edit/);
+  assert.equal(await runFileDiagnostics(runtime, 1, 'x.py', { history }), null);
+  const fresh = await runFileDiagnostics(runtime, 1, 'x.py', { history });
+  assert.equal(fresh.note, undefined);
+});
+
 test('write_file surfaces a syntax error in its result and stays silent for valid code', async () => {
   ctx = createTestRuntime();
   const user = await createTestUser(ctx.db, { username: 'diag_user' });

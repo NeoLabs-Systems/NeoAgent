@@ -1721,7 +1721,13 @@ async function executeTool(toolName, args, context, engine) {
     // three turns later it costs the model a re-read and a guess.
     const withFileDiagnostics = async (result, filePath) => {
         if (!result || result.success === false || result.error) return result;
-        const diagnostics = await runFileDiagnostics(runtime(), userId, filePath, { signal, deviceTarget });
+        const runState = getRunState(engine, runId);
+        if (runState && !runState.fileDiagnostics) runState.fileDiagnostics = {};
+        const diagnostics = await runFileDiagnostics(runtime(), userId, filePath, {
+            signal,
+            deviceTarget,
+            history: runState?.fileDiagnostics || null,
+        });
         return diagnostics ? { ...result, diagnostics } : result;
     };
     const dc = () => {
