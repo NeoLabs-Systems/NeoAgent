@@ -95,7 +95,7 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     params.stream = true;
     params.stream_options = { include_usage: true };
     const stream = await this.client.chat.completions.create(params, { signal: options.signal });
-    yield* this.readStream(stream);
+    yield* this.readStream(stream, tools);
   }
 
 }

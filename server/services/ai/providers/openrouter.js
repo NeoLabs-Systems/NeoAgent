@@ -123,7 +123,7 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     // The OpenAI SDK converts OpenRouter's SSE error events (data.error) into
     // APIErrors before yielding — so we wrap the loop to add context.
     try {
-      yield* this.readStream(stream);
+      yield* this.readStream(stream, tools);
     } catch (err) {
       throw wrapProviderError(err, 'OpenRouter stream failed', {
         signal: options.signal,

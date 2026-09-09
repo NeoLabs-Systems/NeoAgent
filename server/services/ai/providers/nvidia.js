@@ -85,7 +85,7 @@ class NvidiaProvider extends OpenAICompatibleProvider {
     }
 
     try {
-      yield* this.readStream(stream);
+      yield* this.readStream(stream, tools);
     } catch (err) {
       throw wrapProviderError(err, 'NVIDIA NIM stream failed', {
         signal: options.signal,

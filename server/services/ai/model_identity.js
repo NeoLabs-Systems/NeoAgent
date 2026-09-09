@@ -6,6 +6,16 @@ function createModelSelectionId(provider, modelId) {
   return `${String(provider).trim().toLowerCase()}${MODEL_SELECTION_SEPARATOR}${String(modelId).trim()}`;
 }
 
+function parseModelSelectionId(value) {
+  const raw = String(value || '').trim();
+  const separator = raw.indexOf(MODEL_SELECTION_SEPARATOR);
+  if (separator <= 0) return null;
+  const provider = raw.slice(0, separator).trim().toLowerCase();
+  const modelId = raw.slice(separator + MODEL_SELECTION_SEPARATOR.length).trim();
+  if (!provider || !modelId || modelId === 'auto') return null;
+  return { provider, modelId };
+}
+
 function getRawModelId(model) {
   return String(model?.modelId || model?.id || '').trim();
 }
@@ -63,6 +73,7 @@ function modelMatchesConfiguredId(model, configuredIds) {
 module.exports = {
   MODEL_SELECTION_SEPARATOR,
   createModelSelectionId,
+  parseModelSelectionId,
   getRawModelId,
   modelMatchesConfiguredId,
   normalizeModelSelections,

@@ -90,4 +90,28 @@ describe('model catalog', () => {
     assert.equal(failed?.runtimeUnavailable, true);
     assert.equal(models.find((model) => model.id === 'openai::gpt-5.6')?.available, true);
   });
+
+  test('keeps a configured model when live discovery returns nothing', async () => {
+    const { OpenAIProvider } = require('../../../server/services/ai/providers/openai');
+    OpenAIProvider.prototype.listModels = async () => [];
+    ctx.db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, 'enabled_models', ?)
+       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`,
+    ).run(user.userId, agentId, JSON.stringify(['openai::gpt-5.3']));
+
+    const { getSupportedModels } = require('../../../server/services/ai/models');
+    const models = await getSupportedModels(user.userId, agentId, {
+      providerCatalog: [{
+        id: 'openai',
+        available: true,
+        status: 'healthy',
+        statusLabel: 'Healthy',
+      }],
+    });
+
+    const configured = models.find((model) => model.id === 'openai::gpt-5.3');
+    assert.equal(configured?.modelId, 'gpt-5.3');
+    assert.equal(configured?.available, true);
+  });
 });

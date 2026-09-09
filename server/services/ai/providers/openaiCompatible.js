@@ -1,5 +1,11 @@
+'use strict';
+
 const { BaseProvider } = require('./base');
-const { createStreamGuard, degenerateOutputError } = require('./stream_guard');
+const { createJsonPrefixTracker, createStreamGuard, degenerateOutputError } = require('./stream_guard');
+
+function visibleText(part) {
+  return String(part?.content || part?.reasoning_content || '');
+}
 
 // Shared base for providers that speak the OpenAI Chat Completions wire format
 // (OpenAI, Grok, NVIDIA NIM, GitHub Copilot, ...). It owns the response/usage
@@ -12,10 +18,17 @@ class OpenAICompatibleProvider extends BaseProvider {
   // the trailing usage-only chunk (stream_options.include_usage) is captured,
   // and aborts as soon as any tool-call argument or the reply text turns into
   // runaway output instead of letting it run to max_tokens.
-  async *readStream(stream) {
+  async *readStream(stream, tools = []) {
     const contentGuard = createStreamGuard();
     const argumentGuards = [];
+    const argumentJson = [];
     const toolCalls = [];
+    const declaredKeys = new Map(tools.map((tool) => [
+      tool.name,
+      tool.parameters?.properties && tool.parameters.additionalProperties !== true
+        ? new Set(Object.keys(tool.parameters.properties))
+        : null,
+    ]));
     let content = '';
     let finishReason = null;
     let usage = null;
@@ -28,16 +41,23 @@ class OpenAICompatibleProvider extends BaseProvider {
       if (chunk.usage) usage = this.normalizeUsage(chunk.usage);
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
-      if (delta?.content) {
-        content += delta.content;
-        check(contentGuard.feed(delta.content));
-        yield { type: 'content', content: delta.content };
+      const text = visibleText(delta);
+      if (text) {
+        content += text;
+        check(contentGuard.feed(text));
+        yield { type: 'content', content: text };
       }
       for (const tc of delta?.tool_calls || []) {
         const index = Number.isInteger(tc.index) ? tc.index : toolCalls.length;
         if (!toolCalls[index]) {
           toolCalls[index] = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
           argumentGuards[index] = createStreamGuard();
+          argumentJson[index] = createJsonPrefixTracker({
+            isKnownKey: (key) => {
+              const known = declaredKeys.get(toolCalls[index].function.name);
+              return !known || known.has(key);
+            },
+          });
         }
         if (tc.id) toolCalls[index].id = tc.id;
         // Names arrive once, in pieces, or repeated on every delta depending
@@ -47,7 +67,11 @@ class OpenAICompatibleProvider extends BaseProvider {
         }
         if (tc.function?.arguments) {
           toolCalls[index].function.arguments += tc.function.arguments;
-          check(argumentGuards[index].feed(tc.function.arguments), toolCalls[index].function.name);
+          const name = toolCalls[index].function.name;
+          if (!argumentJson[index].feed(tc.function.arguments)) {
+            check({ reason: argumentJson[index].reason, bytes: toolCalls[index].function.arguments.length }, name);
+          }
+          check(argumentGuards[index].feed(tc.function.arguments), name);
         }
       }
       if (choice?.finish_reason) finishReason = choice.finish_reason;
@@ -90,7 +114,7 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
     const msg = choice.message || {};
     return {
-      content: msg.content || '',
+      content: visibleText(msg),
       toolCalls: (msg.tool_calls || [])
         .filter((tc) => tc?.function)
         .map((tc) => ({

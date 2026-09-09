@@ -4,10 +4,55 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
+  createJsonPrefixTracker,
   createStreamGuard,
   degenerateOutputError,
   isDegenerateOutputError,
 } = require('../../../server/services/ai/providers/stream_guard');
+
+function feedByChar(text, chunk = 1) {
+  const tracker = createJsonPrefixTracker();
+  for (let i = 0; i < text.length; i += chunk) {
+    if (!tracker.feed(text.slice(i, i + chunk))) return i;
+  }
+  return -1;
+}
+
+test('json prefix tracker accepts every prefix of valid JSON, in any chunking', () => {
+  const docs = [
+    JSON.stringify({ path: 'a/b.py', content: 'def f():\n    return "x\\y" é \t', mode: 'write', n: -12.5e-3, ok: true, none: null, list: [1, [2, { a: [] }], {}], nested: { k: 'v' } }),
+    '  {"a" : 1 , "b" : [ true , false , null , 0 , 1.5 , -2e10 ] }  ',
+    '[]', '{}', '"just a string"', '42', 'null',
+    JSON.stringify({ unicode: '\\u00e9 and 😀', escaped: 'quote " backslash \\ newline \n' }),
+  ];
+  for (const doc of docs) {
+    for (const chunk of [1, 3, 7, 1000]) {
+      assert.equal(feedByChar(doc, chunk), -1, `rejected valid JSON at chunk ${chunk}: ${doc.slice(0, 40)}`);
+    }
+  }
+});
+
+test('json prefix tracker rejects an undeclared top-level key as soon as it closes', () => {
+  const tracker = createJsonPrefixTracker({ isKnownKey: (key) => ['path', 'content'].includes(key) });
+  assert.equal(tracker.feed('{"content='), true);
+  assert.equal(tracker.feed('"'), false);
+  assert.equal(tracker.reason, 'unknown_argument_key');
+
+  const nested = createJsonPrefixTracker({ isKnownKey: (key) => key === 'edits' });
+  assert.equal(nested.feed('{"edits":[{"oldText":"a","newText":"b"}]}'), true, 'nested keys are not checked');
+});
+
+test('json prefix tracker rejects malformed JSON at the first bad byte', () => {
+  assert.equal(feedByChar('{"content=":"x"}'), -1, 'well-formed JSON with an odd key is a JSON problem for the key check, not this one');
+  assert.ok(feedByChar('{"a":1,}') >= 0);
+  assert.ok(feedByChar('{"a" 1}') >= 0);
+  assert.ok(feedByChar('[1 2]') >= 0);
+  assert.ok(feedByChar('{"a":tru e}') >= 0);
+  assert.ok(feedByChar('{"a":1} x') >= 0);
+  assert.ok(feedByChar('{"a":01}') >= 0);
+  assert.ok(feedByChar('[1,]') >= 0);
+  assert.equal(feedByChar('{"a":{},"b":[[]]}'), -1);
+});
 
 function feedAll(guard, text, chunk = 37) {
   for (let i = 0; i < text.length; i += chunk) {

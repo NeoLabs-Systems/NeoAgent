@@ -79,7 +79,7 @@ class CustomOpenAIProvider extends OpenAICompatibleProvider {
     }
 
     try {
-      yield* this.readStream(stream);
+      yield* this.readStream(stream, tools);
     } catch (error) {
       throw wrapProviderError(error, 'Custom OpenAI-compatible stream failed', {
         signal: options.signal,
