@@ -5,18 +5,10 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { validateRemoteMcpEndpoint } = require('../services/runtime/mcp');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
-const { resolvePublicBaseUrl } = require('../services/integrations/env');
+const { getTrustedPostMessageOrigin } = require('../services/integrations/env');
 const { consumeOAuthState } = require('../services/mcp/client_support');
 
 const MCP_OAUTH_STATE_RE = /^(\d+)::[a-f0-9]{32}$/;
-
-function getTrustedPostMessageOrigin(req) {
-  try {
-    return new URL(resolvePublicBaseUrl()).origin;
-  } catch {
-    return `${req.protocol}://${req.get('host')}`;
-  }
-}
 
 router.use(requireAuth);
 

@@ -77,7 +77,7 @@ Account-backed model providers use `neoagent login`, not these API-key fields.
 
 OAuth providers generally use a client ID, client secret, and optional redirect
 URI. The default callback is
-`PUBLIC_URL/api/integrations/oauth/callback`. Home Assistant and personal
+`PUBLIC_URL/api/integrations/oauth/callback`. Home Assistant, Nextcloud, and personal
 Trello credentials are configured through the application.
 
 ## Service email

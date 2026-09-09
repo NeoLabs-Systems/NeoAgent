@@ -24,7 +24,8 @@ in the documentation.
 Configure a custom endpoint with both `OPENAI_COMPATIBLE_BASE_URL` and
 `OPENAI_COMPATIBLE_API_KEY`, either in the environment or on the admin
 dashboard's **AI Providers** page. The endpoint must implement the OpenAI
-Chat Completions and model-listing APIs.
+Chat Completions and model-listing APIs. Putting that same token in
+`OPENAI_API_KEY` does not enable official OpenAI (`api.openai.com`).
 
 ### Account-backed providers
 

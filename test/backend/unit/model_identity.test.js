@@ -5,6 +5,7 @@ const { describe, test } = require('node:test');
 
 const {
   createModelSelectionId,
+  parseModelSelectionId,
   modelMatchesConfiguredId,
   normalizeModelSelections,
   resolveModelSelection,
@@ -17,6 +18,15 @@ describe('model identity', () => {
     toSelectableModel({ id: 'gpt-5.3', provider: 'openai' }),
     toSelectableModel({ id: 'openai/gpt-5.3', provider: 'openrouter' }),
   ];
+
+  test('parses scoped selection ids and ignores auto', () => {
+    assert.deepEqual(parseModelSelectionId('openai-compatible::qwen3.8-27b'), {
+      provider: 'openai-compatible',
+      modelId: 'qwen3.8-27b',
+    });
+    assert.equal(parseModelSelectionId('auto'), null);
+    assert.equal(parseModelSelectionId('openai-compatible::auto'), null);
+  });
 
   test('creates provider-scoped ids without altering provider model slugs', () => {
     assert.equal(createModelSelectionId('OpenRouter', 'openai/gpt-5.3'), 'openrouter::openai/gpt-5.3');

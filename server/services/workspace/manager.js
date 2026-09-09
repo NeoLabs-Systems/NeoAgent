@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { applyTextEdits } = require('./text_edits');
 
 function sanitizeWorkspaceKey(value) {
   const normalized = String(value || '')
@@ -301,24 +302,7 @@ class WorkspaceManager {
       if (!fs.existsSync(filePath)) {
         return { error: `File not found: ${filePath}` };
       }
-      let content = fs.readFileSync(filePath, 'utf8');
-      let modified = false;
-      const report = [];
-      for (const edit of Array.isArray(options.edits) ? options.edits : []) {
-        if (typeof edit?.oldText !== 'string') {
-          report.push({ success: false, error: 'oldText is required' });
-          continue;
-        }
-        if (content.includes(edit.oldText)) {
-          const replacement = String(edit.newText || '');
-          const pattern = edit.oldText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          content = content.replace(new RegExp(pattern, 'g'), replacement);
-          modified = true;
-          report.push({ success: true, edit: `${edit.oldText.slice(0, 50)}...` });
-        } else {
-          report.push({ success: false, error: 'Target text not found', edit: `${edit.oldText.slice(0, 50)}...` });
-        }
-      }
+      const { content, modified, report } = applyTextEdits(fs.readFileSync(filePath, 'utf8'), options.edits);
       if (modified) {
         fs.writeFileSync(filePath, content, 'utf8');
       }

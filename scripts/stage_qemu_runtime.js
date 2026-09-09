@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { signMacQemuBinary } = require('../lib/qemu_mac_sign');
 
 function argument(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -166,7 +167,9 @@ function collectMacDependencies(binaries, outputDirectory) {
     if (inLibraryDirectory) {
       commandOutput('install_name_tool', ['-id', `@loader_path/${path.basename(target)}`, target]);
     }
-    commandOutput('codesign', ['--force', '--sign', '-', target]);
+    // install_name_tool invalidates the signature. The system emulator must keep
+    // com.apple.security.hypervisor or HVF cannot create the platform VGIC.
+    signMacQemuBinary(target, { hypervisor: /^qemu-system-/.test(path.basename(target)) });
   }
 }
 

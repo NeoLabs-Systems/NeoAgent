@@ -68,7 +68,7 @@ After=lightdm.service neoagent-framebuffer-desktop.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/chvt 1
+ExecStart=/bin/sh -c 'chvt 1 >/dev/null 2>&1 || true'
 RemainAfterExit=yes
 
 [Install]

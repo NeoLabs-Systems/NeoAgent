@@ -53,6 +53,17 @@ test('normalizeUsage maps snake_case and camelCase token fields and handles null
   );
 });
 
+test('normalizeResponse uses reasoning_content when content is empty', () => {
+  const p = new OpenAICompatibleProvider();
+  const result = p.normalizeResponse({
+    choices: [{
+      message: { content: '', reasoning_content: 'The answer is 42.' },
+      finish_reason: 'stop',
+    }],
+  });
+  assert.equal(result.content, 'The answer is 42.');
+});
+
 test('normalizeResponse extracts content, tool calls, finish reason, and usage', () => {
   const p = new OpenAICompatibleProvider();
   const result = p.normalizeResponse({
@@ -192,8 +203,101 @@ test('custom provider assembles streamed tool calls', async () => {
       function: { name: 'lookup', arguments: '{"q":"value"}' },
     }],
     content: '',
+    finishReason: 'tool_calls',
     usage: null,
   }]);
+});
+
+test('readStream treats reasoning_content deltas as visible text', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { reasoning_content: 'Think.' }, finish_reason: null }] };
+    yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks())) events.push(event);
+
+  assert.deepEqual(events[0], { type: 'content', content: 'Think.' });
+  assert.equal(events[1].type, 'done');
+  assert.equal(events[1].content, 'Think.');
+});
+
+test('readStream keeps the usage chunk that arrives after finish_reason', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { content: 'Hello' }, finish_reason: null }] };
+    yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
+    yield { choices: [], usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 } };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks())) events.push(event);
+
+  assert.deepEqual(events[0], { type: 'content', content: 'Hello' });
+  assert.equal(events[1].type, 'done');
+  assert.equal(events[1].finishReason, 'stop');
+  assert.equal(events[1].usage.totalTokens, 15);
+});
+
+test('readStream aborts a runaway tool-call argument stream and closes the source', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  let closed = false;
+  let produced = 0;
+  const source = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          produced += 1;
+          return {
+            done: false,
+            value: {
+              choices: [{
+                delta: { tool_calls: [{ index: 0, id: 'call-1', function: { name: 'write_file', arguments: produced === 1 ? '{"content":"' : '.,;: .,;: '.repeat(8) } }] },
+                finish_reason: null,
+              }],
+            },
+          };
+        },
+        async return() {
+          closed = true;
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    (async () => { for await (const event of provider.readStream(source)) void event; })(),
+    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT'
+      && error.reason === 'degenerate_repetition'
+      && error.toolName === 'write_file',
+  );
+  assert.equal(closed, true);
+  assert.ok(produced < 100, `stream should stop early, produced ${produced} chunks`);
+});
+
+test('readStream aborts a tool call the moment it streams a key the tool does not declare', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  let produced = 0;
+  async function* chunks() {
+    yield { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'write_file', arguments: '{"content=' } }] }, finish_reason: null }] };
+    produced += 1;
+    yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"    : 0.0,   "},"  : 0.25' } }] }, finish_reason: null }] };
+    produced += 1;
+    yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: ',  ": 0.5' } }] }, finish_reason: null }] };
+    produced += 1;
+  }
+  const tools = [{ name: 'write_file', parameters: { type: 'object', properties: { path: {}, file_path: {}, content: {}, mode: {} } } }];
+  await assert.rejects(
+    (async () => { for await (const event of provider.readStream(chunks(), tools)) void event; })(),
+    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT' && error.reason === 'unknown_argument_key' && error.toolName === 'write_file',
+  );
+  assert.equal(produced, 1);
 });
 
 test('nvidia analyzeImage throws because it is not vision-capable', async () => {

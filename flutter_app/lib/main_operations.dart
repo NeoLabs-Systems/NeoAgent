@@ -2355,10 +2355,9 @@ class _MemoryStatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return _PanelSurface(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       borderRadius: BorderRadius.circular(14),
-      blurSigma: 10,
       fillColor: _bgSecondary.withValues(alpha: 0.7),
       borderColor: _borderLight,
       child: Row(

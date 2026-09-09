@@ -19,13 +19,13 @@ Connect accounts in **Integrations**.
 | Notion | Pages, databases, blocks, search |
 | Slack | Conversations, history, search, messages |
 | Figma | Files, nodes, rendered images, comments |
-| NeoArchive | Documents, extracted text, metadata, search, upload, archive, reprocessing |
 | NeoRecall | Local hybrid recall search, memories, mini-memories, daily summaries, conversations, transcript evidence |
 | Home Assistant | Entity state and service calls |
 | Trello | Boards, lists, cards, comments, search |
 | Spotify | Playback, history, search, queue |
 | Weather | Location search, current conditions, forecasts |
 | Personal WhatsApp | Private account chat history and send tools |
+| Nextcloud | Files, shares, trash, Calendar, Contacts, OCS apps |
 
 Available operations are discovered from the current server implementation and
 connected account. They may differ by provider permissions.
@@ -53,7 +53,7 @@ GitHub as the example:
 The other providers follow the same pattern with their own `*_OAUTH_`
 prefixes, listed in [Configuration](configuration.md).
 
-NeoArchive, NeoRecall, Home Assistant, and Trello need no server-side app
+NeoRecall, Nextcloud, Home Assistant, and Trello need no server-side app
 registration; users configure them from the application.
 
 ### NeoRecall
@@ -76,6 +76,18 @@ manual tool discovery.
 OAuth authorize always opens the NeoRecall base URL you configured (not a
 possibly-local `NEORECALL_PUBLIC_URL`). NeoAgent's own `PUBLIC_URL` must still
 be reachable from the browser so the callback can finish.
+
+### Nextcloud
+
+Open **Integrations**, choose **Nextcloud**, and enter the URL of your
+Nextcloud instance (Nextcloud.com or self-hosted). NeoAgent checks `status.php`,
+then opens Nextcloud Login Flow v2. Sign in there with password, SSO, or 2FA;
+NeoAgent never asks you to paste an app password.
+
+One login enables Files, Calendar, and Contacts tools for that account. File
+writes, shares, and event or contact changes honor the connection's read-only
+setting. Use `nextcloud_ocs_request` for other Nextcloud apps under `/ocs/v2.php/`.
+Talk chat stays in **Settings > Messaging**.
 
 ## Messaging channels
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { applyTextEdits } = require('../workspace/text_edits');
+
 class ComputerWorkspaceClient {
   constructor(options = {}) {
     this.runtimeManager = options.runtimeManager;
@@ -71,18 +73,7 @@ class ComputerWorkspaceClient {
     } catch (error) {
       return { error: error.message, path: options.path || null };
     }
-    let content = String(current.content || '');
-    let modified = false;
-    const report = [];
-    for (const edit of Array.isArray(options.edits) ? options.edits : []) {
-      if (typeof edit?.oldText !== 'string' || !content.includes(edit.oldText)) {
-        report.push({ success: false, error: 'Target text not found.' });
-        continue;
-      }
-      content = content.split(edit.oldText).join(String(edit.newText || ''));
-      modified = true;
-      report.push({ success: true });
-    }
+    const { content, modified, report } = applyTextEdits(current.content, options.edits);
     if (!modified) return { success: false, report, path: current.path };
     const result = await this.writeFile(userId, {
       path: options.path,

@@ -1,5 +1,23 @@
 part of 'main.dart';
 
+/// Prompt starters offered on the empty chat screen. Tapping one types it
+/// into the composer — it never sends on its own, so the user still edits and
+/// presses send.
+typedef _ChatStarter = ({IconData icon, String prompt, String caption});
+
+const List<_ChatStarter> _promptStarters = <_ChatStarter>[
+  (
+    icon: Icons.restart_alt_rounded,
+    prompt: 'Summarise my last run',
+    caption: 'Picks up where you left off',
+  ),
+  (
+    icon: Icons.event_outlined,
+    prompt: 'What is on tomorrow?',
+    caption: 'Pulls together the day ahead',
+  ),
+];
+
 class ChatPanel extends StatefulWidget {
   const ChatPanel({super.key, required this.controller});
 
@@ -22,6 +40,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   String _lastScrollContentSignature = '';
   bool _stickToBottom = true;
   bool _ignoreScrollUpdates = false;
+
+  /// True from the moment a drag begins until its momentum settles. Auto-follow
+  /// never re-pins while this is set.
+  bool _userScrollActive = false;
   bool _loadingOlderHistory = false;
   int _scrollGeneration = 0;
   // Opacity-hide the list while the initial batch of messages settles to the
@@ -254,6 +276,13 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     }
   }
 
+  void _useStarter(String prompt) {
+    _composerController.text = prompt;
+    _composerController.selection = TextSelection.collapsed(
+      offset: prompt.length,
+    );
+  }
+
   Future<void> _attachFiles() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
@@ -299,16 +328,52 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   // only moves maxScrollExtent, never pixels, so the scroll-position listener
   // alone never sees it.
   bool _handleScrollMetrics(ScrollMetricsNotification notification) {
-    if (!_stickToBottom || notification.metrics.axis != Axis.vertical) {
+    if (_userScrollActive ||
+        !_stickToBottom ||
+        notification.metrics.axis != Axis.vertical) {
       return false;
     }
     _pinToBottom();
     return false;
   }
 
+  // A drag always wins over auto-follow, from the first pixel.
+  //
+  // Releasing the pin used to depend on the position listener seeing the thumb
+  // leave the near-bottom band. It never got the chance: the re-pin above runs
+  // on the next frame and puts the thread back at the bottom, so the drag never
+  // accumulates past the threshold and the thread jitters under the finger
+  // instead of scrolling. Dragging at all is the signal — not how far.
+  bool _handleUserScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _userScrollActive = true;
+      // Cancels any in-flight settle pass, which re-asserts _stickToBottom.
+      _scrollGeneration++;
+      if (_stickToBottom || _awaitingInitialScrollSettle) {
+        setState(() {
+          _stickToBottom = false;
+          _awaitingInitialScrollSettle = false;
+        });
+      }
+    } else if (notification is ScrollEndNotification && _userScrollActive) {
+      // Momentum has settled; follow again only if they landed at the bottom.
+      _userScrollActive = false;
+      final nearBottom = _isNearBottom;
+      if (_stickToBottom != nearBottom) {
+        setState(() => _stickToBottom = nearBottom);
+      }
+    }
+    return false;
+  }
+
   void _pinToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_stickToBottom || !_scrollController.hasClients) return;
+      if (!mounted || _userScrollActive || !_stickToBottom) return;
+      if (!_scrollController.hasClients) return;
       final position = _scrollController.position;
       if (!position.hasContentDimensions) return;
       if ((position.pixels - position.maxScrollExtent).abs() <= 0.5) return;
@@ -564,13 +629,57 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         ),
       if (messages.isEmpty)
         Padding(
-          padding: const EdgeInsets.only(top: 64),
-          child: Center(
-            child: _EmptyState(
-              title: 'How can I help?',
-              subtitle:
-                  'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
-            ),
+          padding: const EdgeInsets.only(top: 24, bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const _GreetingHeader(
+                subtitle:
+                    'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
+              ),
+              const SizedBox(height: 26),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cards = _promptStarters
+                        .map(
+                          (starter) => _PromptStarter(
+                            icon: starter.icon,
+                            prompt: starter.prompt,
+                            caption: starter.caption,
+                            onTap: () => _useStarter(starter.prompt),
+                          ),
+                        )
+                        .toList(growable: false);
+                    // Side by side once there is room for two readable
+                    // cards; stacked on a phone.
+                    if (constraints.maxWidth < 560) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          for (final card in cards) ...<Widget>[
+                            card,
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      );
+                    }
+                    return IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          for (var i = 0; i < cards.length; i++) ...<Widget>[
+                            if (i > 0) const SizedBox(width: 10),
+                            Expanded(child: cards[i]),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         )
       else
@@ -623,27 +732,30 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               Opacity(
                 opacity: _awaitingInitialScrollSettle ? 0.0 : 1.0,
                 child: SelectionArea(
-                  child: NotificationListener<ScrollMetricsNotification>(
-                    onNotification: _handleScrollMetrics,
-                    child: ListView(
-                      controller: _scrollController,
-                      padding: EdgeInsets.fromLTRB(
-                        sidePadding,
-                        30,
-                        sidePadding,
-                        18,
-                      ),
-                      children: <Widget>[
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 860),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: threadChildren,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _handleUserScroll,
+                    child: NotificationListener<ScrollMetricsNotification>(
+                      onNotification: _handleScrollMetrics,
+                      child: ListView(
+                        controller: _scrollController,
+                        padding: EdgeInsets.fromLTRB(
+                          sidePadding,
+                          30,
+                          sidePadding,
+                          18,
+                        ),
+                        children: <Widget>[
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 860),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: threadChildren,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

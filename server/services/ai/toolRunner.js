@@ -5,18 +5,11 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+const { shellQuote: shellEscape } = require('../../utils/shell');
 
 const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 const USER_SKILLS_DIR = path.join(SKILLS_DIR, 'users');
 const LEGACY_SKILL_USER_ID = 0;
-
-function shellEscape(value) {
-  const text = String(value ?? '');
-  if (text.length === 0) {
-    return "''";
-  }
-  return `'${text.replace(/'/g, `'\\''`)}'`;
-}
 
 // Shell metacharacters that must not appear in a skill command template.
 const SHELL_METACHAR_RE = /[;&|`$\n\r(){}\\<>]/;

@@ -84,3 +84,30 @@ test('file capability health names the attached Cowork folder', () => {
   const legacy = getFileHealth(app, {});
   assert.equal(legacy.summary, 'Per-user workspace access is available.');
 });
+
+test('browser capability health surfaces the computer lastError when the VM is down', async () => {
+  const health = await getBrowserHealth(
+    7,
+    {
+      locals: {
+        runtimeManager: {
+          getCapabilitySnapshot: () => ({
+            computer: {
+              state: 'error',
+              lastError: 'QEMU exited (1).\ncould not set up host forwarding',
+            },
+            browser: {
+              activeBackend: 'cloud-computer',
+              vmInitialized: true,
+            },
+          }),
+        },
+      },
+    },
+    {},
+  );
+
+  assert.equal(health.healthy, false);
+  assert.match(health.summary, /QEMU exited \(1\)/);
+  assert.match(health.summary, /host forwarding/);
+});

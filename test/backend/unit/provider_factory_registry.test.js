@@ -90,3 +90,24 @@ test('custom OpenAI-compatible provider requires both environment values', () =>
     delete process.env.OPENAI_COMPATIBLE_BASE_URL;
   }
 });
+
+test('official OpenAI stays off when the same key is used for a custom endpoint', () => {
+  process.env.OPENAI_API_KEY = 'shared-token';
+  process.env.OPENAI_COMPATIBLE_API_KEY = 'shared-token';
+  process.env.OPENAI_COMPATIBLE_BASE_URL = 'https://models.example.test/v1';
+  delete process.env.OPENAI_BASE_URL;
+  try {
+    const catalog = getProviderCatalog(null);
+    assert.equal(catalog.find((provider) => provider.id === 'openai-compatible')?.available, true);
+    assert.equal(catalog.find((provider) => provider.id === 'openai')?.available, false);
+
+    process.env.OPENAI_API_KEY = 'openai-only-token';
+    const distinct = getProviderCatalog(null);
+    assert.equal(distinct.find((provider) => provider.id === 'openai')?.available, true);
+  } finally {
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_COMPATIBLE_API_KEY;
+    delete process.env.OPENAI_COMPATIBLE_BASE_URL;
+    delete process.env.OPENAI_BASE_URL;
+  }
+});

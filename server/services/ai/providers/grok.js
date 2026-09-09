@@ -69,61 +69,7 @@ class GrokProvider extends OpenAICompatibleProvider {
     };
 
     const stream = await this.client.chat.completions.create(params, { signal: options.signal });
-
-    let toolCalls = [];
-    let content = '';
-    let finalUsage = null;
-
-    for await (const chunk of stream) {
-      if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
-        finalUsage = this.normalizeUsage(chunk.usage);
-        continue;
-      }
-
-      const delta = chunk.choices[0]?.delta;
-      if (!delta) continue;
-
-      if (delta.content) {
-        content += delta.content;
-        yield { type: 'content', content: delta.content };
-      }
-
-      if (delta.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          if (!toolCalls[tc.index]) {
-            toolCalls[tc.index] = { id: tc.id || '', type: 'function', function: { name: tc.function?.name || '', arguments: '' } };
-          }
-          if (tc.id) toolCalls[tc.index].id = tc.id;
-          if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
-          if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
-        }
-      }
-
-      const finishReason = chunk.choices[0]?.finish_reason;
-      if (finishReason === 'tool_calls' || (finishReason === 'stop' && toolCalls.length > 0)) {
-        yield {
-          type: 'tool_calls',
-          toolCalls,
-          content,
-          usage: this.normalizeUsage(chunk.usage) || finalUsage
-        };
-        return;
-      }
-      if (finishReason === 'stop') {
-        yield {
-          type: 'done',
-          content,
-          usage: this.normalizeUsage(chunk.usage) || finalUsage
-        };
-        return;
-      }
-    }
-
-    if (toolCalls.length > 0) {
-      yield { type: 'tool_calls', toolCalls, content, usage: finalUsage };
-    } else {
-      yield { type: 'done', content, usage: finalUsage };
-    }
+    yield* this.readStream(stream, tools);
   }
 
 }

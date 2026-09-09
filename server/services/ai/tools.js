@@ -16,6 +16,7 @@ const {
     getIntegratedToolDefinitions,
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
+const { runFileDiagnostics } = require('./file_diagnostics');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -51,21 +52,37 @@ function compactToolDefinition(tool, options = {}) {
     }
 
     if (tool.parameters?.properties) {
-        const properties = {};
-        for (const [key, value] of Object.entries(tool.parameters.properties)) {
-            properties[key] = { ...value };
-            if (options.includeDescriptions && value.description) {
-                properties[key].description = compactText(value.description, 160);
-            } else {
-                delete properties[key].description;
-            }
-        }
         compact.parameters = {
             ...compact.parameters,
-            properties
+            properties: compactProperties(tool.parameters.properties, options),
         };
     }
 
+    return compact;
+}
+
+function compactProperties(properties, options) {
+    const compacted = {};
+    for (const [key, value] of Object.entries(properties)) {
+        compacted[key] = compactSchema(value, options);
+    }
+    return compacted;
+}
+
+function compactSchema(schema, options) {
+    if (!schema || typeof schema !== 'object') return schema;
+    const compact = { ...schema };
+    if (options.includeDescriptions && schema.description) {
+        compact.description = compactText(schema.description, 160);
+    } else {
+        delete compact.description;
+    }
+    if (schema.properties && typeof schema.properties === 'object') {
+        compact.properties = compactProperties(schema.properties, options);
+    }
+    if (schema.items && typeof schema.items === 'object') {
+        compact.items = compactSchema(schema.items, options);
+    }
     return compact;
 }
 
@@ -1014,7 +1031,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'edit_file',
-            description: 'Replace specific blocks of text in a file. Useful for precise edits without overwriting the entire file. IMPORTANT: Preserve exact formatting and indentation when specifying newText.',
+            description: 'Replace specific blocks of text in a file. Useful for precise edits without overwriting the entire file. Each oldText must match exactly one location unless replace_all is true. IMPORTANT: Preserve exact formatting and indentation when specifying newText.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1028,7 +1045,8 @@ function getAvailableTools(app, options = {}) {
                                 oldText: { type: 'string', description: 'The exact text to replace.' },
                                 newText: { type: 'string', description: 'The replacement text.' },
                                 old_text: { type: 'string', description: 'Alias for oldText' },
-                                new_text: { type: 'string', description: 'Alias for newText' }
+                                new_text: { type: 'string', description: 'Alias for newText' },
+                                replace_all: { type: 'boolean', description: 'Replace every occurrence when oldText matches more than one location (default false).' }
                             },
                             required: []
                         },
@@ -1699,6 +1717,19 @@ async function executeTool(toolName, args, context, engine) {
     };
     const wc = () => app?.locals?.workspaceManager || engine.workspaceManager || null;
     const computerWorkspace = () => app?.locals?.computerWorkspaceManager || wc();
+    // A syntax error found right after a write costs one cheap check; found
+    // three turns later it costs the model a re-read and a guess.
+    const withFileDiagnostics = async (result, filePath) => {
+        if (!result || result.success === false || result.error) return result;
+        const runState = getRunState(engine, runId);
+        if (runState && !runState.fileDiagnostics) runState.fileDiagnostics = {};
+        const diagnostics = await runFileDiagnostics(runtime(), userId, filePath, {
+            signal,
+            deviceTarget,
+            history: runState?.fileDiagnostics || null,
+        });
+        return diagnostics ? { ...result, diagnostics } : result;
+    };
     const dc = () => {
         const scoped = app?.locals?.getDesktopProviderForUser;
         if (typeof scoped === 'function') {
@@ -1718,6 +1749,12 @@ async function executeTool(toolName, args, context, engine) {
     const credentials = () => app?.locals?.credentialBroker || null;
     const artifactStore = app?.locals?.artifactStore || null;
     const agentCalls = () => app?.locals?.agentCallCoordinator || null;
+
+    // The runtime replaced runaway streamed arguments with this marker; the
+    // call must fail with the reason rather than run on empty input.
+    if (typeof args?._discarded === 'string') {
+        return { success: false, error: args._discarded };
+    }
 
     const computerTool = toolName === 'execute_command'
         || toolName.startsWith('browser_')
@@ -1806,14 +1843,26 @@ async function executeTool(toolName, args, context, engine) {
                 signal,
                 deviceTarget,
             };
-            if (typeof runtimeManager.executeCliCommand === 'function') {
-                return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+            try {
+                if (typeof runtimeManager.executeCliCommand === 'function') {
+                    return await runtimeManager.executeCliCommand(userId, args.command, execOptions);
+                }
+                // Legacy fallback — older runtime manager without CLI routing.
+                if (typeof runtimeManager.executeCommand !== 'function') {
+                    return { error: 'Command execution is unavailable. VM runtime is required.' };
+                }
+                return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
+            } catch (err) {
+                const message = String(err?.message || err);
+                return {
+                    error: message,
+                    stderr: message,
+                    stdout: '',
+                    exitCode: null,
+                    timedOut: false,
+                    killed: false,
+                };
             }
-            // Legacy fallback — older runtime manager without CLI routing.
-            if (typeof runtimeManager.executeCommand !== 'function') {
-                return { error: 'Command execution is unavailable. VM runtime is required.' };
-            }
-            return { ...await runtimeManager.executeCommand(userId, args.command, execOptions), backend: 'vm' };
         }
 
         case 'browser_navigate': {
@@ -2666,13 +2715,16 @@ async function executeTool(toolName, args, context, engine) {
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
-                return await workspace.writeFile(userId, {
+                if (typeof args.content !== 'string') {
+                    return { success: false, error: 'write_file requires a string content argument; nothing was written.' };
+                }
+                return await withFileDiagnostics(await workspace.writeFile(userId, {
                     path: targetPath,
                     content: args.content,
                     mode: args.mode,
                     deviceTarget,
                     workspaceRoot,
-                });
+                }), targetPath);
             } catch (err) {
                 return { error: err.message };
             }
@@ -2689,14 +2741,15 @@ async function executeTool(toolName, args, context, engine) {
                         ...edit,
                         oldText: edit?.oldText ?? edit?.old_text,
                         newText: edit?.newText ?? edit?.new_text,
+                        replaceAll: (edit?.replaceAll ?? edit?.replace_all) === true,
                     }))
                     : [];
-                return await workspace.editFile(userId, {
+                return await withFileDiagnostics(await workspace.editFile(userId, {
                     path: targetPath,
                     edits,
                     deviceTarget,
                     workspaceRoot,
-                });
+                }), targetPath);
             } catch (err) {
                 return { error: err.message };
             }
@@ -2711,14 +2764,14 @@ async function executeTool(toolName, args, context, engine) {
                 }
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'replace_file_range requires path or file_path.' };
-                return await workspace.replaceFileRange(userId, {
+                return await withFileDiagnostics(await workspace.replaceFileRange(userId, {
                     path: targetPath,
                     start_line: args.start_line ?? args.startLine,
                     end_line: args.end_line ?? args.endLine,
                     content: args.content,
                     deviceTarget,
                     workspaceRoot,
-                });
+                }), targetPath);
             } catch (err) {
                 return { error: err.message };
             }

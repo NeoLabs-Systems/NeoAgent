@@ -13,9 +13,13 @@ const {
   QemuVMManager,
   buildQemuArgs,
   findOrphanedVmPids,
+  parseAccelerators,
+  selectAccelerators,
   getSparseDiskLiabilityBytes,
+  isProcessAlive,
   normalizeArchitecture,
   resolveQemuImgBinary,
+  waitForLoopbackPort,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 
 test('QEMU computer exposes display and guest agent only on loopback', () => {
@@ -45,6 +49,10 @@ test('QEMU computer exposes display and guest agent only on loopback', () => {
   assert.match(joined, /usb-tablet/);
   assert.match(joined, /-device virtio-vga,xres=1280,yres=720/);
   assert.match(joined, /order=c,menu=off,reboot-timeout=0,splash-time=0,strict=on/);
+  assert.doesNotMatch(joined, /-no-reboot/);
+  assert.doesNotMatch(joined, /mon:stdio/);
+  assert.match(joined, /-serial stdio/);
+  assert.match(joined, /-monitor none/);
   assert.equal(args.filter((argument) => argument === '-accel').length, 1);
 });
 
@@ -260,4 +268,68 @@ test('cached direct boot bypasses firmware disk discovery', () => {
   assert.match(args[args.indexOf('-append') + 1], /root=\/dev\/vda1/);
   assert.match(args[args.indexOf('-append') + 1], /console=ttyS0/);
   assert.match(args[args.indexOf('-append') + 1], /console=tty0/);
+});
+
+test('missing QEMU binaries fail with searched paths and surface as status.error', async () => {
+  const manager = new QemuVMManager({ qemuBinary: null, qemuImgBinary: null });
+  await assert.rejects(
+    () => manager.ensureVm('user-1'),
+    (error) => {
+      assert.equal(error.code, 'COMPUTER_RUNTIME_UNAVAILABLE');
+      assert.match(error.message, /missing qemu-system-/);
+      assert.match(error.message, /qemu-img/);
+      assert.match(error.message, /computer-runtime/);
+      return true;
+    },
+  );
+  const status = manager.getStatus('user-1');
+  assert.equal(status.state, 'error');
+  assert.equal(status.error, status.lastError);
+  assert.match(status.error, /missing qemu-system-/);
+});
+
+test('a non-executable QEMU binary is not treated as ready', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('execute-bit checks are POSIX-only');
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-norun-'));
+  try {
+    const fake = path.join(root, 'qemu-system-x86_64');
+    fs.writeFileSync(fake, '#!/bin/sh\nexit 1\n');
+    fs.chmodSync(fake, 0o644);
+    const manager = new QemuVMManager({ qemuBinary: fake, qemuImgBinary: fake });
+    const readiness = manager.getReadiness();
+    assert.equal(readiness.ready, false);
+    assert.ok(readiness.missing.includes('qemu-img'));
+    assert.ok(readiness.missing.some((name) => name.startsWith('qemu-system-')));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('display wait fails immediately when QEMU is already dead', async () => {
+  const startedAt = Date.now();
+  const ready = await waitForLoopbackPort(1, 5000, {
+    isDead: () => !isProcessAlive({ pid: -1, exitCode: 1, killed: false }),
+  });
+  assert.equal(ready, false);
+  assert.ok(Date.now() - startedAt < 1000);
+});
+
+test('accelerator help output is parsed as a name list', () => {
+  assert.deepEqual(parseAccelerators('Accelerators supported in QEMU binary:\nhvf\ntcg\n'), ['hvf', 'tcg']);
+});
+
+test('hardware acceleration is not selected unless it is actually usable', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('accelerator probes spawn a POSIX helper');
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-qemu-accel-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const fake = path.join(root, 'qemu-system-aarch64');
+  fs.writeFileSync(fake, '#!/bin/sh\nprintf "hvf\\ntcg\\n"\n');
+  fs.chmodSync(fake, 0o755);
+  assert.deepEqual(selectAccelerators(fake), ['tcg']);
 });

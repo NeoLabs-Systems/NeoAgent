@@ -14,12 +14,14 @@ const { NvidiaProvider } = require('./providers/nvidia');
 const { OpenRouterProvider } = require('./providers/openrouter');
 const {
     AI_PROVIDER_DEFINITIONS,
+    getAiSettings,
     getProviderConfigs,
     getProviderSecrets,
 } = require('./settings');
 const {
     createModelSelectionId,
     modelMatchesConfiguredId,
+    parseModelSelectionId,
     toSelectableModel,
 } = require('./model_identity');
 const {
@@ -149,10 +151,32 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         baseUrl,
         baseUrlConfigured: Boolean(baseUrl),
         baseUrlValid: !baseUrl || isValidHttpUrl(baseUrl),
+        hasScopedApiKey: Boolean(scopedApiKey),
     };
 }
 
+function isOfficialOpenAIHost(baseUrl) {
+    if (!baseUrl) return true;
+    try {
+        return new URL(baseUrl).hostname.toLowerCase() === 'api.openai.com';
+    } catch {
+        return false;
+    }
+}
+
+function officialOpenAISharesCompatibleKey(openaiRuntime, compatibleRuntime) {
+    return isOfficialOpenAIHost(openaiRuntime.baseUrl)
+        && Boolean(openaiRuntime.apiKey)
+        && openaiRuntime.apiKey === compatibleRuntime.apiKey
+        && !openaiRuntime.hasScopedApiKey;
+}
+
 function getProviderCatalog(userId, agentId = null) {
+    const compatibleRuntime = getProviderRuntimeConfig(userId, 'openai-compatible', agentId);
+    const compatibleReady = Boolean(compatibleRuntime.apiKey)
+        && compatibleRuntime.baseUrlConfigured
+        && compatibleRuntime.baseUrlValid;
+
     return Object.values(AI_PROVIDER_DEFINITIONS).map((definition) => {
         const runtime = getProviderRuntimeConfig(userId, definition.id, agentId);
         // Availability is purely "can we call this provider" -- it has
@@ -164,7 +188,15 @@ function getProviderCatalog(userId, agentId = null) {
         const hasCredential = !definition.supportsApiKey || Boolean(runtime.apiKey);
         const hasRequiredBaseUrl = !definition.requiresBaseUrl
             || (runtime.baseUrlConfigured && runtime.baseUrlValid);
-        const available = hasCredential && hasRequiredBaseUrl;
+        let available = hasCredential && hasRequiredBaseUrl;
+        if (
+            definition.id === 'openai'
+            && available
+            && compatibleReady
+            && officialOpenAISharesCompatibleKey(runtime, compatibleRuntime)
+        ) {
+            available = false;
+        }
 
         let status = 'ready';
         let statusLabel = 'Ready';
@@ -182,6 +214,10 @@ function getProviderCatalog(userId, agentId = null) {
             status = 'needs_setup';
             statusLabel = 'Setup Needed';
             availabilityReason = 'The configured base URL must be an HTTP or HTTPS URL without embedded credentials.';
+        } else if (definition.id === 'openai' && !available && compatibleReady) {
+            status = 'needs_setup';
+            statusLabel = 'Setup Needed';
+            availabilityReason = 'Official OpenAI is not enabled when OPENAI_API_KEY is the same key used for a custom OpenAI-compatible endpoint.';
         } else if (definition.id === 'ollama') {
             status = 'local';
             statusLabel = 'Local';
@@ -274,6 +310,35 @@ async function getProviderHealthCatalog(userId, agentId = null, options = {}) {
     return enriched;
 }
 
+function configuredModelRefs(userId, agentId) {
+    const settings = getAiSettings(userId, agentId);
+    const refs = [];
+    const seen = new Set();
+    for (const value of [
+        ...(Array.isArray(settings.enabled_models) ? settings.enabled_models : []),
+        settings.default_chat_model,
+        settings.default_subagent_model,
+    ]) {
+        const parsed = parseModelSelectionId(value);
+        if (!parsed) continue;
+        const selectionId = createModelSelectionId(parsed.provider, parsed.modelId);
+        if (seen.has(selectionId)) continue;
+        seen.add(selectionId);
+        refs.push(parsed);
+    }
+    return refs;
+}
+
+function addConfiguredModelFallbacks(all, seenModelIds, providerById, userId, agentId) {
+    for (const { provider, modelId } of configuredModelRefs(userId, agentId)) {
+        if (!providerById.get(provider)?.available) continue;
+        const selectionId = createModelSelectionId(provider, modelId);
+        if (seenModelIds.has(selectionId)) continue;
+        seenModelIds.add(selectionId);
+        all.push({ id: modelId, name: modelId, provider });
+    }
+}
+
 async function getSupportedModels(userId, agentId = null, options = {}) {
     throwIfAborted(options.signal);
     const providerCatalog = options.providerCatalog
@@ -325,6 +390,8 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             }
         }
     }
+
+    addConfiguredModelFallbacks(all, seenModelIds, providerById, userId, agentId);
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;

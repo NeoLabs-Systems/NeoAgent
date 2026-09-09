@@ -4,6 +4,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { getTrustedPostMessageOrigin } = require('../services/integrations/env');
 
 const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
 const AUTH_PROVIDER_STATE_RE = /^auth_[a-f0-9]{48}$/;
@@ -308,9 +309,11 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
     }
     const provider = manager.getProvider(req.params.provider);
     const providerLabel = provider?.label || req.params.provider;
-    const appLabel = provider?.getApp?.(session.appKey)?.label || session.appKey || 'account';
+    const sessionAppId = session.appId || session.appKey;
+    const appLabel = provider?.getApp?.(sessionAppId)?.label || sessionAppId || 'account';
     const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
     const statusUrl = `/api/integrations/${encodeURIComponent(req.params.provider)}/connect/${encodeURIComponent(req.params.sessionId)}/status?agentId=${encodeURIComponent(agentId)}`;
+    const loginUrl = String(session.loginUrl || '').trim();
     res.send(`
       <html>
         <head>
@@ -324,6 +327,9 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
             .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #1f2937; font-size: 12px; }
             img { display: block; margin: 24px auto; background: white; padding: 12px; border-radius: 16px; max-width: min(320px, 100%); }
             code { background: #0f172a; padding: 2px 6px; border-radius: 6px; }
+            .actions { margin: 20px 0 8px; }
+            a.button { display: inline-block; background: #0082c9; color: #fff; text-decoration: none; font-weight: 650; padding: 10px 14px; border-radius: 12px; }
+            a.button:hover { filter: brightness(1.08); }
           </style>
         </head>
         <body>
@@ -332,21 +338,48 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
             <h1>Connect ${escapeHtml(providerLabel)}</h1>
             <p class="muted">Complete connection for ${escapeHtml(appLabel)}. This window closes automatically when linking is finished.</p>
             <div id="status" class="muted">Starting connection…</div>
+            <div id="loginActions" class="actions" style="display:none;">
+              <a id="loginLink" class="button" target="_blank" rel="noopener noreferrer">Open ${escapeHtml(providerLabel)} login</a>
+            </div>
             <img id="qr" alt="Integration QR code" style="display:none;" />
-            <p class="muted">If this flow needs QR scan approval, the code will appear below.</p>
+            <p id="hint" class="muted">If this flow needs QR scan approval, the code will appear below.</p>
           </div>
           <script>
             const statusEl = document.getElementById('status');
             const qrEl = document.getElementById('qr');
+            const hintEl = document.getElementById('hint');
+            const loginActions = document.getElementById('loginActions');
+            const loginLink = document.getElementById('loginLink');
             const statusUrl = ${JSON.stringify(statusUrl)};
             const trustedOrigin = ${trustedOrigin};
             const provider = ${JSON.stringify(req.params.provider)};
-            const appId = ${JSON.stringify(session.appKey)};
+            const appId = ${JSON.stringify(sessionAppId)};
+            const initialLoginUrl = ${JSON.stringify(loginUrl)};
+            let loginOpened = false;
 
             function notifyOpener(payload) {
+              try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                  const channel = new BroadcastChannel('neoagent_oauth');
+                  channel.postMessage(payload);
+                  channel.close();
+                }
+              } catch (error) {}
               if (!window.opener) return;
               window.opener.postMessage(payload, trustedOrigin);
             }
+
+            function openLogin(url) {
+              if (!url) return;
+              loginLink.href = url;
+              loginActions.style.display = 'block';
+              hintEl.textContent = 'Sign in to ${escapeHtml(providerLabel)} in the window that opened. This page waits until you approve access.';
+              if (loginOpened) return;
+              loginOpened = true;
+              window.open(url, 'neoagent_integration_login', 'noopener,width=720,height=800');
+            }
+
+            if (initialLoginUrl) openLogin(initialLoginUrl);
 
             async function refresh() {
               const response = await fetch(statusUrl, { credentials: 'same-origin' });
@@ -356,12 +389,14 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
               }
               const data = await response.json();
               const status = String(data.status || 'connecting');
+              if (data.loginUrl) openLogin(String(data.loginUrl));
               if (status === 'awaiting_qr' && data.qr) {
                 statusEl.textContent = 'Scan this QR code to continue linking.';
                 qrEl.src = '/api/integrations/qr-image?data=' + encodeURIComponent(data.qr);
                 qrEl.style.display = 'block';
               } else if (status === 'connected') {
                 qrEl.style.display = 'none';
+                loginActions.style.display = 'none';
                 statusEl.textContent = 'Connected as ' + (data.accountEmail || 'your account') + '. Closing…';
                 notifyOpener({
                   type: 'integration_oauth_success',
@@ -382,6 +417,8 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
                   error: data.error || ('Connection ended with status: ' + status + '.'),
                 });
                 return;
+              } else if (data.loginUrl) {
+                statusEl.textContent = 'Waiting for you to sign in and approve access…';
               } else {
                 statusEl.textContent = 'Waiting for the integration to finish linking…';
               }

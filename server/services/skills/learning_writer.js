@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildSkillInstructions, isUsableProposal } = require('./learning_documents');
+const { buildSkillInstructions, isUsableProposal, proposalFailureMessage } = require('./learning_documents');
 
 class SkillLearningWriter {
   constructor({ skillRunner, repository, io = null }) {
@@ -34,7 +34,9 @@ class SkillLearningWriter {
     observationCount = 1,
     sourceKind = 'agent-run',
   }) {
-    if (!isUsableProposal(proposal)) return { success: false, ignored: true };
+    if (!isUsableProposal(proposal)) {
+      return { success: false, ignored: true, error: proposalFailureMessage(proposal) };
+    }
     let target = existing
       || this.findManagedWorkflow(userId, proposal.workflowKey || review.workflowKey)
       || this.skillRunner.getSkill(proposal.existingSkillName || proposal.name, userId);

@@ -13,124 +13,11 @@ EdgeInsets _pagePadding(BuildContext context) {
 
 final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
 
-class _AmbientBackdrop extends StatefulWidget {
-  const _AmbientBackdrop({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_AmbientBackdrop> createState() => _AmbientBackdropState();
-}
-
-class _AmbientBackdropState extends State<_AmbientBackdrop>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 24),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller
-        ..stop()
-        ..value = 0.5;
-    } else if (!_controller.isAnimating) {
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: _partyModeEnabled,
-      builder: (context, partyMode, _) {
-        return DecoratedBox(
-          decoration: BoxDecoration(gradient: _appBackgroundGradient),
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              final t = Curves.easeInOut.transform(_controller.value);
-              return Stack(
-                children: <Widget>[
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _AuroraFieldPainter(
-                          progress: t,
-                          partyMode: partyMode,
-                          primary: _accent,
-                          secondary: _accentAlt,
-                          base: _bgPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ArcadeGridPainter(
-                          progress: t,
-                          color: _accentAlt,
-                          partyMode: partyMode,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: <Color>[
-                              Colors.white.withValues(alpha: 0.05),
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.12),
-                            ],
-                            stops: const <double>[0, 0.32, 1],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ConfettiBitsPainter(
-                          progress: t,
-                          active: partyMode,
-                          primary: _accent,
-                          secondary: _accentAlt,
-                        ),
-                      ),
-                    ),
-                  ),
-                  widget.child,
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
+/// The app's single backdrop: a flat page ground.
+///
+/// Replaces the former ambient treatment (animated aurora field, arcade grid,
+/// vignette and confetti layers) that sat behind auth, setup, launcher and
+/// cowork. The five-tap logo easter egg survives on the badge itself.
 class _ControlSurfaceBackdrop extends StatelessWidget {
   const _ControlSurfaceBackdrop({required this.child});
 
@@ -139,179 +26,9 @@ class _ControlSurfaceBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            _bgPrimary,
-            Color.lerp(_bgPrimary, _accentAlt, 0.025)!,
-            Color.lerp(_bgPrimary, _accent, 0.02)!,
-          ],
-          stops: const <double>[0, 0.58, 1],
-          begin: const Alignment(-0.95, -1),
-          end: const Alignment(0.96, 1),
-        ),
-      ),
+      decoration: BoxDecoration(color: _bgPrimary),
       child: child,
     );
-  }
-}
-
-class _AuroraFieldPainter extends CustomPainter {
-  const _AuroraFieldPainter({
-    required this.progress,
-    required this.partyMode,
-    required this.primary,
-    required this.secondary,
-    required this.base,
-  });
-
-  final double progress;
-  final bool partyMode;
-  final Color primary;
-  final Color secondary;
-  final Color base;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final energy = partyMode ? 1.45 : 1.0;
-    final wash = Paint()
-      ..shader = LinearGradient(
-        colors: <Color>[
-          primary.withValues(alpha: 0.18 * energy),
-          secondary.withValues(alpha: 0.12 * energy),
-          base.withValues(alpha: 0),
-        ],
-        stops: const <double>[0, 0.42, 1],
-        begin: Alignment(-0.95 + progress * 0.35, -1),
-        end: Alignment(0.85 - progress * 0.25, 1),
-      ).createShader(rect);
-    canvas.drawRect(rect, wash);
-
-    for (var lane = 0; lane < 4; lane++) {
-      final yBase = size.height * (0.16 + lane * 0.18);
-      final path = Path()..moveTo(-size.width * 0.12, yBase);
-      for (var i = 0; i <= 8; i++) {
-        final x = size.width * (i / 8);
-        final phase = progress * math.pi * 2 + lane * 0.9 + i * 0.28;
-        final y = yBase + math.sin(phase) * (28 + lane * 9) * energy;
-        path.lineTo(x, y);
-      }
-      path.lineTo(size.width * 1.12, yBase + size.height * 0.34);
-      path.lineTo(-size.width * 0.12, yBase + size.height * 0.28);
-      path.close();
-
-      final lanePaint = Paint()
-        ..shader = LinearGradient(
-          colors: <Color>[
-            (lane.isEven ? primary : secondary).withValues(
-              alpha: (0.07 + lane * 0.012) * energy,
-            ),
-            Colors.transparent,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(rect)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 42);
-      canvas.drawPath(path, lanePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _AuroraFieldPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.partyMode != partyMode ||
-        oldDelegate.primary != primary ||
-        oldDelegate.secondary != secondary ||
-        oldDelegate.base != base;
-  }
-}
-
-class _ArcadeGridPainter extends CustomPainter {
-  const _ArcadeGridPainter({
-    required this.progress,
-    required this.color,
-    required this.partyMode,
-  });
-
-  final double progress;
-  final Color color;
-  final bool partyMode;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: partyMode ? 0.13 : 0.055)
-      ..strokeWidth = 1;
-    const step = 48.0;
-    final drift = progress * step;
-    for (double x = -step + drift; x < size.width + step; x += step) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x - size.width * 0.08, size.height),
-        paint,
-      );
-    }
-    for (double y = size.height * 0.58; y < size.height + step; y += step) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y - progress * 12),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcadeGridPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color ||
-        oldDelegate.partyMode != partyMode;
-  }
-}
-
-class _ConfettiBitsPainter extends CustomPainter {
-  const _ConfettiBitsPainter({
-    required this.progress,
-    required this.active,
-    required this.primary,
-    required this.secondary,
-  });
-
-  final double progress;
-  final bool active;
-  final Color primary;
-  final Color secondary;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (!active) return;
-    final paint = Paint()..style = PaintingStyle.fill;
-    for (var i = 0; i < 26; i++) {
-      final seed = i * 37.0;
-      final x = ((seed * 17 + progress * size.width * 0.35) % size.width);
-      final y = ((seed * 29 + progress * size.height * 0.9) % size.height);
-      final color = i.isEven ? primary : secondary;
-      paint.color = color.withValues(alpha: 0.16 + (i % 4) * 0.035);
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(progress * math.pi * 2 + i);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset.zero, width: 5 + (i % 3), height: 2.5),
-          const Radius.circular(2),
-        ),
-        paint,
-      );
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ConfettiBitsPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.active != active ||
-        oldDelegate.primary != primary ||
-        oldDelegate.secondary != secondary;
   }
 }
 
@@ -358,18 +75,22 @@ class _EntranceMotionState extends State<_EntranceMotion> {
   }
 }
 
-class _GlassSurface extends StatelessWidget {
-  const _GlassSurface({
+/// Flat control-surface panel: an opaque card on a hairline border.
+///
+/// Replaces the former glass treatment (backdrop blur + liquid-metal overlay
+/// + highlight sheen). Those layers cost a raster pass per card and read as
+/// noise at this density; the surface now carries fill, border and radius
+/// only, matching the sibling app's finish.
+class _PanelSurface extends StatelessWidget {
+  const _PanelSurface({
     required this.child,
     this.width,
     this.padding,
     this.borderRadius = const BorderRadius.all(
       Radius.circular(AppRadius.panel),
     ),
-    this.blurSigma = 20,
     this.fillColor,
     this.borderColor,
-    this.overlayGradient,
     this.boxShadow,
   });
 
@@ -377,55 +98,23 @@ class _GlassSurface extends StatelessWidget {
   final double? width;
   final EdgeInsetsGeometry? padding;
   final BorderRadius borderRadius;
-  final double blurSigma;
   final Color? fillColor;
   final Color? borderColor;
-  final Gradient? overlayGradient;
   final List<BoxShadow>? boxShadow;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: width,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          boxShadow: boxShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: fillColor ?? _glassFill,
-                gradient: overlayGradient ?? _liquidMetalGradient,
-                borderRadius: borderRadius,
-                border: Border.all(color: borderColor ?? _glassBorder),
-              ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: borderRadius,
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      _glassHighlight.withValues(alpha: 0.2),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.06),
-                    ],
-                    stops: const <double>[0, 0.22, 1],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Padding(
-                  padding: padding ?? EdgeInsets.zero,
-                  child: child,
-                ),
-              ),
-            ),
-          ),
-        ),
+      padding: padding,
+      decoration: BoxDecoration(
+        color: fillColor ?? _bgCard,
+        borderRadius: borderRadius,
+        border: Border.all(color: borderColor ?? _border),
+        boxShadow: boxShadow,
       ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }
@@ -445,6 +134,36 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.agents,
     AppSection.messaging,
   ];
+}
+
+/// Sections belonging to [group], in the order the navigation shows them.
+///
+/// Settings gets one extra entry: account settings has no sidebar row on
+/// desktop (the rail footer's avatar opens it), so on a phone — where there
+/// is no rail footer — the chip row is its only way in.
+List<AppSection> _groupSections(
+  NeoAgentController controller,
+  SidebarGroup group,
+) {
+  final sections = _mainSections(
+    controller,
+  ).where((section) => section.group == group).toList();
+  if (group == SidebarGroup.settings && sections.isNotEmpty) {
+    sections.insert(1, AppSection.accountSettings);
+  }
+  return sections;
+}
+
+/// The section a group opens on when it is selected as a whole.
+AppSection _groupDefaultSection(
+  NeoAgentController controller,
+  SidebarGroup group,
+) {
+  if (group == SidebarGroup.settings) {
+    return AppSection.settings;
+  }
+  final sections = _groupSections(controller, group);
+  return sections.isEmpty ? AppSection.chat : sections.first;
 }
 
 List<Widget> _buildSidebarItems(
@@ -615,8 +334,6 @@ class _PageTitle extends StatelessWidget {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
-                  const SizedBox(height: 8),
                   Text(
                     title,
                     maxLines: 1,
@@ -641,8 +358,6 @@ class _PageTitle extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text('CONTROL SURFACE', style: _sectionEyebrowStyle()),
-                        const SizedBox(height: 8),
                         Text(title, style: titleStyle),
                         const SizedBox(height: 10),
                         ConstrainedBox(
@@ -1107,10 +822,9 @@ class _DotStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PulseHalo(
       color: color,
-      child: _GlassSurface(
+      child: _PanelSurface(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         borderRadius: BorderRadius.circular(999),
-        blurSigma: 16,
         fillColor: _bgSecondary.withValues(alpha: 0.3),
         borderColor: color.withValues(alpha: 0.24),
         child: Row(
@@ -1250,41 +964,19 @@ class _SidebarButtonState extends State<_SidebarButton> {
   Widget build(BuildContext context) {
     final active = widget.active;
     final radius = BorderRadius.circular(widget.compact ? 12 : 14);
-    final BoxDecoration decoration = active
-        ? BoxDecoration(
-            color: _bgCard.withValues(alpha: 0.96),
-            borderRadius: radius,
-            border: Border.all(color: _borderLight),
-            gradient: LinearGradient(
-              colors: <Color>[
-                _accent.withValues(alpha: 0.10),
-                _bgCard.withValues(alpha: 0.96),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-              BoxShadow(
-                color: _accent.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          )
-        : BoxDecoration(
-            color: _hovering
+    // Flat control-surface finish: the active row is a single accent wash —
+    // no gradient, no drop shadows, no left rail bar. Selection reads from
+    // the fill plus the gold glyph, the way the sibling app states it.
+    final decoration = BoxDecoration(
+      color: active
+          ? _accentMuted
+          : (_hovering
                 ? _bgTertiary.withValues(alpha: 0.66)
-                : Colors.transparent,
-            borderRadius: radius,
-            border: Border.all(color: _hovering ? _border : Colors.transparent),
-          );
+                : Colors.transparent),
+      borderRadius: radius,
+    );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.only(bottom: 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovering = true),
         onExit: (_) => setState(() => _hovering = false),
@@ -1294,88 +986,39 @@ class _SidebarButtonState extends State<_SidebarButton> {
             borderRadius: radius,
             onTap: widget.onTap,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 160),
               curve: Curves.easeOutCubic,
               width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                12,
-                widget.compact ? 8 : 10,
-                12,
-                widget.compact ? 8 : 10,
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.compact ? 10 : 11,
+                vertical: widget.compact ? 7 : 9,
               ),
               decoration: decoration,
-              child: Stack(
-                alignment: Alignment.centerLeft,
+              child: Row(
                 children: <Widget>[
-                  if (active)
-                    Positioned(
-                      left: -12,
-                      child: Container(
-                        width: 3,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          gradient: LinearGradient(
-                            colors: <Color>[_accentAlt, _accent],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                          boxShadow: <BoxShadow>[
-                            BoxShadow(
-                              color: _accent.withValues(alpha: 0.35),
-                              blurRadius: 8,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
+                  Icon(
+                    widget.icon,
+                    size: widget.iconSize,
+                    color: active ? _accent : _textMuted,
+                  ),
+                  SizedBox(width: widget.compact ? 9 : 11),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.geist(
+                        fontSize: widget.fontSize,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
+                        color: active ? _textPrimary : _textSecondary,
                       ),
                     ),
-                  Row(
-                    children: <Widget>[
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        width: widget.iconSize + 14,
-                        height: widget.iconSize + 14,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(11),
-                          color: active
-                              ? _accent.withValues(alpha: 0.12)
-                              : (_hovering
-                                    ? _bgSecondary.withValues(alpha: 0.7)
-                                    : Colors.transparent),
-                          border: Border.all(
-                            color: active
-                                ? _accent.withValues(alpha: 0.22)
-                                : Colors.transparent,
-                          ),
-                        ),
-                        child: Icon(
-                          widget.icon,
-                          size: widget.iconSize,
-                          color: active ? _accent : _textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.geist(
-                            fontSize: widget.fontSize,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.1,
-                            color: active ? _textPrimary : _textSecondary,
-                          ),
-                        ),
-                      ),
-                      if (widget.trailing != null) ...<Widget>[
-                        const SizedBox(width: 8),
-                        widget.trailing!,
-                      ],
-                    ],
                   ),
+                  if (widget.trailing != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
                 ],
               ),
             ),
@@ -1573,6 +1216,176 @@ class _BrandLockup extends StatelessWidget {
         SizedBox(height: spacing),
         title,
       ],
+    );
+  }
+}
+
+/// Date eyebrow + time-of-day greeting, left-aligned.
+///
+/// This is the chat empty state's headline — it shows only while the thread
+/// is empty and gives way to the conversation on the first message.
+class _GreetingHeader extends StatelessWidget {
+  const _GreetingHeader({required this.subtitle});
+
+  final String subtitle;
+
+  static const List<String> _weekdays = <String>[
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  static const List<String> _months = <String>[
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUNE',
+    'JULY',
+    'AUG',
+    'SEPT',
+    'OCT',
+    'NOV',
+    'DEC',
+  ];
+
+  static String greetingFor(int hour) {
+    if (hour < 5) {
+      return 'Good evening';
+    }
+    if (hour < 12) {
+      return 'Good morning';
+    }
+    if (hour < 18) {
+      return 'Good afternoon';
+    }
+    return 'Good evening';
+  }
+
+  static String dateLabelFor(DateTime moment) {
+    final weekday = _weekdays[moment.weekday - 1];
+    final month = _months[moment.month - 1];
+    return '$weekday \u00B7 ${moment.day} $month';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final moment = DateTime.now();
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          dateLabelFor(moment),
+          style: GoogleFonts.geistMono(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.8,
+            color: _textMuted,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          greetingFor(moment.hour),
+          style: _displayTitleStyle(compact ? 24 : 32),
+        ),
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.5,
+              color: _textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A prompt starter on the greeting screen. Tapping one types its prompt into
+/// the composer; it sends nothing on its own.
+class _PromptStarter extends StatefulWidget {
+  const _PromptStarter({
+    required this.icon,
+    required this.prompt,
+    required this.caption,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String prompt;
+  final String caption;
+  final VoidCallback onTap;
+
+  @override
+  State<_PromptStarter> createState() => _PromptStarterState();
+}
+
+class _PromptStarterState extends State<_PromptStarter> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.card);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(15, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: _hovering ? _bgTertiary : _bgCard,
+              borderRadius: radius,
+              border: Border.all(color: _hovering ? _borderLight : _border),
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(widget.icon, size: 18, color: _accentAlt),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        widget.prompt,
+                        style: GoogleFonts.geist(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.caption,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.4,
+                          color: _textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2113,10 +1926,9 @@ class _MessageRunCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return _PanelSurface(
       padding: const EdgeInsets.all(12),
       borderRadius: BorderRadius.circular(14),
-      blurSigma: 18,
       fillColor: _bgPrimary.withValues(alpha: 0.34),
       child: child,
     );
@@ -2300,10 +2112,9 @@ class _MetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accentColor = color ?? _accentAlt;
-    return _GlassSurface(
+    return _PanelSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       borderRadius: BorderRadius.circular(999),
-      blurSigma: 10,
       fillColor: _bgCard.withValues(alpha: 0.86),
       borderColor: _borderLight,
       child: Row(
@@ -2332,11 +2143,10 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return _PanelSurface(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       borderRadius: BorderRadius.circular(16),
-      blurSigma: 12,
       fillColor: _bgCard.withValues(alpha: 0.72),
       borderColor: _borderLight,
       child: Row(

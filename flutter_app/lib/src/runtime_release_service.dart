@@ -136,6 +136,7 @@ class RuntimeReleaseService {
     }
     final sink = target.openWrite();
     var received = 0;
+    var lastReportedProgress = -1.0;
     try {
       await for (final chunk in response.stream) {
         _checkCancelled();
@@ -147,9 +148,14 @@ class RuntimeReleaseService {
             'The NeoAgent backend download did not match its manifest.',
           );
         }
-        _onDownloadProgress(
-          (received / release.artifact.sizeBytes).clamp(0, 1),
+        final progress = (received / release.artifact.sizeBytes).clamp(
+          0.0,
+          1.0,
         );
+        if (progress == 1.0 || progress - lastReportedProgress >= 0.01) {
+          lastReportedProgress = progress;
+          _onDownloadProgress(progress);
+        }
       }
     } finally {
       await sink.close();

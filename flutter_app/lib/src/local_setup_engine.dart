@@ -36,6 +36,10 @@ LocalBackendInstallStage setupEngineStage(String stage) {
     final state = decoded['state']?.toString() ?? 'message';
     final error = decoded['error'];
     final rawResult = decoded['result'];
+    final eventMessage = decoded['message']?.toString().trim() ?? '';
+    final errorDetail = error is Map
+        ? error['detail']?.toString().trim() ?? ''
+        : '';
     LocalBackendInstallResult? installResult;
     if (state == 'ready' && rawResult is Map) {
       final result = Map<String, dynamic>.from(rawResult);
@@ -65,7 +69,9 @@ LocalBackendInstallStage setupEngineStage(String stage) {
       LocalBackendInstallEvent(
         stage: setupEngineStage(stageName),
         state: state,
-        message: decoded['message']?.toString() ?? 'Preparing NeoAgent',
+        message: eventMessage.isNotEmpty
+            ? eventMessage
+            : (errorDetail.isNotEmpty ? errorDetail : 'Preparing NeoAgent'),
         progress: (decoded['progress'] as num?)?.toDouble(),
         errorCode: error is Map ? error['code']?.toString() : null,
         retryable: error is! Map || error['retryable'] != false,
@@ -114,8 +120,12 @@ class LocalSetupEngine {
       workingDirectory: '${versionDirectory.path}${Platform.pathSeparator}app',
     );
     _process = process;
-    final stderrSubscription = process.stderr.listen((_) {});
+    final stderrBuffer = StringBuffer();
+    final stderrSubscription = process.stderr
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(stderrBuffer.write);
     LocalBackendInstallResult? result;
+    LocalBackendInstallerException? engineFailure;
     try {
       await for (final line
           in process.stdout
@@ -125,6 +135,13 @@ class LocalSetupEngine {
         if (parsed == null) continue;
         _onEvent(parsed.$1);
         if (parsed.$2 != null) result = parsed.$2;
+        if (parsed.$1.state == 'failed') {
+          engineFailure = LocalBackendInstallerException(
+            parsed.$1.errorCode ?? 'SETUP_ENGINE_FAILED',
+            parsed.$1.message,
+            retryable: parsed.$1.retryable,
+          );
+        }
       }
       final exitCode = await process.exitCode;
       if (_cancelled) {
@@ -134,10 +151,11 @@ class LocalSetupEngine {
         );
       }
       if (exitCode != 0 || result == null) {
-        throw const LocalBackendInstallerException(
-          'SETUP_ENGINE_FAILED',
-          'NeoAgent could not finish the local setup.',
-        );
+        throw engineFailure ??
+            LocalBackendInstallerException(
+              'SETUP_ENGINE_FAILED',
+              setupEngineFallbackMessage(stderrBuffer.toString()),
+            );
       }
       return result;
     } finally {
@@ -150,4 +168,15 @@ class LocalSetupEngine {
     _cancelled = true;
     _process?.kill(ProcessSignal.sigterm);
   }
+}
+
+String setupEngineFallbackMessage(String stderr) {
+  final compact = stderr.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.isEmpty) {
+    return 'NeoAgent could not finish the local setup.';
+  }
+  final detail = compact.length <= 400
+      ? compact
+      : compact.substring(compact.length - 400);
+  return 'NeoAgent could not finish the local setup. $detail';
 }

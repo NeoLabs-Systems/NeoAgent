@@ -1,12 +1,92 @@
+'use strict';
+
 const { BaseProvider } = require('./base');
+const { createJsonPrefixTracker, createStreamGuard, degenerateOutputError } = require('./stream_guard');
+
+function visibleText(part) {
+  return String(part?.content || part?.reasoning_content || '');
+}
 
 // Shared base for providers that speak the OpenAI Chat Completions wire format
 // (OpenAI, Grok, NVIDIA NIM, GitHub Copilot, ...). It owns the response/usage
-// normalization and vision request that were previously copy-pasted into each
-// provider. Per-provider concerns — client construction, model lists, context
-// windows, reasoning detection, and the streaming loop — stay in the subclasses,
-// since those genuinely differ between vendors.
+// normalization, the streaming consumer, and the vision request that were
+// previously copy-pasted into each provider. Per-provider concerns — client
+// construction, model lists, context windows, reasoning detection — stay in
+// the subclasses, since those genuinely differ between vendors.
 class OpenAICompatibleProvider extends BaseProvider {
+  // Consumes a Chat Completions SSE stream. Keeps reading past finish_reason so
+  // the trailing usage-only chunk (stream_options.include_usage) is captured,
+  // and aborts as soon as any tool-call argument or the reply text turns into
+  // runaway output instead of letting it run to max_tokens.
+  async *readStream(stream, tools = []) {
+    const contentGuard = createStreamGuard();
+    const argumentGuards = [];
+    const argumentJson = [];
+    const toolCalls = [];
+    const declaredKeys = new Map(tools.map((tool) => [
+      tool.name,
+      tool.parameters?.properties && tool.parameters.additionalProperties !== true
+        ? new Set(Object.keys(tool.parameters.properties))
+        : null,
+    ]));
+    let content = '';
+    let finishReason = null;
+    let usage = null;
+
+    const check = (verdict, toolName = '') => {
+      if (verdict) throw degenerateOutputError(this.name, verdict, toolName);
+    };
+
+    for await (const chunk of stream) {
+      if (chunk.usage) usage = this.normalizeUsage(chunk.usage);
+      const choice = chunk.choices?.[0];
+      const delta = choice?.delta;
+      const text = visibleText(delta);
+      if (text) {
+        content += text;
+        check(contentGuard.feed(text));
+        yield { type: 'content', content: text };
+      }
+      for (const tc of delta?.tool_calls || []) {
+        const index = Number.isInteger(tc.index) ? tc.index : toolCalls.length;
+        if (!toolCalls[index]) {
+          toolCalls[index] = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
+          argumentGuards[index] = createStreamGuard();
+          argumentJson[index] = createJsonPrefixTracker({
+            isKnownKey: (key) => {
+              const known = declaredKeys.get(toolCalls[index].function.name);
+              return !known || known.has(key);
+            },
+          });
+        }
+        if (tc.id) toolCalls[index].id = tc.id;
+        // Names arrive once, in pieces, or repeated on every delta depending
+        // on the endpoint; append only what is not already there.
+        if (tc.function?.name && !toolCalls[index].function.name.endsWith(tc.function.name)) {
+          toolCalls[index].function.name += tc.function.name;
+        }
+        if (tc.function?.arguments) {
+          toolCalls[index].function.arguments += tc.function.arguments;
+          const name = toolCalls[index].function.name;
+          if (!argumentJson[index].feed(tc.function.arguments)) {
+            check({ reason: argumentJson[index].reason, bytes: toolCalls[index].function.arguments.length }, name);
+          }
+          check(argumentGuards[index].feed(tc.function.arguments), name);
+        }
+      }
+      if (choice?.finish_reason) finishReason = choice.finish_reason;
+    }
+
+    const calls = toolCalls.filter(Boolean);
+    yield {
+      type: calls.length > 0 ? 'tool_calls' : 'done',
+      content,
+      toolCalls: calls,
+      finishReason,
+      usage,
+    };
+  }
+
   normalizeUsage(usage) {
     if (!usage) return null;
     return {
@@ -34,7 +114,7 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
     const msg = choice.message || {};
     return {
-      content: msg.content || '',
+      content: visibleText(msg),
       toolCalls: (msg.tool_calls || [])
         .filter((tc) => tc?.function)
         .map((tc) => ({

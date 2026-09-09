@@ -47,7 +47,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
     }
     final controller = widget.controller;
     final candidates = controller.discoveredBackends;
-    return _AmbientBackdrop(
+    return _ControlSurfaceBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -57,12 +57,9 @@ class _BackendSetupViewState extends State<BackendSetupView> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: _EntranceMotion(
-                  child: _GlassSurface(
+                  child: _PanelSurface(
                     borderRadius: BorderRadius.circular(34),
-                    blurSigma: 28,
                     boxShadow: _softPanelShadow,
-                    overlayGradient: _panelGradient,
-                    fillColor: _glassFill,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
                       child: Column(

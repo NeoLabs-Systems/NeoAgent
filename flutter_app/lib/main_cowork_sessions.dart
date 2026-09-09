@@ -73,7 +73,7 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
       'This week',
       'Earlier',
     ];
-    return _GlassSurface(
+    return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.panel),
       fillColor: _bgSecondary.withValues(alpha: 0.78),
       child: Column(

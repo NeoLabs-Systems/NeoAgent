@@ -138,7 +138,12 @@ const MESSAGE_KINDS = Object.freeze({
 const DEFAULT_LEASE_MS = 60_000;
 const DEFAULT_MAX_SILENCE_SECONDS = 90;
 
+// A progress line is trimmed to 400 characters after the call; there is no
+// reason to let the model write more than that.
+const NARRATION_MAX_TOKENS = 300;
+
 module.exports = {
+  NARRATION_MAX_TOKENS,
   RUNTIME_STATES,
   TERMINAL_RUNTIME_STATES,
   PRODUCT_STATUS_BY_RUNTIME,

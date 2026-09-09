@@ -340,7 +340,14 @@ class TeachService {
         },
         signal: session.abortController.signal,
       });
-      if (!result?.success) throw new Error(result?.error || 'Skill creation failed.');
+      if (!result?.success) {
+        const error = new Error(result?.error || 'The demonstration did not produce a reusable skill.');
+        if (result?.ignored) {
+          error.status = 422;
+          error.code = 'TEACH_SKILL_NOT_CREATED';
+        }
+        throw error;
+      }
       session.status = 'completed';
       this.#emit(session, { skill: result.name });
       return { success: true, skill: result.name, description: result.description };

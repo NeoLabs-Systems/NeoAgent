@@ -91,8 +91,6 @@ class _BillingPanelState extends State<BillingPanel> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('SETTINGS', style: _sectionEyebrowStyle()),
-                      const SizedBox(height: 6),
                       Text('Billing & subscription',
                           style: _displayTitleStyle(26)),
                       const SizedBox(height: 8),
@@ -113,8 +111,6 @@ class _BillingPanelState extends State<BillingPanel> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text('SETTINGS', style: _sectionEyebrowStyle()),
-                            const SizedBox(height: 8),
                             Text('Billing & subscription',
                                 style: _displayTitleStyle(32)),
                             const SizedBox(height: 10),

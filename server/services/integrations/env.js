@@ -15,6 +15,16 @@ function resolvePublicBaseUrl() {
   return `${scheme}://localhost:${trimEnv('PORT') || DEFAULT_NEOAGENT_PORT}`;
 }
 
+function getTrustedPostMessageOrigin(req) {
+  try {
+    return new URL(resolvePublicBaseUrl()).origin;
+  } catch {
+    const host = typeof req?.get === 'function' ? String(req.get('host') || '').trim() : '';
+    if (!host) return '';
+    return `${req.protocol}://${host}`;
+  }
+}
+
 function resolveOAuthConfig(prefix) {
   const normalizedPrefix = String(prefix || '').trim().toUpperCase();
   const clientId = trimEnv(`${normalizedPrefix}_OAUTH_CLIENT_ID`);
@@ -99,6 +109,7 @@ module.exports = {
   resolveNotionOAuthConfig,
   resolveOAuthConfig,
   resolveGoogleOAuthConfig,
+  getTrustedPostMessageOrigin,
   resolvePublicBaseUrl,
   resolveSpotifyOAuthConfig,
   resolveSlackOAuthConfig,

@@ -85,57 +85,81 @@ class LocalBackendInstaller {
         '${runtimeRoot.path}${Platform.pathSeparator}app'
         '${Platform.pathSeparator}versions',
       );
-      versionsRoot.createSync(recursive: true);
-      stagingDirectory = await Directory(
-        '${versionsRoot.path}${Platform.pathSeparator}.staging-',
-      ).createTemp();
-      archiveFile = File(
-        '${stagingDirectory.path}${Platform.pathSeparator}${artifact.assetName}',
-      );
-
-      _emit(
-        LocalBackendInstallStage.download,
-        'started',
-        'Downloading the NeoAgent backend',
-        progress: 0.12,
-      );
-      await _releaseService.downloadArtifact(release, archiveFile);
-      _throwIfCancelled();
-
-      _emit(
-        LocalBackendInstallStage.verify,
-        'started',
-        'Verifying the downloaded runtime',
-        progress: 0.5,
-      );
-      final digest = await sha256.bind(archiveFile.openRead()).first;
-      if (digest.toString() != artifact.sha256) {
-        throw const LocalBackendInstallerException(
-          'SETUP_RUNTIME_HASH_MISMATCH',
-          'The downloaded NeoAgent runtime did not pass verification.',
-        );
-      }
-
-      final extractedDirectory = Directory(
-        '${stagingDirectory.path}${Platform.pathSeparator}extracted',
-      );
-      extractedDirectory.createSync(recursive: true);
-      _emit(
-        LocalBackendInstallStage.install,
-        'started',
-        'Installing NeoAgent',
-        progress: 0.58,
-      );
-      await extractVerifiedRuntimeArchive(
-        archiveFile.path,
-        extractedDirectory.path,
-      );
-      _activationService.validateExtractedRuntime(extractedDirectory);
       final versionDirectory = Directory(
         '${versionsRoot.path}${Platform.pathSeparator}${release.manifest.version}',
       );
-      if (!versionDirectory.existsSync()) {
-        extractedDirectory.renameSync(versionDirectory.path);
+      deleteOrphanRuntimeStaging(versionsRoot);
+      if (!_activationService.isCompleteRuntime(versionDirectory)) {
+        stagingDirectory = await createRuntimeStagingDirectory(versionsRoot);
+        archiveFile = File(
+          '${stagingDirectory.path}${Platform.pathSeparator}${artifact.assetName}',
+        );
+
+        _emit(
+          LocalBackendInstallStage.download,
+          'started',
+          'Downloading the NeoAgent backend',
+          progress: 0.12,
+        );
+        await _releaseService.downloadArtifact(release, archiveFile);
+        _throwIfCancelled();
+
+        _emit(
+          LocalBackendInstallStage.verify,
+          'started',
+          'Verifying the downloaded runtime',
+          progress: 0.5,
+        );
+        final digest = await sha256.bind(archiveFile.openRead()).first;
+        if (digest.toString() != artifact.sha256) {
+          throw const LocalBackendInstallerException(
+            'SETUP_RUNTIME_HASH_MISMATCH',
+            'The downloaded NeoAgent runtime did not pass verification.',
+          );
+        }
+
+        final extractedDirectory = Directory(
+          '${stagingDirectory.path}${Platform.pathSeparator}extracted',
+        );
+        extractedDirectory.createSync(recursive: true);
+        _emit(
+          LocalBackendInstallStage.install,
+          'started',
+          'Extracting the NeoAgent runtime',
+          progress: 0.58,
+        );
+        var extractProgress = 0.58;
+        final extractTicker = Timer.periodic(const Duration(seconds: 2), (_) {
+          if (_cancelled) return;
+          extractProgress = (extractProgress + 0.008)
+              .clamp(0.58, 0.69)
+              .toDouble();
+          _emit(
+            LocalBackendInstallStage.install,
+            'progress',
+            'Extracting the NeoAgent runtime',
+            progress: extractProgress,
+          );
+        });
+        try {
+          await extractVerifiedRuntimeArchive(
+            archiveFile.path,
+            extractedDirectory.path,
+          );
+        } finally {
+          extractTicker.cancel();
+        }
+        _activationService.validateExtractedRuntime(extractedDirectory);
+        if (!versionDirectory.existsSync()) {
+          extractedDirectory.renameSync(versionDirectory.path);
+        }
+      } else {
+        _emit(
+          LocalBackendInstallStage.install,
+          'started',
+          'Using the installed NeoAgent runtime',
+          progress: 0.7,
+        );
       }
       final previousVersion = await _activationService.activate(
         runtimeRoot,
@@ -270,6 +294,25 @@ class LocalBackendInstaller {
     cancel();
     _httpClient.close();
     unawaited(_events.close());
+  }
+}
+
+Future<Directory> createRuntimeStagingDirectory(Directory versionsRoot) async {
+  versionsRoot.createSync(recursive: true);
+  return versionsRoot.createTemp('.staging-');
+}
+
+void deleteOrphanRuntimeStaging(Directory versionsRoot) {
+  if (!versionsRoot.existsSync()) return;
+  for (final entity in versionsRoot.listSync(followLinks: false)) {
+    if (entity is! Directory) continue;
+    final name = entity.path.split(Platform.pathSeparator).last;
+    if (!name.startsWith('.staging-')) continue;
+    try {
+      entity.deleteSync(recursive: true);
+    } on Object {
+      // A leftover staging directory is removed on the next successful setup.
+    }
   }
 }
 

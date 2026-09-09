@@ -10,6 +10,7 @@ const {
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const {
   ALWAYS_INCLUDE_BUILT_INS,
+  suggestsCoreFileWork,
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
@@ -47,7 +48,6 @@ const {
   buildDeterministicMessagingFallback,
   buildMaxIterationWrapupPrompt,
   buildProgressUpdatePrompt,
-  buildRunAcknowledgementPrompt,
   normalizeOutgoingMessage,
 } = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
@@ -57,7 +57,7 @@ const {
 } = require('../../../utils/abort');
 const { createServiceLogger } = require('../../../utils/logger');
 
-const { RUNTIME_STATES, MESSAGE_KINDS } = require('./constants');
+const { MESSAGE_KINDS, NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 const stateMachine = require('./run_state_machine');
@@ -101,6 +101,8 @@ const { createWorkingMemory } = require('./memory/working_memory');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
+
+const FILE_MUTATION_TOOLS = new Set(['write_file', 'edit_file', 'replace_file_range']);
 
 const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
   'search_tools',
@@ -183,7 +185,6 @@ class DurableRunRuntime {
     let providerName = null;
     const failedModelIds = new Set();
     let messages = [];
-    let ackContextMessages = [];
     let tools = [];
     let systemPrompt = '';
     let analysis = null;
@@ -390,7 +391,16 @@ class DurableRunRuntime {
         getLastVisibleAt: () => Date.parse(
           this.engine.getRunMeta(runId)?.progressLedger?.lastUserVisibleUpdateAt || '',
         ) || 0,
-        narrator: async ({ delta, liveness }) => this.#narrateProgress({
+        // A model turn that is still streaming has produced nothing to report;
+        // narrating it can only tell the user that nothing has happened.
+        narrator: async ({ delta, liveness }) => (
+          this.engine.getRunMeta(runId)?.progressLedger?.currentPhase === 'model'
+          && !Number(liveness?.runningTools)
+          && !delta?.evidence?.length
+          && !delta?.completed_since_last_update?.length
+          && !delta?.blockers?.length
+            ? ''
+            : this.#narrateProgress({
           provider,
           providerName,
           model,
@@ -403,7 +413,8 @@ class DurableRunRuntime {
           userId,
           agentId,
           signal: abortController.signal,
-        }),
+        })
+        ),
       });
       progressBroker.markAccepted();
 
@@ -462,50 +473,11 @@ class DurableRunRuntime {
         if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
         if (triggerType === 'subagent' || triggerSource === 'cowork') return;
 
-        let ackText = options.latencyPriority === 'interactive'
-          ? String(analysisAck || '').trim()
-          : '';
-        try {
-          if (!ackText) {
-            const ackResponse = await this.engine.requestModelResponse({
-            provider,
-            providerName,
-            model,
-            // The real conversation, not a synthetic prompt: system persona,
-            // recalled memory, recent history, and the message being answered.
-            // Without it the line has no voice and no way to differ from the
-            // last one, which is what made acknowledgements read as canned.
-            messages: sanitizeConversationMessages([
-              ...ackContextMessages,
-              { role: 'system', content: buildRunAcknowledgementPrompt() },
-            ]),
-            tools: [],
-            options: {
-              ...options,
-              stream: false,
-              signal: abortController.signal,
-              runId,
-              userId,
-              agentId,
-            },
-            runId,
-            iteration: 0,
-          });
-            ackText = sanitizeModelOutput(
-              String(ackResponse?.response?.content || ackResponse?.streamContent || '').trim(),
-              { model },
-            );
-            // Strip accidental multi-paragraph model output to one line.
-            ackText = ackText.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || '';
-            if (ackText.length > 220) ackText = `${ackText.slice(0, 217).trimEnd()}...`;
-          }
-        } catch (error) {
-          console.warn('[Runtime] Ack generation failed; continuing without hard-coded text:', error?.message || error);
-          ackText = '';
-        }
-        // An empty answer means the model had nothing worth saying yet. Staying
-        // quiet is the natural outcome; the progress heartbeat still covers a
+        // Task analysis already read the conversation and decided whether an
+        // opening line is worth saying; an empty one means the model had
+        // nothing worth saying yet, and the progress heartbeat still covers a
         // run that then goes long.
+        const ackText = String(analysisAck || '').trim();
         if (!normalizeOutgoingMessage(ackText, options.source || null)) return;
 
         await requestProgressDelivery({
@@ -538,6 +510,7 @@ class DurableRunRuntime {
         engine: this.engine,
         deviceTarget,
         triggerSource,
+        sourcePlatform: triggerSource === 'messaging' ? options.source || null : null,
         workspaceRoot,
       }));
       const systemPromptPromise = startConcurrently(this.engine.buildSystemPrompt(userId, {
@@ -705,10 +678,6 @@ class DurableRunRuntime {
       }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
-      // Snapshot before the tool catalog and execution guidance are appended:
-      // the acknowledgement should read the conversation, not the runtime's
-      // internal scaffolding.
-      ackContextMessages = [...messages];
 
       if (conversationId) {
         const sharedAttachments = triggerSource === 'cowork'
@@ -779,7 +748,6 @@ class DurableRunRuntime {
             model,
             messages,
             prompt: buildAnalysisPrompt({
-              capabilityHealth: capabilitySummary,
               tools: allTools,
               forceMode: options.forceMode || null,
             }),
@@ -804,18 +772,20 @@ class DurableRunRuntime {
 
       startupTiming.analysisMs = Date.now() - startupTiming.acceptedAt
         - startupTiming.providerMs - startupTiming.contextMs;
-      // Start with the model's exact suggestions, then fill any remaining slice
-      // from lexical matches. Always-active control tools are excluded from the
-      // matcher because selecting them again would crowd out actual capabilities.
+      // Start with the model's exact suggestions. Lexical matches on the user
+      // text only fill in when the analysis suggested nothing: alongside real
+      // suggestions they add schemas the model never uses, and every extra
+      // schema in the active set costs reliability with small models.
+      // Always-active control tools are excluded from the matcher because
+      // selecting them again would crowd out actual capabilities.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
         includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
-      const initialMatches = searchTools(allTools, userMessage, {
-        limit: 8,
-        excludeNames: ALWAYS_INCLUDE_BUILT_INS,
-      });
+      const initialMatches = (analysis.suggested_tools || []).length
+        ? []
+        : searchTools(allTools, userMessage, { limit: 8, excludeNames: ALWAYS_INCLUDE_BUILT_INS });
       // When NeoRecall is connected, keep day/search tools active so personal
       // recall questions do not depend on lexical discovery under the tool cap.
       const preferredNeoRecallTools = [
@@ -823,8 +793,13 @@ class DurableRunRuntime {
         'neorecall_search',
         'neorecall_list_conversations',
       ].filter((name) => allTools.some((tool) => tool?.name === name));
+      // Code work needs a shell to run what it writes. Only that one tool is
+      // added: every extra schema in the active set measurably raises the rate
+      // of malformed tool calls from small models, so the rest of the file
+      // group stays discoverable through search_tools.
       const suggestedToolNames = [...new Set([
         ...(analysis.suggested_tools || []),
+        ...(suggestsCoreFileWork(analysis.suggested_tools) ? ['execute_command'] : []),
         ...initialMatches.map((tool) => tool.name),
         ...preferredNeoRecallTools,
       ])];
@@ -1022,6 +997,8 @@ class DurableRunRuntime {
       const maxVerificationRepairs = 3;
       let blankOutputRecoveries = 0;
       const maxBlankOutputRecoveries = 2;
+      // Consecutive writes to one file with nothing read or run in between.
+      const blindWrites = { path: null, count: 0 };
       const warnedSoftDimensions = new Set();
       const getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
@@ -1135,6 +1112,7 @@ class DurableRunRuntime {
             semanticVerifier: shouldRunVerifier({
               analysis,
               toolExecutions: workingMemory.snapshot().evidence,
+              sideEffects: workingMemory.snapshot().sideEffects,
               finalReply: finalContent,
             })
               ? async ({ finalContent: reply }) => this.#semanticVerify({
@@ -2119,17 +2097,38 @@ class DurableRunRuntime {
             const observed = repetitionGuard?.observe(call.name, call.arguments, result);
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
-            // research run is never mistaken for churn.
+            // research run is never mistaken for churn. A mutation repeated with
+            // identical arguments and an identical result is churn too: the first
+            // call already made that change.
+            const repeatedMutation = execution.stateChanged && Number(observed?.unchangedCount) >= 2;
+            // So is rewriting one file again and again without looking at the
+            // result: the writes may differ by a few bytes, but none of them is
+            // informed by anything the previous one produced.
+            const mutatedPath = FILE_MUTATION_TOOLS.has(call.name) && success
+              ? String(call.arguments?.path || call.arguments?.file_path || '')
+              : '';
+            if (mutatedPath && mutatedPath === blindWrites.path) blindWrites.count += 1;
+            else if (mutatedPath) Object.assign(blindWrites, { path: mutatedPath, count: 1 });
+            else Object.assign(blindWrites, { path: null, count: 0 });
+            const blindRewrite = blindWrites.count >= 3;
             const addedEvidence = gatheredNewEvidence(execution, observed);
-            budget.recordNoProgressTurn(!execution.stateChanged && !addedEvidence);
+            budget.recordNoProgressTurn(
+              (!execution.stateChanged && !addedEvidence) || repeatedMutation || blindRewrite,
+            );
             if (addedEvidence) budget.recordEvidence(1);
             if (success) budget.recordToolFailure(false);
 
+            let churnNote = null;
+            if (repeatedMutation) {
+              churnNote = 'Identical to your previous call: same arguments, same result, nothing changed. Do something different.';
+            } else if (blindRewrite) {
+              churnNote = `Write ${blindWrites.count} to ${mutatedPath} with nothing read or run in between. Run or read the file before writing it again.`;
+            }
             // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
             const compacted = compactToolResult(
               call.name,
               call.arguments || {},
-              result,
+              churnNote ? { ...result, repeated_call: churnNote } : result,
               resolveToolResultLimits(call.name, budget.loopPolicy),
             );
             const commandArtifact = result?.outputArtifact;
@@ -2628,6 +2627,13 @@ class DurableRunRuntime {
       }
     }
 
+    // The running sum only sees the calls the loop itself made; the usage
+    // ledger has every recorded call for the run (verifier, narration, ...).
+    const ledgerTokens = Number(db.prepare(
+      'SELECT COALESCE(SUM(total_tokens), 0) AS total FROM agent_model_usage WHERE run_id = ?',
+    ).get(runId)?.total) || 0;
+    totalTokens = Math.max(Number(totalTokens) || 0, ledgerTokens);
+
     db.prepare(
       `UPDATE agent_runs
        SET total_tokens = ?, final_response = COALESCE(final_response, ?), updated_at = datetime('now')
@@ -2864,6 +2870,7 @@ class DurableRunRuntime {
       tools: [],
       options: {
         ...options,
+        maxTokens: NARRATION_MAX_TOKENS,
         stream: false,
         signal,
         runId,

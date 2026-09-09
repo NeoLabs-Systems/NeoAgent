@@ -308,3 +308,77 @@ test('post-run learning creates, repeats, exposes, versions, and protects skills
     teardownTestRuntime(ctx);
   }
 });
+
+test('computer demonstration learning persists loosely shaped model output', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db);
+    const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+    const { SkillLearningService } = require('../../../server/services/skills/learning_service');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+    const service = new SkillLearningService({
+      skillRunner,
+      agentEngine: {
+        async inferStructured() {
+          return {
+            parsed: {
+              skill: {
+                name: 'export-report',
+                description: 'Export the current report.',
+                trigger: 'Use when exporting a report from the reports interface.',
+                steps: '1. Inspect Export. 2. Verify the file.',
+                verification: 'The exported file exists.',
+              },
+            },
+          };
+        },
+      },
+    });
+    const learned = await service.learnFromComputerDemonstration({
+      userId: user.userId,
+      goal: 'Export a report',
+      evidence: { recorder: 'semantic-v1', timeline: [] },
+    });
+    assert.equal(learned.success, true);
+    assert.equal(learned.name, 'export-report');
+    await service.shutdown();
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
+test('computer demonstration learning surfaces an explicit synthesis rejection', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db);
+    const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+    const { SkillLearningService } = require('../../../server/services/skills/learning_service');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+    const service = new SkillLearningService({
+      skillRunner,
+      agentEngine: {
+        async inferStructured() {
+          return {
+            parsed: {
+              approved: false,
+              reason: 'Pointer events alone are not a reusable procedure.',
+            },
+          };
+        },
+      },
+    });
+    const learned = await service.learnFromComputerDemonstration({
+      userId: user.userId,
+      goal: 'Export a report',
+      evidence: { recorder: 'semantic-v1', timeline: [] },
+    });
+    assert.equal(learned.success, false);
+    assert.equal(learned.ignored, true);
+    assert.equal(learned.error, 'Pointer events alone are not a reusable procedure.');
+    await service.shutdown();
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});

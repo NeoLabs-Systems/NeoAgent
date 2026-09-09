@@ -16,6 +16,10 @@ function resolveModelCallTimeoutMs(options = {}) {
   if (Number.isFinite(requested) && requested > 0) {
     return Math.max(10, requested);
   }
+  const fromEnv = Number(process.env.NEOAGENT_MODEL_CALL_TIMEOUT_MS);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.max(10, fromEnv);
+  }
   return MODEL_CALL_TIMEOUT_MS;
 }
 

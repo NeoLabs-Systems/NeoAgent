@@ -6,6 +6,7 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     label: 'OpenAI',
     description: 'Current GPT models for general work, coding, and reasoning.',
     envKey: 'OPENAI_API_KEY',
+    baseUrlEnvKey: 'OPENAI_BASE_URL',
     authentication: 'api_key',
     supportsApiKey: true,
     supportsBaseUrl: true,

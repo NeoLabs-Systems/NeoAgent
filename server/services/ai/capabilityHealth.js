@@ -56,7 +56,7 @@ async function getBrowserHealth(userId, app, engine, deviceTarget = null) {
     healthy,
     degraded: false,
     summary: state === 'error'
-      ? String(computer.error || 'Cloud computer failed to start.')
+      ? String(computer.error || computer.lastError || 'Cloud computer failed to start.')
       : active
         ? 'The unified cloud computer is available.'
         : 'The unified cloud computer will start on first use.',
@@ -105,7 +105,10 @@ async function getAndroidHealth(userId, app, engine, deviceTarget = null) {
   });
 }
 
-function getMessagingHealth(userId, app, engine, agentId = null) {
+// `sourcePlatform` is the platform this run's message arrived through. That
+// message is proof the platform works right now, whatever a status snapshot
+// taken mid-reconnect says, so it is reported as connected.
+function getMessagingHealth(userId, app, engine, agentId = null, sourcePlatform = null) {
   const manager = app?.locals?.messagingManager || engine?.messagingManager;
   if (!manager || typeof manager.getAllStatuses !== 'function') {
     return capabilityEntry({
@@ -113,9 +116,14 @@ function getMessagingHealth(userId, app, engine, agentId = null) {
     });
   }
 
-  const statuses = manager.getAllStatuses(userId, { agentId }) || {};
+  const statuses = { ...(manager.getAllStatuses(userId, { agentId }) || {}) };
+  if (sourcePlatform) {
+    statuses[sourcePlatform] = { ...(statuses[sourcePlatform] || {}), status: 'connected' };
+  }
   const entries = Object.entries(statuses);
   const connectedCount = entries.filter(([, value]) => value?.status === 'connected').length;
+  const platformLines = entries.map(([name, value]) => `${name}: ${value?.status || 'unknown'}`);
+  if (sourcePlatform) platformLines.push(`this conversation is on ${sourcePlatform}`);
 
   return capabilityEntry({
     connected: connectedCount > 0,
@@ -124,7 +132,7 @@ function getMessagingHealth(userId, app, engine, agentId = null) {
     degraded: entries.some(([, value]) => ['error', 'disconnected'].includes(String(value?.status || '').toLowerCase())),
     summary: entries.length === 0
       ? 'No messaging platforms are configured.'
-      : `${connectedCount}/${entries.length} messaging platforms are connected.`,
+      : platformLines.join('; '),
     details: statuses,
   });
 }
@@ -282,6 +290,7 @@ async function getCapabilityHealth({
   engine,
   deviceTarget = null,
   triggerSource = null,
+  sourcePlatform = null,
   workspaceRoot = null,
 } = {}) {
   const providers = await getProviderHealthCatalog(userId, agentId, {
@@ -297,7 +306,7 @@ async function getCapabilityHealth({
       search: getSearchHealth(),
       browser: await getBrowserHealth(userId, app, engine, deviceTarget),
       android: await getAndroidHealth(userId, app, engine, deviceTarget),
-      messaging: getMessagingHealth(userId, app, engine, agentId),
+      messaging: getMessagingHealth(userId, app, engine, agentId, sourcePlatform),
       integrations: getIntegrationHealth(userId, app, agentId),
       mcp: getMcpHealth(userId, app, engine, agentId),
       skills: getSkillHealth(app, engine),
@@ -311,5 +320,6 @@ module.exports = {
   getBrowserHealth,
   getCapabilityHealth,
   getFileHealth,
+  getMessagingHealth,
   summarizeCapabilityHealth,
 };

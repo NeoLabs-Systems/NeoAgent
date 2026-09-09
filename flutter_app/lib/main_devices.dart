@@ -85,8 +85,6 @@ class _DevicesPanelState extends State<DevicesPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text('DEVICES', style: _sectionEyebrowStyle()),
-                    const SizedBox(height: 4),
                     Text('Devices', style: _displayTitleStyle(26)),
                     const SizedBox(height: 4),
                     Text(
@@ -745,9 +743,8 @@ class _DeviceSurfaceSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassSurface(
+    return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      blurSigma: 16,
       fillColor: _bgSecondary.withValues(alpha: 0.78),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -987,7 +984,7 @@ class _ComputerToolbar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         if (showProviderPicker)
-          _GlassSurface(
+          _PanelSurface(
             borderRadius: BorderRadius.circular(AppRadius.pill),
             fillColor: _bgSecondary.withValues(alpha: 0.86),
             padding: const EdgeInsets.all(3),
@@ -1645,34 +1642,38 @@ class _ComputerEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Scrollable so the block never overflows in a short viewport — a phone in
+    // landscape, or a section that carries a chip row above the content.
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icon, size: 42, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(icon, size: 42, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium,
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              if (action != null) ...<Widget>[
-                const SizedBox(height: 16),
-                action!,
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (action != null) ...<Widget>[
+                  const SizedBox(height: 16),
+                  action!,
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

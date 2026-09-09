@@ -256,6 +256,19 @@ test('normalizeToolCalls is idempotent and keeps function wire shape', () => {
   assert.equal(JSON.parse(twice[0].raw.function.arguments).purpose, 'final_result');
 });
 
+test('normalizeToolCalls keeps only a preview of unparseable arguments', () => {
+  const junk = '{"content="' + '\n\t:\t""'.repeat(5000);
+  const [call] = runtime.decisionEngine.normalizeToolCalls([{
+    id: 'c1',
+    type: 'function',
+    function: { name: 'write_file', arguments: junk },
+  }]);
+  assert.equal(call.arguments._raw_length, junk.length);
+  assert.equal(call.arguments._raw_preview.length, 400);
+  assert.ok(call.arguments._parse_error);
+  assert.ok(call.raw.function.arguments.length < 1000);
+});
+
 test('task_complete message alias and high confidence labels normalize', () => {
   const complete = runtime.decisionEngine.decisionFromModelResponse({
     content: '',

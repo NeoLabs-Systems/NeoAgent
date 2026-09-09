@@ -63,7 +63,7 @@ const ANALYSIS_PROMPT_INSTRUCTIONS = [
   'Set complexity from the actual work shape, not from keywords.',
   'Set autonomy_level="high" when the agent should decide sequencing, retries, evidence gathering, and verification without asking unless blocked.',
   'Set progress_update_policy="required" for long, slow, messaging, or externally visible work where silence would be confusing.',
-  'When a spoken or interactive request needs durable work, acknowledgement may contain one short request-specific sentence. It must not claim completion. Otherwise use an empty string.',
+  'When the request needs durable work and the user is waiting in a live channel (chat, messaging, or voice), acknowledgement may contain one short request-specific sentence. It must not claim completion. Otherwise use an empty string.',
   'Use task-management tools only when the user asks for future, recurring, scheduled, monitored, background, or existing-task management behavior.',
   'Set parallel_work=true when independent tool calls or subagents can materially reduce latency.',
   'Set completion_confidence_required="high" when wrong completion would be costly, state-changing, user-visible, or hard to recover.',
@@ -105,6 +105,8 @@ const EXECUTION_GUIDANCE_ACTION_LINES = [
   'Prefer the highest-level available tool for the job. If a tool accepts normal text, JSON, file paths, or line ranges, pass those directly instead of reconstructing equivalent data through shell commands.',
   'Your shell (execute_command) starts in your workspace, and the file tools (read_file, read_files, write_file, edit_file, replace_file_range, list_directory, search_files) operate on that same workspace. Keep source checkouts and generated files in the shared workspace, then prefer file tools for inspection and edits instead of shell snippets. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
   'Tool results are already present in the conversation as tool output. Do not assume a tool result was persisted to a readable /tmp path unless that exact path was explicitly returned by the tool result.',
+  'A successful write_file, edit_file, or replace_file_range result is the evidence for that file. Do not re-read a file you just wrote unless a later step depends on content you did not author. If the result carries diagnostics, the file has a syntax error: fix it before moving on.',
+  'After writing or changing code, run it once (the project tests, the file\'s own doctests, or a minimal invocation through execute_command). If it fails, make one fix and run it once more, then finish: report the result as it stands, including anything that still fails and why. Do not report code as done on the strength of having written it.',
   'Use send_interim_update sparingly when a short real update or question would help.',
   'Do not create background tasks for immediate short work. Answer directly unless the user asked to schedule, repeat, monitor, defer, or manage a saved task.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',
@@ -330,8 +332,8 @@ function summarizeToolCatalog(tools = []) {
       const name = String(tool?.name || '').trim();
       if (!name) return '';
       const rawDescription = String(tool?.description || '').replace(/\s+/g, ' ').trim();
-      const description = rawDescription.length > 140
-        ? `${rawDescription.slice(0, 137).trimEnd()}...`
+      const description = rawDescription.length > 72
+        ? `${rawDescription.slice(0, 69).trimEnd()}...`
         : rawDescription;
       return description ? `${name}: ${description}` : name;
     })
@@ -623,7 +625,7 @@ function normalizeVerificationResult(raw = {}, fallbackReply = '') {
 }
 
 function getMeaningfulToolExecutions(toolExecutions = []) {
-  return toolExecutions.filter((item) => item && item.toolName);
+  return toolExecutions.filter((item) => item && item.tool);
 }
 
 function requiresVerifierWithoutEvidence(analysis, finalReply) {
@@ -633,18 +635,24 @@ function requiresVerifierWithoutEvidence(analysis, finalReply) {
   return false;
 }
 
-function shouldRunVerifier({ analysis, toolExecutions = [], finalReply = '' }) {
+function shouldRunVerifier({ analysis, toolExecutions = [], sideEffects = [], finalReply = '' }) {
   if (!analysis || typeof analysis !== 'object') return true;
   if (requiresVerifierWithoutEvidence(analysis, finalReply)) return true;
 
-  const meaningfulExecutions = getMeaningfulToolExecutions(toolExecutions);
-  if (meaningfulExecutions.length === 0) return analysis.verification_need === 'light';
+  const executions = getMeaningfulToolExecutions(toolExecutions);
+  if (executions.length === 0) return analysis.verification_need === 'light';
 
-  return meaningfulExecutions.some((item) => item.stateChanged || item.dependsOnOutput || item.evidenceRelevant);
+  // Replies that restate gathered information (research, or a run that only
+  // read things) are checked against the evidence. A run whose state changes
+  // all succeeded is already covered by the deterministic completion gate;
+  // the semantic pass only adds a call there when a tool failed and the reply
+  // could overclaim.
+  if (analysis.research_depth !== 'none') return true;
+  if (sideEffects.length === 0) return true;
+  return executions.some((item) => item.success === false || item.ok === false || Boolean(item.error));
 }
 
 function buildAnalysisPrompt({
-  capabilityHealth,
   tools = [],
   forceMode = null,
 } = {}) {
@@ -657,7 +665,6 @@ function buildAnalysisPrompt({
     JSON_ONLY_RESPONSE_RULE,
     ...ANALYSIS_PROMPT_INSTRUCTIONS,
     forceModeLine,
-    formatRuntimeCapabilityHealth(capabilityHealth),
     toolCatalog ? `Available tool catalog (name: compact description):\n${toolCatalog}` : '',
   ], ANALYSIS_SCHEMA_EXAMPLE);
 }
@@ -678,7 +685,6 @@ function buildPlanPrompt(analysis, capabilityHealth) {
 function buildExecutionGuidance({
   analysis,
   plan = null,
-  capabilityHealth,
   triggerSource = null,
 } = {}) {
   const lines = [
@@ -693,7 +699,6 @@ function buildExecutionGuidance({
     analysis.progress_update_policy === 'required'
       ? 'Progress updates are required for this run: when the work becomes slow, changes method, or hits a temporary blocker, use send_interim_update with a concise factual update. Do not use progress updates as completion, and do not continue long read-only work silently after a progress-check nudge.'
       : '',
-    capabilityHealth ? `Capability health:\n${capabilityHealth}` : '',
   ];
 
   lines.push(

@@ -236,11 +236,61 @@ void _openOfficialIntegrationSetupDialog(
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
-    case 'neoarchive':
-      _showNeoArchiveSetupDialog(context, controller);
-      return;
     case 'neorecall':
-      _showNeoRecallSetupDialog(context, controller);
+      _showOfficialIntegrationUrlSetupDialog(
+        context,
+        controller,
+        config: const _OfficialIntegrationUrlSetupConfig(
+          providerId: 'neorecall',
+          appId: 'recall',
+          title: 'NeoRecall Setup',
+          description:
+              'Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.',
+          extraDescription:
+              'Use a NeoRecall URL the NeoAgent server can reach. NeoAgent\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.',
+          connectionMethodLabel: 'OAuth with PKCE',
+          accountLabel: 'Connected NeoRecall User',
+          urlLabel: 'NeoRecall Backend URL',
+          urlHint: 'https://recall.example.com',
+          urlHelperText:
+              'Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.',
+          urlRequiredMessage: 'NeoRecall backend URL is required.',
+          saveErrorFallback: 'Could not save NeoRecall setup.',
+          disconnectTitle: 'Disconnect NeoRecall?',
+          disconnectBody:
+              'This removes the NeoRecall backend URL and all connected NeoRecall accounts for this agent.',
+          disconnectErrorFallback: 'Could not disconnect NeoRecall.',
+          supportsMultipleAccounts: true,
+        ),
+      );
+      return;
+    case 'nextcloud':
+      _showOfficialIntegrationUrlSetupDialog(
+        context,
+        controller,
+        config: const _OfficialIntegrationUrlSetupConfig(
+          providerId: 'nextcloud',
+          appId: 'files',
+          title: 'Nextcloud Setup',
+          description:
+              'Connect your Nextcloud instance, including self-hosted servers. NeoAgent opens Nextcloud\'s own login page so you can sign in with password, SSO, or 2FA.',
+          extraDescription:
+              'Use a Nextcloud URL the NeoAgent server can reach, for example https://cloud.example.com.',
+          connectionMethodLabel: 'Nextcloud Login Flow',
+          accountLabel: 'Connected Nextcloud User',
+          urlLabel: 'Nextcloud URL',
+          urlHint: 'https://cloud.example.com',
+          urlHelperText:
+              'Cloud and self-hosted instances are supported. Local and private-network URLs work when NeoAgent can reach them.',
+          urlRequiredMessage: 'Nextcloud URL is required.',
+          saveErrorFallback: 'Could not save Nextcloud setup.',
+          disconnectTitle: 'Disconnect Nextcloud?',
+          disconnectBody:
+              'This removes the Nextcloud URL and all connected Nextcloud accounts for this agent.',
+          disconnectErrorFallback: 'Could not disconnect Nextcloud.',
+          supportsMultipleAccounts: true,
+        ),
+      );
       return;
     case 'trello':
       _showTrelloSetupDialog(context, controller);
@@ -861,219 +911,52 @@ Future<void> _showBitwardenSetupDialog(
   twoStepCodeController.dispose();
 }
 
-Future<void> _showNeoRecallSetupDialog(
-  BuildContext context,
-  NeoAgentController controller,
-) async {
-  Map<String, dynamic> existing;
-  try {
-    existing = await controller.getOfficialIntegrationConfig('neorecall');
-  } catch (error) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
-    }
-    return;
-  }
-  final savedBaseUrl = existing['baseUrl']?.toString() ?? '';
-  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
-  final connected = existing['hasConnectedAccount'] == true || accountCount > 0;
-  final baseUrlController = TextEditingController(text: savedBaseUrl);
-  var errorText = '';
-  var busy = false;
+class _OfficialIntegrationUrlSetupConfig {
+  const _OfficialIntegrationUrlSetupConfig({
+    required this.providerId,
+    required this.appId,
+    required this.title,
+    required this.description,
+    this.extraDescription,
+    required this.connectionMethodLabel,
+    required this.accountLabel,
+    required this.urlLabel,
+    required this.urlHint,
+    required this.urlHelperText,
+    required this.urlRequiredMessage,
+    required this.saveErrorFallback,
+    required this.disconnectTitle,
+    required this.disconnectBody,
+    required this.disconnectErrorFallback,
+    this.supportsMultipleAccounts = false,
+  });
 
-  Future<void> save(
-    StateSetter setState,
-    BuildContext dialogContext, {
-    required bool connect,
-  }) async {
-    setState(() {
-      errorText = '';
-      busy = true;
-    });
-    try {
-      final baseUrl = baseUrlController.text.trim();
-      if (baseUrl.isEmpty) {
-        setState(() {
-          errorText = 'NeoRecall backend URL is required.';
-          busy = false;
-        });
-        return;
-      }
-      await controller.saveOfficialIntegrationConfig(
-        'neorecall',
-        config: <String, dynamic>{'baseUrl': baseUrl},
-      );
-      if (connect) {
-        await controller.connectOfficialIntegration(
-          'neorecall',
-          appId: 'recall',
-        );
-        if ((controller.errorMessage ?? '').trim().isNotEmpty) {
-          setState(() {
-            errorText = controller.errorMessage!;
-            busy = false;
-          });
-          return;
-        }
-      }
-      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-    } catch (_) {
-      setState(() {
-        errorText =
-            controller.errorMessage ?? 'Could not save NeoRecall setup.';
-        busy = false;
-      });
-    }
-  }
-
-  if (!context.mounted) return;
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: const Text('NeoRecall Setup'),
-        content: SizedBox(
-          width: 540,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.',
-                style: TextStyle(color: _textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Use a NeoRecall URL the NeoAgent server can reach. NeoAgent\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.',
-                style: TextStyle(color: _textSecondary, fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-              const _IntegrationSetupStatusItem(
-                label: 'Connection Method',
-                status: 'OAuth with PKCE',
-                isConnected: true,
-              ),
-              const SizedBox(height: 12),
-              _IntegrationSetupStatusItem(
-                label: 'Connected NeoRecall User',
-                status: connected
-                    ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
-                    : 'Not connected',
-                isConnected: connected,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: baseUrlController,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'NeoRecall Backend URL',
-                  hintText: 'https://recall.example.com',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.',
-                style: TextStyle(color: _textSecondary, fontSize: 12),
-              ),
-              if (errorText.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 12),
-                Text(errorText, style: TextStyle(color: _danger, fontSize: 12)),
-              ],
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          if (savedBaseUrl.isNotEmpty)
-            TextButton(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      final confirm =
-                          await showDialog<bool>(
-                            context: dialogContext,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Disconnect NeoRecall?'),
-                              content: const Text(
-                                'This removes the NeoRecall backend URL and all connected NeoRecall accounts for this agent.',
-                              ),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text('Cancel'),
-                                ),
-                                FilledButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: const Text('Disconnect'),
-                                ),
-                              ],
-                            ),
-                          ) ??
-                          false;
-                      if (!confirm) return;
-                      setState(() {
-                        busy = true;
-                        errorText = '';
-                      });
-                      try {
-                        await controller.clearOfficialIntegrationConfig(
-                          'neorecall',
-                        );
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                      } catch (_) {
-                        setState(() {
-                          errorText =
-                              controller.errorMessage ??
-                              'Could not disconnect NeoRecall.';
-                          busy = false;
-                        });
-                      }
-                    },
-              child: const Text('Disconnect'),
-            ),
-          TextButton(
-            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: busy
-                ? null
-                : () => save(setState, dialogContext, connect: false),
-            child: const Text('Save Only'),
-          ),
-          FilledButton(
-            onPressed: busy
-                ? null
-                : () => save(setState, dialogContext, connect: true),
-            child: Text(
-              busy
-                  ? 'Working...'
-                  : connected
-                  ? 'Connect Another Account'
-                  : 'Save & Connect',
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-  baseUrlController.dispose();
+  final String providerId;
+  final String appId;
+  final String title;
+  final String description;
+  final String? extraDescription;
+  final String connectionMethodLabel;
+  final String accountLabel;
+  final String urlLabel;
+  final String urlHint;
+  final String urlHelperText;
+  final String urlRequiredMessage;
+  final String saveErrorFallback;
+  final String disconnectTitle;
+  final String disconnectBody;
+  final String disconnectErrorFallback;
+  final bool supportsMultipleAccounts;
 }
 
-Future<void> _showNeoArchiveSetupDialog(
+Future<void> _showOfficialIntegrationUrlSetupDialog(
   BuildContext context,
-  NeoAgentController controller,
-) async {
+  NeoAgentController controller, {
+  required _OfficialIntegrationUrlSetupConfig config,
+}) async {
   Map<String, dynamic> existing;
   try {
-    existing = await controller.getOfficialIntegrationConfig('neoarchive');
+    existing = await controller.getOfficialIntegrationConfig(config.providerId);
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1102,19 +985,19 @@ Future<void> _showNeoArchiveSetupDialog(
       final baseUrl = baseUrlController.text.trim();
       if (baseUrl.isEmpty) {
         setState(() {
-          errorText = 'NeoArchive backend URL is required.';
+          errorText = config.urlRequiredMessage;
           busy = false;
         });
         return;
       }
       await controller.saveOfficialIntegrationConfig(
-        'neoarchive',
+        config.providerId,
         config: <String, dynamic>{'baseUrl': baseUrl},
       );
       if (connect) {
         await controller.connectOfficialIntegration(
-          'neoarchive',
-          appId: 'archive',
+          config.providerId,
+          appId: config.appId,
         );
         if ((controller.errorMessage ?? '').trim().isNotEmpty) {
           setState(() {
@@ -1127,8 +1010,7 @@ Future<void> _showNeoArchiveSetupDialog(
       if (dialogContext.mounted) Navigator.of(dialogContext).pop();
     } catch (_) {
       setState(() {
-        errorText =
-            controller.errorMessage ?? 'Could not save NeoArchive setup.';
+        errorText = controller.errorMessage ?? config.saveErrorFallback;
         busy = false;
       });
     }
@@ -1140,26 +1022,30 @@ Future<void> _showNeoArchiveSetupDialog(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => AlertDialog(
-        title: const Text('NeoArchive Setup'),
+        title: Text(config.title),
         content: SizedBox(
           width: 540,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                'Add the NeoArchive backend URL once. NeoAgent will open NeoArchive OAuth so the user can sign in and approve archive access without API keys.',
-                style: TextStyle(color: _textSecondary),
-              ),
+              Text(config.description, style: TextStyle(color: _textSecondary)),
+              if (config.extraDescription != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  config.extraDescription!,
+                  style: TextStyle(color: _textSecondary, fontSize: 12),
+                ),
+              ],
               const SizedBox(height: 16),
-              const _IntegrationSetupStatusItem(
+              _IntegrationSetupStatusItem(
                 label: 'Connection Method',
-                status: 'OAuth companion flow',
+                status: config.connectionMethodLabel,
                 isConnected: true,
               ),
               const SizedBox(height: 12),
               _IntegrationSetupStatusItem(
-                label: 'Connected NeoArchive User',
+                label: config.accountLabel,
                 status: connected
                     ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
                     : 'Not connected',
@@ -1169,15 +1055,15 @@ Future<void> _showNeoArchiveSetupDialog(
               TextField(
                 controller: baseUrlController,
                 keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'NeoArchive Backend URL',
-                  hintText: 'https://archive.example.com',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: config.urlLabel,
+                  hintText: config.urlHint,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Use the public base URL of the NeoArchive server. Local self-hosted URLs are supported when NeoAgent can reach them.',
+                config.urlHelperText,
                 style: TextStyle(color: _textSecondary, fontSize: 12),
               ),
               if (errorText.isNotEmpty) ...<Widget>[
@@ -1197,10 +1083,8 @@ Future<void> _showNeoArchiveSetupDialog(
                           await showDialog<bool>(
                             context: dialogContext,
                             builder: (context) => AlertDialog(
-                              title: const Text('Disconnect NeoArchive?'),
-                              content: const Text(
-                                'This removes the NeoArchive backend URL and all connected NeoArchive accounts for this agent.',
-                              ),
+                              title: Text(config.disconnectTitle),
+                              content: Text(config.disconnectBody),
                               actions: <Widget>[
                                 TextButton(
                                   onPressed: () =>
@@ -1223,7 +1107,7 @@ Future<void> _showNeoArchiveSetupDialog(
                       });
                       try {
                         await controller.clearOfficialIntegrationConfig(
-                          'neoarchive',
+                          config.providerId,
                         );
                         if (dialogContext.mounted) {
                           Navigator.of(dialogContext).pop();
@@ -1232,7 +1116,7 @@ Future<void> _showNeoArchiveSetupDialog(
                         setState(() {
                           errorText =
                               controller.errorMessage ??
-                              'Could not disconnect NeoArchive.';
+                              config.disconnectErrorFallback;
                           busy = false;
                         });
                       }
@@ -1243,7 +1127,7 @@ Future<void> _showNeoArchiveSetupDialog(
             onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
           ),
-          if (!connected)
+          if (config.supportsMultipleAccounts || !connected)
             TextButton(
               onPressed: busy
                   ? null
@@ -1253,12 +1137,18 @@ Future<void> _showNeoArchiveSetupDialog(
           FilledButton(
             onPressed: busy
                 ? null
-                : () => save(setState, dialogContext, connect: !connected),
+                : () => save(
+                    setState,
+                    dialogContext,
+                    connect: config.supportsMultipleAccounts || !connected,
+                  ),
             child: Text(
               busy
                   ? 'Working...'
                   : connected
-                  ? 'Update Setup'
+                  ? (config.supportsMultipleAccounts
+                        ? 'Connect Another Account'
+                        : 'Update Setup')
                   : 'Save & Connect',
             ),
           ),
@@ -2204,8 +2094,8 @@ class _OfficialIntegrationIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (item.icon) {
-      'neoarchive' => const Color(0xFFE3B655),
       'neorecall' => const Color(0xFFD98AA6),
+      'nextcloud' => const Color(0xFF0082C9),
       'google' => const Color(0xFF4285F4),
       'home_assistant' => const Color(0xFF41BDF5),
       'password' => const Color(0xFF175DDC),
@@ -2213,8 +2103,8 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       _ => _accent,
     };
     final label = switch (item.icon) {
-      'neoarchive' => 'A',
       'neorecall' => 'R',
+      'nextcloud' => 'N',
       'google' => 'G',
       'home_assistant' => 'H',
       'password' => 'B',
@@ -2255,8 +2145,8 @@ int _compareOfficialIntegrationItems(
 
 int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
-    'neoarchive' => 1,
-    'neorecall' => 2,
+    'neorecall' => 1,
+    'nextcloud' => 2,
     'google_workspace' => 3,
     _ => 10,
   };
