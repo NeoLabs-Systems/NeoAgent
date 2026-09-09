@@ -510,6 +510,7 @@ class DurableRunRuntime {
         engine: this.engine,
         deviceTarget,
         triggerSource,
+        sourcePlatform: triggerSource === 'messaging' ? options.source || null : null,
         workspaceRoot,
       }));
       const systemPromptPromise = startConcurrently(this.engine.buildSystemPrompt(userId, {
@@ -771,18 +772,20 @@ class DurableRunRuntime {
 
       startupTiming.analysisMs = Date.now() - startupTiming.acceptedAt
         - startupTiming.providerMs - startupTiming.contextMs;
-      // Start with the model's exact suggestions, then fill any remaining slice
-      // from lexical matches. Always-active control tools are excluded from the
-      // matcher because selecting them again would crowd out actual capabilities.
+      // Start with the model's exact suggestions. Lexical matches on the user
+      // text only fill in when the analysis suggested nothing: alongside real
+      // suggestions they add schemas the model never uses, and every extra
+      // schema in the active set costs reliability with small models.
+      // Always-active control tools are excluded from the matcher because
+      // selecting them again would crowd out actual capabilities.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
         includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
-      const initialMatches = searchTools(allTools, userMessage, {
-        limit: 8,
-        excludeNames: ALWAYS_INCLUDE_BUILT_INS,
-      });
+      const initialMatches = (analysis.suggested_tools || []).length
+        ? []
+        : searchTools(allTools, userMessage, { limit: 8, excludeNames: ALWAYS_INCLUDE_BUILT_INS });
       // When NeoRecall is connected, keep day/search tools active so personal
       // recall questions do not depend on lexical discovery under the tool cap.
       const preferredNeoRecallTools = [
