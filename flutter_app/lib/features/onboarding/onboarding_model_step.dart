@@ -79,12 +79,12 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
     final useGrid = width >= 720;
 
     return OnboardingScaffold(
-      step: 3,
-      totalSteps: 4,
+      step: 2,
+      totalSteps: 3,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
       description:
-          'Pick the model NeoAgent should use by default. Connect a provider first if the list is empty.',
+          'Pick the model NeoAgent should use by default. Providers are configured on the server.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
@@ -98,7 +98,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       child: _models.isEmpty
           ? Center(
               child: Text(
-                'No available models yet.\nConnect a provider on the previous step, or later in Settings.',
+                'No available models yet.\nConfigure a provider in the admin dashboard or with neoagent env.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: paletteOf(context).textMuted,

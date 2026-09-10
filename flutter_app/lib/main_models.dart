@@ -2107,43 +2107,6 @@ class ModelMeta {
   final String? priceTier;
 }
 
-class AiProviderConfig {
-  const AiProviderConfig({
-    required this.id,
-    required this.enabled,
-    required this.baseUrl,
-  });
-
-  factory AiProviderConfig.empty(String id) {
-    return AiProviderConfig(
-      id: id,
-      enabled: true,
-      baseUrl: id == 'ollama' ? 'http://localhost:11434' : '',
-    );
-  }
-
-  factory AiProviderConfig.fromJson(String id, dynamic json) {
-    final map = json is Map
-        ? Map<String, dynamic>.from(json)
-        : const <String, dynamic>{};
-    return AiProviderConfig(
-      id: id,
-      enabled: map['enabled'] != false,
-      baseUrl:
-          map['baseUrl']?.toString() ??
-          (id == 'ollama' ? 'http://localhost:11434' : ''),
-    );
-  }
-
-  final String id;
-  final bool enabled;
-  final String baseUrl;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{'enabled': enabled, 'baseUrl': baseUrl.trim()};
-  }
-}
-
 class AiProviderMeta {
   const AiProviderMeta({
     required this.id,

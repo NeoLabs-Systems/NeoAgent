@@ -147,7 +147,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               icon: Icons.bolt_rounded,
               title: 'Quickstart',
               description:
-                  'Install the secure core, then create your account. Connect an AI provider in the app after that — Quickstart and Full both use the same provider setup.',
+                  'Install the secure core, then create your account. Configure AI providers from the admin dashboard or with neoagent env.',
               badge: 'Recommended',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.quick),
@@ -158,7 +158,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               icon: Icons.tune_rounded,
               title: 'Full setup',
               description:
-                  'Install the core with extra optional setup. You still connect an AI provider in the app after account creation, same as Quickstart.',
+                  'Install the core with extra optional setup. Configure AI providers from the admin dashboard or with neoagent env, same as Quickstart.',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.full),
             ),

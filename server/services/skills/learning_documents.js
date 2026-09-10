@@ -135,6 +135,44 @@ function proposalFailureMessage(proposal) {
   return 'The demonstration did not produce a reusable skill.';
 }
 
+function isSafetyRejection(proposal) {
+  if (proposal?.approved !== false) return false;
+  return /password|credential|secret|private data|clipboard contents/.test(
+    String(proposal.rejectionReason || '').toLowerCase(),
+  );
+}
+
+function applyComputerDemonstrationDefaults(proposal, goal) {
+  const title = normalizeText(goal, 160) || 'taught computer workflow';
+  const next = {
+    requiredInputs: [],
+    pitfalls: [],
+    steps: [],
+    verification: [],
+    ...(proposal && typeof proposal === 'object' ? proposal : {}),
+  };
+  if (!next.name) next.name = normalizeSkillName(title).slice(0, 64) || 'taught-computer-workflow';
+  if (!next.description) next.description = normalizeText(`Taught computer workflow: ${title}`, 300);
+  if (!next.trigger) {
+    next.trigger = normalizeText(`Use when repeating the taught computer workflow: ${title}`, 500);
+  }
+  if (!next.category) next.category = 'computer';
+  if (!next.workflowKey) next.workflowKey = next.name;
+  if (!next.steps.length) {
+    next.steps = [
+      'Inspect the current computer, window, and UI state before acting.',
+      `Repeat the taught workflow: ${title}.`,
+      'Adapt to the current semantic UI state instead of replaying coordinates or timing.',
+    ];
+  }
+  if (!next.verification.length) {
+    next.verification = ['Confirm the taught outcome is visible in the current computer state.'];
+  }
+  next.approved = true;
+  next.rejectionReason = '';
+  return next;
+}
+
 function buildSkillInstructions(proposal, { computerAdaptive = false } = {}) {
   const lines = [
     `# ${proposal.name}`,
@@ -195,8 +233,10 @@ function markLearningUserEdited(currentMetadata = {}, submittedMetadata = {}) {
 }
 
 module.exports = {
+  applyComputerDemonstrationDefaults,
   buildSkillInstructions,
   compactDialogue,
+  isSafetyRejection,
   isUsableProposal,
   markLearningUserEdited,
   normalizeProposal,

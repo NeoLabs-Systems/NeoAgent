@@ -5123,7 +5123,6 @@ class NeoAgentController extends ChangeNotifier {
     required String voiceTtsVoice,
     required String voiceMediaMode,
     required String voiceInputMode,
-    required Map<String, dynamic> aiProviderConfigs,
   }) async {
     _beginSettingsSave();
 
@@ -5143,7 +5142,6 @@ class NeoAgentController extends ChangeNotifier {
       'voice_tts_voice': voiceTtsVoice,
       'voice_media_mode': voiceMediaMode,
       'voice_input_mode': voiceInputMode,
-      'ai_provider_configs': aiProviderConfigs,
     };
 
     final agentId = _scopedAgentId;
@@ -5219,57 +5217,6 @@ class NeoAgentController extends ChangeNotifier {
         .map((section) => section.toString())
         .where((section) => section.isNotEmpty)
         .toList(growable: false);
-  }
-
-  void _mergeProviderConfig(Object? rawProvider) {
-    if (rawProvider is! Map) return;
-    final parsed = AiProviderMeta.fromJson(rawProvider);
-    final current = settings['ai_provider_configs'];
-    final configs = current is Map
-        ? Map<String, dynamic>.from(current)
-        : <String, dynamic>{};
-    configs[parsed.id] = <String, dynamic>{
-      'enabled': parsed.enabled,
-      'baseUrl': parsed.baseUrl,
-    };
-    settings = <String, dynamic>{
-      ...settings,
-      'ai_provider_configs': configs,
-    };
-  }
-
-  Future<void> saveAiProviderCredentials({
-    required String providerId,
-    String? apiKey,
-    String? baseUrl,
-    bool clearApiKey = false,
-  }) async {
-    final trimmedKey = apiKey?.trim();
-    final trimmedUrl = baseUrl?.trim();
-    final response = await _backendClient.saveAiProviderCredentials(
-      backendUrl,
-      providerId,
-      apiKey: (trimmedKey != null && trimmedKey.isNotEmpty) ? trimmedKey : null,
-      baseUrlOverride: trimmedUrl,
-      clearApiKey: clearApiKey,
-      agentId: _scopedAgentId,
-    );
-    _applySetupProgress(response['setup']);
-    _mergeProviderConfig(response['provider']);
-    notifyListeners();
-    await refreshAiCatalog();
-  }
-
-  Future<void> clearAiProviderCredentials(String providerId) async {
-    final response = await _backendClient.clearAiProviderCredentials(
-      backendUrl,
-      providerId,
-      agentId: _scopedAgentId,
-    );
-    _applySetupProgress(response['setup']);
-    _mergeProviderConfig(response['provider']);
-    notifyListeners();
-    await refreshAiCatalog();
   }
 
   Future<void> refreshAiCatalog() async {
@@ -7129,28 +7076,6 @@ class NeoAgentController extends ChangeNotifier {
   bool get headlessBrowser => true;
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
-
-  Map<String, AiProviderConfig> get aiProviderConfigs {
-    final raw = settings['ai_provider_configs'];
-    final decoded = raw is Map
-        ? raw.map(
-            (key, value) => MapEntry(
-              key.toString(),
-              AiProviderConfig.fromJson(key.toString(), value),
-            ),
-          )
-        : const <String, AiProviderConfig>{};
-
-    if (aiProviders.isEmpty) {
-      return decoded;
-    }
-
-    return <String, AiProviderConfig>{
-      for (final provider in aiProviders)
-        provider.id:
-            decoded[provider.id] ?? AiProviderConfig.empty(provider.id),
-    };
-  }
 
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];

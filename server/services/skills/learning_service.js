@@ -4,10 +4,14 @@ const db = require('../../db/database');
 const { getAiSettings } = require('../ai/settings');
 const { createServiceLogger } = require('../../utils/logger');
 const {
+  applyComputerDemonstrationDefaults,
   compactDialogue,
+  isSafetyRejection,
+  isUsableProposal,
   normalizeProposal,
   normalizeReview,
   normalizeText,
+  proposalFailureMessage,
 } = require('./learning_documents');
 const { SkillLearningRepository } = require('./learning_repository');
 const { SkillLearningWriter } = require('./learning_writer');
@@ -172,7 +176,7 @@ class SkillLearningService {
     if (!userId || !goal) {
       throw new Error('Computer learning requires a user and demonstrated goal.');
     }
-    const proposal = await this.#synthesize({
+    let proposal = await this.#synthesize({
       userId,
       agentId,
       sourceKind: 'computer-demonstration',
@@ -188,6 +192,21 @@ class SkillLearningService {
       },
       signal: input.signal || null,
     });
+    if (isSafetyRejection(proposal)) {
+      logger.warn('Computer demonstration was rejected as unsafe.', proposal.rejectionReason);
+      return {
+        success: false,
+        ignored: true,
+        error: proposal.rejectionReason || 'The demonstration could not be saved as a skill.',
+      };
+    }
+    if (!isUsableProposal(proposal)) {
+      logger.warn(
+        'Computer demonstration synthesis needed taught-goal defaults.',
+        proposalFailureMessage(proposal),
+      );
+      proposal = applyComputerDemonstrationDefaults(proposal, goal);
+    }
     const result = await this.writer.persist({
       userId,
       runId: null,
@@ -247,9 +266,12 @@ class SkillLearningService {
         'Every step must be actionable and adaptive. Include observed pitfalls only when the evidence includes a working recovery.',
         'Verification must describe observable proof, not an assumption of success.',
         sourceKind === 'computer-demonstration'
-          ? 'For computer workflows, use semantic UI state and never coordinates, recorded timing, brittle selectors, clipboard contents, or macro replay.'
-          : '',
-        'Reject with approved=false if the evidence does not prove a safe reusable procedure.',
+          ? [
+            'The user explicitly taught this computer workflow. Approve a reusable skill from the demonstration.',
+            'Use semantic UI state and never coordinates, recorded timing, brittle selectors, clipboard contents, or macro replay.',
+            'Reject with approved=false only when the demonstration exposes secrets or has no observable method.',
+          ].join(' ')
+          : 'Reject with approved=false if the evidence does not prove a safe reusable procedure.',
       ].filter(Boolean).join(' '),
       prompt: JSON.stringify({
         sourceKind,

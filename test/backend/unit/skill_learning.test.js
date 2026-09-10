@@ -348,7 +348,7 @@ test('computer demonstration learning persists loosely shaped model output', asy
   }
 });
 
-test('computer demonstration learning surfaces an explicit synthesis rejection', async () => {
+test('computer demonstration learning persists a taught-goal skill when synthesis is incomplete', async () => {
   const ctx = createTestRuntime();
   try {
     const user = await createTestUser(ctx.db);
@@ -374,9 +374,46 @@ test('computer demonstration learning surfaces an explicit synthesis rejection',
       goal: 'Export a report',
       evidence: { recorder: 'semantic-v1', timeline: [] },
     });
+    assert.equal(learned.success, true);
+    assert.equal(learned.name, 'export-a-report');
+    const created = skillRunner.getSkill('export-a-report', user.userId);
+    assert.match(created.instructions, /Repeat the taught workflow: Export a report/);
+    await service.shutdown();
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
+
+test('computer demonstration learning rejects secret-bearing synthesis', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db);
+    const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+    const { SkillLearningService } = require('../../../server/services/skills/learning_service');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+    const service = new SkillLearningService({
+      skillRunner,
+      agentEngine: {
+        async inferStructured() {
+          return {
+            parsed: {
+              approved: false,
+              reason: 'The demonstration exposed a password field.',
+            },
+          };
+        },
+      },
+    });
+    const learned = await service.learnFromComputerDemonstration({
+      userId: user.userId,
+      goal: 'Sign in to the reports site',
+      evidence: { recorder: 'semantic-v1', timeline: [] },
+    });
     assert.equal(learned.success, false);
     assert.equal(learned.ignored, true);
-    assert.equal(learned.error, 'Pointer events alone are not a reusable procedure.');
+    assert.match(learned.error, /password/);
+    assert.equal(skillRunner.getSkill('sign-in-to-the-reports-site', user.userId), null);
     await service.shutdown();
   } finally {
     teardownTestRuntime(ctx);

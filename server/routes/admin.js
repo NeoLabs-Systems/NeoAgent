@@ -16,6 +16,7 @@ const {
 } = require('../../runtime/release_channel');
 const { APP_DIR, ENV_FILE, upsertEnvValue } = require('../../runtime/paths');
 const { isManagedDeployment } = require('../utils/deployment');
+const { markSetupSectionComplete } = require('../services/setup/onboarding');
 const rateLimit = require('express-rate-limit');
 const { configuredDefaultLimits } = require('../services/ai/rate_limits');
 
@@ -706,6 +707,7 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
   upsertEnvValue(ENV_FILE, key, trimmed);
   if (trimmed) {
     process.env[key] = trimmed;
+    markSetupSectionComplete('providers');
   } else {
     delete process.env[key];
   }
