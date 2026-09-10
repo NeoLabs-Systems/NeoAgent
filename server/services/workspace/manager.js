@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
-const { applyTextEdits } = require('./text_edits');
+const { applyTextEdits, coerceWritableText } = require('./text_edits');
 
 function sanitizeWorkspaceKey(value) {
   const normalized = String(value || '')
@@ -283,7 +283,7 @@ class WorkspaceManager {
     const filePath = this.resolvePath(userId, options.path || '', 'path');
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      const content = String(options.content ?? '');
+      const content = coerceWritableText(options.content);
       if (String(options.mode || '').toLowerCase() === 'append') {
         fs.appendFileSync(filePath, content);
       } else {

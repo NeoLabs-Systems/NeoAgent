@@ -15,6 +15,11 @@ const {
   normalizeReferrerMode,
   rand,
 } = require('./anti_detection');
+const {
+  CHROMIUM_CDP_ENDPOINT,
+  chromiumDesktopArgs,
+  isChromiumProfileInUse,
+} = require('./chromium_session');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
@@ -240,6 +245,7 @@ function normalizePointCoordinate(value, label) {
 }
 
 function clearChromiumSingletonLocks(profileDir) {
+  if (isChromiumProfileInUse(profileDir)) return false;
   const lockEntries = [
     'SingletonLock',
     'SingletonSocket',
@@ -253,6 +259,7 @@ function clearChromiumSingletonLocks(profileDir) {
       fs.rmSync(targetPath, { force: true, recursive: true });
     } catch {}
   }
+  return true;
 }
 
 function chooseVirtualDisplay() {
@@ -289,6 +296,7 @@ class BrowserController {
     this._boundPages = new WeakSet();
     this._closing = false;
     this._closePromise = null;
+    this._cdpAttached = false;
     this._protectedCredentialFill = null;
     this.headless = false;
     this.profileDir = path.join(BROWSER_PROFILE_ROOT, this.userId || 'default');
@@ -414,18 +422,30 @@ class BrowserController {
 
   async _withPageCancellation(page, signal, operation) {
     throwIfAborted(signal);
+    void page;
     if (!signal) return operation();
-    const closeOnAbort = () => {
-      if (!page?.isClosed?.()) {
-        page.close({ runBeforeUnload: false, reason: 'Browser operation cancelled' }).catch(() => {});
+    return raceWithSignal(Promise.resolve().then(operation), signal);
+  }
+
+  _reuseOpenPage() {
+    const contexts = [];
+    if (this.context) contexts.push(this.context);
+    else if (typeof this.browser?.contexts === 'function') contexts.push(...this.browser.contexts());
+    const open = [];
+    for (const context of contexts) {
+      for (const page of context.pages?.() || []) {
+        if (page && !page.isClosed?.()) open.push(page);
       }
-    };
-    signal.addEventListener('abort', closeOnAbort, { once: true });
-    try {
-      return await raceWithSignal(Promise.resolve().then(operation), signal);
-    } finally {
-      signal.removeEventListener('abort', closeOnAbort);
     }
+    const preferred = [...open].reverse().find((page) => {
+      try {
+        const url = String(page.url?.() || '');
+        return url.length > 0 && url !== 'about:blank' && !url.startsWith('chrome://');
+      } catch {
+        return false;
+      }
+    });
+    return preferred || open[open.length - 1] || null;
   }
 
   async _applyStealthToPage(page) {
@@ -530,6 +550,64 @@ class BrowserController {
     }
   }
 
+  async _disconnectPlaywright() {
+    const browser = this.browser;
+    const attached = this._cdpAttached;
+    this._cdpAttached = false;
+    this._clearBrowserReferences(this.context, browser);
+    if (!browser) return;
+    if (attached && typeof browser.disconnect === 'function') {
+      try { browser.disconnect(); } catch {}
+      return;
+    }
+    if (typeof browser.close === 'function') await browser.close().catch(() => {});
+  }
+
+  async _attachOverCdp(options = {}) {
+    const playwright = require('playwright-chromium');
+    const browser = await raceWithSignal(
+      playwright.chromium.connectOverCDP(CHROMIUM_CDP_ENDPOINT),
+      options.signal,
+    );
+    const context = browser.contexts?.()[0];
+    if (!context) {
+      if (typeof browser.disconnect === 'function') browser.disconnect();
+      throw new Error('Chromium is running without a reusable session.');
+    }
+    this._cdpAttached = true;
+    this.context = context;
+    this.browser = browser;
+    this._bindContextLifecycle(context, browser);
+    const existing = this._reuseOpenPage();
+    if (existing) this._bindPage(existing);
+  }
+
+  async _cdpAvailable(signal) {
+    throwIfAborted(signal);
+    try {
+      const response = await fetch(`${CHROMIUM_CDP_ENDPOINT}/json/version`, { signal });
+      return response.ok;
+    } catch (error) {
+      if (isAbortError(error, signal)) throw error;
+      return false;
+    }
+  }
+
+  async _waitForCdp(signal) {
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      throwIfAborted(signal);
+      try {
+        const response = await fetch(`${CHROMIUM_CDP_ENDPOINT}/json/version`, { signal });
+        if (response.ok) return true;
+      } catch (error) {
+        if (isAbortError(error, signal)) throw error;
+      }
+      await sleep(250, signal);
+    }
+    return false;
+  }
+
   async ensureBrowser(options = {}) {
     let signal = options.signal;
     throwIfAborted(signal);
@@ -540,11 +618,7 @@ class BrowserController {
       return;
     }
 
-    const staleContext = this.context;
-    const staleBrowser = this.browser;
-    this._clearBrowserReferences(staleContext, staleBrowser);
-    if (staleContext) await staleContext.close().catch(() => {});
-    else if (staleBrowser) await staleBrowser.close().catch(() => {});
+    await this._disconnectPlaywright();
 
     const launchAbortController = new AbortController();
     this._launchAbortController = launchAbortController;
@@ -575,6 +649,19 @@ class BrowserController {
         y: Math.round(this._viewport.height / 2),
       };
 
+      if (await this._cdpAvailable(signal)) {
+        await this._attachOverCdp({ signal });
+        return;
+      }
+
+      if (isChromiumProfileInUse(this.profileDir)) {
+        if (await this._cdpAvailable(signal)) {
+          await this._attachOverCdp({ signal });
+          return;
+        }
+        throw new Error('Chromium is already running. Tabs and cookies were left intact.');
+      }
+
       let executablePath = resolveBrowserExecutablePath();
       if (!executablePath) {
         if (!this.browserBinaryInstallPromise) {
@@ -592,83 +679,36 @@ class BrowserController {
         throw new Error(`No ${this.engine} executable found for the VM browser runtime.`);
       }
 
-      const launchEnv = {
-        ...process.env,
-        ...(this.displayValue ? { DISPLAY: this.displayValue } : {}),
-      };
-
-      const launchArgs = [
+      clearChromiumSingletonLocks(this.profileDir);
+      const child = spawn(executablePath, [
         '--start-maximized',
-        '--remote-allow-origins=*',
+        ...chromiumDesktopArgs(this.profileDir),
         '--disable-dev-shm-usage',
         '--no-service-autorun',
         '--disable-crash-reporter',
-        '--disable-breakpad',
-        '--disable-background-networking',
-        '--disable-component-update',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-infobars',
         '--disable-session-crashed-bubble',
         '--disable-search-engine-choice-screen',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--homepage=about:blank',
-        '--no-pings',
         '--password-store=basic',
-        '--disable-gpu',
-        '--lang=en-US,en',
-        `--user-agent=${this._userAgent}`,
-        `--window-size=${this._viewport.width},${this._viewport.height}`,
-        // Cloud security: disable hardware device APIs at the Chromium level
         '--disable-features=WebBluetooth,WebUSB,WebSerial,WebOTP,DirectSockets',
-        '--disable-usb-keyboard-detect',
-      ];
-
-      const playwright = require('playwright-chromium');
-      clearChromiumSingletonLocks(this.profileDir);
-      const launchPromise = playwright.chromium.launchPersistentContext(this.profileDir, {
-        headless: false,
-        chromiumSandbox: true,
-        executablePath,
-        env: launchEnv,
-        args: launchArgs,
-        viewport: this._viewport,
-        userAgent: this._userAgent,
-        locale: 'en-US',
-        ignoreHTTPSErrors: false,
-        serviceWorkers: 'block',
-        timeout: 120000,
+      ], {
+        detached: true,
+        stdio: 'ignore',
+        env: {
+          ...process.env,
+          ...(this.displayValue ? { DISPLAY: this.displayValue } : {}),
+        },
       });
-      let context;
-      try {
-        context = await raceWithSignal(launchPromise, signal);
-      } catch (error) {
-        launchPromise.then((lateContext) => lateContext.close().catch(() => {})).catch(() => {});
-        throw error;
+      child.unref();
+      if (!await this._waitForCdp(signal)) {
+        throw new Error('Chromium started without a debugging session.');
       }
-      const browser = typeof context.browser === 'function' ? context.browser() : null;
-      this.context = context;
-      this.browser = browser;
-      this._bindContextLifecycle(context, browser);
-
-      // Cloud security: deny access to local devices on every page in this context.
-      await context.addInitScript(DEVICE_DENY_SCRIPT);
-      await this._installNetworkGuard(context);
-
-      this.page = context.pages()[0] || await context.newPage();
-      this._bindPage(this.page);
-      await this._applyStealthToPage(this.page);
+      await this._attachOverCdp({ signal });
     })();
 
     try {
       await raceWithSignal(this.launchPromise, signal);
     } catch (error) {
-      const failedContext = this.context;
-      const failedBrowser = this.browser;
-      this._clearBrowserReferences(failedContext, failedBrowser);
-      if (failedContext) await failedContext.close().catch(() => {});
-      else if (failedBrowser) await failedBrowser.close().catch(() => {});
-      await this._stopVirtualDisplay();
+      await this._disconnectPlaywright();
       throw error;
     } finally {
       externalSignal?.removeEventListener('abort', forwardAbort);
@@ -684,22 +724,25 @@ class BrowserController {
     const signal = options.signal;
     await this.ensureBrowser(options);
     throwIfAborted(signal);
-    if (!this.page || this.page.isClosed()) {
-      let pagePromise;
-      if (this.context && typeof this.context.newPage === 'function') {
-        pagePromise = this.context.newPage();
-      } else {
-        pagePromise = this.browser.newPage();
-      }
-      try {
-        this.page = await raceWithSignal(pagePromise, signal);
-      } catch (error) {
-        pagePromise.then((latePage) => latePage.close().catch(() => {})).catch(() => {});
-        throw error;
-      }
-      this._bindPage(this.page);
-      await this._applyStealthToPage(this.page);
+    if (this.page && !this.page.isClosed()) return this.page;
+    const existing = this._reuseOpenPage();
+    if (existing) {
+      this._bindPage(existing);
+      return existing;
     }
+    let pagePromise;
+    if (this.context && typeof this.context.newPage === 'function') {
+      pagePromise = this.context.newPage();
+    } else {
+      pagePromise = this.browser.newPage();
+    }
+    try {
+      this.page = await raceWithSignal(pagePromise, signal);
+    } catch (error) {
+      pagePromise.then((latePage) => latePage.close().catch(() => {})).catch(() => {});
+      throw error;
+    }
+    this._bindPage(this.page);
     return this.page;
   }
 
@@ -1421,23 +1464,8 @@ class BrowserController {
     this._closePromise = (async () => {
       const launchPromise = this.launchPromise;
       if (launchPromise) await launchPromise.catch(() => {});
-
-      const page = this.page;
-      const context = this.context;
-      const browser = this.browser;
-      this.page = null;
-      this.context = null;
-      this.browser = null;
       this._protectedCredentialFill = null;
-
-      if (context) {
-        await context.close({ reason: 'Browser controller closed' }).catch(() => {});
-      } else if (browser) {
-        await browser.close().catch(() => {});
-      } else if (page && !page.isClosed()) {
-        await page.close({ runBeforeUnload: false, reason: 'Browser controller closed' }).catch(() => {});
-      }
-      await this._stopVirtualDisplay();
+      await this._disconnectPlaywright();
     })();
     try {
       await this._closePromise;

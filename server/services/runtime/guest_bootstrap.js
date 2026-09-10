@@ -281,7 +281,7 @@ function createCloudInitScript({
         'install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/chromium/policies/managed /etc/apt/apt.conf.d /etc/apt/preferences.d /etc/security/limits.d /etc/profile.d /etc/systemd/system/user-1000.slice.d',
         'install -d -m 0755 /etc/X11/xorg.conf.d',
         'cat > /etc/chromium/policies/managed/neoagent.json <<\'EOF\'',
-        '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
+        '{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"RemoteDebuggingAllowed":true,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}',
         'EOF',
         'cat > /etc/apt/apt.conf.d/90neoagent-cleanup <<\'EOF\'',
         'APT::Keep-Downloaded-Packages "false";',

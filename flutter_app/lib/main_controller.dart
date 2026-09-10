@@ -3685,6 +3685,10 @@ class NeoAgentController extends ChangeNotifier {
         await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
         return;
       }
+      if (!interruptAgent && (computerDisplayUrl?.trim().isNotEmpty ?? false)) {
+        await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
+        return;
+      }
       final display = await _backendClient.createComputerDisplaySession(
         backendUrl,
         deviceTarget: deviceTarget,

@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const { chromiumDesktopCommand } = require('../browser/chromium_session');
 
 function fileEntry(filePath, content, mode = '0644') {
   return {
@@ -244,6 +245,10 @@ wait_for_x() {
     sleep 1
   done
 }
+if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+  echo DESKTOP_READY
+  exit 0
+fi
 modprobe virtio_gpu >/dev/null 2>&1 || true
 modprobe bochs >/dev/null 2>&1 || true
 systemctl stop lightdm.service >/dev/null 2>&1 || true
@@ -424,7 +429,7 @@ disablealt=false
 Type=Application
 Name=Chromium
 Comment=Web browser
-Exec=chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check
+Exec=${chromiumDesktopCommand()}
 Icon=chromium
 Terminal=false
 Categories=Network;WebBrowser;
@@ -465,7 +470,7 @@ function getGuestDesktopHomeFiles() {
 `),
     fileEntry('/home/neo/Desktop/Chromium.desktop', desktopShortcut(
       'Chromium',
-      'chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check',
+      chromiumDesktopCommand(),
       'chromium',
     ), '0755'),
     fileEntry('/home/neo/Desktop/Files.desktop', desktopShortcut(
@@ -559,7 +564,7 @@ menu.title.text.color: #e8efe6
 const OPENBOX_MENU_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <openbox_menu xmlns="http://openbox.org/3.4/menu">
   <menu id="root-menu" label="Applications">
-    <item label="Chromium"><action name="Execute"><command>chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check</command></action></item>
+    <item label="Chromium"><action name="Execute"><command>${chromiumDesktopCommand()}</command></action></item>
     <item label="Files"><action name="Execute"><command>pcmanfm /home/neo/workspace</command></action></item>
     <item label="Terminal"><action name="Execute"><command>lxterminal --working-directory=/home/neo/workspace</command></action></item>
     <item label="Text Editor"><action name="Execute"><command>mousepad</command></action></item>
@@ -627,7 +632,7 @@ const OPENBOX_RC_XML = `<?xml version="1.0" encoding="UTF-8"?>
     <keybind key="Super_L"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
     <keybind key="W-t"><action name="Execute"><command>lxterminal --working-directory=/home/neo/workspace</command></action></keybind>
     <keybind key="W-e"><action name="Execute"><command>pcmanfm /home/neo/workspace</command></action></keybind>
-    <keybind key="W-b"><action name="Execute"><command>chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check</command></action></keybind>
+    <keybind key="W-b"><action name="Execute"><command>${chromiumDesktopCommand()}</command></action></keybind>
   </keyboard>
   <mouse>
     <dragThreshold>3</dragThreshold>

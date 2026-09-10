@@ -1,6 +1,6 @@
 'use strict';
 
-const { applyTextEdits } = require('../workspace/text_edits');
+const { applyTextEdits, coerceWritableText } = require('../workspace/text_edits');
 
 class ComputerWorkspaceClient {
   constructor(options = {}) {
@@ -21,7 +21,7 @@ class ComputerWorkspaceClient {
     );
     return {
       ...result,
-      content: String(result.content || ''),
+      content: coerceWritableText(result.content),
     };
   }
 
@@ -51,7 +51,7 @@ class ComputerWorkspaceClient {
 
   async writeFile(userId, options = {}) {
     try {
-      let content = String(options.content ?? '');
+      let content = coerceWritableText(options.content);
       if (String(options.mode || '').toLowerCase() === 'append') {
         const current = await this.#readContent(userId, options.path, options);
         content = `${current.content}${content}`;

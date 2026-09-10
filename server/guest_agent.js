@@ -7,6 +7,8 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
+const { chromiumDesktopArgs } = require('./services/browser/chromium_session');
+const { coerceWritableText } = require('./services/workspace/text_edits');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -229,7 +231,6 @@ async function handleRequest(req, res, work) {
     if (!res.writableEnded) controller.abort('Guest runtime request disconnected.');
   };
   req.once('aborted', abort);
-  res.once('close', abort);
   try {
     const result = await work(controller.signal);
     if (!res.headersSent && !res.writableEnded) res.json(result);
@@ -239,7 +240,6 @@ async function handleRequest(req, res, work) {
     }
   } finally {
     req.removeListener('aborted', abort);
-    res.removeListener('close', abort);
   }
 }
 
@@ -476,7 +476,7 @@ app.get('/workspace/files/content', async (req, res) => {
 
 app.put('/workspace/files/content', async (req, res) => {
   await handle(res, async () => {
-    const content = String(req.body?.content ?? '');
+    const content = coerceWritableText(req.body?.content);
     const contentBytes = Buffer.byteLength(content, 'utf8');
     if (contentBytes > MAX_WORKSPACE_FILE_BYTES) {
       throw new Error('Workspace file is too large to edit.');
@@ -637,11 +637,13 @@ function desktopEnsureDiagnostics() {
 
 app.post('/desktop/ensure', async (_req, res) => {
   await handle(res, async () => {
+    if (displayServerAlive()) {
+      return { available: true, display: ':0' };
+    }
     if (fs.existsSync('/usr/local/bin/neoagent-ensure-desktop')) {
       const repaired = runSudo(['/usr/local/bin/neoagent-ensure-desktop'], { timeoutMs: 150000 });
       const output = `${repaired.stdout || ''}\n${repaired.stderr || ''}`;
       if (repaired.status === 0 || output.includes('DESKTOP_READY') || displayServerAlive()) {
-        runSudo(['chvt', '1']);
         return { available: true, display: ':0' };
       }
     }
@@ -818,11 +820,7 @@ app.post('/desktop/launch-app', async (req, res) => {
   await handle(res, async () => {
     const application = String(req.body?.application || req.body?.app || '').trim().toLowerCase();
     const commands = {
-      browser: ['chromium', [
-        `--user-data-dir=${path.join(DATA_DIR, 'browser-profiles', 'default')}`,
-        '--no-first-run',
-        '--no-default-browser-check',
-      ]],
+      browser: ['chromium', chromiumDesktopArgs(path.join(DATA_DIR, 'browser-profiles', 'default'))],
       files: ['pcmanfm', [WORKSPACE_ROOT]],
       terminal: ['lxterminal', [`--working-directory=${WORKSPACE_ROOT}`]],
       editor: ['mousepad', []],

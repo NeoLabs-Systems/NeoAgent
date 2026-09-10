@@ -53,13 +53,14 @@ test('a page without a live session opens one instead of dead-ending', () => {
   assert.doesNotMatch(page, /^connect\("/m);
 });
 
-test('a dropped display socket reconnects on a fresh session', () => {
+test('a dropped display socket retries the current session before minting another', () => {
   const page = buildComputerDisplayPage({
     websocketPath: '/api/computer/display-ws?token=abc',
     viewOnly: false,
   });
   assert.match(page, /addEventListener\('disconnect'/);
-  assert.match(page, /current === generation/);
+  assert.match(page, /current !== generation/);
+  assert.match(page, /attempt <= 3 && websocketPath/);
   assert.match(page, /fetch\('\/api\/computer\/display-session'/);
   assert.match(page, /session\?\.websocketPath/);
   assert.match(page, /session\.viewOnly/);
@@ -89,6 +90,10 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(tint2, /autohide = 1/);
   assert.match(tint2, /strut_policy = none/);
   assert.match(tint2, /neoagent-chromium\.desktop/);
+  const chromiumDesktop = systemFiles.find((file) => file.path.endsWith('neoagent-chromium.desktop')).content;
+  assert.match(chromiumDesktop, /remote-debugging-port=9222/);
+  assert.match(chromiumDesktop, /restore-last-session/);
+  assert.doesNotMatch(chromiumDesktop, /about:blank/);
   const openbox = systemFiles.find((file) => file.path === '/etc/xdg/openbox/rc.xml').content;
   assert.match(openbox, /class="Chromium-browser"/);
   const setup = systemFiles.find((file) => file.path === '/usr/local/bin/neoagent-display-setup').content;
@@ -97,6 +102,10 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   assert.match(ensure, /autohide = 1/);
   assert.match(setup, /chvt 1/);
   assert.match(ensure, /xdpyinfo/);
+  assert.ok(
+    ensure.indexOf('if DISPLAY=:0 xdpyinfo')
+      < ensure.indexOf('systemctl restart neoagent-framebuffer-desktop'),
+  );
   assert.match(ensure, /Driver "fbdev"/);
   assert.match(ensure, /virtio_gpu/);
   assert.doesNotMatch(ensure, /Virtual 1280/);

@@ -44,7 +44,13 @@ const connect = (websocketPath, viewOnly) => {
     rfb.focus();
   });
   rfb.addEventListener('disconnect', () => {
-    if (current === generation) reconnect();
+    if (current !== generation) return;
+    attempt += 1;
+    if (attempt <= 3 && websocketPath) {
+      setTimeout(() => connect(websocketPath, viewOnly), Math.min(2000, 250 * attempt));
+      return;
+    }
+    reconnect();
   });
 };
 const reconnect = () => {

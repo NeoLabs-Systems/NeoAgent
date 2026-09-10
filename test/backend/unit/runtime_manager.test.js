@@ -127,6 +127,12 @@ test('computer control leases are exclusive and expire cleanly', () => {
   assert.equal(manager.releaseControl(7, 'run-1'), true);
   assert.equal(manager.getControlLease(7).ownerType, 'agent');
   assert.equal(manager.releaseControl(7, 'run-2'), true);
+  const userLease = manager.acquireControl(7, 'user', 'session-1');
+  assert.equal(userLease.ownerType, 'user');
+  const stolen = manager.acquireControl(7, 'agent', 'run-3');
+  assert.equal(stolen.ownerType, 'agent');
+  assert.deepEqual(stolen.ownerIds, ['run-3']);
+  assert.equal(manager.releaseControl(7, 'run-3'), true);
   assert.equal(manager.acquireControl(7, 'teach', 'teach-1').ownerType, 'teach');
 });
 
@@ -295,7 +301,43 @@ test('cloud desktop repair does not surface SysV enable chatter as the user-faci
   assert.doesNotMatch(String(status.desktop?.error || ''), /SysV|systemd-sysv-install/);
 });
 
-test('display sessions come up even when browser launch and workspace import fail', async () => {
+test('opening a display session does not relaunch the guest browser or repair the desktop', async () => {
+  const session = {
+    state: 'ready',
+    startedAt: new Date().toISOString(),
+    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    desktop: { available: true, error: null },
+  };
+  let browserLaunches = 0;
+  let desktopEnsures = 0;
+  const manager = new RuntimeManager({
+    computerBackend: createCloudComputerBackend(session, {
+      async requestGuest() {
+        desktopEnsures += 1;
+        return { available: true };
+      },
+      async getBrowserProviderForUser() {
+        return {
+          async launch() {
+            browserLaunches += 1;
+            return {};
+          },
+        };
+      },
+    }),
+  });
+
+  await manager.ensureComputerDisplay(7);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  assert.equal(browserLaunches, 0);
+  assert.equal(desktopEnsures, 0);
+  manager.acquireControl(7, 'user', 'session-7');
+  const display = manager.createDisplaySession(7);
+  assert.equal(display.viewOnly, false);
+});
+
+test('display sessions come up even when workspace import fails', async () => {
   const session = {
     display: { websocketUrl: 'ws://127.0.0.1:16080' },
     instanceDir: '/tmp/neoagent-computer-test',
@@ -338,6 +380,28 @@ test('display sessions come up even when browser launch and workspace import fai
   assert.match(display.viewUrl, /\/api\/computer\/display\//);
 });
 
+test('startComputer completes guest desktop bring-up in the background', async () => {
+  const session = {
+    state: 'starting',
+    startedAt: new Date().toISOString(),
+    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+  };
+  let desktopEnsures = 0;
+  const manager = new RuntimeManager({
+    computerBackend: createCloudComputerBackend(session, {
+      async requestGuest() {
+        desktopEnsures += 1;
+        session.desktop = { available: true, error: null };
+        return { available: true };
+      },
+    }),
+  });
+
+  await manager.startComputer(7);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(desktopEnsures, 1);
+});
+
 test('display sessions are user-scoped, lease-aware, and revoked on control changes', () => {
   const computerBackend = {
     vmManager: {
@@ -361,6 +425,27 @@ test('display sessions are user-scoped, lease-aware, and revoked on control chan
 
   manager.releaseControl(7, 'session-7');
   assert.equal(manager.isDisplaySessionActive(7, controlled.token, internal), false);
+});
+
+test('agent control kicks the user off the interactive display', () => {
+  const manager = new RuntimeManager({
+    computerBackend: {
+      vmManager: {
+        instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+        getStatus: () => ({ state: 'ready' }),
+      },
+      touchActivity() {},
+    },
+  });
+  manager.acquireControl(7, 'user', 'session-7');
+  const controlled = manager.createDisplaySession(7);
+  assert.equal(controlled.viewOnly, false);
+
+  manager.acquireControl(7, 'agent', 'run-1');
+  assert.equal(manager.getControlLease(7).ownerType, 'agent');
+  assert.equal(manager.resolveDisplaySession(7, controlled.token), null);
+  const observer = manager.createDisplaySession(7);
+  assert.equal(observer.viewOnly, true);
 });
 
 test('a display session follows the computer instead of a fixed address', () => {

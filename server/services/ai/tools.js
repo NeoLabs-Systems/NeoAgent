@@ -17,6 +17,7 @@ const {
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
 const { runFileDiagnostics } = require('./file_diagnostics');
+const { coerceWritableText } = require('../workspace/text_edits');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -2722,12 +2723,12 @@ async function executeTool(toolName, args, context, engine) {
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
-                if (typeof args.content !== 'string') {
-                    return { success: false, error: 'write_file requires a string content argument; nothing was written.' };
+                if (args.content == null) {
+                    return { success: false, error: 'write_file requires a content argument; nothing was written.' };
                 }
                 return await withFileDiagnostics(await workspace.writeFile(userId, {
                     path: targetPath,
-                    content: args.content,
+                    content: coerceWritableText(args.content),
                     mode: args.mode,
                     deviceTarget,
                     workspaceRoot,
