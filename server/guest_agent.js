@@ -7,7 +7,6 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
-const { chromiumDesktopArgs } = require('./services/browser/chromium_session');
 const { coerceWritableText } = require('./services/workspace/text_edits');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
@@ -243,8 +242,6 @@ async function handleRequest(req, res, work) {
   }
 }
 
-app.use(requireToken);
-
 app.get('/health', (_req, res) => {
   const cloudInitFinished = fs.existsSync(CLOUD_INIT_BOOT_FINISHED);
   res.json({
@@ -256,6 +253,8 @@ app.get('/health', (_req, res) => {
     cloudInitFinished,
   });
 });
+
+app.use(requireToken);
 
 app.get('/system/boot-assets', async (_req, res) => {
   await handle(res, async () => {
@@ -819,6 +818,7 @@ app.post('/desktop/press-key', async (req, res) => {
 app.post('/desktop/launch-app', async (req, res) => {
   await handle(res, async () => {
     const application = String(req.body?.application || req.body?.app || '').trim().toLowerCase();
+    const { chromiumDesktopArgs } = require('./services/browser/chromium_session');
     const commands = {
       browser: ['chromium', chromiumDesktopArgs(path.join(DATA_DIR, 'browser-profiles', 'default'))],
       files: ['pcmanfm', [WORKSPACE_ROOT]],

@@ -5,6 +5,7 @@ const http = require('node:http');
 const { afterEach, test } = require('node:test');
 
 const {
+  GUEST_HEALTH_TIMEOUT_MS,
   RuntimeHttpClient,
   VmBrowserProvider,
 } = require('../../../server/services/runtime/backends/local-vm');
@@ -113,4 +114,26 @@ test('VM browser status and cookie reads forward cancellation', async () => {
 
   assert.equal(calls.length, 2);
   assert.ok(calls.every((call) => call.options.signal === controller.signal));
+});
+
+test('guest health wait accepts a reachable agent and does not wait for cloud-init', async () => {
+  assert.equal(GUEST_HEALTH_TIMEOUT_MS, 100_000);
+  const { url } = await listen((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ status: 'starting', runtime: 'guest-agent' }));
+  });
+  const client = new RuntimeHttpClient(url);
+  const health = await client.waitForHealth({ timeoutMs: 2_000 });
+  assert.equal(health.status, 'starting');
+});
+
+test('guest health wait stops within the 100s ceiling', async () => {
+  const { url } = await listen((request) => request.socket.destroy());
+  const client = new RuntimeHttpClient(url);
+  const startedAt = Date.now();
+  await assert.rejects(
+    client.waitForHealth({ timeoutMs: 250, intervalMs: 50 }),
+    /Timed out waiting for the guest runtime/,
+  );
+  assert.ok(Date.now() - startedAt < 2_000);
 });

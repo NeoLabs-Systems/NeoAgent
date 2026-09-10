@@ -12,6 +12,7 @@ const APK_UPLOAD_ROOT = path.resolve(
 );
 const MAX_APK_BYTES = Number(process.env.NEOAGENT_ANDROID_APK_MAX_BYTES || 512 * 1024 * 1024);
 const IDLE_TIMEOUT_MS = Number(process.env.NEOAGENT_VM_IDLE_TIMEOUT_MS || 10 * 60 * 1000);
+const GUEST_HEALTH_TIMEOUT_MS = 100_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -70,7 +71,13 @@ class RuntimeHttpClient {
   }
 
   async waitForHealth(options = {}) {
-    const timeoutMs = Number(options.timeoutMs || 600000); // Increased from 120s to 10m for bootstrap
+    const requestedTimeout = Number(options.timeoutMs);
+    const timeoutMs = Math.min(
+      GUEST_HEALTH_TIMEOUT_MS,
+      Number.isFinite(requestedTimeout) && requestedTimeout > 0
+        ? requestedTimeout
+        : GUEST_HEALTH_TIMEOUT_MS,
+    );
     const intervalMs = Number(options.intervalMs || 1000);
     const checkLiveness = options.checkLiveness || (() => true);
     const startedAt = Date.now();
@@ -85,9 +92,10 @@ class RuntimeHttpClient {
       try {
         const health = await this.request('GET', '/health', undefined, {
           timeoutMs: 2000,
+          retryCount: 0,
           signal: options.signal,
         });
-        if (health?.status === 'ok') {
+        if (health?.runtime === 'guest-agent' || health?.status === 'ok' || health?.status === 'starting') {
           console.log(`[Runtime] Guest agent ready after ${elapsed}s`);
           return health;
         }
@@ -95,7 +103,11 @@ class RuntimeHttpClient {
       } catch (error) {
         lastError = error;
         if (elapsed % 10 === 0) {
-          console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${error.message})`);
+          const cause = error.cause?.code || error.cause?.message;
+          const detail = cause && !String(error.message).includes(String(cause))
+            ? `${error.message} (${cause})`
+            : error.message;
+          console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${detail})`);
         }
       }
       await delayWithSignal(intervalMs, options.signal);
@@ -527,7 +539,7 @@ class LocalVmExecutionBackend {
     });
     try {
       await client.waitForHealth({
-        timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
+        timeoutMs: GUEST_HEALTH_TIMEOUT_MS,
         signal: options.signal,
         checkLiveness: () => {
           const key = String(userId || '').trim();
@@ -723,6 +735,7 @@ class LocalVmExecutionBackend {
 }
 
 module.exports = {
+  GUEST_HEALTH_TIMEOUT_MS,
   LocalVmExecutionBackend,
   RuntimeHttpClient,
   VmBrowserProvider,

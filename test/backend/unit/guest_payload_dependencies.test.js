@@ -45,12 +45,20 @@ function assertDependencyClosure(entryFile) {
 test('browser and Android guest payloads contain their transitive local dependencies', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-guest-payload-test-'));
   try {
+    for (const profile of ['browser', 'cli', 'browser_cli', 'android']) {
+      const root = path.join(temporaryRoot, profile);
+      stageGuestPayload(root, profile);
+      assert.equal(
+        fs.existsSync(path.join(root, 'server/services/workspace/text_edits.js')),
+        true,
+        `${profile} payload is missing workspace/text_edits.js`,
+      );
+    }
+
     const browserRoot = path.join(temporaryRoot, 'browser');
-    stageGuestPayload(browserRoot, 'browser');
     assertDependencyClosure(path.join(browserRoot, 'server/services/browser/controller.js'));
 
     const androidRoot = path.join(temporaryRoot, 'android');
-    stageGuestPayload(androidRoot, 'android');
     assertDependencyClosure(path.join(androidRoot, 'server/services/android/controller.js'));
   } finally {
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
