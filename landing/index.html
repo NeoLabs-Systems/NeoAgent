@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NeoAgent — the agent that keeps working after the chat ends</title>
-  <meta name="description" content="NeoAgent is a self-hosted AI agent that runs as a service: it browses, remembers, drives your devices, and keeps working after you close the tab.">
+  <meta name="description" content="NeoAgent is an open-source AI agent that runs as a service: it browses, remembers, drives your devices, and keeps working after you close the tab.">
   <meta name="theme-color" content="#0e1511" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f1e8" media="(prefers-color-scheme: light)">
   <meta property="og:title" content="NeoAgent — the agent that keeps working after the chat ends">
-  <meta property="og:description" content="A self-hosted AI agent with a calm control surface. It browses, remembers, drives your devices — and doesn't stop when you do.">
+  <meta property="og:description" content="An open-source AI agent with a calm control surface. It browses, remembers, drives your devices — and doesn't stop when you do.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" href="images/favicon.png">
@@ -67,7 +67,7 @@
       <nav class="nav-links" aria-label="Primary">
         <a href="#surface">The surface</a>
         <a href="#devices">Devices</a>
-        <a href="#selfhost">Self-host</a>
+        <a href="#run">Run it</a>
         <a href="/status">Status</a>
       </nav>
 
@@ -85,7 +85,7 @@
     <div class="mobile-menu" data-mobile-menu>
       <a href="#surface">The surface</a>
       <a href="#devices">Devices</a>
-      <a href="#selfhost">Self-host</a>
+      <a href="#run">Run it</a>
       <a href="/status">Status</a>
       <a href="https://github.com/NeoLabs-Systems/NeoAgent">GitHub</a>
       <a class="btn btn-primary signin" href="/app">Sign in</a>
@@ -97,76 +97,84 @@
     <!-- ============================== HERO ============================== -->
     <section class="hero">
       <div class="wrap">
-        <div class="hero-grid">
-          <div class="hero-copy">
-            <p class="hero-kicker reveal"><span class="live-dot" aria-hidden="true"></span>Open source · self-hosted · running somewhere right now</p>
-            <h1 class="reveal" data-d="1">Still working<br>after you <em>close the tab.</em></h1>
-            <p class="lede reveal" data-d="2">
-              Most assistants stop existing the moment you stop typing. NeoAgent runs as a
-              service on your own machine — it browses, remembers, drives your devices,
-              and quietly finishes the job while you go do something else.
-            </p>
-            <div class="hero-actions reveal" data-d="3">
-              <a class="btn btn-primary btn-lg" href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest">
-                Get NeoAgent
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-              </a>
-              <a class="btn btn-secondary btn-lg" href="#surface">Watch it work</a>
-            </div>
-            <p class="hero-note reveal" data-d="4">macOS · Windows · Linux — no terminal required</p>
-          </div>
+        <div class="hrun">
 
-          <!-- Live replica of the actual control surface -->
-          <div class="hero-demo reveal" data-d="2">
-            <div class="surface-app" data-tilt data-chat-demo aria-label="Interactive preview of the NeoAgent chat surface">
-              <aside class="sa-side" aria-hidden="true">
-                <div class="sa-brand">
-                  <span class="sa-logo">
-                    <svg viewBox="0 0 100 100">
-                      <rect width="100" height="100" rx="22.5" fill="url(#nb-tile)"></rect>
-                      <g fill="none" stroke="url(#nb-tube)" stroke-linecap="round">
-                        <circle cx="50" cy="50" r="17" stroke-width="5" stroke-dasharray="78 29"></circle>
-                        <circle cx="50" cy="50" r="30" stroke-width="5" stroke-dasharray="150 39" stroke-opacity=".8"></circle>
-                      </g>
-                      <circle cx="50" cy="50" r="7" fill="url(#nb-core)"></circle>
-                    </svg>
-                  </span>
-                  <span class="sa-brand-text">NeoAgent<small>control surface</small></span>
-                </div>
-                <div class="sa-nav">
-                  <span class="sa-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path></svg>Chat</span>
-                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 4 5-8 4 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Timeline</span>
-                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.7 4.5L18 9l-4.3 1.5L12 15l-1.7-4.5L6 9l4.3-1.5L12 3Z" stroke-linejoin="round"></path><path d="m18.5 14.5.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" stroke-linejoin="round"></path></svg>Automation</span>
-                  <span class="sa-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"></path><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="7" cy="17" r="1.6" fill="currentColor" stroke="none"></circle></svg>Settings</span>
-                </div>
-                <div class="sa-user"><span class="sa-avatar">N</span>Neo</div>
-              </aside>
+          <p class="hrun-rule reveal">
+            <span class="eyebrow">Left running</span>
+            <span class="hrun-line" aria-hidden="true"></span>
+            <span class="hrun-stage hrun-channel">
+            <span class="hrun-slide" data-slide="1">via WhatsApp · 08:12</span>
+            <span class="hrun-slide" data-slide="2" aria-hidden="true">via Telegram · 23:40</span>
+            <span class="hrun-slide" data-slide="3" aria-hidden="true">via email · Thu 17:05</span>
+            <span class="hrun-slide" data-slide="4" aria-hidden="true">via dashboard · 14:02</span>
+            </span>
+          </p>
 
-              <div class="sa-main">
-                <div class="sa-topbar">
-                  <span class="sa-crumb"><strong>Chat</strong><span class="sep">/</span>Main</span>
-                  <span class="sa-status" data-demo-status><i></i>idle</span>
-                </div>
-                <div class="sa-thread" data-demo-thread aria-live="polite"></div>
-                <div class="sa-composer">
-                  <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 12-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L16 7" stroke-linecap="round"></path></svg>
-                  <span class="sa-input" data-demo-input><span class="sa-placeholder">Ask a question or start a task…</span><span class="caret" aria-hidden="true"></span></span>
-                  <span class="sa-btn call" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" stroke-linejoin="round"></path></svg></span>
-                  <span class="sa-btn send" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 18 18 6M9 6h9v9" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-                </div>
+          <h1 class="hrun-stage hrun-say reveal" data-d="1">
+            <span class="hrun-slide" data-slide="1">find a dentist that takes my insurance, and book it</span>
+            <span class="hrun-slide" data-slide="2" aria-hidden="true">wake me if the deploy fails overnight</span>
+            <span class="hrun-slide" data-slide="3" aria-hidden="true">every friday, tell me what I actually shipped</span>
+            <span class="hrun-slide" data-slide="4" aria-hidden="true">pull the invoices off the NAS and file them</span>
+          </h1>
+
+          <div class="hrun-offer reveal" data-d="2">
+            <p class="lede">Open source. NeoAgent runs as a service that browses, remembers, drives your devices, and keeps going after you close the tab.</p>
+            <div class="hrun-act">
+              <p class="hero-note">macOS · Windows · Linux — no terminal required</p>
+              <div class="hero-actions">
+                <a class="btn btn-primary btn-lg" href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest">
+                  Get NeoAgent
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </a>
               </div>
             </div>
+          </div>
 
-            <div class="demo-picker" role="group" aria-label="Try another request">
-              <span class="demo-picker-label">Try one:</span>
-              <button type="button" class="demo-chip is-active" data-scenario="0">Morning brief</button>
-              <button type="button" class="demo-chip" data-scenario="1">Real errand</button>
-              <button type="button" class="demo-chip" data-scenario="2">Set a trigger</button>
+          <div class="hrun-log reveal" data-d="3">
+            <div class="hrun-log-head">
+              <span class="eyebrow">What it did after you left</span>
+              <span class="hrun-stage hrun-status">
+              <span class="hrun-slide" data-slide="1">Still open · nothing booked yet</span>
+              <span class="hrun-slide" data-slide="2" aria-hidden="true">Closed · 2 h 35 m</span>
+              <span class="hrun-slide" data-slide="3" aria-hidden="true">Closed · runs every week</span>
+              <span class="hrun-slide" data-slide="4" aria-hidden="true">Closed · 7 m</span>
+              </span>
+            </div>
+
+            <div class="hrun-stage hrun-rails">
+              <ol class="hrun-rail hrun-slide" data-slide="1">
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:12</time><b>Searched</b><span class="hrun-detail">Practices near you, filtered by the insurer already in its memory.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:19</time><b>Browsed</b><span class="hrun-detail">Opened the booking page in a real browser and filled the form.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:24</time><b>Asked you</b><span class="hrun-detail">Two slots left. Sent both back to the thread you started in.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-hold"></span><span class="hrun-wire"></span><time>now</time><b>Holding</b><span class="hrun-detail">It won’t confirm an appointment without you.</span></li>
+              </ol>
+              <ol class="hrun-rail hrun-slide" data-slide="2" aria-hidden="true">
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>23:41</time><b>Set a trigger</b><span class="hrun-detail">Watched the pipeline, then let the machine idle.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:14</time><b>Caught the failure</b><span class="hrun-detail">The nightly build broke while you were asleep.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:14</time><b>Read the log</b><span class="hrun-detail">Found the failing test and the commit that moved it.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:15</time><b>Woke you</b><span class="hrun-detail">Called your phone, with the log already attached.</span></li>
+              </ol>
+              <ol class="hrun-rail hrun-slide" data-slide="3" aria-hidden="true">
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Thu 17:05</time><b>Saved a routine</b><span class="hrun-detail">Plain language in. No node editor, no flowchart.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:00</time><b>Ran itself</b><span class="hrun-detail">Read the week’s commits, tickets and calendar.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:02</time><b>Wrote it up</b><span class="hrun-detail">What shipped, what slipped, and what it wasn’t sure about.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:02</time><b>Sent it</b><span class="hrun-detail">Back down the same channel you asked from.</span></li>
+              </ol>
+              <ol class="hrun-rail hrun-slide" data-slide="4" aria-hidden="true">
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:02</time><b>Opened a terminal</b><span class="hrun-detail">Mounted the share on your own desktop, not a sandbox.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:05</time><b>Sorted them</b><span class="hrun-detail">By vendor and month, the way the folders already were.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:09</time><b>Filed them</b><span class="hrun-detail">Renamed to match everything filed before them.</span></li>
+                <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:09</time><b>Logged every step</b><span class="hrun-detail">Inspectable line by line. Stoppable at any point.</span></li>
+              </ol>
+            </div>
+
+            <div class="hrun-dots" aria-hidden="true">
+              <i data-slide="1"></i><i data-slide="2"></i><i data-slide="3"></i><i data-slide="4"></i>
             </div>
           </div>
+
         </div>
       </div>
-      <div class="hero-fade" aria-hidden="true"></div>
     </section>
 
     <!-- ============================== MANIFESTO ============================== -->
@@ -235,7 +243,7 @@
                   </svg>
                   <div class="mem-fact" data-mem-fact>
                     <div class="mf-chips"><span class="mf-chip kind">episodic</span><span class="mf-chip">Imp 8</span><span class="mf-chip ok">90%</span></div>
-                    <p data-mem-fact-text>Primary workspace is NeoAgent self-hosted on a local Mac mini with Flutter web as the control surface.</p>
+                    <p data-mem-fact-text>Primary workspace is NeoAgent on a local Mac mini with Flutter web as the control surface.</p>
                   </div>
                 </div>
               </div>
@@ -340,16 +348,16 @@
       </div>
     </section>
 
-    <!-- ============================== SELF-HOST ============================== -->
-    <section class="section" id="selfhost">
+    <!-- ============================== RUN IT ============================== -->
+    <section class="section" id="run">
       <div class="wrap">
         <div class="split rev">
           <div class="split-copy reveal">
             <span class="eyebrow">Yours, actually</span>
-            <h2>Self-hosted isn't a feature. It's the point.</h2>
+            <h2>It runs where you put it.</h2>
             <p>
-              NeoAgent runs on your hardware — a Mac mini in the closet, an old ThinkPad, a VPS
-              if you insist. Your memory, credentials, and logs live where you can
+              A Mac mini in the closet, an old ThinkPad, a VPS, or a box you never touch.
+              Wherever it runs, your memory, credentials, and logs stay somewhere you can
               <code>ls</code> them. The desktop installer sets everything up without a terminal;
               the CLI is there when you'd rather have one.
             </p>
@@ -420,7 +428,7 @@
             </span>
             NeoAgent
           </a>
-          <p>A self-hosted AI agent that keeps working after the chat ends. Built by people who wanted one, for people who want one.</p>
+          <p>An open-source AI agent that keeps working after the chat ends. Built by people who wanted one, for people who want one.</p>
         </div>
 
         <div>
@@ -428,7 +436,7 @@
           <nav class="footer-links" aria-label="Product">
             <a href="#surface">The surface</a>
             <a href="#devices">Devices</a>
-            <a href="#selfhost">Self-host</a>
+            <a href="#run">Run it</a>
             <a href="/app" class="signin">Open app</a>
           </nav>
         </div>
