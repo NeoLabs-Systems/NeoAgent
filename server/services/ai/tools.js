@@ -39,12 +39,15 @@ function compactToolDefinition(tool, options = {}) {
         }
     };
 
-    // Keep execution-only access metadata on the internal tool definition. The
-    // provider adapters serialize only name/description/parameters, so this is
-    // never sent as part of an LLM tool schema. The loop uses it to distinguish
-    // official-integration reads from writes without hard-coding provider names.
+    // Keep execution-only metadata on the internal tool definition. Provider
+    // adapters serialize only name/description/parameters, so these never enter
+    // the LLM schema. `access` distinguishes official-integration reads from
+    // writes; `family` groups incomplete sibling tools for activation.
     if (typeof tool.access === 'string' && tool.access.trim()) {
         compact.access = tool.access.trim().toLowerCase();
+    }
+    if (typeof tool.family === 'string' && tool.family.trim()) {
+        compact.family = tool.family.trim();
     }
 
     if (options.includeDescriptions) {
@@ -419,7 +422,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_navigate',
-            description: 'Navigate the visible Chromium instance in the user\'s cloud computer and return page content or a screenshot.',
+            family: 'browser_page',
+            description: 'Open a URL in the computer Chromium and return page content or a screenshot.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -435,7 +439,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_click',
-            description: 'Click an element on the current page',
+            family: 'browser_page',
+            description: 'Click an element on the current page by CSS selector or visible text.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -447,7 +452,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_type',
-            description: 'Type text into an input field',
+            family: 'browser_page',
+            description: 'Type text into an input field on the current page.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -461,7 +467,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_extract',
-            description: 'Extract content from the current page',
+            family: 'browser_page',
+            description: 'Extract content from the current page.',
             parameters: {
                 type: 'object',
                 properties: {

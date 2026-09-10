@@ -29,6 +29,7 @@ class ChatPanel extends StatefulWidget {
 
 class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   static const double _autoScrollBottomThreshold = 120;
+  static const double _stickResumeThreshold = 8;
   static const double _olderHistoryLoadThreshold = 180;
   static const int _initialSettleFrameBudget = 120;
 
@@ -328,7 +329,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   // only moves maxScrollExtent, never pixels, so the scroll-position listener
   // alone never sees it.
   bool _handleScrollMetrics(ScrollMetricsNotification notification) {
-    if (_userScrollActive ||
+    if (_ignoreScrollUpdates ||
+        _userScrollActive ||
         !_stickToBottom ||
         notification.metrics.axis != Axis.vertical) {
       return false;
@@ -337,37 +339,53 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return false;
   }
 
-  // A drag always wins over auto-follow, from the first pixel.
-  //
-  // Releasing the pin used to depend on the position listener seeing the thumb
-  // leave the near-bottom band. It never got the chance: the re-pin above runs
-  // on the next frame and puts the thread back at the bottom, so the drag never
-  // accumulates past the threshold and the thread jitters under the finger
-  // instead of scrolling. Dragging at all is the signal — not how far.
+  // A user scroll always wins over auto-follow, from the first pixel — drag,
+  // trackpad, mouse wheel, or scrollbar. The near-bottom band is only a
+  // follow heuristic for new content, not a dead zone the user has to escape.
   bool _handleUserScroll(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) {
+    if (_ignoreScrollUpdates || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.idle) {
+        _finishUserScroll();
+      } else {
+        // Forward = toward older messages (offset shrinks). Reverse keeps
+        // follow suppressed for the gesture without flashing the jump button.
+        _beginUserScroll(unstick: notification.direction == ScrollDirection.forward);
+      }
       return false;
     }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
-      _userScrollActive = true;
-      // Cancels any in-flight settle pass, which re-asserts _stickToBottom.
-      _scrollGeneration++;
-      if (_stickToBottom || _awaitingInitialScrollSettle) {
-        setState(() {
-          _stickToBottom = false;
-          _awaitingInitialScrollSettle = false;
-        });
-      }
-    } else if (notification is ScrollEndNotification && _userScrollActive) {
-      // Momentum has settled; follow again only if they landed at the bottom.
-      _userScrollActive = false;
-      final nearBottom = _isNearBottom;
-      if (_stickToBottom != nearBottom) {
-        setState(() => _stickToBottom = nearBottom);
-      }
+      _beginUserScroll(unstick: true);
+    } else if (notification is ScrollEndNotification) {
+      _finishUserScroll();
     }
     return false;
+  }
+
+  void _beginUserScroll({required bool unstick}) {
+    _userScrollActive = true;
+    // Cancels any in-flight settle pass, which re-asserts _stickToBottom.
+    _scrollGeneration++;
+    if (unstick && (_stickToBottom || _awaitingInitialScrollSettle)) {
+      setState(() {
+        _stickToBottom = false;
+        _awaitingInitialScrollSettle = false;
+      });
+    }
+  }
+
+  void _finishUserScroll() {
+    if (!_userScrollActive) return;
+    _userScrollActive = false;
+    // Resume follow only when they actually landed on the last pixel, not
+    // merely inside the 120px near-bottom band they were trying to leave.
+    final atBottom = _isAtBottom;
+    if (_stickToBottom != atBottom) {
+      setState(() => _stickToBottom = atBottom);
+    }
   }
 
   void _pinToBottom() {
@@ -390,6 +408,13 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return pos.pixels >= pos.maxScrollExtent - _autoScrollBottomThreshold;
   }
 
+  bool get _isAtBottom {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    if (!pos.hasContentDimensions) return true;
+    return pos.pixels >= pos.maxScrollExtent - _stickResumeThreshold;
+  }
+
   bool get _isNearTop {
     if (!_scrollController.hasClients) return false;
     final pos = _scrollController.position;
@@ -402,12 +427,12 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (_isNearTop) {
       unawaited(_maybeLoadOlderHistory());
     }
-    final nearBottom = _isNearBottom;
-    if (_stickToBottom && !nearBottom) {
+    if (_userScrollActive) return;
+    // Only release the pin here — never re-stick from a still-near-bottom
+    // offset. That two-way sync fought the user's first 120px of travel.
+    if (_stickToBottom && !_isNearBottom) {
       _scrollGeneration++;
-    }
-    if (_stickToBottom != nearBottom) {
-      setState(() => _stickToBottom = nearBottom);
+      setState(() => _stickToBottom = false);
     }
   }
 
