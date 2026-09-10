@@ -22,15 +22,17 @@ import RFB from '/api/computer/novnc/core/rfb.js';
 const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
 const screen = document.getElementById('screen');
 let attempt = 0;
-// A dropped socket leaves the last frame painted on the canvas, which is
-// indistinguishable from a live but idle desktop, so reconnect on a fresh
-// session instead of leaving a still image the viewer cannot control.
+let generation = 0;
+// Keep the last painted frame until the next RFB session is connected. Clearing
+// the screen on every retry flashes the guest console, which looks like the
+// desktop and terminal swapping. A still image is only a problem if we never
+// reconnect, so reconnect on the same generation rather than wiping first.
 const connect = (websocketPath, viewOnly) => {
-  screen.innerHTML = '';
+  const current = ++generation;
   const rfb = new RFB(screen, scheme + '://' + location.host + websocketPath);
   rfb.scaleViewport = true;
   rfb.resizeSession = false;
-  rfb.clipViewport = false;
+  rfb.clipViewport = true;
   rfb.focusOnClick = true;
   rfb.showDotCursor = true;
   rfb.qualityLevel = 6;
@@ -38,9 +40,12 @@ const connect = (websocketPath, viewOnly) => {
   rfb.viewOnly = viewOnly === true;
   rfb.addEventListener('connect', () => {
     attempt = 0;
+    while (screen.childElementCount > 1) screen.removeChild(screen.firstElementChild);
     rfb.focus();
   });
-  rfb.addEventListener('disconnect', reconnect);
+  rfb.addEventListener('disconnect', () => {
+    if (current === generation) reconnect();
+  });
 };
 const reconnect = () => {
   attempt += 1;

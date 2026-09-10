@@ -181,6 +181,8 @@ function guestDesktopBringUpScript() {
   const framebuffer = guestFramebufferDesktopScript().replace(/\n$/, '');
   const lightdm = guestLightDmConfig().replace(/\n$/, '');
   const packages = guestDesktopPackages();
+  const tint2 = TINT2_RC.replace(/\n$/, '');
+  const openbox = OPENBOX_RC_XML.replace(/\n$/, '');
   return `#!/bin/sh
 export DEBIAN_FRONTEND=noninteractive
 needs_pkgs=0
@@ -212,6 +214,13 @@ UNIT
 cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
 ${lightdm}
 LIGHTDM
+install -d -m 0755 /etc/xdg/tint2 /etc/xdg/openbox
+cat > /etc/xdg/tint2/tint2rc <<'TINT2'
+${tint2}
+TINT2
+cat > /etc/xdg/openbox/rc.xml <<'OPENBOX'
+${openbox}
+OPENBOX
 if [ -f /etc/default/grub ]; then
   sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/' /etc/default/grub || true
   update-grub >/dev/null 2>&1 || true
@@ -671,6 +680,12 @@ const OPENBOX_RC_XML = `<?xml version="1.0" encoding="UTF-8"?>
       <decor>yes</decor>
       <maximized>false</maximized>
     </application>
+    <application class="Chromium-browser">
+      <maximized>yes</maximized>
+    </application>
+    <application class="chromium">
+      <maximized>yes</maximized>
+    </application>
   </applications>
 </openbox_config>
 `;
@@ -703,8 +718,11 @@ wm_menu = 1
 panel_dock = 0
 panel_layer = top
 panel_items = LTSC
-autohide = 0
-strut_policy = follow_size
+autohide = 1
+autohide_show_timeout = 0.15
+autohide_hide_timeout = 0.4
+autohide_height = 2
+strut_policy = none
 
 launcher_icon_size = 28
 launcher_item_app = /usr/local/share/applications/neoagent-chromium.desktop
