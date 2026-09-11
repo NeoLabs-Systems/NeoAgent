@@ -63,12 +63,17 @@ function registerApiRoutes(app) {
     });
   }
 
-  app.get('/api/health', requireAuth, (req, res) => {
-    const runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
+  app.get('/api/health', (req, res) => {
+    let runtimeValidation = null;
+    try {
+      runtimeValidation = getRuntimeValidation(req.app?.locals?.runtimeManager);
+    } catch (error) {
+      console.error('[HTTP] Runtime health probe failed:', error.message);
+    }
     const ready = Boolean(runtimeValidation && runtimeValidation.ready);
     const issueCount = Array.isArray(runtimeValidation?.issues)
       ? runtimeValidation.issues.length
-      : 0;
+      : (runtimeValidation ? 0 : 1);
     res.json({
       status: ready ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),

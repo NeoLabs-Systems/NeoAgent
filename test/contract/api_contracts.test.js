@@ -75,10 +75,13 @@ describe('API response contracts', () => {
   test('runtime, settings, memory, MCP, tasks, and integrations contracts are stable', async () => {
     const runtime = await request(app).get('/api/runtime/config').expect(200);
     assert.equal(typeof runtime.body.analytics, 'object');
-    const health = await client.get('/api/health').expect(200);
+    const health = await request(app).get('/api/health').expect(200);
     assert.match(health.body.status, /^(ok|degraded)$/);
     assert.equal(typeof health.body.timestamp, 'string');
     assert.equal(typeof health.body.runtime.ready, 'boolean');
+    const rfb = await request(app).get('/api/computer/novnc/core/rfb.js').expect(200);
+    assert.match(String(rfb.headers['content-type'] || ''), /javascript|ecmascript/);
+    await request(app).get('/api/computer/status').expect(401);
 
     assert.equal(typeof (await client.get('/api/settings').expect(200)).body, 'object');
     assert.equal(typeof (await client.get('/api/memory').expect(200)).body.agentId, 'string');

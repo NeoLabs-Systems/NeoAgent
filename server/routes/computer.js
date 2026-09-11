@@ -8,16 +8,32 @@ const { uploadDesktopCommandOutput } = require('../services/desktop/command_outp
 const { buildComputerDisplayPage } = require('../services/runtime/computer_display');
 
 const router = express.Router();
-const noVncRoot = path.dirname(path.dirname(require.resolve('@novnc/novnc')));
 const MAX_EDIT_BYTES = 1024 * 1024;
 
+function resolveNoVncRoot() {
+  try {
+    return path.dirname(path.dirname(require.resolve('@novnc/novnc')));
+  } catch (error) {
+    console.error('[Computer] noVNC assets are unavailable:', error.message);
+    return null;
+  }
+}
+
+const noVncRoot = resolveNoVncRoot();
+if (noVncRoot) {
+  router.use('/novnc', express.static(noVncRoot, {
+    fallthrough: false,
+    immutable: true,
+    maxAge: '1d',
+    index: false,
+  }));
+} else {
+  router.use('/novnc', (_req, res) => {
+    res.status(503).type('text/plain').send('Computer display assets are unavailable.');
+  });
+}
+
 router.use(requireAuth);
-router.use('/novnc', express.static(noVncRoot, {
-  fallthrough: false,
-  immutable: true,
-  maxAge: '1d',
-  index: false,
-}));
 
 function runtime(req) {
   const manager = req.app?.locals?.runtimeManager;

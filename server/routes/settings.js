@@ -118,26 +118,31 @@ const updateTriggerLimiter = rateLimit({
 });
 
 router.get('/update/status', requireAuth, (req, res) => {
-  const status = readUpdateStatus();
-  const version = getVersionInfo();
-  res.json({
-    ...status,
-    backendVersion: version.version,
-    installedVersion: version.installedVersion,
-    packageVersion: version.packageVersion,
-    gitVersion: version.gitVersion,
-    gitSha: version.gitSha,
-    gitBranch: version.gitBranch,
-    releaseChannel: status.releaseChannel || version.releaseChannel,
-    targetBranch: status.targetBranch || version.targetBranch,
-    deploymentMode: version.deploymentMode,
-    deploymentProfile: version.deploymentProfile,
-    managedDeployment: version.managedDeployment,
-    allowSelfUpdate: version.allowSelfUpdate,
-    runtimeDefaults: version.runtimeDefaults,
-    allowHostRuntime: version.allowHostRuntime,
-    runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
-  });
+  try {
+    const status = readUpdateStatus();
+    const version = getVersionInfo();
+    res.json({
+      ...status,
+      backendVersion: version.version,
+      installedVersion: version.installedVersion,
+      packageVersion: version.packageVersion,
+      gitVersion: version.gitVersion,
+      gitSha: version.gitSha,
+      gitBranch: version.gitBranch,
+      releaseChannel: status.releaseChannel || version.releaseChannel,
+      targetBranch: status.targetBranch || version.targetBranch,
+      deploymentMode: version.deploymentMode,
+      deploymentProfile: version.deploymentProfile,
+      managedDeployment: version.managedDeployment,
+      allowSelfUpdate: version.allowSelfUpdate,
+      runtimeDefaults: version.runtimeDefaults,
+      allowHostRuntime: version.allowHostRuntime,
+      runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
+    });
+  } catch (error) {
+    console.error('[Settings] Update status failed:', error.message);
+    res.status(503).json({ error: 'Update status is temporarily unavailable.' });
+  }
 });
 
 router.use(requireAuth);
