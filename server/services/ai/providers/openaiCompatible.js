@@ -83,6 +83,9 @@ class OpenAICompatibleProvider extends BaseProvider {
       content,
       toolCalls: calls,
       finishReason,
+      // Output stopped at the token limit rather than because the model was
+      // done. Callers must not treat that as a finished answer.
+      truncated: finishReason === 'length',
       usage,
     };
   }
@@ -123,6 +126,7 @@ class OpenAICompatibleProvider extends BaseProvider {
           function: { name: tc.function.name, arguments: tc.function.arguments },
         })),
       finishReason: choice.finish_reason,
+      truncated: choice.finish_reason === 'length',
       usage: this.normalizeUsage(response.usage),
     };
   }

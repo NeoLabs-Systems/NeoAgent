@@ -204,6 +204,7 @@ test('custom provider assembles streamed tool calls', async () => {
     }],
     content: '',
     finishReason: 'tool_calls',
+    truncated: false,
     usage: null,
   }]);
 });
@@ -303,4 +304,37 @@ test('readStream aborts a tool call the moment it streams a key the tool does no
 test('nvidia analyzeImage throws because it is not vision-capable', async () => {
   const nvidia = new NvidiaProvider({ apiKey: 'test' });
   await assert.rejects(nvidia.analyzeImage({ imagePath: '/tmp/none.png' }), /does not support image analysis/);
+});
+
+test('readStream flags output cut off at the token limit as truncated', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { reasoning_content: 'Let me think about' }, finish_reason: null }] };
+    yield { choices: [{ delta: {}, finish_reason: 'length' }] };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks(), [])) events.push(event);
+  const terminal = events[events.length - 1];
+
+  // A thought cut off at the limit is not an answer: callers rely on this flag
+  // to avoid ending a run on a half-finished sentence with no tool call.
+  assert.equal(terminal.type, 'done');
+  assert.equal(terminal.finishReason, 'length');
+  assert.equal(terminal.truncated, true);
+});
+
+test('readStream does not flag a naturally finished response as truncated', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { content: 'All done.' }, finish_reason: 'stop' }] };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks(), [])) events.push(event);
+  const terminal = events[events.length - 1];
+
+  assert.equal(terminal.truncated, false);
 });

@@ -1004,7 +1004,9 @@ class DurableRunRuntime {
         && triggerSource !== 'tasks'
         && triggerType !== 'subagent';
       let consecutiveProtocolRepairs = 0;
+      let consecutiveTruncations = 0;
       const maxProtocolRepairs = 3;
+      const maxTruncationRetries = 2;
       let verificationRepairs = 0;
       let lastSemanticVerificationFailure = null;
       const maxVerificationRepairs = 3;
@@ -1786,6 +1788,29 @@ class DurableRunRuntime {
         });
 
         if (decision.kind === DECISION_KINDS.RESPOND) {
+          // A generation cut off at the token limit is an unfinished thought,
+          // not an answer. Reasoning models can spend the whole budget thinking
+          // and emit no tool call, and adopting that text as the draft response
+          // ends the run mid-sentence with the work untouched. Ask for a real
+          // continuation instead — but only a couple of times, so a model that
+          // truncates every turn still terminates.
+          if (modelResponse.truncated && !decision.toolCalls?.length) {
+            consecutiveTruncations += 1;
+            if (consecutiveTruncations <= maxTruncationRetries) {
+              messages.push({
+                role: 'system',
+                content: [
+                  'Your previous output stopped at the token limit and was cut off mid-thought,',
+                  'so it was discarded rather than treated as an answer.',
+                  'Keep reasoning brief and call the concrete tools needed next,',
+                  'or give a complete final answer that fits within the limit.',
+                ].join(' '),
+              });
+              continue;
+            }
+          } else {
+            consecutiveTruncations = 0;
+          }
           const content = sanitizeModelOutput(decision.content, { model });
           if (content) {
             finalContent = content;
