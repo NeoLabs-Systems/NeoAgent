@@ -1270,7 +1270,6 @@ class AgentEngine {
   // maxIterations is derived in runWithModel from loopPolicy.maxIterations.
 
   getReasoningEffort(providerName, options = {}) {
-    if (providerName === 'google') return undefined;
     if (options.latencyProfile === 'voice') {
       return 'low';
     }

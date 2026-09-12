@@ -818,9 +818,11 @@ app.post('/desktop/press-key', async (req, res) => {
 app.post('/desktop/launch-app', async (req, res) => {
   await handle(res, async () => {
     const application = String(req.body?.application || req.body?.app || '').trim().toLowerCase();
-    const { chromiumDesktopArgs } = require('./services/browser/chromium_session');
+    const { chromiumDesktopArgs, markChromiumSessionClean } = require('./services/browser/chromium_session');
+    const browserProfileDir = path.join(DATA_DIR, 'browser-profiles', 'default');
+    markChromiumSessionClean(browserProfileDir);
     const commands = {
-      browser: ['chromium', chromiumDesktopArgs(path.join(DATA_DIR, 'browser-profiles', 'default'))],
+      browser: ['chromium', chromiumDesktopArgs(browserProfileDir)],
       files: ['pcmanfm', [WORKSPACE_ROOT]],
       terminal: ['lxterminal', [`--working-directory=${WORKSPACE_ROOT}`]],
       editor: ['mousepad', []],

@@ -93,6 +93,7 @@ test('guest desktop ships a Chromebook-style shelf without nested heredocs', () 
   const chromiumDesktop = systemFiles.find((file) => file.path.endsWith('neoagent-chromium.desktop')).content;
   assert.match(chromiumDesktop, /remote-debugging-port=9222/);
   assert.match(chromiumDesktop, /restore-last-session/);
+  assert.match(chromiumDesktop, /hide-crash-restore-bubble/);
   assert.doesNotMatch(chromiumDesktop, /about:blank/);
   const openbox = systemFiles.find((file) => file.path === '/etc/xdg/openbox/rc.xml').content;
   assert.match(openbox, /class="Chromium-browser"/);

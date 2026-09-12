@@ -379,9 +379,10 @@ class OpenAICodexProvider extends BaseProvider {
       if (options.temperature !== undefined && options.temperature !== null) {
         request.temperature = options.temperature;
       }
-      const reasoningEffort = options.reasoningEffort || options.reasoning_effort;
-      if (reasoningEffort || this._isReasoningModel(model)) {
-        request.reasoning = { effort: reasoningEffort || 'medium' };
+      // The engine always passes an effort, so gating on it alone sent
+      // `reasoning` to non-reasoning models, which the Responses API rejects.
+      if (this._isReasoningModel(model)) {
+        request.reasoning = { effort: options.reasoningEffort || options.reasoning_effort || 'medium' };
       }
     }
 

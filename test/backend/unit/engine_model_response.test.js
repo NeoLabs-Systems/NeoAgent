@@ -258,6 +258,28 @@ test('requestModelResponse times out a model call that never settles', async () 
   assert.equal(providerSignal.aborted, true);
 });
 
+test('requestStructuredJson reports whether the reply held parseable JSON', async () => {
+  const engine = new AgentEngine(null);
+  const ask = (content) => engine.requestStructuredJson({
+    provider: { async chat() { return { content, usage: { total_tokens: 5 } }; } },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Route this.' }],
+    prompt: 'Return JSON.',
+    normalize: (value, fallback) => ({ ...fallback, ...value }),
+    fallback: { mode: 'execute' },
+    phase: 'analysis',
+  });
+
+  const truncated = await ask('{"mode":"direct_answer","goal":"Answer the us');
+  assert.equal(truncated.parsed, false);
+  assert.deepEqual(truncated.value, { mode: 'execute' });
+
+  const complete = await ask('{"mode":"direct_answer"}');
+  assert.equal(complete.parsed, true);
+  assert.equal(complete.value.mode, 'direct_answer');
+});
+
 test('requestStructuredJson aborts a timed-out provider call without retrying it', async () => {
   const engine = new AgentEngine(null);
   let calls = 0;

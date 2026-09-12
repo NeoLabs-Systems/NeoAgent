@@ -751,7 +751,9 @@ class DurableRunRuntime {
               tools: allTools,
               forceMode: options.forceMode || null,
             }),
-            maxTokens: 1400,
+            // Reasoning models count their reasoning tokens against this cap;
+            // at 1400 a sizeable share of analyses were cut off mid-JSON.
+            maxTokens: 4000,
             normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
             fallback: analysisFallback,
             telemetry: {
@@ -764,6 +766,12 @@ class DurableRunRuntime {
           });
           totalTokens += Number(analysisResponse.usage || 0);
           analysis = analysisResponse.value || normalizeTaskAnalysis(analysisFallback, analysisFallback);
+          if (analysisResponse.parsed === false) {
+            console.warn('[Runtime] Task analysis reply held no parseable JSON; using default routing.');
+            this.engine.recordRunEvent?.(userId, runId, 'task_analysis_unparsed', {
+              rawChars: String(analysisResponse.raw || '').length,
+            }, { agentId });
+          }
         } catch (error) {
           console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
           analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
@@ -797,10 +805,15 @@ class DurableRunRuntime {
       // added: every extra schema in the active set measurably raises the rate
       // of malformed tool calls from small models, so the rest of the file
       // group stays discoverable through search_tools.
-      const suggestedToolNames = [...new Set([
+      // Judged on the analysis and lexical matches together: when the analysis
+      // suggested nothing, the lexical matches are the only file-work signal.
+      const matchedToolNames = [
         ...(analysis.suggested_tools || []),
-        ...(suggestsCoreFileWork(analysis.suggested_tools) ? ['execute_command'] : []),
         ...initialMatches.map((tool) => tool.name),
+      ];
+      const suggestedToolNames = [...new Set([
+        ...matchedToolNames,
+        ...(suggestsCoreFileWork(matchedToolNames) ? ['execute_command'] : []),
         ...preferredNeoRecallTools,
       ])];
       tools = selectInitialTools(

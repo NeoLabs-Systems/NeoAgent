@@ -19,6 +19,7 @@ const {
   CHROMIUM_CDP_ENDPOINT,
   chromiumDesktopArgs,
   isChromiumProfileInUse,
+  markChromiumSessionClean,
 } = require('./chromium_session');
 
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
@@ -680,13 +681,13 @@ class BrowserController {
       }
 
       clearChromiumSingletonLocks(this.profileDir);
+      markChromiumSessionClean(this.profileDir);
       const child = spawn(executablePath, [
         '--start-maximized',
         ...chromiumDesktopArgs(this.profileDir),
         '--disable-dev-shm-usage',
         '--no-service-autorun',
         '--disable-crash-reporter',
-        '--disable-session-crashed-bubble',
         '--disable-search-engine-choice-screen',
         '--password-store=basic',
         '--disable-features=WebBluetooth,WebUSB,WebSerial,WebOTP,DirectSockets',

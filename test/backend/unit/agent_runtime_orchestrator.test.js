@@ -1473,6 +1473,97 @@ test('a blank model turn is recovered instead of ending the run', async () => {
   assert.equal(row.runtime_state, 'completed');
 });
 
+test('an unparseable task analysis is recorded instead of passing silently', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Write the report',
+  });
+  engine.requestStructuredJson = async ({ fallback, phase }) => ({
+    value: fallback,
+    parsed: phase === 'task_analysis' ? false : true,
+    raw: '{"mode":"execute","goal":"Write the rep',
+    usage: 8,
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.requestModelResponse = async () => ({
+    response: {
+      content: '',
+      toolCalls: [{
+        id: 'done1',
+        type: 'function',
+        function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+      }],
+      usage: { total_tokens: 2 },
+    },
+    streamContent: '',
+  });
+  const recorded = [];
+  const recordRunEvent = engine.recordRunEvent.bind(engine);
+  engine.recordRunEvent = (...args) => {
+    recorded.push(args[2]);
+    return recordRunEvent(...args);
+  };
+
+  const result = await engine.run(userId, 'Schreib den Bericht', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.ok(recorded.includes('task_analysis_unparsed'));
+});
+
+test('file work found only by lexical matching still gets a shell', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Implement the function',
+    suggested_tools: [],
+  });
+  const schema = { type: 'object', properties: {} };
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: schema },
+    { name: 'write_file', description: 'Write content to a workspace file', parameters: schema },
+    { name: 'execute_command', description: 'Run shell commands', parameters: schema },
+    { name: 'list_chats', description: 'List known messaging conversations', parameters: schema },
+  ]);
+  let firstTurnTools = null;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!firstTurnTools && tools?.length) firstTurnTools = tools.map((tool) => tool.name);
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'done1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+
+  await engine.run(userId, 'Write the function into solution.py', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.ok(firstTurnTools.includes('write_file'), 'lexical match must be active');
+  assert.ok(firstTurnTools.includes('execute_command'), 'file work must come with a shell');
+});
+
 test('background run searches for an inactive tool and activates it', async () => {
   const engine = createEngine({
     mode: 'execute',

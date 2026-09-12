@@ -110,6 +110,9 @@ async function requestStructuredJson(engine, {
     const normalizedUsage = normalizeUsage(response.usage);
     return {
       value: normalize(parsed || {}, fallback),
+      // False when the reply held no usable JSON object (truncated output,
+      // prose), so callers can tell a real answer from a silent fallback.
+      parsed: Boolean(parsed),
       raw: response.content || '',
       usage: normalizedUsage?.totalTokens || 0,
     };

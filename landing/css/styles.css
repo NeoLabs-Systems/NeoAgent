@@ -1300,15 +1300,6 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   font-size: 13px;
 }
 
-.ops { display: inline-flex; align-items: center; gap: 8px; color: var(--success); font-weight: 600; }
-
-.ops .d {
-  width: 7px; height: 7px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 16%, transparent);
-}
-
 /* ---------- reveals & motion ---------- */
 .reveal {
   opacity: 0;

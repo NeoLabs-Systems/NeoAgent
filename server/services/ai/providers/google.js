@@ -29,6 +29,22 @@ function normalizeUsage(usage) {
   };
 }
 
+// Models the catalog marks `thinking: true`. Module-level because runs build
+// fresh provider instances after discovery has listed the models.
+const thinkingModels = new Set();
+// Gemini 2.x only takes a token budget (these are Google's own effort
+// mappings); later models take a level. MINIMAL is left out because Pro
+// models reject it.
+const THINKING_BUDGETS = { low: 1024, medium: 8192, high: 24576 };
+
+function thinkingConfigFor(model, requested) {
+  const effort = String(requested || '').trim().toLowerCase();
+  if (!thinkingModels.has(model) || !THINKING_BUDGETS[effort]) return null;
+  return /^gemini-2\./.test(model)
+    ? { thinkingBudget: THINKING_BUDGETS[effort] }
+    : { thinkingLevel: effort.toUpperCase() };
+}
+
 function collectResponseParts(response, toolCalls, seenToolCalls = null) {
   let content = '';
   for (const candidate of response?.candidates || []) {
@@ -112,6 +128,7 @@ class GoogleProvider extends BaseProvider {
       .map((m) => {
         const id = m.name.replace('models/', '');
         this.contextWindows[id] = m.inputTokenLimit || 1048576;
+        if (m.thinking === true) thinkingModels.add(id);
         return { id, name: m.displayName || id };
       });
   }
@@ -140,6 +157,8 @@ class GoogleProvider extends BaseProvider {
     if (Number.isFinite(maxOutputTokens) && maxOutputTokens > 0) {
       config.maxOutputTokens = Math.floor(maxOutputTokens);
     }
+    const thinkingConfig = thinkingConfigFor(options.model, options.reasoningEffort);
+    if (thinkingConfig) config.thinkingConfig = thinkingConfig;
     return config;
   }
 

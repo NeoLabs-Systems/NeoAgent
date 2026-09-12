@@ -13,6 +13,8 @@ function chromiumDesktopArgs(userDataDir = GUEST_CHROMIUM_USER_DATA_DIR) {
     '--no-first-run',
     '--no-default-browser-check',
     '--restore-last-session',
+    '--hide-crash-restore-bubble',
+    '--disable-session-crashed-bubble',
     '--remote-debugging-address=127.0.0.1',
     `--remote-debugging-port=${CHROMIUM_CDP_PORT}`,
     '--remote-allow-origins=*',
@@ -21,6 +23,50 @@ function chromiumDesktopArgs(userDataDir = GUEST_CHROMIUM_USER_DATA_DIR) {
 
 function chromiumDesktopCommand(binary = 'chromium') {
   return [binary, ...chromiumDesktopArgs()].join(' ');
+}
+
+function readJsonObject(filePath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function withCleanSessionExit(preferences) {
+  const profile = preferences.profile && typeof preferences.profile === 'object'
+    ? preferences.profile
+    : {};
+  if (profile.exit_type === 'Normal' && profile.exited_cleanly === true) return null;
+  return {
+    ...preferences,
+    profile: {
+      ...profile,
+      exit_type: 'Normal',
+      exited_cleanly: true,
+    },
+  };
+}
+
+function markChromiumSessionClean(profileDir) {
+  if (isChromiumProfileInUse(profileDir)) return false;
+  const candidates = [
+    path.join(String(profileDir || ''), 'Default', 'Preferences'),
+    path.join(String(profileDir || ''), 'Preferences'),
+  ];
+  let updated = false;
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue;
+    const parsed = readJsonObject(filePath);
+    if (!parsed) continue;
+    const next = withCleanSessionExit(parsed);
+    if (!next) continue;
+    fs.writeFileSync(filePath, JSON.stringify(next));
+    updated = true;
+  }
+  return updated;
 }
 
 function isChromiumProfileInUse(profileDir) {
@@ -49,4 +95,5 @@ module.exports = {
   chromiumDesktopArgs,
   chromiumDesktopCommand,
   isChromiumProfileInUse,
+  markChromiumSessionClean,
 };
