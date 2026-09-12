@@ -30,6 +30,28 @@ function queueKeyForMessage(userId, msg) {
   ].join(':');
 }
 
+function queueKeysForAgent(userQueues, userId, agentId) {
+  const user = String(userId);
+  const agent = String(agentId || 'main');
+  const prefix = `${user}:${agent}:`;
+  const legacy = new Set([user, `${user}:${agent}`]);
+  return Object.keys(userQueues || {}).filter(
+    (key) => legacy.has(key) || key.startsWith(prefix),
+  );
+}
+
+function summarizeQueuesForAgent(userQueues, userId, agentId) {
+  const keys = queueKeysForAgent(userQueues, userId, agentId);
+  let running = false;
+  let pending = 0;
+  for (const key of keys) {
+    const queue = userQueues[key];
+    if (queue?.running) running = true;
+    pending += Array.isArray(queue?.pending) ? queue.pending.length : 0;
+  }
+  return { running, pending, keys };
+}
+
 function batchEntry(msg) {
   return {
     sender: msg.sender || null,
@@ -223,4 +245,6 @@ async function notifyProcessingError(handler, details) {
 module.exports = {
   processInboundQueue,
   queueKeyForMessage,
+  queueKeysForAgent,
+  summarizeQueuesForAgent,
 };

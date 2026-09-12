@@ -33,6 +33,31 @@ function getJobByMessageId(messageId) {
   ).get(messageId) || null;
 }
 
+function getInboundJob(jobId) {
+  return db.prepare(
+    'SELECT * FROM messaging_inbound_jobs WHERE id = ?',
+  ).get(jobId) || null;
+}
+
+function inboundJobScope(filters = {}) {
+  const clauses = [];
+  const values = [];
+  for (const [column, value] of [
+    ['user_id', filters.userId],
+    ['agent_id', filters.agentId],
+    ['platform', filters.platform],
+  ]) {
+    if (value === undefined) continue;
+    if (value === null) clauses.push(`${column} IS NULL`);
+    else {
+      clauses.push(`${column} = ?`);
+      values.push(value);
+    }
+  }
+  const limit = Math.max(1, Math.min(500, Number(filters.limit) || 100));
+  return { clauses, values, limit };
+}
+
 function enqueueInboundMessage({
   userId,
   agentId,
@@ -217,22 +242,34 @@ function reconcileInterruptedInboundJobs() {
   })();
 }
 
+function requeueReplayableInboundJob(jobId) {
+  const result = db.prepare(
+    `UPDATE messaging_inbound_jobs
+     SET status = 'pending',
+         last_error = NULL,
+         completed_at = NULL,
+         updated_at = datetime('now')
+     WHERE id = ?
+       AND run_id IS NULL
+       AND status IN ('processing', 'failed')`,
+  ).run(jobId);
+  return result.changes === 1;
+}
+
 function listPendingInboundJobs(filters = {}) {
-  const clauses = ["status = 'pending'"];
-  const values = [];
-  for (const [column, value] of [
-    ['user_id', filters.userId],
-    ['agent_id', filters.agentId],
-    ['platform', filters.platform],
-  ]) {
-    if (value === undefined) continue;
-    if (value === null) clauses.push(`${column} IS NULL`);
-    else {
-      clauses.push(`${column} = ?`);
-      values.push(value);
-    }
-  }
-  const limit = Math.max(1, Math.min(500, Number(filters.limit) || 100));
+  const { clauses, values, limit } = inboundJobScope(filters);
+  clauses.unshift("status = 'pending'");
+  return db.prepare(
+    `SELECT * FROM messaging_inbound_jobs
+     WHERE ${clauses.join(' AND ')}
+     ORDER BY created_at ASC, id ASC
+     LIMIT ?`,
+  ).all(...values, limit);
+}
+
+function listAbandonedProcessingInboundJobs(filters = {}) {
+  const { clauses, values, limit } = inboundJobScope(filters);
+  clauses.unshift("status = 'processing'", 'run_id IS NULL');
   return db.prepare(
     `SELECT * FROM messaging_inbound_jobs
      WHERE ${clauses.join(' AND ')}
@@ -250,8 +287,11 @@ module.exports = {
   attachRunToInboundJobs,
   claimInboundJob,
   enqueueInboundMessage,
+  getInboundJob,
+  listAbandonedProcessingInboundJobs,
   listPendingInboundJobs,
   payloadForInboundJob,
   reconcileInterruptedInboundJobs,
+  requeueReplayableInboundJob,
   settleInboundJob,
 };

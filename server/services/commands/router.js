@@ -5,6 +5,7 @@ const { clearWebChatSummary } = require('../ai/history');
 const { getAvailableTools } = require('../ai/tools');
 const { getSupportedModels } = require('../ai/models');
 const { resolveAgentId } = require('../agents/manager');
+const { queueKeysForAgent, summarizeQueuesForAgent } = require('../messaging/inbound_queue');
 
 function tokenize(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean);
@@ -187,16 +188,18 @@ class CommandRouter {
     }
 
     const q = this.app?.locals?.userQueues;
-    const queueKeys = agentId ? [`${userId}:${agentId}`, userId] : [userId];
-    for (const key of queueKeys) {
-      if (q && q[key]) {
-        q[key].cancelRequested = true;
-        if (!q[key].running) {
-          q[key].pending = [];
-          q[key].cancelRequested = false;
-        }
+    for (const key of queueKeysForAgent(q, userId, agentId)) {
+      const queue = q[key];
+      queue.cancelRequested = true;
+      queue.cancelPending?.();
+      if (!queue.running) {
+        queue.pending = [];
+        queue.cancelRequested = false;
+        delete q[key];
       }
     }
+
+    this.app?.locals?.messagingManager?.releaseAbandonedInboundJobs?.({ userId, agentId });
 
     return {
       handled: true,
@@ -226,9 +229,11 @@ class CommandRouter {
     const agentEngine = this.app?.locals?.agentEngine;
     const activeRuns = Array.from(agentEngine?.activeRuns?.values?.() || [])
       .filter((run) => run.userId === userId && (!agentId || run.agentId === agentId));
-    const queue = this.app?.locals?.userQueues?.[`${userId}:${agentId || 'main'}`]
-      || this.app?.locals?.userQueues?.[userId]
-      || { running: false, pending: [] };
+    const queue = summarizeQueuesForAgent(
+      this.app?.locals?.userQueues,
+      userId,
+      agentId,
+    );
     const connectedPlatforms = this.app?.locals?.messagingManager?.getAllStatuses(userId, { agentId }) || {};
     const connectedCount = Object.values(connectedPlatforms).filter((entry) => String(entry?.status || '').toLowerCase() === 'connected').length;
 
@@ -237,7 +242,7 @@ class CommandRouter {
       content:
         `**Status**\n` +
         `- Active runs: ${activeRuns.length}\n` +
-        `- Messaging queue: ${queue.running ? 'running' : 'idle'} (${Array.isArray(queue.pending) ? queue.pending.length : 0} pending)\n` +
+        `- Messaging queue: ${queue.running ? 'running' : 'idle'} (${queue.pending} pending)\n` +
         `- Connected messaging platforms: ${connectedCount}`
     };
   }

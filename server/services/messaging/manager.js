@@ -48,9 +48,12 @@ const { createServiceLogger } = require('../../utils/logger');
 const {
   claimInboundJob,
   enqueueInboundMessage,
+  getInboundJob,
+  listAbandonedProcessingInboundJobs,
   listPendingInboundJobs,
   payloadForInboundJob,
   reconcileInterruptedInboundJobs,
+  requeueReplayableInboundJob,
   settleInboundJob,
 } = require('./inbound_store');
 
@@ -97,6 +100,7 @@ class MessagingManager extends EventEmitter {
     this.lifecycleAbortController = new AbortController();
     this.activeOperations = new Set();
     this.activeInboundJobs = new Set();
+    this.activeInboundJobById = new Map();
     this.activeInboundRecoveries = new Map();
     this.reconnectTimers = new Map();
     this.reconnectAttempts = new Map();
@@ -267,25 +271,69 @@ class MessagingManager extends EventEmitter {
         `[Messaging] Duplicate ${platformName} message for user ${userId} predates durable processing state; skipping replay`,
       );
       return durableMessage;
-    } else if (queued.job.status !== 'pending') {
-      console.warn(
-        `[Messaging] Duplicate ${platformName} message for user ${userId} has durable status ${queued.job.status}; skipping replay`,
-      );
-      return durableMessage;
     }
 
-    await this._processInboundJob(queued.job, durableMessage);
+    await this._dispatchInboundJob(queued.job, durableMessage);
     return durableMessage;
+  }
+
+  _trackInboundJob(jobId) {
+    const existing = this.activeInboundJobById.get(jobId);
+    if (existing) {
+      return { alreadyTracked: true, promise: existing, finish() {} };
+    }
+    let finishTracking;
+    const promise = new Promise((resolve) => {
+      finishTracking = resolve;
+    });
+    this.activeInboundJobs.add(promise);
+    this.activeInboundJobById.set(jobId, promise);
+    return {
+      alreadyTracked: false,
+      promise,
+      finish: () => {
+        finishTracking();
+        this.activeInboundJobs.delete(promise);
+        if (this.activeInboundJobById.get(jobId) === promise) {
+          this.activeInboundJobById.delete(jobId);
+        }
+      },
+    };
+  }
+
+  async _dispatchInboundJob(job, payload) {
+    if (!job) return false;
+
+    const inFlight = this.activeInboundJobById.get(job.id);
+    if (inFlight) await inFlight;
+
+    job = getInboundJob(job.id) || job;
+    if (!job.run_id && (job.status === 'processing' || job.status === 'failed')) {
+      requeueReplayableInboundJob(job.id);
+      job = getInboundJob(job.id) || job;
+    }
+    if (job.status === 'pending') {
+      return this._processInboundJob(job, payload);
+    }
+    if (job.status !== 'completed') {
+      console.warn(
+        `[Messaging] Duplicate ${job.platform} message for user ${job.user_id} has durable status ${job.status}; skipping replay`,
+      );
+    }
+    return job.status === 'completed';
   }
 
   async _processInboundJob(job, payload) {
     if (this.isShuttingDown || !job || this.messageHandlers.length === 0) return false;
-    if (!claimInboundJob(job.id)) return false;
-    let finishTracking;
-    const tracked = new Promise((resolve) => {
-      finishTracking = resolve;
-    });
-    this.activeInboundJobs.add(tracked);
+    const tracked = this._trackInboundJob(job.id);
+    if (tracked.alreadyTracked) {
+      await tracked.promise;
+      return getInboundJob(job.id)?.status === 'completed';
+    }
+    if (!claimInboundJob(job.id)) {
+      tracked.finish();
+      return false;
+    }
 
     let status = 'completed';
     let failure = null;
@@ -327,8 +375,7 @@ class MessagingManager extends EventEmitter {
       settleInboundJob(job.id, status, failure?.message || failure || null);
       return status === 'completed';
     } finally {
-      finishTracking();
-      this.activeInboundJobs.delete(tracked);
+      tracked.finish();
     }
   }
 
@@ -340,6 +387,15 @@ class MessagingManager extends EventEmitter {
     } catch {
       return false;
     }
+  }
+
+  releaseAbandonedInboundJobs(filters = {}) {
+    let released = 0;
+    for (const job of listAbandonedProcessingInboundJobs(filters)) {
+      if (this.activeInboundJobById.has(job.id)) continue;
+      if (requeueReplayableInboundJob(job.id)) released += 1;
+    }
+    return released;
   }
 
   recoverPendingInbound(filters = {}) {
@@ -358,6 +414,7 @@ class MessagingManager extends EventEmitter {
         reconcileInterruptedInboundJobs();
         this.inboundJobsReconciled = true;
       }
+      this.releaseAbandonedInboundJobs(filters);
       let recovered = 0;
       let skipped = 0;
       for (const job of listPendingInboundJobs(filters)) {
@@ -371,7 +428,7 @@ class MessagingManager extends EventEmitter {
           settleInboundJob(job.id, 'failed', 'Stored inbound message payload is invalid.');
           continue;
         }
-        if (await this._processInboundJob(job, payload)) recovered += 1;
+        if (await this._dispatchInboundJob(job, payload)) recovered += 1;
       }
       return { recovered, skipped };
     }).finally(() => {

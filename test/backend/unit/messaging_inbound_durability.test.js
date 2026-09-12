@@ -130,3 +130,184 @@ test('does not replay an inbound job whose agent run began before restart', asyn
   assert.equal(persisted.status, 'failed');
   assert.match(persisted.last_error, /will not be replayed automatically/i);
 });
+
+test('waits for an in-flight inbound job instead of dropping a platform retry', async () => {
+  const manager = new MessagingManager(createIo());
+  let release;
+  let startedResolve;
+  const started = new Promise((resolve) => {
+    startedResolve = resolve;
+  });
+  let calls = 0;
+  manager.registerHandler(async () => {
+    calls += 1;
+    startedResolve();
+    await new Promise((resolve) => {
+      release = resolve;
+    });
+    return { runId: 'live-run', result: { status: 'completed' }, error: null };
+  });
+
+  const first = manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  await started;
+  const second = manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  assert.equal(calls, 1);
+  release();
+  await Promise.all([first, second]);
+  assert.equal(calls, 1);
+  assert.deepEqual(
+    ctx.db.prepare('SELECT status, attempts FROM messaging_inbound_jobs').get(),
+    { status: 'completed', attempts: 1 },
+  );
+});
+
+test('replays a duplicate when durable status is processing but no handler is running', async () => {
+  const manager = new MessagingManager(createIo());
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  ctx.db.prepare(
+    "UPDATE messaging_inbound_jobs SET status = 'processing', attempts = 1",
+  ).run();
+
+  const calls = [];
+  manager.registerHandler(async (_userId, message) => {
+    calls.push(message.content);
+    return { runId: 'replayed-run', result: { status: 'completed' }, error: null };
+  });
+
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  assert.deepEqual(calls, ['Please finish this task.']);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs').get().status,
+    'completed',
+  );
+});
+
+test('replays a duplicate that failed before an agent run started', async () => {
+  const manager = new MessagingManager(createIo());
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  ctx.db.prepare(
+    "UPDATE messaging_inbound_jobs SET status = 'failed', last_error = 'handler crashed', attempts = 1",
+  ).run();
+
+  let calls = 0;
+  manager.registerHandler(async () => {
+    calls += 1;
+    return { runId: 'retried-run', result: { status: 'completed' }, error: null };
+  });
+
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  assert.equal(calls, 1);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs').get().status,
+    'completed',
+  );
+});
+
+test('does not replay a duplicate after an agent run has already started', async () => {
+  const manager = new MessagingManager(createIo());
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  const job = ctx.db.prepare('SELECT id FROM messaging_inbound_jobs').get();
+  const agentId = manager._agentId(user.userId, {});
+  ctx.db.prepare(
+    `INSERT INTO agent_runs (id, user_id, agent_id, title, status, error)
+     VALUES ('started-inbound-run', ?, ?, 'Started inbound run', 'failed', 'send failed')`,
+  ).run(user.userId, agentId);
+  ctx.db.prepare(
+    `UPDATE messaging_inbound_jobs
+     SET status = 'failed', attempts = 1, run_id = 'started-inbound-run'
+     WHERE id = ?`,
+  ).run(job.id);
+
+  let calls = 0;
+  manager.registerHandler(async () => {
+    calls += 1;
+  });
+
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  assert.equal(calls, 0);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs WHERE id = ?').get(job.id).status,
+    'failed',
+  );
+});
+
+test('/stop cancels platform-scoped queues and lets a stuck Discord retry run', async () => {
+  const { CommandRouter } = require('../../../server/services/commands/router');
+  const { queueKeyForMessage } = require('../../../server/services/messaging/inbound_queue');
+  const manager = new MessagingManager(createIo());
+  const agentId = manager._agentId(user.userId, {});
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  ctx.db.prepare(
+    "UPDATE messaging_inbound_jobs SET status = 'processing', attempts = 1",
+  ).run();
+
+  const queueKey = queueKeyForMessage(user.userId, {
+    agentId,
+    platform: 'discord',
+    chatId: 'chat-1',
+  });
+  const userQueues = {
+    [queueKey]: {
+      running: false,
+      pending: [{ message: { content: 'later' } }],
+      cancelRequested: false,
+    },
+  };
+  const router = new CommandRouter({
+    locals: {
+      userQueues,
+      messagingManager: manager,
+      agentEngine: { activeRuns: new Map() },
+    },
+  });
+
+  const status = router.handleStatus(user.userId, agentId);
+  assert.match(status.content, /Messaging queue: idle \(1 pending\)/);
+
+  const result = router.handleStop(user.userId, agentId);
+  assert.equal(result.content, 'Stopped.');
+  assert.deepEqual(Object.keys(userQueues), []);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs').get().status,
+    'pending',
+  );
+
+  let calls = 0;
+  manager.registerHandler(async () => {
+    calls += 1;
+    return { runId: 'after-stop', result: { status: 'completed' }, error: null };
+  });
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  assert.equal(calls, 1);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs').get().status,
+    'completed',
+  );
+});
+
+test('reclaims abandoned processing jobs on later inbound recovery', async () => {
+  const manager = new MessagingManager(createIo());
+  await manager.ingestMessage(user.userId, 'discord', inboundMessage());
+  manager.inboundJobsReconciled = true;
+  ctx.db.prepare(
+    "UPDATE messaging_inbound_jobs SET status = 'processing', attempts = 1",
+  ).run();
+
+  let calls = 0;
+  manager.registerHandler(async () => {
+    calls += 1;
+    return { runId: 'recovered-run', result: { status: 'completed' }, error: null };
+  });
+  const agentId = manager._agentId(user.userId, {});
+  manager.platforms.set(
+    manager._key(user.userId, agentId, 'discord'),
+    { getStatus: () => 'connected' },
+  );
+
+  assert.deepEqual(await manager.recoverPendingInbound(), { recovered: 1, skipped: 0 });
+  assert.equal(calls, 1);
+  assert.equal(
+    ctx.db.prepare('SELECT status FROM messaging_inbound_jobs').get().status,
+    'completed',
+  );
+});
