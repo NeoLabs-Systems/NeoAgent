@@ -14,7 +14,7 @@ const {
 } = require('../../../server/services/messaging/access_policy');
 const { normalizeWhatsAppWhitelist } = require('../../../server/utils/whatsapp');
 
-test('new shared-room policies default to automatic participation', () => {
+test('new shared-room policies default to tagged-only social intelligence', () => {
   const policy = createDefaultAccessPolicy('telegram');
   policy.sharedSpaceRules = [{ scope: 'group', value: '-1001' }];
   const decision = evaluateAccessPolicy(policy, {
@@ -26,10 +26,26 @@ test('new shared-room policies default to automatic participation', () => {
     wasMentioned: false,
   }, 'telegram');
 
-  assert.equal(policy.defaultAllowUntaggedInShared, true);
+  assert.equal(policy.defaultAllowUntaggedInShared, false);
   assert.equal(decision.allowed, true);
-  assert.equal(decision.allowUntagged, true);
-  assert.equal(decision.participationHint, 'automatic');
+  assert.equal(decision.allowUntagged, false);
+  assert.equal(decision.participationHint, 'mention_only');
+});
+
+test('current policies treat a missing untagged default as off', () => {
+  const policy = normalizeAccessPolicy('telegram', {
+    schemaVersion: 3,
+    sharedPolicy: 'open',
+    sharedSpaceRules: [{ scope: 'group', value: '-1001' }],
+  });
+  assert.equal(policy.defaultAllowUntaggedInShared, false);
+  assert.equal(evaluateAccessPolicy(policy, {
+    senderId: 'person-1',
+    chatId: '-1001',
+    groupId: '-1001',
+    isDirect: false,
+    isShared: true,
+  }, 'telegram').allowUntagged, false);
 });
 
 test('legacy mention requirement becomes a participation hint, not admission', () => {
@@ -58,10 +74,11 @@ test('untagged participation is configured independently for each group', () => 
   const policy = normalizeAccessPolicy('telegram', {
     schemaVersion: 3,
     sharedPolicy: 'open',
+    defaultAllowUntaggedInShared: false,
     sharedParticipationRules: [{
       scope: 'group',
       value: '-1001',
-      allowUntagged: false,
+      allowUntagged: true,
     }],
   });
   const decide = (groupId) => evaluateAccessPolicy(policy, {
@@ -72,10 +89,10 @@ test('untagged participation is configured independently for each group', () => 
     isShared: true,
   }, 'telegram');
 
-  assert.equal(decide('-1001').allowUntagged, false);
-  assert.equal(decide('-1001').participationHint, 'mention_only');
-  assert.equal(decide('-1002').allowUntagged, true);
-  assert.equal(decide('-1002').participationHint, 'automatic');
+  assert.equal(decide('-1001').allowUntagged, true);
+  assert.equal(decide('-1001').participationHint, 'automatic');
+  assert.equal(decide('-1002').allowUntagged, false);
+  assert.equal(decide('-1002').participationHint, 'mention_only');
 });
 
 test('WhatsApp legacy allowlist keeps group JIDs as shared group rules', () => {
@@ -341,5 +358,5 @@ test('Discord channel allowlist admits tagged messages and preserves untagged po
     wasMentioned: false,
   }, 'discord');
   assert.equal(untagged.allowed, true);
-  assert.equal(untagged.allowUntagged, true);
+  assert.equal(untagged.allowUntagged, false);
 });

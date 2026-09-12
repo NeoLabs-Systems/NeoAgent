@@ -352,7 +352,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       } else {
         // Forward = toward older messages (offset shrinks). Reverse keeps
         // follow suppressed for the gesture without flashing the jump button.
-        _beginUserScroll(unstick: notification.direction == ScrollDirection.forward);
+        _beginUserScroll(
+          unstick: notification.direction == ScrollDirection.forward,
+        );
       }
       return false;
     }
@@ -3186,29 +3188,6 @@ Future<void> _showMessagingAccessPolicyDialog(
     return policy.defaultAllowUntaggedInShared;
   }
 
-  void setAllowsUntagged(
-    MessagingAccessRule space,
-    bool allow,
-    void Function(void Function()) setLocalState,
-  ) {
-    setLocalState(() {
-      final rules = policy.sharedParticipationRules
-          .where(
-            (rule) => !(rule.scope == space.scope && rule.value == space.value),
-          )
-          .toList();
-      rules.add(
-        MessagingSharedParticipationRule(
-          scope: space.scope,
-          value: space.value,
-          label: space.label,
-          allowUntagged: allow,
-        ),
-      );
-      policy = policy.copyWith(sharedParticipationRules: rules);
-    });
-  }
-
   void addRule(
     _MessagingRuleSelection selection,
     void Function(void Function()) setLocalState,
@@ -3415,9 +3394,38 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _GroupParticipationSection(
                         spaces: participationSpaces,
                         supportsMentionGate: capabilities.supportsMentionGate,
+                        defaultAllowUntagged:
+                            policy.defaultAllowUntaggedInShared,
                         allowsUntagged: allowsUntagged,
-                        onChanged: (space, value) =>
-                            setAllowsUntagged(space, value, setLocalState),
+                        onEdit: () async {
+                          final selection = await _showSocialIntelligencePicker(
+                            context,
+                            spaces: participationSpaces,
+                            supportsMentionGate:
+                                capabilities.supportsMentionGate,
+                            defaultAllowUntagged:
+                                policy.defaultAllowUntaggedInShared,
+                            allowsUntagged: allowsUntagged,
+                          );
+                          if (selection == null) return;
+                          setLocalState(() {
+                            final selectedKeys = <String>{
+                              for (final space in participationSpaces)
+                                '${space.scope}:${space.value}',
+                            };
+                            policy = policy.copyWith(
+                              defaultAllowUntaggedInShared:
+                                  selection.defaultAllowUntagged,
+                              sharedParticipationRules:
+                                  <MessagingSharedParticipationRule>[
+                                    ...policy.sharedParticipationRules.where(
+                                      (rule) => !selectedKeys.contains(rule.id),
+                                    ),
+                                    ...selection.participationRules,
+                                  ],
+                            );
+                          });
+                        },
                       ),
                     ],
                     const SizedBox(height: 14),
@@ -3595,21 +3603,44 @@ class _AccessModeField extends StatelessWidget {
   }
 }
 
+class _SocialIntelligenceSelection {
+  const _SocialIntelligenceSelection({
+    required this.defaultAllowUntagged,
+    required this.participationRules,
+  });
+
+  final bool defaultAllowUntagged;
+  final List<MessagingSharedParticipationRule> participationRules;
+}
+
 class _GroupParticipationSection extends StatelessWidget {
   const _GroupParticipationSection({
     required this.spaces,
     required this.supportsMentionGate,
+    required this.defaultAllowUntagged,
     required this.allowsUntagged,
-    required this.onChanged,
+    required this.onEdit,
   });
 
   final List<MessagingAccessRule> spaces;
   final bool supportsMentionGate;
+  final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
-  final void Function(MessagingAccessRule, bool) onChanged;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final enabledSpaces = spaces.where(allowsUntagged).toList(growable: false);
+    final summaryText = spaces.isEmpty
+        ? 'No groups discovered yet'
+        : enabledSpaces.isEmpty
+        ? defaultAllowUntagged
+              ? 'On for new groups only'
+              : 'Off by default'
+        : enabledSpaces.length == spaces.length
+        ? 'On for all ${spaces.length} spaces'
+        : 'On for ${enabledSpaces.length} of ${spaces.length} spaces';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -3623,14 +3654,14 @@ class _GroupParticipationSection extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(Icons.alternate_email_rounded, color: _accent),
+              Icon(Icons.psychology_alt_outlined, color: _accent),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Untagged group messages',
+                      'Social intelligence',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
@@ -3646,7 +3677,7 @@ class _GroupParticipationSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (spaces.isEmpty)
+          if (spaces.isEmpty) ...<Widget>[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -3658,43 +3689,579 @@ class _GroupParticipationSection extends StatelessWidget {
                 'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
                 style: TextStyle(color: _textMuted),
               ),
-            )
-          else
-            ...spaces.map((space) {
-              final enabled = allowsUntagged(space);
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: SwitchListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 2,
-                  ),
-                  secondary: Icon(
-                    enabled
-                        ? Icons.psychology_alt_outlined
-                        : Icons.notifications_off_outlined,
-                    color: enabled ? _accent : _textMuted,
-                  ),
-                  title: Text(
-                    space.displayLabel,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: Icon(Icons.tune_rounded),
+              label: Text('Default for new groups'),
+            ),
+          ] else ...<Widget>[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    summaryText,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text(
-                    enabled
-                        ? 'Untagged messages use social intelligence'
-                        : 'Untagged messages are ignored completely',
-                    style: TextStyle(color: _textSecondary),
+                  const SizedBox(height: 4),
+                  Text(
+                    defaultAllowUntagged
+                        ? 'New groups use social intelligence until you turn them off.'
+                        : 'New groups stay silent on untagged messages until you enable them.',
+                    style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
-                  value: enabled,
-                  onChanged: (value) => onChanged(space, value),
-                ),
-              );
-            }),
+                  if (enabledSpaces.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        ...enabledSpaces
+                            .take(4)
+                            .map(
+                              (space) => Chip(
+                                avatar: Icon(
+                                  Icons.psychology_alt_outlined,
+                                  size: 16,
+                                  color: _accent,
+                                ),
+                                label: Text(space.displayLabel),
+                              ),
+                            ),
+                        if (enabledSpaces.length > 4)
+                          Chip(
+                            label: Text('+${enabledSpaces.length - 4} more'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onEdit,
+              icon: Icon(Icons.tune_rounded),
+              label: Text('Choose groups'),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
+  BuildContext context, {
+  required List<MessagingAccessRule> spaces,
+  required bool supportsMentionGate,
+  required bool defaultAllowUntagged,
+  required bool Function(MessagingAccessRule) allowsUntagged,
+}) {
+  return showDialog<_SocialIntelligenceSelection>(
+    context: context,
+    builder: (dialogContext) {
+      return _SocialIntelligencePickerDialog(
+        spaces: spaces,
+        supportsMentionGate: supportsMentionGate,
+        defaultAllowUntagged: defaultAllowUntagged,
+        allowsUntagged: allowsUntagged,
+      );
+    },
+  );
+}
+
+class _SocialIntelligencePickerDialog extends StatefulWidget {
+  const _SocialIntelligencePickerDialog({
+    required this.spaces,
+    required this.supportsMentionGate,
+    required this.defaultAllowUntagged,
+    required this.allowsUntagged,
+  });
+
+  final List<MessagingAccessRule> spaces;
+  final bool supportsMentionGate;
+  final bool defaultAllowUntagged;
+  final bool Function(MessagingAccessRule) allowsUntagged;
+
+  @override
+  State<_SocialIntelligencePickerDialog> createState() =>
+      _SocialIntelligencePickerDialogState();
+}
+
+class _SocialIntelligencePickerDialogState
+    extends State<_SocialIntelligencePickerDialog> {
+  static const String _filterAll = 'all';
+  static const String _filterOn = 'on';
+  static const String _filterOff = 'off';
+
+  late final TextEditingController _searchController;
+  late bool _defaultAllowUntagged;
+  late final Set<String> _enabledIds;
+  String _filter = _filterAll;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _defaultAllowUntagged = widget.defaultAllowUntagged;
+    _enabledIds = <String>{
+      for (final space in widget.spaces)
+        if (widget.allowsUntagged(space)) space.id,
+    };
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _isEnabled(MessagingAccessRule space) => _enabledIds.contains(space.id);
+
+  void _setEnabled(MessagingAccessRule space, bool enabled) {
+    setState(() {
+      if (enabled) {
+        _enabledIds.add(space.id);
+      } else {
+        _enabledIds.remove(space.id);
+      }
+    });
+  }
+
+  List<MessagingAccessRule> get _filteredSpaces {
+    final query = _searchController.text.trim().toLowerCase();
+    return widget.spaces
+        .where((space) {
+          final enabled = _isEnabled(space);
+          if (_filter == _filterOn && !enabled) return false;
+          if (_filter == _filterOff && enabled) return false;
+          if (_filter != _filterAll &&
+              _filter != _filterOn &&
+              _filter != _filterOff &&
+              space.scope != _filter) {
+            return false;
+          }
+          if (query.isEmpty) return true;
+          final haystack =
+              '${space.displayLabel} ${space.scopeLabel} ${space.scope} ${space.value}'
+                  .toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, List<MessagingAccessRule>> get _groupedSpaces {
+    final grouped = <String, List<MessagingAccessRule>>{};
+    for (final space in _filteredSpaces) {
+      grouped.putIfAbsent(space.scopeLabel, () => <MessagingAccessRule>[]);
+      grouped[space.scopeLabel]!.add(space);
+    }
+    return grouped;
+  }
+
+  List<String> get _availableScopes {
+    final seen = <String>{};
+    final scopes = <String>[];
+    for (final space in widget.spaces) {
+      if (seen.add(space.scope)) {
+        scopes.add(space.scope);
+      }
+    }
+    return scopes;
+  }
+
+  _SocialIntelligenceSelection _selection() {
+    return _SocialIntelligenceSelection(
+      defaultAllowUntagged: _defaultAllowUntagged,
+      participationRules: widget.spaces
+          .map(
+            (space) => MessagingSharedParticipationRule(
+              scope: space.scope,
+              value: space.value,
+              label: space.label,
+              allowUntagged: _isEnabled(space),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  IconData _scopeIcon(String scope) {
+    switch (scope) {
+      case 'group':
+        return Icons.groups_2_outlined;
+      case 'channel':
+        return Icons.tag_rounded;
+      case 'server':
+        return Icons.dns_outlined;
+      case 'room':
+        return Icons.meeting_room_outlined;
+      case 'chat':
+        return Icons.forum_outlined;
+      default:
+        return Icons.chat_bubble_outline_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = _groupedSpaces;
+    final enabledCount = widget.spaces.where(_isEnabled).length;
+    final query = _searchController.text.trim();
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          minWidth: 320,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Material(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 24,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _borderLight),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 8),
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.psychology_alt_outlined,
+                              color: _accent,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Social intelligence',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: _textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  enabledCount == 0
+                                      ? 'Off unless you enable a group'
+                                      : '$enabledCount of ${widget.spaces.length} spaces enabled',
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 20,
+                              color: _textSecondary,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        widget.supportsMentionGate
+                            ? 'Tags and replies always get a response. Enable social intelligence only in rooms where untagged chatter should also be read.'
+                            : 'Enable social intelligence only in rooms where untagged messages should also be read.',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          height: 1.35,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(color: _textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Search groups, channels, or rooms',
+                          hintStyle: TextStyle(color: _textMuted, fontSize: 14),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: _textMuted,
+                          ),
+                          suffixIcon: query.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () => setState(() {
+                                    _searchController.clear();
+                                  }),
+                                  icon: Icon(
+                                    Icons.cancel_rounded,
+                                    size: 16,
+                                    color: _textMuted,
+                                  ),
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          filled: true,
+                          fillColor: _bgSecondary,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _accent, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          ChoiceChip(
+                            label: Text('All'),
+                            selected: _filter == _filterAll,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterAll),
+                          ),
+                          ChoiceChip(
+                            label: Text('On'),
+                            selected: _filter == _filterOn,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterOn),
+                          ),
+                          ChoiceChip(
+                            label: Text('Off'),
+                            selected: _filter == _filterOff,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterOff),
+                          ),
+                          ..._availableScopes.map(
+                            (scope) => ChoiceChip(
+                              avatar: Icon(_scopeIcon(scope), size: 16),
+                              label: Text(
+                                MessagingAccessRule(
+                                  scope: scope,
+                                  value: scope,
+                                ).scopeLabel,
+                              ),
+                              selected: _filter == scope,
+                              onSelected: (_) =>
+                                  setState(() => _filter = scope),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: SwitchListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
+                          title: Text(
+                            'On by default for new groups',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            'Spaces without an explicit choice follow this default.',
+                            style: TextStyle(color: _textSecondary),
+                          ),
+                          value: _defaultAllowUntagged,
+                          onChanged: (value) => setState(() {
+                            _defaultAllowUntagged = value;
+                          }),
+                        ),
+                      ),
+                    ),
+                    Divider(height: 1, thickness: 1, color: _border),
+                    Flexible(
+                      child: widget.spaces.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(28),
+                              child: Text(
+                                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
+                                style: TextStyle(color: _textMuted),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : _filteredSpaces.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(36),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 36,
+                                    color: _textMuted,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    query.isEmpty
+                                        ? 'No spaces in this category'
+                                        : 'No results for "$query"',
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+                              shrinkWrap: true,
+                              children: grouped.entries
+                                  .expand((entry) {
+                                    return <Widget>[
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          8,
+                                          8,
+                                          8,
+                                          4,
+                                        ),
+                                        child: Text(
+                                          entry.key,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: _textSecondary,
+                                            fontSize: 12,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                      ...entry.value.map((space) {
+                                        final enabled = _isEnabled(space);
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _bgSecondary,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: SwitchListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 2,
+                                                ),
+                                            secondary: Icon(
+                                              enabled
+                                                  ? Icons
+                                                        .psychology_alt_outlined
+                                                  : _scopeIcon(space.scope),
+                                              color: enabled
+                                                  ? _accent
+                                                  : _textMuted,
+                                            ),
+                                            title: Text(
+                                              space.displayLabel,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              enabled
+                                                  ? 'Untagged messages use social intelligence'
+                                                  : 'Untagged messages stay silent',
+                                              style: TextStyle(
+                                                color: _textSecondary,
+                                              ),
+                                            ),
+                                            value: enabled,
+                                            onChanged: (value) =>
+                                                _setEnabled(space, value),
+                                          ),
+                                        );
+                                      }),
+                                    ];
+                                  })
+                                  .toList(growable: false),
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      child: Row(
+                        children: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text('Cancel'),
+                          ),
+                          const Spacer(),
+                          FilledButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_selection()),
+                            child: Text('Apply'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

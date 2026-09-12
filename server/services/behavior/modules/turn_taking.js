@@ -1,13 +1,15 @@
 'use strict';
 
 const { requestStructuredJson } = require('../model_client');
+const { resolveAddressing } = require('../addressing');
 const { buildDecisionPacket, loadRecentRoomMessages } = require('../signals');
 const { getThreadState, setThreadState } = require('../state');
 const { isModuleEnabled } = require('../config');
 
 const SYSTEM_PROMPT = `You are NeoAgent's group turn-taking gate.
 Decide whether the agent should speak now or stay silent in a multi-party chat.
-Default posture in groups: prefer holding back. Speak only when the agent would add clear value, is addressed, can usefully answer an open need, should correct a harmful misunderstanding, or media/context clearly calls for a response.
+Hold back on side chatter and talk that is clearly only between other people.
+Speak when the agent is named or addressed, someone asks the agent a question, the room is waiting after the agent just spoke, the agent can usefully answer an open need, or a harmful misunderstanding should be corrected.
 Judge the meaning and flow of the provided room context. Do not use phrase matching or keyword rules.
 Return JSON only with keys:
 decision ("speak" or "stay_silent"),
@@ -55,7 +57,7 @@ function localFallbackDecision(packet, config) {
     }, { tokenPath: 'gate_skip' });
   }
 
-  if (packet.event.wasMentioned || packet.event.repliedToAgent) {
+  if (packet.event.wasMentioned || packet.event.repliedToAgent || packet.event.addressedByName) {
     return normalizeDecision({
       decision: 'speak',
       needScore: 1,
@@ -102,7 +104,8 @@ async function shouldEngage(ctx) {
     };
   }
 
-  if (msg.wasMentioned || msg.repliedToAgent) {
+  const addressing = resolveAddressing({ userId, agentId, msg });
+  if (addressing.structurallyAddressed) {
     return {
       decision: 'speak',
       needScore: 1,
@@ -144,6 +147,20 @@ async function shouldEngage(ctx) {
     };
   }
 
+  if (addressing.addressedByName) {
+    return {
+      decision: 'speak',
+      needScore: 1,
+      confidence: 0.9,
+      reasonCodes: ['addressed_by_name'],
+      urgency: 'medium',
+      rationale: 'The message names the agent without a platform mention tag.',
+      tokenPath: 'gate_skip',
+      latencyMs: Date.now() - startedAt,
+      turnEpoch,
+    };
+  }
+
   const threadState = getThreadState(userId, agentId, msg.platform, msg.chatId);
   const roomMessages = loadRecentRoomMessages({
     userId,
@@ -158,6 +175,7 @@ async function shouldEngage(ctx) {
     threadState,
     roomMessages,
     localMemoryHints: memoryHints,
+    addressing,
   });
 
   let decision;
@@ -199,12 +217,18 @@ async function shouldEngage(ctx) {
     decision.failureCode = 'model_unavailable';
   }
 
+  const secondsSinceSpoke = packet.room.secondsSinceAgentSpoke;
+  const followUp = secondsSinceSpoke != null && secondsSinceSpoke < 120;
+  let needThreshold = Number(config.minimumNeedScore ?? 0.58);
+  if (followUp) needThreshold = Math.min(needThreshold, 0.45);
+
   // Confidence measures certainty. Need score measures whether speaking is worthwhile.
   if (
     decision.decision === 'speak'
-    && Number(decision.needScore || 0) < Number(config.minimumNeedScore ?? 0.72)
+    && Number(decision.needScore || 0) < needThreshold
     && !packet.event.wasMentioned
     && !packet.event.repliedToAgent
+    && !packet.event.addressedByName
   ) {
     decision = normalizeDecision({
       ...decision,

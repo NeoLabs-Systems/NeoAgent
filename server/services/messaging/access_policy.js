@@ -224,7 +224,7 @@ function createDefaultAccessPolicy(platform) {
     schemaVersion: ACCESS_POLICY_SCHEMA_VERSION,
     directPolicy: 'allowlist',
     sharedPolicy: capabilities.supportsSharedPolicy ? 'allowlist' : 'disabled',
-    defaultAllowUntaggedInShared: true,
+    defaultAllowUntaggedInShared: !capabilities.supportsUntaggedGroupToggle,
     directRules: [],
     sharedSpaceRules: [],
     sharedActorRules: [],
@@ -338,7 +338,7 @@ function normalizeAccessPolicy(platform, value) {
     defaultAllowUntaggedInShared: capabilities.supportsUntaggedGroupToggle
       ? (isLegacyParticipationPolicy
         ? raw.requireMentionInShared !== true
-        : raw.defaultAllowUntaggedInShared !== false)
+        : raw.defaultAllowUntaggedInShared === true)
       : true,
     directRules: dedupeRules((Array.isArray(raw.directRules) ? raw.directRules : [])
       .map((rule) => normalizeRule(rule, directScopes))

@@ -116,9 +116,20 @@ function normalizeLeafConfig(raw = {}, base = cloneDefaults(), sparse = false) {
   return output;
 }
 
+function migrateLegacyNeedScore(input) {
+  const incomingSchema = Number(input.schemaVersion || 0);
+  if (incomingSchema >= 2) return input;
+  const rawScore = input.minimumNeedScore;
+  if (rawScore != null && Number(rawScore) !== 0.72) return input;
+  return {
+    ...input,
+    minimumNeedScore: DEFAULT_MODULE_CONFIG.minimumNeedScore,
+  };
+}
+
 function normalizeStoredConfig(raw) {
   const base = cloneDefaults();
-  const input = asObject(raw);
+  const input = migrateLegacyNeedScore(asObject(raw));
   const normalized = {
     schemaVersion: DEFAULT_MODULE_CONFIG.schemaVersion,
     ...normalizeLeafConfig(input, base),

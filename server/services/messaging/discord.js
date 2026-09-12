@@ -219,6 +219,12 @@ class DiscordPlatform extends BasePlatform {
       roleIds: !isDM && message.member ? [...message.member.roles.cache.keys()] : [],
       wasMentioned: !isDM && this._isMentioned(message),
       repliedToAgent: Boolean(repliedToAgent),
+      botUsername: this._botUser?.username || null,
+      botDisplayName: this._botUser?.globalName
+        || this._botUser?.displayName
+        || this._botUser?.username
+        || null,
+      botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
       content,
       mediaType: null,

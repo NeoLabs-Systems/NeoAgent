@@ -289,7 +289,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ? behavior['participationMode'].toString()
         : 'automatic';
     _behaviorMinimumNeedScore =
-        ((behavior['minimumNeedScore'] as num?)?.toDouble() ?? 0.72)
+        ((behavior['minimumNeedScore'] as num?)?.toDouble() ?? 0.58)
             .clamp(0.0, 1.0)
             .toDouble();
     _behaviorBatchWindowMs =

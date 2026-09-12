@@ -841,7 +841,7 @@ class MessagingAccessPolicy {
           json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
       defaultAllowUntaggedInShared: schemaVersion < 3
           ? json['requireMentionInShared'] != true
-          : json['defaultAllowUntaggedInShared'] != false,
+          : json['defaultAllowUntaggedInShared'] == true,
       directRules:
           (json['directRules'] is List
                   ? json['directRules'] as List
@@ -905,7 +905,7 @@ class MessagingAccessPolicy {
     this.schemaVersion = 3,
     this.directPolicy = 'allowlist',
     this.sharedPolicy = 'allowlist',
-    this.defaultAllowUntaggedInShared = true,
+    this.defaultAllowUntaggedInShared = false,
     this.directRules = const <MessagingAccessRule>[],
     this.sharedSpaceRules = const <MessagingAccessRule>[],
     this.sharedActorRules = const <MessagingAccessRule>[],
@@ -4150,10 +4150,12 @@ class CoworkChat {
           ? CoworkInteractionMode.plan
           : CoworkInteractionMode.agent,
       device: CoworkDeviceSelection.fromJson(_jsonMap(json['device'])),
-      workspacePathOverride: (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
+      workspacePathOverride:
+          (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
           ? json['workspacePathOverride'].toString().trim()
           : null,
-      modelOverride: (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
+      modelOverride:
+          (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
           ? json['modelOverride'].toString().trim()
           : null,
       manuallyTitled: json['manuallyTitled'] == true,
@@ -4353,7 +4355,8 @@ class CoworkChangedFile {
   final String runId;
   final DateTime changedAt;
 
-  String get name => path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
+  String get name =>
+      path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
   String get directory {
     final index = path.lastIndexOf('/');
     return index <= 0 ? '' : path.substring(0, index);
