@@ -81,7 +81,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'webhookUrl',
         label: 'Outgoing webhook URL',
-        hint: 'The Google Chat space webhook Neo should post to.',
+        hint: 'The Google Chat space webhook this agent should post to.',
         obscure: true,
       ),
       MessagingConfigField(
@@ -93,7 +93,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'defaultTo',
         label: 'Default space',
-        hint: 'Space or chat ID used when Neo starts a conversation.',
+        hint: 'Space or chat ID used when this agent starts a conversation.',
       ),
     ],
   ),
@@ -108,7 +108,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'webhookUrl',
         label: 'Outgoing webhook URL',
-        hint: 'The Teams incoming webhook Neo should post to.',
+        hint: 'The Teams incoming webhook this agent should post to.',
         obscure: true,
       ),
       MessagingConfigField(
@@ -120,7 +120,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'defaultTo',
         label: 'Default conversation',
-        hint: 'Conversation ID used when Neo starts a chat.',
+        hint: 'Conversation ID used when this agent starts a chat.',
       ),
     ],
   ),
@@ -146,12 +146,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'userId',
         label: 'Bot user ID',
-        hint: 'Usually looks like @neo:matrix.org',
+        hint: 'Usually looks like @bot:matrix.org',
       ),
       MessagingConfigField(
         key: 'pollIntervalMs',
         label: 'Check for messages every (ms)',
-        hint: 'How often Neo looks for new room messages.',
+        hint: 'How often this agent looks for new room messages.',
         defaultValue: '5000',
       ),
     ],
@@ -183,7 +183,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'pollIntervalMs',
         label: 'Check for messages every (ms)',
-        hint: 'How often Neo looks for new Signal messages.',
+        hint: 'How often this agent looks for new Signal messages.',
         defaultValue: '10000',
       ),
     ],
@@ -337,7 +337,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'webhookUrl',
         label: 'Outgoing webhook URL',
-        hint: 'The Mattermost incoming webhook Neo should post to.',
+        hint: 'The Mattermost incoming webhook this agent should post to.',
         obscure: true,
       ),
       MessagingConfigField(
@@ -473,7 +473,7 @@ const List<MessagingConfigField> genericWebhookConfigFields =
       MessagingConfigField(
         key: 'webhookUrl',
         label: 'Outgoing webhook URL',
-        hint: 'Where Neo should send replies.',
+        hint: 'Where this agent should send replies.',
         obscure: true,
       ),
       MessagingConfigField(
@@ -1309,7 +1309,8 @@ class MessagingAccessCatalog {
     return 'Custom access';
   }
 
-  String get accessHeadline {
+  String accessHeadline({String? agentName}) {
+    final name = messagingSubjectName(agentName);
     if (!capabilities.supportsSharedPolicy) {
       return 'Private chats: ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()}';
     }
@@ -1320,19 +1321,20 @@ class MessagingAccessCatalog {
     if (sameMode) {
       switch (policy.directPolicy) {
         case 'open':
-          return 'Anyone on this platform can message Neo';
+          return 'Anyone on this platform can message $name';
         case 'disabled':
-          return 'Neo will not reply on this platform';
+          return '$name will not reply on this platform';
         default:
           return policy.totalRuleCount == 0
-              ? 'Add the people and groups Neo should talk to'
-              : 'Neo only talks to people and groups you approve';
+              ? 'Add the people and groups $name should talk to'
+              : '$name only talks to people and groups you approve';
       }
     }
     return 'Private chats ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()} · groups ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
   }
 
-  String get accessHint {
+  String accessHint({String? agentName}) {
+    final name = messagingSubjectName(agentName);
     if (policy.directPolicy == 'allowlist' ||
         (capabilities.supportsSharedPolicy &&
             policy.sharedPolicy == 'allowlist')) {
@@ -1340,9 +1342,9 @@ class MessagingAccessCatalog {
     }
     if (policy.directPolicy == 'open' &&
         (!capabilities.supportsSharedPolicy || policy.sharedPolicy == 'open')) {
-      return 'Anyone who can reach this account can talk to Neo.';
+      return 'Anyone who can reach this account can talk to $name.';
     }
-    return 'Choose who can reach Neo, then save your changes.';
+    return 'Choose who can reach $name, then save your changes.';
   }
 
   List<String> get accessDetailChips {

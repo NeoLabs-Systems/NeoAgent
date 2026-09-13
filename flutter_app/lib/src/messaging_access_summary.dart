@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+String messagingSubjectName(String? name) {
+  final trimmed = (name ?? '').trim();
+  return trimmed.isEmpty ? 'this agent' : trimmed;
+}
+
 String messagingAccessModeLabel(String mode) {
   switch (mode) {
     case 'open':
@@ -11,17 +16,22 @@ String messagingAccessModeLabel(String mode) {
   }
 }
 
-String messagingAccessModeHelp(String mode, {required bool shared}) {
+String messagingAccessModeHelp(
+  String mode, {
+  required bool shared,
+  String? agentName,
+}) {
+  final name = messagingSubjectName(agentName);
   final place = shared ? 'groups and channels' : 'private chats';
   switch (mode) {
     case 'open':
-      return 'Anyone on this platform can message Neo in $place.';
+      return 'Anyone on this platform can message $name in $place.';
     case 'disabled':
-      return 'Neo will not reply to $place.';
+      return '$name will not reply to $place.';
     default:
       return shared
-          ? 'Neo only joins the groups and channels you add below.'
-          : 'Neo only replies to the people you add below.';
+          ? '$name only joins the groups and channels you add below.'
+          : '$name only replies to the people you add below.';
   }
 }
 

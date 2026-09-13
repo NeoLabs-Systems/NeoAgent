@@ -1296,7 +1296,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Choose where this person should be allowed to talk to Neo. You can change this later under Who can message.',
+                      'Choose where this person should be allowed to talk to ${widget.controller.activeAgentLabel}. You can change this later under Who can message.',
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[
@@ -1306,6 +1306,7 @@ class _HomeViewState extends State<HomeView> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _BlockedAccessChoice(
                             suggestion: suggestion,
+                            agentName: widget.controller.activeAgentLabel,
                             onPressed: () async {
                               Navigator.of(dialogContext).pop();
                               await widget.controller.allowMessagingSuggestion(
@@ -1360,10 +1361,12 @@ class _BlockedAccessChoice extends StatelessWidget {
   const _BlockedAccessChoice({
     required this.suggestion,
     required this.onPressed,
+    required this.agentName,
   });
 
   final QuickAllowSuggestion suggestion;
   final VoidCallback onPressed;
+  final String agentName;
 
   @override
   Widget build(BuildContext context) {
@@ -1371,22 +1374,22 @@ class _BlockedAccessChoice extends StatelessWidget {
       'sharedMemberRules' => (
         Icons.person_pin_circle_outlined,
         'Only in this group',
-        'Let this person talk to Neo here, but not in private chats or other groups.',
+        'Let this person talk to $agentName here, but not in private chats or other groups.',
       ),
       'sharedActorRules' => (
         Icons.person_add_alt_1_rounded,
         'This person, anywhere',
-        'Let this person talk to Neo in private chats and in any group they share.',
+        'Let this person talk to $agentName in private chats and in any group they share.',
       ),
       'sharedSpaceRules' => (
         Icons.groups_2_outlined,
         'Everyone in this group',
-        'Let everyone in this group talk to Neo.',
+        'Let everyone in this group talk to $agentName.',
       ),
       _ => (
         Icons.person_outline_rounded,
         'Private chats only',
-        'Let this person send Neo a one-to-one message.',
+        'Let this person send $agentName a one-to-one message.',
       ),
     };
     return Material(

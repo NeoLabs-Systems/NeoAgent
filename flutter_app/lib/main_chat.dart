@@ -1612,7 +1612,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
         _PageTitle(
           title: 'Messaging',
           subtitle:
-              'Connect channels, choose who Neo talks to, and watch recent activity.',
+              'Connect channels, choose who ${controller.activeAgentLabel} talks to, and watch recent activity.',
           trailing: OutlinedButton.icon(
             onPressed: controller.refreshMessaging,
             icon: Icon(Icons.refresh_rounded),
@@ -3104,6 +3104,7 @@ class _MessagingCard extends StatelessWidget {
     await _showMessagingAccessPolicyDialog(
       context,
       platform: platform,
+      agentName: controller.activeAgentLabel,
       initialCatalog: catalog,
       onRefreshCatalog: () =>
           controller.loadMessagingAccessCatalog(platform.id, force: true),
@@ -3123,6 +3124,7 @@ class _MessagingRuleSelection {
 Future<void> _showMessagingAccessPolicyDialog(
   BuildContext context, {
   required MessagingPlatformDescriptor platform,
+  required String agentName,
   required MessagingAccessCatalog initialCatalog,
   required Future<MessagingAccessCatalog> Function() onRefreshCatalog,
   required Future<void> Function(MessagingAccessPolicy policy) onSave,
@@ -3323,7 +3325,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'Choose who Neo talks to, and when it joins group chats.',
+                        'Choose who $agentName talks to, and when it joins group chats.',
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -3344,8 +3346,10 @@ Future<void> _showMessagingAccessPolicyDialog(
                   children: <Widget>[
                     MessagingAccessSummaryCard(
                       accent: platform.accent,
-                      headline: previewCatalog.accessHeadline,
-                      hint: previewCatalog.accessHint,
+                      headline: previewCatalog.accessHeadline(
+                        agentName: agentName,
+                      ),
+                      hint: previewCatalog.accessHint(agentName: agentName),
                       details: previewCatalog.accessDetailChips,
                     ),
                     const SizedBox(height: 18),
@@ -3354,9 +3358,10 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.chat_bubble_outline_rounded,
                         label: 'Private chats',
                         description:
-                            'Who can send Neo a one-to-one message.',
+                            'Who can send $agentName a one-to-one message.',
                         value: policy.directPolicy,
                         shared: false,
+                        agentName: agentName,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(directPolicy: value);
                         }),
@@ -3367,9 +3372,10 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.groups_2_outlined,
                         label: 'Groups and channels',
                         description:
-                            'Who can talk to Neo in a group, channel, or room.',
+                            'Who can talk to $agentName in a group, channel, or room.',
                         value: policy.sharedPolicy,
                         shared: true,
+                        agentName: agentName,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
                         }),
@@ -3379,6 +3385,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 16),
                       _GroupParticipationSection(
                         spaces: participationSpaces,
+                        agentName: agentName,
                         supportsMentionGate: capabilities.supportsMentionGate,
                         defaultAllowUntagged:
                             policy.defaultAllowUntaggedInShared,
@@ -3387,6 +3394,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                           final selection = await _showSocialIntelligencePicker(
                             context,
                             spaces: participationSpaces,
+                            agentName: agentName,
                             supportsMentionGate:
                                 capabilities.supportsMentionGate,
                             defaultAllowUntagged:
@@ -3426,7 +3434,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     Text(
                       policy.directPolicy == 'allowlist' ||
                               policy.sharedPolicy == 'allowlist'
-                          ? 'Add the people and groups Neo is allowed to talk to.'
+                          ? 'Add the people and groups $agentName is allowed to talk to.'
                           : 'These lists are optional unless a section above is set to approved only.',
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
@@ -3468,7 +3476,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                       icon: Icons.chat_bubble_outline_rounded,
                       title: 'People in private chats',
                       subtitle:
-                          'These people can message Neo one-to-one. This does not let them speak in groups.',
+                          'These people can message $agentName one-to-one. This does not let them speak in groups.',
                       rules: policy.directRules,
                       emptyLabel: 'No one added yet.',
                       onRemove: (rule) =>
@@ -3480,7 +3488,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.groups_2_outlined,
                         title: 'Whole groups',
                         subtitle:
-                            'Everyone in these groups, channels, or rooms can talk to Neo.',
+                            'Everyone in these groups, channels, or rooms can talk to $agentName.',
                         rules: policy.sharedSpaceRules,
                         emptyLabel: 'No groups added yet.',
                         onRemove: (rule) =>
@@ -3491,7 +3499,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.person_outline_rounded,
                         title: 'These people, anywhere',
                         subtitle:
-                            'These people can message Neo in private chats and in any group they share.',
+                            'These people can message $agentName in private chats and in any group they share.',
                         rules: policy.sharedActorRules,
                         emptyLabel: 'No people added yet.',
                         onRemove: (rule) =>
@@ -3502,7 +3510,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.person_pin_circle_outlined,
                         title: 'These people, in one group',
                         subtitle:
-                            'These people can only message Neo in the group you picked.',
+                            'These people can only message $agentName in the group you picked.',
                         rules: policy.sharedMemberRules,
                         emptyLabel: 'No group-specific people added yet.',
                         onRemove: (rule) => removeRule(
@@ -3546,6 +3554,7 @@ class _AccessModeField extends StatelessWidget {
     required this.description,
     required this.value,
     required this.onChanged,
+    required this.agentName,
     this.shared = false,
   });
 
@@ -3554,6 +3563,7 @@ class _AccessModeField extends StatelessWidget {
   final String description;
   final String value;
   final ValueChanged<String> onChanged;
+  final String agentName;
   final bool shared;
 
   @override
@@ -3605,7 +3615,11 @@ class _AccessModeField extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  messagingAccessModeHelp(value, shared: shared),
+                  messagingAccessModeHelp(
+                    value,
+                    shared: shared,
+                    agentName: agentName,
+                  ),
                   style: TextStyle(
                     color: _textSecondary,
                     height: 1.35,
@@ -3634,6 +3648,7 @@ class _SocialIntelligenceSelection {
 class _GroupParticipationSection extends StatelessWidget {
   const _GroupParticipationSection({
     required this.spaces,
+    required this.agentName,
     required this.supportsMentionGate,
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
@@ -3641,6 +3656,7 @@ class _GroupParticipationSection extends StatelessWidget {
   });
 
   final List<MessagingAccessRule> spaces;
+  final String agentName;
   final bool supportsMentionGate;
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
@@ -3654,7 +3670,7 @@ class _GroupParticipationSection extends StatelessWidget {
         : enabledSpaces.isEmpty
         ? defaultAllowUntagged
               ? 'On for new groups only'
-              : 'Only when Neo is tagged'
+              : 'Only when $agentName is tagged'
         : enabledSpaces.length == spaces.length
         ? 'On for all ${spaces.length} groups'
         : 'On for ${enabledSpaces.length} of ${spaces.length} groups';
@@ -3685,8 +3701,8 @@ class _GroupParticipationSection extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       supportsMentionGate
-                          ? 'If someone tags Neo or replies, Neo always answers. Turn this on if Neo should also chime in on ordinary group chat.'
-                          : 'Choose which groups Neo should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
+                          ? 'If someone tags $agentName or replies, $agentName always answers. Turn this on if $agentName should also chime in on ordinary group chat.'
+                          : 'Choose which groups $agentName should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
                   ],
@@ -3704,7 +3720,7 @@ class _GroupParticipationSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'No groups found yet. After Neo sees a group message, use Find recent chats and they will show up here.',
+                'No groups found yet. After $agentName sees a group message, use Find recent chats and they will show up here.',
                 style: TextStyle(color: _textMuted),
               ),
             ),
@@ -3732,8 +3748,8 @@ class _GroupParticipationSection extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     defaultAllowUntagged
-                        ? 'New groups will let Neo join ordinary chat until you turn them off.'
-                        : 'New groups stay quiet unless someone tags Neo, until you turn them on.',
+                        ? 'New groups will let $agentName join ordinary chat until you turn them off.'
+                        : 'New groups stay quiet unless someone tags $agentName, until you turn them on.',
                     style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
                   if (enabledSpaces.isNotEmpty) ...<Widget>[
@@ -3780,6 +3796,7 @@ class _GroupParticipationSection extends StatelessWidget {
 Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
   BuildContext context, {
   required List<MessagingAccessRule> spaces,
+  required String agentName,
   required bool supportsMentionGate,
   required bool defaultAllowUntagged,
   required bool Function(MessagingAccessRule) allowsUntagged,
@@ -3789,6 +3806,7 @@ Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
     builder: (dialogContext) {
       return _SocialIntelligencePickerDialog(
         spaces: spaces,
+        agentName: agentName,
         supportsMentionGate: supportsMentionGate,
         defaultAllowUntagged: defaultAllowUntagged,
         allowsUntagged: allowsUntagged,
@@ -3800,12 +3818,14 @@ Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
 class _SocialIntelligencePickerDialog extends StatefulWidget {
   const _SocialIntelligencePickerDialog({
     required this.spaces,
+    required this.agentName,
     required this.supportsMentionGate,
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
   });
 
   final List<MessagingAccessRule> spaces;
+  final String agentName;
   final bool supportsMentionGate;
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
@@ -3992,7 +4012,7 @@ class _SocialIntelligencePickerDialogState
                                 ),
                                 Text(
                                   enabledCount == 0
-                                      ? 'Only when Neo is tagged, unless you turn a group on'
+                                      ? 'Only when ${widget.agentName} is tagged, unless you turn a group on'
                                       : '$enabledCount of ${widget.spaces.length} groups can chat freely',
                                   style: TextStyle(
                                     color: _textSecondary,
@@ -4022,8 +4042,8 @@ class _SocialIntelligencePickerDialogState
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       child: Text(
                         widget.supportsMentionGate
-                            ? 'Tags and replies always get a response. Turn a group on if Neo should also join ordinary chat there.'
-                            : 'Turn a group on if Neo should also read messages that do not tag it.',
+                            ? 'Tags and replies always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
+                            : 'Turn a group on if ${widget.agentName} should also read messages that do not tag it.',
                         style: TextStyle(
                           color: _textSecondary,
                           height: 1.35,
@@ -4137,7 +4157,7 @@ class _SocialIntelligencePickerDialogState
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            'Groups Neo has not seen yet will follow this.',
+                            'Groups ${widget.agentName} has not seen yet will follow this.',
                             style: TextStyle(color: _textSecondary),
                           ),
                           value: _defaultAllowUntagged,
@@ -4153,7 +4173,7 @@ class _SocialIntelligencePickerDialogState
                           ? Padding(
                               padding: const EdgeInsets.all(28),
                               child: Text(
-                                'No groups found yet. After Neo sees a group message, use Find recent chats.',
+                                'No groups found yet. After ${widget.agentName} sees a group message, use Find recent chats.',
                                 style: TextStyle(color: _textMuted),
                                 textAlign: TextAlign.center,
                               ),
@@ -4240,8 +4260,8 @@ class _SocialIntelligencePickerDialogState
                                             ),
                                             subtitle: Text(
                                               enabled
-                                                  ? 'Neo can join ordinary chat'
-                                                  : 'Neo only replies when tagged',
+                                                  ? '${widget.agentName} can join ordinary chat'
+                                                  : '${widget.agentName} only replies when tagged',
                                               style: TextStyle(
                                                 color: _textSecondary,
                                               ),
@@ -4840,10 +4860,12 @@ class _MessagingWebhookCard extends StatelessWidget {
   const _MessagingWebhookCard({
     required this.url,
     required this.platformLabel,
+    required this.agentName,
   });
 
   final String url;
   final String platformLabel;
+  final String agentName;
 
   @override
   Widget build(BuildContext context) {
@@ -4864,7 +4886,7 @@ class _MessagingWebhookCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'If $platformLabel asks for a webhook URL, paste this so messages can reach Neo.',
+            'If $platformLabel asks for a webhook URL, paste this so messages can reach $agentName.',
             style: TextStyle(color: _textSecondary, height: 1.35),
           ),
           const SizedBox(height: 10),
@@ -6345,7 +6367,7 @@ Future<void> _openGenericMessagingConfigHelper(
                       Text(
                         platform.configFields.isEmpty
                             ? 'Nothing extra is needed. Connect to start using ${platform.label}.'
-                            : 'Enter the details ${platform.label} gave you so Neo can send and receive messages.',
+                            : 'Enter the details ${platform.label} gave you so ${controller.activeAgentLabel} can send and receive messages.',
                         style: TextStyle(color: _textSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 16),
@@ -6404,7 +6426,7 @@ Future<void> _openGenericMessagingConfigHelper(
                       const SizedBox(height: 8),
                       if (platform.id == 'meshtastic')
                         Text(
-                          'Neo talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.',
+                          '${controller.activeAgentLabel} talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.',
                           style: TextStyle(color: _textSecondary, height: 1.4),
                         )
                       else
@@ -6412,6 +6434,7 @@ Future<void> _openGenericMessagingConfigHelper(
                           url:
                               '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
                           platformLabel: platform.label,
+                          agentName: controller.activeAgentLabel,
                         ),
                     ],
                   ),
