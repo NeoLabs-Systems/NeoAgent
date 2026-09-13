@@ -389,6 +389,81 @@ function isOriginMessagingDelivery({ triggerSource, source, chatId, platform, to
     return Boolean(originAddress && targetAddress && originAddress === targetAddress);
 }
 
+function inboundMessagingMessage(context, runState) {
+    return runState?.messagingContext?.behavior?.message
+        || context?.inboundMessage
+        || null;
+}
+
+function inboundMessagingIsGroup(context, runState) {
+    const behavior = runState?.messagingContext?.behavior;
+    return behavior?.isGroup === true
+        || behavior?.message?.isGroup === true
+        || context?.isGroup === true
+        || context?.inboundMessage?.isGroup === true;
+}
+
+function inboundMessagingSenderId(context, runState) {
+    const message = inboundMessagingMessage(context, runState);
+    return String(message?.sender || context?.senderId || '').trim();
+}
+
+function isSenderDirectTarget({ platform, to, senderId }) {
+    const target = String(to || '').trim();
+    const sender = String(senderId || '').trim();
+    if (!target || !sender) return false;
+    if (target === sender || target === `dm_${sender}`) return true;
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    if (normalizedPlatform !== 'whatsapp') return false;
+    const targetAddress = canonicalMessagingAddress('whatsapp', target);
+    const senderAddress = canonicalMessagingAddress('whatsapp', sender);
+    return Boolean(
+        targetAddress
+        && senderAddress
+        && targetAddress === senderAddress
+        && targetAddress.startsWith('direct:')
+    );
+}
+
+function resolveInboundMessagingSendTarget({
+    triggerSource,
+    source,
+    chatId,
+    platform,
+    to,
+    isGroup,
+    senderId,
+}) {
+    const resolvedPlatform = String(platform || source || '').trim();
+    const resolvedTo = String(to || '').trim();
+    const originChatId = String(chatId || '').trim();
+    const originPlatform = String(source || resolvedPlatform).trim();
+    if (
+        triggerSource === 'messaging'
+        && isGroup
+        && originChatId
+        && isSenderDirectTarget({ platform: resolvedPlatform, to: resolvedTo, senderId })
+        && !isOriginMessagingDelivery({
+            triggerSource,
+            source: originPlatform,
+            chatId: originChatId,
+            platform: resolvedPlatform,
+            to: resolvedTo,
+        })
+    ) {
+        return {
+            platform: originPlatform,
+            to: originChatId,
+            redirectedFromDirect: true,
+        };
+    }
+    return {
+        platform: resolvedPlatform,
+        to: resolvedTo,
+        redirectedFromDirect: false,
+    };
+}
+
 function buildAndroidUiMatchProperties(extra = {}) {
     return {
         x: { type: 'number', description: 'Absolute X coordinate' },
@@ -931,7 +1006,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. When the inbound message is a group or shared-space chat, reply in that same chat — do not switch the reply to the sender's DM. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -2476,8 +2551,17 @@ async function executeTool(toolName, args, context, engine) {
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
             const runState = getRunState(engine, runId);
+            const sendTarget = resolveInboundMessagingSendTarget({
+                triggerSource,
+                source: context.source,
+                chatId: context.chatId,
+                platform: args.platform,
+                to: args.to,
+                isGroup: inboundMessagingIsGroup(context, runState),
+                senderId: inboundMessagingSenderId(context, runState),
+            });
             const message = typeof args.content === 'string' ? args.content : '';
-            const normalizedMessage = normalizeOutgoingMessageForPlatform(args.platform, message, {
+            const normalizedMessage = normalizeOutgoingMessageForPlatform(sendTarget.platform, message, {
                 stripNoResponseMarker: false
             });
             const suppressReply = normalizedMessage === '[NO RESPONSE]';
@@ -2485,8 +2569,8 @@ async function executeTool(toolName, args, context, engine) {
                 triggerSource,
                 source: context.source,
                 chatId: context.chatId,
-                platform: args.platform,
-                to: args.to,
+                platform: sendTarget.platform,
+                to: sendTarget.to,
             });
             if (isProactiveTrigger(triggerSource)) {
                 const proactiveValidation = validateProactiveSendMessageArgs({
@@ -2587,7 +2671,7 @@ async function executeTool(toolName, args, context, engine) {
                     };
                 }
             } else {
-                sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
+                sendResult = await manager.sendMessage(userId, sendTarget.platform, sendTarget.to, args.content, {
                     agentId,
                     mediaPath: args.media_path,
                     runId,
@@ -2607,7 +2691,13 @@ async function executeTool(toolName, args, context, engine) {
                     runState.explicitMessageSent = true;
                 }
             }
-            return sendResult;
+            return {
+                ...sendResult,
+                originDelivery,
+                redirectedFromDirect: sendTarget.redirectedFromDirect === true,
+                platform: sendTarget.platform,
+                to: sendTarget.to,
+            };
         }
 
         case 'call_user': {

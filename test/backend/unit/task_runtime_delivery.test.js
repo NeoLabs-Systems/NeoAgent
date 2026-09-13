@@ -663,6 +663,147 @@ describe('scheduled task result delivery', () => {
     assert.equal(sent.length, 2, 'a requested message to a third party is not reclassified');
   });
 
+  test('group replies stay in the shared chat when the model targets the sender DM', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sent = [];
+    const runState = {
+      messagingSent: false,
+      explicitMessageSent: false,
+      finalDeliverySent: false,
+      sentMessages: [],
+      messagingContext: {
+        platform: 'discord',
+        chatId: 'channel-99',
+        behavior: {
+          isGroup: true,
+          message: {
+            isGroup: true,
+            sender: 'user-7',
+            chatId: 'channel-99',
+          },
+        },
+      },
+    };
+    const engine = {
+      activeRuns: new Map([['run-id', runState]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sent.push(args);
+          return { success: true };
+        },
+      },
+      async stopMessagingProgressSupervisor() {},
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'discord',
+      to: 'dm_user-7',
+      content: 'Antwort im Channel.',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'discord',
+      chatId: 'channel-99',
+    }, engine);
+
+    assert.equal(result.success, true);
+    assert.equal(result.redirectedFromDirect, true);
+    assert.equal(result.originDelivery, true);
+    assert.equal(result.to, 'channel-99');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0][1], 'discord');
+    assert.equal(sent[0][2], 'channel-99');
+    assert.equal(runState.explicitMessageSent, true);
+  });
+
+  test('direct inbound replies are not redirected away from the DM', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sent = [];
+    const engine = {
+      activeRuns: new Map([['run-id', {
+        messagingContext: {
+          platform: 'telegram',
+          chatId: 'dm_user-7',
+          behavior: {
+            isGroup: false,
+            message: {
+              isGroup: false,
+              sender: 'user-7',
+              chatId: 'dm_user-7',
+            },
+          },
+        },
+      }]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sent.push(args);
+          return { success: true };
+        },
+      },
+      async stopMessagingProgressSupervisor() {},
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'telegram',
+      to: 'dm_user-7',
+      content: 'Private reply.',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'telegram',
+      chatId: 'dm_user-7',
+    }, engine);
+
+    assert.equal(result.redirectedFromDirect, false);
+    assert.equal(sent[0][2], 'dm_user-7');
+  });
+
+  test('WhatsApp group replies stay in the group when the model targets the sender number', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const sent = [];
+    const engine = {
+      activeRuns: new Map([['run-id', {
+        messagingContext: {
+          platform: 'whatsapp',
+          chatId: '120363123456789012@g.us',
+          behavior: {
+            isGroup: true,
+            message: {
+              isGroup: true,
+              sender: '49123456789@s.whatsapp.net',
+              chatId: '120363123456789012@g.us',
+            },
+          },
+        },
+      }]]),
+      messagingManager: {
+        async sendMessage(...args) {
+          sent.push(args);
+          return { success: true };
+        },
+      },
+      async stopMessagingProgressSupervisor() {},
+    };
+
+    const result = await executeTool('send_message', {
+      platform: 'whatsapp',
+      to: '49123456789',
+      content: 'Antwort in der Gruppe.',
+    }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'messaging',
+      source: 'whatsapp',
+      chatId: '120363123456789012@g.us',
+    }, engine);
+
+    assert.equal(result.redirectedFromDirect, true);
+    assert.equal(result.to, '120363123456789012@g.us');
+    assert.equal(sent[0][2], '120363123456789012@g.us');
+  });
+
   test('task runtime start is idempotent and reports truthful state', async () => {
     const cronHarness = createCronHarness();
     runtime = new TaskRuntime(

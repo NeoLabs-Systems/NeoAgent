@@ -478,7 +478,7 @@ Use send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
 
   const socialMode = options.socialMode === true || Boolean(msg.isGroup);
   const responseGuide = socialMode
-    ? `The turn-taking gate has selected this message for a response. Respond with one useful, socially natural contribution and do not re-run the speak-or-silence decision.`
+    ? `The turn-taking gate has selected this message for a response. Respond with one useful, socially natural contribution and do not re-run the speak-or-silence decision. Reply in this shared chat only (to="${msg.chatId}"). Do not switch the reply to a DM with the sender.`
     : `Respond with send_message platform="${msg.platform}" to="${msg.chatId}". Follow the system persona and channel guide. Do not send [NO RESPONSE] unless the user explicitly asked for silence.`;
   const progressGuide = socialMode
     ? 'Do not send interim progress or presence updates into the shared room.'

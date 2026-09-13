@@ -1296,7 +1296,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Choose exactly where this sender should be allowed. You can change or remove the rule later in Messaging.',
+                      'Choose where this person should be allowed to talk to Neo. You can change this later under Who can message.',
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[
@@ -1328,7 +1328,7 @@ class _HomeViewState extends State<HomeView> {
                   widget.controller.setSelectedSection(AppSection.messaging);
                   Navigator.of(dialogContext).pop();
                 },
-                child: Text('Review all access'),
+                child: Text('Who can message'),
               ),
               TextButton(
                 onPressed: () async {
@@ -1371,22 +1371,22 @@ class _BlockedAccessChoice extends StatelessWidget {
       'sharedMemberRules' => (
         Icons.person_pin_circle_outlined,
         'Only in this group',
-        'Allow this sender here, without granting access in DMs or other groups.',
+        'Let this person talk to Neo here, but not in private chats or other groups.',
       ),
       'sharedActorRules' => (
         Icons.person_add_alt_1_rounded,
-        'This sender everywhere',
-        'Allow this person in DMs and in every group or shared space.',
+        'This person, anywhere',
+        'Let this person talk to Neo in private chats and in any group they share.',
       ),
       'sharedSpaceRules' => (
         Icons.groups_2_outlined,
         'Everyone in this group',
-        'Allow messages from every participant in this group or shared space.',
+        'Let everyone in this group talk to Neo.',
       ),
       _ => (
         Icons.person_outline_rounded,
-        'Allow this sender',
-        'Allow this person to message the agent directly.',
+        'Private chats only',
+        'Let this person send Neo a one-to-one message.',
       ),
     };
     return Material(

@@ -18,7 +18,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.send_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'botToken',
+        label: 'Bot token',
+        hint: 'From BotFather after you create the bot.',
+        obscure: true,
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -29,7 +34,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sports_esports_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'token', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Bot token',
+        hint: 'From the Discord Developer Portal, under your bot.',
+        obscure: true,
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -40,15 +50,22 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.tag_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'botToken',
+        label: 'Bot token',
+        hint: 'Starts with xoxb-. From your Slack app credentials.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'signingSecret',
-        label: 'Signing Secret',
+        label: 'Signing secret',
+        hint: 'Used to verify that incoming Slack events are genuine.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional extra secret if you protect the inbound webhook.',
         obscure: true,
       ),
     ],
@@ -63,15 +80,21 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Google Chat space webhook Neo should post to.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Chat events.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'defaultTo', label: 'Default Space / Chat ID'),
+      MessagingConfigField(
+        key: 'defaultTo',
+        label: 'Default space',
+        hint: 'Space or chat ID used when Neo starts a conversation.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -84,15 +107,21 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Teams incoming webhook Neo should post to.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Teams events.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'defaultTo', label: 'Default Conversation ID'),
+      MessagingConfigField(
+        key: 'defaultTo',
+        label: 'Default conversation',
+        hint: 'Conversation ID used when Neo starts a chat.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -103,16 +132,26 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.grid_view_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'homeserver', label: 'Homeserver URL'),
+      MessagingConfigField(
+        key: 'homeserver',
+        label: 'Homeserver URL',
+        hint: 'For example https://matrix.org',
+      ),
       MessagingConfigField(
         key: 'accessToken',
-        label: 'Access Token',
+        label: 'Access token',
+        hint: 'From the Matrix client or bot account.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'userId', label: 'User ID'),
+      MessagingConfigField(
+        key: 'userId',
+        label: 'Bot user ID',
+        hint: 'Usually looks like @neo:matrix.org',
+      ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Poll Interval ms',
+        label: 'Check for messages every (ms)',
+        hint: 'How often Neo looks for new room messages.',
         defaultValue: '5000',
       ),
     ],
@@ -125,16 +164,26 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.lock_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'restUrl', label: 'signal-cli REST API URL'),
-      MessagingConfigField(key: 'account', label: 'Account Number'),
+      MessagingConfigField(
+        key: 'restUrl',
+        label: 'signal-cli server URL',
+        hint: 'The REST endpoint for your signal-cli instance.',
+      ),
+      MessagingConfigField(
+        key: 'account',
+        label: 'Account number',
+        hint: 'The Signal phone number this bot uses.',
+      ),
       MessagingConfigField(
         key: 'pollEnabled',
-        label: 'Enable receive polling',
+        label: 'Check for new messages automatically',
+        hint: 'Turn on if Signal should keep looking for incoming chats.',
         kind: MessagingConfigFieldKind.boolean,
       ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Poll Interval ms',
+        label: 'Check for messages every (ms)',
+        hint: 'How often Neo looks for new Signal messages.',
         defaultValue: '10000',
       ),
     ],
@@ -147,20 +196,27 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sms_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'serverUrl',
+        label: 'BlueBubbles server URL',
+        hint: 'The address of your BlueBubbles server.',
+      ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password / API Key',
+        label: 'Password or API key',
+        hint: 'The password you set in BlueBubbles.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send Path',
+        label: 'Send path',
+        hint: 'Leave as the default unless you customized BlueBubbles.',
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming iMessage events.',
         obscure: true,
       ),
     ],
@@ -173,20 +229,27 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.bubble_chart_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'serverUrl',
+        label: 'BlueBubbles server URL',
+        hint: 'The address of your BlueBubbles server.',
+      ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password / API Key',
+        label: 'Password or API key',
+        hint: 'The password you set in BlueBubbles.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send Path',
+        label: 'Send path',
+        hint: 'Leave as the default unless you customized BlueBubbles.',
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming iMessage events.',
         obscure: true,
       ),
     ],
@@ -199,14 +262,22 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.terminal_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'server', label: 'Server'),
+      MessagingConfigField(
+        key: 'server',
+        label: 'Server',
+        hint: 'Hostname of the IRC network, for example irc.libera.chat',
+      ),
       MessagingConfigField(key: 'port', label: 'Port', defaultValue: '6667'),
       MessagingConfigField(key: 'nick', label: 'Nickname'),
       MessagingConfigField(key: 'password', label: 'Password', obscure: true),
-      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+      MessagingConfigField(
+        key: 'channels',
+        label: 'Channels',
+        hint: 'Comma-separated, for example #general, #help',
+      ),
       MessagingConfigField(
         key: 'tls',
-        label: 'Use TLS',
+        label: 'Use a secure connection (TLS)',
         kind: MessagingConfigFieldKind.boolean,
       ),
     ],
@@ -219,13 +290,18 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.live_tv_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'nick', label: 'Bot Username'),
+      MessagingConfigField(key: 'nick', label: 'Bot username'),
       MessagingConfigField(
         key: 'oauthToken',
-        label: 'OAuth Token',
+        label: 'OAuth token',
+        hint: 'From twitchapps.com/tmi or your Twitch developer app.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+      MessagingConfigField(
+        key: 'channels',
+        label: 'Channels',
+        hint: 'Comma-separated channel names, without the #.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -238,12 +314,14 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'channelAccessToken',
-        label: 'Channel Access Token',
+        label: 'Channel access token',
+        hint: 'From the LINE Developers Console.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming LINE events.',
         obscure: true,
       ),
     ],
@@ -258,14 +336,25 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Mattermost incoming webhook Neo should post to.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'baseUrl', label: 'Base URL'),
-      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'baseUrl',
+        label: 'Server URL',
+        hint: 'Your Mattermost site URL, if you use the REST API.',
+      ),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Access token',
+        hint: 'Personal access token for the Mattermost bot.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Mattermost events.',
         obscure: true,
       ),
     ],
@@ -278,10 +367,15 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.router_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'host', label: 'Device IP Address'),
+      MessagingConfigField(
+        key: 'host',
+        label: 'Device IP address',
+        hint: 'The local IP of the Meshtastic device.',
+      ),
       MessagingConfigField(
         key: 'channel',
-        label: 'Channel Index',
+        label: 'Channel number',
+        hint: 'Usually 0 for the primary channel.',
         defaultValue: '0',
       ),
     ],
@@ -378,34 +472,49 @@ const List<MessagingConfigField> genericWebhookConfigFields =
     <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outbound Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'Where Neo should send replies.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'outboundUrl',
-        label: 'Custom Outbound URL',
+        label: 'Custom outgoing URL',
+        hint: 'Optional override if the webhook URL is not enough.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Access token',
+        hint: 'If the service requires a token on outgoing requests.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming events.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'contentField',
-        label: 'Content Field',
+        label: 'Message text field',
+        hint: 'JSON field that contains the message text. Usually text.',
         defaultValue: 'text',
       ),
-      MessagingConfigField(key: 'recipientField', label: 'Recipient Field'),
+      MessagingConfigField(
+        key: 'recipientField',
+        label: 'Recipient field',
+        hint: 'JSON field that identifies who the message is for.',
+      ),
       MessagingConfigField(
         key: 'headers',
-        label: 'Headers JSON',
+        label: 'Custom headers (JSON)',
+        hint: 'Only needed if the service asks for extra HTTP headers.',
         kind: MessagingConfigFieldKind.multiline,
       ),
       MessagingConfigField(
         key: 'bodyTemplate',
-        label: 'Body Template JSON',
+        label: 'Message body template (JSON)',
+        hint: 'Only needed if you want to reshape the outgoing payload.',
         kind: MessagingConfigFieldKind.multiline,
       ),
     ];
@@ -418,6 +527,7 @@ class MessagingConfigField {
   const MessagingConfigField({
     required this.key,
     required this.label,
+    this.hint,
     this.kind = MessagingConfigFieldKind.text,
     this.obscure = false,
     this.defaultValue,
@@ -427,6 +537,7 @@ class MessagingConfigField {
 
   final String key;
   final String label;
+  final String? hint;
   final MessagingConfigFieldKind kind;
   final bool obscure;
   final String? defaultValue;
@@ -1154,7 +1265,7 @@ class MessagingAccessCatalog {
       ),
       discoveredTargets: parseTargets(json['discoveredTargets']),
       suggestedTargets: parseTargets(json['suggestedTargets']),
-      summary: json['summary']?.toString() ?? 'Access policy',
+      summary: json['summary']?.toString() ?? 'Who can message',
     );
   }
 
@@ -1165,7 +1276,7 @@ class MessagingAccessCatalog {
       capabilities: const MessagingAccessCapabilities(),
       discoveredTargets: const <MessagingAccessTarget>[],
       suggestedTargets: const <MessagingAccessTarget>[],
-      summary: 'Access policy',
+      summary: 'Who can message',
     );
   }
 
@@ -1175,6 +1286,98 @@ class MessagingAccessCatalog {
   final List<MessagingAccessTarget> discoveredTargets;
   final List<MessagingAccessTarget> suggestedTargets;
   final String summary;
+
+  String get compactAccessLabel {
+    final direct = policy.directPolicy;
+    final shared = capabilities.supportsSharedPolicy
+        ? policy.sharedPolicy
+        : direct;
+    if (direct == 'disabled' &&
+        (!capabilities.supportsSharedPolicy || shared == 'disabled')) {
+      return 'No one can message';
+    }
+    if (direct == 'open' &&
+        (!capabilities.supportsSharedPolicy || shared == 'open')) {
+      return 'Open to anyone';
+    }
+    if (direct == 'allowlist' &&
+        (!capabilities.supportsSharedPolicy || shared == 'allowlist')) {
+      return policy.totalRuleCount == 0
+          ? 'Add who can message'
+          : 'Approved people only';
+    }
+    return 'Custom access';
+  }
+
+  String get accessHeadline {
+    if (!capabilities.supportsSharedPolicy) {
+      return 'Private chats: ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()}';
+    }
+    if (!capabilities.supportsDirectPolicy) {
+      return 'Groups: ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+    }
+    final sameMode = policy.directPolicy == policy.sharedPolicy;
+    if (sameMode) {
+      switch (policy.directPolicy) {
+        case 'open':
+          return 'Anyone on this platform can message Neo';
+        case 'disabled':
+          return 'Neo will not reply on this platform';
+        default:
+          return policy.totalRuleCount == 0
+              ? 'Add the people and groups Neo should talk to'
+              : 'Neo only talks to people and groups you approve';
+      }
+    }
+    return 'Private chats ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()} · groups ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+  }
+
+  String get accessHint {
+    if (policy.directPolicy == 'allowlist' ||
+        (capabilities.supportsSharedPolicy &&
+            policy.sharedPolicy == 'allowlist')) {
+      return 'When you choose approved only, add people or groups below.';
+    }
+    if (policy.directPolicy == 'open' &&
+        (!capabilities.supportsSharedPolicy || policy.sharedPolicy == 'open')) {
+      return 'Anyone who can reach this account can talk to Neo.';
+    }
+    return 'Choose who can reach Neo, then save your changes.';
+  }
+
+  List<String> get accessDetailChips {
+    final details = <String>[];
+    if (capabilities.supportsDirectPolicy) {
+      details.add(
+        'Private chats: ${messagingAccessModeLabel(policy.directPolicy)}',
+      );
+    }
+    if (capabilities.supportsSharedPolicy) {
+      details.add('Groups: ${messagingAccessModeLabel(policy.sharedPolicy)}');
+      if (capabilities.supportsUntaggedGroupToggle) {
+        if (!policy.defaultAllowUntaggedInShared) {
+          details.add('Replies when tagged');
+        } else {
+          final taggedOnly = policy.sharedParticipationRules
+              .where((rule) => !rule.allowUntagged)
+              .length;
+          details.add(
+            taggedOnly == 0
+                ? 'Joins group conversations'
+                : '$taggedOnly groups tagged-only',
+          );
+        }
+      }
+    }
+    if (policy.totalRuleCount > 0) {
+      details.add(
+        policy.totalRuleCount == 1
+            ? '1 person or group added'
+            : '${policy.totalRuleCount} people or groups added',
+      );
+    }
+    return details;
+  }
 }
 
 class BlockedSenderNotice {

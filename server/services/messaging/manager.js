@@ -31,6 +31,7 @@ const {
   normalizeAccessPolicy,
   migrateLegacyWhitelist,
   parseStoredAccessPolicy,
+  applyAccessPolicyRule,
   evaluateAccessPolicy,
   summarizeAccessPolicy,
   classifyRecentTarget,
@@ -1196,6 +1197,21 @@ class MessagingManager extends EventEmitter {
       platform.setAccessPolicy(normalized);
     }
     return normalized;
+  }
+
+  addAccessPolicyRule(userId, platformName, suggestion, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const next = applyAccessPolicyRule(
+      platformName,
+      this._loadAccessPolicy(userId, agentId, platformName),
+      suggestion,
+    );
+    if (!next) {
+      const error = new Error('Invalid access rule');
+      error.statusCode = 400;
+      throw error;
+    }
+    return this.setAccessPolicy(userId, platformName, next, options);
   }
 
   evaluateAccess(userId, platformName, context, options = {}) {

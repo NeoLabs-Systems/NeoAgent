@@ -48,7 +48,7 @@ function capabilityTemplate(overrides = {}) {
     directRuleScopes: DIRECT_RULE_SCOPES,
     sharedSpaceRuleScopes: SHARED_SPACE_RULE_SCOPES,
     sharedActorRuleScopes: SHARED_ACTOR_RULE_SCOPES,
-    manualEntryHint: 'Add a sender, chat, channel, room, server, or role.',
+    manualEntryHint: 'Use a person, group, channel, room, server, or role.',
     ...overrides,
   });
 }
@@ -60,7 +60,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     directRuleScopes: Object.freeze(['phone_number', 'user', 'chat']),
     sharedSpaceRuleScopes: Object.freeze(['group', 'chat']),
     sharedActorRuleScopes: Object.freeze(['phone_number', 'user']),
-    manualEntryHint: 'Add a phone number or WhatsApp group id.',
+    manualEntryHint: 'Use a phone number or the group\'s WhatsApp ID.',
   }),
   discord: capabilityTemplate({
     supportsMentionGate: true,
@@ -68,7 +68,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     directRuleScopes: Object.freeze(['user', 'dm']),
     sharedSpaceRuleScopes: Object.freeze(['channel', 'server']),
     sharedActorRuleScopes: Object.freeze(['user', 'role']),
-    manualEntryHint: 'Add a user, channel, server, or role id.',
+    manualEntryHint: 'Use a Discord user, channel, server, or role.',
   }),
   telegram: capabilityTemplate({
     supportsMentionGate: true,
@@ -76,7 +76,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     directRuleScopes: Object.freeze(['user', 'dm']),
     sharedSpaceRuleScopes: Object.freeze(['group', 'chat']),
     sharedActorRuleScopes: Object.freeze(['user']),
-    manualEntryHint: 'Add a Telegram user or group chat id.',
+    manualEntryHint: 'Use a Telegram username, user ID, or group chat ID.',
   }),
   slack: capabilityTemplate({
     supportsMentionGate: true,
@@ -84,7 +84,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     directRuleScopes: Object.freeze(['user', 'chat']),
     sharedSpaceRuleScopes: Object.freeze(['channel', 'chat']),
     sharedActorRuleScopes: Object.freeze(['user']),
-    manualEntryHint: 'Add a Slack user or channel id.',
+    manualEntryHint: 'Use a Slack person or channel.',
   }),
   google_chat: capabilityTemplate({
     supportsMentionGate: true,
@@ -164,7 +164,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     directRuleScopes: Object.freeze([]),
     sharedSpaceRuleScopes: Object.freeze(['channel', 'chat']),
     sharedActorRuleScopes: Object.freeze(['user']),
-    manualEntryHint: 'Add a Meshtastic node number or channel id.',
+    manualEntryHint: 'Use a Meshtastic node number or channel.',
   }),
   feishu: capabilityTemplate({ supportsDiscovery: false }),
   nextcloud_talk: capabilityTemplate({ supportsDiscovery: false }),
@@ -569,6 +569,58 @@ function allowUntaggedForContext(policy, context) {
   return rule ? rule.allowUntagged : policy.defaultAllowUntaggedInShared;
 }
 
+function applyAccessPolicyRule(platform, policyInput, suggestion = {}) {
+  const policy = normalizeAccessPolicy(platform, policyInput);
+  const capabilities = getPlatformAccessCapabilities(platform);
+  const bucket = String(suggestion.bucket || '').trim();
+  const rawRule = suggestion.rule && typeof suggestion.rule === 'object'
+    ? suggestion.rule
+    : {};
+  const next = {
+    ...policy,
+    directRules: [...policy.directRules],
+    sharedSpaceRules: [...policy.sharedSpaceRules],
+    sharedActorRules: [...policy.sharedActorRules],
+    sharedMemberRules: [...policy.sharedMemberRules],
+    sharedParticipationRules: [...policy.sharedParticipationRules],
+  };
+
+  let nextRule = null;
+  if (bucket === 'directRules') {
+    nextRule = normalizeRule(rawRule, new Set(capabilities.directRuleScopes));
+    if (nextRule) {
+      next.directRules.push(nextRule);
+      if (next.directPolicy === 'disabled') next.directPolicy = 'allowlist';
+    }
+  } else if (bucket === 'sharedActorRules') {
+    nextRule = normalizeRule(rawRule, new Set(capabilities.sharedActorRuleScopes));
+    if (nextRule) {
+      next.sharedActorRules.push(nextRule);
+      if (next.directPolicy === 'disabled') next.directPolicy = 'allowlist';
+      if (next.sharedPolicy === 'disabled') next.sharedPolicy = 'allowlist';
+    }
+  } else if (bucket === 'sharedMemberRules') {
+    nextRule = normalizeSharedMemberRule(
+      rawRule,
+      new Set(capabilities.sharedActorRuleScopes),
+      new Set(capabilities.sharedSpaceRuleScopes),
+    );
+    if (nextRule) {
+      next.sharedMemberRules.push(nextRule);
+      if (next.sharedPolicy === 'disabled') next.sharedPolicy = 'allowlist';
+    }
+  } else if (bucket === 'sharedSpaceRules') {
+    nextRule = normalizeRule(rawRule, new Set(capabilities.sharedSpaceRuleScopes));
+    if (nextRule) {
+      next.sharedSpaceRules.push(nextRule);
+      if (next.sharedPolicy === 'disabled') next.sharedPolicy = 'allowlist';
+    }
+  }
+
+  if (!nextRule) return null;
+  return normalizeAccessPolicy(platform, next);
+}
+
 function evaluateAccessPolicy(policyInput, context, platform) {
   const capabilities = getPlatformAccessCapabilities(platform);
   const policy = normalizeAccessPolicy(platform, policyInput);
@@ -793,23 +845,34 @@ function describeRules(rules) {
     .join(', ');
 }
 
+function accessModeLabel(mode) {
+  switch (mode) {
+    case 'open':
+      return 'anyone';
+    case 'disabled':
+      return 'off';
+    default:
+      return 'approved only';
+  }
+}
+
 function summarizeAccessPolicy(platform, policyInput) {
   const capabilities = getPlatformAccessCapabilities(platform);
   const policy = normalizeAccessPolicy(platform, policyInput);
   const parts = [
-    `DMs ${policy.directPolicy}`,
+    `Private chats: ${accessModeLabel(policy.directPolicy)}`,
   ];
   if (capabilities.supportsSharedPolicy) {
-    parts.push(`shared spaces ${policy.sharedPolicy}`);
+    parts.push(`Groups: ${accessModeLabel(policy.sharedPolicy)}`);
     if (capabilities.supportsUntaggedGroupToggle) {
       const mentionOnlyCount = policy.sharedParticipationRules
         .filter((rule) => !rule.allowUntagged).length;
       if (!policy.defaultAllowUntaggedInShared) {
-        parts.push('untagged responses off by default');
+        parts.push('replies when tagged');
       } else {
         parts.push(mentionOnlyCount > 0
-          ? `${mentionOnlyCount} tagged-only shared space${mentionOnlyCount === 1 ? '' : 's'}`
-          : 'social intelligence for untagged messages');
+          ? `${mentionOnlyCount} group${mentionOnlyCount === 1 ? '' : 's'} tagged-only`
+          : 'joins group conversations');
       }
     }
   }
@@ -818,9 +881,9 @@ function summarizeAccessPolicy(platform, policyInput) {
     + policy.sharedActorRules.length
     + policy.sharedMemberRules.length;
   if (ruleCount > 0) {
-    parts.push(`${ruleCount} rule${ruleCount == 1 ? '' : 's'}`);
+    parts.push(`${ruleCount} approved`);
   }
-  return parts.join(' • ');
+  return parts.join(' · ');
 }
 
 function classifyRecentTarget(platform, row) {
@@ -928,6 +991,7 @@ module.exports = {
   normalizeAccessPolicy,
   migrateLegacyWhitelist,
   parseStoredAccessPolicy,
+  applyAccessPolicyRule,
   evaluateAccessPolicy,
   buildBlockedSenderSuggestions,
   buildBlockedSenderPayload,

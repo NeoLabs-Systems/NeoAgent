@@ -1612,7 +1612,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
         _PageTitle(
           title: 'Messaging',
           subtitle:
-              'Connect channels, limit who can reach the agent, and monitor activity.',
+              'Connect channels, choose who Neo talks to, and watch recent activity.',
           trailing: OutlinedButton.icon(
             onPressed: controller.refreshMessaging,
             icon: Icon(Icons.refresh_rounded),
@@ -2184,7 +2184,7 @@ class _IgnoredChatsPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
+                      'These channels stay silent. To hear from them again, add them under Who can message for that platform.',
                       style: TextStyle(
                         color: _textSecondary,
                         fontSize: 13,
@@ -2924,7 +2924,7 @@ class _MessagingCard extends StatelessWidget {
         : configured
         ? 'Reconnect'
         : 'Connect';
-    final accessLabel = accessCatalog.summary.ifEmpty('Access policy');
+    final accessLabel = accessCatalog.compactAccessLabel;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3013,18 +3013,13 @@ class _MessagingCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MessagingMiniPill(
-                icon: Icons.admin_panel_settings_outlined,
+                icon: Icons.forum_outlined,
                 label: accessLabel,
               ),
               if (configured && !connected)
                 const _MessagingMiniPill(
                   icon: Icons.tune_rounded,
-                  label: 'Configured',
-                ),
-              if (platform.configFields.isNotEmpty)
-                _MessagingMiniPill(
-                  icon: Icons.edit_note_rounded,
-                  label: '${platform.configFields.length} fields',
+                  label: 'Ready to connect',
                 ),
             ],
           ),
@@ -3078,9 +3073,9 @@ class _MessagingCard extends StatelessWidget {
               ],
               const SizedBox(width: 8),
               IconButton.outlined(
-                tooltip: 'Access policy',
+                tooltip: 'Who can message',
                 onPressed: () => _editAccessPolicy(context, controller),
-                icon: Icon(Icons.group_add_outlined),
+                icon: Icon(Icons.forum_outlined),
               ),
               if (connected) ...[
                 const SizedBox(width: 8),
@@ -3289,21 +3284,14 @@ Future<void> _showMessagingAccessPolicyDialog(
         builder: (context, setLocalState) {
           final capabilities = catalog.capabilities;
           final participationSpaces = sharedSpaces();
-          final taggedOnlyCount = participationSpaces
-              .where((space) => !allowsUntagged(space))
-              .length;
-          final summaryText = [
-            'DMs ${policy.directPolicy}',
-            if (capabilities.supportsSharedPolicy)
-              'shared ${policy.sharedPolicy}',
-            if (capabilities.supportsUntaggedGroupToggle)
-              !policy.defaultAllowUntaggedInShared
-                  ? 'untagged off by default'
-                  : taggedOnlyCount == 0
-                  ? 'social intelligence enabled'
-                  : '$taggedOnlyCount tagged-only',
-            if (policy.totalRuleCount > 0) '${policy.totalRuleCount} rules',
-          ].join(' • ');
+          final previewCatalog = MessagingAccessCatalog(
+            platform: catalog.platform,
+            policy: policy,
+            capabilities: capabilities,
+            discoveredTargets: catalog.discoveredTargets,
+            suggestedTargets: catalog.suggestedTargets,
+            summary: catalog.summary,
+          );
 
           return AlertDialog(
             backgroundColor: _bgCard,
@@ -3323,10 +3311,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     color: platform.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(
-                    Icons.admin_panel_settings_outlined,
-                    color: platform.accent,
-                  ),
+                  child: Icon(Icons.forum_outlined, color: platform.accent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -3334,11 +3319,11 @@ Future<void> _showMessagingAccessPolicyDialog(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        '${platform.label} access',
+                        'Who can message on ${platform.label}',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'People, groups, and response behavior',
+                        'Choose who Neo talks to, and when it joins group chats.',
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -3359,19 +3344,19 @@ Future<void> _showMessagingAccessPolicyDialog(
                   children: <Widget>[
                     MessagingAccessSummaryCard(
                       accent: platform.accent,
-                      summary: summaryText,
-                      hint: capabilities.manualEntryHint.ifEmpty(
-                        'Choose who can reach this platform and how shared spaces behave.',
-                      ),
+                      headline: previewCatalog.accessHeadline,
+                      hint: previewCatalog.accessHint,
+                      details: previewCatalog.accessDetailChips,
                     ),
                     const SizedBox(height: 18),
                     if (capabilities.supportsDirectPolicy)
                       _AccessModeField(
                         icon: Icons.chat_bubble_outline_rounded,
-                        label: 'Direct messages',
+                        label: 'Private chats',
                         description:
-                            'Control who can reach the agent one-to-one.',
+                            'Who can send Neo a one-to-one message.',
                         value: policy.directPolicy,
+                        shared: false,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(directPolicy: value);
                         }),
@@ -3380,10 +3365,11 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 12),
                       _AccessModeField(
                         icon: Icons.groups_2_outlined,
-                        label: 'Shared spaces',
+                        label: 'Groups and channels',
                         description:
-                            'Control access in groups, channels, and rooms.',
+                            'Who can talk to Neo in a group, channel, or room.',
                         value: policy.sharedPolicy,
+                        shared: true,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
                         }),
@@ -3428,8 +3414,26 @@ Future<void> _showMessagingAccessPolicyDialog(
                         },
                       ),
                     ],
-                    const SizedBox(height: 14),
-                    Row(
+                    const SizedBox(height: 18),
+                    Text(
+                      'Approved people and groups',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      policy.directPolicy == 'allowlist' ||
+                              policy.sharedPolicy == 'allowlist'
+                          ? 'Add the people and groups Neo is allowed to talk to.'
+                          : 'These lists are optional unless a section above is set to approved only.',
+                      style: TextStyle(color: _textSecondary, height: 1.35),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: <Widget>[
                         FilledButton.icon(
                           onPressed: () async {
@@ -3444,9 +3448,8 @@ Future<void> _showMessagingAccessPolicyDialog(
                             }
                           },
                           icon: Icon(Icons.add_rounded),
-                          label: Text('Add access'),
+                          label: Text('Add people or groups'),
                         ),
-                        const SizedBox(width: 10),
                         OutlinedButton.icon(
                           onPressed: () async {
                             final refreshed = await onRefreshCatalog();
@@ -3456,48 +3459,52 @@ Future<void> _showMessagingAccessPolicyDialog(
                             });
                           },
                           icon: Icon(Icons.travel_explore_rounded),
-                          label: Text('Refresh groups & people'),
+                          label: Text('Find recent chats'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     _AccessRuleSection(
-                      title: 'Direct-only rules',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'People in private chats',
                       subtitle:
-                          'Specific one-to-one chats that do not grant group access.',
+                          'These people can message Neo one-to-one. This does not let them speak in groups.',
                       rules: policy.directRules,
-                      emptyLabel: 'No direct sender rules yet.',
+                      emptyLabel: 'No one added yet.',
                       onRemove: (rule) =>
                           removeRule('directRules', rule, setLocalState),
                     ),
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Everyone in a shared space',
+                        icon: Icons.groups_2_outlined,
+                        title: 'Whole groups',
                         subtitle:
-                            'Allow every sender in a selected channel, group, room, or server.',
+                            'Everyone in these groups, channels, or rooms can talk to Neo.',
                         rules: policy.sharedSpaceRules,
-                        emptyLabel: 'No shared-space rules yet.',
+                        emptyLabel: 'No groups added yet.',
                         onRemove: (rule) =>
                             removeRule('sharedSpaceRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Senders everywhere',
+                        icon: Icons.person_outline_rounded,
+                        title: 'These people, anywhere',
                         subtitle:
-                            'Allow these people in DMs and shared spaces. Role rules apply only in shared spaces.',
+                            'These people can message Neo in private chats and in any group they share.',
                         rules: policy.sharedActorRules,
-                        emptyLabel: 'No shared-actor rules yet.',
+                        emptyLabel: 'No people added yet.',
                         onRemove: (rule) =>
                             removeRule('sharedActorRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Senders in one shared space',
+                        icon: Icons.person_pin_circle_outlined,
+                        title: 'These people, in one group',
                         subtitle:
-                            'Allow a sender only in the selected group, channel, or room.',
+                            'These people can only message Neo in the group you picked.',
                         rules: policy.sharedMemberRules,
-                        emptyLabel: 'No group-specific sender rules yet.',
+                        emptyLabel: 'No group-specific people added yet.',
                         onRemove: (rule) => removeRule(
                           'sharedMemberRules',
                           rule,
@@ -3539,6 +3546,7 @@ class _AccessModeField extends StatelessWidget {
     required this.description,
     required this.value,
     required this.onChanged,
+    this.shared = false,
   });
 
   final IconData icon;
@@ -3546,6 +3554,7 @@ class _AccessModeField extends StatelessWidget {
   final String description;
   final String value;
   final ValueChanged<String> onChanged;
+  final bool shared;
 
   @override
   Widget build(BuildContext context) {
@@ -3575,24 +3584,33 @@ class _AccessModeField extends StatelessWidget {
                   runSpacing: 8,
                   children: <Widget>[
                     ChoiceChip(
-                      avatar: Icon(Icons.rule_rounded, size: 18),
-                      label: Text('Allowlist'),
+                      avatar: Icon(Icons.verified_user_outlined, size: 18),
+                      label: Text('Approved only'),
                       selected: value == 'allowlist',
                       onSelected: (_) => onChanged('allowlist'),
                     ),
                     ChoiceChip(
                       avatar: Icon(Icons.public_rounded, size: 18),
-                      label: Text('Open'),
+                      label: Text('Anyone'),
                       selected: value == 'open',
                       onSelected: (_) => onChanged('open'),
                     ),
                     ChoiceChip(
                       avatar: Icon(Icons.block_rounded, size: 18),
-                      label: Text('Off'),
+                      label: Text('No one'),
                       selected: value == 'disabled',
                       onSelected: (_) => onChanged('disabled'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  messagingAccessModeHelp(value, shared: shared),
+                  style: TextStyle(
+                    color: _textSecondary,
+                    height: 1.35,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -3632,14 +3650,14 @@ class _GroupParticipationSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabledSpaces = spaces.where(allowsUntagged).toList(growable: false);
     final summaryText = spaces.isEmpty
-        ? 'No groups discovered yet'
+        ? 'No groups found yet'
         : enabledSpaces.isEmpty
         ? defaultAllowUntagged
               ? 'On for new groups only'
-              : 'Off by default'
+              : 'Only when Neo is tagged'
         : enabledSpaces.length == spaces.length
-        ? 'On for all ${spaces.length} spaces'
-        : 'On for ${enabledSpaces.length} of ${spaces.length} spaces';
+        ? 'On for all ${spaces.length} groups'
+        : 'On for ${enabledSpaces.length} of ${spaces.length} groups';
 
     return Container(
       width: double.infinity,
@@ -3654,21 +3672,21 @@ class _GroupParticipationSection extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(Icons.psychology_alt_outlined, color: _accent),
+              Icon(Icons.chat_bubble_outline_rounded, color: _accent),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Social intelligence',
+                      'Join group conversations',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       supportsMentionGate
-                          ? 'Tags and replies always get a response. Choose which groups may also use social intelligence for untagged messages.'
-                          : 'Choose which shared spaces may use social intelligence for untagged messages. This bridge may not identify tags separately.',
+                          ? 'If someone tags Neo or replies, Neo always answers. Turn this on if Neo should also chime in on ordinary group chat.'
+                          : 'Choose which groups Neo should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
                   ],
@@ -3686,7 +3704,7 @@ class _GroupParticipationSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
+                'No groups found yet. After Neo sees a group message, use Find recent chats and they will show up here.',
                 style: TextStyle(color: _textMuted),
               ),
             ),
@@ -3714,8 +3732,8 @@ class _GroupParticipationSection extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     defaultAllowUntagged
-                        ? 'New groups use social intelligence until you turn them off.'
-                        : 'New groups stay silent on untagged messages until you enable them.',
+                        ? 'New groups will let Neo join ordinary chat until you turn them off.'
+                        : 'New groups stay quiet unless someone tags Neo, until you turn them on.',
                     style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
                   if (enabledSpaces.isNotEmpty) ...<Widget>[
@@ -3729,7 +3747,7 @@ class _GroupParticipationSection extends StatelessWidget {
                             .map(
                               (space) => Chip(
                                 avatar: Icon(
-                                  Icons.psychology_alt_outlined,
+                                  Icons.chat_bubble_outline_rounded,
                                   size: 16,
                                   color: _accent,
                                 ),
@@ -3955,7 +3973,7 @@ class _SocialIntelligencePickerDialogState
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              Icons.psychology_alt_outlined,
+                              Icons.chat_bubble_outline_rounded,
                               color: _accent,
                             ),
                           ),
@@ -3965,7 +3983,7 @@ class _SocialIntelligencePickerDialogState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Social intelligence',
+                                  'Join group conversations',
                                   style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
@@ -3974,8 +3992,8 @@ class _SocialIntelligencePickerDialogState
                                 ),
                                 Text(
                                   enabledCount == 0
-                                      ? 'Off unless you enable a group'
-                                      : '$enabledCount of ${widget.spaces.length} spaces enabled',
+                                      ? 'Only when Neo is tagged, unless you turn a group on'
+                                      : '$enabledCount of ${widget.spaces.length} groups can chat freely',
                                   style: TextStyle(
                                     color: _textSecondary,
                                     fontSize: 13,
@@ -4004,8 +4022,8 @@ class _SocialIntelligencePickerDialogState
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       child: Text(
                         widget.supportsMentionGate
-                            ? 'Tags and replies always get a response. Enable social intelligence only in rooms where untagged chatter should also be read.'
-                            : 'Enable social intelligence only in rooms where untagged messages should also be read.',
+                            ? 'Tags and replies always get a response. Turn a group on if Neo should also join ordinary chat there.'
+                            : 'Turn a group on if Neo should also read messages that do not tag it.',
                         style: TextStyle(
                           color: _textSecondary,
                           height: 1.35,
@@ -4021,7 +4039,7 @@ class _SocialIntelligencePickerDialogState
                         onChanged: (_) => setState(() {}),
                         style: TextStyle(color: _textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search groups, channels, or rooms',
+                          hintText: 'Search groups',
                           hintStyle: TextStyle(color: _textMuted, fontSize: 14),
                           prefixIcon: Icon(
                             Icons.search_rounded,
@@ -4119,7 +4137,7 @@ class _SocialIntelligencePickerDialogState
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            'Spaces without an explicit choice follow this default.',
+                            'Groups Neo has not seen yet will follow this.',
                             style: TextStyle(color: _textSecondary),
                           ),
                           value: _defaultAllowUntagged,
@@ -4135,7 +4153,7 @@ class _SocialIntelligencePickerDialogState
                           ? Padding(
                               padding: const EdgeInsets.all(28),
                               child: Text(
-                                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
+                                'No groups found yet. After Neo sees a group message, use Find recent chats.',
                                 style: TextStyle(color: _textMuted),
                                 textAlign: TextAlign.center,
                               ),
@@ -4154,7 +4172,7 @@ class _SocialIntelligencePickerDialogState
                                   const SizedBox(height: 12),
                                   Text(
                                     query.isEmpty
-                                        ? 'No spaces in this category'
+                                        ? 'No groups in this category'
                                         : 'No results for "$query"',
                                     style: TextStyle(
                                       color: _textSecondary,
@@ -4208,7 +4226,7 @@ class _SocialIntelligencePickerDialogState
                                             secondary: Icon(
                                               enabled
                                                   ? Icons
-                                                        .psychology_alt_outlined
+                                                        .chat_bubble_outline_rounded
                                                   : _scopeIcon(space.scope),
                                               color: enabled
                                                   ? _accent
@@ -4222,8 +4240,8 @@ class _SocialIntelligencePickerDialogState
                                             ),
                                             subtitle: Text(
                                               enabled
-                                                  ? 'Untagged messages use social intelligence'
-                                                  : 'Untagged messages stay silent',
+                                                  ? 'Neo can join ordinary chat'
+                                                  : 'Neo only replies when tagged',
                                               style: TextStyle(
                                                 color: _textSecondary,
                                               ),
@@ -4274,15 +4292,39 @@ class _AccessRuleSection extends StatelessWidget {
     required this.rules,
     required this.emptyLabel,
     required this.onRemove,
+    this.icon,
     this.showSpace = false,
   });
 
+  final IconData? icon;
   final String title;
   final String subtitle;
   final List<MessagingAccessRule> rules;
   final String emptyLabel;
   final ValueChanged<MessagingAccessRule> onRemove;
   final bool showSpace;
+
+  IconData _scopeIcon(String scope) {
+    switch (scope) {
+      case 'group':
+        return Icons.groups_2_outlined;
+      case 'channel':
+        return Icons.tag_rounded;
+      case 'server':
+        return Icons.dns_outlined;
+      case 'room':
+        return Icons.meeting_room_outlined;
+      case 'phone_number':
+        return Icons.phone_outlined;
+      case 'role':
+        return Icons.badge_outlined;
+      case 'user':
+      case 'dm':
+        return Icons.person_outline_rounded;
+      default:
+        return Icons.chat_bubble_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4297,9 +4339,22 @@ class _AccessRuleSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
+          Row(
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(icon, color: _accent, size: 20),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: _textSecondary)),
+          Text(subtitle, style: TextStyle(color: _textSecondary, height: 1.35)),
           const SizedBox(height: 12),
           if (rules.isEmpty)
             Text(emptyLabel, style: TextStyle(color: _textMuted))
@@ -4314,9 +4369,8 @@ class _AccessRuleSection extends StatelessWidget {
                         ? ' in ${rule.spaceDisplayLabel}'
                         : '';
                     return Chip(
-                      label: Text(
-                        '${rule.scopeLabel}: ${rule.displayLabel}$spaceSuffix',
-                      ),
+                      avatar: Icon(_scopeIcon(rule.scope), size: 16),
+                      label: Text('${rule.displayLabel}$spaceSuffix'),
                       deleteIcon: Icon(Icons.close_rounded, size: 18),
                       onDeleted: () => onRemove(rule),
                     );
@@ -4366,6 +4420,7 @@ class _MessagingAccessRulePickerSheetState
   late String _selectedBucket;
   late String _selectedScope;
   late String _selectedSpaceScope;
+  late bool _showManualEntry;
 
   @override
   void initState() {
@@ -4373,6 +4428,9 @@ class _MessagingAccessRulePickerSheetState
     _queryController = TextEditingController();
     _valueController = TextEditingController();
     _spaceValueController = TextEditingController();
+    _showManualEntry =
+        widget.catalog.discoveredTargets.isEmpty &&
+        widget.catalog.suggestedTargets.isEmpty;
     _selectedBucket =
         widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
         ? 'sharedActorRules'
@@ -4506,22 +4564,27 @@ class _MessagingAccessRulePickerSheetState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Add Access Rule',
+              'Add someone or a group',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(
-              'Choose a preset, a discovered target, or enter an id manually for ${widget.platform.label}.',
-              style: TextStyle(color: _textSecondary),
+              'Pick from recent ${widget.platform.label} chats, or add a person or group yourself.',
+              style: TextStyle(color: _textSecondary, height: 1.35),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            Text(
+              'What are you adding?',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
                 if (_directOnlyScopes().isNotEmpty)
                   ChoiceChip(
-                    label: Text('Direct only'),
+                    label: Text('Private chat'),
                     selected: _selectedBucket == 'directRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'directRules';
@@ -4534,7 +4597,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedSpaceRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Everyone in space'),
+                    label: Text('Whole group'),
                     selected: _selectedBucket == 'sharedSpaceRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedSpaceRules';
@@ -4547,7 +4610,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedActorRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Sender everywhere'),
+                    label: Text('This person, anywhere'),
                     selected: _selectedBucket == 'sharedActorRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedActorRules';
@@ -4565,7 +4628,7 @@ class _MessagingAccessRulePickerSheetState
                         .sharedSpaceRuleScopes
                         .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Sender in one space'),
+                    label: Text('This person, in one group'),
                     selected: _selectedBucket == 'sharedMemberRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedMemberRules';
@@ -4574,29 +4637,35 @@ class _MessagingAccessRulePickerSheetState
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: _queryController,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search_rounded),
-                labelText: 'Search discovered targets',
+                labelText: 'Search recent people and groups',
               ),
             ),
             const SizedBox(height: 16),
             if (targets.isNotEmpty) ...<Widget>[
               Text(
-                'Suggested & discovered',
+                'Recent chats',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               ...targets.take(10).map((target) {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    target.bucket == 'sharedSpaceRules'
+                        ? Icons.groups_2_outlined
+                        : Icons.person_outline_rounded,
+                    color: _accent,
+                  ),
                   title: Text(target.label),
                   subtitle: Text(
                     target.subtitle.ifEmpty(
-                      '${target.scope} • ${target.value}',
+                      messagingScopePickerLabel(target.scope),
                     ),
                   ),
                   trailing: Icon(Icons.add_circle_outline_rounded),
@@ -4615,7 +4684,7 @@ class _MessagingAccessRulePickerSheetState
                     memberSpaceTargets.isNotEmpty)) ...<Widget>[
               if (memberActorTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose a discovered sender',
+                  'Choose a person',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4630,6 +4699,7 @@ class _MessagingAccessRulePickerSheetState
                           onPressed: () => setState(() {
                             _selectedScope = target.scope;
                             _valueController.text = target.value;
+                            _showManualEntry = true;
                           }),
                         );
                       })
@@ -4639,7 +4709,7 @@ class _MessagingAccessRulePickerSheetState
               ],
               if (memberSpaceTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose a discovered shared space',
+                  'Choose their group',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4654,6 +4724,7 @@ class _MessagingAccessRulePickerSheetState
                           onPressed: () => setState(() {
                             _selectedSpaceScope = target.scope;
                             _spaceValueController.text = target.value;
+                            _showManualEntry = true;
                           }),
                         );
                       })
@@ -4663,88 +4734,162 @@ class _MessagingAccessRulePickerSheetState
               ],
               const Divider(height: 10),
             ],
-            Text('Manual entry', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            if (availableScopes.isNotEmpty)
-              InputDecorator(
-                decoration: InputDecoration(labelText: 'Rule scope'),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedScope,
-                    isExpanded: true,
-                    items: availableScopes
-                        .map(
-                          (scope) => DropdownMenuItem<String>(
-                            value: scope,
-                            child: Text(scope.replaceAll('_', ' ')),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedScope = value);
-                      }
-                    },
+            if (!_showManualEntry)
+              TextButton.icon(
+                onPressed: () => setState(() => _showManualEntry = true),
+                icon: Icon(Icons.edit_outlined),
+                label: Text('Add by name or ID instead'),
+              )
+            else ...<Widget>[
+              Text(
+                'Add by name or ID',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              if (availableScopes.isNotEmpty)
+                InputDecorator(
+                  decoration: InputDecoration(labelText: 'Type'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedScope,
+                      isExpanded: true,
+                      items: availableScopes
+                          .map(
+                            (scope) => DropdownMenuItem<String>(
+                              value: scope,
+                              child: Text(messagingScopePickerLabel(scope)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedScope = value);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _valueController,
-              decoration: InputDecoration(
-                labelText: _selectedBucket == 'sharedMemberRules'
-                    ? 'Sender ID / value'
-                    : 'ID / value',
-                helperText: widget.catalog.capabilities.manualEntryHint,
-              ),
-              onSubmitted: _selectedBucket == 'sharedMemberRules'
-                  ? null
-                  : (_) => _submitManualRule(context),
-            ),
-            if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
-              const SizedBox(height: 12),
-              InputDecorator(
-                decoration: InputDecoration(labelText: 'Shared-space scope'),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedSpaceScope,
-                    isExpanded: true,
-                    items: widget.catalog.capabilities.sharedSpaceRuleScopes
-                        .map(
-                          (scope) => DropdownMenuItem<String>(
-                            value: scope,
-                            child: Text(scope.replaceAll('_', ' ')),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedSpaceScope = value);
-                      }
-                    },
-                  ),
-                ),
-              ),
               const SizedBox(height: 12),
               TextField(
-                controller: _spaceValueController,
+                controller: _valueController,
                 decoration: InputDecoration(
-                  labelText: 'Group / channel / room ID',
+                  labelText: _selectedBucket == 'sharedMemberRules'
+                      ? 'Person'
+                      : _selectedBucket == 'sharedSpaceRules'
+                      ? 'Group or channel'
+                      : 'Person or chat',
+                  helperText: widget.catalog.capabilities.manualEntryHint
+                      .ifEmpty('Use a name, phone number, or chat ID.'),
+                  helperMaxLines: 3,
                 ),
-                onSubmitted: (_) => _submitManualRule(context),
+                onSubmitted: _selectedBucket == 'sharedMemberRules'
+                    ? null
+                    : (_) => _submitManualRule(context),
+              ),
+              if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
+                const SizedBox(height: 12),
+                InputDecorator(
+                  decoration: InputDecoration(labelText: 'Group type'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedSpaceScope,
+                      isExpanded: true,
+                      items: widget.catalog.capabilities.sharedSpaceRuleScopes
+                          .map(
+                            (scope) => DropdownMenuItem<String>(
+                              value: scope,
+                              child: Text(messagingScopePickerLabel(scope)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedSpaceScope = value);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _spaceValueController,
+                  decoration: InputDecoration(
+                    labelText: 'Group, channel, or room',
+                  ),
+                  onSubmitted: (_) => _submitManualRule(context),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: () => _submitManualRule(context),
+                  icon: Icon(Icons.add_rounded),
+                  label: Text('Add'),
+                ),
               ),
             ],
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => _submitManualRule(context),
-                icon: Icon(Icons.add_rounded),
-                label: Text('Add rule'),
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MessagingWebhookCard extends StatelessWidget {
+  const _MessagingWebhookCard({
+    required this.url,
+    required this.platformLabel,
+  });
+
+  final String url;
+  final String platformLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Incoming messages',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'If $platformLabel asks for a webhook URL, paste this so messages can reach Neo.',
+            style: TextStyle(color: _textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: SelectableText(
+                  url,
+                  style: TextStyle(fontSize: 12, color: _textPrimary),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copy webhook URL',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: url));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Webhook URL copied')),
+                  );
+                },
+                icon: Icon(Icons.copy_outlined, size: 18),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -6153,37 +6298,87 @@ Future<void> _openGenericMessagingConfigHelper(
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: Text(platform.label),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 18,
+              ),
+              title: Row(
+                children: <Widget>[
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: platform.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(platform.icon, color: platform.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Connect ${platform.label}',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          platform.subtitle,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               content: SizedBox(
                 width: 620,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      Text(
+                        platform.configFields.isEmpty
+                            ? 'Nothing extra is needed. Connect to start using ${platform.label}.'
+                            : 'Enter the details ${platform.label} gave you so Neo can send and receive messages.',
+                        style: TextStyle(color: _textSecondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 16),
                       if (platform.configFields.isEmpty)
-                        Text(
-                          'No extra settings are required.',
-                          style: TextStyle(color: _textSecondary),
-                        )
+                        const SizedBox.shrink()
                       else
                         ...platform.configFields.map((field) {
                           if (field.kind == MessagingConfigFieldKind.boolean) {
-                            return SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(field.label),
-                              value: boolValues[field.key] ?? false,
-                              onChanged: (value) {
-                                setLocalState(() {
-                                  boolValues[field.key] = value;
-                                });
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(field.label),
+                                subtitle: field.hint == null
+                                    ? null
+                                    : Text(
+                                        field.hint!,
+                                        style: TextStyle(color: _textSecondary),
+                                      ),
+                                value: boolValues[field.key] ?? false,
+                                onChanged: (value) {
+                                  setLocalState(() {
+                                    boolValues[field.key] = value;
+                                  });
+                                },
+                              ),
                             );
                           }
-                          final controller = textControllers[field.key]!;
+                          final fieldController = textControllers[field.key]!;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: TextField(
-                              controller: controller,
+                              controller: fieldController,
                               obscureText:
                                   field.obscure ||
                                   field.kind ==
@@ -6200,6 +6395,8 @@ Future<void> _openGenericMessagingConfigHelper(
                                   : 1,
                               decoration: InputDecoration(
                                 labelText: field.label,
+                                helperText: field.hint,
+                                helperMaxLines: 3,
                               ),
                             ),
                           );
@@ -6207,13 +6404,14 @@ Future<void> _openGenericMessagingConfigHelper(
                       const SizedBox(height: 8),
                       if (platform.id == 'meshtastic')
                         Text(
-                          'Meshtastic connects directly to the device TCP API on port 4403 by default. Normal chat is limited to the configured channel.',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
+                          'Neo talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.',
+                          style: TextStyle(color: _textSecondary, height: 1.4),
                         )
                       else
-                        SelectableText(
-                          'Inbound webhook: ${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
+                        _MessagingWebhookCard(
+                          url:
+                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                          platformLabel: platform.label,
                         ),
                     ],
                   ),

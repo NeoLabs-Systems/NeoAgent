@@ -6436,7 +6436,7 @@ class NeoAgentController extends ChangeNotifier {
       'suggestedTargets': currentMessagingAccessCatalog(
         platform,
       ).suggestedTargets.map((item) => item.toJson()).toList(growable: false),
-      'summary': response['summary']?.toString() ?? 'Access policy',
+      'summary': response['summary']?.toString() ?? 'Who can message',
     });
     messagingAccessCatalogs = <String, MessagingAccessCatalog>{
       ...messagingAccessCatalogs,

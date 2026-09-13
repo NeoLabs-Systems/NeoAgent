@@ -11,6 +11,7 @@ const {
   evaluateAccessPolicy,
   migrateLegacyWhitelist,
   normalizeAccessPolicy,
+  summarizeAccessPolicy,
 } = require('../../../server/services/messaging/access_policy');
 const { normalizeWhatsAppWhitelist } = require('../../../server/utils/whatsapp');
 
@@ -359,4 +360,19 @@ test('Discord channel allowlist admits tagged messages and preserves untagged po
   }, 'discord');
   assert.equal(untagged.allowed, true);
   assert.equal(untagged.allowUntagged, false);
+});
+
+test('access policy summaries use plain language', () => {
+  const summary = summarizeAccessPolicy('whatsapp', {
+    schemaVersion: 3,
+    directPolicy: 'allowlist',
+    sharedPolicy: 'open',
+    defaultAllowUntaggedInShared: false,
+    directRules: [{ scope: 'phone_number', value: '+15551234567' }],
+  });
+  assert.match(summary, /Private chats: approved only/);
+  assert.match(summary, /Groups: anyone/);
+  assert.match(summary, /replies when tagged/);
+  assert.match(summary, /1 approved/);
+  assert.doesNotMatch(summary, /allowlist|untagged|shared spaces/i);
 });
