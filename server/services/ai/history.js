@@ -24,6 +24,22 @@ function buildSummaryCarrier(summary) {
   };
 }
 
+// The live turn of an external message carries the routing envelope: sender
+// identity, platform formatting guide, reply and progress instructions. Those
+// are restated on every new turn, so replaying them from history only pays for
+// the same static text once per stored message. What history has to keep is who
+// spoke, on which platform, and that the text is untrusted external content.
+function buildStoredUserContent({ userMessage, rawUserMessage, platform, speaker, isGroup = false }) {
+  const raw = String(rawUserMessage || '').trim();
+  if (!raw) return String(userMessage || '');
+  const origin = [
+    String(platform || '').trim(),
+    isGroup ? 'group message' : 'message',
+    String(speaker || '').trim() ? `from ${String(speaker).trim()}` : '',
+  ].filter(Boolean).join(' ');
+  return `[${origin}]\n<external_message>\n${raw}\n</external_message>`;
+}
+
 function normalizeHistoryRows(rows) {
   return rows.map((msg) => {
     const out = { role: msg.role, content: msg.content || '' };
@@ -209,6 +225,7 @@ function getConversationContext(conversationId, recentLimit) {
 module.exports = {
   SUMMARY_TRIGGER_COUNT,
   MAX_SUMMARY_CHARS,
+  buildStoredUserContent,
   buildSummaryCarrier,
   clampSummary,
   clearWebChatSummary,

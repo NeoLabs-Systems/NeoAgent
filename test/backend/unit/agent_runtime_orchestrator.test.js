@@ -198,6 +198,60 @@ test('completed conversations queue source-grounded learning instead of run rece
   assert.equal(stored.content, result.content);
 });
 
+test('messaging turns are stored without the per-turn routing envelope', async () => {
+  const conversationId = `messaging-${Date.now()}`;
+  ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
+    .run(conversationId, userId);
+  const engine = createEngine({
+    mode: 'direct_answer',
+    draft_reply: 'kurz und schmerzlos.',
+    draft_status: 'final',
+    goal: 'Answer the message',
+    confidence: 0.97,
+    complexity: 'simple',
+    autonomy_level: 'minimal',
+    progress_update_policy: 'none',
+    research_depth: 'none',
+    needs_verification: false,
+    success_criteria: ['Reply on whatsapp'],
+    suggested_tools: [],
+  });
+  const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
+  const msg = {
+    platform: 'whatsapp',
+    isGroup: false,
+    chatId: '4915112345678@lid',
+    sender: '4915112345678@lid',
+    senderName: 'Neo',
+    content: 'wieso kann ich nein nicht ausschreiben',
+  };
+  const envelope = buildIncomingPrompt(msg);
+
+  const result = await engine.run(userId, envelope, {
+    conversationId,
+    triggerSource: 'messaging',
+    source: msg.platform,
+    chatId: msg.chatId,
+    stream: false,
+    skipGlobalRecall: true,
+    context: {
+      rawUserMessage: msg.content,
+      socialIntelligence: { message: msg },
+    },
+  });
+
+  assert.equal(result.status, 'completed');
+  const stored = ctx.db.prepare(
+    `SELECT content FROM conversation_messages
+     WHERE conversation_id = ? AND run_id = ? AND role = 'user'`,
+  ).get(conversationId, result.runId);
+  assert.equal(
+    stored.content,
+    `[whatsapp message from Neo]\n<external_message>\n${msg.content}\n</external_message>`,
+  );
+  assert.ok(stored.content.length < envelope.length / 4);
+});
+
 test('voice uses the same one-turn loop and canonical outbox adapter', async () => {
   const engine = createEngine({
     mode: 'direct_answer',

@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
 const {
   getConversationContext,
+  buildStoredUserContent,
   buildSummaryCarrier,
   sanitizeConversationMessages,
 } = require('../history');
@@ -684,6 +685,7 @@ class DurableRunRuntime {
           && Array.isArray(options.coworkSharedAttachments)
           ? options.coworkSharedAttachments
           : [];
+        const socialMessage = options.context?.socialIntelligence?.message || null;
         db.prepare(
           `INSERT INTO conversation_messages (
             conversation_id, run_id, agent_id, role, content, metadata_json
@@ -692,7 +694,15 @@ class DurableRunRuntime {
           conversationId,
           runId,
           agentId,
-          String(userMessage || ''),
+          buildStoredUserContent({
+            userMessage,
+            rawUserMessage: triggerSource === 'messaging'
+              ? options.context?.rawUserMessage
+              : null,
+            platform: options.source || null,
+            speaker: socialMessage?.senderName || socialMessage?.sender || null,
+            isGroup: Boolean(socialMessage?.isGroup),
+          }),
           JSON.stringify({
             interactionMode,
             deviceTarget,

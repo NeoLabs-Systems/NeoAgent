@@ -3050,30 +3050,19 @@ class MemoryManager {
         let memoryChars = 0;
         const seenMemoryText = new Set();
         const categoryCounts = new Map();
+        // Recall carries the remembered statement itself. Category badges,
+        // entity lists, version history, and source offsets restate what the
+        // sentence already says or describe how it was stored, and the agent
+        // acts on none of it.
         for (const m of recalled) {
           const category = normalizeMemoryCategory(m.category);
-          const summaryKey = stableHash(summarizeForPrompt(m).slice(0, 220));
+          const content = String(m.content || '').replace(/\s+/g, ' ').trim();
+          if (!content) continue;
+          const summaryKey = stableHash(content.slice(0, 220));
           if (seenMemoryText.has(summaryKey)) continue;
           const categoryCount = categoryCounts.get(category) || 0;
           if (memoryLines.length >= 3 && categoryCount >= 2) continue;
-          const badge = m.category !== 'episodic' ? ` [${m.category}]` : '';
-          const entities = Array.isArray(m.entities) && m.entities.length
-            ? ` (entities: ${m.entities.slice(0, 4).map((entity) => entity.name).join(', ')})`
-            : '';
-          const history = (Array.isArray(m.factContext) ? m.factContext : [])
-            .filter((fact) => fact.previous)
-            .map((fact) => (
-              `${fact.subject} ${fact.predicate} was previously ${fact.previous.object}`
-            ))
-            .slice(0, 2);
-          const historySuffix = history.length
-            ? ` [version history: ${history.join('; ')}]`
-            : '';
-          const source = Array.isArray(m.sources) ? m.sources[0] : null;
-          const sourceSuffix = source
-            ? ` [source: ${source.title || source.externalObjectId}, chars ${source.charStart}-${source.charEnd}]`
-            : '';
-          const line = `- ${summarizeForPrompt(m)}${badge}${entities}${historySuffix}${sourceSuffix}`;
+          const line = `- ${content.slice(0, 900)}`;
           if (memoryLines.length && memoryChars + line.length > 1600) break;
           memoryLines.push(line);
           seenMemoryText.add(summaryKey);

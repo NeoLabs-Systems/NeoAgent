@@ -125,3 +125,33 @@ test('memory_update_core writes directly and validates malformed calls', async (
     'Neo lives in Germany.',
   );
 });
+
+test('recall injects the remembered statements without storage metadata', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'memory_recall_shape' });
+  const { MemoryManager } = require('../../../server/services/memory/manager');
+  const manager = new MemoryManager();
+
+  const message = await manager.buildRecallMessage(user.userId, 'welches mail tool nutzt neo?', {
+    recalled: [
+      {
+        id: 'mem-1',
+        content: 'Neo prefers the Gmail integration for email, never neo.eu.com.',
+        category: 'preferences',
+        entities: [{ name: 'Neo' }, { name: 'Gmail' }],
+        factContext: [{
+          subject: 'Neo',
+          predicate: 'prefers email tool',
+          previous: { object: 'neo.eu.com' },
+        }],
+        sources: [{ title: 'Chat mit Neo', charStart: 100, charEnd: 400 }],
+      },
+    ],
+  });
+
+  assert.match(message, /- Neo prefers the Gmail integration for email, never neo\.eu\.com\.\n?/);
+  assert.doesNotMatch(message, /\[preferences\]/);
+  assert.doesNotMatch(message, /entities:/);
+  assert.doesNotMatch(message, /version history/);
+  assert.doesNotMatch(message, /\[source:/);
+});
