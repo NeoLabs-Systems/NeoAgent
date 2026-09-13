@@ -784,7 +784,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       int? limit, {
       required int remaining,
       required bool reached,
-      required DateTime? nextDecreaseAt,
+      required DateTime? recoversAt,
+      required DateTime? fullResetAt,
       bool isCustom = false,
     }) {
       final double progress = limit != null
@@ -792,7 +793,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           : 0.0;
       final bool nearLimit = progress > 0.8;
       final bool atLimit = reached || progress >= 1.0;
-      final nextDrop = _nextUsageDropLabel(nextDecreaseAt);
+      final resetLabel = _usageWindowResetLabel(
+        reached: atLimit,
+        recoversAt: recoversAt,
+        fullResetAt: fullResetAt,
+      );
 
       return Container(
         width: double.infinity,
@@ -900,9 +905,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               const SizedBox(height: 6),
               Text(
                 atLimit
-                    ? 'Limit reached${nextDrop == null ? '' : ' · $nextDrop'}'
+                    ? 'Limit reached${resetLabel == null ? '' : ' · $resetLabel'}'
                     : '${(progress * 100).toStringAsFixed(0)}% used · ${_formatTokenCount(remaining)} remaining'
-                          '${nextDrop == null ? '' : ' · $nextDrop'}',
+                          '${resetLabel == null ? '' : ' · $resetLabel'}',
                 style: TextStyle(
                   fontSize: 11,
                   color: atLimit
@@ -934,7 +939,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           usage.fourHourLimit,
           remaining: usage.fourHourRemaining,
           reached: usage.fourHourReached,
-          nextDecreaseAt: usage.fourHourNextDecreaseAt,
+          recoversAt: usage.fourHourRecoversAt,
+          fullResetAt: usage.fourHourFullResetAt,
           isCustom: usage.fourHourIsCustom,
         ),
         const SizedBox(height: 16),
@@ -944,7 +950,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           usage.weeklyLimit,
           remaining: usage.weeklyRemaining,
           reached: usage.weeklyReached,
-          nextDecreaseAt: usage.weeklyNextDecreaseAt,
+          recoversAt: usage.weeklyRecoversAt,
+          fullResetAt: usage.weeklyFullResetAt,
           isCustom: usage.weeklyIsCustom,
         ),
       ],

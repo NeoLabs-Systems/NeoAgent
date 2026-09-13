@@ -72,13 +72,17 @@ function usageRows(userId, durationMs) {
   ).all(userId, modifier);
 }
 
-function nextDecreaseAt(rows, durationMs, usage, limit) {
-  const positiveRows = rows.filter((row) => Number(row.tokens) > 0);
-  if (positiveRows.length === 0) return null;
+function positiveRows(rows) {
+  return rows.filter((row) => Number(row.tokens) > 0);
+}
 
+// When the committed usage that currently exceeds the limit has aged out of the
+// window, i.e. the first moment the user can start a run again.
+function recoversAt(rows, durationMs, committedUsage, limit) {
+  if (limit == null || committedUsage < limit) return null;
+  const requiredExpiry = committedUsage - limit + 1;
   let tokensToExpire = 0;
-  const requiredExpiry = usage >= limit ? usage - limit + 1 : 1;
-  for (const row of positiveRows) {
+  for (const row of positiveRows(rows)) {
     tokensToExpire += Number(row.tokens);
     if (tokensToExpire < requiredExpiry) continue;
     const createdAt = parseSqliteDate(row.created_at);
@@ -87,6 +91,19 @@ function nextDecreaseAt(rows, durationMs, usage, limit) {
       : null;
   }
   return null;
+}
+
+// When every run currently inside the window has aged out, i.e. when usage
+// returns to zero if no further runs are started.
+function fullResetAt(rows, durationMs) {
+  let newest = null;
+  for (const row of positiveRows(rows)) {
+    const createdAt = parseSqliteDate(row.created_at);
+    if (createdAt && (newest == null || createdAt > newest)) newest = createdAt;
+  }
+  return newest
+    ? new Date(newest.getTime() + durationMs).toISOString()
+    : null;
 }
 
 function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
@@ -110,7 +127,8 @@ function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
   const usage = {};
   const remaining = {};
   const reached = {};
-  const nextDecreaseAtByWindow = {};
+  const recoversAtByWindow = {};
+  const fullResetAtByWindow = {};
 
   for (const [windowKey, config] of Object.entries(WINDOWS)) {
     const rows = usageRows(userId, config.durationMs);
@@ -120,9 +138,10 @@ function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
     usage[windowKey] = used;
     remaining[windowKey] = limit == null ? null : Math.max(0, limit - used);
     reached[windowKey] = limit != null && used >= limit;
-    nextDecreaseAtByWindow[windowKey] = limit == null
-      ? null
-      : nextDecreaseAt(rows, config.durationMs, used, limit);
+    // Reservations belong to in-flight runs and are released when those runs
+    // finish, so only committed usage has a time-based expiry.
+    recoversAtByWindow[windowKey] = recoversAt(rows, config.durationMs, committed, limit);
+    fullResetAtByWindow[windowKey] = fullResetAt(rows, config.durationMs);
   }
 
   return {
@@ -133,7 +152,8 @@ function getRateLimitSnapshot(userId, { includeReservations = false } = {}) {
       ...reached,
       any: reached.fourHour || reached.weekly,
     },
-    nextDecreaseAt: nextDecreaseAtByWindow,
+    recoversAt: recoversAtByWindow,
+    fullResetAt: fullResetAtByWindow,
   };
 }
 

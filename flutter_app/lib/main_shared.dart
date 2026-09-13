@@ -14,14 +14,32 @@ String _formatTokenCount(int amount) {
   return amount.toString();
 }
 
-String? _nextUsageDropLabel(DateTime? value) {
-  if (value == null) return null;
-  final remaining = value.difference(DateTime.now());
-  if (remaining.isNegative) return 'Usage updates shortly';
+String _durationLabel(Duration remaining) {
   if (remaining.inHours > 0) {
-    return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    return '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
   }
-  return 'Next usage drop in ${remaining.inMinutes + 1}m';
+  return '${remaining.inMinutes + 1}m';
+}
+
+/// Describes when the window recovers: while the limit is reached that is the
+/// moment enough usage ages out to run again, otherwise it is when the window's
+/// current usage has fully expired.
+String? _usageWindowResetLabel({
+  required bool reached,
+  required DateTime? recoversAt,
+  required DateTime? fullResetAt,
+}) {
+  final now = DateTime.now();
+  if (reached) {
+    if (recoversAt == null) return 'Available again shortly';
+    final remaining = recoversAt.difference(now);
+    if (remaining.isNegative) return 'Available again shortly';
+    return 'Available again in ${_durationLabel(remaining)}';
+  }
+  if (fullResetAt == null) return null;
+  final remaining = fullResetAt.difference(now);
+  if (remaining.isNegative) return null;
+  return 'Usage fully resets in ${_durationLabel(remaining)}';
 }
 
 EdgeInsets _pagePadding(BuildContext context) {

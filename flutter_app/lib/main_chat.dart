@@ -1044,7 +1044,8 @@ class _RateLimitStatusCard extends StatelessWidget {
     required int? limit,
     required int remaining,
     required bool reached,
-    required DateTime? nextDecreaseAt,
+    required DateTime? recoversAt,
+    required DateTime? fullResetAt,
   }) {
     if (limit == null || limit <= 0) return const SizedBox.shrink();
     final progress = (usageAmount / limit).clamp(0.0, 1.0);
@@ -1053,7 +1054,11 @@ class _RateLimitStatusCard extends StatelessWidget {
         : progress >= 0.8
         ? _warning
         : _accent;
-    final nextDrop = _nextUsageDropLabel(nextDecreaseAt);
+    final resetLabel = _usageWindowResetLabel(
+      reached: reached,
+      recoversAt: recoversAt,
+      fullResetAt: fullResetAt,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1084,7 +1089,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           '${_formatTokenCount(usageAmount)} / ${_formatTokenCount(limit)} tokens'
-          '${nextDrop == null ? '' : ' · $nextDrop'}',
+          '${resetLabel == null ? '' : ' · $resetLabel'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
       ],
@@ -1100,7 +1105,8 @@ class _RateLimitStatusCard extends StatelessWidget {
         limit: usage.fourHourLimit,
         remaining: usage.fourHourRemaining,
         reached: usage.fourHourReached,
-        nextDecreaseAt: usage.fourHourNextDecreaseAt,
+        recoversAt: usage.fourHourRecoversAt,
+        fullResetAt: usage.fourHourFullResetAt,
       ),
       _buildWindow(
         label: '7-day usage',
@@ -1108,7 +1114,8 @@ class _RateLimitStatusCard extends StatelessWidget {
         limit: usage.weeklyLimit,
         remaining: usage.weeklyRemaining,
         reached: usage.weeklyReached,
-        nextDecreaseAt: usage.weeklyNextDecreaseAt,
+        recoversAt: usage.weeklyRecoversAt,
+        fullResetAt: usage.weeklyFullResetAt,
       ),
     ];
     return Container(

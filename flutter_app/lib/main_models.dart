@@ -4346,8 +4346,10 @@ class AccountUsageAndLimits {
     this.weeklyRemaining = 0,
     this.fourHourReached = false,
     this.weeklyReached = false,
-    this.fourHourNextDecreaseAt,
-    this.weeklyNextDecreaseAt,
+    this.fourHourRecoversAt,
+    this.weeklyRecoversAt,
+    this.fourHourFullResetAt,
+    this.weeklyFullResetAt,
     this.fourHourIsCustom = false,
     this.weeklyIsCustom = false,
   });
@@ -4359,8 +4361,11 @@ class AccountUsageAndLimits {
         ? json['remaining'] as Map
         : const {};
     final reached = json['reached'] is Map ? json['reached'] as Map : const {};
-    final nextDecreaseAt = json['nextDecreaseAt'] is Map
-        ? json['nextDecreaseAt'] as Map
+    final recoversAt = json['recoversAt'] is Map
+        ? json['recoversAt'] as Map
+        : const {};
+    final fullResetAt = json['fullResetAt'] is Map
+        ? json['fullResetAt'] as Map
         : const {};
     return AccountUsageAndLimits(
       fourHourLimit: int.tryParse(limits['fourHour']?.toString() ?? ''),
@@ -4371,11 +4376,17 @@ class AccountUsageAndLimits {
       weeklyRemaining: _asInt(remaining['weekly']),
       fourHourReached: reached['fourHour'] == true,
       weeklyReached: reached['weekly'] == true,
-      fourHourNextDecreaseAt: DateTime.tryParse(
-        nextDecreaseAt['fourHour']?.toString() ?? '',
+      fourHourRecoversAt: DateTime.tryParse(
+        recoversAt['fourHour']?.toString() ?? '',
       ),
-      weeklyNextDecreaseAt: DateTime.tryParse(
-        nextDecreaseAt['weekly']?.toString() ?? '',
+      weeklyRecoversAt: DateTime.tryParse(
+        recoversAt['weekly']?.toString() ?? '',
+      ),
+      fourHourFullResetAt: DateTime.tryParse(
+        fullResetAt['fourHour']?.toString() ?? '',
+      ),
+      weeklyFullResetAt: DateTime.tryParse(
+        fullResetAt['weekly']?.toString() ?? '',
       ),
       fourHourIsCustom: limits['fourHourIsCustom'] == true,
       weeklyIsCustom: limits['weeklyIsCustom'] == true,
@@ -4390,8 +4401,10 @@ class AccountUsageAndLimits {
   final int weeklyRemaining;
   final bool fourHourReached;
   final bool weeklyReached;
-  final DateTime? fourHourNextDecreaseAt;
-  final DateTime? weeklyNextDecreaseAt;
+  final DateTime? fourHourRecoversAt;
+  final DateTime? weeklyRecoversAt;
+  final DateTime? fourHourFullResetAt;
+  final DateTime? weeklyFullResetAt;
   final bool fourHourIsCustom;
   final bool weeklyIsCustom;
 
