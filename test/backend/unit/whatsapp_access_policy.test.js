@@ -310,6 +310,58 @@ test('WhatsApp whitelist normalization preserves unprefixed group JIDs', () => {
   ]);
 });
 
+test('Discord DM recent chats stay private even without sender metadata', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: 'dm_7016331103035310899',
+    metadata: {},
+  });
+
+  assert.deepEqual(target, {
+    source: 'recent',
+    bucket: 'directRules',
+    scope: 'user',
+    value: '7016331103035310899',
+    label: 'Private chat',
+    subtitle: 'Recent private chat',
+  });
+});
+
+test('Discord DM recent chats use the sender display name', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: 'dm_7016331103035310899',
+    metadata: {
+      sender: '7016331103035310899',
+      senderDisplayName: 'Ada',
+      isGroup: false,
+    },
+  });
+
+  assert.equal(target.bucket, 'directRules');
+  assert.equal(target.scope, 'user');
+  assert.equal(target.value, '7016331103035310899');
+  assert.equal(target.label, 'Ada');
+});
+
+test('Discord channel recent chats stay on the shared channel list', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: '153099835322836170',
+    metadata: {
+      isGroup: true,
+      channelName: 'neoagent',
+      sender: '7016331103035310899',
+    },
+  });
+
+  assert.deepEqual(target, {
+    source: 'recent',
+    bucket: 'sharedSpaceRules',
+    scope: 'channel',
+    value: '153099835322836170',
+    label: 'neoagent',
+    subtitle: 'Recent conversation',
+  });
+});
+
 test('WhatsApp recent group targets are shared group allowlist entries', () => {
   const target = classifyRecentTarget('whatsapp', {
     platform_chat_id: '120363123456789012@g.us',

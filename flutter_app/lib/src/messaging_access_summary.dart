@@ -35,6 +35,31 @@ String messagingAccessModeHelp(
   }
 }
 
+bool looksLikeRawMessagingId(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return true;
+  if (trimmed.startsWith('dm_')) return true;
+  return RegExp(r'^\d{8,}$').hasMatch(trimmed);
+}
+
+bool looksLikeDirectMessagingValue(String value) {
+  return value.trim().startsWith('dm_');
+}
+
+String messagingRuleDisplayLabel({
+  String? label,
+  required String value,
+}) {
+  final named = (label ?? '').trim();
+  if (named.isNotEmpty && !looksLikeRawMessagingId(named)) return named;
+  if (looksLikeDirectMessagingValue(value) ||
+      looksLikeDirectMessagingValue(named)) {
+    return 'Private chat';
+  }
+  if (named.isNotEmpty) return named;
+  return value;
+}
+
 String messagingScopePickerLabel(String scope) {
   switch (scope) {
     case 'phone_number':

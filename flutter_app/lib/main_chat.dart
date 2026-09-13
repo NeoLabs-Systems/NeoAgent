@@ -3133,12 +3133,28 @@ Future<void> _showMessagingAccessPolicyDialog(
   var policy = initialCatalog.policy;
 
   List<MessagingAccessRule> dedupeRules(List<MessagingAccessRule> rules) {
-    final seen = <String>{};
     final result = <MessagingAccessRule>[];
     for (final rule in rules) {
       if (rule.value.trim().isEmpty) continue;
-      if (!seen.add(rule.id)) continue;
-      result.add(rule);
+      final index = result.indexWhere((item) => item.id == rule.id);
+      if (index < 0) {
+        result.add(rule);
+        continue;
+      }
+      final current = result[index];
+      if (looksLikeRawMessagingId(current.displayLabel) &&
+          !looksLikeRawMessagingId(rule.displayLabel)) {
+        result[index] = MessagingAccessRule(
+          scope: current.scope,
+          value: current.value,
+          label: rule.label ?? rule.value,
+          spaceScope: current.spaceScope ?? rule.spaceScope,
+          spaceValue: current.spaceValue ?? rule.spaceValue,
+          spaceLabel: (current.spaceLabel ?? '').trim().isNotEmpty
+              ? current.spaceLabel
+              : rule.spaceLabel,
+        );
+      }
     }
     return result;
   }
@@ -3173,7 +3189,7 @@ Future<void> _showMessagingAccessPolicyDialog(
           .where((target) => target.bucket == 'sharedSpaceRules')
           .map((target) => target.asRule),
     ];
-    return dedupeRules(spaces);
+    return dedupeRules(spaces).where((rule) => rule.isSharedSpace).toList();
   }
 
   bool allowsUntagged(MessagingAccessRule space) {
@@ -3386,6 +3402,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _GroupParticipationSection(
                         spaces: participationSpaces,
                         agentName: agentName,
+                        approvedOnly: policy.sharedPolicy == 'allowlist',
                         supportsMentionGate: capabilities.supportsMentionGate,
                         defaultAllowUntagged:
                             policy.defaultAllowUntaggedInShared,
@@ -3395,6 +3412,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             context,
                             spaces: participationSpaces,
                             agentName: agentName,
+                            approvedOnly: policy.sharedPolicy == 'allowlist',
                             supportsMentionGate:
                                 capabilities.supportsMentionGate,
                             defaultAllowUntagged:
@@ -3649,6 +3667,7 @@ class _GroupParticipationSection extends StatelessWidget {
   const _GroupParticipationSection({
     required this.spaces,
     required this.agentName,
+    required this.approvedOnly,
     required this.supportsMentionGate,
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
@@ -3657,6 +3676,7 @@ class _GroupParticipationSection extends StatelessWidget {
 
   final List<MessagingAccessRule> spaces;
   final String agentName;
+  final bool approvedOnly;
   final bool supportsMentionGate;
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
@@ -3700,7 +3720,11 @@ class _GroupParticipationSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      supportsMentionGate
+                      approvedOnly
+                          ? supportsMentionGate
+                                ? '$agentName still only hears people and groups you already approved. This just lets $agentName join ordinary chat there, not only tags and replies.'
+                                : '$agentName still only hears people and groups you already approved. This just chooses which of those groups it should join.'
+                          : supportsMentionGate
                           ? 'If someone tags $agentName or replies, $agentName always answers. Turn this on if $agentName should also chime in on ordinary group chat.'
                           : 'Choose which groups $agentName should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
                       style: TextStyle(color: _textSecondary, height: 1.35),
@@ -3748,7 +3772,11 @@ class _GroupParticipationSection extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     defaultAllowUntagged
-                        ? 'New groups will let $agentName join ordinary chat until you turn them off.'
+                        ? approvedOnly
+                              ? 'New groups will let $agentName join ordinary chat with approved people, until you turn them off.'
+                              : 'New groups will let $agentName join ordinary chat until you turn them off.'
+                        : approvedOnly
+                        ? 'New groups stay quiet unless an approved person tags $agentName, until you turn them on.'
                         : 'New groups stay quiet unless someone tags $agentName, until you turn them on.',
                     style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
@@ -3797,6 +3825,7 @@ Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
   BuildContext context, {
   required List<MessagingAccessRule> spaces,
   required String agentName,
+  required bool approvedOnly,
   required bool supportsMentionGate,
   required bool defaultAllowUntagged,
   required bool Function(MessagingAccessRule) allowsUntagged,
@@ -3807,6 +3836,7 @@ Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
       return _SocialIntelligencePickerDialog(
         spaces: spaces,
         agentName: agentName,
+        approvedOnly: approvedOnly,
         supportsMentionGate: supportsMentionGate,
         defaultAllowUntagged: defaultAllowUntagged,
         allowsUntagged: allowsUntagged,
@@ -3819,6 +3849,7 @@ class _SocialIntelligencePickerDialog extends StatefulWidget {
   const _SocialIntelligencePickerDialog({
     required this.spaces,
     required this.agentName,
+    required this.approvedOnly,
     required this.supportsMentionGate,
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
@@ -3826,6 +3857,7 @@ class _SocialIntelligencePickerDialog extends StatefulWidget {
 
   final List<MessagingAccessRule> spaces;
   final String agentName;
+  final bool approvedOnly;
   final bool supportsMentionGate;
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
@@ -4012,8 +4044,12 @@ class _SocialIntelligencePickerDialogState
                                 ),
                                 Text(
                                   enabledCount == 0
-                                      ? 'Only when ${widget.agentName} is tagged, unless you turn a group on'
-                                      : '$enabledCount of ${widget.spaces.length} groups can chat freely',
+                                      ? widget.approvedOnly
+                                            ? 'Only when an approved person tags ${widget.agentName}, unless you turn a group on'
+                                            : 'Only when ${widget.agentName} is tagged, unless you turn a group on'
+                                      : widget.approvedOnly
+                                      ? '$enabledCount of ${widget.spaces.length} groups join ordinary chat with approved people'
+                                      : '$enabledCount of ${widget.spaces.length} groups join ordinary chat',
                                   style: TextStyle(
                                     color: _textSecondary,
                                     fontSize: 13,
@@ -4041,7 +4077,11 @@ class _SocialIntelligencePickerDialogState
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       child: Text(
-                        widget.supportsMentionGate
+                        widget.approvedOnly
+                            ? widget.supportsMentionGate
+                                  ? 'This does not approve new people. Tags and replies from approved people always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
+                                  : 'This does not approve new people. Turn a group on if ${widget.agentName} should join ordinary chat with people you already approved.'
+                            : widget.supportsMentionGate
                             ? 'Tags and replies always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
                             : 'Turn a group on if ${widget.agentName} should also read messages that do not tag it.',
                         style: TextStyle(
@@ -4260,7 +4300,11 @@ class _SocialIntelligencePickerDialogState
                                             ),
                                             subtitle: Text(
                                               enabled
-                                                  ? '${widget.agentName} can join ordinary chat'
+                                                  ? widget.approvedOnly
+                                                        ? '${widget.agentName} joins ordinary chat with approved people'
+                                                        : '${widget.agentName} can join ordinary chat'
+                                                  : widget.approvedOnly
+                                                  ? '${widget.agentName} only replies when an approved person tags it'
                                                   : '${widget.agentName} only replies when tagged',
                                               style: TextStyle(
                                                 color: _textSecondary,

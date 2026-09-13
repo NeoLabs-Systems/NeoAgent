@@ -867,7 +867,20 @@ class MessagingAccessRule {
 
   String get id => '$scope:$value:${spaceScope ?? ''}:${spaceValue ?? ''}';
 
-  String get displayLabel => label?.ifEmpty(value) ?? value;
+  String get displayLabel =>
+      messagingRuleDisplayLabel(label: label, value: value);
+
+  bool get isSharedSpace {
+    switch (scope) {
+      case 'user':
+      case 'dm':
+      case 'phone_number':
+      case 'role':
+        return false;
+      default:
+        return !looksLikeDirectMessagingValue(value);
+    }
+  }
 
   String get spaceDisplayLabel =>
       spaceLabel?.ifEmpty(spaceValue ?? '') ?? spaceValue ?? '';
@@ -919,7 +932,8 @@ class MessagingSharedParticipationRule {
   final String? label;
 
   String get id => '$scope:$value';
-  String get displayLabel => label?.ifEmpty(value) ?? value;
+  String get displayLabel =>
+      messagingRuleDisplayLabel(label: label, value: value);
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'scope': scope,

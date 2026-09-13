@@ -12,6 +12,24 @@ void main() {
     expect(messagingScopePickerLabel('dm'), 'Private chat');
   });
 
+  test('raw Discord DMs are shown as private chats', () {
+    expect(looksLikeDirectMessagingValue('dm_7016331103035310899'), isTrue);
+    expect(looksLikeRawMessagingId('dm_7016331103035310899'), isTrue);
+    expect(looksLikeRawMessagingId('153099835322836170'), isTrue);
+    expect(looksLikeRawMessagingId('#neoagent'), isFalse);
+    expect(
+      messagingRuleDisplayLabel(
+        label: 'dm_7016331103035310899',
+        value: 'dm_7016331103035310899',
+      ),
+      'Private chat',
+    );
+    expect(
+      messagingRuleDisplayLabel(label: '#neoagent', value: '153099835322836170'),
+      '#neoagent',
+    );
+  });
+
   test('access help uses the active agent name', () {
     expect(
       messagingAccessModeHelp(

@@ -309,6 +309,21 @@ class DiscordPlatform extends BasePlatform {
         });
       }
     }
+    const channels = this._client.channels?.cache?.values?.() || [];
+    for (const channel of channels) {
+      if (channel?.type !== ChannelType.DM) continue;
+      const recipient = channel.recipient;
+      const userId = String(recipient?.id || '').trim();
+      if (!userId) continue;
+      targets.push({
+        source: 'live',
+        bucket: 'directRules',
+        scope: 'user',
+        value: userId,
+        label: recipient.globalName || recipient.username || 'Private chat',
+        subtitle: 'Discord private chat',
+      });
+    }
     return targets;
   }
 }

@@ -886,6 +886,37 @@ function summarizeAccessPolicy(platform, policyInput) {
   return parts.join(' · ');
 }
 
+function recentSenderLabel(metadata, row, fallback) {
+  return String(
+    metadata.senderName
+    || metadata.sender_name
+    || metadata.senderDisplayName
+    || metadata.sender_display_name
+    || metadata.senderUsername
+    || metadata.sender_username
+    || row.sender_name
+    || fallback
+    || '',
+  ).trim();
+}
+
+function directChatActorId(chatId, sender) {
+  const who = String(sender || '').trim();
+  if (who) return who.startsWith('dm_') ? who.slice(3) : who;
+  const id = String(chatId || '').trim();
+  if (id.startsWith('dm_')) return id.slice(3);
+  return id;
+}
+
+function isDirectRecentChat(chatId, sender, metadata) {
+  const id = String(chatId || '').trim();
+  const who = String(sender || '').trim();
+  if (id.startsWith('dm_')) return true;
+  if (who && (id === who || id === `dm_${who}`)) return true;
+  if (String(metadata.isGroup || '').match(/^(true|1)$/i)) return false;
+  return !id;
+}
+
 function classifyRecentTarget(platform, row) {
   const chatId = String(row.platform_chat_id || '').trim();
   const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
@@ -897,7 +928,7 @@ function classifyRecentTarget(platform, row) {
     || metadata.sender_id
     || '',
   ).trim();
-  const senderName = String(metadata.senderName || metadata.sender_name || row.sender_name || '').trim();
+  const senderName = recentSenderLabel(metadata, row, '');
   const groupName = String(
     metadata.groupName
     || metadata.group_name
@@ -913,7 +944,7 @@ function classifyRecentTarget(platform, row) {
   ).trim();
   if (!chatId && !sender) return null;
 
-  const isDirect = !String(metadata.isGroup || '').match(/^(true|1)$/i) && (!chatId || chatId === sender || chatId === `dm_${sender}`);
+  const isDirect = isDirectRecentChat(chatId, sender, metadata);
   if (platform === 'whatsapp' && !isDirect && chatId) {
     return {
       source: 'recent',
@@ -936,14 +967,16 @@ function classifyRecentTarget(platform, row) {
       subtitle: 'Recent contact',
     };
   }
-  if (isDirect && sender) {
+  if (isDirect) {
+    const value = directChatActorId(chatId, sender);
+    if (!value) return null;
     return {
       source: 'recent',
       bucket: 'directRules',
       scope: 'user',
-      value: sender,
-      label: senderName || sender,
-      subtitle: 'Recent direct sender',
+      value,
+      label: senderName || 'Private chat',
+      subtitle: 'Recent private chat',
     };
   }
   return {
