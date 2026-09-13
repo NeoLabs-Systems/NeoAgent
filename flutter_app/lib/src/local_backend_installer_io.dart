@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import 'local_backend_installer_models.dart';
+import 'error_text.dart';
 import 'local_runtime_paths.dart';
 import 'local_setup_engine.dart';
 import 'runtime_activation_service.dart';
@@ -203,7 +204,7 @@ class LocalBackendInstaller {
     } on Object catch (error) {
       final wrapped = LocalBackendInstallerException(
         'SETUP_INSTALL_FAILED',
-        error.toString(),
+        formatCaughtError(error),
       );
       _emit(
         LocalBackendInstallStage.install,

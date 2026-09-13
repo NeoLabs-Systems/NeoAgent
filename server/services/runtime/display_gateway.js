@@ -1,19 +1,18 @@
 'use strict';
 
 const { WebSocket, WebSocketServer } = require('ws');
+const {
+  createUpgradeLimiter,
+  rejectUpgrade,
+  remoteAddressFromRequest,
+} = require('../../utils/ws_upgrade');
 
 const DISPLAY_WS_PATH = '/api/computer/display-ws';
 const MAX_DISPLAY_FRAME_BYTES = 32 * 1024 * 1024;
 
-function rejectUpgrade(socket, statusCode, message) {
-  try {
-    socket.write(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
-  } catch {}
-  try { socket.destroy(); } catch {}
-}
-
 function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_DISPLAY_FRAME_BYTES });
+  const allowUpgradeAttempt = createUpgradeLimiter();
   let closing = false;
 
   const handleUpgrade = (req, socket, head) => {
@@ -26,6 +25,11 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
     if (url.pathname !== DISPLAY_WS_PATH) return;
     if (closing) {
       rejectUpgrade(socket, 503, 'Service Unavailable');
+      return;
+    }
+    const remoteAddress = remoteAddressFromRequest(req);
+    if (!allowUpgradeAttempt(remoteAddress)) {
+      rejectUpgrade(socket, 429, 'Too Many Requests');
       return;
     }
     sessionMiddleware(req, {}, (error) => {

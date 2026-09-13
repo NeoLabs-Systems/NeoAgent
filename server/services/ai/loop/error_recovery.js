@@ -9,10 +9,6 @@ function hasTerminalMessagingDelivery(runMeta = null) {
     || runMeta?.noResponse === true;
 }
 
-function isRateLimitError(error = null) {
-  return /429|rate.?limit|free-models-per/i.test(String(error?.message || ''));
-}
-
 function shouldRetryMessagingRun() {
   // Messaging recovery must stay inside the current run. Re-entering
   // runWithModel starts over from the original task and repeats tool work.
@@ -32,7 +28,6 @@ function shouldSendMessagingErrorFallback({
 
 module.exports = {
   hasTerminalMessagingDelivery,
-  isRateLimitError,
   shouldRetryMessagingRun,
   shouldSendMessagingErrorFallback,
 };

@@ -1,13 +1,5 @@
 part of 'main.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cowork — composer
-//
-// The composer owns everything about *how* the next message runs: Agent/Plan
-// mode and the model. Context about *where* it runs (agent, device, folder)
-// lives in the thread header.
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _CoworkComposer extends StatelessWidget {
   const _CoworkComposer({
     required this.controller,

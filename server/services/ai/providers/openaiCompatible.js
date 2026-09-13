@@ -7,17 +7,7 @@ function visibleText(part) {
   return String(part?.content || part?.reasoning_content || '');
 }
 
-// Shared base for providers that speak the OpenAI Chat Completions wire format
-// (OpenAI, Grok, NVIDIA NIM, GitHub Copilot, ...). It owns the response/usage
-// normalization, the streaming consumer, and the vision request that were
-// previously copy-pasted into each provider. Per-provider concerns — client
-// construction, model lists, context windows, reasoning detection — stay in
-// the subclasses, since those genuinely differ between vendors.
 class OpenAICompatibleProvider extends BaseProvider {
-  // Consumes a Chat Completions SSE stream. Keeps reading past finish_reason so
-  // the trailing usage-only chunk (stream_options.include_usage) is captured,
-  // and aborts as soon as any tool-call argument or the reply text turns into
-  // runaway output instead of letting it run to max_tokens.
   async *readStream(stream, tools = []) {
     const contentGuard = createStreamGuard();
     const argumentGuards = [];

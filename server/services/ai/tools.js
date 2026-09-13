@@ -16,8 +16,14 @@ const {
     getIntegratedToolDefinitions,
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
+const {
+    executeAndroidTool,
+    executeDesktopTool,
+} = require('./integrated_tools/device_tools');
 const { runFileDiagnostics } = require('./file_diagnostics');
 const { coerceWritableText } = require('../workspace/text_edits');
+const { normalizeStoredString } = require('../../utils/text');
+const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -337,29 +343,9 @@ function markProactiveNoResponse({ runState, deliveryState }) {
     }
 }
 
-function normalizeStoredSettingString(value) {
-    if (value == null) return '';
-    if (typeof value !== 'string') return String(value || '').trim();
-    let current = value.trim();
-    for (let i = 0; i < 2; i += 1) {
-        if (!current) return '';
-        try {
-            const parsed = JSON.parse(current);
-            if (typeof parsed === 'string') {
-                current = parsed.trim();
-                continue;
-            }
-            return '';
-        } catch {
-            return current;
-        }
-    }
-    return current;
-}
-
 function normalizeMessagingTarget(target = {}) {
-    const platform = normalizeStoredSettingString(target.platform);
-    const to = normalizeStoredSettingString(target.to);
+    const platform = normalizeStoredString(target.platform);
+    const to = normalizeStoredString(target.to);
     if (!platform || !to) return null;
     return { platform, to };
 }
@@ -2023,182 +2009,34 @@ async function executeTool(toolName, args, context, engine) {
             return broker.httpRequest(userId, agentId, args, { runId, signal });
         }
 
-        case 'android_start_emulator': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.startEmulator({ ...(args || {}), signal });
-        }
+        case 'android_start_emulator':
+        case 'android_stop_emulator':
+        case 'android_list_devices':
+        case 'android_open_app':
+        case 'android_open_intent':
+        case 'android_tap':
+        case 'android_long_press':
+        case 'android_type':
+        case 'android_swipe':
+        case 'android_press_key':
+        case 'android_wait_for':
+        case 'android_observe':
+        case 'android_dump_ui':
+        case 'android_screenshot':
+        case 'android_list_apps':
+        case 'android_install_apk':
+        case 'android_shell':
+            return await executeAndroidTool(toolName, args, { getController: ac, signal });
 
-        case 'desktop_observe': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.observe({
-                includeTree: args.includeTree === true,
-                signal,
-            });
-        }
-
-        case 'desktop_click': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.clickPoint(args.x, args.y, {
-                button: args.button,
-                signal,
-            });
-        }
-
-        case 'desktop_drag': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.drag({
-                x1: args.x1,
-                y1: args.y1,
-                x2: args.x2,
-                y2: args.y2,
-                durationMs: args.durationMs,
-                signal,
-            });
-        }
-
-        case 'desktop_scroll': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.scroll({
-                deltaX: args.deltaX,
-                deltaY: args.deltaY,
-                signal,
-            });
-        }
-
-        case 'desktop_type': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.typeText(args.text, {
-                pressEnter: args.pressEnter === true,
-                signal,
-            });
-        }
-
-        case 'desktop_press_key': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.pressKey(args.key, {
-                signal,
-            });
-        }
-
-        case 'desktop_launch_app': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.launchApp({
-                app: args.app,
-                signal,
-            });
-        }
-
-        case 'desktop_get_tree': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.getAccessibilityTree({
-                signal,
-            });
-        }
-
-        case 'android_stop_emulator': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.stopEmulator({ signal });
-        }
-
-        case 'android_list_devices': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return { devices: await controller.listDevices({ signal }) };
-        }
-
-        case 'android_open_app': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.openApp({ ...(args || {}), signal });
-        }
-
-        case 'android_open_intent': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.openIntent({ ...(args || {}), signal });
-        }
-
-        case 'android_tap': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.tap({ ...(args || {}), signal });
-        }
-
-        case 'android_long_press': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.longPress({ ...(args || {}), signal });
-        }
-
-        case 'android_type': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.type({ ...(args || {}), signal });
-        }
-
-        case 'android_swipe': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.swipe({ ...(args || {}), signal });
-        }
-
-        case 'android_press_key': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.pressKey({ ...(args || {}), signal });
-        }
-
-        case 'android_wait_for': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.waitFor({ ...(args || {}), signal });
-        }
-
-        case 'android_observe': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.observe({ ...(args || {}), signal });
-        }
-
-        case 'android_dump_ui': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.dumpUi({ ...(args || {}), signal });
-        }
-
-        case 'android_screenshot': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.screenshot({ ...(args || {}), signal });
-        }
-
-        case 'android_list_apps': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.listApps({ ...(args || {}), signal });
-        }
-
-        case 'android_install_apk': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.installApk({ ...(args || {}), signal });
-        }
-
-        case 'android_shell': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.shell({ ...(args || {}), signal });
-        }
+        case 'desktop_observe':
+        case 'desktop_click':
+        case 'desktop_drag':
+        case 'desktop_scroll':
+        case 'desktop_type':
+        case 'desktop_press_key':
+        case 'desktop_launch_app':
+        case 'desktop_get_tree':
+            return await executeDesktopTool(toolName, args, { getController: dc, signal });
 
         case 'web_search': {
             const apiKey = process.env.BRAVE_SEARCH_API_KEY;
@@ -3014,8 +2852,8 @@ async function executeTool(toolName, args, context, engine) {
                     || null
                 );
                 const loadDefaultTarget = () => ({
-                    platform: normalizeStoredSettingString(loadAgentSetting('last_platform')),
-                    to: normalizeStoredSettingString(loadAgentSetting('last_chat_id'))
+                    platform: normalizeStoredString(loadAgentSetting('last_platform')),
+                    to: normalizeStoredString(loadAgentSetting('last_chat_id'))
                 });
 
                 let taskConfig = null;
@@ -3027,8 +2865,8 @@ async function executeTool(toolName, args, context, engine) {
                         try {
                             taskConfig = JSON.parse(task.task_config || '{}');
                             taskTarget = {
-                                platform: normalizeStoredSettingString(taskConfig.notifyPlatform),
-                                to: normalizeStoredSettingString(taskConfig.notifyTo)
+                                platform: normalizeStoredString(taskConfig.notifyPlatform),
+                                to: normalizeStoredString(taskConfig.notifyTo)
                             };
                         } catch { }
                     }
@@ -3250,7 +3088,11 @@ async function executeTool(toolName, args, context, engine) {
                     return { error: 'Artifact storage is unavailable.' };
                 }
                 const OpenAI = require('openai');
-                const xai = new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: 'https://api.x.ai/v1' });
+                const grokDefinition = AI_PROVIDER_DEFINITIONS.grok;
+                const xai = new OpenAI({
+                  apiKey: process.env.XAI_API_KEY,
+                  baseURL: process.env.XAI_BASE_URL || grokDefinition.defaultBaseUrl,
+                });
                 const count = Math.min(args.n || 1, 4);
                 const result = await xai.images.generate({
                     model: 'grok-imagine-image',

@@ -5,22 +5,11 @@ const net = require('net');
 const tls = require('tls');
 const { BasePlatform } = require('./base');
 const { fetchResponseText } = require('../network/http');
-
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required`);
-  return text;
-}
+const { requireText } = require('../../utils/text');
+const { safeEqual } = require('../../utils/security');
 
 function trimTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '');
-}
-
-function constantTimeEqual(a, b) {
-  const left = Buffer.from(String(a || ''));
-  const right = Buffer.from(String(b || ''));
-  if (left.length !== right.length) return false;
-  return crypto.timingSafeEqual(left, right);
 }
 
 function jsonPath(input, path) {
@@ -90,12 +79,11 @@ async function fetchJson(url, options = {}, serviceName = 'Messaging platform') 
 function inboundAllowed(config, req) {
   const secret = String(config.inboundSecret || config.webhookSecret || '').trim();
   if (!secret) return false;
-  const supplied = req.query?.token
-    || req.body?.token
-    || req.headers?.['x-neoagent-token']
+  const supplied = req.headers?.['x-neoagent-token']
     || req.headers?.['x-webhook-token']
+    || req.body?.token
     || '';
-  return constantTimeEqual(supplied, secret);
+  return safeEqual(supplied, secret);
 }
 
 function genericMessageFromWebhook(platform, config, req) {
@@ -324,7 +312,7 @@ class SlackPlatform extends BasePlatform {
       const age = Math.abs(Date.now() / 1000 - Number(ts || 0));
       if (!ts || !sig || age > 60 * 5) return false;
       const expected = `v0=${crypto.createHmac('sha256', this.signingSecret).update(`v0:${ts}:${raw}`).digest('hex')}`;
-      return constantTimeEqual(sig, expected);
+      return safeEqual(sig, expected);
     }
     if (this.inboundSecret) return inboundAllowed(this.config, req);
     return false;

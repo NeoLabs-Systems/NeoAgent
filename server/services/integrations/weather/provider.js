@@ -3,6 +3,8 @@
 const crypto = require('crypto');
 const db = require('../../../db/database');
 const { fetchJson } = require('../oauth_provider');
+const { summarizeAppConnection } = require('../connection_summary');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 const WEATHER_APP = {
   id: 'forecast',
@@ -86,28 +88,6 @@ const WEATHER_CODE_LABELS = {
   96: 'Thunderstorm with slight hail',
   99: 'Thunderstorm with heavy hail',
 };
-
-function normalizeConnectionAccount(row, envStatus) {
-  if (!row) {
-    return {
-      id: null,
-      status: 'not_connected',
-      connected: false,
-      accountEmail: null,
-      lastConnectedAt: null,
-      accessMode: 'read_write',
-    };
-  }
-
-  return {
-    id: row.id || null,
-    status: row.status || 'not_connected',
-    connected: row.status === 'connected',
-    accountEmail: row.account_email || null,
-    lastConnectedAt: row.last_connected_at || null,
-    accessMode: 'read_write',
-  };
-}
 
 function sanitizeToolDefinition(definition) {
   return {
@@ -343,31 +323,9 @@ class WeatherProvider {
 
   buildSnapshot(connectionRows) {
     const env = this.getEnvStatus();
-    const accounts = (Array.isArray(connectionRows) ? connectionRows : [])
-      .slice()
-      .sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')))
-      .map((row) => normalizeConnectionAccount(row, env));
-    const connectedAccounts = accounts.filter((account) => account.connected);
-    const latestConnectedAt = connectedAccounts
-      .map((account) => account.lastConnectedAt)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0] || null;
-
-    const appSnapshot = {
-      id: WEATHER_APP.id,
-      label: WEATHER_APP.label,
-      description: WEATHER_APP.description,
-      accounts,
-      connection: {
-        status: connectedAccounts.length > 0 ? 'connected' : 'not_connected',
-        connected: connectedAccounts.length > 0,
-        accountCount: connectedAccounts.length,
-        accountEmail: connectedAccounts.length === 1 ? connectedAccounts[0].accountEmail : null,
-        lastConnectedAt: latestConnectedAt,
-      },
-      availableToolCount: connectedAccounts.length > 0 ? WEATHER_TOOL_DEFINITIONS.length : 0,
-    };
+    const appSnapshot = summarizeAppConnection(WEATHER_APP, connectionRows, env, {
+      toolCount: WEATHER_TOOL_DEFINITIONS.length,
+    });
 
     return {
       id: this.key,
@@ -414,37 +372,16 @@ class WeatherProvider {
     }
 
     const accountEmail = 'public@open-meteo';
-    db.prepare(
-      `INSERT INTO integration_connections (
-         user_id,
-         agent_id,
-         provider_key,
-         app_key,
-         status,
-         account_email,
-         scopes_json,
-         credentials_json,
-         metadata_json,
-         last_connected_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-         status = 'connected',
-         scopes_json = excluded.scopes_json,
-         credentials_json = excluded.credentials_json,
-         metadata_json = excluded.metadata_json,
-         last_connected_at = excluded.last_connected_at,
-         updated_at = excluded.updated_at`,
-    ).run(
+    upsertConnectedIntegration({
       userId,
       agentId,
-      this.key,
-      WEATHER_APP.id,
+      providerKey: this.key,
+      appKey: WEATHER_APP.id,
       accountEmail,
-      JSON.stringify(['open-meteo:public']),
-      JSON.stringify({}),
-      JSON.stringify({ source: 'open-meteo', mode: 'public' }),
-    );
+      scopes: ['open-meteo:public'],
+      credentialsJson: JSON.stringify({}),
+      metadata: { source: 'open-meteo', mode: 'public' },
+    });
 
     const connection = db.prepare(
       `SELECT id FROM integration_connections

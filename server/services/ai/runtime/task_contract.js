@@ -2,15 +2,12 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
+const { asObject } = require('../../../utils/text');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 const { DEFAULT_MAX_SILENCE_SECONDS } = require('./constants');
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
-function asObject(value, fallback = {}) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
 }
 
 function normalizeContract(raw = {}, defaults = {}) {

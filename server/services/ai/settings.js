@@ -11,6 +11,11 @@ const {
   resolveSttModel,
   resolveTtsModel,
   resolveTtsVoice,
+  DEFAULT_STT_PROVIDER,
+  DEFAULT_TTS_PROVIDER,
+  DEFAULT_STT_MODELS,
+  DEFAULT_TTS_MODELS,
+  DEFAULT_TTS_VOICES,
 } = require('../voice/providers');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 
@@ -45,11 +50,11 @@ function createDefaultAiSettings() {
     default_subagent_model: 'auto',
     default_speech_model: 'auto',
     ai_provider_configs: createDefaultProviderConfigs(),
-    voice_stt_provider: 'openai',
-    voice_stt_model: 'gpt-live-transcribe',
-    voice_tts_provider: 'openai',
-    voice_tts_model: 'gpt-4o-mini-tts',
-    voice_tts_voice: 'marin',
+    voice_stt_provider: DEFAULT_STT_PROVIDER,
+    voice_stt_model: DEFAULT_STT_MODELS.openai,
+    voice_tts_provider: DEFAULT_TTS_PROVIDER,
+    voice_tts_model: DEFAULT_TTS_MODELS.openai,
+    voice_tts_voice: DEFAULT_TTS_VOICES.openai,
     voice_media_mode: 'auto',
     voice_input_mode: 'ptt',
   };

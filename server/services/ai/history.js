@@ -184,38 +184,6 @@ function getWebChatContext(userId, recentLimit, options = {}) {
   };
 }
 
-async function refreshWebChatSummary(userId, provider, model, recentLimit, force = false, options = {}) {
-  const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
-  const totalMessages = db.prepare('SELECT COUNT(*) AS count FROM conversation_history WHERE user_id = ? AND agent_id = ?').get(userId, agentId).count;
-  const { summary, count } = getWebChatSummaryState(userId, agentId);
-  const targetCount = Math.max(0, totalMessages - recentLimit);
-  const newMessages = targetCount - count;
-
-  if (targetCount <= count || (!force && newMessages < SUMMARY_TRIGGER_COUNT)) {
-    return { updated: false, summary, summaryCount: count };
-  }
-
-  const rows = db.prepare(
-    'SELECT role, content FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
-  ).all(userId, agentId, newMessages, count);
-
-  const nextSummary = clampSummary(await summarizeMessages(
-    provider,
-    model,
-    summary,
-    normalizeHistoryRows(rows),
-    'web chat',
-    options,
-  ));
-  throwIfAborted(options.signal, 'Web chat summary refresh aborted.');
-  const upsert = db.prepare(
-    'INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value'
-  );
-  upsert.run(userId, agentId, WEB_SUMMARY_KEY, JSON.stringify(nextSummary));
-  upsert.run(userId, agentId, WEB_SUMMARY_COUNT_KEY, JSON.stringify(targetCount));
-  return { updated: true, summary: nextSummary, summaryCount: targetCount };
-}
-
 function clearWebChatSummary(userId, options = {}) {
   const agentId = resolveAgentId(userId, options.agentId || options.agent_id || null);
   db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?)').run(userId, agentId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
@@ -238,47 +206,6 @@ function getConversationContext(conversationId, recentLimit) {
   };
 }
 
-async function refreshConversationSummary(
-  conversationId,
-  provider,
-  model,
-  recentLimit,
-  force = false,
-  options = {},
-) {
-  const convo = db.prepare(
-    'SELECT summary, summary_message_count FROM conversations WHERE id = ?'
-  ).get(conversationId);
-  if (!convo) return { updated: false, summary: '', summaryCount: 0 };
-
-  const totalMessages = db.prepare('SELECT COUNT(*) AS count FROM conversation_messages WHERE conversation_id = ?').get(conversationId).count;
-  const currentCount = Number(convo.summary_message_count || 0);
-  const targetCount = Math.max(0, totalMessages - recentLimit);
-  const newMessages = targetCount - currentCount;
-
-  if (targetCount <= currentCount || (!force && newMessages < SUMMARY_TRIGGER_COUNT)) {
-    return { updated: false, summary: convo.summary || '', summaryCount: currentCount };
-  }
-
-  const rows = db.prepare(
-    'SELECT role, content, tool_calls, tool_call_id, name FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
-  ).all(conversationId, newMessages, currentCount);
-
-  const nextSummary = clampSummary(await summarizeMessages(
-    provider,
-    model,
-    convo.summary || '',
-    normalizeHistoryRows(rows),
-    'thread',
-    options,
-  ));
-  throwIfAborted(options.signal, 'Conversation summary refresh aborted.');
-  db.prepare(
-    "UPDATE conversations SET summary = ?, summary_message_count = ?, last_summary = datetime('now') WHERE id = ?"
-  ).run(nextSummary, targetCount, conversationId);
-  return { updated: true, summary: nextSummary, summaryCount: targetCount };
-}
-
 module.exports = {
   SUMMARY_TRIGGER_COUNT,
   MAX_SUMMARY_CHARS,
@@ -287,8 +214,6 @@ module.exports = {
   clearWebChatSummary,
   getConversationContext,
   getWebChatContext,
-  refreshConversationSummary,
-  refreshWebChatSummary,
   sanitizeConversationMessages,
   summarizeMessages
 };

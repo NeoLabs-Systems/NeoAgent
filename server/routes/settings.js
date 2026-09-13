@@ -153,16 +153,6 @@ function isAgentScopedSettingKey(key) {
     || key.startsWith('platform_access_policy_');
 }
 
-function getBrowserController(req) {
-  const runtimeManager = req.app?.locals?.runtimeManager;
-  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
-    return runtimeManager.getBrowserProviderForUser(req.session?.userId);
-  }
-  throw new Error('Browser controller is unavailable. VM runtime is required.');
-}
-
-
-
 function isEnvBackedSettingKey(key) {
   return ENV_BACKED_SETTING_KEYS.has(key);
 }

@@ -72,11 +72,6 @@ function encodeBytesField(fieldNumber, bytes) {
   ];
 }
 
-function encodeStringField(fieldNumber, str) {
-  if (!str) return [];
-  return encodeBytesField(fieldNumber, Buffer.from(str, 'utf8'));
-}
-
 function encodeMessageField(fieldNumber, messageBytes) {
   return encodeBytesField(fieldNumber, messageBytes);
 }

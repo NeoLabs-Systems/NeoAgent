@@ -18,30 +18,11 @@ const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 const { parseErrorEnvelope } = require('../../utils/retry');
+const { normalizeStoredString } = require('../../utils/text');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
-
-function normalizeStoredString(value) {
-  if (value == null) return '';
-  if (typeof value !== 'string') return String(value || '').trim();
-  let current = value.trim();
-  for (let i = 0; i < 2; i += 1) {
-    if (!current) return '';
-    try {
-      const parsed = JSON.parse(current);
-      if (typeof parsed === 'string') {
-        current = parsed.trim();
-        continue;
-      }
-      return '';
-    } catch {
-      return current;
-    }
-  }
-  return current;
-}
 
 function normalizeNotifyTarget(target = {}) {
   const platform = normalizeStoredString(target.platform);

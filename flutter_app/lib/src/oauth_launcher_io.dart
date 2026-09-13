@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'oauth_launcher.dart';
+import 'error_text.dart';
 
 OAuthLauncher createPlatformOAuthLauncher() => _IoOAuthLauncher();
 
@@ -79,7 +80,7 @@ class _IoOAuthLauncher extends OAuthLauncher {
       return OAuthLaunchResult(
         launched: false,
         completed: false,
-        error: error.toString(),
+        error: formatCaughtError(error),
       );
     }
   }

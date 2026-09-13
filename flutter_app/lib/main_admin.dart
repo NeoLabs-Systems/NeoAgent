@@ -21,7 +21,10 @@ class AgentsPanel extends StatelessWidget {
           ),
         ),
         if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
+          _InlineError(
+            message: controller.errorMessage!,
+            onDismiss: controller.clearInlineError,
+          ),
           const SizedBox(height: 16),
         ],
         if (controller.agentProfiles.isEmpty)
@@ -767,7 +770,10 @@ class HealthPanel extends StatelessWidget {
           subtitle: 'Health Connect sync status and stored backend metrics.',
         ),
         if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
+          _InlineError(
+            message: controller.errorMessage!,
+            onDismiss: controller.clearInlineError,
+          ),
           const SizedBox(height: 16),
         ],
         Row(

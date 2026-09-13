@@ -37,20 +37,6 @@ function delayWithSignal(ms, signal) {
   });
 }
 
-function assertPathInside(baseDir, candidatePath, label) {
-  const resolvedBase = path.resolve(baseDir);
-  const resolvedCandidate = path.resolve(candidatePath);
-  const relativePath = path.relative(resolvedBase, resolvedCandidate);
-  if (
-    relativePath.startsWith('..')
-    || path.isAbsolute(relativePath)
-    || relativePath === ''
-  ) {
-    throw new Error(`${label} is outside the allowed directory.`);
-  }
-  return resolvedCandidate;
-}
-
 function isPidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) {
     return false;

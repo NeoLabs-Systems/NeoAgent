@@ -3,8 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { DATA_DIR } = require('../../runtime/paths');
-const { requireAuth } = require('../middleware/auth');
 
 const FLUTTER_WEB_DIR = path.join(__dirname, '..', 'public');
 const LANDING_DIR = path.join(__dirname, '..', '..', 'landing');
@@ -39,12 +37,6 @@ function setFlutterStaticHeaders(res, filePath) {
 }
 
 function registerStaticRoutes(app) {
-  app.use(
-    '/screenshots',
-    requireAuth,
-    express.static(path.join(DATA_DIR, 'screenshots'))
-  );
-
   app.get('/app-build.json', (req, res) => {
     setNoStoreHeaders(res);
     res.json({

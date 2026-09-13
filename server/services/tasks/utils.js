@@ -14,32 +14,6 @@ function normalizeJsonObject(value, fallback = {}) {
   }
 }
 
-function stringifyJson(value) {
-  const normalized = normalizeJsonObject(value);
-  try {
-    return JSON.stringify(normalized);
-  } catch {
-    try {
-      const seen = new WeakSet();
-      return JSON.stringify(normalized, (_key, currentValue) => {
-        if (typeof currentValue === 'bigint') {
-          return currentValue.toString();
-        }
-        if (currentValue && typeof currentValue === 'object') {
-          if (seen.has(currentValue)) {
-            return '[Circular]';
-          }
-          seen.add(currentValue);
-        }
-        return currentValue;
-      });
-    } catch {
-      return JSON.stringify(String(value));
-    }
-  }
-}
-
 module.exports = {
   normalizeJsonObject,
-  stringifyJson,
 };

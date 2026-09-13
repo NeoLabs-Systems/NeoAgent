@@ -6,6 +6,7 @@ const db = require('../../db/database');
 const { getDeploymentPolicy } = require('../../utils/deployment');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { createAuthProviderRegistry } = require('./auth_providers/registry');
+const { parseJsonObject } = require('../../utils/text');
 
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 
@@ -16,15 +17,6 @@ function normalizeMode(value) {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function parseJsonObject(value) {
-  try {
-    const parsed = JSON.parse(value || '{}');
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
 }
 
 function normalizeUsernameCandidate(value) {

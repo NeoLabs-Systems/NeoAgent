@@ -1,13 +1,18 @@
 'use strict';
 
-const crypto = require('crypto');
 const { describeEnvStatus, resolveGithubOAuthConfig } = require('../env');
 const { decryptValue } = require('../secrets');
-const { getConnectionAccessMode } = require('../access');
 const { githubToolDefinitions, executeGithubTool } = require('./repos');
-const { base64UrlSha256, githubApiRequest } = require('./common');
+const { githubApiRequest } = require('./common');
+const { base64UrlSha256 } = require('../../../utils/security');
 const { fetchJson } = require('../oauth_provider');
 const { fetchResponseText } = require('../http');
+const {
+  buildConnectedAppSummary,
+  formatAccountSummary,
+  summarizeAppConnection,
+  summarizeProviderConnection,
+} = require('../connection_summary');
 
 const GITHUB_ACCOUNT_IDENTITY_SCOPES = [
   'read:user',
@@ -80,87 +85,6 @@ function getAllGithubScopes() {
   );
 }
 
-function sortConnections(rows) {
-  return rows.slice().sort((left, right) => {
-    const leftLogin = String(left.account_email || '').toLowerCase();
-    const rightLogin = String(right.account_email || '').toLowerCase();
-    if (leftLogin !== rightLogin) return leftLogin.localeCompare(rightLogin);
-    return String(right.updated_at || '').localeCompare(String(left.updated_at || ''));
-  });
-}
-
-function summarizeAccountRow(row, envStatus) {
-  if (!envStatus.configured) {
-    return {
-      id: row?.id || null,
-      status: 'env_not_configured',
-      connected: false,
-      accountEmail: row?.account_email || null,
-      lastConnectedAt: row?.last_connected_at || null,
-    };
-  }
-
-  if (!row) {
-    return {
-      id: null,
-      status: 'not_connected',
-      connected: false,
-      accountEmail: null,
-      lastConnectedAt: null,
-      accessMode: 'read_write',
-    };
-  }
-
-  return {
-    id: row.id || null,
-    status: row.status || 'not_connected',
-    connected: row.status === 'connected',
-    accountEmail: row.account_email || null,
-    lastConnectedAt: row.last_connected_at || null,
-    accessMode: getConnectionAccessMode(row),
-  };
-}
-
-function summarizeAppConnection(app, connectionRows, envStatus) {
-  const accounts = sortConnections(connectionRows).map((row) =>
-    summarizeAccountRow(row, envStatus),
-  );
-  const connectedAccounts = accounts.filter((account) => account.connected);
-  const latestConnectedAt = connectedAccounts
-    .map((account) => account.lastConnectedAt)
-    .filter(Boolean)
-    .sort()
-    .reverse()[0] || null;
-  const status = !envStatus.configured
-    ? 'env_not_configured'
-    : connectedAccounts.length > 0
-    ? 'connected'
-    : accounts.some((account) => account.status === 'authorizing')
-    ? 'authorizing'
-    : 'not_connected';
-
-  return {
-    id: app.id,
-    label: app.label,
-    description: app.description,
-    accounts,
-    connection: {
-      status,
-      connected: connectedAccounts.length > 0,
-      accountCount: connectedAccounts.length,
-      accountEmail:
-        connectedAccounts.length === 1
-          ? connectedAccounts[0].accountEmail
-          : null,
-      lastConnectedAt: latestConnectedAt,
-    },
-    availableToolCount:
-      envStatus.configured && connectedAccounts.length > 0
-        ? app.toolDefinitions.length
-        : 0,
-  };
-}
-
 async function executeGithubRepoTool(toolName, args, connection, executionOptions = {}) {
   const auth = await buildAuthorizedClient(connection);
   auth.signal = executionOptions.signal || null;
@@ -179,34 +103,11 @@ async function executeGithubRepoTool(toolName, args, connection, executionOption
   return { result, credentials: auth.credentials };
 }
 
-function buildConnectedAppSummary(appSnapshots) {
-  return appSnapshots
-    .filter((app) => app.connection.connected)
-    .map((app) => {
-      const emails = app.accounts
-        .filter((account) => account.connected)
-        .map((account) => account.accountEmail || `connection ${account.id}`)
-        .join(', ');
-      return `${app.label}: ${emails}`;
-    })
-    .join(' | ');
-}
-
 function getAppToolNames(appId) {
   const app = getApp(appId);
   return Array.isArray(app?.toolDefinitions)
     ? app.toolDefinitions.map((tool) => tool.name)
     : [];
-}
-
-function formatAccountSummary(appSnapshot) {
-  const emails = appSnapshot.accounts
-    .filter((account) => account.connected)
-    .map((account) => account.accountEmail || `connection ${account.id}`);
-
-  if (emails.length === 0) return 'no connected accounts';
-  if (emails.length === 1) return `connected as ${emails[0]}`;
-  return `connected with ${emails.length} accounts: ${emails.join(', ')}`;
 }
 
 function buildModelStatusLines(appSnapshots) {
@@ -267,10 +168,7 @@ function createGithubProvider() {
       const apps = GITHUB_APPS.map((app) =>
         summarizeAppConnection(app, byApp.get(app.id) || [], env),
       );
-      const connectedApps = apps.filter((app) => app.connection.connected);
-      const connectedAccounts = connectedApps.flatMap((app) =>
-        app.accounts.filter((account) => account.connected),
-      );
+      const rollup = summarizeProviderConnection(apps, env);
 
       return {
         id: this.key,
@@ -279,30 +177,8 @@ function createGithubProvider() {
         icon: this.icon,
         apps,
         env,
-        connection: {
-          status: !env.configured
-            ? 'env_not_configured'
-            : connectedAccounts.length > 0
-            ? 'connected'
-            : 'not_connected',
-          connected: connectedAccounts.length > 0,
-          accountEmail:
-            connectedAccounts.length === 1
-              ? connectedAccounts[0].accountEmail
-              : null,
-          accountCount: connectedAccounts.length,
-          appCount: connectedApps.length,
-          lastConnectedAt:
-            connectedAccounts
-              .map((account) => account.lastConnectedAt)
-              .filter(Boolean)
-              .sort()
-              .reverse()[0] || null,
-        },
-        availableToolCount: apps.reduce(
-          (total, app) => total + app.availableToolCount,
-          0,
-        ),
+        connection: rollup.connection,
+        availableToolCount: rollup.availableToolCount,
       };
     },
     async beginOAuth({ state, codeVerifier, appKey }) {

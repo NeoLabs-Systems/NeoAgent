@@ -107,6 +107,7 @@ class MessagingManager extends EventEmitter {
     this.reconnectAttempts = new Map();
     this.reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? MESSAGING_RECONNECT_BASE_DELAY_MS;
     this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
+    this.reconnectWatchdogDelayMs = options.reconnectWatchdogDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
     this.inboundJobsReconciled = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
@@ -456,6 +457,30 @@ class MessagingManager extends EventEmitter {
     if (resetAttempts) this.reconnectAttempts.delete(key);
   }
 
+  _wantsAutoConnect(config) {
+    return config?.autoConnect !== false;
+  }
+
+  _scheduleReconnectWatchdog({ userId, agentId, platformName, config }) {
+    const key = this._key(userId, agentId, platformName);
+    if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(key);
+      if (this.isShuttingDown) return;
+      const platform = this.platforms.get(key);
+      const status = String(platform?.getStatus?.() || platform?.status || '').toLowerCase();
+      if (status === 'connected' || status === 'awaiting_qr') {
+        this.reconnectAttempts.delete(key);
+        return;
+      }
+      messagingLogger.warn(`${platformName} adapter reconnect stalled; taking over`);
+      this._scheduleReconnect({ userId, agentId, platformName, config });
+    }, this.reconnectWatchdogDelayMs);
+    timer.unref?.();
+    this.reconnectTimers.set(key, timer);
+  }
+
   _scheduleReconnect({ userId, agentId, platformName, config }) {
     const key = this._key(userId, agentId, platformName);
     if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
@@ -642,8 +667,9 @@ class MessagingManager extends EventEmitter {
     if (platformName === 'whatsapp') {
       config.artifactStore = this.artifactStore;
     }
+    config.autoConnect = true;
     const existingConnection = db
-      .prepare('SELECT id, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
       .get(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
@@ -653,17 +679,7 @@ class MessagingManager extends EventEmitter {
 
     if (platformName === 'whatsapp' && !config.authDir) {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
-      let shouldMigrateLegacyAuth = true;
-      if (
-        existingConnection &&
-        !['connected', 'connecting', 'reconnecting', 'awaiting_qr'].includes(existingConnection.status)
-      ) {
-        fs.rmSync(config.authDir, { recursive: true, force: true });
-        shouldMigrateLegacyAuth = false;
-      }
-      if (shouldMigrateLegacyAuth) {
-        this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
-      }
+      this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
     }
 
     const storedConfig = this._encodeStoredConfig(config);
@@ -724,7 +740,9 @@ class MessagingManager extends EventEmitter {
         if (!willReconnect) this._clearReconnect(key);
         db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
           .run(willReconnect ? 'reconnecting' : 'disconnected', userId, agentId, platformName);
-        if (willReconnect && info?.willReconnect !== true) {
+        if (willReconnect && info?.willReconnect === true) {
+          this._scheduleReconnectWatchdog({ userId, agentId, platformName, config: reconnectConfig });
+        } else if (willReconnect) {
           this._scheduleReconnect({ userId, agentId, platformName, config: reconnectConfig });
         }
       }
@@ -819,8 +837,15 @@ class MessagingManager extends EventEmitter {
       this.platforms.delete(key);
     }
 
-    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-      .run('disconnected', userId, agentId, platformName);
+    const row = db.prepare(
+      'SELECT config FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?'
+    ).get(userId, agentId, platformName);
+    const storedConfig = {
+      ...this._decodeStoredConfig(row?.config),
+      autoConnect: false,
+    };
+    db.prepare('UPDATE platform_connections SET config = ?, status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .run(this._encodeStoredConfig(storedConfig), 'disconnected', userId, agentId, platformName);
 
     return { status: 'disconnected' };
   }
@@ -1042,7 +1067,7 @@ class MessagingManager extends EventEmitter {
   async restoreConnections() {
     this._assertRunning();
     const rows = db.prepare(
-      "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'reconnecting', 'awaiting_qr')"
+      "SELECT user_id, agent_id, platform, config, status FROM platform_connections WHERE status IN ('connected', 'connecting', 'reconnecting', 'awaiting_qr', 'disconnected')"
     ).all();
     for (const row of rows) {
       try {
@@ -1057,12 +1082,20 @@ class MessagingManager extends EventEmitter {
           continue;
         }
         const config = this._decodeStoredConfig(row.config);
+        if (!this._wantsAutoConnect(config)) {
+          continue;
+        }
         console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id} agent ${row.agent_id || 'main'}`);
         await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
       } catch (err) {
         console.error(`[Messaging] Failed to restore ${row.platform} for user ${row.user_id}:`, err.message);
-        db.prepare("UPDATE platform_connections SET status = 'disconnected' WHERE user_id = ? AND agent_id = ? AND platform = ?")
-          .run(row.user_id, row.agent_id, row.platform);
+        const config = this._decodeStoredConfig(row.config);
+        this._scheduleReconnect({
+          userId: row.user_id,
+          agentId: row.agent_id,
+          platformName: row.platform,
+          config,
+        });
       }
     }
   }

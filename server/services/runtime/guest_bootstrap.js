@@ -9,6 +9,7 @@ const {
   renderDesktopCloudInitWriteFiles,
   renderDesktopFileCommands,
 } = require('./guest_desktop');
+const { GUEST_HOME } = require('./guest_paths');
 
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const GUEST_BOOTSTRAP_ROOT = path.join(VM_ROOT, 'guest-bootstrap');
@@ -195,7 +196,8 @@ function createCloudInitScript({
   const bootstrapMarker = '/var/lib/neoagent/bootstrap-complete';
   const browserReadyMarker = '/var/lib/neoagent/browser-runtime-ready';
   const browserDepsMarker = '/var/lib/neoagent/browser-deps-installed';
-  const nodeSourceSetupUrl = 'https://deb.nodesource.com/setup_20.x';
+  const nodeMajor = Number.parseInt(String(process.versions.node).split('.')[0], 10) || 20;
+  const nodeSourceSetupUrl = `https://deb.nodesource.com/setup_${nodeMajor}.x`;
 
   return [
     '#!/usr/bin/env bash',
@@ -389,6 +391,183 @@ function createCloudInitScript({
   ].join('\n');
 }
 
+const GUEST_APP_DIR = '/opt/neoagent';
+
+function cloudInitPreamble() {
+  return [
+    '#cloud-config',
+    'package_update: false',
+    'users:',
+    '  - default',
+    '  - name: neo',
+    '    gecos: NeoAgent',
+    '    groups: [sudo, audio, video, netdev]',
+    '    shell: /bin/bash',
+    '    lock_passwd: true',
+    'fs_setup:',
+    '  - label: neoagent-data',
+    '    filesystem: ext4',
+    '    device: /dev/vdb',
+    '    overwrite: false',
+    'mounts:',
+    `  - [LABEL=neoagent-data, ${GUEST_HOME}, ext4, "defaults,nofail,discard", "0", "2"]`,
+  ];
+}
+
+function guestEnvWriteFile({ guestTokenB64, guestAgentPort, runtimeProfile }) {
+  return [
+    '  - path: /etc/neoagent/neoagent.env',
+    "    permissions: '0600'",
+    '    owner: root:root',
+    '    content: |',
+    `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
+    `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
+    `      NEOAGENT_GUEST_PROFILE=${runtimeProfile}`,
+  ];
+}
+
+function guestAgentUnitWriteFile({ includeBrowser, afterBootstrapUnit, execStartPre, browserEnvironment }) {
+  return [
+    '  - path: /etc/systemd/system/neoagent-guest-agent.service',
+    "    permissions: '0644'",
+    '    owner: root:root',
+    '    content: |',
+    '      [Unit]',
+    '      Description=NeoAgent guest agent',
+    '      After=network-online.target',
+    '      After=cloud-final.service',
+    ...(afterBootstrapUnit ? ['      After=neoagent-guest-bootstrap.service'] : []),
+    ...(includeBrowser ? ['      After=display-manager.service'] : []),
+    '      ConditionPathExists=/etc/neoagent/neoagent.env',
+    '      Wants=network-online.target',
+    // The data disk mounts at GUEST_HOME; starting before it is mounted leaves
+    // the agent writing into a directory the mount then hides.
+    `      RequiresMountsFor=${GUEST_HOME}`,
+    '',
+    '      [Service]',
+    '      Type=simple',
+    '      User=neo',
+    '      Group=neo',
+    '      EnvironmentFile=/etc/neoagent/neoagent.env',
+    ...execStartPre,
+    `      Environment=HOME=${GUEST_HOME}`,
+    `      Environment=NEOAGENT_HOME=${GUEST_HOME}/.neoagent`,
+    ...browserEnvironment,
+    `      WorkingDirectory=${GUEST_APP_DIR}`,
+    `      ExecStart=/usr/bin/env node ${GUEST_APP_DIR}/server/guest_agent.js`,
+    '      Restart=always',
+    '      RestartSec=5',
+    '      TasksMax=768',
+    '      MemoryHigh=85%',
+    '      MemoryMax=95%',
+    '      CPUQuota=180%',
+    '      StandardOutput=journal+console',
+    '      StandardError=journal+console',
+    '',
+    '      [Install]',
+    '      WantedBy=cloud-init.target',
+  ];
+}
+
+const BROWSER_UNIT_ENVIRONMENT = [
+  '      Environment=DISPLAY=:0',
+  '      Environment=CHROMIUM_BIN=/usr/bin/chromium',
+];
+
+// A user VM boots from an image that already carries the agent, so it only
+// needs its unit files rewritten and the desktop reapplied to the data disk.
+function userModeUserData({ includeBrowser }) {
+  return {
+    afterBootstrapUnit: false,
+    execStartPre: [
+      '      ExecStartPre=+/bin/mkdir -p /var/lib/neoagent',
+      ...(includeBrowser
+        ? [
+          '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/browser-runtime-ready',
+          ...BROWSER_UNIT_ENVIRONMENT,
+        ]
+        : [
+          '      ExecStartPre=+/bin/sh -lc \'rm -f /var/lib/neoagent/browser-runtime-ready || true\'',
+        ]),
+      '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/bootstrap-complete',
+    ],
+    browserEnvironment: [],
+    payloadWriteFiles: [],
+    extraWriteFiles: includeBrowser
+      ? renderDesktopCloudInitWriteFiles([
+        ...getGuestDesktopSystemFiles(),
+        ...getGuestDesktopSkelFiles(),
+      ])
+      : [],
+    runcmd: [
+      '  - [bash, -lc, "systemctl daemon-reload"]',
+      ...(includeBrowser
+        ? [
+          '  - [bash, -lc, "/usr/local/bin/neoagent-apply-desktop-home"]',
+          '  - [bash, -lc, "systemctl daemon-reload"]',
+          '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
+          '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
+        ]
+        : []),
+      '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
+      '  - [bash, -lc, "systemctl start --no-block neoagent-guest-agent.service"]',
+    ],
+  };
+}
+
+// A template VM ships the agent payload in the seed and must unpack it through
+// the bootstrap unit before the agent is allowed to start.
+function templateModeUserData({ includeBrowser, guestPayloadBase64, bootstrapScript }) {
+  return {
+    afterBootstrapUnit: true,
+    execStartPre: [],
+    browserEnvironment: includeBrowser ? BROWSER_UNIT_ENVIRONMENT : [],
+    payloadWriteFiles: [
+      '  - path: /var/lib/neoagent/guest-payload.tar.gz',
+      "    permissions: '0644'",
+      '    owner: root:root',
+      "    encoding: 'b64'",
+      '    content: |',
+      `      ${guestPayloadBase64}`,
+      '  - path: /usr/local/bin/neoagent-guest-bootstrap.sh',
+      "    permissions: '0755'",
+      '    owner: root:root',
+      '    content: |',
+      ...bootstrapScript.split('\n').map((line) => `      ${line}`),
+    ],
+    extraWriteFiles: [
+      '  - path: /etc/systemd/system/neoagent-guest-bootstrap.service',
+      "    permissions: '0644'",
+      '    owner: root:root',
+      '    content: |',
+      '      [Unit]',
+      '      Description=NeoAgent guest bootstrap',
+      '      After=network-online.target',
+      '      Wants=network-online.target',
+      '',
+      '      [Service]',
+      '      Type=oneshot',
+      '      ExecStart=/usr/local/bin/neoagent-guest-bootstrap.sh',
+      '      RemainAfterExit=yes',
+      '',
+      '      [Install]',
+      '      WantedBy=multi-user.target',
+    ],
+    runcmd: [
+      '  - [bash, -lc, "systemctl daemon-reload"]',
+      '  - [bash, -lc, "/usr/local/bin/neoagent-guest-bootstrap.sh"]',
+      ...(includeBrowser
+        ? [
+          '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
+          '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
+        ]
+        : []),
+      '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
+      '  - [bash, -lc, "systemctl restart --no-block neoagent-guest-agent.service"]',
+    ],
+  };
+}
+
 function createCloudInitUserData({
   guestToken,
   guestPayloadBase64 = '',
@@ -406,203 +585,28 @@ function createCloudInitUserData({
     runtimeProfile: normalizedProfile,
   });
 
-  if (runtimeMode === 'user') {
-    return [
-      '#cloud-config',
-      'package_update: false',
-      'users:',
-      '  - default',
-      '  - name: neo',
-      '    gecos: NeoAgent',
-      '    groups: [sudo, audio, video, netdev]',
-      '    shell: /bin/bash',
-      '    lock_passwd: true',
-      'fs_setup:',
-      '  - label: neoagent-data',
-      '    filesystem: ext4',
-      '    device: /dev/vdb',
-      '    overwrite: false',
-      'mounts:',
-      '  - [LABEL=neoagent-data, /home/neo, ext4, "defaults,nofail,discard", "0", "2"]',
-      'write_files:',
-      '  - path: /etc/neoagent/neoagent.env',
-      "    permissions: '0600'",
-      '    owner: root:root',
-      '    content: |',
-      `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
-      `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
-      `      NEOAGENT_GUEST_PROFILE=${normalizedProfile}`,
-      '  - path: /etc/systemd/system/neoagent-guest-agent.service',
-      "    permissions: '0644'",
-      '    owner: root:root',
-      '    content: |',
-      '      [Unit]',
-      '      Description=NeoAgent guest agent',
-      '      After=network-online.target',
-      '      After=cloud-final.service',
-      ...(includeBrowser ? ['      After=display-manager.service'] : []),
-      '      ConditionPathExists=/etc/neoagent/neoagent.env',
-      '      Wants=network-online.target',
-      // /home/neo is the data disk: starting before it is mounted leaves the agent
-      // writing into a directory the mount then hides.
-      '      RequiresMountsFor=/home/neo',
-      '',
-      '      [Service]',
-      '      Type=simple',
-      '      User=neo',
-      '      Group=neo',
-      '      EnvironmentFile=/etc/neoagent/neoagent.env',
-      '      ExecStartPre=+/bin/mkdir -p /var/lib/neoagent',
-      ...(includeBrowser
-        ? [
-          '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/browser-runtime-ready',
-          '      Environment=DISPLAY=:0',
-          '      Environment=CHROMIUM_BIN=/usr/bin/chromium',
-        ]
-        : [
-          '      ExecStartPre=+/bin/sh -lc \'rm -f /var/lib/neoagent/browser-runtime-ready || true\'',
-        ]),
-      '      ExecStartPre=+/usr/bin/touch /var/lib/neoagent/bootstrap-complete',
-      '      Environment=HOME=/home/neo',
-      '      Environment=NEOAGENT_HOME=/home/neo/.neoagent',
-      '      WorkingDirectory=/opt/neoagent',
-      '      ExecStart=/usr/bin/env node /opt/neoagent/server/guest_agent.js',
-      '      Restart=always',
-      '      RestartSec=5',
-      '      TasksMax=768',
-      '      MemoryHigh=85%',
-      '      MemoryMax=95%',
-      '      CPUQuota=180%',
-      '      StandardOutput=journal+console',
-      '      StandardError=journal+console',
-      '',
-      '      [Install]',
-      '      WantedBy=cloud-init.target',
-      ...(includeBrowser
-        ? renderDesktopCloudInitWriteFiles([
-          ...getGuestDesktopSystemFiles(),
-          ...getGuestDesktopSkelFiles(),
-        ])
-        : []),
-      'runcmd:',
-      '  - [bash, -lc, "systemctl daemon-reload"]',
-      ...(includeBrowser
-        ? [
-          '  - [bash, -lc, "/usr/local/bin/neoagent-apply-desktop-home"]',
-          '  - [bash, -lc, "systemctl daemon-reload"]',
-          '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
-          '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
-        ]
-        : []),
-      '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
-      '  - [bash, -lc, "systemctl start --no-block neoagent-guest-agent.service"]',
-      '',
-    ].join('\n');
-  }
+  const mode = runtimeMode === 'user'
+    ? userModeUserData({ includeBrowser })
+    : templateModeUserData({ includeBrowser, guestPayloadBase64, bootstrapScript });
 
   return [
-    '#cloud-config',
-    'package_update: false',
-    'users:',
-    '  - default',
-    '  - name: neo',
-    '    gecos: NeoAgent',
-    '    groups: [sudo, audio, video, netdev]',
-    '    shell: /bin/bash',
-    '    lock_passwd: true',
-    'fs_setup:',
-    '  - label: neoagent-data',
-    '    filesystem: ext4',
-    '    device: /dev/vdb',
-    '    overwrite: false',
-    'mounts:',
-    '  - [LABEL=neoagent-data, /home/neo, ext4, "defaults,nofail,discard", "0", "2"]',
+    ...cloudInitPreamble(),
     'write_files:',
-    '  - path: /etc/neoagent/neoagent.env',
-    "    permissions: '0600'",
-    '    owner: root:root',
-      '    content: |',
-      `      NEOAGENT_VM_GUEST_TOKEN_B64=${guestTokenB64}`,
-      `      NEOAGENT_GUEST_AGENT_PORT=${guestAgentPort}`,
-      `      NEOAGENT_GUEST_PROFILE=${normalizedProfile}`,
-    '  - path: /var/lib/neoagent/guest-payload.tar.gz',
-    "    permissions: '0644'",
-    '    owner: root:root',
-    "    encoding: 'b64'",
-    '    content: |',
-      `      ${guestPayloadBase64}`,
-    '  - path: /usr/local/bin/neoagent-guest-bootstrap.sh',
-    "    permissions: '0755'",
-    '    owner: root:root',
-    '    content: |',
-    ...bootstrapScript.split('\n').map((line) => `      ${line}`),
-    '  - path: /etc/systemd/system/neoagent-guest-agent.service',
-    "    permissions: '0644'",
-    '    owner: root:root',
-    '    content: |',
-    '      [Unit]',
-    '      Description=NeoAgent guest agent',
-    '      After=network-online.target',
-    '      After=cloud-final.service',
-    '      After=neoagent-guest-bootstrap.service',
-    ...(includeBrowser ? ['      After=display-manager.service'] : []),
-    '      ConditionPathExists=/etc/neoagent/neoagent.env',
-    '      Wants=network-online.target',
-    '      RequiresMountsFor=/home/neo',
-    '',
-    '      [Service]',
-    '      Type=simple',
-    '      User=neo',
-    '      Group=neo',
-    '      EnvironmentFile=/etc/neoagent/neoagent.env',
-    '      Environment=HOME=/home/neo',
-    '      Environment=NEOAGENT_HOME=/home/neo/.neoagent',
-    ...(includeBrowser
-      ? [
-        '      Environment=DISPLAY=:0',
-        '      Environment=CHROMIUM_BIN=/usr/bin/chromium',
-      ]
-      : []),
-    '      WorkingDirectory=/opt/neoagent',
-    '      ExecStart=/usr/bin/env node /opt/neoagent/server/guest_agent.js',
-    '      Restart=always',
-    '      RestartSec=5',
-    '      TasksMax=768',
-    '      MemoryHigh=85%',
-    '      MemoryMax=95%',
-    '      CPUQuota=180%',
-    '      StandardOutput=journal+console',
-    '      StandardError=journal+console',
-    '',
-    '      [Install]',
-    '      WantedBy=cloud-init.target',
-    '  - path: /etc/systemd/system/neoagent-guest-bootstrap.service',
-    "    permissions: '0644'",
-    '    owner: root:root',
-    '    content: |',
-    '      [Unit]',
-    '      Description=NeoAgent guest bootstrap',
-    '      After=network-online.target',
-    '      Wants=network-online.target',
-    '',
-    '      [Service]',
-    '      Type=oneshot',
-    '      ExecStart=/usr/local/bin/neoagent-guest-bootstrap.sh',
-    '      RemainAfterExit=yes',
-    '',
-    '      [Install]',
-    '      WantedBy=multi-user.target',
+    ...guestEnvWriteFile({
+      guestTokenB64,
+      guestAgentPort,
+      runtimeProfile: normalizedProfile,
+    }),
+    ...mode.payloadWriteFiles,
+    ...guestAgentUnitWriteFile({
+      includeBrowser,
+      afterBootstrapUnit: mode.afterBootstrapUnit,
+      execStartPre: mode.execStartPre,
+      browserEnvironment: mode.browserEnvironment,
+    }),
+    ...mode.extraWriteFiles,
     'runcmd:',
-    '  - [bash, -lc, "systemctl daemon-reload"]',
-    '  - [bash, -lc, "/usr/local/bin/neoagent-guest-bootstrap.sh"]',
-    ...(includeBrowser
-      ? [
-        '  - [bash, -lc, "/usr/local/bin/neoagent-ensure-desktop"]',
-        '  - [bash, -lc, "systemctl enable --now zramswap.service || true"]',
-      ]
-      : []),
-    '  - [bash, -lc, "systemctl reenable neoagent-guest-agent.service"]',
-    '  - [bash, -lc, "systemctl restart --no-block neoagent-guest-agent.service"]',
+    ...mode.runcmd,
     '',
   ].join('\n');
 }

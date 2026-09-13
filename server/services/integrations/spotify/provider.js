@@ -1,8 +1,10 @@
 'use strict';
 
 const { describeEnvStatus, resolveSpotifyOAuthConfig } = require('../env');
-const { appendQuery, createOAuthProvider, fetchJson } = require('../oauth_provider');
+const { appendQuery, buildPinnedApiUrl, createOAuthProvider, fetchJson } = require('../oauth_provider');
+const { expiresAtFromSeconds, withRefreshedOAuthCredentials } = require('../oauth_tokens');
 const { fetchResponseText } = require('../http');
+const { requireText } = require('../../../utils/text');
 
 const SPOTIFY_APPS = [
   {
@@ -97,29 +99,8 @@ const spotifyToolDefinitions = [
   },
 ];
 
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) {
-    throw new Error(`${label} is required.`);
-  }
-  return text;
-}
-
 function spotifyUrl(path, query) {
-  const rawPath = String(path || '').trim();
-  const url = new URL(
-    rawPath.startsWith('http')
-      ? rawPath
-      : `https://api.spotify.com${rawPath.startsWith('/') ? '' : '/'}${rawPath}`,
-  );
-  if (url.hostname !== 'api.spotify.com') {
-    throw new Error('Spotify API request URL must target api.spotify.com.');
-  }
-  for (const [key, value] of Object.entries(query || {})) {
-    if (value === undefined || value === null) continue;
-    url.searchParams.set(key, String(value));
-  }
-  return url.toString();
+  return buildPinnedApiUrl('api.spotify.com', path, query, { label: 'Spotify' }).toString();
 }
 
 async function refreshSpotifyAccessToken(config, credentials, signal = null) {
@@ -152,74 +133,62 @@ async function refreshSpotifyAccessToken(config, credentials, signal = null) {
     token_type: data?.token_type || credentials.token_type || 'Bearer',
     scope: data?.scope || credentials.scope || '',
     expires_in: expiresIn,
-    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    expires_at: expiresAtFromSeconds(expiresIn),
   };
-}
-
-async function ensureSpotifyAccessToken(config, credentials, signal = null) {
-  const accessToken = String(credentials?.access_token || '').trim();
-  if (!accessToken) {
-    throw new Error('Spotify access token is missing. Reconnect this integration account.');
-  }
-
-  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
-  const isNearExpiry = Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
-  if (isNearExpiry && credentials?.refresh_token) {
-    return refreshSpotifyAccessToken(config, credentials, signal);
-  }
-  return credentials;
 }
 
 async function spotifyRequest(config, context, { method = 'GET', path, query, body }) {
-  const { credentials, signal } = context;
-  let nextCredentials = await ensureSpotifyAccessToken(config, credentials, signal);
-
-  const performRequest = async (tokenCreds) => {
-    const tokenType = String(tokenCreds?.token_type || 'Bearer').trim() || 'Bearer';
-    const { response, text } = await fetchResponseText(
-      spotifyUrl(path, query),
-      {
-        method: String(method || 'GET').toUpperCase(),
-        headers: {
-          Authorization: `${tokenType} ${tokenCreds.access_token}`,
-          Accept: 'application/json',
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+  const { signal } = context;
+  const data = await withRefreshedOAuthCredentials(context, {
+    refresh: (credentials, refreshSignal) => (
+      refreshSpotifyAccessToken(config, credentials, refreshSignal)
+    ),
+    request: async (tokenCreds) => {
+      const accessToken = String(tokenCreds?.access_token || '').trim();
+      if (!accessToken) {
+        throw new Error('Spotify access token is missing. Reconnect this integration account.');
+      }
+      const tokenType = String(tokenCreds?.token_type || 'Bearer').trim() || 'Bearer';
+      const { response, text } = await fetchResponseText(
+        spotifyUrl(path, query),
+        {
+          method: String(method || 'GET').toUpperCase(),
+          headers: {
+            Authorization: `${tokenType} ${accessToken}`,
+            Accept: 'application/json',
+            ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          signal,
         },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal,
-      },
-      { serviceName: 'Spotify' },
-    );
+        { serviceName: 'Spotify' },
+      );
 
-    if (response.status === 204) {
-      return { ok: true, data: null, response };
-    }
+      if (response.status === 204) {
+        return null;
+      }
 
-    let parsed = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = null;
-    }
-    return { ok: response.ok, data: parsed ?? text, response };
-  };
-
-  let result = await performRequest(nextCredentials);
-  if (!result.ok && result.response.status === 401 && nextCredentials.refresh_token) {
-    nextCredentials = await refreshSpotifyAccessToken(config, nextCredentials, signal);
-    result = await performRequest(nextCredentials);
-  }
-
-  if (!result.ok) {
-    const message =
-      (result.data && typeof result.data === 'object' && (result.data.error?.message || result.data.error_description || result.data.error)) ||
-      `${result.response.status} ${result.response.statusText}`;
-    throw new Error(`Spotify request failed: ${String(message).trim()}`);
-  }
+      let parsed = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+      if (!response.ok) {
+        const message =
+          (parsed && typeof parsed === 'object' && (parsed.error?.message || parsed.error_description || parsed.error))
+          || `${response.status} ${response.statusText}`;
+        const error = new Error(`Spotify request failed: ${String(message).trim()}`);
+        error.status = response.status;
+        throw error;
+      }
+      return parsed ?? text;
+    },
+  });
 
   return {
-    data: result.data,
-    credentials: nextCredentials,
+    data,
+    credentials: context.credentials,
   };
 }
 

@@ -1710,6 +1710,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void setSelectedSection(AppSection section) {
+    if (selectedSection != section) {
+      errorMessage = null;
+    }
     selectedSection = section;
     unawaited(_prefs?.setString(_selectedSectionPrefsKey, section.name));
     if (section == AppSection.devices) {
@@ -2613,6 +2616,12 @@ class NeoAgentController extends ChangeNotifier {
   void showInlineError(String message) {
     errorMessage = message;
     authInfoMessage = null;
+    notifyListeners();
+  }
+
+  void clearInlineError() {
+    if (errorMessage == null) return;
+    errorMessage = null;
     notifyListeners();
   }
 
@@ -3836,7 +3845,6 @@ class NeoAgentController extends ChangeNotifier {
         () => _backendClient.executeComputerCommand(
           backendUrl,
           command: normalized,
-          cwd: '/home/neo/workspace',
           deviceTarget: deviceTarget,
         ),
         deviceTarget: deviceTarget,
@@ -7017,17 +7025,7 @@ class NeoAgentController extends ChangeNotifier {
   String friendlyErrorMessage(Object error) => _friendlyErrorMessage(error);
 
   String _normalizeErrorText(Object error) {
-    var text = error.toString().trim();
-    const prefixes = <String>[
-      'BackendException: ',
-      'HealthBridgeException: ',
-      'Exception: ',
-    ];
-    for (final prefix in prefixes) {
-      if (text.startsWith(prefix)) {
-        text = text.substring(prefix.length).trim();
-      }
-    }
+    var text = _formatCaughtError(error);
     if (text.startsWith('PlatformException(') && text.endsWith(')')) {
       final inner = text.substring(
         'PlatformException('.length,

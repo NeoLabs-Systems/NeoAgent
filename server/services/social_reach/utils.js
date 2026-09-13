@@ -1,8 +1,8 @@
 'use strict';
 
-const cheerio = require('cheerio');
 const { fetchResponseText } = require('../network/http');
 const { executeSafeHttpRequest } = require('../network/safe_request');
+const { parseMaybeJson } = require('../../utils/text');
 
 const DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -112,22 +112,6 @@ async function fetchJson(url, options = {}) {
   }
 }
 
-function htmlToText(html, maxChars = 20000) {
-  const $ = cheerio.load(String(html || ''));
-  $('script, style, noscript, svg').remove();
-  return $('body').text().replace(/\s+/g, ' ').trim().slice(0, maxChars);
-}
-
-function parseMaybeJson(value, fallback = null) {
-  if (value == null) return fallback;
-  if (typeof value === 'object') return value;
-  try {
-    return JSON.parse(String(value));
-  } catch {
-    return fallback;
-  }
-}
-
 function compactText(value, maxChars = 4000) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (text.length <= maxChars) return text;
@@ -140,7 +124,6 @@ module.exports = {
   compactText,
   fetchJson,
   fetchText,
-  htmlToText,
   normalizeLimit,
   parseMaybeJson,
 };

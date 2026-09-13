@@ -3,15 +3,19 @@
 const { describeEnvStatus, resolveMicrosoftOAuthConfig } = require('../env');
 const {
   appendQuery,
+  buildPinnedApiUrl,
   createOAuthProvider,
   escapeScope,
   fetchJson,
 } = require('../oauth_provider');
 const {
-  applyCalendarListMode,
-  excludeStartedTimedEvents,
-  partitionCalendarEvents,
+  finalizeListedCalendarEvents,
 } = require('../calendar_window');
+const {
+  expiresAtFromSeconds,
+  withRefreshedOAuthCredentials,
+} = require('../oauth_tokens');
+const { requireText } = require('../../../utils/text');
 
 const MICROSOFT_BASE_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
 
@@ -187,12 +191,6 @@ function getMicrosoftEndpoints() {
   };
 }
 
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
-
 function emailRecipients(values) {
   return (Array.isArray(values) ? values : String(values || '').split(','))
     .map((email) => String(email || '').trim())
@@ -201,29 +199,10 @@ function emailRecipients(values) {
 }
 
 function graphUrl(path, query) {
-  const url = new URL(
-    String(path || '').startsWith('http')
-      ? String(path)
-      : `https://graph.microsoft.com${String(path || '').startsWith('/') ? '' : '/'}${path}`,
-  );
-  if (url.hostname !== 'graph.microsoft.com') {
-    throw new Error('Microsoft Graph request URL must target graph.microsoft.com.');
-  }
-  for (const [key, value] of Object.entries(query || {})) {
-    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-  }
-  return url.toString();
-}
-
-function expiresAtFromSeconds(expiresIn) {
-  return new Date(
-    Date.now() + Math.max(1, Number(expiresIn) || 3600) * 1000,
-  ).toISOString();
-}
-
-function tokenExpiresSoon(credentials) {
-  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
-  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
+  return buildPinnedApiUrl('graph.microsoft.com', path, query, {
+    label: 'Microsoft Graph',
+    errorMessage: 'Microsoft Graph request URL must target graph.microsoft.com.',
+  }).toString();
 }
 
 async function refreshMicrosoftCredentials(credentials, signal) {
@@ -267,33 +246,22 @@ async function graphRequest(context, {
   method = 'GET', path, query, body, headers = {},
 }) {
   const { signal } = context;
-  let credentials = context.credentials;
-  if (tokenExpiresSoon(credentials)) {
-    credentials = await refreshMicrosoftCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-  }
-  const performRequest = (activeCredentials) => fetchJson(
-    graphUrl(path, query),
-    {
-      method: String(method || 'GET').toUpperCase(),
-      headers: {
-        Authorization: `Bearer ${activeCredentials.access_token}`,
-        ...headers,
+  return withRefreshedOAuthCredentials(context, {
+    refresh: refreshMicrosoftCredentials,
+    request: (activeCredentials) => fetchJson(
+      graphUrl(path, query),
+      {
+        method: String(method || 'GET').toUpperCase(),
+        headers: {
+          Authorization: `Bearer ${activeCredentials.access_token}`,
+          ...headers,
+        },
+        ...(body === undefined ? {} : { json: body }),
+        signal,
       },
-      ...(body === undefined ? {} : { json: body }),
-      signal,
-    },
-    { serviceName: 'Microsoft Graph' },
-  );
-
-  try {
-    return await performRequest(credentials);
-  } catch (error) {
-    if (error?.status !== 401 || !credentials.refresh_token) throw error;
-    credentials = await refreshMicrosoftCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-    return performRequest(credentials);
-  }
+      { serviceName: 'Microsoft Graph' },
+    ),
+  });
 }
 
 function microsoftDateTime(value) {
@@ -364,7 +332,6 @@ async function executeMicrosoftTool(toolName, args, context, executionOptions = 
       };
     case 'microsoft_365_calendar_list_events': {
       const hasWindow = args.start && args.end;
-      const hasWindowStart = Boolean(args.start);
       if (
         (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
         && executionOptions.taskId
@@ -387,21 +354,12 @@ async function executeMicrosoftTool(toolName, args, context, executionOptions = 
       const listedEvents = Array.isArray(payload?.value)
         ? payload.value.map(summarizeMicrosoftCalendarEvent)
         : [];
-      const events = (
-        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
-        && executionOptions.taskId
-        && args.include_ongoing !== true
-      )
-        ? excludeStartedTimedEvents(listedEvents, executionOptions.scheduledAt)
-        : listedEvents;
-      const summary = partitionCalendarEvents(events, {
-        start: args.start,
-        end: args.end,
-      });
       return {
-        result: applyCalendarListMode(summary, {
-          includeOngoing: !hasWindowStart || args.include_ongoing === true,
-          includeAllDay: !hasWindowStart || args.include_all_day === true,
+        result: finalizeListedCalendarEvents(listedEvents, {
+          start: args.start,
+          end: args.end,
+          args,
+          executionOptions,
         }),
       };
     }

@@ -2,6 +2,7 @@
 
 const db = require('../../db/database');
 const { isMainAgent } = require('../agents/manager');
+const { asObject } = require('../../utils/text');
 const { MODULE_IDS, cloneDefaults, DEFAULT_MODULE_CONFIG } = require('./defaults');
 
 const SETTINGS_KEY = 'behavior_modules_config';
@@ -13,10 +14,6 @@ function clampNumber(value, min, max, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
-}
-
-function asObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 function normalizeModules(rawModules, fallbackEnabled = true, sparse = false) {

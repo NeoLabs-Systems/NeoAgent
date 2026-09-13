@@ -5,6 +5,7 @@ const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { clientIpFromRequest, lookupIpLocation } = require('./geoip');
 const { sessionHash } = require('./sessions');
+const { parseJsonObject } = require('../../utils/text');
 
 const QR_LOGIN_TTL_MS = 2 * 60 * 1000;
 const QR_LOGIN_TERMINAL_RETENTION_MS = 60 * 60 * 1000;
@@ -37,15 +38,6 @@ function trimmedString(value, maxLength = 160) {
 
 function userAgentFromRequest(req) {
   return trimmedString(req.get?.('user-agent') || req.headers?.['user-agent'] || '', 500);
-}
-
-function parseJsonObject(value) {
-  try {
-    const parsed = JSON.parse(value || '{}');
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
 }
 
 function normalizeMetadata(value) {

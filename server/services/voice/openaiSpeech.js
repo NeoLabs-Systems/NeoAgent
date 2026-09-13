@@ -2,6 +2,10 @@
 
 const { readResponseBuffer } = require('../network/http');
 const { runWithAbortTimeout } = require('../../utils/abort');
+const {
+  DEFAULT_TTS_MODELS,
+  DEFAULT_TTS_VOICES,
+} = require('./providers/provider_defaults');
 
 const DEFAULT_SPEECH_TIMEOUT_MS = 30000;
 const DEFAULT_MAX_SPEECH_BYTES = 32 * 1024 * 1024;
@@ -10,8 +14,8 @@ async function synthesizeSpeechBuffer(
   client,
   text,
   {
-    model = 'gpt-4o-mini-tts',
-    voice = 'alloy',
+    model = DEFAULT_TTS_MODELS.openai,
+    voice = DEFAULT_TTS_VOICES.openai,
     responseFormat = 'mp3',
     signal = null,
     timeoutMs = DEFAULT_SPEECH_TIMEOUT_MS,
@@ -29,8 +33,8 @@ async function synthesizeSpeechBuffer(
 
   return runWithAbortTimeout(async (operationSignal) => {
     const response = await client.audio.speech.create({
-      model: String(model || 'gpt-4o-mini-tts').trim() || 'gpt-4o-mini-tts',
-      voice: String(voice || 'alloy').trim() || 'alloy',
+      model: String(model || DEFAULT_TTS_MODELS.openai).trim() || DEFAULT_TTS_MODELS.openai,
+      voice: String(voice || DEFAULT_TTS_VOICES.openai).trim() || DEFAULT_TTS_VOICES.openai,
       input: content,
       response_format: String(responseFormat || 'mp3').trim() || 'mp3',
     }, { signal: operationSignal });

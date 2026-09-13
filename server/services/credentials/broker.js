@@ -4,27 +4,13 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
-const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
+const { parseJsonObject: parseJson, requireText } = require('../../utils/text');
+const { executeSafeHttpRequest } = require('../network/safe_request');
 
 const ALLOWED_HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 const ALLOWED_AUTH_TYPES = new Set(['bearer', 'basic', 'header']);
 const PROTECTED_FILL_TTL_MS = 5 * 60 * 1000;
 const MAX_RESPONSE_BYTES = 512 * 1024;
-
-function parseJson(value, fallback = {}) {
-  try {
-    const parsed = JSON.parse(String(value || ''));
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
 
 function normalizeHttpsOrigin(value) {
   const url = new URL(requireText(value, 'Origin'));
@@ -112,6 +98,12 @@ function redactResolvedValues(value, resolvedValues) {
   return text;
 }
 
+function headerEntries(headers) {
+  if (!headers) return [];
+  if (typeof headers.entries === 'function') return Array.from(headers.entries());
+  return Object.entries(headers);
+}
+
 function safeResponseHeaders(headers, resolvedValues = []) {
   const blocked = new Set([
     'authorization',
@@ -122,8 +114,8 @@ function safeResponseHeaders(headers, resolvedValues = []) {
     'www-authenticate',
   ]);
   return Object.fromEntries(
-    Array.from(headers.entries())
-      .filter(([name]) => !blocked.has(name.toLowerCase()))
+    headerEntries(headers)
+      .filter(([name]) => !blocked.has(String(name).toLowerCase()))
       .map(([name, value]) => [name, redactResolvedValues(value, resolvedValues)]),
   );
 }
@@ -139,6 +131,7 @@ class CredentialBroker {
     this.bitwarden = options.bitwarden;
     this.runtimeManager = options.runtimeManager || null;
     this.protectedFills = new Map();
+    this.executeHttpRequest = options.executeHttpRequest || executeSafeHttpRequest;
   }
 
   setRuntimeManager(runtimeManager) {
@@ -500,8 +493,6 @@ class CredentialBroker {
     ) {
       throw new Error('Credential request does not match the binding target policy.');
     }
-    const validation = await validateCloudUrlWithDns(url.toString(), { signal: context.signal });
-    if (!validation.allowed) throw new Error('Credential request target is not allowed.');
     const headers = Object.fromEntries(Object.entries(input?.headers || {}).map(([name, value]) => [
       String(name),
       String(value),
@@ -523,49 +514,27 @@ class CredentialBroker {
           headers.Authorization = `Basic ${Buffer.from(`${username}:${secret}`, 'utf8').toString('base64')}`;
         }
         if (target.authType === 'header') headers[target.headerName] = secret;
-        const controller = new AbortController();
         const timeoutMs = Math.max(1000, Math.min(Number(input?.timeout_ms || 30_000), 120_000));
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        const onAbort = () => controller.abort();
-        context.signal?.addEventListener('abort', onAbort, { once: true });
-        try {
-          const response = await fetch(url, {
-            method,
-            headers,
-            body: ['POST', 'PUT', 'PATCH'].includes(method) && input?.body != null
-              ? String(input.body)
-              : undefined,
-            redirect: 'manual',
-            signal: controller.signal,
-          });
-          const chunks = [];
-          let byteCount = 0;
-          const reader = response.body?.getReader();
-          if (reader) {
-            while (byteCount <= MAX_RESPONSE_BYTES) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = Buffer.from(value);
-              chunks.push(chunk);
-              byteCount += chunk.length;
-            }
-            if (byteCount > MAX_RESPONSE_BYTES) await reader.cancel().catch(() => {});
-          }
-          const bytes = Buffer.concat(chunks);
-          const truncated = byteCount > MAX_RESPONSE_BYTES;
-          const body = bytes.subarray(0, MAX_RESPONSE_BYTES).toString('utf8');
-          const resolvedValues = [secret, username, `${username}:${secret}`, `Bearer ${secret}`];
-          this.#audit(scope, binding.id, 'http_request', `${method} ${url.origin}${url.pathname}`, 'success', null, context.runId);
-          return {
-            status: response.status,
-            headers: safeResponseHeaders(response.headers, resolvedValues),
-            body: redactResolvedValues(body, resolvedValues),
-            truncated,
-          };
-        } finally {
-          clearTimeout(timer);
-          context.signal?.removeEventListener('abort', onAbort);
-        }
+        const response = await this.executeHttpRequest({
+          method,
+          url: url.toString(),
+          headers,
+          body: ['POST', 'PUT', 'PATCH'].includes(method) && input?.body != null
+            ? String(input.body)
+            : undefined,
+          timeout_ms: timeoutMs,
+        }, {
+          signal: context.signal,
+          maxResponseBytes: MAX_RESPONSE_BYTES,
+        });
+        const resolvedValues = [secret, username, `${username}:${secret}`, `Bearer ${secret}`];
+        this.#audit(scope, binding.id, 'http_request', `${method} ${url.origin}${url.pathname}`, 'success', null, context.runId);
+        return {
+          status: response.status,
+          headers: safeResponseHeaders(response.headers, resolvedValues),
+          body: redactResolvedValues(String(response.body || ''), resolvedValues),
+          truncated: response.truncated === true,
+        };
       }, { signal: context.signal });
     } catch (error) {
       this.#audit(scope, binding.id, 'http_request', `${method} ${url.origin}${url.pathname}`, 'failed', error.code, context.runId);

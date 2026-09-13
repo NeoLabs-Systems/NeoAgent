@@ -1,16 +1,8 @@
 'use strict';
 
 const { fetchJson } = require('../oauth_provider');
-
-function text(value) {
-  return String(value || '').trim();
-}
-
-function isPrivateHost(host) {
-  const value = String(host || '').toLowerCase();
-  return value === 'localhost' || value === '::1' || value.startsWith('127.') || value.startsWith('10.') ||
-    value.startsWith('192.168.') || /^172\.(1[6-9]|2\d|3[01])\./.test(value);
-}
+const { isPrivateHost } = require('../../../utils/cloud-security');
+const { trimText: text } = require('../../../utils/text');
 
 function normalizeBaseUrl(value) {
   const raw = text(value);

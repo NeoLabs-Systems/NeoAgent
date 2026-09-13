@@ -6,14 +6,11 @@ const { google } = require('googleapis');
 const { HOME_DIR } = require('../../../../runtime/paths');
 const { resolveUserFileReference } = require('../../files/user_file_access');
 const { fetchResponseText } = require('../../network/http');
+const { trimText: text } = require('../../../utils/text');
 
 const DEFAULT_LOCATION = 'us-central1';
 const MODEL_ID = 'imageverification@001';
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-
-function text(value) {
-  return String(value || '').trim();
-}
 
 function readCredentialProjectId(filePath, fsImpl = fs) {
   if (!filePath) return '';

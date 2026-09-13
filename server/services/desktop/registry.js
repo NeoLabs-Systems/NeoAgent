@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { createAbortError } = require('../../utils/abort');
+const { parseJsonObject } = require('../../utils/text');
 const {
   DESKTOP_COMMANDS,
   FRAME_TYPE_VIDEO,
@@ -22,14 +23,6 @@ function safeJson(value) {
     return JSON.stringify(value || {});
   } catch {
     return '{}';
-  }
-}
-
-function parseJson(value) {
-  try {
-    return JSON.parse(value || '{}') || {};
-  } catch {
-    return {};
   }
 }
 
@@ -175,7 +168,7 @@ class DesktopCompanionRegistry {
   }
 
   _mapDeviceRow(row) {
-    const metadata = parseJson(row.metadata_json);
+    const metadata = parseJsonObject(row.metadata_json);
     return {
       id: row.id,
       userId: row.user_id,
@@ -191,8 +184,8 @@ class DesktopCompanionRegistry {
       status: row.status || 'offline',
       displayCount: Number(row.display_count || 0) || 0,
       activeDisplayId: row.active_display_id || null,
-      permissions: parseJson(row.permissions_json),
-      capabilities: parseJson(row.capabilities_json),
+      permissions: parseJsonObject(row.permissions_json),
+      capabilities: parseJsonObject(row.capabilities_json),
       metadata,
       sessionId: row.session_id || null,
       lastConnectedAt: row.last_connected_at || null,

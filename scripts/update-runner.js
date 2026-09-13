@@ -6,7 +6,6 @@ const { spawnSync } = require('child_process');
 const {
   buildBundledWebClientIfPossible: buildWebClient,
   commandExists: sharedCommandExists,
-  hasBundledWebClient,
   withInstallEnv,
 } = require('../lib/install_helpers');
 const {

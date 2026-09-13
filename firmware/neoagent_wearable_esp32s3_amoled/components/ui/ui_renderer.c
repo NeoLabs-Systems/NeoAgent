@@ -73,8 +73,10 @@ esp_err_t ui_renderer_set_screen(ui_renderer_t *renderer, neoagent_screen_id_t s
             return board_support_show_message(renderer->board, "NeoAgent Ready", "Pairing completed.", "Loading assistant home...");
         case NEOAGENT_SCREEN_SETTINGS:
             return board_support_show_settings(renderer->board, "Settings", "Preparing controls", "Loading device settings.", NULL, false);
+        case NEOAGENT_SCREEN_WIDGETS:
+            return board_support_show_message(renderer->board, "Widgets", "Loading live widgets...", "");
         default:
-            return board_support_show_message(renderer->board, "NeoAgent", "Screen not implemented yet.", "");
+            return board_support_show_message(renderer->board, "NeoAgent", "Loading...", "");
     }
 }
 

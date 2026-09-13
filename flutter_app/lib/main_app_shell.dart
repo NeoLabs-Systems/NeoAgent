@@ -47,6 +47,17 @@ class AuthView extends StatefulWidget {
   State<AuthView> createState() => _AuthViewState();
 }
 
+// Mirrors the server rule in server/services/account/email.js, so the form
+// rejects exactly what registration would reject rather than guessing.
+final RegExp _emailShape = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
+bool _looksLikeEmail(String value) {
+  final email = value.trim().toLowerCase();
+  return email.length <= 320 &&
+      _emailShape.hasMatch(email) &&
+      !email.contains('..');
+}
+
 class _AuthViewState extends State<AuthView> {
   late final TextEditingController _usernameController;
   late final TextEditingController _emailController;
@@ -317,7 +328,10 @@ class _AuthViewState extends State<AuthView> {
         ),
         const SizedBox(height: 20),
         if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
+          _InlineError(
+            message: controller.errorMessage!,
+            onDismiss: controller.clearInlineError,
+          ),
           const SizedBox(height: 16),
         ],
         if (controller.authInfoMessage != null) ...<Widget>[
@@ -376,29 +390,49 @@ class _AuthViewState extends State<AuthView> {
               ? null
               : () async {
                   if (awaitingTwoFactor) {
-                    await controller.completeTwoFactorLogin(
-                      code: _twoFactorController.text,
-                    );
+                    final code = _twoFactorController.text.trim();
+                    if (code.isEmpty) {
+                      widget.controller.showInlineError(
+                        'Enter your 2FA or recovery code.',
+                      );
+                      return;
+                    }
+                    await controller.completeTwoFactorLogin(code: code);
                     return;
                   }
-                  if (_registerMode &&
-                      _passwordController.text !=
-                          _confirmPasswordController.text) {
-                    widget.controller.showInlineError(
-                      'Passwords do not match.',
-                    );
+                  final username = _usernameController.text.trim();
+                  final password = _passwordController.text;
+                  if (username.isEmpty) {
+                    widget.controller.showInlineError('Enter a username.');
+                    return;
+                  }
+                  if (password.isEmpty) {
+                    widget.controller.showInlineError('Enter a password.');
                     return;
                   }
                   if (_registerMode) {
+                    final email = _emailController.text.trim();
+                    if (email.isEmpty || !_looksLikeEmail(email)) {
+                      widget.controller.showInlineError(
+                        'Enter a valid email address.',
+                      );
+                      return;
+                    }
+                    if (password != _confirmPasswordController.text) {
+                      widget.controller.showInlineError(
+                        'Passwords do not match.',
+                      );
+                      return;
+                    }
                     await controller.register(
-                      username: _usernameController.text,
-                      email: _emailController.text,
-                      password: _passwordController.text,
+                      username: username,
+                      email: email,
+                      password: password,
                     );
                   } else {
                     await controller.login(
-                      username: _usernameController.text,
-                      password: _passwordController.text,
+                      username: username,
+                      password: password,
                     );
                   }
                 },
@@ -949,8 +983,8 @@ class _HomeViewState extends State<HomeView> {
             .then((_) {
               if (mounted) {
                 locationService.startGeofenceTracking(
+                  widget.controller.backendClient,
                   backendUrl,
-                  sessionCookie,
                 );
               }
             })

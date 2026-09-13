@@ -108,9 +108,36 @@ function applyCalendarListMode(summary, options = {}) {
   };
 }
 
+function finalizeListedCalendarEvents(events, options = {}) {
+  const args = options.args || {};
+  const executionOptions = options.executionOptions || {};
+  const window = {
+    timeMin: options.timeMin,
+    timeMax: options.timeMax,
+    start: options.start,
+    end: options.end,
+  };
+  const queryWindow = normalizeQueryWindow(window);
+  const hasWindowStart = Boolean(queryWindow.timeMin);
+  const automaticReminder = (
+    (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
+    && executionOptions.taskId
+    && args.include_ongoing !== true
+  );
+  const listed = automaticReminder
+    ? excludeStartedTimedEvents(events, executionOptions.scheduledAt)
+    : (Array.isArray(events) ? events : []);
+  const summary = partitionCalendarEvents(listed, window);
+  return applyCalendarListMode(summary, {
+    includeOngoing: !hasWindowStart || args.include_ongoing === true,
+    includeAllDay: !hasWindowStart || args.include_all_day === true,
+  });
+}
+
 module.exports = {
   applyCalendarListMode,
   excludeStartedTimedEvents,
+  finalizeListedCalendarEvents,
   normalizeQueryWindow,
   partitionCalendarEvents,
 };

@@ -8,8 +8,14 @@ const {
   setProviderConfig,
 } = require('../provider_config_store');
 const { getConnectionAccessMode } = require('../access');
-const { fetchJson } = require('../oauth_provider');
+const { fetchJson, buildPinnedApiUrl } = require('../oauth_provider');
 const { encryptValue, decryptValue } = require('../secrets');
+const { requireText, trimText } = require('../../../utils/text');
+const {
+  summarizeAppConnection,
+  summarizeProviderConnection,
+} = require('../connection_summary');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 const TRELLO_APP = {
   id: 'trello',
@@ -186,18 +192,6 @@ const TRELLO_TOOL_DEFINITIONS = [
 
 const toolAppMap = new Map(TRELLO_TOOL_DEFINITIONS.map((tool) => [tool.name, tool.appId]));
 
-function trimText(value) {
-  return String(value || '').trim();
-}
-
-function requireText(value, label) {
-  const text = trimText(value);
-  if (!text) {
-    throw new Error(`${label} is required.`);
-  }
-  return text;
-}
-
 function parseConfigInput(rawConfig, existingConfig = {}) {
   const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
   return {
@@ -252,24 +246,14 @@ function trelloUrl(path, query = {}, config = {}) {
     throw new Error('Trello token is required.');
   }
 
-  const rawPath = trimText(path);
-  const url = new URL(
-    rawPath.startsWith('http')
-      ? rawPath
-      : `https://api.trello.com${rawPath.startsWith('/') ? '' : '/'}${rawPath}`,
+  const url = buildPinnedApiUrl(
+    'api.trello.com',
+    path,
+    query,
+    { label: 'Trello' },
   );
-  if (url.hostname !== 'api.trello.com') {
-    throw new Error('Trello API request URL must target api.trello.com.');
-  }
-
   url.searchParams.set('key', apiKey);
   url.searchParams.set('token', token);
-  for (const [key, value] of Object.entries(query || {})) {
-    if (value === undefined || value === null) continue;
-    const text = String(value).trim();
-    if (!text) continue;
-    url.searchParams.set(key, text);
-  }
   return url.toString();
 }
 
@@ -296,89 +280,6 @@ function trelloAccountEmail(profile = {}) {
   const memberId = trimText(profile.id);
   const fallback = trimText(profile.fullName) || 'member';
   return `trello:${username || memberId || fallback}`;
-}
-
-function summarizeAccountRow(row, envStatus) {
-  if (!envStatus.configured) {
-    return {
-      id: row?.id || null,
-      status: 'env_not_configured',
-      connected: false,
-      accountEmail: row?.account_email || null,
-      lastConnectedAt: row?.last_connected_at || null,
-      accessMode: 'read_write',
-    };
-  }
-
-  if (!row) {
-    return {
-      id: null,
-      status: 'not_connected',
-      connected: false,
-      accountEmail: null,
-      lastConnectedAt: null,
-      accessMode: 'read_write',
-    };
-  }
-
-  return {
-    id: row.id || null,
-    status: row.status || 'not_connected',
-    connected: row.status === 'connected',
-    accountEmail: row.account_email || null,
-    lastConnectedAt: row.last_connected_at || null,
-    accessMode: getConnectionAccessMode(row),
-  };
-}
-
-function summarizeAppConnection(app, connectionRows, envStatus) {
-  const summarizedAccounts = (Array.isArray(connectionRows) ? connectionRows : []).map((row) =>
-    summarizeAccountRow(row, envStatus),
-  );
-  const connectedAccounts = summarizedAccounts.filter((account) => account.connected);
-  const latestConnectedAt =
-    connectedAccounts
-      .map((account) => account.lastConnectedAt)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0] || null;
-  const status = !envStatus.configured
-    ? 'env_not_configured'
-    : connectedAccounts.length > 0
-      ? 'connected'
-      : summarizedAccounts.some((account) => account.status === 'authorizing')
-        ? 'authorizing'
-        : 'not_connected';
-
-  return {
-    id: app.id,
-    label: app.label,
-    description: app.description,
-    accounts: summarizedAccounts,
-    connection: {
-      status,
-      connected: connectedAccounts.length > 0,
-      accountCount: connectedAccounts.length,
-      accountEmail:
-        connectedAccounts.length === 1 ? connectedAccounts[0].accountEmail : null,
-      lastConnectedAt: latestConnectedAt,
-    },
-    availableToolCount:
-      envStatus.configured && connectedAccounts.length > 0 ? TRELLO_TOOL_DEFINITIONS.length : 0,
-  };
-}
-
-function buildConnectedAppSummary(appSnapshots) {
-  return appSnapshots
-    .filter((app) => app.connection.connected)
-    .map((app) => {
-      const emails = app.accounts
-        .filter((account) => account.connected)
-        .map((account) => account.accountEmail || `connection ${account.id}`)
-        .join(', ');
-      return `${app.label}: ${emails}`;
-    })
-    .join(' | ');
 }
 
 function resolveTrelloEnvStatus(userId, agentId = null) {
@@ -417,43 +318,22 @@ function upsertTrelloConnection(userId, agentId, profile, credentials) {
   const accountEmail = trelloAccountEmail(profile);
   const accessMode = loadExistingAccessMode(userId, agentId, accountEmail);
 
-  db.prepare(
-    `INSERT INTO integration_connections (
-       user_id,
-       agent_id,
-       provider_key,
-       app_key,
-       status,
-       account_email,
-       scopes_json,
-       credentials_json,
-       metadata_json,
-       last_connected_at,
-       updated_at
-     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-       status = excluded.status,
-       scopes_json = excluded.scopes_json,
-       credentials_json = excluded.credentials_json,
-       metadata_json = excluded.metadata_json,
-       last_connected_at = excluded.last_connected_at,
-       updated_at = excluded.updated_at`,
-  ).run(
+  upsertConnectedIntegration({
     userId,
     agentId,
-    TRELLO_APP.id,
-    TRELLO_APP.id,
+    providerKey: TRELLO_APP.id,
+    appKey: TRELLO_APP.id,
     accountEmail,
-    JSON.stringify(['trello:api']),
-    encryptValue(JSON.stringify(credentials || {})),
-    JSON.stringify({
+    scopes: ['trello:api'],
+    credentialsJson: encryptValue(JSON.stringify(credentials || {})),
+    metadata: {
       access_mode: accessMode,
       trelloMemberId: profile.id || null,
       username: profile.username || null,
       fullName: profile.fullName || null,
       url: profile.url || null,
-    }),
-  );
+    },
+  });
 
   const connection = db
     .prepare(
@@ -689,17 +569,16 @@ function createTrelloProvider() {
       }
 
       const appSnapshots = [TRELLO_APP].map((app) => {
-        const snapshot = summarizeAppConnection(app, byApp.get(app.id) || [], env);
+        const snapshot = summarizeAppConnection(app, byApp.get(app.id) || [], env, {
+          toolCount: TRELLO_TOOL_DEFINITIONS.length,
+        });
         snapshot.availableToolCount =
           env.configured && snapshot.connection.connected
             ? TRELLO_TOOL_DEFINITIONS.length
             : 0;
         return snapshot;
       });
-      const connectedApps = appSnapshots.filter((app) => app.connection.connected);
-      const connectedAccounts = connectedApps.flatMap((app) =>
-        app.accounts.filter((account) => account.connected),
-      );
+      const rollup = summarizeProviderConnection(appSnapshots, env);
 
       return {
         id: this.key,
@@ -708,25 +587,8 @@ function createTrelloProvider() {
         icon: this.icon,
         apps: appSnapshots,
         env,
-        connection: {
-          status: !env.configured
-            ? 'env_not_configured'
-            : connectedAccounts.length > 0
-              ? 'connected'
-              : 'not_connected',
-          connected: connectedAccounts.length > 0,
-          accountEmail:
-            connectedAccounts.length === 1 ? connectedAccounts[0].accountEmail : null,
-          accountCount: connectedAccounts.length,
-          appCount: connectedApps.length,
-          lastConnectedAt:
-            connectedAccounts
-              .map((account) => account.lastConnectedAt)
-              .filter(Boolean)
-              .sort()
-              .reverse()[0] || null,
-        },
-        availableToolCount: appSnapshots.reduce((total, app) => total + app.availableToolCount, 0),
+        connection: rollup.connection,
+        availableToolCount: rollup.availableToolCount,
         connectPrompt: this.connectPrompt,
         supportsMultipleAccounts: this.supportsMultipleAccounts,
         connectionMethod: this.connectionMethod,

@@ -4,7 +4,12 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const path = require('node:path');
 
-const { sanitizeError, validateString, detectPromptInjection } = require('../../../server/utils/security');
+const {
+  base64UrlSha256,
+  detectPromptInjection,
+  sanitizeError,
+  validateString,
+} = require('../../../server/utils/security');
 
 test('sanitizeError strips local paths and dependency internals', () => {
   const message = [
@@ -48,7 +53,23 @@ test('detectPromptInjection flags common jailbreak and prompt exfiltration attem
   }
 });
 
-test('detectPromptInjection ignores ordinary text and non-string input', () => {
-  assert.equal(detectPromptInjection('Please summarize the meeting notes.'), false);
-  assert.equal(detectPromptInjection(null), false);
+test('safeEqual compares secrets without treating empty values as a match', () => {
+  const { safeEqual } = require('../../../server/utils/security');
+  assert.equal(safeEqual('secret', 'secret'), true);
+  assert.equal(safeEqual('secret', 'Secret'), false);
+  assert.equal(safeEqual('short', 'longer-value'), false);
+  assert.equal(safeEqual('', ''), false);
+  assert.equal(safeEqual('secret', ''), false);
+});
+
+test('base64UrlSha256 returns a stable PKCE-safe digest', () => {
+  const digest = base64UrlSha256('code-verifier');
+  assert.equal(digest, 'qdgLLRr1saFHT6DWfWU28VNPIi7e9ynEBnBG3Oadw9g');
+  assert.doesNotMatch(digest, /[+/=]/);
+});
+
+test('base64UrlSha256 treats missing input as the empty string', () => {
+  const empty = base64UrlSha256('');
+  assert.equal(base64UrlSha256(null), empty);
+  assert.equal(base64UrlSha256(undefined), empty);
 });

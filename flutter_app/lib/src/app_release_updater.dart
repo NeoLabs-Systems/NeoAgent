@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'android_app_installer.dart';
+import 'error_text.dart';
 import 'oauth_launcher.dart';
 
 const String appUpdaterGithubOwner = String.fromEnvironment(
@@ -218,7 +219,7 @@ class AppReleaseUpdater {
         currentVersion: installedVersion,
         channel: normalizedChannel,
         updateAvailable: false,
-        errorMessage: error.toString(),
+        errorMessage: formatCaughtError(error),
       );
     }
   }
@@ -250,7 +251,7 @@ class AppReleaseUpdater {
         return OAuthLaunchResult(
           launched: false,
           completed: false,
-          error: error.toString(),
+          error: formatCaughtError(error),
         );
       }
     }

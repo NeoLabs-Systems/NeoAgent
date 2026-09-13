@@ -3,10 +3,16 @@
 const { describeEnvStatus, resolveFigmaOAuthConfig } = require('../env');
 const {
   appendQuery,
+  buildPinnedApiUrl,
   createOAuthProvider,
   escapeScope,
   fetchJson,
 } = require('../oauth_provider');
+const {
+  expiresAtFromSeconds,
+  withRefreshedOAuthCredentials,
+} = require('../oauth_tokens');
+const { requireText } = require('../../../utils/text');
 
 const FIGMA_APPS = [
   {
@@ -137,36 +143,8 @@ function normalizeFigmaUser(profile) {
   };
 }
 
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
-
 function figmaUrl(path, query) {
-  const url = new URL(
-    String(path || '').startsWith('http')
-      ? String(path)
-      : `https://api.figma.com${String(path || '').startsWith('/') ? '' : '/'}${path}`,
-  );
-  if (url.hostname !== 'api.figma.com') {
-    throw new Error('Figma API request URL must target api.figma.com.');
-  }
-  for (const [key, value] of Object.entries(query || {})) {
-    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-  }
-  return url.toString();
-}
-
-function expiresAtFromSeconds(expiresIn) {
-  return new Date(
-    Date.now() + Math.max(1, Number(expiresIn) || 3600) * 1000,
-  ).toISOString();
-}
-
-function tokenExpiresSoon(credentials) {
-  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
-  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
+  return buildPinnedApiUrl('api.figma.com', path, query, { label: 'Figma' }).toString();
 }
 
 async function refreshFigmaCredentials(credentials, signal) {
@@ -206,31 +184,19 @@ async function refreshFigmaCredentials(credentials, signal) {
 
 async function figmaRequest(context, { method = 'GET', path, query, body }) {
   const { signal } = context;
-  let credentials = context.credentials;
-  if (tokenExpiresSoon(credentials)) {
-    credentials = await refreshFigmaCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-  }
-
-  const performRequest = (activeCredentials) => fetchJson(
-    figmaUrl(path, query),
-    {
-      method: String(method || 'GET').toUpperCase(),
-      headers: { Authorization: `Bearer ${activeCredentials.access_token}` },
-      ...(body === undefined ? {} : { json: body }),
-      signal,
-    },
-    { serviceName: 'Figma' },
-  );
-
-  try {
-    return await performRequest(credentials);
-  } catch (error) {
-    if (error?.status !== 401 || !credentials.refresh_token) throw error;
-    credentials = await refreshFigmaCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-    return performRequest(credentials);
-  }
+  return withRefreshedOAuthCredentials(context, {
+    refresh: refreshFigmaCredentials,
+    request: (activeCredentials) => fetchJson(
+      figmaUrl(path, query),
+      {
+        method: String(method || 'GET').toUpperCase(),
+        headers: { Authorization: `Bearer ${activeCredentials.access_token}` },
+        ...(body === undefined ? {} : { json: body }),
+        signal,
+      },
+      { serviceName: 'Figma' },
+    ),
+  });
 }
 
 async function executeFigmaTool(toolName, args, context) {

@@ -107,10 +107,6 @@ async function api(path, opts = {}) {
   return res;
 }
 
-function esc(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
 function fmtTime(iso) {
   if (!iso) return '—';
   try { return new Date(iso).toLocaleTimeString(); } catch { return iso; }

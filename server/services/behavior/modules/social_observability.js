@@ -81,14 +81,8 @@ async function maybeAnalyze(ctx) {
   }
 }
 
-function getLatestSummary(userId, agentId, platform, chatId) {
-  const state = getThreadState(userId, agentId, platform, chatId);
-  return state.lastObservabilitySummary || null;
-}
-
 module.exports = {
   id: 'social_observability',
   afterTurn: maybeAnalyze,
   maybeAnalyze,
-  getLatestSummary,
 };

@@ -39,6 +39,7 @@ const {
   encryptLocalValue,
   isLocalEncryptedValue,
 } = require('../../utils/local_secrets');
+const { parseJsonObject } = require('../../utils/text');
 
 async function getActiveProvider(userId, agentId = null, options = {}) {
   try {
@@ -129,21 +130,6 @@ function normalizeSourceRef(input = {}) {
     sourceId: String(input.sourceId || input.id || '').trim().slice(0, 128) || null,
     sourceLabel: String(input.sourceLabel || input.label || '').trim().slice(0, 160) || null,
   };
-}
-
-function parseJsonObject(value, fallback = {}) {
-  if (!value) return { ...fallback };
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return { ...value };
-  }
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : { ...fallback };
-  } catch {
-    return { ...fallback };
-  }
 }
 
 function parseJsonArray(value, fallback = []) {

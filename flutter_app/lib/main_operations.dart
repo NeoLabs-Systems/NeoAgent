@@ -1383,7 +1383,7 @@ Write the instructions for this skill here.
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete "$name": $error')),
+        SnackBar(content: Text('Failed to delete "$name": ${_formatCaughtError(error)}')),
       );
     }
   }
@@ -1440,7 +1440,7 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate prompt: $error')),
+        SnackBar(content: Text('Failed to generate prompt: ${_formatCaughtError(error)}')),
       );
     } finally {
       if (mounted) setState(() => _llmPromptLoading = false);
@@ -1515,7 +1515,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
+      ).showSnackBar(SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')));
     } finally {
       if (mounted) setState(() => _llmImporting = false);
     }
@@ -3932,7 +3932,7 @@ class _TaskDeliveryTargetPickerSheetState
                     _TaskDeliveryNotice(
                       icon: Icons.warning_amber_rounded,
                       title: 'Discovery failed',
-                      detail: snapshot.error.toString(),
+                      detail: _formatCaughtError(snapshot.error!),
                     )
                   else if (targets.isEmpty)
                     _TaskDeliveryNotice(

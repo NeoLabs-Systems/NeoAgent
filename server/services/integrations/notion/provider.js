@@ -3,9 +3,11 @@
 const { describeEnvStatus, resolveNotionOAuthConfig } = require('../env');
 const {
   appendQuery,
+  buildPinnedApiUrl,
   createOAuthProvider,
   fetchJson,
 } = require('../oauth_provider');
+const { requireText } = require('../../../utils/text');
 
 const NOTION_APPS = [
   {
@@ -166,25 +168,8 @@ const notionToolDefinitions = [
   },
 ];
 
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
-
 function notionUrl(path, query) {
-  const url = new URL(
-    String(path || '').startsWith('http')
-      ? String(path)
-      : `https://api.notion.com${String(path || '').startsWith('/') ? '' : '/'}${path}`,
-  );
-  if (url.hostname !== 'api.notion.com') {
-    throw new Error('Notion API request URL must target api.notion.com.');
-  }
-  for (const [key, value] of Object.entries(query || {})) {
-    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-  }
-  return url.toString();
+  return buildPinnedApiUrl('api.notion.com', path, query, { label: 'Notion' }).toString();
 }
 
 async function notionRequest(context, { method = 'GET', path, query, body }) {

@@ -13,14 +13,6 @@ const MAX_TTS_CHUNK_CHARS = 220;
 
 const IMPLEMENTATIONS = Object.freeze({ openai, deepgram, gemini });
 
-function guessExtFromMimeType(mimeType) {
-  const mime = String(mimeType || '').toLowerCase();
-  if (mime.includes('wav')) return 'wav';
-  if (mime.includes('ogg')) return 'ogg';
-  if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
-  return 'mp3';
-}
-
 async function transcribeVoiceInput(filePath, options = {}) {
   const provider = defaults.normalizeSttProvider(options.provider);
   const model = defaults.resolveSttModel(provider, options.model);
@@ -118,7 +110,6 @@ async function synthesizeVoiceReplyStream(text, options = {}, onChunk) {
 
 module.exports = {
   ...defaults,
-  guessExtFromMimeType,
   splitIntoSentenceChunks,
   synthesizeVoiceReply,
   synthesizeVoiceReplyStream,

@@ -1,17 +1,11 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
-const { DATA_DIR } = require('../../../runtime/paths');
-const { writeBufferAtomic } = require('../../utils/files');
 const { decodeBase64Image } = require('../../utils/image_payload');
 const {
   DESKTOP_COMMANDS,
   DesktopCompanionUnavailableError,
 } = require('./protocol');
-
-const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
-if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 class DesktopProvider {
   constructor(options = {}) {
@@ -27,36 +21,27 @@ class DesktopProvider {
   }
 
   async _writeScreenshotArtifact(image, result = {}, options = {}) {
-    if (this.artifactStore && this.userId != null) {
-      const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
-        kind: 'desktop-screenshot',
-        backend: 'desktop-companion',
-        extension: image.extension,
-        contentType: image.contentType,
-        filenameBase: 'desktop-companion-screenshot',
-        content: image.buffer,
-        signal: options.signal,
-        metadata: {
-          deviceId: result.device?.deviceId || null,
-          displayId: result.displayId || result.device?.activeDisplayId || null,
-        },
-      });
-      return {
-        screenshotPath: artifact.url,
-        artifactId: artifact.artifactId,
-        filename: path.basename(artifact.storagePath),
-        fullPath: artifact.storagePath,
-      };
+    if (!this.artifactStore || this.userId == null) {
+      throw new Error('Screenshot storage is unavailable.');
     }
-
-    const filename = `desktop_${Date.now()}_${Math.random().toString(16).slice(2)}.${image.extension}`;
-    const fullPath = path.join(SCREENSHOTS_DIR, filename);
-    await writeBufferAtomic(fullPath, image.buffer, { signal: options.signal });
+    const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+      kind: 'desktop-screenshot',
+      backend: 'desktop-companion',
+      extension: image.extension,
+      contentType: image.contentType,
+      filenameBase: 'desktop-companion-screenshot',
+      content: image.buffer,
+      signal: options.signal,
+      metadata: {
+        deviceId: result.device?.deviceId || null,
+        displayId: result.displayId || result.device?.activeDisplayId || null,
+      },
+    });
     return {
-      screenshotPath: `/screenshots/${filename}`,
-      artifactId: null,
-      filename,
-      fullPath,
+      screenshotPath: artifact.url,
+      artifactId: artifact.artifactId,
+      filename: path.basename(artifact.storagePath),
+      fullPath: artifact.storagePath,
     };
   }
 

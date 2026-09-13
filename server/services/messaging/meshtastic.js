@@ -4,15 +4,10 @@ const { BasePlatform } = require('./base');
 const { readMeshtasticEnabled } = require('./meshtastic_env');
 const { MeshtasticTcpTransport } = require('./meshtastic_tcp_transport');
 const { BROADCAST_NUM } = require('./meshtastic_protocol');
+const { requireText } = require('../../utils/text');
 
 const DEFAULT_TCP_PORT = 4403;
 const DEFAULT_CHANNEL = 0;
-
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required`);
-  return text;
-}
 
 function parseTcpHost(input) {
   const raw = requireText(input, 'Meshtastic device IP address');

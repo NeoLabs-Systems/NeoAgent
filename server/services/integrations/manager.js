@@ -15,6 +15,7 @@ const {
   waitForAbortableResult,
 } = require('./http');
 const { throwIfAborted } = require('../../utils/abort');
+const { upsertConnectedIntegration } = require('./connection_store');
 
 const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
 
@@ -405,37 +406,16 @@ class IntegrationManager {
     );
     assertDurableOAuthCredentials(provider, mergedCredentials);
 
-    db.prepare(
-      `INSERT INTO integration_connections (
-         user_id,
-         agent_id,
-         provider_key,
-         app_key,
-         status,
-         account_email,
-         scopes_json,
-         credentials_json,
-         metadata_json,
-         last_connected_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-         status = 'connected',
-         scopes_json = excluded.scopes_json,
-         credentials_json = excluded.credentials_json,
-         metadata_json = excluded.metadata_json,
-         last_connected_at = excluded.last_connected_at,
-         updated_at = excluded.updated_at`,
-    ).run(
-      stateRow.user_id,
-      stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
-      provider.key,
-      stateRow.app_key,
-      result.accountEmail,
-      JSON.stringify(result.scopes || []),
-      encryptValue(JSON.stringify(mergedCredentials)),
-      JSON.stringify(result.metadata || {}),
-    );
+    upsertConnectedIntegration({
+      userId: stateRow.user_id,
+      agentId: stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
+      providerKey: provider.key,
+      appKey: stateRow.app_key,
+      accountEmail: result.accountEmail,
+      scopes: result.scopes || [],
+      credentialsJson: encryptValue(JSON.stringify(mergedCredentials)),
+      metadata: result.metadata || {},
+    });
 
     this.persistSharedCredentials(
       stateRow.user_id,

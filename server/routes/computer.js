@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { uploadDesktopCommandOutput } = require('../services/desktop/command_output_upload');
 const { buildComputerDisplayPage } = require('../services/runtime/computer_display');
+const { GUEST_WORKSPACE_DIR } = require('../services/runtime/guest_paths');
 
 const router = express.Router();
 const MAX_EDIT_BYTES = 1024 * 1024;
@@ -359,7 +360,9 @@ router.post('/shell/execute', route((req, manager) => {
     req.session.userId,
     String(req.body?.command || ''),
     {
-      cwd: req.body?.cwd,
+      // The interactive terminal runs in the agent workspace unless the caller
+      // pins a directory, so clients do not need to know the guest layout.
+      cwd: req.body?.cwd || GUEST_WORKSPACE_DIR,
       timeout: req.body?.timeout,
       stdinInput: req.body?.stdinInput,
       pty: req.body?.pty === true,

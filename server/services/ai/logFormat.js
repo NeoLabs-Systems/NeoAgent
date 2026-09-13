@@ -1,8 +1,6 @@
 'use strict';
 
-// Small, dependency-free helpers for shaping values into safe log lines and
-// for tolerant JSON parsing. Shared across the AI engine and its sibling
-// modules so log formatting stays consistent and testable.
+const { parseMaybeJson } = require('../../utils/text');
 
 function shortenRunId(runId) {
   const value = String(runId || '').trim();
@@ -27,16 +25,6 @@ function summarizeForLog(value, maxChars = 220) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxChars) return normalized;
   return `${normalized.slice(0, maxChars)}...`;
-}
-
-function parseMaybeJson(value, fallback = null) {
-  if (!value) return fallback;
-  if (typeof value === 'object') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
 }
 
 module.exports = {

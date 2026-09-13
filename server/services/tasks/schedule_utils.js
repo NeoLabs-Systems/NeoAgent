@@ -184,35 +184,8 @@ function findNextRun(expression, fromDate = new Date(), maxLookaheadMinutes = 36
   return null;
 }
 
-function getMinimumIntervalMinutes(expression, occurrenceCount = 3) {
-  const matches = [];
-  let cursor = new Date();
-  for (let index = 0; index < occurrenceCount; index += 1) {
-    const next = findNextRun(expression, cursor);
-    if (!next) {
-      break;
-    }
-    matches.push(next);
-    cursor = new Date(next.getTime());
-  }
-  if (matches.length < 2) {
-    return null;
-  }
-
-  let minInterval = Number.POSITIVE_INFINITY;
-  for (let index = 1; index < matches.length; index += 1) {
-    const intervalMinutes = Math.round((matches[index].getTime() - matches[index - 1].getTime()) / MINUTE_MS);
-    if (intervalMinutes < minInterval) {
-      minInterval = intervalMinutes;
-    }
-  }
-
-  return Number.isFinite(minInterval) ? minInterval : null;
-}
-
 module.exports = {
   findNextRun,
-  getMinimumIntervalMinutes,
   matchesCron,
   parseCronExpression,
 };

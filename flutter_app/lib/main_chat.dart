@@ -643,7 +643,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         const SizedBox(height: 16),
       ],
       if (controller.errorMessage != null) ...<Widget>[
-        _InlineError(message: controller.errorMessage!),
+        _InlineError(
+          message: controller.errorMessage!,
+          onDismiss: controller.clearInlineError,
+        ),
         const SizedBox(height: 16),
       ],
       if (controller.activeRun != null || controller.toolEvents.isNotEmpty)
@@ -1035,28 +1038,6 @@ class _RateLimitStatusCard extends StatelessWidget {
 
   final AccountUsageAndLimits usage;
 
-  String _formatTokens(int amount) {
-    if (amount >= 1000000) {
-      final value = amount / 1000000;
-      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}M';
-    }
-    if (amount >= 1000) {
-      final value = amount / 1000;
-      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}k';
-    }
-    return amount.toString();
-  }
-
-  String? _nextDropLabel(DateTime? value) {
-    if (value == null) return null;
-    final remaining = value.difference(DateTime.now());
-    if (remaining.isNegative) return 'Usage updates shortly';
-    if (remaining.inHours > 0) {
-      return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
-    }
-    return 'Next usage drop in ${remaining.inMinutes + 1}m';
-  }
-
   Widget _buildWindow({
     required String label,
     required int usageAmount,
@@ -1072,7 +1053,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         : progress >= 0.8
         ? _warning
         : _accent;
-    final nextDrop = _nextDropLabel(nextDecreaseAt);
+    final nextDrop = _nextUsageDropLabel(nextDecreaseAt);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1081,7 +1062,7 @@ class _RateLimitStatusCard extends StatelessWidget {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(
-              reached ? 'Limit reached' : '${_formatTokens(remaining)} left',
+              reached ? 'Limit reached' : '${_formatTokenCount(remaining)} left',
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -1102,7 +1083,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '${_formatTokens(usageAmount)} / ${_formatTokens(limit)} tokens'
+          '${_formatTokenCount(usageAmount)} / ${_formatTokenCount(limit)} tokens'
           '${nextDrop == null ? '' : ' · $nextDrop'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
@@ -2371,7 +2352,10 @@ class _MessagingActivityItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  message.content.ifEmpty('[empty]'),
+                  message.content.trim().isEmpty
+                      ? 'No message text'
+                      : message.content,
+
                   style: TextStyle(color: _textSecondary, height: 1.35),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -2867,7 +2851,10 @@ class _RunsPanelState extends State<RunsPanel> {
             children: <Widget>[
               header,
               if (controller.errorMessage != null) ...<Widget>[
-                _InlineError(message: controller.errorMessage!),
+                _InlineError(
+                  message: controller.errorMessage!,
+                  onDismiss: controller.clearInlineError,
+                ),
                 const SizedBox(height: 12),
               ],
               if (controller.activeRun != null ||
@@ -5135,9 +5122,9 @@ class _RunHeroCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0x19EF4444),
+                  color: _danger.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0x4CEF4444)),
+                  border: Border.all(color: _danger.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   run.error,

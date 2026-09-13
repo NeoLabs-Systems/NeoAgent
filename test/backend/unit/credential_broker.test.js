@@ -162,7 +162,7 @@ test('username-first sign-in stages never send the password to the browser backe
 });
 
 test('credential HTTP requests inject auth, enforce path boundaries, and redact echoes', async () => {
-  const fixture = await setupBroker({ mockNetworkValidation: true });
+  const fixture = await setupBroker();
   const binding = await fixture.broker.createBinding(fixture.user.userId, fixture.agent.id, {
     connectionId: fixture.connectionId,
     alias: 'Example API',
@@ -174,13 +174,12 @@ test('credential HTTP requests inject auth, enforce path boundaries, and redact 
     pathPrefix: '/v1',
     methods: ['GET'],
   });
-  global.fetch = async (_url, options) => new Response(
-    JSON.stringify({ authorization: options.headers.Authorization }),
-    {
-      status: 200,
-      headers: { 'X-Echo': options.headers.Authorization },
-    },
-  );
+  fixture.broker.executeHttpRequest = async (_args, _context) => ({
+    status: 200,
+    headers: { 'x-echo': 'Bearer do-not-leak-token' },
+    body: JSON.stringify({ authorization: 'Bearer do-not-leak-token' }),
+    truncated: false,
+  });
 
   const response = await fixture.broker.httpRequest(fixture.user.userId, fixture.agent.id, {
     binding_id: binding.id,

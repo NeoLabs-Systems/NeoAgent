@@ -4,15 +4,10 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../db/database');
 const { encryptValue, decryptValue } = require('../integrations/secrets');
+const { safeEqual } = require('../../utils/security');
 
 const MAX_PAYLOAD_BYTES = 256 * 1024;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
-
-function safeEqual(left, right) {
-  const a = Buffer.from(String(left || ''), 'utf8');
-  const b = Buffer.from(String(right || ''), 'utf8');
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
 
 class TaskWebhookService {
   constructor(options = {}) {

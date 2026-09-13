@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../main.dart'; // To access NeoAgentController
+
+import '../../../main.dart';
+import '../../../src/error_text.dart';
 
 class RetrievalInspectorView extends StatefulWidget {
   final NeoAgentController controller;
@@ -40,7 +42,7 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = formatCaughtError(e);
       });
     } finally {
       if (mounted) {

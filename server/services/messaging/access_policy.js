@@ -214,10 +214,6 @@ function normalizeMode(value, fallback) {
   return ACCESS_MODE_SET.has(normalized) ? normalized : fallback;
 }
 
-function defaultSharedPolicyForPlatform(platform) {
-  return getPlatformAccessCapabilities(platform).supportsSharedPolicy ? 'allowlist' : 'disabled';
-}
-
 function createDefaultAccessPolicy(platform) {
   const capabilities = getPlatformAccessCapabilities(platform);
   return {
@@ -835,14 +831,6 @@ function buildBlockedSenderPayload(platform, context, options = {}) {
     meta: options.meta || '',
     suggestions: buildBlockedSenderSuggestions(platform, context, options),
   };
-}
-
-function describeRules(rules) {
-  if (!Array.isArray(rules) || rules.length === 0) return 'none';
-  return rules
-    .slice(0, 3)
-    .map((rule) => `${labelForScope(rule.scope)}:${rule.value}`)
-    .join(', ');
 }
 
 function accessModeLabel(mode) {

@@ -753,6 +753,9 @@ class BrowserController {
       let artifactRecord = null;
       let filename = `screenshot_${Date.now()}.png`;
       let filepath = path.join(SCREENSHOTS_DIR, filename);
+      if (this.userId != null && !this.artifactStore) {
+        throw new Error('Screenshot storage is unavailable.');
+      }
       if (this.artifactStore && this.userId != null) {
         artifactRecord = this.artifactStore.allocateFile(this.userId, {
           kind: 'browser-screenshot',

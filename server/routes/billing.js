@@ -9,6 +9,7 @@ const { getStripeConfig } = require('../services/billing/config');
 const { listPlans } = require('../services/billing/plans');
 const subs = require('../services/billing/subscriptions');
 const { getStripeClient } = require('../services/billing/stripe_client');
+const { sendJsonError } = require('../http/errors');
 
 function isValidHttpsUrl(value) {
   try {
@@ -26,7 +27,7 @@ router.get('/plans', (req, res) => {
   try {
     res.json({ plans: listPlans() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -40,7 +41,7 @@ router.get('/', (req, res) => {
     const { publicKey } = getStripeConfig();
     res.json({ subscription, stripePublishableKey: publicKey || null });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -56,7 +57,7 @@ router.post('/checkout', async (req, res) => {
     const url = await subs.createCheckoutSession(req.session.userId, planId, successUrl, cancelUrl);
     res.json({ url });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -70,7 +71,7 @@ router.post('/portal', async (req, res) => {
     const url = await subs.createCustomerPortalSession(req.session.userId, returnUrl);
     res.json({ url });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -87,7 +88,7 @@ router.post('/trial', async (req, res) => {
     const result = await subs.startTrial(req.session.userId, planId, { ip, deviceFp: deviceFingerprint });
     res.json({ subscription: result.subscription });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -96,7 +97,7 @@ router.post('/cancel', async (req, res) => {
     await subs.cancelSubscription(req.session.userId);
     res.json({ ok: true });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -120,7 +121,7 @@ router.get('/invoices', async (req, res) => {
     }));
     res.json({ invoices });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 

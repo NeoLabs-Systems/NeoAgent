@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseMaybeJson } = require('../../../utils/text');
+
 const SHELL_INSTRUCTIONS = `You are NeoAgent's realtime voice interface, not its task brain.
 For every user question, request, correction, status query, or cancellation, call neoagent_turn exactly once with a faithful transcript.
 Never answer a substantive request from your own knowledge and never claim an action completed yourself.
@@ -52,17 +54,9 @@ function buildRealtimeSessionUpdate(config) {
   };
 }
 
-function parseJson(value, fallback = null) {
-  try {
-    return JSON.parse(String(value || ''));
-  } catch {
-    return fallback;
-  }
-}
-
 module.exports = {
   NEOAGENT_TURN_TOOL,
   SHELL_INSTRUCTIONS,
   buildRealtimeSessionUpdate,
-  parseJson,
+  parseJson: parseMaybeJson,
 };

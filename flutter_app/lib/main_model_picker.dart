@@ -1,9 +1,5 @@
 part of 'main.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Model Picker — option type, helpers, button, and dialog
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _ModelPickerOption {
   const _ModelPickerOption({
     required this.value,

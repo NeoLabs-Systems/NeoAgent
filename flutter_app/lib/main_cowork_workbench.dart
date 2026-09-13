@@ -317,7 +317,7 @@ class _CoworkFileExplorerState extends State<_CoworkFileExplorer> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = _formatCaughtError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -340,7 +340,7 @@ class _CoworkFileExplorerState extends State<_CoworkFileExplorer> {
       setState(() => _content = content);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = _formatCaughtError(error));
     } finally {
       if (mounted) setState(() => _loadingFile = false);
     }

@@ -13,6 +13,7 @@ const {
   isEncryptedValue,
 } = require('../services/integrations/secrets');
 const { runSchemaMigrations } = require('../../lib/schema_migrations');
+const { SKILL_VERSIONING_TABLES } = require('../../lib/shared_schema');
 ensureRuntimeDirs();
 
 const DB_PATH = DATABASE_FILE;
@@ -449,32 +450,7 @@ db.exec(`
     updated_at TEXT DEFAULT (datetime('now'))
   );
 
-  CREATE TABLE IF NOT EXISTS agent_skill_versions (
-    id TEXT PRIMARY KEY,
-    skill_id TEXT NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
-    name TEXT NOT NULL,
-    content_md TEXT NOT NULL DEFAULT '',
-    metadata_json TEXT NOT NULL DEFAULT '{}',
-    evaluation_score REAL,
-    validated_at TEXT,
-    status TEXT NOT NULL DEFAULT 'candidate'
-      CHECK(status IN ('candidate', 'validated', 'retired', 'rolled_back')),
-    created_at TEXT DEFAULT (datetime('now')),
-    UNIQUE(skill_id, version)
-  );
-
-  CREATE TABLE IF NOT EXISTS agent_skill_evaluations (
-    id TEXT PRIMARY KEY,
-    skill_version_id TEXT NOT NULL,
-    run_id TEXT,
-    score REAL,
-    outcome TEXT,
-    notes TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (skill_version_id) REFERENCES agent_skill_versions(id) ON DELETE CASCADE,
-    FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE SET NULL
-  );
+  ${SKILL_VERSIONING_TABLES}
 
   CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
@@ -1889,24 +1865,11 @@ migrateIntegrationOauthStatesTable();
 migrateIntegrationProviderConfigsTable();
 createAgentScopedIndexes();
 
+// The table itself comes from the base schema above; these indexes are applied
+// separately because an older local database may predate the current shape and
+// must not take down startup.
 try {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS timeline_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      agent_id TEXT,
-      source_kind TEXT NOT NULL,
-      event_kind TEXT NOT NULL,
-      occurred_at TEXT NOT NULL,
-      title TEXT NOT NULL,
-      summary TEXT,
-      source_id TEXT,
-      group_key TEXT,
-      metadata_json TEXT DEFAULT '{}',
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
-    );
     CREATE INDEX IF NOT EXISTS idx_timeline_events_user ON timeline_events(user_id, occurred_at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS idx_timeline_events_source ON timeline_events(user_id, source_kind, occurred_at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS idx_timeline_events_group ON timeline_events(user_id, source_kind, group_key, occurred_at DESC, id DESC);

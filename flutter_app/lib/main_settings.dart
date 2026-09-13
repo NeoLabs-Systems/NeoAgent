@@ -386,7 +386,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             ),
           if (controller.errorMessage != null) ...<Widget>[
-            _InlineError(message: controller.errorMessage!),
+            _InlineError(
+              message: controller.errorMessage!,
+              onDismiss: controller.clearInlineError,
+            ),
             const SizedBox(height: 16),
           ],
           TextField(
@@ -1968,9 +1971,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           ? Icons.check_circle_rounded
                           : Icons.cancel_rounded,
                       size: 15,
-                      color: passed
-                          ? const Color(0xFF22C55E)
-                          : const Color(0xFFEF4444),
+                      color: passed ? _success : _danger,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -1980,7 +1981,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             : detail,
                         style: TextStyle(
                           fontSize: 13,
-                          color: passed ? null : const Color(0xFFEF4444),
+                          color: passed ? null : _danger,
                         ),
                       ),
                     ),

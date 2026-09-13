@@ -17,11 +17,6 @@ function getAdapterForPlatform(platform) {
   return ADAPTERS.find((adapter) => adapter.platform === normalized) || null;
 }
 
-function getSupportedAdapters() {
-  return [...ADAPTERS];
-}
-
 module.exports = {
   getAdapterForPlatform,
-  getSupportedAdapters,
 };

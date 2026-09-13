@@ -8,6 +8,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
 const { coerceWritableText } = require('./services/workspace/text_edits');
+const { safeEqual } = require('./utils/security');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -23,6 +24,10 @@ function resolveGuestToken() {
 }
 
 const AUTH_TOKEN = resolveGuestToken();
+if (!AUTH_TOKEN) {
+  console.error('[GuestAgent] NEOAGENT_VM_GUEST_TOKEN or NEOAGENT_VM_GUEST_TOKEN_B64 is required.');
+  process.exit(1);
+}
 const RAW_GUEST_PROFILE = String(process.env.NEOAGENT_GUEST_PROFILE || 'browser_cli').trim();
 const GUEST_PROFILE = ['android', 'browser', 'cli', 'browser_cli'].includes(RAW_GUEST_PROFILE)
   ? RAW_GUEST_PROFILE
@@ -85,15 +90,10 @@ function isInsideAllowedRoots(targetPath) {
 }
 
 function requireToken(req, res, next) {
-  if (!AUTH_TOKEN) {
-    // Token not configured in this environment — allow but unauthenticated.
-    // Pass NEOAGENT_VM_GUEST_TOKEN to the container to enforce auth.
-    return next();
-  }
   const header = String(req.headers?.authorization || '').trim();
   const prefix = 'Bearer ';
   const provided = header.startsWith(prefix) ? header.slice(prefix.length).trim() : '';
-  if (!provided || provided !== AUTH_TOKEN) {
+  if (!safeEqual(provided, AUTH_TOKEN)) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
   return next();

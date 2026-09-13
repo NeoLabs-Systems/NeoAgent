@@ -68,14 +68,6 @@ function resolveMicrosoftOAuthConfig() {
   };
 }
 
-function resolveHomeAssistantOAuthConfig() {
-  const base = resolveOAuthConfig('HOME_ASSISTANT');
-  return {
-    ...base,
-    baseUrl: trimEnv('HOME_ASSISTANT_BASE_URL').replace(/\/$/, ''),
-  };
-}
-
 function resolveSpotifyOAuthConfig() {
   return resolveOAuthConfig('SPOTIFY');
 }
@@ -104,7 +96,6 @@ function describeEnvStatus(config, options = {}) {
 module.exports = {
   describeEnvStatus,
   resolveFigmaOAuthConfig,
-  resolveHomeAssistantOAuthConfig,
   resolveMicrosoftOAuthConfig,
   resolveNotionOAuthConfig,
   resolveOAuthConfig,

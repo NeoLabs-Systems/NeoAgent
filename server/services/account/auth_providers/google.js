@@ -1,27 +1,17 @@
 'use strict';
 
-const crypto = require('crypto');
 const { google } = require('googleapis');
 const {
   describeEnvStatus,
   resolveGoogleOAuthConfig,
 } = require('../../integrations/env');
+const { base64UrlSha256 } = require('../../../utils/security');
 
 const GOOGLE_AUTH_SCOPES = [
   'openid',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile',
 ];
-
-function base64UrlSha256(value) {
-  return crypto
-    .createHash('sha256')
-    .update(String(value || ''))
-    .digest('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
 
 function createOAuthClient() {
   const config = resolveGoogleOAuthConfig();

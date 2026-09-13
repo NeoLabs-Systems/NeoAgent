@@ -1,19 +1,7 @@
 'use strict';
 
 const db = require('../../db/database');
-
-function parseJsonObject(value, fallback = {}) {
-  if (!value) return { ...fallback };
-  if (typeof value === 'object' && !Array.isArray(value)) return { ...value };
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : { ...fallback };
-  } catch {
-    return { ...fallback };
-  }
-}
+const { parseJsonObject } = require('../../utils/text');
 
 function recordRunEvent({
   runId,

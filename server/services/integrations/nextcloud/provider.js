@@ -23,6 +23,8 @@ const { CONTACT_TOOLS, executeContactsTool } = require('./contacts');
 const { FILE_TOOLS, executeFilesTool } = require('./files');
 const { pollLoginFlow, revokeAppPassword, startLoginFlow } = require('./login');
 const { normalizeBaseUrl, text } = require('./network');
+const { parseJsonObject } = require('../../../utils/text');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 const TOOLS = Object.freeze([...FILE_TOOLS, ...CALENDAR_TOOLS, ...CONTACT_TOOLS]);
 const SESSION_TTL_MS = LOGIN_TIMEOUT_MS + 60_000;
@@ -76,45 +78,25 @@ function accountEmailForUser(baseUrl, user) {
   return text(user.email) || `${text(user.id) || 'nextcloud'}@${host}`;
 }
 
-function parseJsonObject(value) {
-  try {
-    const parsed = JSON.parse(String(value || '{}'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 function upsertAppConnection(userId, agentId, appId, accountEmail, credentials, metadata) {
   const existing = db.prepare(`SELECT * FROM integration_connections
     WHERE user_id=? AND agent_id=? AND provider_key=? AND app_key=? AND account_email=?`)
     .get(userId, agentId, PROVIDER_KEY, appId, accountEmail);
   const accessMode = getConnectionAccessMode(existing || null);
-  db.prepare(`INSERT INTO integration_connections (
-       user_id, agent_id, provider_key, app_key, status, account_email,
-       scopes_json, credentials_json, metadata_json, last_connected_at, updated_at
-     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-       status = excluded.status,
-       scopes_json = excluded.scopes_json,
-       credentials_json = excluded.credentials_json,
-       metadata_json = excluded.metadata_json,
-       last_connected_at = excluded.last_connected_at,
-       updated_at = excluded.updated_at`)
-    .run(
-      userId,
-      agentId,
-      PROVIDER_KEY,
-      appId,
-      accountEmail,
-      JSON.stringify(['nextcloud:dav', 'nextcloud:ocs']),
-      encryptValue(JSON.stringify(credentials)),
-      JSON.stringify({
-        ...parseJsonObject(existing?.metadata_json),
-        access_mode: accessMode,
-        ...metadata,
-      }),
-    );
+  upsertConnectedIntegration({
+    userId,
+    agentId,
+    providerKey: PROVIDER_KEY,
+    appKey: appId,
+    accountEmail,
+    scopes: ['nextcloud:dav', 'nextcloud:ocs'],
+    credentialsJson: encryptValue(JSON.stringify(credentials)),
+    metadata: {
+      ...parseJsonObject(existing?.metadata_json),
+      access_mode: accessMode,
+      ...metadata,
+    },
+  });
   return db.prepare(`SELECT * FROM integration_connections
     WHERE user_id=? AND agent_id=? AND provider_key=? AND app_key=? AND account_email=?`)
     .get(userId, agentId, PROVIDER_KEY, appId, accountEmail);

@@ -7,6 +7,11 @@ const {
   escapeScope,
   fetchJson,
 } = require('../oauth_provider');
+const {
+  expiresAtFromSeconds,
+  withRefreshedOAuthCredentials,
+} = require('../oauth_tokens');
+const { requireText } = require('../../../utils/text');
 
 const SLACK_APPS = [
   {
@@ -124,12 +129,6 @@ const slackToolDefinitions = [
   },
 ];
 
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
-
 async function slackApi(
   credentials,
   methodName,
@@ -157,17 +156,6 @@ async function slackApi(
     },
     { serviceName: 'Slack' },
   );
-}
-
-function expiresAtFromSeconds(expiresIn) {
-  const seconds = Number(expiresIn);
-  if (!Number.isFinite(seconds) || seconds <= 0) return null;
-  return new Date(Date.now() + seconds * 1000).toISOString();
-}
-
-function tokenExpiresSoon(credentials) {
-  const expiresAt = Date.parse(String(credentials?.expires_at || ''));
-  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 60 * 1000;
 }
 
 async function refreshSlackCredentials(credentials, signal) {
@@ -202,7 +190,7 @@ async function refreshSlackCredentials(credentials, signal) {
     access_token: userToken,
     refresh_token: nextRefreshToken,
     expires_in: expiresIn,
-    expires_at: expiresAtFromSeconds(expiresIn),
+    expires_at: expiresAtFromSeconds(expiresIn, { ifInvalid: 'null' }),
     bot_access_token: token.access_token || credentials.bot_access_token,
     token_type: token?.authed_user?.token_type || token.token_type || credentials.token_type,
     team: token.team || credentials.team || null,
@@ -215,23 +203,14 @@ async function refreshSlackCredentials(credentials, signal) {
 
 async function slackRequest(context, methodName, options = {}) {
   const { signal } = context;
-  let credentials = context.credentials;
-  if (tokenExpiresSoon(credentials)) {
-    credentials = await refreshSlackCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-  }
-
-  try {
-    return await slackApi(credentials, methodName, { ...options, signal });
-  } catch (error) {
-    const code = String(error?.data?.error || '').toLowerCase();
-    if (!credentials.refresh_token || !['invalid_auth', 'token_expired'].includes(code)) {
-      throw error;
-    }
-    credentials = await refreshSlackCredentials(credentials, signal);
-    context.updateCredentials(credentials);
-    return slackApi(credentials, methodName, { ...options, signal });
-  }
+  return withRefreshedOAuthCredentials(context, {
+    refresh: refreshSlackCredentials,
+    request: (activeCredentials) => slackApi(activeCredentials, methodName, { ...options, signal }),
+    shouldRetry: (error, credentials) => {
+      const code = String(error?.data?.error || '').toLowerCase();
+      return Boolean(credentials?.refresh_token) && ['invalid_auth', 'token_expired'].includes(code);
+    },
+  });
 }
 
 async function executeSlackTool(toolName, args, context) {
@@ -375,7 +354,7 @@ function createSlackProvider() {
           access_token: userToken,
           refresh_token: refreshToken,
           expires_in: expiresIn,
-          expires_at: expiresAtFromSeconds(expiresIn),
+          expires_at: expiresAtFromSeconds(expiresIn, { ifInvalid: 'null' }),
           bot_access_token: token.access_token,
           token_type: token.token_type,
           team: token.team || null,

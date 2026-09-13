@@ -32,6 +32,7 @@ import 'src/backend_client.dart';
 import 'src/backend_discovery_service.dart';
 import 'src/computer_display.dart';
 import 'src/desktop_companion.dart';
+import 'src/error_text.dart';
 import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
@@ -101,7 +102,7 @@ Future<void> runNeoAgentApp({
   runApp(NeoAgentApp(mode: mode));
 }
 
-const String _androidLaunchPlaceholder = 'com.android.settings';
+const String _androidDefaultLaunchPackage = 'com.android.settings';
 const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =

@@ -1,5 +1,29 @@
 part of 'main.dart';
 
+String _formatCaughtError(Object error) => formatCaughtError(error);
+
+String _formatTokenCount(int amount) {
+  if (amount >= 1000000) {
+    final value = amount / 1000000;
+    return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}M';
+  }
+  if (amount >= 1000) {
+    final value = amount / 1000;
+    return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}k';
+  }
+  return amount.toString();
+}
+
+String? _nextUsageDropLabel(DateTime? value) {
+  if (value == null) return null;
+  final remaining = value.difference(DateTime.now());
+  if (remaining.isNegative) return 'Usage updates shortly';
+  if (remaining.inHours > 0) {
+    return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+  }
+  return 'Next usage drop in ${remaining.inMinutes + 1}m';
+}
+
 EdgeInsets _pagePadding(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
   if (width >= 1280) {
@@ -13,11 +37,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 
 final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
 
-/// The app's single backdrop: a flat page ground.
-///
-/// Replaces the former ambient treatment (animated aurora field, arcade grid,
-/// vignette and confetti layers) that sat behind auth, setup, launcher and
-/// cowork. The five-tap logo easter egg survives on the badge itself.
+/// Flat page backdrop for auth, setup, launcher, and cowork.
 class _ControlSurfaceBackdrop extends StatelessWidget {
   const _ControlSurfaceBackdrop({required this.child});
 
@@ -2169,9 +2189,10 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
+  const _InlineError({required this.message, this.onDismiss});
 
   final String message;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -2183,7 +2204,21 @@ class _InlineError extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.tag),
         border: Border.all(color: _danger.withValues(alpha: 0.30)),
       ),
-      child: Text(message, style: TextStyle(color: _danger)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            child: Text(message, style: TextStyle(color: _danger)),
+          ),
+          if (onDismiss != null)
+            IconButton(
+              tooltip: 'Dismiss',
+              visualDensity: VisualDensity.compact,
+              onPressed: onDismiss,
+              icon: Icon(Icons.close_rounded, color: _danger, size: 18),
+            ),
+        ],
+      ),
     );
   }
 }

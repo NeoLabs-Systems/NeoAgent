@@ -3,6 +3,14 @@
 const { sanitizeError } = require('../utils/security');
 const { logRequestSummary } = require('../utils/logger');
 
+function sendJsonError(res, err, fallbackStatus = 500) {
+  const status = Number(err?.status || err?.statusCode || fallbackStatus) || fallbackStatus;
+  const message = status >= 500
+    ? sanitizeError(err)
+    : (err?.message || 'Request failed.');
+  return res.status(status).json({ error: message });
+}
+
 function registerErrorHandler(app) {
   app.use((err, req, res, next) => {
     const status = err.status || err.statusCode || 500;
@@ -34,4 +42,4 @@ function registerErrorHandler(app) {
   });
 }
 
-module.exports = { registerErrorHandler };
+module.exports = { registerErrorHandler, sendJsonError };

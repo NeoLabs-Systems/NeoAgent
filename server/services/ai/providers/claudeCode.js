@@ -29,10 +29,6 @@ function readTokenRecord(data) {
   };
 }
 
-function readTokenValue(data) {
-  return readTokenRecord(data).access;
-}
-
 function readClaudeCliTokenRecord() {
   try {
     const raw = fs.readFileSync(CLAUDE_CLI_CREDS_PATH, 'utf8');

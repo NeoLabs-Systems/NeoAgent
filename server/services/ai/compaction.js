@@ -134,13 +134,6 @@ function buildSummaryMessagesFromSource({ previousSummary = '', source = '' } = 
   ];
 }
 
-function buildSummaryMessages({ previousSummary = '', messages = [] } = {}) {
-  return buildSummaryMessagesFromSource({
-    previousSummary,
-    source: serializeForSummary(messages),
-  });
-}
-
 function applyCompaction(cut, summary) {
   return [
     ...cut.leading,
@@ -155,7 +148,6 @@ function applyCompaction(cut, summary) {
 module.exports = {
   SUMMARY_PREFIX,
   applyCompaction,
-  buildSummaryMessages,
   buildSummaryMessagesFromSource,
   estimateMessageTokens,
   estimateTokenCount,

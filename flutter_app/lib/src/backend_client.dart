@@ -2249,6 +2249,27 @@ class BackendClient {
       },
     );
   }
+
+  Future<Map<String, dynamic>> fetchGeofences(String baseUrl) {
+    return getMap(baseUrl, '/api/triggers/geofences');
+  }
+
+  Future<Map<String, dynamic>> triggerGeofenceEvent(
+    String baseUrl, {
+    required String label,
+    required double latitude,
+    required double longitude,
+    int? radiusMeters,
+    String? action,
+  }) {
+    return postMap(baseUrl, '/api/triggers/geofence', <String, dynamic>{
+      'label': label,
+      'latitude': latitude,
+      'longitude': longitude,
+      if (radiusMeters != null) 'radius_meters': radiusMeters,
+      if (action != null && action.trim().isNotEmpty) 'action': action,
+    });
+  }
 }
 
 class BackendException implements Exception {

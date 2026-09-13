@@ -1,17 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
 const { fetchResponseText } = require('../http');
-
-function base64UrlSha256(value) {
-  return crypto
-    .createHash('sha256')
-    .update(String(value || ''))
-    .digest('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
 
 async function githubApiRequest(auth, options = {}) {
   const {
@@ -104,7 +93,6 @@ function parseOwnerRepo(ownerRepo) {
 }
 
 module.exports = {
-  base64UrlSha256,
   buildPaginationParams,
   githubApiRequest,
   parseOwnerRepo,

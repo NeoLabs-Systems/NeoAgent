@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import 'android_app_installer.dart';
+import 'error_text.dart';
 
 const MethodChannel _androidAppInstallerChannel = MethodChannel(
   'neoagent/app_update',
@@ -74,7 +75,7 @@ class _IoAndroidAppInstaller implements AndroidAppInstaller {
         error: error.message ?? error.code,
       );
     } catch (error) {
-      return AndroidAppInstallResult(launched: false, error: error.toString());
+      return AndroidAppInstallResult(launched: false, error: formatCaughtError(error));
     }
   }
 
