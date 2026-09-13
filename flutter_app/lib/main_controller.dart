@@ -5005,6 +5005,27 @@ class NeoAgentController extends ChangeNotifier {
     return detail;
   }
 
+  Future<List<RunPromptTurn>> fetchRunPromptTurns(String runId) async {
+    final response = await _backendClient.fetchRunPromptTurns(backendUrl, runId);
+    final turns = response['turns'];
+    if (turns is! List) {
+      return const <RunPromptTurn>[];
+    }
+    return turns
+        .whereType<Map<dynamic, dynamic>>()
+        .map(RunPromptTurn.fromJson)
+        .toList();
+  }
+
+  Future<RunPromptSnapshot> fetchRunPrompt(
+    String runId,
+    String requestId,
+  ) async {
+    return RunPromptSnapshot.fromJson(
+      await _backendClient.fetchRunPrompt(backendUrl, runId, requestId),
+    );
+  }
+
   Future<void> deleteRun(String runId) async {
     try {
       await _backendClient.deleteRun(backendUrl, runId);

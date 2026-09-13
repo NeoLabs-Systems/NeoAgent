@@ -1760,6 +1760,104 @@ class RunDetailSnapshot {
       steps.where((step) => step.isPlanningRelated).length;
 }
 
+class RunPromptTurn {
+  const RunPromptTurn({
+    required this.requestId,
+    required this.phase,
+    required this.iteration,
+    required this.provider,
+    required this.model,
+    required this.messageCount,
+    required this.toolCount,
+    required this.characters,
+    required this.createdAt,
+  });
+
+  factory RunPromptTurn.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptTurn(
+      requestId: json['requestId']?.toString() ?? '',
+      phase: json['phase']?.toString() ?? 'model_turn',
+      iteration: _asInt(json['iteration']),
+      provider: json['provider']?.toString() ?? '',
+      model: json['model']?.toString() ?? '',
+      messageCount: _asInt(json['messageCount']),
+      toolCount: _asInt(json['toolCount']),
+      characters: _asInt(json['characters']),
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+    );
+  }
+
+  final String requestId;
+  final String phase;
+  final int iteration;
+  final String provider;
+  final String model;
+  final int messageCount;
+  final int toolCount;
+  final int characters;
+  final DateTime? createdAt;
+
+  String get label {
+    final phaseLabel = _titleCase(phase.replaceAll('_', ' '));
+    return iteration > 0 ? '$phaseLabel $iteration' : phaseLabel;
+  }
+}
+
+class RunPromptSection {
+  const RunPromptSection({
+    required this.role,
+    required this.label,
+    required this.text,
+    required this.characters,
+  });
+
+  factory RunPromptSection.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptSection(
+      role: json['role']?.toString() ?? 'unknown',
+      label: json['label']?.toString() ?? 'Section',
+      text: json['text']?.toString() ?? '',
+      characters: _asInt(json['characters']),
+    );
+  }
+
+  final String role;
+  final String label;
+  final String text;
+  final int characters;
+}
+
+class RunPromptSnapshot {
+  const RunPromptSnapshot({
+    required this.requestId,
+    required this.sections,
+    required this.toolNames,
+  });
+
+  factory RunPromptSnapshot.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptSnapshot(
+      requestId: json['requestId']?.toString() ?? '',
+      sections: _jsonMapList(json['sections'])
+          .map(RunPromptSection.fromJson)
+          .toList(),
+      toolNames: _jsonMapList(json['tools'])
+          .map((tool) => tool['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  final String requestId;
+  final List<RunPromptSection> sections;
+  final List<String> toolNames;
+
+  int get characters =>
+      sections.fold(0, (total, section) => total + section.characters);
+
+  String get plainText => sections
+      .map((section) => '### ${section.label} (${section.role})\n${section.text}')
+      .join('\n\n');
+}
+
 class ArtifactContractItem {
   const ArtifactContractItem({
     required this.kind,

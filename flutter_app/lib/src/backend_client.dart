@@ -712,6 +712,21 @@ class BackendClient {
     return getMap(baseUrl, '/api/agents/$runId/steps');
   }
 
+  Future<Map<String, dynamic>> fetchRunPromptTurns(
+    String baseUrl,
+    String runId,
+  ) async {
+    return getMap(baseUrl, '/api/agents/$runId/prompt');
+  }
+
+  Future<Map<String, dynamic>> fetchRunPrompt(
+    String baseUrl,
+    String runId,
+    String requestId,
+  ) async {
+    return getMap(baseUrl, '/api/agents/$runId/prompt/$requestId');
+  }
+
   Future<void> deleteRun(String baseUrl, String runId) async {
     await deleteMap(baseUrl, '/api/agents/$runId');
   }

@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { listRunEvents } = require('../services/ai/runEvents');
+const { listRunPromptTurns, getRunPromptTurn } = require('../services/ai/runtime/prompt_inspector');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
 const { buildAgentRunContext } = require('./_helpers/agentRunContext');
 
@@ -372,6 +373,27 @@ router.get('/:id/steps', (req, res) => {
   ).get(run.id) || null;
 
   res.json({ run, steps, events: listRunEvents(run.id), response, usage, lifecycle });
+});
+
+// List the journaled model requests for a run (prompt inspector)
+router.get('/:id/prompt', (req, res) => {
+  const run = db.prepare('SELECT id FROM agent_runs WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  if (!run) return res.status(404).json({ error: 'Run not found' });
+  res.json({ runId: run.id, turns: listRunPromptTurns(run.id) });
+});
+
+// Full prompt sent for one journaled model request
+router.get('/:id/prompt/:requestId', (req, res) => {
+  const run = db.prepare('SELECT id FROM agent_runs WHERE id = ? AND user_id = ?').get(req.params.id, req.session.userId);
+  if (!run) return res.status(404).json({ error: 'Run not found' });
+  try {
+    res.json(getRunPromptTurn(run.id, req.params.requestId));
+  } catch (err) {
+    if (err?.code === 'MODEL_REQUEST_NOT_RECONSTRUCTABLE') {
+      return res.status(404).json({ error: 'Prompt not found for this run' });
+    }
+    res.status(500).json({ error: sanitizeError(err) });
+  }
 });
 
 // Abort a run

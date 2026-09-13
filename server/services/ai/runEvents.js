@@ -60,6 +60,15 @@ function recordRunEvent({
   } : null;
 }
 
+// The model request journal stores the entire prompt on every turn. Run detail
+// feeds only need to know a request exists — the body is served on demand by
+// GET /api/agents/:id/prompt/:requestId.
+function stripJournaledRequest(event) {
+  if (event.eventType !== 'model.request_recorded') return event;
+  const { request, ...payload } = event.payload;
+  return { ...event, payload };
+}
+
 function listRunEvents(runId) {
   if (!runId) return [];
   const rows = db.prepare(
@@ -68,7 +77,7 @@ function listRunEvents(runId) {
      WHERE run_id = ?
      ORDER BY sequence_index ASC, id ASC`
   ).all(runId);
-  return rows.map((row) => ({
+  return rows.map((row) => stripJournaledRequest({
     id: Number(row.id),
     runId: row.run_id,
     userId: row.user_id,

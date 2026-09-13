@@ -2705,6 +2705,18 @@ class _RunsPanelState extends State<RunsPanel> {
     ).showSnackBar(const SnackBar(content: Text('Copied final response')));
   }
 
+  Future<void> _showPromptInspector() async {
+    final runId = _selectedRunId;
+    if (runId == null) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) =>
+          _RunPromptDialog(controller: widget.controller, runId: runId),
+    );
+  }
+
   Future<void> _deleteSelectedRun() async {
     final run = widget.controller.recentRuns.cast<RunSummary?>().firstWhere(
       (item) => item?.id == _selectedRunId,
@@ -2797,6 +2809,7 @@ class _RunsPanelState extends State<RunsPanel> {
       loading: _loadingDetail,
       onDelete: _deleteSelectedRun,
       onCopyResponse: _copyResponse,
+      onShowPrompt: _showPromptInspector,
     );
 
     return LayoutBuilder(
@@ -5037,10 +5050,15 @@ class _RunMetricCard extends StatelessWidget {
 }
 
 class _RunHeroCard extends StatelessWidget {
-  const _RunHeroCard({required this.run, required this.onDelete});
+  const _RunHeroCard({
+    required this.run,
+    required this.onDelete,
+    required this.onShowPrompt,
+  });
 
   final RunSummary run;
   final Future<void> Function() onDelete;
+  final Future<void> Function() onShowPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -5072,6 +5090,13 @@ class _RunHeroCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                IconButton(
+                  tooltip: 'Show full prompt',
+                  icon: const Icon(Icons.article_outlined, size: 18),
+                  onPressed: onShowPrompt,
+                  visualDensity: VisualDensity.compact,
+                  color: _textSecondary,
+                ),
                 IconButton(
                   tooltip: 'Delete run',
                   icon: const Icon(Icons.delete_outline, size: 18),
@@ -5135,6 +5160,263 @@ class _RunHeroCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RunPromptDialog extends StatefulWidget {
+  const _RunPromptDialog({required this.controller, required this.runId});
+
+  final NeoAgentController controller;
+  final String runId;
+
+  @override
+  State<_RunPromptDialog> createState() => _RunPromptDialogState();
+}
+
+class _RunPromptDialogState extends State<_RunPromptDialog> {
+  List<RunPromptTurn> _turns = const <RunPromptTurn>[];
+  String? _selectedRequestId;
+  RunPromptSnapshot? _snapshot;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadTurns());
+  }
+
+  Future<void> _loadTurns() async {
+    try {
+      final turns = await widget.controller.fetchRunPromptTurns(widget.runId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _turns = turns;
+        _loading = false;
+      });
+      if (turns.isNotEmpty) {
+        await _loadTurn(turns.first.requestId);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = widget.controller.friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _loadTurn(String requestId) async {
+    setState(() {
+      _selectedRequestId = requestId;
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final snapshot = await widget.controller.fetchRunPrompt(
+        widget.runId,
+        requestId,
+      );
+      if (!mounted || _selectedRequestId != requestId) {
+        return;
+      }
+      setState(() {
+        _snapshot = snapshot;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || _selectedRequestId != requestId) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = widget.controller.friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _copyPrompt() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: snapshot.plainText));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copied full prompt')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final snapshot = _snapshot;
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Row(
+        children: <Widget>[
+          Icon(Icons.article_outlined, color: _accent),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Full prompt',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          if (snapshot != null)
+            Text(
+              '${_formatNumber(snapshot.characters)} chars',
+              style: TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+        ],
+      ),
+      content: SizedBox(
+        width: size.width * 0.9 > 820 ? 820 : size.width * 0.9,
+        height: size.height * 0.7,
+        child: _buildBody(snapshot),
+      ),
+      actions: <Widget>[
+        TextButton.icon(
+          onPressed: snapshot == null ? null : _copyPrompt,
+          icon: const Icon(Icons.copy_all_outlined, size: 18),
+          label: const Text('Copy'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(RunPromptSnapshot? snapshot) {
+    if (_error != null) {
+      return Center(child: _InlineError(message: _error!));
+    }
+    if (_turns.isEmpty) {
+      return Center(
+        child: Text(
+          _loading
+              ? 'Loading prompt…'
+              : 'No model request was recorded for this run.',
+          style: TextStyle(color: _textSecondary),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _turns
+                .map(
+                  (turn) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(turn.label),
+                      selected: turn.requestId == _selectedRequestId,
+                      onSelected: (_) => _loadTurn(turn.requestId),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_loading || snapshot == null)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: snapshot.sections.length + 1,
+              itemBuilder: (context, index) {
+                if (index == snapshot.sections.length) {
+                  return _RunPromptToolsBlock(toolNames: snapshot.toolNames);
+                }
+                final section = snapshot.sections[index];
+                return _RunPromptSectionTile(
+                  section: section,
+                  initiallyExpanded: index == 0,
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RunPromptSectionTile extends StatelessWidget {
+  const _RunPromptSectionTile({
+    required this.section,
+    required this.initiallyExpanded,
+  });
+
+  final RunPromptSection section;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      initiallyExpanded: initiallyExpanded,
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 10),
+      title: Text(
+        section.label,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      ),
+      subtitle: Text(
+        '${section.role} · ${_formatNumber(section.characters)} chars',
+        style: TextStyle(color: _textSecondary, fontSize: 11),
+      ),
+      children: <Widget>[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _bgPrimary,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
+          ),
+          child: SelectableText(
+            section.text.isEmpty ? '(empty)' : section.text,
+            style: TextStyle(
+              height: 1.5,
+              fontSize: 12.5,
+              color: _textPrimary,
+              fontFamily: GoogleFonts.geistMono().fontFamily,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RunPromptToolsBlock extends StatelessWidget {
+  const _RunPromptToolsBlock({required this.toolNames});
+
+  final List<String> toolNames;
+
+  @override
+  Widget build(BuildContext context) {
+    if (toolNames.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _RunDetailBlock(
+      label: 'Tools offered (${toolNames.length})',
+      value: toolNames.join(', '),
+      monospace: true,
     );
   }
 }
@@ -6086,6 +6368,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
     required this.loading,
     required this.onDelete,
     required this.onCopyResponse,
+    required this.onShowPrompt,
   });
 
   final RunSummary? run;
@@ -6094,6 +6377,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
   final bool loading;
   final Future<void> Function() onDelete;
   final Future<void> Function(String) onCopyResponse;
+  final Future<void> Function() onShowPrompt;
 
   RunStepItem? get _selectedStep {
     if (nodeId == null || detail == null) return null;
@@ -6114,7 +6398,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _RunHeroCard(run: r, onDelete: onDelete),
+        _RunHeroCard(run: r, onDelete: onDelete, onShowPrompt: onShowPrompt),
         const SizedBox(height: 12),
         if (step != null) ...<Widget>[
           _RunSelectedStepCard(step: step),
