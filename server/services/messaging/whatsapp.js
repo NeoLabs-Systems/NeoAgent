@@ -5,11 +5,13 @@ const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
+const SENT_MESSAGE_MEMORY = 200;
 
 class WhatsAppPlatform extends BasePlatform {
   constructor(config = {}) {
     super('whatsapp', config);
-    this.supportsGroups = true;
+    this.selfChatMode = config.selfChatMode === true || config.selfChatMode === 'true';
+    this.supportsGroups = !this.selfChatMode;
     this.supportsMedia = true;
     this.sock = null;
     this.qrCode = null;
@@ -19,12 +21,14 @@ class WhatsAppPlatform extends BasePlatform {
     this.userId = config.userId;
     this._manualDisconnect = false;
     this._reconnectTimer = null;
+    this._sentMessageIds = new Set();
   }
 
   _ownIds() {
     return new Set([
       this.sock?.user?.id,
       this.sock?.user?.jid,
+      this.sock?.user?.lid,
     ]
       .map(normalizeWhatsAppId)
       .filter(Boolean));
@@ -55,7 +59,36 @@ class WhatsAppPlatform extends BasePlatform {
     return [...ownIds].some((id) => text.includes(`@${id}`));
   }
 
+  _isSelfChat(chatId) {
+    const normalized = normalizeWhatsAppId(chatId);
+    if (!normalized) return false;
+    return this._ownIds().has(normalized);
+  }
+
+  _rememberSentMessage(messageId) {
+    if (!messageId) return;
+    this._sentMessageIds.add(messageId);
+    if (this._sentMessageIds.size > SENT_MESSAGE_MEMORY) {
+      this._sentMessageIds.delete(this._sentMessageIds.values().next().value);
+    }
+  }
+
+  // Two independent signals separate what the user wrote from what this agent
+  // wrote: Baileys emits the socket's own sends as an 'append' upsert (never
+  // 'notify'), and every send records its message id here. Self-chat mode needs
+  // both, because there the user's own notes also arrive with fromMe set.
+  _shouldProcessInbound(msg, upsertType) {
+    if (upsertType !== 'notify') return false;
+    if (this._sentMessageIds.has(msg?.key?.id)) return false;
+    if (!this.selfChatMode) return msg?.key?.fromMe !== true;
+    return this._isSelfChat(msg?.key?.remoteJid);
+  }
+
   _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    // Self-chat mode only ever reaches this point for notes the account owner
+    // wrote in their own chat, so the allowlist has nothing left to decide.
+    if (this.selfChatMode) return { allowed: true };
+
     const senderId = normalizeWhatsAppId(sender);
     return this._checkInboundAccess({
       platform: 'whatsapp',
@@ -163,10 +196,8 @@ class WhatsAppPlatform extends BasePlatform {
     });
 
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
-
       for (const msg of messages) {
-        if (msg.key.fromMe) continue;
+        if (!this._shouldProcessInbound(msg, type)) continue;
 
         const chatId = msg.key.remoteJid;
         const isGroup = chatId?.endsWith('@g.us');
@@ -327,6 +358,27 @@ class WhatsAppPlatform extends BasePlatform {
     this.emit('disconnected', { manual: true });
   }
 
+  _outboundPayload(content, options) {
+    if (!options.mediaPath) return { text: content };
+
+    const media = fs.readFileSync(options.mediaPath);
+    const ext = path.extname(options.mediaPath).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      return { image: media, caption: content || undefined };
+    }
+    if (['.mp4', '.avi', '.mov'].includes(ext)) {
+      return { video: media, caption: content || undefined };
+    }
+    if (['.mp3', '.ogg', '.m4a'].includes(ext)) {
+      return { audio: media, mimetype: 'audio/mp4' };
+    }
+    return {
+      document: media,
+      fileName: path.basename(options.mediaPath),
+      caption: content || undefined
+    };
+  }
+
   async sendMessage(to, content, options = {}) {
     if (!this.sock || this.status !== 'connected') {
       throw new Error('WhatsApp not connected');
@@ -335,33 +387,9 @@ class WhatsAppPlatform extends BasePlatform {
     const jid = toWhatsAppJid(to);
     if (!jid) throw new Error('Invalid WhatsApp recipient');
 
-    if (options.mediaPath) {
-      const ext = path.extname(options.mediaPath).toLowerCase();
-      if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          image: fs.readFileSync(options.mediaPath),
-          caption: content || undefined
-        });
-      } else if (['.mp4', '.avi', '.mov'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          video: fs.readFileSync(options.mediaPath),
-          caption: content || undefined
-        });
-      } else if (['.mp3', '.ogg', '.m4a'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          audio: fs.readFileSync(options.mediaPath),
-          mimetype: 'audio/mp4'
-        });
-      } else {
-        return await this.sock.sendMessage(jid, {
-          document: fs.readFileSync(options.mediaPath),
-          fileName: path.basename(options.mediaPath),
-          caption: content || undefined
-        });
-      }
-    }
-
-    return await this.sock.sendMessage(jid, { text: content });
+    const sent = await this.sock.sendMessage(jid, this._outboundPayload(content, options));
+    this._rememberSentMessage(sent?.key?.id);
+    return sent;
   }
 
   async markRead(chatId, messageId) {

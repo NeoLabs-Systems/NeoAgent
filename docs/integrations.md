@@ -99,6 +99,16 @@ several webhook-backed services.
 Each channel has its own authentication and allowlist behavior. Restrict which
 chats, rooms, groups, and senders may start agent runs.
 
+WhatsApp links in one of two modes, chosen before you scan the QR code and
+switchable later with **Chat mode** on the WhatsApp card:
+
+- **Separate account** (default) links a number that belongs to the agent.
+  Direct chats and groups work, gated by the allowlist.
+- **Personal self-chat** links your own number and confines the agent to your
+  "Message yourself" chat. Notes you write there start a run and replies land in
+  the same chat; every other chat and group on the account is ignored, and the
+  allowlist no longer applies.
+
 Webhook-based channels require a reachable `PUBLIC_URL`. The generic inbound
 path is:
 

@@ -30,7 +30,10 @@ test('setup profiles normalize aliases and reject conflicting flags', () => {
     nonInteractive: false,
     runtimePackage: false,
     deferOptionalSections: false,
+    releaseChannel: null,
   });
+  assert.equal(parseSetupArguments(['--channel', 'beta']).releaseChannel, 'beta');
+  assert.equal(parseSetupArguments(['--channel=beta']).releaseChannel, 'beta');
   assert.throws(
     () => parseSetupArguments(['--quick', '--full']),
     (error) => error.code === 'SETUP_PROFILE_CONFLICT',

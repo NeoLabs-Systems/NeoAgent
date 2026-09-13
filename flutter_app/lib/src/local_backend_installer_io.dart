@@ -52,8 +52,9 @@ class LocalBackendInstaller {
   Stream<LocalBackendInstallEvent> get events => _events.stream;
 
   Future<LocalBackendInstallResult> install(
-    LocalBackendSetupProfile profile,
-  ) async {
+    LocalBackendSetupProfile profile, {
+    required String channel,
+  }) async {
     if (_disposed) {
       throw const LocalBackendInstallerException(
         'SETUP_INSTALLER_DISPOSED',
@@ -74,6 +75,7 @@ class LocalBackendInstaller {
       final release = await _releaseService.prepare(
         platform: _platformName(),
         architecture: _architectureName(),
+        channel: channel,
       );
       final artifact = release.artifact;
 
@@ -175,6 +177,7 @@ class LocalBackendInstaller {
           paths: paths,
           profile: profile,
           nodeExecutable: _activationService.nodeExecutable(versionDirectory),
+          channel: channel,
         );
       } on Object {
         await _activationService.rollback(

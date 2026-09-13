@@ -13,6 +13,7 @@ class LocalRuntimeStatus {
     required this.running,
     this.version,
     this.backendUrl,
+    this.releaseChannel,
     this.errorCode,
   });
 
@@ -20,6 +21,7 @@ class LocalRuntimeStatus {
   final bool running;
   final String? version;
   final String? backendUrl;
+  final String? releaseChannel;
   final String? errorCode;
 }
 
@@ -69,6 +71,7 @@ class LocalRuntimeManager {
               ? result['version'].toString().trim()
               : version,
           backendUrl: result['backendUrl']?.toString().trim(),
+          releaseChannel: result['releaseChannel']?.toString().trim(),
         );
       }
       return LocalRuntimeStatus(

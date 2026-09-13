@@ -3028,6 +3028,15 @@ class _MessagingCard extends StatelessWidget {
                   icon: Icons.tune_rounded,
                   label: 'Ready to connect',
                 ),
+              if (platform.id == 'whatsapp')
+                _MessagingMiniPill(
+                  icon: readWhatsAppSelfChatMode(controller)
+                      ? Icons.bookmark_border_rounded
+                      : Icons.smartphone_rounded,
+                  label: readWhatsAppSelfChatMode(controller)
+                      ? 'Self-chat'
+                      : 'Separate account',
+                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -3076,6 +3085,14 @@ class _MessagingCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(Icons.link_off_rounded),
+                ),
+              ],
+              if (platform.id == 'whatsapp') ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Chat mode',
+                  onPressed: onConnect,
+                  icon: Icon(Icons.swap_horiz_rounded),
                 ),
               ],
               const SizedBox(width: 8),
@@ -6569,16 +6586,203 @@ Future<void> openMessagingConfig(
 ) async {
   switch (platform.id) {
     case 'whatsapp':
-      await _connectMessagingPlatformHelper(
-        context,
-        controller,
-        platform: 'whatsapp',
-        platformLabel: platform.label,
-      );
-      return;
+      return _openWhatsAppModeDialog(context, controller, platform);
     default:
       return _openGenericMessagingConfigHelper(context, controller, platform);
   }
+}
+
+bool readWhatsAppSelfChatMode(NeoAgentController controller) {
+  final saved = _jsonMap(_decodeMaybeJson(controller.settings['whatsapp_config']));
+  return saved['selfChatMode'] == true ||
+      saved['selfChatMode']?.toString() == 'true';
+}
+
+Future<void> _openWhatsAppModeDialog(
+  BuildContext context,
+  NeoAgentController controller,
+  MessagingPlatformDescriptor platform,
+) async {
+  var selfChatMode = readWhatsAppSelfChatMode(controller);
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setLocalState) {
+          Widget modeTile({
+            required bool value,
+            required IconData icon,
+            required String title,
+            required String description,
+          }) {
+            final selected = selfChatMode == value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setLocalState(() => selfChatMode = value),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: selected
+                        ? platform.accent.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? platform.accent : _borderLight,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: selected ? platform.accent : _textSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                height: 1.4,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 20,
+                        color: selected ? platform.accent : _textMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 18,
+            ),
+            title: Row(
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: platform.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(platform.icon, color: platform.accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Connect WhatsApp',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'Pick how ${controller.activeAgentLabel} uses this account.',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    modeTile(
+                      value: false,
+                      icon: Icons.smartphone_rounded,
+                      title: 'Separate account',
+                      description:
+                          'Link a phone number that belongs to the agent. '
+                          'Anyone you allow can chat with it, in direct chats and groups.',
+                    ),
+                    modeTile(
+                      value: true,
+                      icon: Icons.bookmark_border_rounded,
+                      title: 'Personal self-chat',
+                      description:
+                          'Link your own number and talk to the agent in your '
+                          '"Message yourself" chat. Every other chat and group on '
+                          'this account is ignored.',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      selfChatMode
+                          ? 'Notes you write to yourself start a run, and replies land in the same chat. The allowlist does not apply here.'
+                          : 'Choose who may message the agent with "Who can message" on the WhatsApp card.',
+                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final config = <String, dynamic>{'selfChatMode': selfChatMode};
+                  final connected = await _connectMessagingPlatformHelper(
+                    context,
+                    controller,
+                    platform: platform.id,
+                    platformLabel: platform.label,
+                    config: config,
+                    configSnapshot: <String, dynamic>{
+                      platform.settingsKey: jsonEncode(config),
+                    },
+                  );
+                  if (connected && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: Text('Connect'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 Future<bool> _connectMessagingPlatformHelper(

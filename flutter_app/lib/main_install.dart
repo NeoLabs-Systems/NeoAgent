@@ -19,6 +19,7 @@ class _ServerPanelState extends State<ServerPanel> {
   LocalBackendInstallEvent? _currentEvent;
   LocalBackendInstallResult? _installResult;
   LocalBackendSetupProfile _profile = LocalBackendSetupProfile.quick;
+  String _channel = runtimeReleaseChannel;
   bool _checking = true;
   bool _installing = false;
   bool _actionRunning = false;
@@ -54,6 +55,7 @@ class _ServerPanelState extends State<ServerPanel> {
     if (!mounted) return;
     setState(() {
       _status = status;
+      _channel = status.releaseChannel ?? _channel;
       _checking = false;
     });
   }
@@ -67,7 +69,7 @@ class _ServerPanelState extends State<ServerPanel> {
       _events.clear();
     });
     try {
-      final result = await _installer.install(_profile);
+      final result = await _installer.install(_profile, channel: _channel);
       if (!mounted) return;
       setState(() => _installResult = result);
       await _refresh();
@@ -131,9 +133,21 @@ class _ServerPanelState extends State<ServerPanel> {
         if (_supportsDesktopShell) ...<Widget>[
           const SizedBox(height: 16),
           _localRuntimeCard(),
+          if (_showsAppUpdates) ...<Widget>[
+            const SizedBox(height: 16),
+            _appUpdateCard(),
+          ],
         ],
       ],
     );
+  }
+
+  bool get _showsAppUpdates {
+    final localBackendUrl = _status?.backendUrl;
+    return widget.controller.appUpdaterConfigured &&
+        _status?.installed == true &&
+        localBackendUrl != null &&
+        widget.controller.backendUrl == localBackendUrl;
   }
 
   Widget _selectedServerCard() {
@@ -241,6 +255,37 @@ class _ServerPanelState extends State<ServerPanel> {
                   setState(() => _profile = selection.first);
                 },
               ),
+              const SizedBox(height: 12),
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(
+                    value: 'stable',
+                    label: Text('Stable backend'),
+                    icon: Icon(Icons.verified_outlined),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'beta',
+                    label: Text('Beta backend'),
+                    icon: Icon(Icons.science_outlined),
+                  ),
+                ],
+                selected: <String>{_channel},
+                onSelectionChanged: (selection) {
+                  setState(() => _channel = selection.first);
+                },
+              ),
+              if (status?.releaseChannel != null &&
+                  status?.releaseChannel != _channel) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  'Installing switches this computer from the ${status!.releaseChannel} backend to the $_channel backend.',
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -369,6 +414,100 @@ class _ServerPanelState extends State<ServerPanel> {
                 style: TextStyle(color: _textMuted, fontSize: 12, height: 1.4),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _appUpdateCard() {
+    final controller = widget.controller;
+    final release = controller.availableAppUpdate;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'App updates',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Installed ${controller.installedAppVersion ?? 'Unknown'} • Last checked ${controller.appUpdateLastCheckedLabel}',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: 240,
+              child: DropdownButtonFormField<String>(
+                initialValue: controller.appUpdateChannel,
+                decoration: const InputDecoration(labelText: 'Release channel'),
+                items: const <DropdownMenuItem<String>>[
+                  DropdownMenuItem<String>(
+                    value: 'stable',
+                    child: Text('Stable'),
+                  ),
+                  DropdownMenuItem<String>(value: 'beta', child: Text('Beta')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    unawaited(controller.setAppUpdateChannel(value));
+                  }
+                },
+              ),
+            ),
+            if (release != null) ...<Widget>[
+              const SizedBox(height: 14),
+              Text(
+                '${release.title} • ${release.channelLabel} • ${release.asset.sizeLabel}',
+                style: TextStyle(color: _textSecondary, height: 1.45),
+              ),
+            ],
+            if (controller.appUpdateErrorMessage
+                case final message?) ...<Widget>[
+              const SizedBox(height: 14),
+              _InlineError(message: message),
+            ],
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: controller.isCheckingAppUpdate
+                      ? null
+                      : () => controller.checkForAppUpdates(),
+                  icon: controller.isCheckingAppUpdate
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.sync_rounded),
+                  label: Text(
+                    controller.isCheckingAppUpdate ? 'Checking…' : 'Check now',
+                  ),
+                ),
+                if (release != null)
+                  OutlinedButton.icon(
+                    onPressed: controller.isOpeningAppUpdate
+                        ? null
+                        : controller.openAppUpdate,
+                    icon: const Icon(Icons.system_update_alt_rounded),
+                    label: Text(
+                      controller.isOpeningAppUpdate
+                          ? 'Opening…'
+                          : 'Download ${release.version}',
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

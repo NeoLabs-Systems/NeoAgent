@@ -15,6 +15,7 @@ class _LocalInstallWidget extends StatefulWidget {
 class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
   _LocalInstallPhase _phase = _LocalInstallPhase.choose;
   LocalBackendSetupProfile _profile = LocalBackendSetupProfile.quick;
+  String _channel = runtimeReleaseChannel;
   late final LocalBackendInstaller _installer;
   StreamSubscription<LocalBackendInstallEvent>? _eventSubscription;
   final List<LocalBackendInstallEvent> _events = <LocalBackendInstallEvent>[];
@@ -51,7 +52,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
       _errorMessage = null;
     });
     try {
-      final result = await _installer.install(_profile);
+      final result = await _installer.install(_profile, channel: _channel);
       if (!mounted) return;
       setState(() {
         _result = result;
@@ -161,6 +162,38 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                   'Install the core with extra optional setup. Configure AI providers from the admin dashboard or with neoagent env, same as Quickstart.',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.full),
+            ),
+            const SizedBox(height: 20),
+            Text('Backend channel', style: _sectionEyebrowStyle()),
+            const SizedBox(height: 10),
+            SegmentedButton<String>(
+              segments: const <ButtonSegment<String>>[
+                ButtonSegment<String>(
+                  value: 'stable',
+                  label: Text('Stable'),
+                  icon: Icon(Icons.verified_outlined),
+                ),
+                ButtonSegment<String>(
+                  value: 'beta',
+                  label: Text('Beta'),
+                  icon: Icon(Icons.science_outlined),
+                ),
+              ],
+              selected: <String>{_channel},
+              onSelectionChanged: (selection) {
+                setState(() => _channel = selection.first);
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _channel == 'beta'
+                  ? 'Beta installs the newest prerelease backend. Expect rough edges.'
+                  : 'Stable installs the latest published backend release.',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 20),
             SizedBox(

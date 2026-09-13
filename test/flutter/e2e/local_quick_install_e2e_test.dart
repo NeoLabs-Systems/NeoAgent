@@ -33,7 +33,10 @@ void main() {
       });
 
       try {
-        final result = await installer.install(LocalBackendSetupProfile.quick);
+        final result = await installer.install(
+          LocalBackendSetupProfile.quick,
+          channel: 'stable',
+        );
         expect(result.backendUrl, startsWith('http://'));
         expect(result.instanceId, isNotEmpty);
         expect(result.serverVersion, isNotEmpty);

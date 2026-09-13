@@ -1,5 +1,10 @@
 import 'setup_contract.g.dart';
 
+const String runtimeReleaseChannel = String.fromEnvironment(
+  'NEOAGENT_RELEASE_CHANNEL',
+  defaultValue: 'stable',
+);
+
 enum LocalBackendSetupProfile { quick, full }
 
 enum LocalBackendInstallStage {

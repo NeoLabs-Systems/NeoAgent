@@ -4,7 +4,10 @@ class LocalBackendInstaller {
   Stream<LocalBackendInstallEvent> get events =>
       const Stream<LocalBackendInstallEvent>.empty();
 
-  Future<LocalBackendInstallResult> install(LocalBackendSetupProfile profile) {
+  Future<LocalBackendInstallResult> install(
+    LocalBackendSetupProfile profile, {
+    required String channel,
+  }) {
     throw const LocalBackendInstallerException(
       'SETUP_PLATFORM_UNSUPPORTED',
       'Local backend installation is not available on this platform.',
