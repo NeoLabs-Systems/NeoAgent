@@ -2136,6 +2136,12 @@ class BackendClient {
         lower.contains('connect-src')) {
       return 'The browser blocked a request to ${uri.path} because of Content Security Policy.';
     }
+    if (uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '::1') {
+      return 'The NeoAgent backend on this computer is not answering on port '
+          '${uri.port}. Make sure it is running, then try again.';
+    }
     return 'Request to ${uri.path} failed before the backend responded.';
   }
 

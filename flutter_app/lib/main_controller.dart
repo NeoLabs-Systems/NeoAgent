@@ -755,7 +755,7 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     try {
-      final status = await _backendClient.getAuthStatus(backendUrl);
+      final status = await _authStatusStartingLocalBackend();
       hasUser = status['hasUser'] != false;
       registrationOpen = status['registrationOpen'] == true;
       serviceEmailConfigured =
@@ -790,6 +790,64 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = false;
       notifyListeners();
     }
+  }
+
+  /// The local runtime is only launched by the installer and by the platform
+  /// autostart hook at the next login, so an app launch in between reaches a
+  /// backend that is not listening. Start it and retry once instead of
+  /// stranding the user on a sign-in screen that cannot reach anything.
+  Future<Map<String, dynamic>> _authStatusStartingLocalBackend() async {
+    try {
+      return await _backendClient.getAuthStatus(backendUrl);
+    } on Object {
+      if (!await _startLocalBackend()) {
+        rethrow;
+      }
+      return _backendClient.getAuthStatus(backendUrl);
+    }
+  }
+
+  /// Returns whether the backend this app points at is now running locally.
+  Future<bool> _startLocalBackend() async {
+    if (!_supportsDesktopShell) {
+      return false;
+    }
+    final target = Uri.tryParse(_normalizeBackendUrl(backendUrl));
+    if (target == null) {
+      return false;
+    }
+    try {
+      final manager = LocalRuntimeManager();
+      final status = await manager.inspect();
+      if (!status.installed || status.running) {
+        return false;
+      }
+      final local = Uri.tryParse(
+        _normalizeBackendUrl(status.backendUrl ?? ''),
+      );
+      if (local == null || !_isSameLoopbackBackend(target, local)) {
+        return false;
+      }
+      final started = await manager.runAction(LocalRuntimeAction.start);
+      return started.running;
+    } on Object catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'localRuntime',
+        'autostart.failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  /// The installer and the manual backend field disagree on loopback spelling
+  /// (`localhost` vs `127.0.0.1`), so compare the port on loopback hosts.
+  bool _isSameLoopbackBackend(Uri left, Uri right) {
+    const loopbackHosts = <String>{'localhost', '127.0.0.1', '::1'};
+    return loopbackHosts.contains(left.host.toLowerCase()) &&
+        loopbackHosts.contains(right.host.toLowerCase()) &&
+        left.port == right.port;
   }
 
   Future<String?> _safeLoadInstalledAppVersion() async {
@@ -4351,6 +4409,24 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// AI provider credentials are server configuration, so the admin dashboard
+  /// is the only place to add them. Desktop installs have no `neoagent` CLI on
+  /// PATH, which makes this the one reachable route for them.
+  Future<void> openAdminDashboard() async {
+    final base = _normalizeBackendUrl(backendUrl);
+    if (base.isEmpty) {
+      return;
+    }
+    final result = await _oauthLauncher.openExternal(
+      url: '$base/admin',
+      label: 'neoagent_admin_dashboard',
+    );
+    if (!result.launched) {
+      errorMessage = result.error ?? 'Could not open the admin dashboard.';
+      notifyListeners();
+    }
+  }
+
   Uri resolveRuntimeAsset(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.resolveAssetUri(
@@ -7083,7 +7159,7 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('typeerror:') ||
         lower.contains('referenceerror:') ||
         lower.contains('syntaxerror:') ||
-        lower.contains(' at ') ||
+        looksLikeStackTrace(text) ||
         lower.contains('/users/') ||
         lower.contains('/var/') ||
         lower.contains('/tmp/')) {

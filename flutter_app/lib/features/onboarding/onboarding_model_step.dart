@@ -97,14 +97,25 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       ),
       child: _models.isEmpty
           ? Center(
-              child: Text(
-                'No available models yet.\nConfigure a provider in the admin dashboard or with neoagent env.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: paletteOf(context).textMuted,
-                  fontSize: 16,
-                  height: 1.5,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    'No available models yet.\nAdd a provider API key in the admin dashboard, then come back.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: paletteOf(context).textMuted,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: widget.controller.openAdminDashboard,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Open admin dashboard'),
+                  ),
+                ],
               ),
             )
           : useGrid

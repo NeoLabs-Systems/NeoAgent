@@ -217,7 +217,7 @@ function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolEx
 
 function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
   const message = normalizeOutgoingMessage(err?.message || '');
-  if (/no ai providers? are currently available/i.test(message)) {
+  if (/no ai providers? are (currently available|configured)/i.test(message)) {
     return 'can\'t continue right now: no AI provider is available for this account. check provider settings and I can pick it back up.';
   }
 

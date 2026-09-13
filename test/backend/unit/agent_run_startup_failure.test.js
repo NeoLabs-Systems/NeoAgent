@@ -21,14 +21,14 @@ test('provider-selection failures leave a durable failed run instead of disappea
         runId: 'provider-selection-failure',
         bypassUserRateLimits: true,
       }),
-      /No AI providers are currently available/,
+      /No AI providers are configured/,
     );
 
     const row = ctx.db.prepare(
       'SELECT status, error, completed_at FROM agent_runs WHERE id = ?',
     ).get('provider-selection-failure');
     assert.equal(row.status, 'failed');
-    assert.match(row.error, /No AI providers are currently available/);
+    assert.match(row.error, /No AI providers are configured/);
     assert.ok(row.completed_at);
     assert.equal(engine.activeRuns.has('provider-selection-failure'), false);
   } finally {
