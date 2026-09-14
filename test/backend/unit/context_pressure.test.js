@@ -145,3 +145,47 @@ test('irreducible current context is reported instead of splitting retained turn
   assert.equal(result.irreducible, true);
   assert.match(result.reason, /safe_cut|complete_historical_turn/);
 });
+
+test('a single long-running turn compacts by cutting inside the turn', async () => {
+  const messages = [
+    { role: 'system', content: 'Permanent system policy.' },
+    { role: 'user', content: 'Research the outage and write the incident report.' },
+  ];
+  for (let index = 0; index < 40; index += 1) {
+    messages.push({
+      role: 'assistant',
+      content: `step ${index}`,
+      tool_calls: [{
+        id: `call-${index}`,
+        type: 'function',
+        function: { name: 'read_file', arguments: JSON.stringify({ path: `log-${index}` }) },
+      }],
+    });
+    messages.push({ role: 'tool', tool_call_id: `call-${index}`, name: 'read_file', content: 'x'.repeat(4_000) });
+  }
+
+  const cut = selectTurnSafeCut({ messages, targetTokens: 20_000 });
+  assert.equal(cut.compactable, true);
+  assert.equal(cut.splitTurn, true);
+  // The request stays verbatim, and the retained slice never opens on a tool
+  // result whose call was dropped.
+  assert.equal(cut.retained[0].role, 'user');
+  assert.equal(cut.retained[1].role, 'assistant');
+  assert.ok(cut.compacted.length > 0);
+  assert.ok(cut.projectedTokens <= 20_000);
+
+  const controller = createContextPressureController({
+    summarize: async () => 'Read 30 log files; the outage began at 04:12 UTC.',
+  });
+  const result = await controller.prepare({
+    provider: { getContextWindow: () => 32_000 },
+    model: 'small-context',
+    messages,
+    maxOutputTokens: 2_000,
+  });
+  assert.equal(result.changed, true);
+  assert.ok(result.afterTokens < result.beforeTokens);
+  assert.equal(result.messages[0].content, 'Permanent system policy.');
+  assert.ok(result.messages[1].content.startsWith(SUMMARY_PREFIX));
+  assert.equal(result.messages[2].content, 'Research the outage and write the incident report.');
+});

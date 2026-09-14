@@ -73,17 +73,17 @@ function selectTurnSafeCut({
 } = {}) {
   const { leading, body, previousSummary } = splitLeadingSystemMessages(messages);
   const turnStarts = findUserTurnStarts(body);
-  if (turnStarts.length < 3) {
-    return { compactable: false, reason: 'no_complete_historical_turn' };
-  }
-
   const fixedTokens = estimateTokenCount([...leading, ...fixedMessages], tools);
+  const projectTokens = (retained) => fixedTokens
+    + estimateTokenCount(retained)
+    + summaryReserveTokens;
+
+  // Whole-turn boundaries are the best cut: they never split a turn's reasoning
+  // from the request that started it.
   for (let turnIndex = 1; turnIndex < turnStarts.length - 1; turnIndex += 1) {
     const cutIndex = turnStarts[turnIndex];
     const retained = body.slice(cutIndex);
-    const projected = fixedTokens
-      + estimateTokenCount(retained)
-      + summaryReserveTokens;
+    const projected = projectTokens(retained);
     if (projected <= targetTokens) {
       return {
         compactable: true,
@@ -95,7 +95,35 @@ function selectTurnSafeCut({
       };
     }
   }
-  return { compactable: false, reason: 'no_safe_cut_point' };
+
+  // A long autonomous run is a single turn: one request followed by hundreds of
+  // tool iterations, with no later user message to cut at. Cut inside that turn
+  // instead, at an assistant message so no tool result is separated from its
+  // call, and keep the request itself verbatim so the task instruction never
+  // survives as summary prose alone.
+  const turnStart = turnStarts.length ? turnStarts[turnStarts.length - 1] : -1;
+  const anchor = turnStart >= 0 ? [body[turnStart]] : [];
+  for (let cutIndex = turnStart + 1; cutIndex < body.length; cutIndex += 1) {
+    if (body[cutIndex]?.role !== 'assistant') continue;
+    if (cutIndex - anchor.length < 1) continue; // nothing would be removed
+    const retained = [...anchor, ...body.slice(cutIndex)];
+    const projected = projectTokens(retained);
+    if (projected > targetTokens) continue;
+    return {
+      compactable: true,
+      splitTurn: true,
+      leading,
+      previousSummary,
+      compacted: body.slice(0, cutIndex),
+      retained,
+      projectedTokens: projected,
+    };
+  }
+
+  return {
+    compactable: false,
+    reason: turnStarts.length < 3 ? 'no_complete_historical_turn' : 'no_safe_cut_point',
+  };
 }
 
 function serializeForSummary(messages = []) {
