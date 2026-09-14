@@ -80,6 +80,12 @@ class SkillLearningService {
     if (!userOrigin && !taskOrigin) return null;
     if (!getAiSettings(userId, agentId).auto_skill_learning) return null;
 
+    // Outcomes only become visible after a learned skill has actually run, so
+    // the sweep belongs here rather than at write time.
+    for (const retired of this.writer.retireFailingSkills(userId)) {
+      logger.info(`Retired learned skill '${retired.name}'.`, retired.reason);
+    }
+
     const steps = db.prepare(
       `SELECT step_index, tool_name, status, description, error
        FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC`,
@@ -235,6 +241,7 @@ class SkillLearningService {
         'Create when a proven reusable procedure was taught in detail or is clearly represented by repeated evidence.',
         'Observe when a reusable pattern is plausible but needs another occurrence. Use a stable class-level workflowKey.',
         'Update only an existing skill whose catalog entry says learningManaged=true and only when this run produced a concrete correction or improvement.',
+        'A catalog entry may carry invocations and failures counted from real use. Treat a high failure share as evidence that the skill is wrong, and prefer update when this run shows what it should do instead.',
         'Ignore unresolved failures, transient environment problems, and work with no reusable method.',
         'Do not preserve secrets, credentials, literal private data, brittle coordinates, or session-specific identifiers.',
       ].join(' '),

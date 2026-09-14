@@ -121,6 +121,25 @@ class SkillLearningRepository {
     ).run(skillName, userId, workflowKey);
   }
 
+  /** Observed invocation outcomes per skill, summed across agent scopes. */
+  listSkillOutcomes(userId) {
+    const rows = db.prepare(
+      `SELECT skill_name,
+              SUM(invocation_count) AS invocations,
+              SUM(success_count) AS successes,
+              SUM(failure_count) AS failures
+       FROM skill_metrics
+       WHERE user_id = ?
+       GROUP BY skill_name`,
+    ).all(userId);
+    return new Map(rows.map((row) => [row.skill_name, {
+      skillName: row.skill_name,
+      invocations: Number(row.invocations || 0),
+      successes: Number(row.successes || 0),
+      failures: Number(row.failures || 0),
+    }]));
+  }
+
   recordEvaluation({ versionId, runId = null, score = null, outcome, notes }) {
     if (!versionId) return null;
     const id = randomUUID();

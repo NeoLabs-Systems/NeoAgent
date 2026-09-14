@@ -419,3 +419,62 @@ test('computer demonstration learning rejects secret-bearing synthesis', async (
     teardownTestRuntime(ctx);
   }
 });
+
+test('a learned skill that keeps failing is retired, a user-authored one is not', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db);
+    const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+    const { SkillLearningRepository } = require('../../../server/services/skills/learning_repository');
+    const {
+      RETIREMENT_MIN_INVOCATIONS,
+      SkillLearningWriter,
+    } = require('../../../server/services/skills/learning_writer');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+
+    skillRunner.createSkill(user.userId, 'flaky-export', 'A learned export procedure.', 'Steps.', {
+      source: 'learned',
+      enabled: true,
+      auto_created: true,
+      learning: { managed: true, workflowKey: 'flaky-export' },
+    });
+    skillRunner.createSkill(user.userId, 'hand-written-export', 'A hand-written export.', 'Steps.', {
+      source: 'user',
+      enabled: true,
+    });
+
+    const recordOutcomes = (name, invocations, successes) => {
+      ctx.db.prepare(
+        `INSERT INTO skill_metrics (
+          user_id, agent_id, skill_name, invocation_count, success_count, failure_count
+        ) VALUES (?, NULL, ?, ?, ?, ?)`,
+      ).run(user.userId, name, invocations, successes, invocations - successes);
+    };
+    recordOutcomes('flaky-export', RETIREMENT_MIN_INVOCATIONS + 1, 1);
+    recordOutcomes('hand-written-export', RETIREMENT_MIN_INVOCATIONS + 1, 0);
+
+    const writer = new SkillLearningWriter({
+      skillRunner,
+      repository: new SkillLearningRepository(),
+    });
+    const retired = writer.retireFailingSkills(user.userId);
+
+    assert.deepEqual(retired.map((entry) => entry.name), ['flaky-export']);
+    assert.equal(skillRunner.getSkill('flaky-export', user.userId).metadata.enabled, false);
+    assert.match(
+      skillRunner.getSkill('flaky-export', user.userId).metadata.learning.retiredReason,
+      /1 of 6 invocations succeeded/,
+    );
+    assert.equal(skillRunner.getSkill('hand-written-export', user.userId).metadata.enabled, true);
+    assert.doesNotMatch(skillRunner.getSkillsForPrompt({ userId: user.userId }), /flaky-export/);
+
+    // The sweep is idempotent, and the review catalog carries the observed counts.
+    assert.deepEqual(writer.retireFailingSkills(user.userId), []);
+    const entry = writer.skillCatalog(user.userId).find((skill) => skill.name === 'flaky-export');
+    assert.equal(entry.invocations, RETIREMENT_MIN_INVOCATIONS + 1);
+    assert.equal(entry.failures, RETIREMENT_MIN_INVOCATIONS);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
