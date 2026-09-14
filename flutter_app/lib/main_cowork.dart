@@ -230,7 +230,7 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Microphone error: $error')));
+          ).showSnackBar(SnackBar(content: Text('Microphone error: ${_formatCaughtError(error)}')));
         }
       }
       return;
@@ -267,7 +267,7 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Transcription failed: $error')));
+        ).showSnackBar(SnackBar(content: Text('Transcription failed: ${_formatCaughtError(error)}')));
       }
     } finally {
       await capture?.dispose();

@@ -11,10 +11,11 @@ const {
   evaluateAccessPolicy,
   migrateLegacyWhitelist,
   normalizeAccessPolicy,
+  summarizeAccessPolicy,
 } = require('../../../server/services/messaging/access_policy');
 const { normalizeWhatsAppWhitelist } = require('../../../server/utils/whatsapp');
 
-test('new shared-room policies default to automatic participation', () => {
+test('new shared-room policies default to tagged-only social intelligence', () => {
   const policy = createDefaultAccessPolicy('telegram');
   policy.sharedSpaceRules = [{ scope: 'group', value: '-1001' }];
   const decision = evaluateAccessPolicy(policy, {
@@ -26,10 +27,26 @@ test('new shared-room policies default to automatic participation', () => {
     wasMentioned: false,
   }, 'telegram');
 
-  assert.equal(policy.defaultAllowUntaggedInShared, true);
+  assert.equal(policy.defaultAllowUntaggedInShared, false);
   assert.equal(decision.allowed, true);
-  assert.equal(decision.allowUntagged, true);
-  assert.equal(decision.participationHint, 'automatic');
+  assert.equal(decision.allowUntagged, false);
+  assert.equal(decision.participationHint, 'mention_only');
+});
+
+test('current policies treat a missing untagged default as off', () => {
+  const policy = normalizeAccessPolicy('telegram', {
+    schemaVersion: 3,
+    sharedPolicy: 'open',
+    sharedSpaceRules: [{ scope: 'group', value: '-1001' }],
+  });
+  assert.equal(policy.defaultAllowUntaggedInShared, false);
+  assert.equal(evaluateAccessPolicy(policy, {
+    senderId: 'person-1',
+    chatId: '-1001',
+    groupId: '-1001',
+    isDirect: false,
+    isShared: true,
+  }, 'telegram').allowUntagged, false);
 });
 
 test('legacy mention requirement becomes a participation hint, not admission', () => {
@@ -58,10 +75,11 @@ test('untagged participation is configured independently for each group', () => 
   const policy = normalizeAccessPolicy('telegram', {
     schemaVersion: 3,
     sharedPolicy: 'open',
+    defaultAllowUntaggedInShared: false,
     sharedParticipationRules: [{
       scope: 'group',
       value: '-1001',
-      allowUntagged: false,
+      allowUntagged: true,
     }],
   });
   const decide = (groupId) => evaluateAccessPolicy(policy, {
@@ -72,10 +90,10 @@ test('untagged participation is configured independently for each group', () => 
     isShared: true,
   }, 'telegram');
 
-  assert.equal(decide('-1001').allowUntagged, false);
-  assert.equal(decide('-1001').participationHint, 'mention_only');
-  assert.equal(decide('-1002').allowUntagged, true);
-  assert.equal(decide('-1002').participationHint, 'automatic');
+  assert.equal(decide('-1001').allowUntagged, true);
+  assert.equal(decide('-1001').participationHint, 'automatic');
+  assert.equal(decide('-1002').allowUntagged, false);
+  assert.equal(decide('-1002').participationHint, 'mention_only');
 });
 
 test('WhatsApp legacy allowlist keeps group JIDs as shared group rules', () => {
@@ -292,6 +310,58 @@ test('WhatsApp whitelist normalization preserves unprefixed group JIDs', () => {
   ]);
 });
 
+test('Discord DM recent chats stay private even without sender metadata', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: 'dm_7016331103035310899',
+    metadata: {},
+  });
+
+  assert.deepEqual(target, {
+    source: 'recent',
+    bucket: 'directRules',
+    scope: 'user',
+    value: '7016331103035310899',
+    label: 'Private chat',
+    subtitle: 'Recent private chat',
+  });
+});
+
+test('Discord DM recent chats use the sender display name', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: 'dm_7016331103035310899',
+    metadata: {
+      sender: '7016331103035310899',
+      senderDisplayName: 'Ada',
+      isGroup: false,
+    },
+  });
+
+  assert.equal(target.bucket, 'directRules');
+  assert.equal(target.scope, 'user');
+  assert.equal(target.value, '7016331103035310899');
+  assert.equal(target.label, 'Ada');
+});
+
+test('Discord channel recent chats stay on the shared channel list', () => {
+  const target = classifyRecentTarget('discord', {
+    platform_chat_id: '153099835322836170',
+    metadata: {
+      isGroup: true,
+      channelName: 'neoagent',
+      sender: '7016331103035310899',
+    },
+  });
+
+  assert.deepEqual(target, {
+    source: 'recent',
+    bucket: 'sharedSpaceRules',
+    scope: 'channel',
+    value: '153099835322836170',
+    label: 'neoagent',
+    subtitle: 'Recent conversation',
+  });
+});
+
 test('WhatsApp recent group targets are shared group allowlist entries', () => {
   const target = classifyRecentTarget('whatsapp', {
     platform_chat_id: '120363123456789012@g.us',
@@ -341,5 +411,20 @@ test('Discord channel allowlist admits tagged messages and preserves untagged po
     wasMentioned: false,
   }, 'discord');
   assert.equal(untagged.allowed, true);
-  assert.equal(untagged.allowUntagged, true);
+  assert.equal(untagged.allowUntagged, false);
+});
+
+test('access policy summaries use plain language', () => {
+  const summary = summarizeAccessPolicy('whatsapp', {
+    schemaVersion: 3,
+    directPolicy: 'allowlist',
+    sharedPolicy: 'open',
+    defaultAllowUntaggedInShared: false,
+    directRules: [{ scope: 'phone_number', value: '+15551234567' }],
+  });
+  assert.match(summary, /Private chats: approved only/);
+  assert.match(summary, /Groups: anyone/);
+  assert.match(summary, /replies when tagged/);
+  assert.match(summary, /1 approved/);
+  assert.doesNotMatch(summary, /allowlist|untagged|shared spaces/i);
 });

@@ -25,16 +25,6 @@ function deleteRawSetting(userId, key) {
   db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(userId, key);
 }
 
-function readJsonSetting(userId, key, fallback = null) {
-  const raw = readRawSetting(userId, key);
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
 function readCookieBundle(userId, platform) {
   const raw = readRawSetting(userId, cookieSettingKey(platform));
   if (!raw) return null;
@@ -84,6 +74,5 @@ module.exports = {
   deleteCookieBundle,
   getCookieSummary,
   readCookieBundle,
-  readJsonSetting,
   writeCookieBundle,
 };

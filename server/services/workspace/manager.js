@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
-const { applyTextEdits } = require('./text_edits');
+const { applyTextEdits, coerceWritableText } = require('./text_edits');
 
 function sanitizeWorkspaceKey(value) {
   const normalized = String(value || '')
@@ -141,97 +141,9 @@ class WorkspaceManager {
       : '';
   }
 
-  listExplorerDirectory(userId, options = {}) {
-    const root = this._ensureWorkspaceRootSync(userId);
-    const dirPath = this.resolvePath(userId, options.path || '.', 'path');
-    let stats;
-    try {
-      stats = fs.statSync(dirPath);
-    } catch (err) {
-      return { path: this._toWorkspaceRelative(root, dirPath), entries: [], error: err.message };
-    }
-    if (!stats.isDirectory()) {
-      return { path: this._toWorkspaceRelative(root, dirPath), entries: [], error: 'Path is not a directory.' };
-    }
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true }).flatMap((entry) => {
-      const fullPath = path.join(dirPath, entry.name);
-      let entryStats;
-      try {
-        entryStats = fs.lstatSync(fullPath);
-        if (entryStats.isSymbolicLink()) return [];
-        entryStats = fs.statSync(fullPath);
-      } catch {
-        return [];
-      }
-      if (!entryStats.isDirectory() && !entryStats.isFile()) return [];
-      return [{
-        name: entry.name,
-        type: entryStats.isDirectory() ? 'directory' : 'file',
-        path: this._toWorkspaceRelative(root, fullPath),
-        size: entryStats.size,
-        mtime: entryStats.mtime.toISOString(),
-      }];
-    }).sort((a, b) => {
-      if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-    return {
-      path: this._toWorkspaceRelative(root, dirPath),
-      parentPath: this._toWorkspaceRelative(root, path.dirname(dirPath)),
-      entries,
-    };
-  }
-
-  readExplorerFile(userId, options = {}) {
-    const root = this._ensureWorkspaceRootSync(userId);
-    const filePath = this.resolvePath(userId, options.path || '', 'path');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) {
-      throw new Error('Path is not a file.');
-    }
-    const maxBytes = Number(options.maxBytes || 1024 * 1024);
-    if (stats.size > maxBytes) {
-      const error = new Error(`File is too large to edit in the browser (${stats.size} bytes).`);
-      error.code = 'WORKSPACE_FILE_TOO_LARGE';
-      throw error;
-    }
-    return {
-      path: this._toWorkspaceRelative(root, filePath),
-      name: path.basename(filePath),
-      content: fs.readFileSync(filePath, 'utf8'),
-      size: stats.size,
-      mtime: stats.mtime.toISOString(),
-    };
-  }
-
-  writeExplorerFile(userId, options = {}) {
-    const root = this._ensureWorkspaceRootSync(userId);
-    const filePath = this.resolvePath(userId, options.path || '', 'path');
-    const content = String(options.content ?? '');
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, content, 'utf8');
-    const stats = fs.statSync(filePath);
-    return {
-      success: true,
-      path: this._toWorkspaceRelative(root, filePath),
-      size: stats.size,
-      mtime: stats.mtime.toISOString(),
-    };
-  }
-
-  getExplorerDownload(userId, options = {}) {
-    const root = this._ensureWorkspaceRootSync(userId);
-    const filePath = this.resolvePath(userId, options.path || '', 'path');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) {
-      throw new Error('Path is not a file.');
-    }
-    return {
-      root,
-      absolutePath: filePath,
-      relativePath: this._toWorkspaceRelative(root, filePath),
-      filename: path.basename(filePath),
-    };
+  _publicPath(userId, absolute) {
+    if (!absolute) return null;
+    return this._toWorkspaceRelative(this._ensureWorkspaceRootSync(userId), absolute);
   }
 
   readFile(userId, options = {}) {
@@ -245,13 +157,13 @@ class WorkspaceManager {
         const start = options.start_line != null ? Number(options.start_line) : 1;
         const end = options.end_line != null ? Number(options.end_line) : null;
         if (!Number.isInteger(start) || start < 1) {
-          return { error: 'start_line must be a positive integer', path: filePath };
+          return { error: 'start_line must be a positive integer', path: this._publicPath(userId, filePath) };
         }
         if (end != null && (!Number.isInteger(end) || end < 1)) {
-          return { error: 'end_line must be a positive integer', path: filePath };
+          return { error: 'end_line must be a positive integer', path: this._publicPath(userId, filePath) };
         }
         if (end != null && start > end) {
-          return { error: 'start_line must be less than or equal to end_line', path: filePath };
+          return { error: 'start_line must be less than or equal to end_line', path: this._publicPath(userId, filePath) };
         }
         const content = raw.toString(encoding);
         const lines = content.split('\n');
@@ -259,7 +171,7 @@ class WorkspaceManager {
         const endClamped = Math.min(end != null ? end : lines.length, lines.length);
         const sliced = lines.slice(startClamped - 1, endClamped).join('\n');
         return {
-          path: filePath,
+          path: this._publicPath(userId, filePath),
           content: sliced.length > 20000 ? `${sliced.slice(0, 20000)}\n...[truncated]` : sliced,
           totalLines: lines.length,
           rangeShown: [startClamped, endClamped],
@@ -267,14 +179,14 @@ class WorkspaceManager {
       }
       const content = encoding === 'base64' ? raw.toString('base64') : raw.toString(encoding);
       return {
-        path: filePath,
+        path: this._publicPath(userId, filePath),
         content: content.length > 20000 ? `${content.slice(0, 20000)}\n...[truncated]` : content,
         byteSize: raw.length,
       };
     } catch (err) {
       return {
-        error: `Failed to read file for user ${String(userId || 'unknown')}: ${err.message}`,
-        path: filePath || null,
+        error: `Failed to read file: ${err.message}`,
+        path: this._publicPath(userId, filePath),
       };
     }
   }
@@ -283,15 +195,15 @@ class WorkspaceManager {
     const filePath = this.resolvePath(userId, options.path || '', 'path');
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      const content = String(options.content ?? '');
+      const content = coerceWritableText(options.content);
       if (String(options.mode || '').toLowerCase() === 'append') {
         fs.appendFileSync(filePath, content);
       } else {
         fs.writeFileSync(filePath, content, 'utf8');
       }
-      return { success: true, path: filePath };
+      return { success: true, path: this._publicPath(userId, filePath) };
     } catch (err) {
-      return { success: false, path: filePath, error: err.message };
+      return { success: false, path: this._publicPath(userId, filePath), error: err.message };
     }
   }
 
@@ -300,15 +212,15 @@ class WorkspaceManager {
     try {
       filePath = this.resolvePath(userId, options.path || '', 'path');
       if (!fs.existsSync(filePath)) {
-        return { error: `File not found: ${filePath}` };
+        return { error: `File not found: ${this._publicPath(userId, filePath)}` };
       }
       const { content, modified, report } = applyTextEdits(fs.readFileSync(filePath, 'utf8'), options.edits);
       if (modified) {
         fs.writeFileSync(filePath, content, 'utf8');
       }
-      return { success: modified, report, path: filePath };
+      return { success: modified, report, path: this._publicPath(userId, filePath) };
     } catch (err) {
-      return { success: false, path: filePath || null, error: err.message };
+      return { success: false, path: this._publicPath(userId, filePath), error: err.message };
     }
   }
 
@@ -317,19 +229,19 @@ class WorkspaceManager {
     try {
       filePath = this.resolvePath(userId, options.path || '', 'path');
       if (!fs.existsSync(filePath)) {
-        return { success: false, error: `File not found: ${filePath}`, path: filePath };
+        return { success: false, error: `File not found: ${this._publicPath(userId, filePath)}`, path: this._publicPath(userId, filePath) };
       }
 
       const start = Number(options.start_line ?? options.startLine);
       const end = Number(options.end_line ?? options.endLine ?? start);
       if (!Number.isInteger(start) || start < 1) {
-        return { success: false, error: 'start_line must be a positive integer', path: filePath };
+        return { success: false, error: 'start_line must be a positive integer', path: this._publicPath(userId, filePath) };
       }
       if (!Number.isInteger(end) || end < 1) {
-        return { success: false, error: 'end_line must be a positive integer', path: filePath };
+        return { success: false, error: 'end_line must be a positive integer', path: this._publicPath(userId, filePath) };
       }
       if (start > end) {
-        return { success: false, error: 'start_line must be less than or equal to end_line', path: filePath };
+        return { success: false, error: 'start_line must be less than or equal to end_line', path: this._publicPath(userId, filePath) };
       }
 
       const original = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
@@ -341,7 +253,7 @@ class WorkspaceManager {
         return {
           success: false,
           error: `line range ${start}-${end} is outside file with ${totalLines} lines`,
-          path: filePath,
+          path: this._publicPath(userId, filePath),
           totalLines,
         };
       }
@@ -355,7 +267,7 @@ class WorkspaceManager {
       fs.writeFileSync(filePath, next, 'utf8');
       return {
         success: true,
-        path: filePath,
+        path: this._publicPath(userId, filePath),
         startLine: start,
         endLine: end,
         replacedLines: end - start + 1,
@@ -363,7 +275,7 @@ class WorkspaceManager {
         totalLines: lines.length,
       };
     } catch (err) {
-      return { success: false, path: filePath || null, error: err.message };
+      return { success: false, path: this._publicPath(userId, filePath), error: err.message };
     }
   }
 
@@ -391,7 +303,7 @@ class WorkspaceManager {
         result.push({
           name: entry.name,
           type: entry.isDirectory() ? 'directory' : 'file',
-          path: fullPath,
+          path: this._publicPath(userId, fullPath),
           size: stats.size,
           mtime: stats.mtime.toISOString(),
         });
@@ -402,7 +314,7 @@ class WorkspaceManager {
       return result;
     };
 
-    return { path: dirPath, entries: walk(dirPath) };
+    return { path: this._publicPath(userId, dirPath), entries: walk(dirPath) };
   }
 
   searchFiles(userId, options = {}) {
@@ -470,7 +382,7 @@ class WorkspaceManager {
             continue;
           }
           matches.push({
-            file: fullPath,
+            file: this._publicPath(userId, fullPath),
             line: i + 1,
             content: lines[i].trim(),
           });

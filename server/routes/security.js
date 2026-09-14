@@ -8,15 +8,11 @@ const { TOOL_CATEGORIES, getCategoryForTool } = require('../services/security/to
 
 router.use(requireAuth);
 
-// ── Security mode ─────────────────────────────────────────────────────────────
-
-// GET /api/security/mode — current global security mode
 router.get('/mode', (req, res) => {
   const mode = req.app.locals.toolPolicyService.getSecurityMode(req.session.userId);
   res.json({ mode });
 });
 
-// PUT /api/security/mode — update global security mode
 router.put('/mode', (req, res) => {
   const { mode } = req.body;
   if (!mode) return res.status(400).json({ error: 'mode is required' });
@@ -28,9 +24,6 @@ router.put('/mode', (req, res) => {
   }
 });
 
-// ── Per-category policies ─────────────────────────────────────────────────────
-
-// GET /api/security/policies — all category policies + current mode
 router.get('/policies', (req, res) => {
   const { toolPolicyService } = req.app.locals;
   const policies = toolPolicyService.getPolicies(req.session.userId);
@@ -38,7 +31,6 @@ router.get('/policies', (req, res) => {
   res.json({ policies, mode, categories: Object.keys(TOOL_CATEGORIES) });
 });
 
-// PUT /api/security/policies — update a single category policy
 router.put('/policies', (req, res) => {
   const { category, policy } = req.body;
   if (!category || !policy) {
@@ -52,9 +44,6 @@ router.put('/policies', (req, res) => {
   }
 });
 
-// ── Approval decisions ────────────────────────────────────────────────────────
-
-// POST /api/security/approvals/:approvalId — resolve a pending approval
 router.post('/approvals/:approvalId', (req, res) => {
   const { approvalId } = req.params;
   const { decision, scope, runId, toolName, toolArgs } = req.body;
@@ -64,7 +53,6 @@ router.post('/approvals/:approvalId', (req, res) => {
   }
   const normalizedScope = ['once', 'session', 'always'].includes(scope) ? scope : 'once';
 
-  // 'always' scope: also persist the policy so this category is allowed going forward
   if (decision === 'approved' && normalizedScope === 'always' && toolName) {
     try {
       const category = getCategoryForTool(toolName, toolArgs ?? {});
@@ -109,9 +97,6 @@ router.post('/approvals/:approvalId', (req, res) => {
   res.json({ ok: true, approvalId, decision, scope: normalizedScope });
 });
 
-// ── Audit log ─────────────────────────────────────────────────────────────────
-
-// GET /api/security/approval-log — paginated audit log
 router.get('/approval-log', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const offset = Number(req.query.offset) || 0;

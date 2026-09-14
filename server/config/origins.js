@@ -1,9 +1,11 @@
 'use strict';
 
-const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+function getConfiguredOrigins() {
+  return (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
 
 function isLoopbackOrigin(origin) {
   try {
@@ -19,8 +21,9 @@ function isAllowedOrigin(origin, options = {}) {
     return options.allowMissingOrigin !== false;
   }
   if (origin === 'null') return false;
+  const configuredOrigins = getConfiguredOrigins();
   if (configuredOrigins.includes(origin)) return true;
-  if (isLoopbackOrigin(origin)) return true;
+  if (configuredOrigins.length === 0 && isLoopbackOrigin(origin)) return true;
   return false;
 }
 
@@ -32,7 +35,9 @@ function validateOrigin(origin, callback, options = {}) {
 }
 
 module.exports = {
-  configuredOrigins,
+  get configuredOrigins() {
+    return getConfiguredOrigins();
+  },
   isAllowedOrigin,
   isLoopbackOrigin,
   validateOrigin

@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
+const fs = require('node:fs');
+const path = require('node:path');
 const { afterEach, beforeEach, test } = require('node:test');
 
 const {
@@ -347,7 +349,7 @@ test('messaging manager records adapter-owned recovery without starting a compet
   });
 
   assert.equal(manager.platforms.get(key).getStatus(), 'reconnecting');
-  assert.equal(manager.reconnectTimers.size, 0);
+  assert.equal(manager.reconnectTimers.size, 1);
   assert.equal(
     ctx.db.prepare(
       'SELECT status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?',
@@ -368,4 +370,213 @@ test('messaging manager records adapter-owned recovery without starting a compet
     'connected',
   );
   await restoredManager.shutdown();
+});
+
+test('messaging manager restores a disconnected platform that still has saved credentials', async () => {
+  class SavedTokenPlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  manager.platformTypes.saved_token = SavedTokenPlatform;
+  const agentId = manager._agentId(user.userId, {});
+  ctx.db.prepare(
+    'INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)',
+  ).run(
+    user.userId,
+    agentId,
+    'saved_token',
+    JSON.stringify({ token: 'saved-bot-token' }),
+    'disconnected',
+  );
+
+  await manager.restoreConnections();
+  const key = manager._key(user.userId, agentId, 'saved_token');
+  assert.equal(manager.platforms.get(key).getStatus(), 'connected');
+  await manager.shutdown();
+});
+
+test('messaging manager does not restore a platform the user explicitly disconnected', async () => {
+  class SavedTokenPlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  manager.platformTypes.saved_token = SavedTokenPlatform;
+  await manager.connectPlatform(user.userId, 'saved_token', { token: 'saved-bot-token' });
+  await manager.disconnectPlatform(user.userId, 'saved_token');
+
+  const agentId = manager._agentId(user.userId, {});
+  const row = ctx.db.prepare(
+    'SELECT config, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?',
+  ).get(user.userId, agentId, 'saved_token');
+  assert.equal(row.status, 'disconnected');
+  assert.equal(manager._decodeStoredConfig(row.config).autoConnect, false);
+
+  const restoredManager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  restoredManager.platformTypes.saved_token = SavedTokenPlatform;
+  await restoredManager.restoreConnections();
+  assert.equal(
+    restoredManager.platforms.has(restoredManager._key(user.userId, agentId, 'saved_token')),
+    false,
+  );
+  await restoredManager.shutdown();
+});
+
+test('messaging manager keeps retrying after a failed startup restore', async () => {
+  let connectCalls = 0;
+  class FlakyRestorePlatform extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      connectCalls += 1;
+      if (connectCalls === 1) {
+        throw new Error('upstream timed out during startup');
+      }
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  }, {
+    reconnectBaseDelayMs: 1,
+    reconnectMaxDelayMs: 2,
+  });
+  manager.platformTypes.flaky_restore = FlakyRestorePlatform;
+  const agentId = manager._agentId(user.userId, {});
+  ctx.db.prepare(
+    'INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)',
+  ).run(
+    user.userId,
+    agentId,
+    'flaky_restore',
+    JSON.stringify({ token: 'saved-bot-token' }),
+    'disconnected',
+  );
+
+  await manager.restoreConnections();
+  await assert.doesNotReject(async () => {
+    const deadline = Date.now() + 1000;
+    while (connectCalls < 2 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(connectCalls, 2);
+  });
+  assert.equal(
+    manager.platforms.get(manager._key(user.userId, agentId, 'flaky_restore')).getStatus(),
+    'connected',
+  );
+  await manager.shutdown();
+});
+
+test('reconnecting a disconnected WhatsApp session keeps saved auth files', async () => {
+  class FakeWhatsApp extends EventEmitter {
+    constructor() {
+      super();
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      this.status = 'connected';
+      this.emit('connected');
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+      this.emit('disconnected', { manual: true });
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const { AGENT_DATA_DIR } = require('../../../runtime/paths');
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  manager.platformTypes.whatsapp = FakeWhatsApp;
+  const agentId = manager._agentId(user.userId, {});
+  const authDir = path.join(
+    AGENT_DATA_DIR,
+    'messaging-auth',
+    String(user.userId),
+    String(agentId),
+    'whatsapp',
+  );
+  fs.mkdirSync(authDir, { recursive: true });
+  const credsPath = path.join(authDir, 'creds.json');
+  fs.writeFileSync(credsPath, '{"noiseKey":true}');
+  ctx.db.prepare(
+    'INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)',
+  ).run(user.userId, agentId, 'whatsapp', JSON.stringify({}), 'disconnected');
+
+  await manager.connectPlatform(user.userId, 'whatsapp', {}, { agentId });
+  assert.equal(fs.existsSync(credsPath), true);
+  assert.equal(fs.readFileSync(credsPath, 'utf8'), '{"noiseKey":true}');
+  await manager.shutdown();
 });

@@ -22,9 +22,7 @@ class DevicesPanel extends StatefulWidget {
 
 class _DevicesPanelState extends State<DevicesPanel> {
   final TextEditingController _teachGoalController = TextEditingController();
-  final TextEditingController _androidAppController = TextEditingController(
-    text: _androidLaunchPlaceholder,
-  );
+  final TextEditingController _androidAppController = TextEditingController();
   _DeviceTab _device = _DeviceTab.computer;
   bool _teachComposerVisible = false;
   Timer? _androidPollTimer;
@@ -481,6 +479,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
                 enabled: online && !controller.isRunningDeviceAction,
                 decoration: const InputDecoration(
                   labelText: 'Package name',
+                  hintText: _androidDefaultLaunchPackage,
                   prefixIcon: Icon(Icons.apps_rounded),
                 ),
                 onSubmitted: (_) => _openAndroidApp(),
@@ -539,18 +538,16 @@ class _DevicesPanelState extends State<DevicesPanel> {
   }
 
   Future<void> _openAndroidApp() async {
-    final packageName = _androidAppController.text.trim();
-    if (packageName.isEmpty) return;
+    final packageName = _androidAppController.text.trim().isEmpty
+        ? _androidDefaultLaunchPackage
+        : _androidAppController.text.trim();
     await widget.controller.openAndroidAppRuntime(packageName: packageName);
     await widget.controller.screenshotAndroidRuntime();
   }
 }
 
-/// Live Android frame with touch input.
-///
-/// Frames are polled, so the previously decoded bytes stay on screen until the
-/// next frame has loaded — rebuilding a loading spinner between frames made the
-/// surface flicker on every poll.
+/// Live Android frame with touch input. Keep the last decoded frame on screen
+/// between polls so the surface does not flicker.
 class _AndroidSurface extends StatefulWidget {
   const _AndroidSurface({
     required this.controller,

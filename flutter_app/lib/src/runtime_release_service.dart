@@ -12,11 +12,6 @@ const String runtimeSigningPublicKey = String.fromEnvironment(
   'NEOAGENT_RUNTIME_PUBLIC_KEY',
   defaultValue: embeddedRuntimeSigningPublicKey,
 );
-const String runtimeReleaseChannel = String.fromEnvironment(
-  'NEOAGENT_RELEASE_CHANNEL',
-  defaultValue: 'stable',
-);
-
 typedef RuntimeDownloadProgress = void Function(double progress);
 typedef RuntimeCancellationCheck = void Function();
 
@@ -75,8 +70,9 @@ class RuntimeReleaseService {
   Future<PreparedRuntimeRelease> prepare({
     required String platform,
     required String architecture,
+    required String channel,
   }) async {
-    final release = await _resolveRelease();
+    final release = await _resolveRelease(channel);
     _checkCancelled();
     final manifestBytes = await _downloadBytes(
       release.manifestUrl,
@@ -168,7 +164,7 @@ class RuntimeReleaseService {
     }
   }
 
-  Future<_RuntimeRelease> _resolveRelease() async {
+  Future<_RuntimeRelease> _resolveRelease(String channel) async {
     final releasesUrl = Uri.https(
       'api.github.com',
       '/repos/$appUpdaterGithubOwner/$appUpdaterGithubRepo/releases',
@@ -190,8 +186,7 @@ class RuntimeReleaseService {
     }
     for (final rawRelease in decoded.whereType<Map>()) {
       if (rawRelease['draft'] == true) continue;
-      if (runtimeReleaseChannel.trim().toLowerCase() != 'beta' &&
-          rawRelease['prerelease'] == true) {
+      if (channel != 'beta' && rawRelease['prerelease'] == true) {
         continue;
       }
       final assets = rawRelease['assets'];

@@ -14,10 +14,10 @@ const MODULE_IDS = Object.freeze([
 ]);
 
 const DEFAULT_MODULE_CONFIG = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: 2,
   enabled: true,
   participationMode: 'automatic',
-  minimumNeedScore: 0.72,
+  minimumNeedScore: 0.58,
   batchWindowMs: 900,
   decisionContextMessageLimit: 12,
   decisionModelId: null,

@@ -229,12 +229,6 @@ function getModelHealthSnapshot(userId, agentId, now = Date.now()) {
   return { modelIds, providerIds };
 }
 
-function isProviderCoolingDown(userId, agentId, providerId, now = Date.now()) {
-  const normalizedProvider = String(providerId || '').trim().toLowerCase();
-  if (!normalizedProvider) return false;
-  return getModelHealthSnapshot(userId, agentId, now).providerIds.has(normalizedProvider);
-}
-
 function isModelCoolingDown(userId, agentId, modelSelectionId, now = Date.now()) {
   const selectedId = String(modelSelectionId || '').trim();
   if (!selectedId) return false;
@@ -253,7 +247,6 @@ module.exports = {
   getModelHealthSnapshot,
   isModelCoolingDown,
   isPermanentModelFailure,
-  isProviderCoolingDown,
   isRecoverableModelFailure,
   recordModelFailure,
   recordModelSuccess,

@@ -2,20 +2,8 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../../db/database');
+const { parseJsonObject } = require('../../../../utils/text');
 const { VISIBILITY } = require('./event_types');
-
-function parseJsonObject(value, fallback = {}) {
-  if (!value) return { ...fallback };
-  if (typeof value === 'object' && !Array.isArray(value)) return { ...value };
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : { ...fallback };
-  } catch {
-    return { ...fallback };
-  }
-}
 
 function appendEvent({
   runId,
@@ -119,17 +107,8 @@ function findEventByRequestId(runId, requestId, eventType = null) {
   };
 }
 
-function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
-  if (!runId) return [];
-  const rows = db.prepare(
-    `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-     FROM agent_run_events
-     WHERE run_id = ? AND sequence_index > ?
-     ORDER BY sequence_index ASC, id ASC
-     LIMIT ?`,
-  ).all(runId, Number(afterSequence) || 0, Math.max(1, Math.min(Number(limit) || 500, 5000)));
-
-  return rows.map((row) => ({
+function mapEventRow(row) {
+  return {
     id: Number(row.id),
     runId: row.run_id,
     userId: row.user_id,
@@ -140,7 +119,31 @@ function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
     sequenceIndex: Number(row.sequence_index || 0),
     payload: parseJsonObject(row.payload_json, {}),
     createdAt: row.created_at,
-  }));
+  };
+}
+
+function listEventsByType(runId, eventType) {
+  if (!runId || !eventType) return [];
+  const rows = db.prepare(
+    `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
+     FROM agent_run_events
+     WHERE run_id = ? AND event_type = ?
+     ORDER BY sequence_index ASC, id ASC`,
+  ).all(runId, eventType);
+  return rows.map(mapEventRow);
+}
+
+function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
+  if (!runId) return [];
+  const rows = db.prepare(
+    `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
+     FROM agent_run_events
+     WHERE run_id = ? AND sequence_index > ?
+     ORDER BY sequence_index ASC, id ASC
+     LIMIT ?`,
+  ).all(runId, Number(afterSequence) || 0, Math.max(1, Math.min(Number(limit) || 500, 5000)));
+
+  return rows.map(mapEventRow);
 }
 
 
@@ -148,4 +151,5 @@ module.exports = {
   appendEvent,
   findEventByRequestId,
   listEvents,
+  listEventsByType,
 };

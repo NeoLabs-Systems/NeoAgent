@@ -43,6 +43,36 @@ function suggestsCoreFileWork(suggestedNames = []) {
     .some((name) => CORE_FILE_TOOLS.includes(String(name || '').trim()));
 }
 
+function toolFamily(tool) {
+  const family = String(tool?.family || '').trim();
+  return family || null;
+}
+
+function expandNamesByFamily(names = [], allTools = []) {
+  const requested = [...new Set(
+    (Array.isArray(names) ? names : [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean),
+  )];
+  const byName = new Map(
+    (Array.isArray(allTools) ? allTools : []).map((tool) => [tool?.name, tool]),
+  );
+  const families = new Set();
+  for (const name of requested) {
+    const family = toolFamily(byName.get(name));
+    if (family) families.add(family);
+  }
+  if (families.size === 0) return requested;
+
+  const expanded = [...requested];
+  for (const tool of allTools) {
+    const name = String(tool?.name || '').trim();
+    if (!name || expanded.includes(name)) continue;
+    if (families.has(toolFamily(tool))) expanded.push(name);
+  }
+  return expanded;
+}
+
 function compactDescription(value, maxChars = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (text.length <= maxChars) return text;
@@ -153,11 +183,7 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
 }
 
 function selectInitialTools(allTools = [], suggestedNames = [], options = {}) {
-  const requested = new Set(
-    (Array.isArray(suggestedNames) ? suggestedNames : [])
-      .map((name) => String(name || '').trim())
-      .filter(Boolean),
-  );
+  const requested = new Set(expandNamesByFamily(suggestedNames, allTools));
   const selected = allTools.filter((tool) => requested.has(tool?.name));
   return ensureRequiredTools(selected.slice(0, MAX_TOOLS), allTools, options).slice(0, MAX_TOOLS);
 }
@@ -170,11 +196,7 @@ function activateTools(currentTools = [], allTools = [], requestedNames = [], op
   const evicted = [];
   const unknown = [];
   const notActivated = [];
-  const requested = [...new Set(
-    (Array.isArray(requestedNames) ? requestedNames : [])
-      .map((rawName) => String(rawName || '').trim())
-      .filter(Boolean),
-  )];
+  const requested = expandNamesByFamily(requestedNames, allTools);
   for (const name of requested) {
     const tool = knownByName.get(name);
     if (!tool) {
@@ -219,6 +241,7 @@ function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {
 
 module.exports = {
   suggestsCoreFileWork,
+  expandNamesByFamily,
   ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
   MAX_TOOLS,

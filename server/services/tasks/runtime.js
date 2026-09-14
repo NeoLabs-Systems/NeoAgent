@@ -12,36 +12,24 @@ const {
 const { TaskRepository } = require('./task_repository');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
+const {
+  MINUTE_MS,
+  RUN_SAMPLE_SIZE,
+  findNextRun,
+  resolveLeadTimeMs,
+} = require('./schedule_utils');
 const { normalizeJsonObject } = require('./utils');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 const { parseErrorEnvelope } = require('../../utils/retry');
+const { normalizeStoredString } = require('../../utils/text');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
-
-function normalizeStoredString(value) {
-  if (value == null) return '';
-  if (typeof value !== 'string') return String(value || '').trim();
-  let current = value.trim();
-  for (let i = 0; i < 2; i += 1) {
-    if (!current) return '';
-    try {
-      const parsed = JSON.parse(current);
-      if (typeof parsed === 'string') {
-        current = parsed.trim();
-        continue;
-      }
-      return '';
-    } catch {
-      return current;
-    }
-  }
-  return current;
-}
+const LEAD_TIME_POLL_CRON = '* * * * *';
 
 function normalizeNotifyTarget(target = {}) {
   const platform = normalizeStoredString(target.platform);
@@ -69,6 +57,10 @@ function stringifyTaskResult(result) {
   return '';
 }
 
+function finishesOnTime(triggerConfig = {}) {
+  return triggerConfig.finishOnTime === true || triggerConfig.finish_on_time === true;
+}
+
 function isTaskLoopPaused(taskConfig = {}) {
   const raw = taskConfig.loopBudget && typeof taskConfig.loopBudget === 'object' && !Array.isArray(taskConfig.loopBudget)
     ? taskConfig.loopBudget
@@ -94,6 +86,7 @@ class TaskRuntime {
     this.runningTaskExecutions = new Set();
     this.activeExecutionPromises = new Set();
     this.activePolls = new Map();
+    this.leadTimeOccurrences = new Map();
     this.abortController = new AbortController();
     this.integrationEventCleanups = [];
     this.triggerRegistry = new TriggerRegistry(taskAdapters);
@@ -142,6 +135,7 @@ class TaskRuntime {
     try {
       this._loadFromDB();
       this._startOneTimePoller();
+      this._startLeadTimePoller();
       this._startIntegrationPoller();
       this.integrationEventCleanups = attachIntegrationEventSources(this);
       this.state = 'running';
@@ -162,7 +156,8 @@ class TaskRuntime {
       job.task.stop();
     }
     this.scheduleJobs.clear();
-    for (const poller of [this.oneTimePoller, this.integrationPoller]) {
+    this.leadTimeOccurrences.clear();
+    for (const poller of [this.oneTimePoller, this.leadTimePoller, this.integrationPoller]) {
       if (poller) poller.stop();
     }
     for (const cleanup of this.integrationEventCleanups) {
@@ -174,6 +169,7 @@ class TaskRuntime {
     }
     this.integrationEventCleanups = [];
     this.oneTimePoller = null;
+    this.leadTimePoller = null;
     this.integrationPoller = null;
   }
 
@@ -351,6 +347,65 @@ class TaskRuntime {
     }
   }
 
+  // Tasks that compensate for their own run duration are driven from this poller
+  // instead of node-cron: node-cron can only fire at the configured time, while
+  // these need to start a computed head start earlier so the run ends at it.
+  _startLeadTimePoller() {
+    this.leadTimePoller = this.cron.schedule(LEAD_TIME_POLL_CRON, () => {
+      return this._runPoll('lead_time', () => this._runDueLeadTimeTasks(), (error) => {
+        console.error('[Tasks] Lead-time task poll failed:', error.message);
+      });
+    });
+  }
+
+  _runDueLeadTimeTasks() {
+    const now = Date.now();
+    for (const task of this.taskRepository.listEnabledByTriggerTypes(['schedule'])) {
+      if (this.abortController.signal.aborted) break;
+      const triggerConfig = this._normalizeJson(task.trigger_config);
+      if (!finishesOnTime(triggerConfig)) continue;
+      const cronExpression = String(triggerConfig.cronExpression || task.cron_expression || '').trim();
+      if (!cronExpression) continue;
+
+      let occurrence = null;
+      try {
+        // Look ahead from the previous minute so that the occurrence falling in
+        // the current minute still counts: a task with no history yet has a zero
+        // head start and must fire exactly at its configured time.
+        occurrence = findNextRun(cronExpression, new Date(now - MINUTE_MS));
+      } catch (error) {
+        console.error(`[Tasks] Lead-time task ${task.id} has an unusable cron expression:`, error.message);
+        continue;
+      }
+      if (!occurrence) continue;
+
+      const occurrenceIso = occurrence.toISOString();
+      if (this.leadTimeOccurrences.get(task.id) === occurrenceIso) continue;
+      const averageRunSeconds = this.taskRepository.getAverageRunSeconds(task.id, task.user_id, RUN_SAMPLE_SIZE);
+      const leadTimeMs = resolveLeadTimeMs(averageRunSeconds);
+      const occurrenceWindowStartMs = occurrence.getTime() - leadTimeMs;
+      if (occurrenceWindowStartMs > now) continue;
+      this.leadTimeOccurrences.set(task.id, occurrenceIso);
+      // A restart clears the bookkeeping above, so fall back to the recorded
+      // last run: it tells whether this occurrence was already started before
+      // the restart.
+      if (this.taskRepository.hasRunSince(task.id, task.user_id, (now - occurrenceWindowStartMs) / 1000)) {
+        continue;
+      }
+      // Not awaited: a head start is only accurate if every due task is launched
+      // on this tick rather than after the previous one has finished running.
+      void this._executeTask(task.id, task.user_id, {
+        scheduledAt: occurrenceIso,
+        manual: false,
+        oneTime: false,
+        triggerType: 'schedule',
+        triggerSource: 'schedule',
+      }).catch((error) => {
+        console.error(`[Tasks] Lead-time task ${task.id} error:`, error.message);
+      });
+    }
+  }
+
   _startIntegrationPoller() {
     this.integrationPoller = this.cron.schedule(INTEGRATION_TRIGGER_POLL_CRON, () => {
       return this._runPoll('integration', async () => {
@@ -418,6 +473,11 @@ class TaskRuntime {
     if (!cronExpression) {
       return;
     }
+    // A task that starts early to finish on time is owned by the lead-time
+    // poller; registering it here too would run it twice per occurrence.
+    if (finishesOnTime(triggerConfig)) {
+      return;
+    }
     const job = this.cron.schedule(cronExpression, async () => {
       try {
         await this._executeTask(task.id, task.user_id, {
@@ -440,6 +500,7 @@ class TaskRuntime {
       existing.task.stop();
     }
     this.scheduleJobs.delete(taskId);
+    this.leadTimeOccurrences.delete(taskId);
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
@@ -853,6 +914,11 @@ class TaskRuntime {
     delete taskConfig.callGreeting;
     const agentId = row.agent_id || resolveAgentId(userId, null);
     const triggerSummary = this._summarizeTrigger(triggerType, triggerConfig);
+    // Reported for every schedule task, not only those already compensating for
+    // their duration, so the editor can preview what a head start would do.
+    const averageRunSeconds = triggerType === 'schedule'
+      ? this.taskRepository.getAverageRunSeconds(row.id, userId, RUN_SAMPLE_SIZE)
+      : null;
     return {
       id: row.id,
       name: row.name,
@@ -860,6 +926,7 @@ class TaskRuntime {
       triggerConfig,
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig) : null,
+      averageRunSeconds: averageRunSeconds === null ? null : Math.round(averageRunSeconds),
       enabled: !!row.enabled,
       lastRun: row.last_run_started_at || row.last_run || null,
       lastRunId: row.last_run_id || null,

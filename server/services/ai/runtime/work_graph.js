@@ -2,6 +2,7 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
+const { parseMaybeJson: parseJson } = require('../../../utils/text');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 
 const NODE_STATUSES = Object.freeze({
@@ -14,15 +15,6 @@ const NODE_STATUSES = Object.freeze({
   REOPENED: 'reopened',
   SKIPPED: 'skipped',
 });
-
-function parseJson(value, fallback) {
-  if (value == null || value === '') return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
 
 function serializeNode(row) {
   if (!row) return null;

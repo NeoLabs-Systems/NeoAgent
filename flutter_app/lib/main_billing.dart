@@ -1,13 +1,32 @@
 part of 'main.dart';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const Set<String> _zeroDecimalCurrencies = {
+  'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA',
+  'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
+};
 
-String _fmtPrice(int cents, String currency, {String? interval}) {
-  final amount = cents / 100;
-  final sym = currency.toUpperCase() == 'USD' ? '\$' : '€';
-  final str = amount == amount.truncateToDouble()
-      ? '$sym${amount.toInt()}'
-      : '$sym${amount.toStringAsFixed(2)}';
+const Map<String, String> _currencySymbols = {
+  'USD': r'$',
+  'EUR': '€',
+  'GBP': '£',
+  'JPY': '¥',
+  'CNY': '¥',
+  'KRW': '₩',
+  'INR': '₹',
+  'AUD': r'A$',
+  'CAD': r'C$',
+  'CHF': 'CHF ',
+};
+
+String _fmtPrice(int minorUnits, String currency, {String? interval}) {
+  final code = currency.trim().toUpperCase();
+  final divisor = _zeroDecimalCurrencies.contains(code) ? 1 : 100;
+  final amount = minorUnits / divisor;
+  final formatted = amount == amount.truncateToDouble()
+      ? amount.toInt().toString()
+      : amount.toStringAsFixed(2);
+  final symbol = _currencySymbols[code];
+  final str = symbol == null ? '$formatted $code' : '$symbol$formatted';
   if (interval == null || interval.isEmpty) return '$str forever';
   return '$str / $interval';
 }
@@ -821,7 +840,6 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
     final currentPlanId =
         _c.billingSubscription?['plan_id'] as String?;
 
-    // Savings pct
     int? savingsPct;
     if (hasAnnual && monthly.isNotEmpty && yearly.isNotEmpty) {
       final mp = (monthly.first['price_cents'] as num?)?.toInt() ?? 0;

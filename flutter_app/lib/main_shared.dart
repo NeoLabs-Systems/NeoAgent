@@ -1,5 +1,47 @@
 part of 'main.dart';
 
+String _formatCaughtError(Object error) => formatCaughtError(error);
+
+String _formatTokenCount(int amount) {
+  if (amount >= 1000000) {
+    final value = amount / 1000000;
+    return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}M';
+  }
+  if (amount >= 1000) {
+    final value = amount / 1000;
+    return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}k';
+  }
+  return amount.toString();
+}
+
+String _durationLabel(Duration remaining) {
+  if (remaining.inHours > 0) {
+    return '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+  }
+  return '${remaining.inMinutes + 1}m';
+}
+
+/// Describes when the window recovers: while the limit is reached that is the
+/// moment enough usage ages out to run again, otherwise it is when the window's
+/// current usage has fully expired.
+String? _usageWindowResetLabel({
+  required bool reached,
+  required DateTime? recoversAt,
+  required DateTime? fullResetAt,
+}) {
+  final now = DateTime.now();
+  if (reached) {
+    if (recoversAt == null) return 'Available again shortly';
+    final remaining = recoversAt.difference(now);
+    if (remaining.isNegative) return 'Available again shortly';
+    return 'Available again in ${_durationLabel(remaining)}';
+  }
+  if (fullResetAt == null) return null;
+  final remaining = fullResetAt.difference(now);
+  if (remaining.isNegative) return null;
+  return 'Usage fully resets in ${_durationLabel(remaining)}';
+}
+
 EdgeInsets _pagePadding(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
   if (width >= 1280) {
@@ -13,11 +55,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 
 final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
 
-/// The app's single backdrop: a flat page ground.
-///
-/// Replaces the former ambient treatment (animated aurora field, arcade grid,
-/// vignette and confetti layers) that sat behind auth, setup, launcher and
-/// cowork. The five-tap logo easter egg survives on the badge itself.
+/// Flat page backdrop for auth, setup, launcher, and cowork.
 class _ControlSurfaceBackdrop extends StatelessWidget {
   const _ControlSurfaceBackdrop({required this.child});
 
@@ -129,6 +167,8 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    // The panel manages the runtime on this machine, so it exists on desktop only.
+    if (_supportsDesktopShell) AppSection.server,
     if (controller.showBillingSection) AppSection.billing,
     AppSection.runs,
     AppSection.agents,
@@ -2169,9 +2209,10 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
+  const _InlineError({required this.message, this.onDismiss});
 
   final String message;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -2183,7 +2224,21 @@ class _InlineError extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.tag),
         border: Border.all(color: _danger.withValues(alpha: 0.30)),
       ),
-      child: Text(message, style: TextStyle(color: _danger)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            child: Text(message, style: TextStyle(color: _danger)),
+          ),
+          if (onDismiss != null)
+            IconButton(
+              tooltip: 'Dismiss',
+              visualDensity: VisualDensity.compact,
+              onPressed: onDismiss,
+              icon: Icon(Icons.close_rounded, color: _danger, size: 18),
+            ),
+        ],
+      ),
     );
   }
 }

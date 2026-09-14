@@ -1,5 +1,20 @@
 part of 'main.dart';
 
+void _showControllerError(
+  BuildContext context,
+  NeoAgentController controller,
+  Object error,
+) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        controller.errorMessage ?? controller.friendlyErrorMessage(error),
+      ),
+    ),
+  );
+}
+
 class IntegrationsPanel extends StatelessWidget {
   const IntegrationsPanel({
     super.key,
@@ -308,9 +323,7 @@ Future<void> _showBitwardenBindingDialog(
     items = await controller.fetchBitwardenItems();
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
+      _showControllerError(context, controller, error);
     }
     return;
   }
@@ -587,9 +600,7 @@ Future<void> _showBitwardenSetupDialog(
     bindings = await controller.fetchCredentialBindings();
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
+      _showControllerError(context, controller, error);
     }
     return;
   }
@@ -959,9 +970,7 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
     existing = await controller.getOfficialIntegrationConfig(config.providerId);
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
+      _showControllerError(context, controller, error);
     }
     return;
   }
@@ -1168,9 +1177,7 @@ Future<void> _showHomeAssistantSetupDialog(
     existing = await controller.getOfficialIntegrationConfig('home_assistant');
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
+      _showControllerError(context, controller, error);
     }
     return;
   }
@@ -1408,9 +1415,7 @@ Future<void> _showTrelloSetupDialog(
     existing = await controller.getOfficialIntegrationConfig('trello');
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? error.toString())),
-      );
+      _showControllerError(context, controller, error);
     }
     return;
   }
@@ -1619,7 +1624,7 @@ Future<void> _showTrelloSetupDialog(
                             }
                           } catch (error) {
                             setState(() {
-                              formError = error.toString();
+                              formError = controller.friendlyErrorMessage(error);
                               connecting = false;
                             });
                           }

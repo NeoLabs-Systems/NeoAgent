@@ -65,7 +65,7 @@ test('workspace file tools accept the VM /workspace mount path', async () => {
   });
 
   assert.equal(result.error, undefined);
-  assert.equal(result.path.endsWith('/NeoAgent/service.js'), true);
+  assert.equal(result.path, 'NeoAgent/service.js');
   assert.equal(result.content, 'module.exports = true;\n');
 });
 
@@ -334,8 +334,9 @@ test('list_directory and search_files default to workspace root', async () => {
   });
 
   assert.ok(list.entries.some((entry) => entry.name === 'root-defaults.txt'));
+  assert.equal(list.entries.find((entry) => entry.name === 'root-defaults.txt').path, 'root-defaults.txt');
   assert.equal(search.count, 1);
-  assert.match(search.matches[0].file, /root-defaults\.txt$/);
+  assert.equal(search.matches[0].file, 'root-defaults.txt');
 });
 
 test('file tool schemas expose batch read and line range edit', () => {

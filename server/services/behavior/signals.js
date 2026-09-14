@@ -49,6 +49,7 @@ function buildDecisionPacket({
   threadState,
   roomMessages = [],
   localMemoryHints = [],
+  addressing = null,
 }) {
   const recent = Array.isArray(msg.channelContext) && msg.channelContext.length
     ? msg.channelContext.slice(-12).map((item) => ({
@@ -83,17 +84,19 @@ function buildDecisionPacket({
       mediaType: msg.mediaType || null,
       wasMentioned: msg.wasMentioned === true,
       repliedToAgent: msg.repliedToAgent === true,
+      addressedByName: addressing?.addressedByName === true,
       timestamp: msg.timestamp || new Date().toISOString(),
     },
     room: {
       recentMessages: recent,
       secondsSinceAgentSpoke: secondsSinceSpoke,
       recentSilenceCount: Number(threadState?.recentSilenceCount || 0),
+      agentNames: Array.isArray(addressing?.names) ? addressing.names.slice(0, 8) : [],
     },
     policy: {
       participationMode: config.participationMode || 'automatic',
-      minimumNeedScore: Number(config.minimumNeedScore ?? 0.72),
-      groupDefaultPosture: 'prefer_hold_back',
+      minimumNeedScore: Number(config.minimumNeedScore ?? 0.58),
+      groupDefaultPosture: 'hold_side_chatter',
     },
     roomHints: Array.isArray(localMemoryHints) ? localMemoryHints.slice(0, 4) : [],
   };

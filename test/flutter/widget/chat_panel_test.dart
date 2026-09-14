@@ -135,4 +135,51 @@ void main() {
     expect(position().maxScrollExtent, greaterThan(extentBeforeExpand));
     expect(position().pixels, closeTo(position().maxScrollExtent, 1));
   });
+
+  testWidgets('a light drag from the bottom is not pulled back', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = _buildController();
+    addTearDown(controller.dispose);
+    controller.chatMessages = <ChatEntry>[
+      for (var i = 0; i < 40; i++)
+        ChatEntry(
+          id: 'msg-$i',
+          role: i.isEven ? 'user' : 'assistant',
+          content: 'Message $i with enough text to take up a full line.',
+          platform: 'web',
+          createdAt: DateTime.utc(2026, 8, 9, 10, i),
+        ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => ChatPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    ScrollPosition position() => tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    expect(position().pixels, closeTo(position().maxScrollExtent, 1));
+
+    // Stay inside the old 120px near-bottom band. Auto-follow used to jump
+    // the thread back to the end on the next metrics pass.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 80));
+    await tester.pumpAndSettle();
+
+    expect(position().pixels, lessThan(position().maxScrollExtent - 40));
+    expect(find.byTooltip('Scroll to bottom'), findsOneWidget);
+  });
 }

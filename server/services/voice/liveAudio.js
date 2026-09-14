@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { randomUUID } = require('crypto');
+const { wrapPcmAsWav } = require('./shared_audio');
 
 function normalizeAudioMimeType(mimeType, fallback = 'audio/pcm;rate=16000;channels=1') {
   const normalized = String(mimeType || '').trim().toLowerCase();
@@ -33,29 +33,11 @@ function parsePcmMimeType(mimeType) {
 }
 
 function wrapPcm16AsWav(audioBytes, format = {}) {
-  const payload = Buffer.isBuffer(audioBytes) ? audioBytes : Buffer.from(audioBytes || []);
-  const sampleRate = Number(format.sampleRate || 16000);
-  const channels = Number(format.channels || 1);
-  const bitsPerSample = Number(format.bitsPerSample || 16);
-  const blockAlign = channels * (bitsPerSample / 8);
-  const byteRate = sampleRate * blockAlign;
-  const header = Buffer.alloc(44);
-
-  header.write('RIFF', 0, 4, 'ascii');
-  header.writeUInt32LE(36 + payload.length, 4);
-  header.write('WAVE', 8, 4, 'ascii');
-  header.write('fmt ', 12, 4, 'ascii');
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(blockAlign, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36, 4, 'ascii');
-  header.writeUInt32LE(payload.length, 40);
-
-  return Buffer.concat([header, payload]);
+  return wrapPcmAsWav(audioBytes, {
+    sampleRate: Number(format.sampleRate || 16000),
+    channels: Number(format.channels || 1),
+    bitsPerSample: Number(format.bitsPerSample || 16),
+  });
 }
 
 function fileExtensionForMimeType(mimeType) {

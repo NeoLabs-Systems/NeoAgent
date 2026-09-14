@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import 'local_backend_installer_models.dart';
+import 'error_text.dart';
+import 'host_architecture.dart';
 import 'local_runtime_paths.dart';
 import 'local_setup_engine.dart';
 import 'runtime_activation_service.dart';
@@ -51,8 +52,9 @@ class LocalBackendInstaller {
   Stream<LocalBackendInstallEvent> get events => _events.stream;
 
   Future<LocalBackendInstallResult> install(
-    LocalBackendSetupProfile profile,
-  ) async {
+    LocalBackendSetupProfile profile, {
+    required String channel,
+  }) async {
     if (_disposed) {
       throw const LocalBackendInstallerException(
         'SETUP_INSTALLER_DISPOSED',
@@ -72,7 +74,8 @@ class LocalBackendInstaller {
     try {
       final release = await _releaseService.prepare(
         platform: _platformName(),
-        architecture: _architectureName(),
+        architecture: hostArchitecture() ?? 'x64',
+        channel: channel,
       );
       final artifact = release.artifact;
 
@@ -174,6 +177,7 @@ class LocalBackendInstaller {
           paths: paths,
           profile: profile,
           nodeExecutable: _activationService.nodeExecutable(versionDirectory),
+          channel: channel,
         );
       } on Object {
         await _activationService.rollback(
@@ -203,7 +207,7 @@ class LocalBackendInstaller {
     } on Object catch (error) {
       final wrapped = LocalBackendInstallerException(
         'SETUP_INSTALL_FAILED',
-        error.toString(),
+        formatCaughtError(error),
       );
       _emit(
         LocalBackendInstallStage.install,
@@ -243,14 +247,6 @@ class LocalBackendInstaller {
       'Local backend installation is not available on this platform.',
       retryable: false,
     );
-  }
-
-  String _architectureName() {
-    final abi = Abi.current().toString().toLowerCase();
-    if (abi.contains('arm64')) {
-      return 'arm64';
-    }
-    return 'x64';
   }
 
   void _emit(

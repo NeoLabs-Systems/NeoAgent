@@ -181,3 +181,32 @@ test('global and foreign-user skills are not editable through the runner', async
   ).get('user-a-only');
   assert.equal(ownerRow.user_id, userA.userId);
 });
+
+test('skill create and update keep object-shaped instructions as readable text', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'skill_object_body' });
+  const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+  const runner = new SkillRunner();
+  await runner.loadSkills();
+
+  const created = runner.createSkill(
+    user.userId,
+    'Object Body',
+    'Stores structured instructions',
+    { steps: ['one', 'two'] },
+  );
+  assert.equal(created.success, true);
+  const filePath = created.path;
+  const written = fs.readFileSync(filePath, 'utf8');
+  assert.doesNotMatch(written, /\[object Object\]/);
+  assert.match(written, /"steps"/);
+
+  const updated = runner.updateSkill(user.userId, 'object-body', {
+    instructions: ['Do this', 'Then that'],
+  });
+  assert.equal(updated.success, true);
+  const reread = fs.readFileSync(filePath, 'utf8');
+  assert.doesNotMatch(reread, /\[object Object\]/);
+  assert.match(reread, /Do this/);
+  assert.match(reread, /Then that/);
+});

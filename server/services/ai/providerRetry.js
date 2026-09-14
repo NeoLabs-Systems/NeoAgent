@@ -23,6 +23,10 @@ const DEFAULTS = {
   maxAttempts: 3, // total attempts including the first
   baseDelayMs: 500,
   maxDelayMs: 8000,
+  // A provider that asks us to wait longer than this is reporting exhausted
+  // quota, not a blip. Parking a run on that timer is worse than failing over
+  // to the next model, so the wait is refused instead of honored.
+  maxRetryAfterMs: 60_000,
 };
 
 function readNumberEnv(name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
@@ -41,6 +45,8 @@ function resolveConfig(overrides = {}) {
       ?? readNumberEnv('NEOAGENT_AI_RETRY_BASE_MS', DEFAULTS.baseDelayMs, { min: 0, max: 60000 }),
     maxDelayMs: overrides.maxDelayMs
       ?? readNumberEnv('NEOAGENT_AI_RETRY_MAX_MS', DEFAULTS.maxDelayMs, { min: 0, max: 120000 }),
+    maxRetryAfterMs: overrides.maxRetryAfterMs
+      ?? readNumberEnv('NEOAGENT_AI_RETRY_MAX_RETRY_AFTER_MS', DEFAULTS.maxRetryAfterMs, { min: 0, max: 600000 }),
   };
 }
 
@@ -66,7 +72,8 @@ function isTransientError(err) {
 }
 
 // Honor a server-provided Retry-After when present; it is authoritative over our
-// own backoff. Supports both delta-seconds and `retry-after-ms` style headers.
+// own backoff, up to `maxRetryAfterMs`. Supports both delta-seconds and
+// `retry-after-ms` style headers.
 function retryAfterMs(err) {
   if (!err || typeof err !== 'object') return null;
   return retryAfterMilliseconds(err.headers || err.response?.headers);
@@ -88,7 +95,7 @@ function abortError(signal) {
  * @param {string} [options.label] Prefix for diagnostic logs.
  */
 async function withProviderRetry(fn, options = {}) {
-  const { maxAttempts, baseDelayMs, maxDelayMs } = resolveConfig(options);
+  const { maxAttempts, baseDelayMs, maxDelayMs, maxRetryAfterMs } = resolveConfig(options);
   const isRetryable = typeof options.isRetryable === 'function' ? options.isRetryable : isTransientError;
   const label = options.label || 'ProviderRetry';
 
@@ -102,7 +109,14 @@ async function withProviderRetry(fn, options = {}) {
       const exhausted = attempt >= maxAttempts;
       if (exhausted || !isRetryable(err)) throw err;
 
-      const waitMs = retryAfterMs(err) ?? computeBackoffMs(attempt, baseDelayMs, maxDelayMs);
+      const requestedWaitMs = retryAfterMs(err);
+      if (requestedWaitMs !== null && requestedWaitMs > maxRetryAfterMs) {
+        console.warn(
+          `[${label}] provider asked for a ${Math.round(requestedWaitMs / 1000)}s wait (cap ${Math.round(maxRetryAfterMs / 1000)}s); failing over instead of waiting.`
+        );
+        throw err;
+      }
+      const waitMs = requestedWaitMs ?? computeBackoffMs(attempt, baseDelayMs, maxDelayMs);
       console.warn(
         `[${label}] transient failure on attempt ${attempt}/${maxAttempts}; retrying in ${waitMs}ms: ${String(err?.message || err).slice(0, 200)}`
       );

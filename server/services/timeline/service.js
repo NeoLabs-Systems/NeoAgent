@@ -1,24 +1,12 @@
 'use strict';
 
 const db = require('../../db/database');
+const { parseJsonObject: parseJson } = require('../../utils/text');
 
 const DEFAULT_FEED_LIMIT = 50;
 const MAX_FEED_LIMIT = 200;
 const DEFAULT_PROMPT_CONTEXT_LIMIT = 6;
 const MAX_PROMPT_CONTEXT_LIMIT = 12;
-
-function parseJson(value, fallback = {}) {
-  if (!value) return { ...fallback };
-  if (typeof value === 'object' && !Array.isArray(value)) return { ...value };
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : { ...fallback };
-  } catch {
-    return { ...fallback };
-  }
-}
 
 function safeJson(value) {
   try {

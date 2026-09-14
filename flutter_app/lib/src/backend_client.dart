@@ -588,43 +588,6 @@ class BackendClient {
     );
   }
 
-  Future<Map<String, dynamic>> saveAiProviderCredentials(
-    String baseUrl,
-    String providerId, {
-    String? apiKey,
-    String? baseUrlOverride,
-    bool clearApiKey = false,
-    String? agentId,
-  }) async {
-    final payload = <String, dynamic>{
-      if (apiKey != null) 'apiKey': apiKey,
-      if (baseUrlOverride != null) 'baseUrl': baseUrlOverride,
-      if (clearApiKey) 'clearApiKey': true,
-    };
-    return putMap(
-      baseUrl,
-      _withAgentQuery(
-        '/api/settings/ai-providers/${Uri.encodeComponent(providerId)}/credentials',
-        agentId,
-      ),
-      payload,
-    );
-  }
-
-  Future<Map<String, dynamic>> clearAiProviderCredentials(
-    String baseUrl,
-    String providerId, {
-    String? agentId,
-  }) async {
-    return deleteMap(
-      baseUrl,
-      _withAgentQuery(
-        '/api/settings/ai-providers/${Uri.encodeComponent(providerId)}/credentials',
-        agentId,
-      ),
-    );
-  }
-
   Future<Map<String, dynamic>> saveSettings(
     String baseUrl,
     Map<String, dynamic> payload, {
@@ -747,6 +710,21 @@ class BackendClient {
     String runId,
   ) async {
     return getMap(baseUrl, '/api/agents/$runId/steps');
+  }
+
+  Future<Map<String, dynamic>> fetchRunPromptTurns(
+    String baseUrl,
+    String runId,
+  ) async {
+    return getMap(baseUrl, '/api/agents/$runId/prompt');
+  }
+
+  Future<Map<String, dynamic>> fetchRunPrompt(
+    String baseUrl,
+    String runId,
+    String requestId,
+  ) async {
+    return getMap(baseUrl, '/api/agents/$runId/prompt/$requestId');
   }
 
   Future<void> deleteRun(String baseUrl, String runId) async {
@@ -2158,6 +2136,12 @@ class BackendClient {
         lower.contains('connect-src')) {
       return 'The browser blocked a request to ${uri.path} because of Content Security Policy.';
     }
+    if (uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '::1') {
+      return 'The NeoAgent backend on this computer is not answering on port '
+          '${uri.port}. Make sure it is running, then try again.';
+    }
     return 'Request to ${uri.path} failed before the backend responded.';
   }
 
@@ -2285,6 +2269,27 @@ class BackendClient {
         if (toolArgs != null) 'toolArgs': toolArgs,
       },
     );
+  }
+
+  Future<Map<String, dynamic>> fetchGeofences(String baseUrl) {
+    return getMap(baseUrl, '/api/triggers/geofences');
+  }
+
+  Future<Map<String, dynamic>> triggerGeofenceEvent(
+    String baseUrl, {
+    required String label,
+    required double latitude,
+    required double longitude,
+    int? radiusMeters,
+    String? action,
+  }) {
+    return postMap(baseUrl, '/api/triggers/geofence', <String, dynamic>{
+      'label': label,
+      'latitude': latitude,
+      'longitude': longitude,
+      if (radiusMeters != null) 'radius_meters': radiusMeters,
+      if (action != null && action.trim().isNotEmpty) 'action': action,
+    });
   }
 }
 

@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = new Set([
   'GET /api/auth/providers/complete',
   'GET /api/auth/email/confirm',
   'GET /api/auth/password/reset',
+  'GET /api/health',
   'GET /api/public/status',
   'GET /api/runtime/config',
   'GET /api/settings/meta/models',

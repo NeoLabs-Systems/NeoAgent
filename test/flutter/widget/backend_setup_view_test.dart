@@ -52,12 +52,12 @@ void main() {
       expect(find.text('Quickstart'), findsOneWidget);
       expect(find.text('Recommended'), findsOneWidget);
       expect(find.text('Start Quickstart'), findsOneWidget);
-      expect(find.textContaining('Connect an AI provider'), findsOneWidget);
+      expect(find.textContaining('admin dashboard'), findsNWidgets(2));
 
       await tester.tap(find.text('Full setup'));
       await tester.pump();
       expect(find.text('Start full setup'), findsOneWidget);
-      expect(find.textContaining('connect an AI provider'), findsOneWidget);
+      expect(find.textContaining('admin dashboard'), findsNWidgets(2));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -68,7 +68,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('NeoAgent on this computer'), findsOneWidget);
+      expect(find.text('Backend on this computer'), findsOneWidget);
       expect(
         find.textContaining('terminal commands are not required'),
         findsOneWidget,

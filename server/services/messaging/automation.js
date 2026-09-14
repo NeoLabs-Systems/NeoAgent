@@ -2,6 +2,7 @@
 
 const db = require('../../db/database');
 const { detectPromptInjection } = require('../../utils/security');
+const { maskSenderId } = require('../../utils/logger');
 const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
@@ -478,7 +479,7 @@ Use send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
 
   const socialMode = options.socialMode === true || Boolean(msg.isGroup);
   const responseGuide = socialMode
-    ? `The turn-taking gate has selected this message for a response. Respond with one useful, socially natural contribution and do not re-run the speak-or-silence decision.`
+    ? `The turn-taking gate has selected this message for a response. Respond with one useful, socially natural contribution and do not re-run the speak-or-silence decision. Reply in this shared chat only (to="${msg.chatId}"). Do not switch the reply to a DM with the sender.`
     : `Respond with send_message platform="${msg.platform}" to="${msg.chatId}". Follow the system persona and channel guide. Do not send [NO RESPONSE] unless the user explicitly asked for silence.`;
   const progressGuide = socialMode
     ? 'Do not send interim progress or presence updates into the shared room.'
@@ -509,6 +510,10 @@ function buildSenderIdentityBlock(msg) {
 }
 
 async function isAllowedMessagingSender({ io, userId, msg }) {
+  // A self-chat note is written by the account owner in their own chat, so there
+  // is no sender left to approve and no allowlist prompt worth raising.
+  if (msg.metadata?.selfChat === true) return true;
+
   const agentId = msg.agentId || null;
   const policyRow = db
     .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
@@ -534,8 +539,9 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     return true;
   }
 
-  console.log(
-    `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (${decision.reason})`
+  console.warn(
+    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${decision.reason}).`
+    + ' Allow the sender under Messaging access to let it through.'
   );
   emitBlockedSenderSuggestion({ io, userId, msg });
   return false;

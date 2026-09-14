@@ -79,12 +79,12 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
     final useGrid = width >= 720;
 
     return OnboardingScaffold(
-      step: 3,
-      totalSteps: 4,
+      step: 2,
+      totalSteps: 3,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
       description:
-          'Pick the model NeoAgent should use by default. Connect a provider first if the list is empty.',
+          'Pick the model NeoAgent should use by default. Providers are configured on the server.',
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
@@ -97,14 +97,25 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       ),
       child: _models.isEmpty
           ? Center(
-              child: Text(
-                'No available models yet.\nConnect a provider on the previous step, or later in Settings.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: paletteOf(context).textMuted,
-                  fontSize: 16,
-                  height: 1.5,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    'No available models yet.\nAdd a provider API key in the admin dashboard, then come back.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: paletteOf(context).textMuted,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: widget.controller.openAdminDashboard,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Open admin dashboard'),
+                  ),
+                ],
               ),
             )
           : useGrid

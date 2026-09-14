@@ -3,7 +3,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { getStripeClient } = require('./stripe_client');
-const { getPlan, getFreePlan } = require('./plans');
+const { getPlan } = require('./plans');
 const trialGuard = require('./trial_guard');
 const billingEmail = require('./billing_email');
 
@@ -98,30 +98,6 @@ async function getOrCreateStripeCustomer(userId) {
   `).run(userId, customer.id, now, now);
 
   return customer.id;
-}
-
-function createFreeSubscription(userId) {
-  const freePlan = getFreePlan();
-  if (!freePlan) return null;
-
-  const id = randomUUID();
-  const now = isoNow();
-  // INSERT OR IGNORE makes this idempotent under concurrent calls — the unique
-  // constraint on (user_id, active status) is enforced by the application layer,
-  // but concurrent requests could both reach this point; ignore the second attempt.
-  const info = db.prepare(`
-    INSERT OR IGNORE INTO user_subscriptions
-      (id, user_id, plan_id, stripe_subscription_id, status, created_at, updated_at)
-    SELECT ?, ?, ?, NULL, 'active', ?, ?
-    WHERE NOT EXISTS (
-      SELECT 1 FROM user_subscriptions WHERE user_id = ? AND status IN ('active', 'trialing')
-    )
-  `).run(id, userId, freePlan.id, now, now, userId);
-
-  if (info.changes > 0) {
-    applyRateLimitsFromSubscription(userId);
-  }
-  return getActiveSubscription(userId);
 }
 
 async function startTrial(userId, planId, { ip, deviceFp } = {}) {
@@ -448,7 +424,6 @@ function tryParseJson(str, fallback) {
 
 module.exports = {
   getActiveSubscription,
-  createFreeSubscription,
   startTrial,
   createCheckoutSession,
   createCustomerPortalSession,

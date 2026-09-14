@@ -1,6 +1,5 @@
 'use strict';
 
-const { randomUUID } = require('crypto');
 const outbox = require('./outbox_repository');
 const { claimFinalDelivery, loadRun, transition } = require('../run_state_machine');
 const { RUNTIME_STATES, MESSAGE_KINDS } = require('../constants');

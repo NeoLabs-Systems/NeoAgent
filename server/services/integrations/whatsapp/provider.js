@@ -13,6 +13,8 @@ const {
   waitForAbortableResult,
   waitForBoundedResult,
 } = require('../http');
+const { parseJsonObject: safeJsonParse, requireText } = require('../../../utils/text');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 const WHATSAPP_APP = {
   id: 'personal',
@@ -92,23 +94,6 @@ const TOOL_DEFINITIONS = [
     },
   },
 ];
-
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) {
-    throw new Error(`${label} is required.`);
-  }
-  return text;
-}
-
-function safeJsonParse(value, fallback = {}) {
-  try {
-    const parsed = JSON.parse(String(value || ''));
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true, mode: 0o700 });
@@ -864,37 +849,16 @@ class WhatsAppPersonalProvider extends EventEmitter {
         : 'read_write',
     );
 
-    db.prepare(
-      `INSERT INTO integration_connections (
-         user_id,
-         agent_id,
-         provider_key,
-         app_key,
-         status,
-         account_email,
-         scopes_json,
-         credentials_json,
-         metadata_json,
-         last_connected_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-         status = 'connected',
-         scopes_json = excluded.scopes_json,
-         credentials_json = excluded.credentials_json,
-         metadata_json = excluded.metadata_json,
-         last_connected_at = excluded.last_connected_at,
-         updated_at = excluded.updated_at`,
-    ).run(
-      session.userId,
-      session.agentId,
-      this.key,
-      session.appKey,
-      session.accountEmail,
-      JSON.stringify(['personal_whatsapp']),
-      encryptValue(JSON.stringify(credentials)),
-      JSON.stringify(metadata),
-    );
+    upsertConnectedIntegration({
+      userId: session.userId,
+      agentId: session.agentId,
+      providerKey: this.key,
+      appKey: session.appKey,
+      accountEmail: session.accountEmail,
+      scopes: ['personal_whatsapp'],
+      credentialsJson: encryptValue(JSON.stringify(credentials)),
+      metadata,
+    });
 
     const row = db
       .prepare(

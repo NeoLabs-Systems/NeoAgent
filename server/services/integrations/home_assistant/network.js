@@ -2,22 +2,14 @@
 
 const dns = require('dns').promises;
 const net = require('net');
+const { isPrivateHost } = require('../../../utils/cloud-security');
+const { requireText, trimText } = require('../../../utils/text');
 const {
   fetchResponseText,
   waitForAbortableResult,
 } = require('../http');
 
 const ALLOWED_PORTS = new Set(['', '443', '8123']);
-
-function trimText(value) {
-  return String(value || '').trim();
-}
-
-function requireText(value, label) {
-  const text = trimText(value);
-  if (!text) throw new Error(`${label} is required.`);
-  return text;
-}
 
 function normalizeHomeAssistantBaseUrl(value) {
   const raw = requireText(value, 'Home Assistant URL');
@@ -43,64 +35,10 @@ function normalizeHomeAssistantBaseUrl(value) {
   return parsed.toString().replace(/\/$/, '');
 }
 
-function ipv4ToNumber(address) {
-  const parts = String(address || '').split('.').map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return null;
-  }
-  return parts.reduce((acc, part) => ((acc << 8) + part) >>> 0, 0);
-}
-
-function ipv4InCidr(address, cidr, bits) {
-  const value = ipv4ToNumber(address);
-  const base = ipv4ToNumber(cidr);
-  if (value === null || base === null) return false;
-  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
-  return (value & mask) === (base & mask);
-}
-
-function isBlockedIpv4(address) {
-  return [
-    ['0.0.0.0', 8],
-    ['10.0.0.0', 8],
-    ['100.64.0.0', 10],
-    ['127.0.0.0', 8],
-    ['169.254.0.0', 16],
-    ['172.16.0.0', 12],
-    ['192.0.0.0', 24],
-    ['192.0.2.0', 24],
-    ['192.168.0.0', 16],
-    ['198.18.0.0', 15],
-    ['198.51.100.0', 24],
-    ['203.0.113.0', 24],
-    ['224.0.0.0', 4],
-    ['240.0.0.0', 4],
-  ].some(([cidr, bits]) => ipv4InCidr(address, cidr, bits));
-}
-
-function isBlockedIpv6(address) {
-  const normalized = String(address || '').trim().toLowerCase();
-  if (normalized.startsWith('::ffff:')) {
-    return isBlockedIpv4(normalized.slice('::ffff:'.length));
-  }
-  return normalized === '::' ||
-    normalized === '::1' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe8') ||
-    normalized.startsWith('fe9') ||
-    normalized.startsWith('fea') ||
-    normalized.startsWith('feb') ||
-    normalized.startsWith('ff') ||
-    normalized.startsWith('2001:db8:');
-}
-
 function isBlockedIpAddress(address) {
   const normalized = String(address || '').trim().replace(/^\[|\]$/g, '');
-  const family = net.isIP(normalized);
-  if (family === 4) return isBlockedIpv4(normalized);
-  if (family === 6) return isBlockedIpv6(normalized);
-  return true;
+  if (!net.isIP(normalized)) return true;
+  return isPrivateHost(normalized);
 }
 
 async function assertPublicHomeAssistantEndpoint(baseUrl, options = {}) {

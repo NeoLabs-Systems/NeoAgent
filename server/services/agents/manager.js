@@ -284,28 +284,6 @@ function getDelegationTargets(userId, sourceAgentId) {
     }));
 }
 
-function getActiveAgentRoster(userId, { excludeAgentId = null, sourceAgentId = null } = {}) {
-  if (sourceAgentId) {
-    return getDelegationTargets(userId, sourceAgentId);
-  }
-  ensureMainAgent(userId);
-  return db
-    .prepare(
-      `SELECT id, slug, display_name, description, responsibilities
-       FROM agents
-       WHERE user_id = ? AND status = 'active' AND (? IS NULL OR id != ?)
-       ORDER BY is_default ASC, display_name ASC`
-    )
-    .all(userId, excludeAgentId, excludeAgentId)
-    .map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.display_name,
-      description: row.description || '',
-      responsibilities: row.responsibilities || '',
-    }));
-}
-
 function buildAgentRosterPrompt(userId, activeAgentId) {
   const roster = getDelegationTargets(userId, activeAgentId);
   if (!roster.length) return '';
@@ -328,7 +306,6 @@ module.exports = {
   createAgent,
   ensureMainAgent,
   agentCanDelegateTo,
-  getActiveAgentRoster,
   getAgentById,
   getAgentBySlug,
   getAgentIdFromRequest,

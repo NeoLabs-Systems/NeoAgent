@@ -95,6 +95,7 @@ class LocalSetupEngine {
     required LocalRuntimePaths paths,
     required LocalBackendSetupProfile profile,
     required File nodeExecutable,
+    required String channel,
   }) async {
     _cancelled = false;
     final cli =
@@ -111,6 +112,8 @@ class LocalSetupEngine {
           '--defer-optional-sections',
         '--json',
         '--runtime-package',
+        '--channel',
+        channel,
       ],
       environment: <String, String>{
         ...Platform.environment,

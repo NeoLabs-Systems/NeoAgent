@@ -16,14 +16,16 @@ const {
 } = require('../../runtime/release_channel');
 const { APP_DIR, ENV_FILE, upsertEnvValue } = require('../../runtime/paths');
 const { isManagedDeployment } = require('../utils/deployment');
+const { markSetupSectionComplete } = require('../services/setup/onboarding');
 const rateLimit = require('express-rate-limit');
 const { configuredDefaultLimits } = require('../services/ai/rate_limits');
+const { sendJsonError } = require('../http/errors');
+const { safeEqual } = require('../utils/security');
 
 const router = express.Router();
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
 const qrcode = require('qrcode');
 
-const fs   = require('fs');
 
 // Admin sessions last 30 days and roll on every request.
 const ADMIN_SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
@@ -89,7 +91,7 @@ router.post('/api/login', loginLimiter, express.json(), async (req, res) => {
   if (!expectedUsername || !expectedPassword) {
     return res.status(503).json({ error: 'Admin interface is not configured. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables.' });
   }
-  if (username !== expectedUsername || password !== expectedPassword) {
+  if (!safeEqual(username, expectedUsername) || !safeEqual(password, expectedPassword)) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   // Check whether 2FA is enabled
@@ -135,7 +137,7 @@ router.post('/api/2fa/verify', loginLimiter, express.json(), async (req, res) =>
     if (!valid) return res.status(401).json({ error: 'Invalid code — try again' });
     establishAdminSession(req, res, { ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -148,7 +150,7 @@ router.post('/api/login/2fa/setup/enable', loginLimiter, express.json(), async (
     const { recoveryCodes } = await adminTwoFactor.enable(req.body?.code);
     establishAdminSession(req, res, { ok: true, recoveryCodes });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -363,7 +365,7 @@ router.put('/api/config/email', requireAdminAuth, settingsLimiter, express.json(
     const { updateAdminEmailSettings } = require('../services/account/service_email_settings');
     res.json({ ok: true, ...updateAdminEmailSettings(req.body) });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -399,7 +401,7 @@ router.post('/api/settings/2fa/setup', requireAdminAuth, settingsLimiter, async 
     const qrDataUrl = await qrcode.toDataURL(otpauthUrl, { width: 200, margin: 2 });
     res.json({ qrDataUrl, manualKey });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -409,7 +411,7 @@ router.post('/api/settings/2fa/enable', requireAdminAuth, settingsLimiter, expre
     const { recoveryCodes } = await adminTwoFactor.enable(req.body?.code);
     res.json({ ok: true, recoveryCodes });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -419,7 +421,7 @@ router.delete('/api/settings/2fa', requireAdminAuth, settingsLimiter, express.js
     await adminTwoFactor.disable(req.body?.code);
     res.json({ ok: true });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -429,7 +431,7 @@ router.post('/api/settings/2fa/recovery-codes', requireAdminAuth, settingsLimite
     const { recoveryCodes } = await adminTwoFactor.regenerateCodes(req.body?.code);
     res.json({ ok: true, recoveryCodes });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -549,7 +551,7 @@ router.get('/api/analytics', requireAdminAuth, (req, res) => {
 
     res.json({ stats, runsByDay, usersByDay, modelBreakdown, statusBreakdown, topUsers, recentRuns });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -578,7 +580,7 @@ router.get('/api/users', requireAdminAuth, (req, res) => {
     const users = q ? db.prepare(sql).all(q, q) : db.prepare(sql).all();
     res.json({ users });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -593,7 +595,7 @@ router.delete('/api/users/:id', requireAdminAuth, (req, res) => {
   } catch (err) {
     if (err.code === 'NOT_FOUND') return res.status(404).json({ error: 'User not found' });
     if (err.code === 'INVALID_ID') return res.status(400).json({ error: 'Invalid user id' });
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -604,7 +606,7 @@ router.delete('/api/users/:id/sessions', requireAdminAuth, (req, res) => {
     db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ?').run(new Date().toISOString(), id);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -706,6 +708,7 @@ router.put('/api/providers', requireAdminAuth, express.json(), (req, res) => {
   upsertEnvValue(ENV_FILE, key, trimmed);
   if (trimmed) {
     process.env[key] = trimmed;
+    markSetupSectionComplete('providers');
   } else {
     delete process.env[key];
   }
@@ -785,7 +788,7 @@ router.put('/api/config/general', requireAdminAuth, settingsLimiter, express.jso
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -829,7 +832,7 @@ router.put('/api/config/vm', requireAdminAuth, settingsLimiter, express.json(), 
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -963,7 +966,7 @@ router.put('/api/config/integrations', requireAdminAuth, settingsLimiter, expres
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -1008,7 +1011,7 @@ router.put('/api/config/billing-setup', requireAdminAuth, settingsLimiter, expre
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendJsonError(res, err);
   }
 });
 
@@ -1046,7 +1049,7 @@ router.get('/api/models', requireAdminAuth, async (req, res) => {
     const disabledModels = reconcileModelVisibility(models.map((m) => m.id));
     res.json({ models, disabledModels });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -1066,7 +1069,7 @@ router.get('/api/users/:id/rate-limits', requireAdminAuth, (req, res) => {
     if (!row) return res.status(404).json({ error: 'User not found' });
     res.json({ limits: row });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -1082,7 +1085,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
     );
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
+    sendJsonError(res, err);
   }
 });
 
@@ -1100,7 +1103,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
     try {
       res.json({ plans: billingPlans.listPlans({ includeInactive: true }) });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 
@@ -1128,7 +1131,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
       billingPlans.deletePlan(req.params.id);
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 
@@ -1160,7 +1163,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
 
       res.json({ subscriptions: rows, total, limit, offset });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 
@@ -1172,7 +1175,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
       const sub = billingSubscriptions.getActiveSubscription(userId);
       res.json({ subscription: sub });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 
@@ -1185,7 +1188,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
       const sub = billingSubscriptions.adminSetSubscription(userId, planId, status);
       res.json({ subscription: sub });
     } catch (err) {
-      res.status(err.statusCode || 500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 
@@ -1196,7 +1199,7 @@ router.put('/api/users/:id/rate-limits', requireAdminAuth, express.json(), (req,
       billingSubscriptions.adminCancelSubscription(userId);
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendJsonError(res, err);
     }
   });
 })();

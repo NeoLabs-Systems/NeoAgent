@@ -13,6 +13,8 @@ class LocalRuntimeStatus {
     required this.running,
     this.version,
     this.backendUrl,
+    this.runningVersion,
+    this.releaseChannel,
     this.errorCode,
   });
 
@@ -20,7 +22,16 @@ class LocalRuntimeStatus {
   final bool running;
   final String? version;
   final String? backendUrl;
+  final String? runningVersion;
+  final String? releaseChannel;
   final String? errorCode;
+}
+
+class LocalRuntimeLogFile {
+  const LocalRuntimeLogFile({required this.path, required this.content});
+
+  final String path;
+  final String content;
 }
 
 class LocalRuntimeManager {
@@ -69,6 +80,8 @@ class LocalRuntimeManager {
               ? result['version'].toString().trim()
               : version,
           backendUrl: result['backendUrl']?.toString().trim(),
+          runningVersion: result['runningVersion']?.toString().trim(),
+          releaseChannel: result['releaseChannel']?.toString().trim(),
         );
       }
       return LocalRuntimeStatus(
@@ -84,6 +97,47 @@ class LocalRuntimeManager {
         version: version,
         errorCode: error.code,
       );
+    }
+  }
+
+  /// Reads the tail of the log files the runtime on this computer writes.
+  ///
+  /// This is a filesystem read under [LocalRuntimePaths]. It never opens a
+  /// socket, so it cannot return the logs of a remote NeoAgent server.
+  Future<List<LocalRuntimeLogFile>> readRecentLogs({int maxLines = 400}) async {
+    final logs = <LocalRuntimeLogFile>[];
+    for (final name in const <String>['neoagent.log', 'neoagent.error.log']) {
+      final file = File('${_paths.logDirectory}${_paths.separator}$name');
+      if (!file.existsSync()) continue;
+      logs.add(
+        LocalRuntimeLogFile(
+          path: file.path,
+          content: await _readTail(file, maxLines),
+        ),
+      );
+    }
+    return logs;
+  }
+
+  Future<String> _readTail(File file, int maxLines) async {
+    const maxBytes = 256 * 1024;
+    final handle = await file.open();
+    try {
+      final length = await handle.length();
+      final start = length > maxBytes ? length - maxBytes : 0;
+      await handle.setPosition(start);
+      final bytes = await handle.read(length - start);
+      final text = utf8.decode(bytes, allowMalformed: true);
+      final lines = text.split('\n');
+      if (start > 0 && lines.isNotEmpty) {
+        lines.removeAt(0);
+      }
+      if (lines.length <= maxLines) {
+        return lines.join('\n').trim();
+      }
+      return lines.sublist(lines.length - maxLines).join('\n').trim();
+    } finally {
+      await handle.close();
     }
   }
 

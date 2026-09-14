@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const { afterEach, test } = require('node:test');
 
 const {
-  base64UrlSha256,
   buildPaginationParams,
   githubApiRequest,
   parseOwnerRepo,
@@ -159,12 +158,6 @@ test('parseOwnerRepo accepts owner/repo and rejects invalid formats', () => {
   });
   assert.throws(() => parseOwnerRepo('NeoLabs-Systems'), /owner_repo must be in format/);
   assert.throws(() => parseOwnerRepo('NeoLabs-Systems/NeoAgent/extra'), /owner_repo must be in format/);
-});
-
-test('base64UrlSha256 returns a stable PKCE-safe digest', () => {
-  const digest = base64UrlSha256('code-verifier');
-  assert.equal(digest, 'qdgLLRr1saFHT6DWfWU28VNPIi7e9ynEBnBG3Oadw9g');
-  assert.doesNotMatch(digest, /[+/=]/);
 });
 
 test('github_api_request accepts a full GitHub API URL and merges query params', async () => {

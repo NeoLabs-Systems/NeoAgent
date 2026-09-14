@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const { chromiumDesktopCommand } = require('../browser/chromium_session');
 
 function fileEntry(filePath, content, mode = '0644') {
   return {
@@ -181,6 +182,8 @@ function guestDesktopBringUpScript() {
   const framebuffer = guestFramebufferDesktopScript().replace(/\n$/, '');
   const lightdm = guestLightDmConfig().replace(/\n$/, '');
   const packages = guestDesktopPackages();
+  const tint2 = TINT2_RC.replace(/\n$/, '');
+  const openbox = OPENBOX_RC_XML.replace(/\n$/, '');
   return `#!/bin/sh
 export DEBIAN_FRONTEND=noninteractive
 needs_pkgs=0
@@ -212,6 +215,13 @@ UNIT
 cat > /etc/lightdm/lightdm.conf.d/50-neoagent.conf <<'LIGHTDM'
 ${lightdm}
 LIGHTDM
+install -d -m 0755 /etc/xdg/tint2 /etc/xdg/openbox
+cat > /etc/xdg/tint2/tint2rc <<'TINT2'
+${tint2}
+TINT2
+cat > /etc/xdg/openbox/rc.xml <<'OPENBOX'
+${openbox}
+OPENBOX
 if [ -f /etc/default/grub ]; then
   sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/' /etc/default/grub || true
   update-grub >/dev/null 2>&1 || true
@@ -235,6 +245,10 @@ wait_for_x() {
     sleep 1
   done
 }
+if DISPLAY=:0 xdpyinfo >/dev/null 2>&1; then
+  echo DESKTOP_READY
+  exit 0
+fi
 modprobe virtio_gpu >/dev/null 2>&1 || true
 modprobe bochs >/dev/null 2>&1 || true
 systemctl stop lightdm.service >/dev/null 2>&1 || true
@@ -415,7 +429,7 @@ disablealt=false
 Type=Application
 Name=Chromium
 Comment=Web browser
-Exec=chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check
+Exec=${chromiumDesktopCommand()}
 Icon=chromium
 Terminal=false
 Categories=Network;WebBrowser;
@@ -456,7 +470,7 @@ function getGuestDesktopHomeFiles() {
 `),
     fileEntry('/home/neo/Desktop/Chromium.desktop', desktopShortcut(
       'Chromium',
-      'chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check',
+      chromiumDesktopCommand(),
       'chromium',
     ), '0755'),
     fileEntry('/home/neo/Desktop/Files.desktop', desktopShortcut(
@@ -550,7 +564,7 @@ menu.title.text.color: #e8efe6
 const OPENBOX_MENU_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <openbox_menu xmlns="http://openbox.org/3.4/menu">
   <menu id="root-menu" label="Applications">
-    <item label="Chromium"><action name="Execute"><command>chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check</command></action></item>
+    <item label="Chromium"><action name="Execute"><command>${chromiumDesktopCommand()}</command></action></item>
     <item label="Files"><action name="Execute"><command>pcmanfm /home/neo/workspace</command></action></item>
     <item label="Terminal"><action name="Execute"><command>lxterminal --working-directory=/home/neo/workspace</command></action></item>
     <item label="Text Editor"><action name="Execute"><command>mousepad</command></action></item>
@@ -618,7 +632,7 @@ const OPENBOX_RC_XML = `<?xml version="1.0" encoding="UTF-8"?>
     <keybind key="Super_L"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
     <keybind key="W-t"><action name="Execute"><command>lxterminal --working-directory=/home/neo/workspace</command></action></keybind>
     <keybind key="W-e"><action name="Execute"><command>pcmanfm /home/neo/workspace</command></action></keybind>
-    <keybind key="W-b"><action name="Execute"><command>chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check</command></action></keybind>
+    <keybind key="W-b"><action name="Execute"><command>${chromiumDesktopCommand()}</command></action></keybind>
   </keyboard>
   <mouse>
     <dragThreshold>3</dragThreshold>
@@ -671,6 +685,12 @@ const OPENBOX_RC_XML = `<?xml version="1.0" encoding="UTF-8"?>
       <decor>yes</decor>
       <maximized>false</maximized>
     </application>
+    <application class="Chromium-browser">
+      <maximized>yes</maximized>
+    </application>
+    <application class="chromium">
+      <maximized>yes</maximized>
+    </application>
   </applications>
 </openbox_config>
 `;
@@ -703,8 +723,11 @@ wm_menu = 1
 panel_dock = 0
 panel_layer = top
 panel_items = LTSC
-autohide = 0
-strut_policy = follow_size
+autohide = 1
+autohide_show_timeout = 0.15
+autohide_hide_timeout = 0.4
+autohide_height = 2
+strut_policy = none
 
 launcher_icon_size = 28
 launcher_item_app = /usr/local/share/applications/neoagent-chromium.desktop

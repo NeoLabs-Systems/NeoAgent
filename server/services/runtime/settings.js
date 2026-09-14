@@ -30,15 +30,6 @@ function getRuntimeSettings() {
   return normalizeRuntimeSettings();
 }
 
-function parseStoredRuntimeValue(_key, value) {
-  if (typeof value !== 'string') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
 function serializeRuntimeSettingValue(_key, value) {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
@@ -56,7 +47,6 @@ module.exports = {
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
   normalizeRuntimeSettings,
-  parseStoredRuntimeValue,
   redactRuntimeSettingValue,
   serializeRuntimeSettingValue,
   validateRuntimeSettings,

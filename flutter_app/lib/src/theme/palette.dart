@@ -8,12 +8,7 @@ NeoAgentPalette paletteFor(Brightness brightness) =>
 NeoAgentPalette paletteOf(BuildContext context) =>
     paletteFor(MediaQuery.platformBrightnessOf(context));
 
-/// Canonical color tokens for the NeoAgent "Control Surface" design system.
-///
-/// Visual language: warm-organic "agent OS" — olive/sage greens paired with
-/// a gold accent, a paper-light day theme and a deep-olive night theme.
-/// Every screen reads its colors from these tokens (via the theme getters in
-/// `main_theme.dart`), so adjusting a value here re-skins the whole app.
+/// Color tokens for the NeoAgent UI. Screens should read these via theme getters.
 class NeoAgentPalette {
   const NeoAgentPalette({
     required this.bgPrimary,
@@ -56,13 +51,13 @@ class NeoAgentPalette {
   /// Muted ink — captions, placeholders and disabled glyphs.
   final Color textMuted;
 
-  /// Gold accent — primary actions, active nav, focus rings.
+  /// Primary action and focus color.
   final Color accent;
 
-  /// Readable gold ("gold-ink") for eyebrows, links and accent text on paper.
+  /// Hover/link variant of [accent].
   final Color accentHover;
 
-  /// Sage green companion accent — calls, traces and secondary affordances.
+  /// Secondary accent for calls and traces.
   final Color accentAlt;
 
   /// Translucent gold wash for soft fills and selection backgrounds.
@@ -80,10 +75,7 @@ class NeoAgentPalette {
   final Color info;
 }
 
-/// Deep-olive night theme.
-///
-/// Sidebar/rail surfaces use [bgSecondary] = card olive (#171F1A), matching
-/// NeoRecall's control-surface rail rather than a darker-than-page well.
+/// Dark theme palette.
 const NeoAgentPalette darkPalette = NeoAgentPalette(
   bgPrimary: Color(0xFF0E1511),
   bgSecondary: Color(0xFF171F1A),
@@ -104,7 +96,7 @@ const NeoAgentPalette darkPalette = NeoAgentPalette(
   info: Color(0xFF6FB0A4),
 );
 
-/// Paper-light day theme.
+/// Light theme palette.
 const NeoAgentPalette lightPalette = NeoAgentPalette(
   bgPrimary: Color(0xFFF4F1E8),
   bgSecondary: Color(0xFFEDE9DC),

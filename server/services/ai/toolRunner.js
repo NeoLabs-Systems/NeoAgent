@@ -6,6 +6,7 @@ const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { shellQuote: shellEscape } = require('../../utils/shell');
+const { coerceWritableText } = require('../workspace/text_edits');
 
 const SKILLS_DIR = path.join(AGENT_DATA_DIR, 'skills');
 const USER_SKILLS_DIR = path.join(SKILLS_DIR, 'users');
@@ -369,7 +370,7 @@ class SkillRunner {
 
     const frontmatter = this._buildFrontmatter(safeName, description, metaToWrite);
     const filePath = path.join(skillDir, 'SKILL.md');
-    fs.writeFileSync(filePath, frontmatter + `\n\n${instructions}`);
+    fs.writeFileSync(filePath, `${frontmatter}\n\n${coerceWritableText(instructions)}`);
 
     try {
       db.prepare(`
@@ -421,8 +422,10 @@ class SkillRunner {
       return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
     }
 
-    const newDesc = description !== undefined ? description : skill.description;
-    const newInstructions = instructions !== undefined ? instructions : skill.instructions;
+    const newDesc = description !== undefined ? coerceWritableText(description) : skill.description;
+    const newInstructions = instructions !== undefined
+      ? coerceWritableText(instructions)
+      : skill.instructions;
     // Merge: if metadata provided use it, otherwise preserve existing non-name/description fields
     let metaToWrite = {};
     if (metadata !== undefined) {
@@ -435,7 +438,7 @@ class SkillRunner {
     }
 
     const frontmatter = this._buildFrontmatter(skill.name, newDesc, metaToWrite);
-    fs.writeFileSync(skill.filePath, frontmatter + `\n\n${newInstructions}`);
+    fs.writeFileSync(skill.filePath, `${frontmatter}\n\n${coerceWritableText(newInstructions)}`);
     db.prepare(
       `UPDATE skills
        SET description = ?, metadata = ?, enabled = ?, updated_at = datetime('now')
@@ -518,13 +521,13 @@ class SkillRunner {
   }
 
   _buildFrontmatter(name, description, metadata = {}) {
-    let fm = `---\nname: ${name}\ndescription: ${description}\n`;
+    let fm = `---\nname: ${coerceWritableText(name)}\ndescription: ${coerceWritableText(description)}\n`;
     if (metadata && typeof metadata === 'object') {
       for (const [key, val] of Object.entries(metadata)) {
         if (key === 'name' || key === 'description') continue;
         fm += typeof val === 'object'
           ? `${key}: ${JSON.stringify(val)}\n`
-          : `${key}: ${val}\n`;
+          : `${key}: ${coerceWritableText(val)}\n`;
       }
     }
     fm += `---`;

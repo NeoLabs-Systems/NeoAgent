@@ -28,15 +28,8 @@ const {
   fetchHomeAssistantConfig,
   parseCredentials,
 } = require('./tools');
-
-function parseJsonObject(value) {
-  try {
-    const parsed = JSON.parse(String(value || '{}'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
+const { parseJsonObject } = require('../../../utils/text');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 function parseConfigInput(rawConfig, existingConfig = {}) {
   const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
@@ -103,28 +96,16 @@ function upsertHomeAssistantConnection(userId, agentId, baseUrl, token, config) 
   };
   const accountEmail = accountEmailForConfig(baseUrl, config);
 
-  db.prepare(
-    `INSERT INTO integration_connections (
-       user_id, agent_id, provider_key, app_key, status, account_email,
-       scopes_json, credentials_json, metadata_json, last_connected_at, updated_at
-     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-       status = excluded.status,
-       scopes_json = excluded.scopes_json,
-       credentials_json = excluded.credentials_json,
-       metadata_json = excluded.metadata_json,
-       last_connected_at = excluded.last_connected_at,
-       updated_at = excluded.updated_at`,
-  ).run(
+  upsertConnectedIntegration({
     userId,
     agentId,
-    HOME_ASSISTANT_PROVIDER_KEY,
-    HOME_ASSISTANT_APP.id,
+    providerKey: HOME_ASSISTANT_PROVIDER_KEY,
+    appKey: HOME_ASSISTANT_APP.id,
     accountEmail,
-    JSON.stringify(['home_assistant:api']),
-    encryptValue(JSON.stringify({ baseUrl, token })),
-    JSON.stringify(metadata),
-  );
+    scopes: ['home_assistant:api'],
+    credentialsJson: encryptValue(JSON.stringify({ baseUrl, token })),
+    metadata,
+  });
 
   if (existing && existing.account_email !== accountEmail) {
     db.prepare('DELETE FROM integration_connections WHERE id = ? AND user_id = ? AND agent_id = ?')

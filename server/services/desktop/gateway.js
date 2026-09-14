@@ -13,6 +13,11 @@ const {
   isDesktopCompanionHello,
   normalizeDesktopHello,
 } = require('./auth');
+const {
+  createUpgradeLimiter,
+  rejectUpgrade,
+  remoteAddressFromRequest,
+} = require('../../utils/ws_upgrade');
 
 const UPGRADE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const UPGRADE_RATE_LIMIT_MAX_ATTEMPTS = 30;
@@ -20,28 +25,6 @@ const UPGRADE_RATE_LIMIT_ENTRY_TTL_MS = 10 * 60 * 1000;
 const UPGRADE_AUTH_TIMEOUT_MS = 5000;
 const HELLO_TIMEOUT_MS = 5000;
 const MAX_HELLO_BYTES = 64 * 1024;
-
-function rejectUpgrade(socket, statusCode, message) {
-  try {
-    socket.write(
-      `HTTP/1.1 ${statusCode} ${message}\r\n` +
-      'Connection: close\r\n' +
-      '\r\n',
-    );
-  } catch {}
-  try { socket.destroy(); } catch {}
-}
-
-function remoteAddressFromRequest(req) {
-  const directPeer = req.socket?.remoteAddress || 'unknown';
-  if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
-    const forwarded = req.headers?.['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.trim()) {
-      return forwarded.split(',')[0].trim();
-    }
-  }
-  return directPeer;
-}
 
 function createUpgradeThrottleObserver() {
   const byRemote = new Map();
@@ -91,35 +74,16 @@ function bindDesktopCompanionGateway(httpServer, app, sessionMiddleware, streamH
     noServer: true,
     maxPayload: MAX_DESKTOP_STREAM_FRAME_BYTES,
   });
-  const upgradeAttempts = new Map();
+  const allowUpgradeAttempt = createUpgradeLimiter({
+    windowMs: UPGRADE_RATE_LIMIT_WINDOW_MS,
+    maxAttempts: UPGRADE_RATE_LIMIT_MAX_ATTEMPTS,
+  });
   const upgradeThrottleObserver = createUpgradeThrottleObserver();
   let closing = false;
   let closePromise = null;
 
   if (app?.locals) {
     app.locals.getDesktopGatewayRateLimitSnapshot = () => upgradeThrottleObserver.snapshot();
-  }
-
-  function allowUpgradeAttempt(remoteAddress) {
-    const key = String(remoteAddress || 'unknown');
-    const now = Date.now();
-
-    for (const [entryKey, stats] of upgradeAttempts.entries()) {
-      if (!stats?.windowStart || stats.windowStart + UPGRADE_RATE_LIMIT_WINDOW_MS <= now) {
-        upgradeAttempts.delete(entryKey);
-      }
-    }
-
-    const current = upgradeAttempts.get(key);
-    if (!current || now - current.windowStart >= UPGRADE_RATE_LIMIT_WINDOW_MS) {
-      upgradeAttempts.set(key, { windowStart: now, count: 1 });
-      return true;
-    }
-    if (current.count >= UPGRADE_RATE_LIMIT_MAX_ATTEMPTS) {
-      return false;
-    }
-    current.count += 1;
-    return true;
   }
 
   const handleUpgrade = (req, socket, head) => {

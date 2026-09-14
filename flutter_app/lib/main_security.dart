@@ -43,13 +43,11 @@ class _CategoryInfo {
     required this.label,
     required this.subtitle,
     required this.icon,
-    required this.color,
     required this.riskLevel,
   });
   final String label;
   final String subtitle;
   final IconData icon;
-  final Color color;
   final String riskLevel; // 'low' | 'medium' | 'high' | 'critical'
 }
 
@@ -58,35 +56,30 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     label: 'Shell Commands',
     subtitle: 'Run arbitrary commands on your machine or VM.',
     icon: Icons.terminal_rounded,
-    color: Color(0xFFE53935),
     riskLevel: 'critical',
   ),
   'file_write': _CategoryInfo(
     label: 'File Writes',
     subtitle: 'Create or modify files in your workspace.',
     icon: Icons.edit_document,
-    color: Color(0xFFF4511E),
     riskLevel: 'high',
   ),
   'android_privileged': _CategoryInfo(
     label: 'Android Control',
     subtitle: 'Run shell commands or install apps on your Android device.',
     icon: Icons.android_rounded,
-    color: Color(0xFF43A047),
     riskLevel: 'high',
   ),
   'desktop_control': _CategoryInfo(
     label: 'Desktop Control',
     subtitle: 'Click, type, and interact with desktop apps.',
     icon: Icons.desktop_windows_rounded,
-    color: Color(0xFF1E88E5),
     riskLevel: 'medium',
   ),
   'browser_privileged': _CategoryInfo(
     label: 'Browser Scripting',
     subtitle: 'Execute JavaScript inside your browser session.',
     icon: Icons.code_rounded,
-    color: Color(0xFF8E24AA),
     riskLevel: 'high',
   ),
   'credential_use': _CategoryInfo(
@@ -94,28 +87,24 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     subtitle:
         'Fill approved logins or authenticate requests without showing secrets to the AI.',
     icon: Icons.password_rounded,
-    color: Color(0xFF5E35B1),
     riskLevel: 'high',
   ),
   'network_write': _CategoryInfo(
     label: 'Network Write Requests',
     subtitle: 'Send POST / PUT / DELETE requests to external APIs.',
     icon: Icons.http_rounded,
-    color: Color(0xFF00897B),
     riskLevel: 'medium',
   ),
   'user_contact': _CategoryInfo(
     label: 'Call User',
     subtitle: 'Allow the agent to start an in-app voice call with you.',
     icon: Icons.phone_in_talk_rounded,
-    color: Color(0xFF2E7D32),
     riskLevel: 'medium',
   ),
   'skill_mutation': _CategoryInfo(
     label: 'Skill Changes',
     subtitle: 'Create, update, or delete skills.',
     icon: Icons.extension_rounded,
-    color: Color(0xFFFB8C00),
     riskLevel: 'medium',
   ),
   'external': _CategoryInfo(
@@ -123,7 +112,6 @@ const _kCategoryInfo = <String, _CategoryInfo>{
     subtitle:
         'Tools not built into NeoAgent, including connected MCP servers and custom tool providers.',
     icon: Icons.hub_rounded,
-    color: Color(0xFF6D4C41),
     riskLevel: 'high',
   ),
 };
@@ -134,11 +122,13 @@ _CategoryInfo _categoryInfo(String category) {
         label: category,
         subtitle: 'Controls access to $category tools.',
         icon: Icons.lock_outline,
-        color: const Color(0xFF888888),
         riskLevel: 'medium',
       );
 }
 
+// A permission screen has one colour language: how risky the permission is.
+// A decorative per-category hue competed with it and won visually, so a
+// high-risk category could read as green/safe.
 Color _riskColor(String level) {
   return switch (level) {
     'critical' => _danger,
@@ -272,7 +262,7 @@ class _AppNotificationService {
       importance: Importance.high,
       priority: Priority.high,
       ticker: 'Tool approval required',
-      color: info.color,
+      color: _riskColor(info.riskLevel),
       actions: <AndroidNotificationAction>[
         const AndroidNotificationAction(_approveActionId, 'Allow'),
         const AndroidNotificationAction(_denyActionId, 'Deny'),
@@ -417,7 +407,7 @@ class _MainSecurityState extends State<MainSecurity> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = _formatCaughtError(e);
         _loading = false;
       });
     }
@@ -774,10 +764,10 @@ class _PolicyCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: info.color.withAlpha(22),
+                      color: riskColor.withAlpha(22),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(info.icon, size: 16, color: info.color),
+                    child: Icon(info.icon, size: 16, color: riskColor),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1006,7 +996,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     final info = _categoryInfo(req.category);
     final colorScheme = Theme.of(context).colorScheme;
     final urgent = _remainingSeconds <= 8;
-    final ringColor = urgent ? colorScheme.error : info.color;
+    final riskColor = _riskColor(info.riskLevel);
+    final ringColor = urgent ? colorScheme.error : riskColor;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -1079,13 +1070,13 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: info.color.withAlpha(22),
+                                color: riskColor.withAlpha(22),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Icon(
                                 info.icon,
                                 size: 13,
-                                color: info.color,
+                                color: riskColor,
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -1093,7 +1084,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                               info.label,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: info.color,
+                                color: riskColor,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1125,7 +1116,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           width: 7,
                           height: 7,
                           decoration: BoxDecoration(
-                            color: info.color,
+                            color: riskColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -1215,7 +1206,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                             icon: const Icon(Icons.verified_rounded, size: 15),
                             label: const Text('Always allow'),
                             style: FilledButton.styleFrom(
-                              backgroundColor: info.color,
+                              backgroundColor: riskColor,
                             ),
                             onPressed: () => _decide('approved', 'always'),
                           ),

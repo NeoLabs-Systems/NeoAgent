@@ -3,28 +3,36 @@ const path = require('path');
 const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { createServiceLogger } = require('../../utils/logger');
+
+const log = createServiceLogger('WhatsApp');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
+const SENT_MESSAGE_MEMORY = 200;
 
 class WhatsAppPlatform extends BasePlatform {
   constructor(config = {}) {
     super('whatsapp', config);
-    this.supportsGroups = true;
+    this.selfChatMode = config.selfChatMode === true || config.selfChatMode === 'true';
+    this.supportsGroups = !this.selfChatMode;
     this.supportsMedia = true;
     this.sock = null;
     this.qrCode = null;
     this.reconnectAttempts = 0;
     this.authDir = config.authDir || AUTH_DIR;
     this.artifactStore = config.artifactStore || null;
+    this.resolveAgentName = typeof config.resolveAgentName === 'function' ? config.resolveAgentName : null;
     this.userId = config.userId;
     this._manualDisconnect = false;
     this._reconnectTimer = null;
+    this._sentMessageIds = new Set();
   }
 
   _ownIds() {
     return new Set([
       this.sock?.user?.id,
       this.sock?.user?.jid,
+      this.sock?.user?.lid,
     ]
       .map(normalizeWhatsAppId)
       .filter(Boolean));
@@ -55,7 +63,43 @@ class WhatsAppPlatform extends BasePlatform {
     return [...ownIds].some((id) => text.includes(`@${id}`));
   }
 
+  _isSelfChat(chatId) {
+    const normalized = normalizeWhatsAppId(chatId);
+    if (!normalized) return false;
+    return this._ownIds().has(normalized);
+  }
+
+  _rememberSentMessage(messageId) {
+    if (!messageId) return;
+    this._sentMessageIds.add(messageId);
+    if (this._sentMessageIds.size > SENT_MESSAGE_MEMORY) {
+      this._sentMessageIds.delete(this._sentMessageIds.values().next().value);
+    }
+  }
+
+  // Two independent signals separate what the user wrote from what this agent
+  // wrote: Baileys emits the socket's own sends as an 'append' upsert (never
+  // 'notify'), and every send records its message id here. Self-chat mode needs
+  // both, because there the user's own notes also arrive with fromMe set.
+  _shouldProcessInbound(msg, upsertType) {
+    if (upsertType !== 'notify') return false;
+    if (this._sentMessageIds.has(msg?.key?.id)) return false;
+    if (!this.selfChatMode) return msg?.key?.fromMe !== true;
+    if (this._isSelfChat(msg?.key?.remoteJid)) return true;
+    // Self-chat mode answers notes in your own chat only. Everyone else is
+    // dropped here, which looks exactly like a broken connection.
+    log.warn(
+      'Ignored a message because self-chat mode is on and it was not sent in your own chat.'
+      + ' Turn self-chat mode off to answer other contacts.',
+    );
+    return false;
+  }
+
   _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    // Self-chat mode only ever reaches this point for notes the account owner
+    // wrote in their own chat, so the allowlist has nothing left to decide.
+    if (this.selfChatMode) return { allowed: true };
+
     const senderId = normalizeWhatsAppId(sender);
     return this._checkInboundAccess({
       platform: 'whatsapp',
@@ -79,6 +123,13 @@ class WhatsAppPlatform extends BasePlatform {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
     }
+    // Two live sockets on one set of credentials make WhatsApp replace the
+    // first, and both then reconnect forever while inbound messages land on
+    // whichever socket is currently winning.
+    if (this.sock) {
+      log.warn('Closing the previous WhatsApp socket before connecting again.');
+      this._discardSocket();
+    }
     if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
 
     const {
@@ -99,7 +150,7 @@ class WhatsAppPlatform extends BasePlatform {
     }
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`[WhatsApp] Using WA version ${version.join('.')}, isLatest: ${isLatest}`);
+    log.info(`Using WA version ${version.join('.')}, isLatest: ${isLatest}`);
 
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
@@ -127,6 +178,9 @@ class WhatsAppPlatform extends BasePlatform {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
+        if (this.status !== 'awaiting_qr') {
+          log.warn('Waiting for a QR scan; WhatsApp is not linked and will not receive messages.');
+        }
         this.qrCode = qr;
         this.status = 'awaiting_qr';
         this.emit('qr', qr);
@@ -135,6 +189,15 @@ class WhatsAppPlatform extends BasePlatform {
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
+        const reasonName = Object.keys(DisconnectReason)
+          .find((name) => DisconnectReason[name] === statusCode) || 'unknown';
+        log.warn(
+          `Connection closed (${reasonName}, status ${statusCode ?? 'none'}).`
+          + ` ${this._manualDisconnect ? 'Stopped on request.' : shouldReconnect ? 'Reconnecting.' : 'Not reconnecting.'}`
+          + (reasonName === 'connectionReplaced'
+            ? ' Another WhatsApp Web session took this one over.'
+            : ''),
+        );
 
         this.status = 'disconnected';
         this.emit('disconnected', {
@@ -155,6 +218,7 @@ class WhatsAppPlatform extends BasePlatform {
       }
 
       if (connection === 'open') {
+        log.info('Connection open; inbound messages will be processed.');
         this.status = 'connected';
         this.qrCode = null;
         this.reconnectAttempts = 0;
@@ -163,10 +227,8 @@ class WhatsAppPlatform extends BasePlatform {
     });
 
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
-
       for (const msg of messages) {
-        if (msg.key.fromMe) continue;
+        if (!this._shouldProcessInbound(msg, type)) continue;
 
         const chatId = msg.key.remoteJid;
         const isGroup = chatId?.endsWith('@g.us');
@@ -198,7 +260,11 @@ class WhatsAppPlatform extends BasePlatform {
           mediaType = 'sticker';
         }
 
-        if (!content && !mediaType) continue;
+        if (!content && !mediaType) {
+          const kinds = Object.keys(msg.message || {}).join(', ') || 'empty payload';
+          log.warn(`Ignored a message with no readable content (${kinds}).`);
+          continue;
+        }
 
         const access = this._checkMessageAccess(msg, {
           chatId,
@@ -252,14 +318,14 @@ class WhatsAppPlatform extends BasePlatform {
                   response_format: 'text'
                 });
                 content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
-                console.log(`[WhatsApp] Voice note transcribed (${content.length} chars)`);
+                log.info(`Voice note transcribed (${content.length} chars)`);
               } catch (transcribeErr) {
-                console.error('[WhatsApp] Audio transcription failed:', transcribeErr.message);
+                log.error('Audio transcription failed:', transcribeErr.message);
                 content = '[Voice Note - transcription failed]';
               }
             }
           } catch (dlErr) {
-            console.error('[WhatsApp] Media download failed:', dlErr.message);
+            log.error('Media download failed:', dlErr.message);
           }
         }
 
@@ -267,6 +333,10 @@ class WhatsAppPlatform extends BasePlatform {
           await this.sock.readMessages([msg.key]);
         } catch { /* non-fatal */ }
 
+        log.info(
+          `Accepted ${isGroup ? 'group' : 'direct'} message`
+          + `${mediaType ? ` (${mediaType})` : ''} for processing.`,
+        );
         this.emit('message', {
           platform: 'whatsapp',
           chatId,
@@ -289,6 +359,7 @@ class WhatsAppPlatform extends BasePlatform {
           localMediaPath,
           isGroup,
           messageId: msg.key.id,
+          metadata: this.selfChatMode ? { selfChat: true } : null,
           timestamp: msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000).toISOString() : new Date().toISOString(),
           rawMessage: msg
         });
@@ -298,15 +369,30 @@ class WhatsAppPlatform extends BasePlatform {
     return { status: this.status };
   }
 
+  _discardSocket() {
+    const previous = this.sock;
+    this.sock = null;
+    if (!previous) return;
+    try {
+      previous.ev?.removeAllListeners?.('connection.update');
+      previous.ev?.removeAllListeners?.('messages.upsert');
+      previous.ev?.removeAllListeners?.('creds.update');
+      previous.end();
+    } catch {
+      // The socket is being thrown away either way.
+    }
+  }
+
   _scheduleReconnect() {
     if (this._manualDisconnect || this._reconnectTimer) return;
     this.reconnectAttempts++;
     const delay = Math.min(1000 * (2 ** Math.min(this.reconnectAttempts, 10)), 60000);
+    log.info(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts}).`);
     this._reconnectTimer = setTimeout(() => {
       this._reconnectTimer = null;
       if (this._manualDisconnect) return;
       this.connect().catch((err) => {
-        console.error('[WhatsApp] Reconnect failed:', err.message);
+        log.error('Reconnect failed:', err.message);
         this._scheduleReconnect();
       });
     }, delay);
@@ -319,12 +405,40 @@ class WhatsAppPlatform extends BasePlatform {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
     }
-    if (this.sock) {
-      this.sock.end();
-      this.sock = null;
-    }
+    this._discardSocket();
     this.status = 'disconnected';
     this.emit('disconnected', { manual: true });
+  }
+
+  // In the self chat both sides are the same account, so replies carry the agent
+  // name to keep them apart from the user's own notes.
+  _withAgentLabel(content) {
+    const text = String(content || '').trim();
+    if (!this.selfChatMode || !text) return content;
+    const name = String(this.resolveAgentName?.() || '').trim();
+    return name ? `(${name}): ${text}` : content;
+  }
+
+  _outboundPayload(content, options) {
+    const body = this._withAgentLabel(content);
+    if (!options.mediaPath) return { text: body };
+
+    const media = fs.readFileSync(options.mediaPath);
+    const ext = path.extname(options.mediaPath).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      return { image: media, caption: body || undefined };
+    }
+    if (['.mp4', '.avi', '.mov'].includes(ext)) {
+      return { video: media, caption: body || undefined };
+    }
+    if (['.mp3', '.ogg', '.m4a'].includes(ext)) {
+      return { audio: media, mimetype: 'audio/mp4' };
+    }
+    return {
+      document: media,
+      fileName: path.basename(options.mediaPath),
+      caption: body || undefined
+    };
   }
 
   async sendMessage(to, content, options = {}) {
@@ -335,33 +449,9 @@ class WhatsAppPlatform extends BasePlatform {
     const jid = toWhatsAppJid(to);
     if (!jid) throw new Error('Invalid WhatsApp recipient');
 
-    if (options.mediaPath) {
-      const ext = path.extname(options.mediaPath).toLowerCase();
-      if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          image: fs.readFileSync(options.mediaPath),
-          caption: content || undefined
-        });
-      } else if (['.mp4', '.avi', '.mov'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          video: fs.readFileSync(options.mediaPath),
-          caption: content || undefined
-        });
-      } else if (['.mp3', '.ogg', '.m4a'].includes(ext)) {
-        return await this.sock.sendMessage(jid, {
-          audio: fs.readFileSync(options.mediaPath),
-          mimetype: 'audio/mp4'
-        });
-      } else {
-        return await this.sock.sendMessage(jid, {
-          document: fs.readFileSync(options.mediaPath),
-          fileName: path.basename(options.mediaPath),
-          caption: content || undefined
-        });
-      }
-    }
-
-    return await this.sock.sendMessage(jid, { text: content });
+    const sent = await this.sock.sendMessage(jid, this._outboundPayload(content, options));
+    this._rememberSentMessage(sent?.key?.id);
+    return sent;
   }
 
   async markRead(chatId, messageId) {

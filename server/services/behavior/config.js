@@ -2,6 +2,7 @@
 
 const db = require('../../db/database');
 const { isMainAgent } = require('../agents/manager');
+const { asObject } = require('../../utils/text');
 const { MODULE_IDS, cloneDefaults, DEFAULT_MODULE_CONFIG } = require('./defaults');
 
 const SETTINGS_KEY = 'behavior_modules_config';
@@ -13,10 +14,6 @@ function clampNumber(value, min, max, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
-}
-
-function asObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 function normalizeModules(rawModules, fallbackEnabled = true, sparse = false) {
@@ -116,9 +113,20 @@ function normalizeLeafConfig(raw = {}, base = cloneDefaults(), sparse = false) {
   return output;
 }
 
+function migrateLegacyNeedScore(input) {
+  const incomingSchema = Number(input.schemaVersion || 0);
+  if (incomingSchema >= 2) return input;
+  const rawScore = input.minimumNeedScore;
+  if (rawScore != null && Number(rawScore) !== 0.72) return input;
+  return {
+    ...input,
+    minimumNeedScore: DEFAULT_MODULE_CONFIG.minimumNeedScore,
+  };
+}
+
 function normalizeStoredConfig(raw) {
   const base = cloneDefaults();
-  const input = asObject(raw);
+  const input = migrateLegacyNeedScore(asObject(raw));
   const normalized = {
     schemaVersion: DEFAULT_MODULE_CONFIG.schemaVersion,
     ...normalizeLeafConfig(input, base),

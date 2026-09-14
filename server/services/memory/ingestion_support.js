@@ -1,6 +1,7 @@
 'use strict';
 
 const { compactTextPayload } = require('../ai/preModelCompaction');
+const { parseJsonObject } = require('../../utils/text');
 
 const SOURCE_TYPES = Object.freeze([
   'email',
@@ -74,19 +75,6 @@ const INTEGRATION_SOURCE_TYPES = Object.freeze({
 
 function safeTrim(value, maxLength = 240) {
   return String(value || '').trim().slice(0, maxLength);
-}
-
-function parseJsonObject(value, fallback = {}) {
-  if (!value) return { ...fallback };
-  if (typeof value === 'object' && !Array.isArray(value)) return { ...value };
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : { ...fallback };
-  } catch {
-    return { ...fallback };
-  }
 }
 
 function normalizeSourceType(value) {

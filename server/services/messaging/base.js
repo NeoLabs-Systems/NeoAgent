@@ -6,6 +6,17 @@ const {
   evaluateAccessPolicy,
   buildBlockedSenderPayload,
 } = require('./access_policy');
+const { createServiceLogger, maskSenderId } = require('../../utils/logger');
+
+const log = createServiceLogger('Messaging');
+
+const ACCESS_DENIED_HINTS = Object.freeze({
+  direct_disabled: 'direct messages are switched off for this platform',
+  direct_not_allowed: 'the sender is not on the direct-message allowlist',
+  shared_disabled: 'group messages are switched off for this platform',
+  shared_not_allowed: 'the group is not on the allowlist',
+  unsupported_context: 'the message was neither a direct nor a group message',
+});
 
 class BasePlatform extends EventEmitter {
   constructor(name, config = {}) {
@@ -57,6 +68,13 @@ class BasePlatform extends EventEmitter {
     if (result.allowed) {
       return result;
     }
+    // Without this line a refused message leaves no trace: the socket event
+    // below only reaches a client that happens to be open at that moment.
+    log.warn(
+      `${this.name}: ignored a message from ${maskSenderId(context?.senderId || context?.phoneNumber)}`
+      + ` because ${ACCESS_DENIED_HINTS[result.reason] || result.reason}.`
+      + ' Allow the sender under Messaging access to let it through.',
+    );
     this.emit('blocked_sender', buildBlockedSenderPayload(this.name, context, options));
     return result;
   }

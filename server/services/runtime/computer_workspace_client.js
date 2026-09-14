@@ -1,6 +1,7 @@
 'use strict';
 
-const { applyTextEdits } = require('../workspace/text_edits');
+const { applyTextEdits, coerceWritableText } = require('../workspace/text_edits');
+const { toGuestWorkspacePath } = require('./guest_paths');
 
 class ComputerWorkspaceClient {
   constructor(options = {}) {
@@ -21,7 +22,7 @@ class ComputerWorkspaceClient {
     );
     return {
       ...result,
-      content: String(result.content || ''),
+      content: coerceWritableText(result.content),
     };
   }
 
@@ -38,7 +39,7 @@ class ComputerWorkspaceClient {
       const range = lines.slice(start - 1, end);
       content = range.join('\n');
       return {
-        path: `/home/neo/workspace/${result.path}`,
+        path: toGuestWorkspacePath(result.path),
         content: content.length > 20000 ? `${content.slice(0, 20000)}\n...[truncated]` : content,
         byteSize: Number(result.size || Buffer.byteLength(content)),
         totalLines: lines.length,
@@ -51,7 +52,7 @@ class ComputerWorkspaceClient {
 
   async writeFile(userId, options = {}) {
     try {
-      let content = String(options.content ?? '');
+      let content = coerceWritableText(options.content);
       if (String(options.mode || '').toLowerCase() === 'append') {
         const current = await this.#readContent(userId, options.path, options);
         content = `${current.content}${content}`;
@@ -60,7 +61,7 @@ class ComputerWorkspaceClient {
         path: options.path,
         content,
       }, options);
-      return { ...result, path: `/home/neo/workspace/${result.path}` };
+      return { ...result, path: toGuestWorkspacePath(result.path) };
     } catch (error) {
       return { success: false, error: error.message, path: options.path || null };
     }
@@ -116,7 +117,7 @@ class ComputerWorkspaceClient {
         options,
       );
       return {
-        path: `/home/neo/workspace/${result.path || ''}`,
+        path: toGuestWorkspacePath(result.path || ''),
         entries: result.entries,
       };
     } catch (error) {

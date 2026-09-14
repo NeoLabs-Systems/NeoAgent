@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
+  applyComputerDemonstrationDefaults,
+  isSafetyRejection,
   isUsableProposal,
   normalizeProposal,
   proposalFailureMessage,
@@ -66,4 +68,15 @@ test('normalizeProposal keeps explicit rejections and reports a usable failure',
   const incomplete = normalizeProposal({ approved: true, skill: { name: 'export-report' } });
   assert.equal(isUsableProposal(incomplete), false);
   assert.match(proposalFailureMessage(incomplete), /missing description, trigger, steps, verification/);
+
+  assert.equal(isSafetyRejection(rejected), false);
+  assert.equal(isSafetyRejection(normalizeProposal({
+    approved: false,
+    reason: 'The demonstration exposed a password field.',
+  })), true);
+
+  const fallback = applyComputerDemonstrationDefaults(rejected, 'Export a report');
+  assert.equal(fallback.approved, true);
+  assert.equal(fallback.name, 'export-a-report');
+  assert.equal(isUsableProposal(fallback), true);
 });

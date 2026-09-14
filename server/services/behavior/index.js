@@ -19,6 +19,7 @@ const {
 } = require('./state');
 const { createBehaviorRegistry, LIFECYCLE_STAGES } = require('./registry');
 const { splitIntoNaturalBubbles, deliverSocialReply } = require('./delivery');
+const { resolveAddressing, contentAddressesAgent } = require('./addressing');
 
 module.exports = {
   MODULE_IDS,
@@ -40,4 +41,6 @@ module.exports = {
   markSpoke,
   splitIntoNaturalBubbles,
   deliverSocialReply,
+  resolveAddressing,
+  contentAddressesAgent,
 };

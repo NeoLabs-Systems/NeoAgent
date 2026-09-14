@@ -2,6 +2,12 @@
 
 const { WebSocketServer } = require('ws');
 const { sanitizeError } = require('../../utils/security');
+const { asObject, toOptionalString } = require('../../utils/text');
+const {
+  createUpgradeLimiter,
+  rejectUpgrade,
+  remoteAddressFromRequest,
+} = require('../../utils/ws_upgrade');
 const {
   WEARABLE_WS_PATH,
   isSupportedClientMessageType,
@@ -9,73 +15,11 @@ const {
   parseWearableMessage,
 } = require('./protocol');
 
-const UPGRADE_WINDOW_MS = 60 * 1000;
-const UPGRADE_MAX_ATTEMPTS = 30;
 const HELLO_TIMEOUT_MS = 5000;
-
-function rejectUpgrade(socket, statusCode, message) {
-  try {
-    socket.write(
-      `HTTP/1.1 ${statusCode} ${message}\r\n` +
-      'Connection: close\r\n' +
-      '\r\n',
-    );
-  } catch {}
-  try {
-    socket.destroy();
-  } catch {}
-}
-
-function remoteAddressFromRequest(req) {
-  const directPeer = req.socket?.remoteAddress || 'unknown';
-  if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
-    const forwarded = req.headers?.['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.trim()) {
-      return forwarded.split(',')[0].trim();
-    }
-  }
-  return directPeer;
-}
-
-function createUpgradeLimiter() {
-  const attempts = new Map();
-  return (remoteAddress) => {
-    const key = String(remoteAddress || 'unknown');
-    const now = Date.now();
-    for (const [entryKey, stats] of attempts.entries()) {
-      if (!stats?.windowStart || stats.windowStart + UPGRADE_WINDOW_MS <= now) {
-        attempts.delete(entryKey);
-      }
-    }
-    const current = attempts.get(key);
-    if (!current) {
-      attempts.set(key, { windowStart: now, count: 1 });
-      return true;
-    }
-    if (now - current.windowStart >= UPGRADE_WINDOW_MS) {
-      attempts.set(key, { windowStart: now, count: 1 });
-      return true;
-    }
-    if (current.count >= UPGRADE_MAX_ATTEMPTS) {
-      return false;
-    }
-    current.count += 1;
-    return true;
-  };
-}
 
 function sendJson(ws, payload) {
   if (!ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify(payload));
-}
-
-function asObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-}
-
-function toOptionalString(value, maxLength = 512) {
-  if (value == null) return '';
-  return String(value).trim().slice(0, maxLength);
 }
 
 function toBoundedInt(value, fallback, min, max) {

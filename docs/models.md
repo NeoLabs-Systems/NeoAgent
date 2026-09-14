@@ -5,8 +5,13 @@ providers. Provider credentials stay on the server.
 
 ## Configure a model
 
-Open **Settings > AI Providers** to add credentials and choose models. You can
-also run `neoagent setup` to configure common values from the terminal.
+Open **Settings > Models** to choose chat and routing defaults. Add provider
+credentials on the admin dashboard's **AI Providers** page, with `neoagent env`,
+or during `neoagent setup`.
+
+Installs made from the desktop app have no `neoagent` command on `PATH`: the
+runtime lives under `~/.neoagent` and is managed from **Settings > Server**. Use
+the admin dashboard for provider credentials there.
 
 ### Local models
 

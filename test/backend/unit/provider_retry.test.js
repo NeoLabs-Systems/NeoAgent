@@ -154,3 +154,41 @@ test('withProviderRetry aborts during backoff without starting another attempt',
   );
   assert.equal(calls, 1);
 });
+
+test('withProviderRetry refuses a Retry-After beyond the cap instead of parking the run', async () => {
+  let calls = 0;
+  const started = Date.now();
+  await assert.rejects(
+    withProviderRetry(
+      async () => {
+        calls += 1;
+        const err = new Error('rate limit reached');
+        err.status = 429;
+        err.headers = { 'retry-after': '7200' };
+        throw err;
+      },
+      { maxAttempts: 3, maxRetryAfterMs: 60_000 },
+    ),
+    /rate limit/,
+  );
+  assert.equal(calls, 1);
+  assert.ok(Date.now() - started < 1_000);
+});
+
+test('withProviderRetry still honors a Retry-After inside the cap', async () => {
+  let calls = 0;
+  const waits = [];
+  const result = await withProviderRetry(
+    async () => {
+      calls += 1;
+      if (calls > 1) return 'ok';
+      const err = new Error('overloaded');
+      err.status = 503;
+      err.headers = { 'retry-after-ms': '5' };
+      throw err;
+    },
+    { maxAttempts: 3, maxRetryAfterMs: 60_000, onRetry: ({ delayMs }) => waits.push(delayMs) },
+  );
+  assert.equal(result, 'ok');
+  assert.deepEqual(waits, [5]);
+});

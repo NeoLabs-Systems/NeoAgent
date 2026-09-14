@@ -90,8 +90,6 @@ ThemeData _buildNeoAgentTheme(NeoAgentPalette palette, Brightness brightness) {
       onSurface: palette.textPrimary,
       error: palette.danger,
     ),
-    // Geist is the Control Surface design system's base typeface.
-    // Telemetry / mono runs stay on Geist Mono at the call sites.
     textTheme: GoogleFonts.geistTextTheme(
       base.textTheme,
     ).apply(bodyColor: palette.textPrimary, displayColor: palette.textPrimary),

@@ -20,7 +20,6 @@ const {
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
-  upsertProviderCredential,
 } = require('../services/ai/settings');
 const {
   readMeshtasticEnabled,
@@ -34,11 +33,7 @@ const {
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
-const { getProviderHealthCatalog, getSupportedModels, getProviderCatalog } = require('../services/ai/models');
-const {
-  getSetupProgress,
-  markSetupSectionComplete,
-} = require('../services/setup/onboarding');
+const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -87,6 +82,15 @@ const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
 ]);
 
+const SERVER_MANAGED_SETTING_KEYS = new Set([
+  'ai_provider_configs',
+  'ai_provider_api_keys',
+]);
+
+const HIDDEN_SETTING_KEYS = new Set([
+  'ai_provider_api_keys',
+]);
+
 const RETIRED_SETTING_KEYS = new Set([
   'browser_backend',
   'browser_extension_token_id',
@@ -113,35 +117,32 @@ const updateTriggerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const providerCredentialLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { success: false, error: 'Too many provider credential updates, try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 router.get('/update/status', requireAuth, (req, res) => {
-  const status = readUpdateStatus();
-  const version = getVersionInfo();
-  res.json({
-    ...status,
-    backendVersion: version.version,
-    installedVersion: version.installedVersion,
-    packageVersion: version.packageVersion,
-    gitVersion: version.gitVersion,
-    gitSha: version.gitSha,
-    gitBranch: version.gitBranch,
-    releaseChannel: status.releaseChannel || version.releaseChannel,
-    targetBranch: status.targetBranch || version.targetBranch,
-    deploymentMode: version.deploymentMode,
-    deploymentProfile: version.deploymentProfile,
-    managedDeployment: version.managedDeployment,
-    allowSelfUpdate: version.allowSelfUpdate,
-    runtimeDefaults: version.runtimeDefaults,
-    allowHostRuntime: version.allowHostRuntime,
-    runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
-  });
+  try {
+    const status = readUpdateStatus();
+    const version = getVersionInfo();
+    res.json({
+      ...status,
+      backendVersion: version.version,
+      installedVersion: version.installedVersion,
+      packageVersion: version.packageVersion,
+      gitVersion: version.gitVersion,
+      gitSha: version.gitSha,
+      gitBranch: version.gitBranch,
+      releaseChannel: status.releaseChannel || version.releaseChannel,
+      targetBranch: status.targetBranch || version.targetBranch,
+      deploymentMode: version.deploymentMode,
+      deploymentProfile: version.deploymentProfile,
+      managedDeployment: version.managedDeployment,
+      allowSelfUpdate: version.allowSelfUpdate,
+      runtimeDefaults: version.runtimeDefaults,
+      allowHostRuntime: version.allowHostRuntime,
+      runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
+    });
+  } catch (error) {
+    console.error('[Settings] Update status failed:', error.message);
+    res.status(503).json({ error: 'Update status is temporarily unavailable.' });
+  }
 });
 
 router.use(requireAuth);
@@ -151,16 +152,6 @@ function isAgentScopedSettingKey(key) {
     || key.startsWith('platform_whitelist_')
     || key.startsWith('platform_access_policy_');
 }
-
-function getBrowserController(req) {
-  const runtimeManager = req.app?.locals?.runtimeManager;
-  if (runtimeManager && typeof runtimeManager.getBrowserProviderForUser === 'function') {
-    return runtimeManager.getBrowserProviderForUser(req.session?.userId);
-  }
-  throw new Error('Browser controller is unavailable. VM runtime is required.');
-}
-
-
 
 function isEnvBackedSettingKey(key) {
   return ENV_BACKED_SETTING_KEYS.has(key);
@@ -228,51 +219,6 @@ router.get('/meta/ai-providers', async (req, res) => {
   });
 });
 
-router.put('/ai-providers/:id/credentials', providerCredentialLimiter, (req, res) => {
-  try {
-    const userId = req.session.userId;
-    const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-    const result = upsertProviderCredential(userId, agentId, req.params.id, {
-      apiKey: req.body?.apiKey,
-      baseUrl: req.body?.baseUrl,
-      clearApiKey: req.body?.clearApiKey === true,
-    });
-    const setup = result.ready
-      ? markSetupSectionComplete('providers')
-      : getSetupProgress();
-    const provider = getProviderCatalog(userId, agentId)
-      .find((item) => item.id === result.providerId) || null;
-    res.json({
-      success: true,
-      provider,
-      setup,
-    });
-  } catch (error) {
-    const status = Number(error.statusCode) || 400;
-    res.status(status).json({ success: false, error: error.message });
-  }
-});
-
-router.delete('/ai-providers/:id/credentials', providerCredentialLimiter, (req, res) => {
-  try {
-    const userId = req.session.userId;
-    const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-    const result = upsertProviderCredential(userId, agentId, req.params.id, {
-      clearApiKey: true,
-    });
-    const provider = getProviderCatalog(userId, agentId)
-      .find((item) => item.id === result.providerId) || null;
-    res.json({
-      success: true,
-      provider,
-      setup: getSetupProgress(),
-    });
-  } catch (error) {
-    const status = Number(error.statusCode) || 400;
-    res.status(status).json({ success: false, error: error.message });
-  }
-});
-
 // Get all settings
 router.get('/', (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
@@ -280,13 +226,13 @@ router.get('/', (req, res) => {
   ensureDefaultRuntimeSettings(req.session.userId);
   const includeLegacyAgentSettings = isMainAgent(req.session.userId, agentId);
   const userRows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.session.userId)
-    .filter((row) => !RETIRED_SETTING_KEYS.has(row.key))
+    .filter((row) => !RETIRED_SETTING_KEYS.has(row.key) && !HIDDEN_SETTING_KEYS.has(row.key))
     .filter((row) => includeLegacyAgentSettings || !isAgentScopedSettingKey(row.key));
   const rows = [
     ...userRows,
     ...db.prepare('SELECT key, value FROM agent_settings WHERE user_id = ? AND agent_id = ?')
       .all(req.session.userId, agentId)
-      .filter((row) => !RETIRED_SETTING_KEYS.has(row.key)),
+      .filter((row) => !RETIRED_SETTING_KEYS.has(row.key) && !HIDDEN_SETTING_KEYS.has(row.key)),
   ];
   const settings = createDefaultAiSettings();
   for (const row of rows) {
@@ -322,6 +268,7 @@ router.put('/', async (req, res) => {
   const normalizedBody = { ...req.body };
 
   for (const key of RETIRED_SETTING_KEYS) delete normalizedBody[key];
+  for (const key of SERVER_MANAGED_SETTING_KEYS) delete normalizedBody[key];
 
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
@@ -333,10 +280,6 @@ router.put('/', async (req, res) => {
       }
     }
     normalizedBody.platform_whitelist_whatsapp = JSON.stringify(normalizeWhatsAppWhitelist(whitelist));
-  }
-
-  if ('ai_provider_configs' in normalizedBody) {
-    normalizedBody.ai_provider_configs = normalizeProviderConfigs(normalizedBody.ai_provider_configs);
   }
 
   for (const key of Object.keys(normalizedBody)) {
@@ -517,7 +460,9 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
-  if (RETIRED_SETTING_KEYS.has(req.params.key)) return res.json({ value: null });
+  if (RETIRED_SETTING_KEYS.has(req.params.key) || HIDDEN_SETTING_KEYS.has(req.params.key)) {
+    return res.json({ value: null });
+  }
   if (isEnvBackedSettingKey(req.params.key)) {
     return res.json({ value: readEnvBackedSettingValue(req.params.key) });
   }
@@ -549,6 +494,12 @@ router.put('/:key', async (req, res) => {
   if (RETIRED_SETTING_KEYS.has(req.params.key)) {
     return res.status(410).json({ success: false, error: `${req.params.key} has been retired` });
   }
+  if (SERVER_MANAGED_SETTING_KEYS.has(req.params.key)) {
+    return res.status(403).json({
+      success: false,
+      error: 'AI provider credentials are configured on the server, not per account.',
+    });
+  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
@@ -579,8 +530,6 @@ router.put('/:key', async (req, res) => {
       }
     }
     value = normalizeWhatsAppWhitelist(value);
-  } else if (req.params.key === 'ai_provider_configs') {
-    value = normalizeProviderConfigs(value);
   } else if (
     ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
       .includes(req.params.key)
@@ -617,6 +566,12 @@ router.put('/:key', async (req, res) => {
 
 // Delete setting
 router.delete('/:key', (req, res) => {
+  if (SERVER_MANAGED_SETTING_KEYS.has(req.params.key)) {
+    return res.status(403).json({
+      success: false,
+      error: 'AI provider credentials are configured on the server, not per account.',
+    });
+  }
   if (READ_ONLY_ENV_SETTING_KEYS.has(req.params.key)) {
     return res.status(403).json({
       success: false,

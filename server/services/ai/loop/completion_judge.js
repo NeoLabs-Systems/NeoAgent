@@ -229,7 +229,6 @@ function buildCompletionDecisionPrompt({
     '- If the latest draft invents entities, products, people, files, results, or actions that are not supported by tool evidence, use "continue" so the run can gather evidence or rewrite into a truthful partial/blocker answer.',
     '- A polished-sounding answer is not complete if key requested targets still lack direct evidence.',
     '- If the latest draft only announces unfinished work, promises a future update, or asks the user to wait without a concrete result or blocker, use "continue" so the run keeps acting.',
-    '- If the latest draft asks for missing required user input, confirmation, or a choice needed to proceed, use "blocked" so the run waits instead of repeating the same ask.',
   ];
 
   if (adequacy.intensity !== 'none') {

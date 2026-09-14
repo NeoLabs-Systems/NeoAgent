@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
 const {
   getConversationContext,
+  buildStoredUserContent,
   buildSummaryCarrier,
   sanitizeConversationMessages,
 } = require('../history');
@@ -684,6 +685,7 @@ class DurableRunRuntime {
           && Array.isArray(options.coworkSharedAttachments)
           ? options.coworkSharedAttachments
           : [];
+        const socialMessage = options.context?.socialIntelligence?.message || null;
         db.prepare(
           `INSERT INTO conversation_messages (
             conversation_id, run_id, agent_id, role, content, metadata_json
@@ -692,7 +694,15 @@ class DurableRunRuntime {
           conversationId,
           runId,
           agentId,
-          String(userMessage || ''),
+          buildStoredUserContent({
+            userMessage,
+            rawUserMessage: triggerSource === 'messaging'
+              ? options.context?.rawUserMessage
+              : null,
+            platform: options.source || null,
+            speaker: socialMessage?.senderName || socialMessage?.sender || null,
+            isGroup: Boolean(socialMessage?.isGroup),
+          }),
           JSON.stringify({
             interactionMode,
             deviceTarget,
@@ -751,7 +761,9 @@ class DurableRunRuntime {
               tools: allTools,
               forceMode: options.forceMode || null,
             }),
-            maxTokens: 1400,
+            // Reasoning models count their reasoning tokens against this cap;
+            // at 1400 a sizeable share of analyses were cut off mid-JSON.
+            maxTokens: 4000,
             normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
             fallback: analysisFallback,
             telemetry: {
@@ -764,6 +776,12 @@ class DurableRunRuntime {
           });
           totalTokens += Number(analysisResponse.usage || 0);
           analysis = analysisResponse.value || normalizeTaskAnalysis(analysisFallback, analysisFallback);
+          if (analysisResponse.parsed === false) {
+            console.warn('[Runtime] Task analysis reply held no parseable JSON; using default routing.');
+            this.engine.recordRunEvent?.(userId, runId, 'task_analysis_unparsed', {
+              rawChars: String(analysisResponse.raw || '').length,
+            }, { agentId });
+          }
         } catch (error) {
           console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
           analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
@@ -797,10 +815,15 @@ class DurableRunRuntime {
       // added: every extra schema in the active set measurably raises the rate
       // of malformed tool calls from small models, so the rest of the file
       // group stays discoverable through search_tools.
-      const suggestedToolNames = [...new Set([
+      // Judged on the analysis and lexical matches together: when the analysis
+      // suggested nothing, the lexical matches are the only file-work signal.
+      const matchedToolNames = [
         ...(analysis.suggested_tools || []),
-        ...(suggestsCoreFileWork(analysis.suggested_tools) ? ['execute_command'] : []),
         ...initialMatches.map((tool) => tool.name),
+      ];
+      const suggestedToolNames = [...new Set([
+        ...matchedToolNames,
+        ...(suggestsCoreFileWork(matchedToolNames) ? ['execute_command'] : []),
         ...preferredNeoRecallTools,
       ])];
       tools = selectInitialTools(
@@ -991,7 +1014,9 @@ class DurableRunRuntime {
         && triggerSource !== 'tasks'
         && triggerType !== 'subagent';
       let consecutiveProtocolRepairs = 0;
+      let consecutiveTruncations = 0;
       const maxProtocolRepairs = 3;
+      const maxTruncationRetries = 2;
       let verificationRepairs = 0;
       let lastSemanticVerificationFailure = null;
       const maxVerificationRepairs = 3;
@@ -1773,6 +1798,29 @@ class DurableRunRuntime {
         });
 
         if (decision.kind === DECISION_KINDS.RESPOND) {
+          // A generation cut off at the token limit is an unfinished thought,
+          // not an answer. Reasoning models can spend the whole budget thinking
+          // and emit no tool call, and adopting that text as the draft response
+          // ends the run mid-sentence with the work untouched. Ask for a real
+          // continuation instead — but only a couple of times, so a model that
+          // truncates every turn still terminates.
+          if (modelResponse.truncated && !decision.toolCalls?.length) {
+            consecutiveTruncations += 1;
+            if (consecutiveTruncations <= maxTruncationRetries) {
+              messages.push({
+                role: 'system',
+                content: [
+                  'Your previous output stopped at the token limit and was cut off mid-thought,',
+                  'so it was discarded rather than treated as an answer.',
+                  'Keep reasoning brief and call the concrete tools needed next,',
+                  'or give a complete final answer that fits within the limit.',
+                ].join(' '),
+              });
+              continue;
+            }
+          } else {
+            consecutiveTruncations = 0;
+          }
           const content = sanitizeModelOutput(decision.content, { model });
           if (content) {
             finalContent = content;
@@ -2058,6 +2106,9 @@ class DurableRunRuntime {
                     interactionMode,
                     source: options.source || null,
                     chatId: options.chatId || null,
+                    isGroup: options.context?.socialIntelligence?.isGroup === true,
+                    senderId: options.context?.socialIntelligence?.message?.sender || null,
+                    inboundMessage: options.context?.socialIntelligence?.message || null,
                     taskId: options.taskId || null,
                     scheduledAt: options.scheduledAt || null,
                     deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,

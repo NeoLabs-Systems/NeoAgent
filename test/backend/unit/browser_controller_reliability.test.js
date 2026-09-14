@@ -79,7 +79,7 @@ test('browser navigation only accepts validator-approved top-level URLs', async 
   );
 });
 
-test('aborting a browser action closes the page and rejects promptly', async () => {
+test('aborting a browser action rejects promptly without closing the page', async () => {
   const controller = controllerWithValidator(async () => ({ allowed: true }));
   const abortController = new AbortController();
   let closed = false;
@@ -96,7 +96,23 @@ test('aborting a browser action closes the page and rejects promptly', async () 
 
   await assert.rejects(operation, (error) => error.name === 'AbortError');
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(closed, true);
+  assert.equal(closed, false);
+});
+
+test('browser automation reuses an existing tab instead of opening about:blank', async () => {
+  const controller = controllerWithValidator(async () => ({ allowed: true }));
+  const kept = {
+    isClosed: () => false,
+    url: () => 'https://example.com/mail',
+  };
+  controller.context = {
+    pages: () => [kept],
+  };
+  controller.ensureBrowser = async () => {};
+  controller.page = null;
+
+  const page = await controller.ensurePage();
+  assert.equal(page, kept);
 });
 
 test('browser lifecycle events discard crashed pages and disconnected contexts', () => {

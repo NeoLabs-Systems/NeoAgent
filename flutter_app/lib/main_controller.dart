@@ -755,7 +755,7 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     try {
-      final status = await _backendClient.getAuthStatus(backendUrl);
+      final status = await _authStatusStartingLocalBackend();
       hasUser = status['hasUser'] != false;
       registrationOpen = status['registrationOpen'] == true;
       serviceEmailConfigured =
@@ -790,6 +790,78 @@ class NeoAgentController extends ChangeNotifier {
       isBooting = false;
       notifyListeners();
     }
+  }
+
+  /// The local runtime is only launched by the installer and by the platform
+  /// autostart hook at the next login, so an app launch in between reaches a
+  /// backend that is not listening. Start it and retry once instead of
+  /// stranding the user on a sign-in screen that cannot reach anything.
+  Future<Map<String, dynamic>> _authStatusStartingLocalBackend() async {
+    try {
+      return await _backendClient.getAuthStatus(backendUrl);
+    } on Object {
+      if (!await _startLocalBackend()) {
+        rethrow;
+      }
+      return _backendClient.getAuthStatus(backendUrl);
+    }
+  }
+
+  /// Returns whether the backend this app points at is now running locally.
+  Future<bool> _startLocalBackend() async {
+    if (!_supportsDesktopShell) {
+      return false;
+    }
+    final target = Uri.tryParse(_normalizeBackendUrl(backendUrl));
+    if (target == null) {
+      return false;
+    }
+    try {
+      final manager = LocalRuntimeManager();
+      final status = await manager.inspect();
+      if (!status.installed || status.running) {
+        return false;
+      }
+      final local = Uri.tryParse(
+        _normalizeBackendUrl(status.backendUrl ?? ''),
+      );
+      if (local == null || !_isSameLoopbackBackend(target, local)) {
+        return false;
+      }
+      final started = await manager.runAction(LocalRuntimeAction.start);
+      return started.running;
+    } on Object catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'localRuntime',
+        'autostart.failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  /// Whether the selected backend is the runtime installed on this computer.
+  ///
+  /// [runtimeBackendUrl] comes from the local runtime CLI, never from the
+  /// network. Both sides must be loopback, so a remote server can never match
+  /// this test no matter what address or metadata it reports.
+  bool isLocalRuntimeBackend(String? runtimeBackendUrl) {
+    final local = Uri.tryParse(_normalizeBackendUrl(runtimeBackendUrl ?? ''));
+    final selected = Uri.tryParse(_normalizeBackendUrl(backendUrl));
+    if (local == null || selected == null) {
+      return false;
+    }
+    return _isSameLoopbackBackend(selected, local);
+  }
+
+  /// The installer and the manual backend field disagree on loopback spelling
+  /// (`localhost` vs `127.0.0.1`), so compare the port on loopback hosts.
+  bool _isSameLoopbackBackend(Uri left, Uri right) {
+    const loopbackHosts = <String>{'localhost', '127.0.0.1', '::1'};
+    return loopbackHosts.contains(left.host.toLowerCase()) &&
+        loopbackHosts.contains(right.host.toLowerCase()) &&
+        left.port == right.port;
   }
 
   Future<String?> _safeLoadInstalledAppVersion() async {
@@ -1706,10 +1778,19 @@ class NeoAgentController extends ChangeNotifier {
       (section) => section.name == rawSection,
       orElse: () => AppSection.chat,
     );
+    if (restoredSection == AppSection.server && !_supportsDesktopShell) {
+      // Stored preferences are editable outside the app (localStorage on web),
+      // so restoring one never reaches a desktop-only section.
+      selectedSection = AppSection.chat;
+      return;
+    }
     selectedSection = restoredSection;
   }
 
   void setSelectedSection(AppSection section) {
+    if (selectedSection != section) {
+      errorMessage = null;
+    }
     selectedSection = section;
     unawaited(_prefs?.setString(_selectedSectionPrefsKey, section.name));
     if (section == AppSection.devices) {
@@ -2613,6 +2694,12 @@ class NeoAgentController extends ChangeNotifier {
   void showInlineError(String message) {
     errorMessage = message;
     authInfoMessage = null;
+    notifyListeners();
+  }
+
+  void clearInlineError() {
+    if (errorMessage == null) return;
+    errorMessage = null;
     notifyListeners();
   }
 
@@ -3685,6 +3772,10 @@ class NeoAgentController extends ChangeNotifier {
         await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
         return;
       }
+      if (!interruptAgent && (computerDisplayUrl?.trim().isNotEmpty ?? false)) {
+        await refreshComputerRuntime(silent: true, deviceTarget: deviceTarget);
+        return;
+      }
       final display = await _backendClient.createComputerDisplaySession(
         backendUrl,
         deviceTarget: deviceTarget,
@@ -3832,7 +3923,6 @@ class NeoAgentController extends ChangeNotifier {
         () => _backendClient.executeComputerCommand(
           backendUrl,
           command: normalized,
-          cwd: '/home/neo/workspace',
           deviceTarget: deviceTarget,
         ),
         deviceTarget: deviceTarget,
@@ -4335,6 +4425,24 @@ class NeoAgentController extends ChangeNotifier {
     );
     if (!result.launched) {
       errorMessage = result.error ?? 'Could not open workspace file download.';
+      notifyListeners();
+    }
+  }
+
+  /// AI provider credentials are server configuration, so the admin dashboard
+  /// is the only place to add them. Desktop installs have no `neoagent` CLI on
+  /// PATH, which makes this the one reachable route for them.
+  Future<void> openAdminDashboard() async {
+    final base = _normalizeBackendUrl(backendUrl);
+    if (base.isEmpty) {
+      return;
+    }
+    final result = await _oauthLauncher.openExternal(
+      url: '$base/admin',
+      label: 'neoagent_admin_dashboard',
+    );
+    if (!result.launched) {
+      errorMessage = result.error ?? 'Could not open the admin dashboard.';
       notifyListeners();
     }
   }
@@ -4993,6 +5101,27 @@ class NeoAgentController extends ChangeNotifier {
     return detail;
   }
 
+  Future<List<RunPromptTurn>> fetchRunPromptTurns(String runId) async {
+    final response = await _backendClient.fetchRunPromptTurns(backendUrl, runId);
+    final turns = response['turns'];
+    if (turns is! List) {
+      return const <RunPromptTurn>[];
+    }
+    return turns
+        .whereType<Map<dynamic, dynamic>>()
+        .map(RunPromptTurn.fromJson)
+        .toList();
+  }
+
+  Future<RunPromptSnapshot> fetchRunPrompt(
+    String runId,
+    String requestId,
+  ) async {
+    return RunPromptSnapshot.fromJson(
+      await _backendClient.fetchRunPrompt(backendUrl, runId, requestId),
+    );
+  }
+
   Future<void> deleteRun(String runId) async {
     try {
       await _backendClient.deleteRun(backendUrl, runId);
@@ -5123,7 +5252,6 @@ class NeoAgentController extends ChangeNotifier {
     required String voiceTtsVoice,
     required String voiceMediaMode,
     required String voiceInputMode,
-    required Map<String, dynamic> aiProviderConfigs,
   }) async {
     _beginSettingsSave();
 
@@ -5143,7 +5271,6 @@ class NeoAgentController extends ChangeNotifier {
       'voice_tts_voice': voiceTtsVoice,
       'voice_media_mode': voiceMediaMode,
       'voice_input_mode': voiceInputMode,
-      'ai_provider_configs': aiProviderConfigs,
     };
 
     final agentId = _scopedAgentId;
@@ -5219,57 +5346,6 @@ class NeoAgentController extends ChangeNotifier {
         .map((section) => section.toString())
         .where((section) => section.isNotEmpty)
         .toList(growable: false);
-  }
-
-  void _mergeProviderConfig(Object? rawProvider) {
-    if (rawProvider is! Map) return;
-    final parsed = AiProviderMeta.fromJson(rawProvider);
-    final current = settings['ai_provider_configs'];
-    final configs = current is Map
-        ? Map<String, dynamic>.from(current)
-        : <String, dynamic>{};
-    configs[parsed.id] = <String, dynamic>{
-      'enabled': parsed.enabled,
-      'baseUrl': parsed.baseUrl,
-    };
-    settings = <String, dynamic>{
-      ...settings,
-      'ai_provider_configs': configs,
-    };
-  }
-
-  Future<void> saveAiProviderCredentials({
-    required String providerId,
-    String? apiKey,
-    String? baseUrl,
-    bool clearApiKey = false,
-  }) async {
-    final trimmedKey = apiKey?.trim();
-    final trimmedUrl = baseUrl?.trim();
-    final response = await _backendClient.saveAiProviderCredentials(
-      backendUrl,
-      providerId,
-      apiKey: (trimmedKey != null && trimmedKey.isNotEmpty) ? trimmedKey : null,
-      baseUrlOverride: trimmedUrl,
-      clearApiKey: clearApiKey,
-      agentId: _scopedAgentId,
-    );
-    _applySetupProgress(response['setup']);
-    _mergeProviderConfig(response['provider']);
-    notifyListeners();
-    await refreshAiCatalog();
-  }
-
-  Future<void> clearAiProviderCredentials(String providerId) async {
-    final response = await _backendClient.clearAiProviderCredentials(
-      backendUrl,
-      providerId,
-      agentId: _scopedAgentId,
-    );
-    _applySetupProgress(response['setup']);
-    _mergeProviderConfig(response['provider']);
-    notifyListeners();
-    await refreshAiCatalog();
   }
 
   Future<void> refreshAiCatalog() async {
@@ -6485,7 +6561,7 @@ class NeoAgentController extends ChangeNotifier {
       'suggestedTargets': currentMessagingAccessCatalog(
         platform,
       ).suggestedTargets.map((item) => item.toJson()).toList(growable: false),
-      'summary': response['summary']?.toString() ?? 'Access policy',
+      'summary': response['summary']?.toString() ?? 'Who can message',
     });
     messagingAccessCatalogs = <String, MessagingAccessCatalog>{
       ...messagingAccessCatalogs,
@@ -7066,17 +7142,7 @@ class NeoAgentController extends ChangeNotifier {
   String friendlyErrorMessage(Object error) => _friendlyErrorMessage(error);
 
   String _normalizeErrorText(Object error) {
-    var text = error.toString().trim();
-    const prefixes = <String>[
-      'BackendException: ',
-      'HealthBridgeException: ',
-      'Exception: ',
-    ];
-    for (final prefix in prefixes) {
-      if (text.startsWith(prefix)) {
-        text = text.substring(prefix.length).trim();
-      }
-    }
+    var text = _formatCaughtError(error);
     if (text.startsWith('PlatformException(') && text.endsWith(')')) {
       final inner = text.substring(
         'PlatformException('.length,
@@ -7113,7 +7179,7 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('typeerror:') ||
         lower.contains('referenceerror:') ||
         lower.contains('syntaxerror:') ||
-        lower.contains(' at ') ||
+        looksLikeStackTrace(text) ||
         lower.contains('/users/') ||
         lower.contains('/var/') ||
         lower.contains('/tmp/')) {
@@ -7129,28 +7195,6 @@ class NeoAgentController extends ChangeNotifier {
   bool get headlessBrowser => true;
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
-
-  Map<String, AiProviderConfig> get aiProviderConfigs {
-    final raw = settings['ai_provider_configs'];
-    final decoded = raw is Map
-        ? raw.map(
-            (key, value) => MapEntry(
-              key.toString(),
-              AiProviderConfig.fromJson(key.toString(), value),
-            ),
-          )
-        : const <String, AiProviderConfig>{};
-
-    if (aiProviders.isEmpty) {
-      return decoded;
-    }
-
-    return <String, AiProviderConfig>{
-      for (final provider in aiProviders)
-        provider.id:
-            decoded[provider.id] ?? AiProviderConfig.empty(provider.id),
-    };
-  }
 
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];

@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { AGENT_DATA_DIR, DATA_DIR } = require('../../../runtime/paths');
-const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { getAgentById, isMainAgent, resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
@@ -31,6 +31,7 @@ const {
   normalizeAccessPolicy,
   migrateLegacyWhitelist,
   parseStoredAccessPolicy,
+  applyAccessPolicyRule,
   evaluateAccessPolicy,
   summarizeAccessPolicy,
   classifyRecentTarget,
@@ -48,9 +49,12 @@ const { createServiceLogger } = require('../../utils/logger');
 const {
   claimInboundJob,
   enqueueInboundMessage,
+  getInboundJob,
+  listAbandonedProcessingInboundJobs,
   listPendingInboundJobs,
   payloadForInboundJob,
   reconcileInterruptedInboundJobs,
+  requeueReplayableInboundJob,
   settleInboundJob,
 } = require('./inbound_store');
 
@@ -97,11 +101,13 @@ class MessagingManager extends EventEmitter {
     this.lifecycleAbortController = new AbortController();
     this.activeOperations = new Set();
     this.activeInboundJobs = new Set();
+    this.activeInboundJobById = new Map();
     this.activeInboundRecoveries = new Map();
     this.reconnectTimers = new Map();
     this.reconnectAttempts = new Map();
     this.reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? MESSAGING_RECONNECT_BASE_DELAY_MS;
     this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
+    this.reconnectWatchdogDelayMs = options.reconnectWatchdogDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
     this.inboundJobsReconciled = false;
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
@@ -267,25 +273,77 @@ class MessagingManager extends EventEmitter {
         `[Messaging] Duplicate ${platformName} message for user ${userId} predates durable processing state; skipping replay`,
       );
       return durableMessage;
-    } else if (queued.job.status !== 'pending') {
-      console.warn(
-        `[Messaging] Duplicate ${platformName} message for user ${userId} has durable status ${queued.job.status}; skipping replay`,
-      );
-      return durableMessage;
     }
 
-    await this._processInboundJob(queued.job, durableMessage);
+    await this._dispatchInboundJob(queued.job, durableMessage);
     return durableMessage;
   }
 
-  async _processInboundJob(job, payload) {
-    if (this.isShuttingDown || !job || this.messageHandlers.length === 0) return false;
-    if (!claimInboundJob(job.id)) return false;
+  _trackInboundJob(jobId) {
+    const existing = this.activeInboundJobById.get(jobId);
+    if (existing) {
+      return { alreadyTracked: true, promise: existing, finish() {} };
+    }
     let finishTracking;
-    const tracked = new Promise((resolve) => {
+    const promise = new Promise((resolve) => {
       finishTracking = resolve;
     });
-    this.activeInboundJobs.add(tracked);
+    this.activeInboundJobs.add(promise);
+    this.activeInboundJobById.set(jobId, promise);
+    return {
+      alreadyTracked: false,
+      promise,
+      finish: () => {
+        finishTracking();
+        this.activeInboundJobs.delete(promise);
+        if (this.activeInboundJobById.get(jobId) === promise) {
+          this.activeInboundJobById.delete(jobId);
+        }
+      },
+    };
+  }
+
+  async _dispatchInboundJob(job, payload) {
+    if (!job) return false;
+
+    const inFlight = this.activeInboundJobById.get(job.id);
+    if (inFlight) await inFlight;
+
+    job = getInboundJob(job.id) || job;
+    if (!job.run_id && (job.status === 'processing' || job.status === 'failed')) {
+      requeueReplayableInboundJob(job.id);
+      job = getInboundJob(job.id) || job;
+    }
+    if (job.status === 'pending') {
+      return this._processInboundJob(job, payload);
+    }
+    if (job.status !== 'completed') {
+      console.warn(
+        `[Messaging] Duplicate ${job.platform} message for user ${job.user_id} has durable status ${job.status}; skipping replay`,
+      );
+    }
+    return job.status === 'completed';
+  }
+
+  async _processInboundJob(job, payload) {
+    if (this.isShuttingDown || !job) return false;
+    if (this.messageHandlers.length === 0) {
+      // The message is stored and shows up in chat, but nothing will answer it.
+      messagingLogger.warn(
+        `Stored a ${job.platform} message with no automation handler registered;`
+        + ' the agent will not reply until messaging automation is running.',
+      );
+      return false;
+    }
+    const tracked = this._trackInboundJob(job.id);
+    if (tracked.alreadyTracked) {
+      await tracked.promise;
+      return getInboundJob(job.id)?.status === 'completed';
+    }
+    if (!claimInboundJob(job.id)) {
+      tracked.finish();
+      return false;
+    }
 
     let status = 'completed';
     let failure = null;
@@ -327,8 +385,7 @@ class MessagingManager extends EventEmitter {
       settleInboundJob(job.id, status, failure?.message || failure || null);
       return status === 'completed';
     } finally {
-      finishTracking();
-      this.activeInboundJobs.delete(tracked);
+      tracked.finish();
     }
   }
 
@@ -340,6 +397,15 @@ class MessagingManager extends EventEmitter {
     } catch {
       return false;
     }
+  }
+
+  releaseAbandonedInboundJobs(filters = {}) {
+    let released = 0;
+    for (const job of listAbandonedProcessingInboundJobs(filters)) {
+      if (this.activeInboundJobById.has(job.id)) continue;
+      if (requeueReplayableInboundJob(job.id)) released += 1;
+    }
+    return released;
   }
 
   recoverPendingInbound(filters = {}) {
@@ -358,6 +424,7 @@ class MessagingManager extends EventEmitter {
         reconcileInterruptedInboundJobs();
         this.inboundJobsReconciled = true;
       }
+      this.releaseAbandonedInboundJobs(filters);
       let recovered = 0;
       let skipped = 0;
       for (const job of listPendingInboundJobs(filters)) {
@@ -371,7 +438,7 @@ class MessagingManager extends EventEmitter {
           settleInboundJob(job.id, 'failed', 'Stored inbound message payload is invalid.');
           continue;
         }
-        if (await this._processInboundJob(job, payload)) recovered += 1;
+        if (await this._dispatchInboundJob(job, payload)) recovered += 1;
       }
       return { recovered, skipped };
     }).finally(() => {
@@ -396,6 +463,30 @@ class MessagingManager extends EventEmitter {
     if (timer) clearTimeout(timer);
     this.reconnectTimers.delete(key);
     if (resetAttempts) this.reconnectAttempts.delete(key);
+  }
+
+  _wantsAutoConnect(config) {
+    return config?.autoConnect !== false;
+  }
+
+  _scheduleReconnectWatchdog({ userId, agentId, platformName, config }) {
+    const key = this._key(userId, agentId, platformName);
+    if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(key);
+      if (this.isShuttingDown) return;
+      const platform = this.platforms.get(key);
+      const status = String(platform?.getStatus?.() || platform?.status || '').toLowerCase();
+      if (status === 'connected' || status === 'awaiting_qr') {
+        this.reconnectAttempts.delete(key);
+        return;
+      }
+      messagingLogger.warn(`${platformName} adapter reconnect stalled; taking over`);
+      this._scheduleReconnect({ userId, agentId, platformName, config });
+    }, this.reconnectWatchdogDelayMs);
+    timer.unref?.();
+    this.reconnectTimers.set(key, timer);
   }
 
   _scheduleReconnect({ userId, agentId, platformName, config }) {
@@ -583,9 +674,11 @@ class MessagingManager extends EventEmitter {
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
     if (platformName === 'whatsapp') {
       config.artifactStore = this.artifactStore;
+      config.resolveAgentName = () => getAgentById(userId, agentId)?.display_name || '';
     }
+    config.autoConnect = true;
     const existingConnection = db
-      .prepare('SELECT id, status FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .prepare('SELECT id FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?')
       .get(userId, agentId, platformName);
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
@@ -595,17 +688,7 @@ class MessagingManager extends EventEmitter {
 
     if (platformName === 'whatsapp' && !config.authDir) {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
-      let shouldMigrateLegacyAuth = true;
-      if (
-        existingConnection &&
-        !['connected', 'connecting', 'reconnecting', 'awaiting_qr'].includes(existingConnection.status)
-      ) {
-        fs.rmSync(config.authDir, { recursive: true, force: true });
-        shouldMigrateLegacyAuth = false;
-      }
-      if (shouldMigrateLegacyAuth) {
-        this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
-      }
+      this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
     }
 
     const storedConfig = this._encodeStoredConfig(config);
@@ -666,7 +749,9 @@ class MessagingManager extends EventEmitter {
         if (!willReconnect) this._clearReconnect(key);
         db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
           .run(willReconnect ? 'reconnecting' : 'disconnected', userId, agentId, platformName);
-        if (willReconnect && info?.willReconnect !== true) {
+        if (willReconnect && info?.willReconnect === true) {
+          this._scheduleReconnectWatchdog({ userId, agentId, platformName, config: reconnectConfig });
+        } else if (willReconnect) {
           this._scheduleReconnect({ userId, agentId, platformName, config: reconnectConfig });
         }
       }
@@ -761,8 +846,15 @@ class MessagingManager extends EventEmitter {
       this.platforms.delete(key);
     }
 
-    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
-      .run('disconnected', userId, agentId, platformName);
+    const row = db.prepare(
+      'SELECT config FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?'
+    ).get(userId, agentId, platformName);
+    const storedConfig = {
+      ...this._decodeStoredConfig(row?.config),
+      autoConnect: false,
+    };
+    db.prepare('UPDATE platform_connections SET config = ?, status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .run(this._encodeStoredConfig(storedConfig), 'disconnected', userId, agentId, platformName);
 
     return { status: 'disconnected' };
   }
@@ -984,7 +1076,7 @@ class MessagingManager extends EventEmitter {
   async restoreConnections() {
     this._assertRunning();
     const rows = db.prepare(
-      "SELECT user_id, agent_id, platform, config FROM platform_connections WHERE status IN ('connected', 'reconnecting', 'awaiting_qr')"
+      "SELECT user_id, agent_id, platform, config, status FROM platform_connections WHERE status IN ('connected', 'connecting', 'reconnecting', 'awaiting_qr', 'disconnected')"
     ).all();
     for (const row of rows) {
       try {
@@ -999,12 +1091,20 @@ class MessagingManager extends EventEmitter {
           continue;
         }
         const config = this._decodeStoredConfig(row.config);
+        if (!this._wantsAutoConnect(config)) {
+          continue;
+        }
         console.log(`[Messaging] Restoring ${row.platform} for user ${row.user_id} agent ${row.agent_id || 'main'}`);
         await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
       } catch (err) {
         console.error(`[Messaging] Failed to restore ${row.platform} for user ${row.user_id}:`, err.message);
-        db.prepare("UPDATE platform_connections SET status = 'disconnected' WHERE user_id = ? AND agent_id = ? AND platform = ?")
-          .run(row.user_id, row.agent_id, row.platform);
+        const config = this._decodeStoredConfig(row.config);
+        this._scheduleReconnect({
+          userId: row.user_id,
+          agentId: row.agent_id,
+          platformName: row.platform,
+          config,
+        });
       }
     }
   }
@@ -1139,6 +1239,21 @@ class MessagingManager extends EventEmitter {
       platform.setAccessPolicy(normalized);
     }
     return normalized;
+  }
+
+  addAccessPolicyRule(userId, platformName, suggestion, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const next = applyAccessPolicyRule(
+      platformName,
+      this._loadAccessPolicy(userId, agentId, platformName),
+      suggestion,
+    );
+    if (!next) {
+      const error = new Error('Invalid access rule');
+      error.statusCode = 400;
+      throw error;
+    }
+    return this.setAccessPolicy(userId, platformName, next, options);
   }
 
   evaluateAccess(userId, platformName, context, options = {}) {

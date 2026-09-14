@@ -4,10 +4,14 @@ const db = require('../../db/database');
 const { getAiSettings } = require('../ai/settings');
 const { createServiceLogger } = require('../../utils/logger');
 const {
+  applyComputerDemonstrationDefaults,
   compactDialogue,
+  isSafetyRejection,
+  isUsableProposal,
   normalizeProposal,
   normalizeReview,
   normalizeText,
+  proposalFailureMessage,
 } = require('./learning_documents');
 const { SkillLearningRepository } = require('./learning_repository');
 const { SkillLearningWriter } = require('./learning_writer');
@@ -75,6 +79,12 @@ class SkillLearningService {
     const taskOrigin = Boolean(input.taskId) || ['schedule', 'tasks'].includes(triggerSource);
     if (!userOrigin && !taskOrigin) return null;
     if (!getAiSettings(userId, agentId).auto_skill_learning) return null;
+
+    // Outcomes only become visible after a learned skill has actually run, so
+    // the sweep belongs here rather than at write time.
+    for (const retired of this.writer.retireFailingSkills(userId)) {
+      logger.info(`Retired learned skill '${retired.name}'.`, retired.reason);
+    }
 
     const steps = db.prepare(
       `SELECT step_index, tool_name, status, description, error
@@ -172,7 +182,7 @@ class SkillLearningService {
     if (!userId || !goal) {
       throw new Error('Computer learning requires a user and demonstrated goal.');
     }
-    const proposal = await this.#synthesize({
+    let proposal = await this.#synthesize({
       userId,
       agentId,
       sourceKind: 'computer-demonstration',
@@ -188,6 +198,21 @@ class SkillLearningService {
       },
       signal: input.signal || null,
     });
+    if (isSafetyRejection(proposal)) {
+      logger.warn('Computer demonstration was rejected as unsafe.', proposal.rejectionReason);
+      return {
+        success: false,
+        ignored: true,
+        error: proposal.rejectionReason || 'The demonstration could not be saved as a skill.',
+      };
+    }
+    if (!isUsableProposal(proposal)) {
+      logger.warn(
+        'Computer demonstration synthesis needed taught-goal defaults.',
+        proposalFailureMessage(proposal),
+      );
+      proposal = applyComputerDemonstrationDefaults(proposal, goal);
+    }
     const result = await this.writer.persist({
       userId,
       runId: null,
@@ -216,6 +241,7 @@ class SkillLearningService {
         'Create when a proven reusable procedure was taught in detail or is clearly represented by repeated evidence.',
         'Observe when a reusable pattern is plausible but needs another occurrence. Use a stable class-level workflowKey.',
         'Update only an existing skill whose catalog entry says learningManaged=true and only when this run produced a concrete correction or improvement.',
+        'A catalog entry may carry invocations and failures counted from real use. Treat a high failure share as evidence that the skill is wrong, and prefer update when this run shows what it should do instead.',
         'Ignore unresolved failures, transient environment problems, and work with no reusable method.',
         'Do not preserve secrets, credentials, literal private data, brittle coordinates, or session-specific identifiers.',
       ].join(' '),
@@ -247,9 +273,12 @@ class SkillLearningService {
         'Every step must be actionable and adaptive. Include observed pitfalls only when the evidence includes a working recovery.',
         'Verification must describe observable proof, not an assumption of success.',
         sourceKind === 'computer-demonstration'
-          ? 'For computer workflows, use semantic UI state and never coordinates, recorded timing, brittle selectors, clipboard contents, or macro replay.'
-          : '',
-        'Reject with approved=false if the evidence does not prove a safe reusable procedure.',
+          ? [
+            'The user explicitly taught this computer workflow. Approve a reusable skill from the demonstration.',
+            'Use semantic UI state and never coordinates, recorded timing, brittle selectors, clipboard contents, or macro replay.',
+            'Reject with approved=false only when the demonstration exposes secrets or has no observable method.',
+          ].join(' ')
+          : 'Reject with approved=false if the evidence does not prove a safe reusable procedure.',
       ].filter(Boolean).join(' '),
       prompt: JSON.stringify({
         sourceKind,

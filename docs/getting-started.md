@@ -41,8 +41,8 @@ handshake. Manual addresses are available under the advanced connection option.
 ## First run
 
 1. Create the first user account.
-2. Open **Settings > AI Providers** and connect a hosted provider or local
-   Ollama.
+2. Configure a hosted provider or local Ollama from the admin dashboard's
+   **AI Providers** page, with `neoagent env`, or during `neoagent setup`.
 3. Select a model and send a message in **Chat**.
 4. Open **Settings > Tool Permissions** and review the approval policy before
    enabling browser, shell, file-write, desktop, or Android actions.

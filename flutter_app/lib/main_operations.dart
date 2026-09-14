@@ -1383,7 +1383,7 @@ Write the instructions for this skill here.
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete "$name": $error')),
+        SnackBar(content: Text('Failed to delete "$name": ${_formatCaughtError(error)}')),
       );
     }
   }
@@ -1440,7 +1440,7 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate prompt: $error')),
+        SnackBar(content: Text('Failed to generate prompt: ${_formatCaughtError(error)}')),
       );
     } finally {
       if (mounted) setState(() => _llmPromptLoading = false);
@@ -1515,7 +1515,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
+      ).showSnackBar(SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')));
     } finally {
       if (mounted) setState(() => _llmImporting = false);
     }
@@ -3224,6 +3224,7 @@ class _TaskScheduleDraft {
     required this.weekdays,
     required this.monthDay,
     required this.customCronExpression,
+    this.finishOnTime = false,
   });
 
   factory _TaskScheduleDraft.fromTask(TaskItem? task) {
@@ -3241,8 +3242,12 @@ class _TaskScheduleDraft {
     final cron =
         task?.triggerConfig['cronExpression']?.toString().trim() ??
         '*/30 * * * *';
+    final finishOnTime = task?.triggerConfig['finishOnTime'] == true;
     final parsed = _parseCronExpression(cron);
-    if (parsed != null) return parsed;
+    if (parsed != null) {
+      parsed.finishOnTime = finishOnTime;
+      return parsed;
+    }
     return _TaskScheduleDraft(
       mode: 'recurring',
       presetId: 'custom',
@@ -3250,6 +3255,7 @@ class _TaskScheduleDraft {
       weekdays: <int>{1},
       monthDay: 1,
       customCronExpression: cron,
+      finishOnTime: finishOnTime,
     );
   }
 
@@ -3259,6 +3265,10 @@ class _TaskScheduleDraft {
   Set<int> weekdays;
   int monthDay;
   String customCronExpression;
+
+  /// Whether the run starts its average duration early so that it finishes at
+  /// the configured time instead of starting then.
+  bool finishOnTime;
 
   bool get usesTime =>
       presetId == 'daily' ||
@@ -3343,6 +3353,17 @@ _TaskScheduleDraft? _parseCronExpression(String cron) {
     return _recurringScheduleDraft('monthly', time: time, monthDay: parsedDay);
   }
   return null;
+}
+
+String _formatTaskDuration(int seconds) {
+  if (seconds < 60) return '$seconds sec';
+  final minutes = seconds ~/ 60;
+  final remainder = seconds % 60;
+  if (minutes < 60 && remainder != 0) return '$minutes min $remainder sec';
+  if (minutes < 60) return '$minutes min';
+  final hours = minutes ~/ 60;
+  final leftoverMinutes = minutes % 60;
+  return leftoverMinutes == 0 ? '$hours h' : '$hours h $leftoverMinutes min';
 }
 
 bool _looksLikeCronExpression(String cron) {
@@ -3932,7 +3953,7 @@ class _TaskDeliveryTargetPickerSheetState
                     _TaskDeliveryNotice(
                       icon: Icons.warning_amber_rounded,
                       title: 'Discovery failed',
-                      detail: snapshot.error.toString(),
+                      detail: _formatCaughtError(snapshot.error!),
                     )
                   else if (targets.isEmpty)
                     _TaskDeliveryNotice(
@@ -4410,6 +4431,36 @@ class _TasksPanelState extends State<TasksPanel> {
     );
   }
 
+  Widget _buildTaskFinishOnTimeSwitch({
+    required _TaskScheduleDraft scheduleDraft,
+    required int? averageRunSeconds,
+    required StateSetter setLocalState,
+  }) {
+    final String subtitle;
+    if (!scheduleDraft.finishOnTime) {
+      subtitle = 'The run starts at the scheduled time.';
+    } else if (averageRunSeconds == null) {
+      subtitle =
+          'This task has no completed run yet, so it still starts at the '
+          'scheduled time. Once runs are measured it will start earlier.';
+    } else {
+      subtitle =
+          'Recent runs take about ${_formatTaskDuration(averageRunSeconds)}, '
+          'so the run starts that much earlier.';
+    }
+    return SwitchListTile(
+      value: scheduleDraft.finishOnTime,
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Finish at the scheduled time'),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: _textSecondary, fontSize: 12),
+      ),
+      onChanged: (value) =>
+          setLocalState(() => scheduleDraft.finishOnTime = value),
+    );
+  }
+
   Future<void> _openTaskEditor(
     BuildContext context, {
     TaskItem? task,
@@ -4862,6 +4913,11 @@ class _TasksPanelState extends State<TasksPanel> {
                                       },
                                     ),
                                   ),
+                                  _buildTaskFinishOnTimeSwitch(
+                                    scheduleDraft: scheduleDraft,
+                                    averageRunSeconds: task?.averageRunSeconds,
+                                    setLocalState: setLocalState,
+                                  ),
                                 ],
                               ],
                             );
@@ -5199,6 +5255,8 @@ class _TasksPanelState extends State<TasksPanel> {
                           return;
                         }
                         triggerConfig['cronExpression'] = cronExpression;
+                        triggerConfig['finishOnTime'] =
+                            scheduleDraft.finishOnTime;
                       } else {
                         if (runAt.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(

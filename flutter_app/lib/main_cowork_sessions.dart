@@ -1,9 +1,5 @@
 part of 'main.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cowork — sessions rail
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _CoworkSessionRail extends StatefulWidget {
   const _CoworkSessionRail({
     required this.controller,

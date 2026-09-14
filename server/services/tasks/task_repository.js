@@ -90,6 +90,37 @@ class TaskRepository {
       ).all(userId, agentId);
   }
 
+  // Average wall-clock duration of the most recent completed runs of one task.
+  // Returns null when the task has no completed run yet.
+  getAverageRunSeconds(taskId, userId, sampleSize) {
+    const row = db.prepare(
+      `SELECT AVG(duration_seconds) AS average_seconds
+       FROM (
+         SELECT (julianday(completed_at) - julianday(created_at)) * 86400 AS duration_seconds
+         FROM agent_runs
+         WHERE user_id = ?
+           AND status = 'completed'
+           AND completed_at IS NOT NULL
+           AND json_valid(metadata_json)
+           AND CAST(json_extract(metadata_json, '$.taskId') AS TEXT) = ?
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?
+       )`
+    ).get(userId, String(taskId), sampleSize);
+    const average = Number(row?.average_seconds);
+    return Number.isFinite(average) && average > 0 ? average : null;
+  }
+
+  // Whether the task was last started within the given number of seconds.
+  hasRunSince(taskId, userId, secondsAgo) {
+    const row = db.prepare(
+      `SELECT 1 AS ran FROM scheduled_tasks
+       WHERE id = ? AND user_id = ? AND last_run IS NOT NULL
+         AND last_run >= datetime('now', ?)`
+    ).get(taskId, userId, `-${Math.max(0, Math.round(secondsAgo))} seconds`);
+    return Boolean(row);
+  }
+
   listEnabledTasks() {
     return db.prepare('SELECT * FROM scheduled_tasks WHERE enabled = 1').all();
   }

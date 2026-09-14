@@ -7,6 +7,8 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 
+import 'error_text.dart';
+
 int _androidApkDropZoneViewId = 0;
 const Set<String> _supportedAndroidInstallExtensions = <String>{
   '.apk',
@@ -163,7 +165,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       }
       await widget.onInstall(filename: file.name, bytes: bytes);
     } catch (error) {
-      _showError(error.toString().replaceFirst('Exception: ', ''));
+      _showError(formatCaughtError(error));
     }
   }
 
@@ -470,7 +472,7 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
       final bytes = await _readFileBytes(file);
       if (mounted) await widget.onInstall(filename: file.name, bytes: bytes);
     } catch (e) {
-      _showError(e.toString().replaceFirst('Exception: ', ''));
+      _showError(formatCaughtError(e));
     }
   }
 

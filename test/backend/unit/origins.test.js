@@ -24,3 +24,16 @@ test('origin policy allows missing same-origin and loopback but rejects external
   assert.equal(isAllowedOrigin('', { allowMissingOrigin: false }), false);
   assert.equal(isAllowedOrigin('chrome-extension://abcdef'), false);
 });
+
+test('explicit origin allowlist does not implicitly allow loopback', () => {
+  const previous = process.env.ALLOWED_ORIGINS;
+  process.env.ALLOWED_ORIGINS = 'https://agent.example.com';
+  try {
+    assert.equal(isAllowedOrigin('https://agent.example.com'), true);
+    assert.equal(isAllowedOrigin('http://localhost:5173'), false);
+    assert.equal(isAllowedOrigin('https://evil.example'), false);
+  } finally {
+    if (previous == null) delete process.env.ALLOWED_ORIGINS;
+    else process.env.ALLOWED_ORIGINS = previous;
+  }
+});

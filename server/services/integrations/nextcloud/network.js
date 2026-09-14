@@ -1,21 +1,7 @@
 'use strict';
 
-function text(value) {
-  return String(value || '').trim();
-}
-
-function requireText(value, label) {
-  const normalized = text(value);
-  if (!normalized) throw new Error(`${label} is required.`);
-  return normalized;
-}
-
-function isPrivateHost(host) {
-  const value = String(host || '').toLowerCase();
-  return value === 'localhost' || value === '::1' || value.startsWith('127.')
-    || value.startsWith('10.') || value.startsWith('192.168.')
-    || /^172\.(1[6-9]|2\d|3[01])\./.test(value);
-}
+const { isPrivateHost } = require('../../../utils/cloud-security');
+const { requireText, trimText: text } = require('../../../utils/text');
 
 function normalizeBaseUrl(value) {
   const raw = text(value);

@@ -12,6 +12,7 @@ const APK_UPLOAD_ROOT = path.resolve(
 );
 const MAX_APK_BYTES = Number(process.env.NEOAGENT_ANDROID_APK_MAX_BYTES || 512 * 1024 * 1024);
 const IDLE_TIMEOUT_MS = Number(process.env.NEOAGENT_VM_IDLE_TIMEOUT_MS || 10 * 60 * 1000);
+const GUEST_HEALTH_TIMEOUT_MS = 100_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,20 +37,6 @@ function delayWithSignal(ms, signal) {
   });
 }
 
-function assertPathInside(baseDir, candidatePath, label) {
-  const resolvedBase = path.resolve(baseDir);
-  const resolvedCandidate = path.resolve(candidatePath);
-  const relativePath = path.relative(resolvedBase, resolvedCandidate);
-  if (
-    relativePath.startsWith('..')
-    || path.isAbsolute(relativePath)
-    || relativePath === ''
-  ) {
-    throw new Error(`${label} is outside the allowed directory.`);
-  }
-  return resolvedCandidate;
-}
-
 function isPidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) {
     return false;
@@ -70,7 +57,10 @@ class RuntimeHttpClient {
   }
 
   async waitForHealth(options = {}) {
-    const timeoutMs = Number(options.timeoutMs || 600000); // Increased from 120s to 10m for bootstrap
+    const requestedTimeout = Number(options.timeoutMs);
+    const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+      ? requestedTimeout
+      : GUEST_HEALTH_TIMEOUT_MS;
     const intervalMs = Number(options.intervalMs || 1000);
     const checkLiveness = options.checkLiveness || (() => true);
     const startedAt = Date.now();
@@ -85,9 +75,10 @@ class RuntimeHttpClient {
       try {
         const health = await this.request('GET', '/health', undefined, {
           timeoutMs: 2000,
+          retryCount: 0,
           signal: options.signal,
         });
-        if (health?.status === 'ok') {
+        if (health?.runtime === 'guest-agent' || health?.status === 'ok' || health?.status === 'starting') {
           console.log(`[Runtime] Guest agent ready after ${elapsed}s`);
           return health;
         }
@@ -95,7 +86,11 @@ class RuntimeHttpClient {
       } catch (error) {
         lastError = error;
         if (elapsed % 10 === 0) {
-          console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${error.message})`);
+          const cause = error.cause?.code || error.cause?.message;
+          const detail = cause && !String(error.message).includes(String(cause))
+            ? `${error.message} (${cause})`
+            : error.message;
+          console.log(`[Runtime] Waiting for guest agent health... (${elapsed}s elapsed, last error: ${detail})`);
         }
       }
       await delayWithSignal(intervalMs, options.signal);
@@ -435,6 +430,7 @@ class LocalVmExecutionBackend {
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
     this.activeOperations = new Map();
+    this.bootAssetCaching = new Map();
     this.reaperInterval = null;
     this.reaperInFlight = false;
     this.shuttingDown = false;
@@ -527,7 +523,12 @@ class LocalVmExecutionBackend {
     });
     try {
       await client.waitForHealth({
-        timeoutMs: Number(process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000),
+        // A direct boot skips provisioning and answers within seconds, but a VM that
+        // still has to run cloud-init installs a desktop and its packages first, which
+        // takes far longer than the warm-start ceiling.
+        timeoutMs: session.directBoot
+          ? GUEST_HEALTH_TIMEOUT_MS
+          : Number(this.vmManager.bootTimeoutMs) || GUEST_HEALTH_TIMEOUT_MS,
         signal: options.signal,
         checkLiveness: () => {
           const key = String(userId || '').trim();
@@ -536,7 +537,6 @@ class LocalVmExecutionBackend {
         },
       });
       if (session.state === 'starting') session.state = 'ready';
-      await this.vmManager.cacheDirectBootAssets?.(userId, client);
     } catch (error) {
       if (options.signal?.aborted) throw abortError(options.signal);
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
@@ -548,7 +548,27 @@ class LocalVmExecutionBackend {
       }
       throw startupError;
     }
+    this.#cacheDirectBootAssets(userId, client);
     return client;
+  }
+
+  // Caching the guest kernel and initramfs only shortens the *next* start, and the
+  // transfer runs into hundreds of megabytes, so it stays off the request path and a
+  // failure never takes the running VM down with it.
+  #cacheDirectBootAssets(userId, client) {
+    const key = String(userId || '').trim();
+    if (typeof this.vmManager?.cacheDirectBootAssets !== 'function') return;
+    if (this.bootAssetCaching.has(key)) return;
+    const task = Promise.resolve()
+      .then(() => this.vmManager.cacheDirectBootAssets(key, client))
+      .catch((error) => {
+        console.warn(
+          `[Runtime:${this.runtimeProfile}] Direct-boot asset caching failed for user ${key}:`,
+          error?.message || error,
+        );
+      })
+      .finally(() => this.bootAssetCaching.delete(key));
+    this.bootAssetCaching.set(key, task);
   }
 
   async getClientForUser(userId, options = {}) {
@@ -712,6 +732,7 @@ class LocalVmExecutionBackend {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.shuttingDown = true;
     this.activeOperations.clear();
+    await Promise.allSettled(this.bootAssetCaching.values());
     if (this.reaperInterval) {
       clearInterval(this.reaperInterval);
       this.reaperInterval = null;
@@ -723,6 +744,7 @@ class LocalVmExecutionBackend {
 }
 
 module.exports = {
+  GUEST_HEALTH_TIMEOUT_MS,
   LocalVmExecutionBackend,
   RuntimeHttpClient,
   VmBrowserProvider,

@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'android_app_installer.dart';
+import 'host_architecture.dart';
+import 'error_text.dart';
 import 'oauth_launcher.dart';
 
 const String appUpdaterGithubOwner = String.fromEnvironment(
@@ -52,6 +54,66 @@ class AppUpdateAsset {
     }
     return '$size B';
   }
+}
+
+const Map<String, List<String>> _architectureAliases = <String, List<String>>{
+  'arm64': <String>['arm64', 'aarch64'],
+  'x64': <String>['x64', 'x86_64', 'amd64'],
+};
+
+/// Releases also carry the standalone CLI, the signed runtime packages and
+/// their metadata. None of those are the app, and an extension match alone
+/// happily picks one of them.
+bool _isApplicationAsset(String name) {
+  const foreign = <String>['neoagent-cli', 'runtime', 'manifest', 'metadata'];
+  if (foreign.any(name.contains)) return false;
+  return !name.endsWith('.sig') && !name.endsWith('.json');
+}
+
+/// An asset tagged for another processor is never a candidate; an untagged one
+/// still is, because a universal installer carries no architecture at all.
+bool _matchesArchitecture(String name, String? architecture) {
+  if (architecture == null) return true;
+  final wanted = _architectureAliases[architecture] ?? const <String>[];
+  if (wanted.any(name.contains)) return true;
+  return !_architectureAliases.entries
+      .where((entry) => entry.key != architecture)
+      .expand((entry) => entry.value)
+      .any(name.contains);
+}
+
+/// Picks the asset for this platform, preferring one that names [architecture]
+/// over an untagged one. Returns null when the release has nothing installable
+/// for the current platform.
+AppUpdateAsset? selectReleaseAsset(
+  List<AppUpdateAsset> assets, {
+  required List<bool Function(String)> matchers,
+  required String? architecture,
+}) {
+  final candidates =
+      assets
+          .where((asset) => _isApplicationAsset(asset.name.toLowerCase()))
+          .where(
+            (asset) =>
+                _matchesArchitecture(asset.name.toLowerCase(), architecture),
+          )
+          .toList()
+        ..sort((left, right) {
+          final wanted = _architectureAliases[architecture] ?? const <String>[];
+          final leftTagged = wanted.any(left.name.toLowerCase().contains);
+          final rightTagged = wanted.any(right.name.toLowerCase().contains);
+          if (leftTagged == rightTagged) return 0;
+          return leftTagged ? -1 : 1;
+        });
+
+  for (final matcher in matchers) {
+    for (final asset in candidates) {
+      if (matcher(asset.name.toLowerCase())) {
+        return asset;
+      }
+    }
+  }
+  return null;
 }
 
 class AppReleaseInfo {
@@ -218,7 +280,7 @@ class AppReleaseUpdater {
         currentVersion: installedVersion,
         channel: normalizedChannel,
         updateAvailable: false,
-        errorMessage: error.toString(),
+        errorMessage: formatCaughtError(error),
       );
     }
   }
@@ -250,7 +312,7 @@ class AppReleaseUpdater {
         return OAuthLaunchResult(
           launched: false,
           completed: false,
-          error: error.toString(),
+          error: formatCaughtError(error),
         );
       }
     }
@@ -347,17 +409,11 @@ class AppReleaseUpdater {
       return null;
     }
 
-    final matchers = _assetMatchersForCurrentPlatform(
-      launcherMode: launcherMode,
+    return selectReleaseAsset(
+      candidates,
+      matchers: _assetMatchersForCurrentPlatform(launcherMode: launcherMode),
+      architecture: hostArchitecture(),
     );
-    for (final matcher in matchers) {
-      for (final asset in candidates) {
-        if (matcher(asset.name.toLowerCase())) {
-          return asset;
-        }
-      }
-    }
-    return null;
   }
 
   List<bool Function(String)> _assetMatchersForCurrentPlatform({

@@ -208,36 +208,7 @@ function compactReadFilesResult(result) {
   };
 }
 
-function compactPayloadForModel(toolName, result) {
-  switch (String(toolName || '').trim()) {
-    case 'http_request':
-      return compactHttpResult(result);
-    case 'browser_extract':
-    case 'session_search':
-      return compactExtractResult(result);
-    case 'web_search':
-      return compactSearchResult(result);
-    case 'read_file':
-    case 'read_artifact':
-      return compactReadFileResult(result);
-    case 'read_files':
-      return compactReadFilesResult(result);
-    default:
-      return {
-        result,
-        metrics: {
-          inputChars: 0,
-          outputChars: 0,
-          reducedChars: 0,
-          applied: false,
-          strategies: [],
-        },
-      };
-  }
-}
-
 module.exports = {
-  compactPayloadForModel,
   compactTextPayload,
   stripHtmlTags,
 };

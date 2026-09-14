@@ -615,20 +615,27 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                 ? controller.toggleLiveVoiceCapture
                 : null,
           )
-        : Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: canStart ? _handlePrimaryPointerDown : null,
-            onPointerUp: (canStop || canStart) ? _handlePrimaryPointerUp : null,
-            onPointerCancel: (canStop || canStart)
-                ? _handlePrimaryPointerUp
-                : null,
-            child: _VoiceAssistantHeroButton(
-              icon: liveCaptureEngaged ? Icons.hearing : Icons.mic,
-              color: (liveCaptureEngaged || _pttPressed)
-                  ? _warning
-                  : assistantUi.primaryColor,
-              active: liveCaptureEngaged || _pttPressed,
-              onTap: null,
+        : Semantics(
+            button: true,
+            label: liveCaptureEngaged ? 'Release to send' : 'Hold to talk',
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: canStart ? _handlePrimaryPointerDown : null,
+              onPointerUp: (canStop || canStart)
+                  ? _handlePrimaryPointerUp
+                  : null,
+              onPointerCancel: (canStop || canStart)
+                  ? _handlePrimaryPointerUp
+                  : null,
+              child: _VoiceAssistantHeroButton(
+                icon: liveCaptureEngaged ? Icons.hearing : Icons.mic,
+                color: (liveCaptureEngaged || _pttPressed)
+                    ? _warning
+                    : assistantUi.primaryColor,
+                active: liveCaptureEngaged || _pttPressed,
+                enabled: canStart || canStop || liveCaptureEngaged,
+                onTap: null,
+              ),
             ),
           );
 
@@ -713,7 +720,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                               if ((globalError?.isNotEmpty ?? false) &&
                                   globalError != voiceError) ...<Widget>[
                                 const SizedBox(height: 16),
-                                _InlineError(message: globalError!),
+                                _InlineError(
+                                  message: globalError!,
+                                  onDismiss: controller.clearInlineError,
+                                ),
                               ],
                               if (voiceError?.isNotEmpty ?? false) ...<Widget>[
                                 const SizedBox(height: 10),
@@ -907,21 +917,24 @@ class _VoiceAssistantHeroButton extends StatelessWidget {
     required this.color,
     required this.active,
     required this.onTap,
+    this.enabled,
   });
 
   final IconData icon;
   final Color color;
   final bool active;
   final VoidCallback? onTap;
+  final bool? enabled;
 
   @override
   Widget build(BuildContext context) {
+    final interactive = enabled ?? onTap != null;
     return AnimatedScale(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       scale: active ? 1.03 : 1,
       child: Opacity(
-        opacity: onTap == null ? 0.5 : 1,
+        opacity: interactive ? 1 : 0.5,
         child: Material(
           color: color,
           shape: const CircleBorder(),

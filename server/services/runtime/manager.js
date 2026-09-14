@@ -270,12 +270,6 @@ class RuntimeManager {
     if (!this.#computerStillRunning(userId, options)) {
       return this.getComputerStatus(userId, options);
     }
-    try {
-      const browser = await backend.getBrowserProviderForUser(userId, options);
-      await browser.launch({ signal: options.signal });
-    } catch (error) {
-      logger.warn(`Browser launch failed for user ${String(userId)}: ${error.message}`);
-    }
     this._emitStatus(userId);
     return this.getComputerStatus(userId, options);
   }
@@ -293,7 +287,9 @@ class RuntimeManager {
       } else if (typeof backend.getClientForUser === 'function') {
         await backend.getClientForUser(userId, { deviceTarget: options.deviceTarget });
       }
-      this.#queueComputerStartup(userId, { deviceTarget: options.deviceTarget });
+      // Viewing the desktop must not re-run startup. That path restarts X and
+      // launches Playwright against the same Chromium profile, which closes the
+      // user's tabs and opens about:blank.
       return this.getComputerStatus(userId, options);
     } finally {
       this._emitStatus(userId);
@@ -359,7 +355,9 @@ class RuntimeManager {
   }
 
   async startComputer(userId, options = {}) {
-    return this.ensureComputerDisplay(userId, options);
+    const status = await this.ensureComputerDisplay(userId, options);
+    this.#queueComputerStartup(userId, { deviceTarget: options.deviceTarget });
+    return status;
   }
 
   async #migrateWorkspace(userId, options = {}) {
@@ -568,22 +566,26 @@ class RuntimeManager {
       throw new Error('A valid computer control owner is required.');
     }
     if (existing && existing.ownerType !== normalizedOwnerType) {
-      const error = new Error(`${this.#computerLabel(provider)} is controlled by ${existing.ownerType}.`);
-      error.code = 'COMPUTER_CONTROL_CONFLICT';
-      error.status = 409;
-      throw error;
+      if (!(normalizedOwnerType === 'agent' && existing.ownerType === 'user')) {
+        const error = new Error(`${this.#computerLabel(provider)} is controlled by ${existing.ownerType}.`);
+        error.code = 'COMPUTER_CONTROL_CONFLICT';
+        error.status = 409;
+        throw error;
+      }
     }
     if (
       existing
       && existing.ownerType !== 'agent'
       && existing.ownerId !== normalizedOwnerId
+      && !(normalizedOwnerType === 'agent' && existing.ownerType === 'user')
     ) {
       const error = new Error(`${this.#computerLabel(provider)} is controlled by ${existing.ownerType}.`);
       error.code = 'COMPUTER_CONTROL_CONFLICT';
       error.status = 409;
       throw error;
     }
-    const ownerIds = new Set(existing ? this.#leaseOwnerIds(existing) : []);
+    const sameOwnerType = existing && existing.ownerType === normalizedOwnerType;
+    const ownerIds = new Set(sameOwnerType ? this.#leaseOwnerIds(existing) : []);
     ownerIds.add(normalizedOwnerId);
     const lease = {
       ownerType: normalizedOwnerType,
@@ -592,7 +594,7 @@ class RuntimeManager {
       provider,
       expiresAt: Date.now() + CONTROL_LEASE_TTL_MS,
     };
-    if (!existing && provider === 'cloud') this.revokeDisplaySessions(userKey);
+    if ((!existing || !sameOwnerType) && provider === 'cloud') this.revokeDisplaySessions(userKey);
     this.controlLeases.set(this.#controlKey(userKey, provider), lease);
     const stateChanged = !existing || existing.ownerType !== normalizedOwnerType;
     if (stateChanged) this._emitStatus(userKey);

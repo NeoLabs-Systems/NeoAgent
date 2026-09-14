@@ -28,15 +28,6 @@ function getRuntimeValidation(runtimeManager) {
   };
 }
 
-function assertRuntimeValidation(runtimeManager) {
-  const validation = getRuntimeValidation(runtimeManager);
-  if (!validation.ready) {
-    throw new Error(validation.issues.join(' '));
-  }
-  return validation;
-}
-
 module.exports = {
-  assertRuntimeValidation,
   getRuntimeValidation,
 };

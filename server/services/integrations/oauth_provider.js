@@ -1,7 +1,6 @@
 'use strict';
 
 const { decryptValue } = require('./secrets');
-const { getConnectionAccessMode } = require('./access');
 const { fetchResponseText } = require('./http');
 const { isAbortError } = require('../../utils/abort');
 const {
@@ -11,6 +10,11 @@ const {
   isTransientIoError,
   retryAfterMilliseconds,
 } = require('../../utils/retry');
+const {
+  buildConnectedAppSummary,
+  summarizeAppConnection,
+  summarizeProviderConnection,
+} = require('./connection_summary');
 
 const OAUTH_STATE_PATTERN = /^[a-f0-9]{32,128}$/i;
 const RETRYABLE_INTEGRATION_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -29,6 +33,28 @@ function appendQuery(url, params) {
     resolved.searchParams.set(key, text);
   }
   return resolved.toString();
+}
+
+function buildPinnedApiUrl(hostname, path, query = {}, options = {}) {
+  const label = options.label || hostname;
+  const rawPath = String(path || '').trim();
+  const url = new URL(
+    rawPath.startsWith('http')
+      ? rawPath
+      : `https://${hostname}${rawPath.startsWith('/') ? '' : '/'}${rawPath}`,
+  );
+  if (url.protocol !== 'https:' || url.hostname !== hostname) {
+    throw new Error(
+      options.errorMessage || `${label} API request URL must target ${hostname}.`,
+    );
+  }
+  const skipBlank = options.skipBlank !== false;
+  for (const [key, value] of Object.entries(query || {})) {
+    if (value === undefined || value === null) continue;
+    if (skipBlank && !String(value).trim()) continue;
+    url.searchParams.set(key, String(value));
+  }
+  return url;
 }
 
 function sanitizeRemoteError(value) {
@@ -125,97 +151,6 @@ async function fetchJson(url, options = {}, context = {}) {
     }
   }
   throw new Error('Integration request exhausted its retry attempts.');
-}
-
-function sortConnections(rows) {
-  return rows.slice().sort((left, right) => {
-    const leftEmail = String(left.account_email || '').toLowerCase();
-    const rightEmail = String(right.account_email || '').toLowerCase();
-    if (leftEmail !== rightEmail) return leftEmail.localeCompare(rightEmail);
-    return String(right.updated_at || '').localeCompare(String(left.updated_at || ''));
-  });
-}
-
-function summarizeAccountRow(row, envStatus) {
-  if (!envStatus.configured) {
-    return {
-      id: row?.id || null,
-      status: 'env_not_configured',
-      connected: false,
-      accountEmail: row?.account_email || null,
-      lastConnectedAt: row?.last_connected_at || null,
-    };
-  }
-
-  if (!row) {
-    return {
-      id: null,
-      status: 'not_connected',
-      connected: false,
-      accountEmail: null,
-      lastConnectedAt: null,
-      accessMode: 'read_write',
-    };
-  }
-
-  return {
-    id: row.id || null,
-    status: row.status || 'not_connected',
-    connected: row.status === 'connected',
-    accountEmail: row.account_email || null,
-    lastConnectedAt: row.last_connected_at || null,
-    accessMode: getConnectionAccessMode(row),
-  };
-}
-
-function summarizeAppConnection(app, connectionRows, envStatus) {
-  const accounts = sortConnections(connectionRows).map((row) =>
-    summarizeAccountRow(row, envStatus),
-  );
-  const connectedAccounts = accounts.filter((account) => account.connected);
-  const latestConnectedAt = connectedAccounts
-    .map((account) => account.lastConnectedAt)
-    .filter(Boolean)
-    .sort()
-    .reverse()[0] || null;
-  const status = !envStatus.configured
-    ? 'env_not_configured'
-    : connectedAccounts.length > 0
-    ? 'connected'
-    : accounts.some((account) => account.status === 'authorizing')
-    ? 'authorizing'
-    : 'not_connected';
-
-  return {
-    id: app.id,
-    label: app.label,
-    description: app.description,
-    accounts,
-    connection: {
-      status,
-      connected: connectedAccounts.length > 0,
-      accountCount: connectedAccounts.length,
-      accountEmail:
-        connectedAccounts.length === 1
-          ? connectedAccounts[0].accountEmail
-          : null,
-      lastConnectedAt: latestConnectedAt,
-    },
-    availableToolCount: 0,
-  };
-}
-
-function buildConnectedAppSummary(appSnapshots) {
-  return appSnapshots
-    .filter((app) => app.connection.connected)
-    .map((app) => {
-      const emails = app.accounts
-        .filter((account) => account.connected)
-        .map((account) => account.accountEmail || `connection ${account.id}`)
-        .join(', ');
-      return `${app.label}: ${emails}`;
-    })
-    .join(' | ');
 }
 
 function createOAuthProvider(options = {}) {
@@ -345,10 +280,7 @@ function createOAuthProvider(options = {}) {
             : 0;
         return snapshot;
       });
-      const connectedApps = appSnapshots.filter((app) => app.connection.connected);
-      const connectedAccounts = connectedApps.flatMap((app) =>
-        app.accounts.filter((account) => account.connected),
-      );
+      const rollup = summarizeProviderConnection(appSnapshots, env);
 
       return {
         id: this.key,
@@ -357,30 +289,8 @@ function createOAuthProvider(options = {}) {
         icon: this.icon,
         apps: appSnapshots,
         env,
-        connection: {
-          status: !env.configured
-            ? 'env_not_configured'
-            : connectedAccounts.length > 0
-            ? 'connected'
-            : 'not_connected',
-          connected: connectedAccounts.length > 0,
-          accountEmail:
-            connectedAccounts.length === 1
-              ? connectedAccounts[0].accountEmail
-              : null,
-          accountCount: connectedAccounts.length,
-          appCount: connectedApps.length,
-          lastConnectedAt:
-            connectedAccounts
-              .map((account) => account.lastConnectedAt)
-              .filter(Boolean)
-              .sort()
-              .reverse()[0] || null,
-        },
-        availableToolCount: appSnapshots.reduce(
-          (total, app) => total + app.availableToolCount,
-          0,
-        ),
+        connection: rollup.connection,
+        availableToolCount: rollup.availableToolCount,
         connectPrompt: this.connectPrompt,
         supportsMultipleAccounts: this.supportsMultipleAccounts,
         connectionMethod: this.connectionMethod,
@@ -534,6 +444,7 @@ function createOAuthProvider(options = {}) {
 
 module.exports = {
   appendQuery,
+  buildPinnedApiUrl,
   createOAuthProvider,
   escapeScope,
   fetchJson,

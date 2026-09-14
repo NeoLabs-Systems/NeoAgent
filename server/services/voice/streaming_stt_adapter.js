@@ -2,18 +2,11 @@
 
 const WebSocket = require('ws');
 const { requireApiKey } = require('./providers/credentials');
+const { parseMaybeJson } = require('../../utils/text');
 
 const FINAL_TIMEOUT_MS = 15000;
 const OPEN_TIMEOUT_MS = 15000;
 const MAX_BUFFERED_AMOUNT = 1024 * 1024;
-
-function parseJson(value) {
-  try {
-    return JSON.parse(String(value || ''));
-  } catch {
-    return {};
-  }
-}
 
 class StreamingSttAdapter {
   constructor({ provider }) {
@@ -168,7 +161,7 @@ class StreamingSttAdapter {
   }
 
   async #handleMessage(data) {
-    const event = parseJson(data);
+    const event = parseMaybeJson(data, {});
     if (this.provider === 'openai') {
       if (event.type === 'conversation.item.input_audio_transcription.delta') {
         this.partialTranscript += String(event.delta || '');

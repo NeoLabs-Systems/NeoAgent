@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const db = require('../db/database');
 const { getErrorMessage } = require('../services/bootstrap_helpers');
@@ -8,6 +9,16 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(requireAuth);
+
+router.get('/geofences', (req, res) => {
+  const geofences = db.prepare(`
+    SELECT id, label, latitude, longitude, radius_meters, trigger_action
+    FROM geofences
+    WHERE user_id = ?
+    ORDER BY id ASC
+  `).all(req.session.userId);
+  res.json({ geofences });
+});
 
 router.post('/geofence', async (req, res) => {
   const { label, latitude, longitude, radius_meters, action } = req.body;
@@ -44,8 +55,25 @@ router.post('/geofence', async (req, res) => {
   }).catch(err => console.error('[Triggers] Geofence agent run failed:', err.message));
 });
 
+// Trigger de-duplication keys off the fingerprint, so it must identify the
+// event rather than the delivery: a client that retries the same notification
+// sends identical fields and must not fire the task twice.
+function notificationFingerprintOf({ appPackage, title, body, actionTaken }) {
+  const digest = crypto.createHash('sha256')
+    .update(JSON.stringify([appPackage, title, body, actionTaken]))
+    .digest('hex')
+    .slice(0, 32);
+  return `notification:${digest}`;
+}
+
 router.post('/notification', async (req, res) => {
   const { app_package, title, body, action_taken } = req.body;
+  const notificationFingerprint = notificationFingerprintOf({
+    appPackage: app_package || 'unknown',
+    title: title || '',
+    body: body || '',
+    actionTaken: action_taken || 'none',
+  });
 
   try {
     const userRow = db.prepare('SELECT id FROM users WHERE id = ?').get(req.session.userId);
@@ -70,22 +98,24 @@ router.post('/notification', async (req, res) => {
   Promise.resolve().then(async () => {
     const taskRuntime = req.app.locals.taskRuntime;
     if (!taskRuntime) return;
-    
+
     const tasks = taskRuntime.taskRepository.listEnabledByTriggerTypes(['android_notification_received']) || [];
     for (const task of tasks) {
       if (task.user_id !== req.session.userId) continue;
-      
+
       let config = {};
       try {
         config = JSON.parse(task.trigger_config || '{}');
-      } catch (e) {}
-      
+      } catch (err) {
+        console.error('[Triggers] Ignoring unparsable trigger config for task', task.id, getErrorMessage(err));
+      }
+
       if (config.appPackage && config.appPackage.trim() && config.appPackage.trim() !== app_package) {
         continue;
       }
-      
+
       const payload = {
-        fingerprint: `notification:${Date.now()}:${Math.random().toString(36).substr(2, 5)}`,
+        fingerprint: notificationFingerprint,
         timestamp: new Date().toISOString(),
         context: {
           triggerEvent: {
@@ -97,7 +127,7 @@ router.post('/notification', async (req, res) => {
           }
         }
       };
-      
+
       await taskRuntime.fireTaskFromTrigger(task.id, task.user_id, payload).catch(err => {
         console.error('[Triggers] Notification task trigger failed:', err.message);
       });

@@ -244,6 +244,17 @@ async function shutdown(exitCode = 0) {
   process.exit(normalizeShutdownExitCode(shutdownExitCode));
 }
 
+httpServer.on('error', (error) => {
+  if (error?.code === 'EADDRINUSE') {
+    console.error(
+      `[Startup] Port ${PORT} is already in use. Stop the running NeoAgent with `
+      + '`neoagent stop`, or set PORT in the NeoAgent .env file.',
+    );
+    process.exit(1);
+  }
+  throw error;
+});
+
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);

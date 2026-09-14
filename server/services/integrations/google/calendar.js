@@ -3,8 +3,7 @@
 const { google } = require('googleapis');
 const { coerceStringList, executeGoogleApiRequest } = require('./common');
 const {
-  applyCalendarListMode,
-  excludeStartedTimedEvents,
+  finalizeListedCalendarEvents,
   partitionCalendarEvents,
 } = require('../calendar_window');
 
@@ -221,19 +220,11 @@ async function executeCalendarTool(toolName, args, auth, executionOptions = {}) 
         maxResults: Math.max(1, Math.min(Number(args.max_results) || 10, 50)),
       });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
-      const summarizedItems = items.map(summarizeEvent);
-      const automaticReminderEvents = (
-        (executionOptions.triggerSource === 'schedule' || executionOptions.triggerSource === 'tasks')
-        && executionOptions.taskId
-        && args.include_ongoing !== true
-      )
-        ? excludeStartedTimedEvents(summarizedItems, executionOptions.scheduledAt)
-        : summarizedItems;
-      const summary = partitionCalendarEvents(automaticReminderEvents, { timeMin, timeMax });
-      const hasWindowStart = Boolean(timeMin);
-      return applyCalendarListMode(summary, {
-        includeOngoing: !hasWindowStart || args.include_ongoing === true,
-        includeAllDay: !hasWindowStart || args.include_all_day === true,
+      return finalizeListedCalendarEvents(items.map(summarizeEvent), {
+        timeMin,
+        timeMax,
+        args,
+        executionOptions,
       });
     }
 

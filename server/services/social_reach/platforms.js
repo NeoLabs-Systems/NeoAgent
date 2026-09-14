@@ -83,20 +83,6 @@ function getPlatformDefinition(platform) {
   return PLATFORM_DEFINITIONS[normalizePlatformId(platform)] || null;
 }
 
-function listPlatformDefinitions() {
-  return Object.values(PLATFORM_DEFINITIONS);
-}
-
-function hostMatchesPlatform(hostname, platform) {
-  const definition = getPlatformDefinition(platform);
-  if (!definition) return false;
-  const host = String(hostname || '').toLowerCase().replace(/^www\./, '');
-  return definition.hosts.some((candidate) => {
-    const normalized = candidate.toLowerCase().replace(/^www\./, '');
-    return host === normalized || host.endsWith(`.${normalized}`);
-  });
-}
-
 function domainsForPlatform(platform) {
   const definition = getPlatformDefinition(platform);
   return definition ? [...definition.domains] : [];
@@ -106,7 +92,5 @@ module.exports = {
   PLATFORM_DEFINITIONS,
   domainsForPlatform,
   getPlatformDefinition,
-  hostMatchesPlatform,
-  listPlatformDefinitions,
   normalizePlatformId,
 };

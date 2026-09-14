@@ -52,6 +52,35 @@ after(() => teardownTestRuntime(ctx));
 
 // A catalog large enough that the integration tool cannot be in the active
 // slice by accident — the same situation as a real install with ~167 tools.
+function buildBrowserCatalog() {
+  const pageTools = new Set([
+    'browser_navigate',
+    'browser_click',
+    'browser_type',
+    'browser_extract',
+  ]);
+  return [
+    'task_complete',
+    'search_tools',
+    'activate_tools',
+    'think',
+    'send_message',
+    'send_interim_update',
+    'call_user',
+    'web_search',
+    'browser_navigate',
+    'browser_click',
+    'browser_type',
+    'browser_extract',
+    'browser_screenshot',
+  ].map((name) => ({
+    name,
+    description: name,
+    parameters: { type: 'object', properties: {} },
+    ...(pageTools.has(name) ? { family: 'browser_page' } : {}),
+  }));
+}
+
 function buildLargeCatalog() {
   const tools = [
     'task_complete',
@@ -197,6 +226,68 @@ const SURFACES = [
     disallowedToolNames: ['spawn_subagent'],
   }],
 ];
+
+test('browser work activates click and type instead of navigate alone', async () => {
+  const engine = new AgentEngine(null);
+  engine.emit = () => {};
+  engine.buildSystemPrompt = async () => 'SYSTEM';
+  engine.buildMemoryRecall = async () => null;
+  engine.buildContextMessages = (prompt) => [{ role: 'system', content: prompt }];
+  engine.buildUserMessage = (message) => ({ role: 'user', content: message });
+  engine.getReasoningEffort = () => undefined;
+  engine.requestStructuredJson = async ({ normalize, fallback }) => ({
+    value: normalize({
+      mode: 'execute',
+      draft_reply: '',
+      draft_status: 'needs_execution',
+      goal: 'Use the computer browser',
+      confidence: 0.8,
+      suggested_tools: ['browser_navigate'],
+    }, fallback || {}),
+    raw: '',
+    usage: 1,
+  });
+  engine.getAvailableTools = () => buildBrowserCatalog();
+
+  let discovery = '';
+  let activeNames = [];
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    discovery = messages
+      .filter((message) => message.role === 'system')
+      .map((message) => String(message.content || ''))
+      .find((content) => content.includes('[Tool discovery]')) || '';
+    activeNames = tools.map((tool) => tool.name);
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'done',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'done' }) },
+        }],
+        usage: { total_tokens: 1 },
+      },
+      streamContent: '',
+    };
+  };
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => true;
+
+  await engine.run(userId, 'Use the browser on the computer and sign in', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 2,
+  });
+
+  assert.ok(activeNames.includes('browser_navigate'));
+  assert.ok(activeNames.includes('browser_click'), 'browser_click must be active for page interaction');
+  assert.ok(activeNames.includes('browser_type'), 'browser_type must be active for page interaction');
+  assert.ok(activeNames.includes('browser_extract'));
+  assert.match(discovery, /browser_click/);
+  assert.equal(activeNames.includes('browser_screenshot'), false);
+});
 
 for (const [label, runOptions] of SURFACES) {
   test(`${label}: inactive tools stay searchable without a full catalog dump`, async () => {

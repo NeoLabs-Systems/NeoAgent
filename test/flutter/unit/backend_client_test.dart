@@ -174,26 +174,4 @@ void main() {
       });
     },
   );
-
-  test('BackendClient saves AI provider credentials without leaking extra fields', () async {
-    final fake = FakeHttpClient();
-    final client = BackendClient(httpClient: fake);
-
-    await client.saveAiProviderCredentials(
-      'https://neo.test',
-      'openai-compatible',
-      apiKey: 'sk-test',
-      baseUrlOverride: 'https://models.example.test/v1',
-      agentId: 'main agent',
-    );
-
-    expect(
-      fake.lastUri.toString(),
-      'https://neo.test/api/settings/ai-providers/openai-compatible/credentials?agentId=main+agent',
-    );
-    expect(jsonDecode(fake.lastBody! as String), <String, dynamic>{
-      'apiKey': 'sk-test',
-      'baseUrl': 'https://models.example.test/v1',
-    });
-  });
 }

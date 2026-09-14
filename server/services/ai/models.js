@@ -40,7 +40,7 @@ const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/
 // `apiKey`/`baseUrl` mirror exactly what each constructor was historically given;
 // they intentionally do not derive from AI_PROVIDER_DEFINITIONS.supportsBaseUrl,
 // which disagrees for github-copilot/openai-codex (those read their base URL from
-// env, not from per-user config).
+// env, not from leftover per-user config).
 const PROVIDER_FACTORIES = Object.freeze({
     grok: { Provider: GrokProvider, apiKey: true, baseUrl: true },
     openai: { Provider: OpenAIProvider, apiKey: true, baseUrl: true },
@@ -134,20 +134,16 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? (process.env[definition.baseUrlEnvKey] || '').trim()
         : '';
     const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
+    const configBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
     const baseUrl = definition.supportsBaseUrl
-        ? (
-            (typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '')
-            || envBaseUrl
-            || definition.defaultBaseUrl
-            || ''
-        )
+        ? (envBaseUrl || configBaseUrl || definition.defaultBaseUrl || '')
         : '';
 
     return {
         ...definition,
         enabled: config.enabled !== false,
-        apiKey: scopedApiKey || envApiKey,
-        credentialConfigured: Boolean(scopedApiKey || envApiKey),
+        apiKey: envApiKey || scopedApiKey,
+        credentialConfigured: Boolean(envApiKey || scopedApiKey),
         baseUrl,
         baseUrlConfigured: Boolean(baseUrl),
         baseUrlValid: !baseUrl || isValidHttpUrl(baseUrl),

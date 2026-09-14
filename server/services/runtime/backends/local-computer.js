@@ -5,18 +5,10 @@ const {
   DESKTOP_COMMANDS,
   DesktopCompanionUnavailableError,
 } = require('../../desktop/protocol');
+const { GUEST_WORKSPACE_DIR, fromGuestWorkspacePath } = require('../guest_paths');
 
 function parsePathname(value) {
   return new URL(String(value || '/'), 'http://local.neoagent');
-}
-
-function normalizeWorkspacePath(value, fallback = '') {
-  const normalized = String(value ?? fallback).trim().replace(/\\/g, '/');
-  if (normalized === '/home/neo/workspace') return '';
-  if (normalized.startsWith('/home/neo/workspace/')) {
-    return normalized.slice('/home/neo/workspace/'.length);
-  }
-  return normalized || fallback;
 }
 
 function normalizeWorkspaceRoot(value) {
@@ -224,26 +216,26 @@ class LocalComputerBackend {
     const workspaceRoot = normalizeWorkspaceRoot(options.workspaceRoot);
     if (url.pathname === '/workspace/files' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.LIST_FILES, {
-        path: normalizeWorkspacePath(url.searchParams.get('path'), '.'),
+        path: fromGuestWorkspacePath(url.searchParams.get('path'), '.'),
         workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/content' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.READ_FILE, {
-        path: normalizeWorkspacePath(url.searchParams.get('path')),
+        path: fromGuestWorkspacePath(url.searchParams.get('path')),
         workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/content' && normalizedMethod === 'PUT') {
       return this.dispatch(userId, DESKTOP_COMMANDS.WRITE_FILE, {
-        path: normalizeWorkspacePath(payload.path),
+        path: fromGuestWorkspacePath(payload.path),
         content: payload.content,
         workspaceRoot,
       }, options);
     }
     if (url.pathname === '/workspace/files/download' && normalizedMethod === 'GET') {
       return this.dispatch(userId, DESKTOP_COMMANDS.READ_FILE, {
-        path: normalizeWorkspacePath(url.searchParams.get('path')),
+        path: fromGuestWorkspacePath(url.searchParams.get('path')),
         encoding: 'base64',
         workspaceRoot,
       }, options);
@@ -251,7 +243,7 @@ class LocalComputerBackend {
     if (url.pathname === '/workspace/search' && normalizedMethod === 'POST') {
       return this.dispatch(userId, DESKTOP_COMMANDS.SEARCH_FILES, {
         ...payload,
-        path: normalizeWorkspacePath(payload.path, '.'),
+        path: fromGuestWorkspacePath(payload.path, '.'),
         workspaceRoot,
       }, options);
     }
@@ -264,7 +256,7 @@ class LocalComputerBackend {
   executeCommand(userId, command, options = {}) {
     return this.getDesktopProviderForUser(userId).executeCommand(command, {
       ...options,
-      cwd: options.cwd === '/home/neo/workspace' ? '__neoagent_workspace__' : options.cwd,
+      cwd: options.cwd === GUEST_WORKSPACE_DIR ? '__neoagent_workspace__' : options.cwd,
     });
   }
 
@@ -305,5 +297,4 @@ class LocalComputerBackend {
 module.exports = {
   LocalComputerBackend,
   LocalComputerBrowserProvider,
-  normalizeWorkspacePath,
 };

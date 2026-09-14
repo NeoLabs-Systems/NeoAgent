@@ -6,18 +6,35 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { uploadDesktopCommandOutput } = require('../services/desktop/command_output_upload');
 const { buildComputerDisplayPage } = require('../services/runtime/computer_display');
+const { GUEST_WORKSPACE_DIR } = require('../services/runtime/guest_paths');
 
 const router = express.Router();
-const noVncRoot = path.dirname(path.dirname(require.resolve('@novnc/novnc')));
 const MAX_EDIT_BYTES = 1024 * 1024;
 
+function resolveNoVncRoot() {
+  try {
+    return path.dirname(path.dirname(require.resolve('@novnc/novnc')));
+  } catch (error) {
+    console.error('[Computer] noVNC assets are unavailable:', error.message);
+    return null;
+  }
+}
+
+const noVncRoot = resolveNoVncRoot();
+if (noVncRoot) {
+  router.use('/novnc', express.static(noVncRoot, {
+    fallthrough: false,
+    immutable: true,
+    maxAge: '1d',
+    index: false,
+  }));
+} else {
+  router.use('/novnc', (_req, res) => {
+    res.status(503).type('text/plain').send('Computer display assets are unavailable.');
+  });
+}
+
 router.use(requireAuth);
-router.use('/novnc', express.static(noVncRoot, {
-  fallthrough: false,
-  immutable: true,
-  maxAge: '1d',
-  index: false,
-}));
 
 function runtime(req) {
   const manager = req.app?.locals?.runtimeManager;
@@ -343,7 +360,9 @@ router.post('/shell/execute', route((req, manager) => {
     req.session.userId,
     String(req.body?.command || ''),
     {
-      cwd: req.body?.cwd,
+      // The interactive terminal runs in the agent workspace unless the caller
+      // pins a directory, so clients do not need to know the guest layout.
+      cwd: req.body?.cwd || GUEST_WORKSPACE_DIR,
       timeout: req.body?.timeout,
       stdinInput: req.body?.stdinInput,
       pty: req.body?.pty === true,

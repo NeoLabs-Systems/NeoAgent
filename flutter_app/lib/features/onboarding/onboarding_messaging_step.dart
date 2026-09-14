@@ -33,7 +33,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
 
     return OnboardingScaffold(
       step: 1,
-      totalSteps: 4,
+      totalSteps: 3,
       eyebrow: 'COMMUNICATION',
       title: 'Connect a\nmessaging platform.',
       description: 'Choose one to get started now. You can add more later.',
@@ -60,11 +60,14 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
                         _selectedPlatform!,
                       );
                     } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to connect: $e')),
-                        );
-                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Failed to connect: ${widget.controller.friendlyErrorMessage(e)}',
+                          ),
+                        ),
+                      );
                     }
                   },
                 ),

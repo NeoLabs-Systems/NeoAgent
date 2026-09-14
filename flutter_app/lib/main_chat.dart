@@ -29,6 +29,7 @@ class ChatPanel extends StatefulWidget {
 
 class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   static const double _autoScrollBottomThreshold = 120;
+  static const double _stickResumeThreshold = 8;
   static const double _olderHistoryLoadThreshold = 180;
   static const int _initialSettleFrameBudget = 120;
 
@@ -328,7 +329,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   // only moves maxScrollExtent, never pixels, so the scroll-position listener
   // alone never sees it.
   bool _handleScrollMetrics(ScrollMetricsNotification notification) {
-    if (_userScrollActive ||
+    if (_ignoreScrollUpdates ||
+        _userScrollActive ||
         !_stickToBottom ||
         notification.metrics.axis != Axis.vertical) {
       return false;
@@ -337,37 +339,55 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return false;
   }
 
-  // A drag always wins over auto-follow, from the first pixel.
-  //
-  // Releasing the pin used to depend on the position listener seeing the thumb
-  // leave the near-bottom band. It never got the chance: the re-pin above runs
-  // on the next frame and puts the thread back at the bottom, so the drag never
-  // accumulates past the threshold and the thread jitters under the finger
-  // instead of scrolling. Dragging at all is the signal — not how far.
+  // A user scroll always wins over auto-follow, from the first pixel — drag,
+  // trackpad, mouse wheel, or scrollbar. The near-bottom band is only a
+  // follow heuristic for new content, not a dead zone the user has to escape.
   bool _handleUserScroll(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) {
+    if (_ignoreScrollUpdates || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.idle) {
+        _finishUserScroll();
+      } else {
+        // Forward = toward older messages (offset shrinks). Reverse keeps
+        // follow suppressed for the gesture without flashing the jump button.
+        _beginUserScroll(
+          unstick: notification.direction == ScrollDirection.forward,
+        );
+      }
       return false;
     }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
-      _userScrollActive = true;
-      // Cancels any in-flight settle pass, which re-asserts _stickToBottom.
-      _scrollGeneration++;
-      if (_stickToBottom || _awaitingInitialScrollSettle) {
-        setState(() {
-          _stickToBottom = false;
-          _awaitingInitialScrollSettle = false;
-        });
-      }
-    } else if (notification is ScrollEndNotification && _userScrollActive) {
-      // Momentum has settled; follow again only if they landed at the bottom.
-      _userScrollActive = false;
-      final nearBottom = _isNearBottom;
-      if (_stickToBottom != nearBottom) {
-        setState(() => _stickToBottom = nearBottom);
-      }
+      _beginUserScroll(unstick: true);
+    } else if (notification is ScrollEndNotification) {
+      _finishUserScroll();
     }
     return false;
+  }
+
+  void _beginUserScroll({required bool unstick}) {
+    _userScrollActive = true;
+    // Cancels any in-flight settle pass, which re-asserts _stickToBottom.
+    _scrollGeneration++;
+    if (unstick && (_stickToBottom || _awaitingInitialScrollSettle)) {
+      setState(() {
+        _stickToBottom = false;
+        _awaitingInitialScrollSettle = false;
+      });
+    }
+  }
+
+  void _finishUserScroll() {
+    if (!_userScrollActive) return;
+    _userScrollActive = false;
+    // Resume follow only when they actually landed on the last pixel, not
+    // merely inside the 120px near-bottom band they were trying to leave.
+    final atBottom = _isAtBottom;
+    if (_stickToBottom != atBottom) {
+      setState(() => _stickToBottom = atBottom);
+    }
   }
 
   void _pinToBottom() {
@@ -390,6 +410,13 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     return pos.pixels >= pos.maxScrollExtent - _autoScrollBottomThreshold;
   }
 
+  bool get _isAtBottom {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    if (!pos.hasContentDimensions) return true;
+    return pos.pixels >= pos.maxScrollExtent - _stickResumeThreshold;
+  }
+
   bool get _isNearTop {
     if (!_scrollController.hasClients) return false;
     final pos = _scrollController.position;
@@ -402,12 +429,12 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     if (_isNearTop) {
       unawaited(_maybeLoadOlderHistory());
     }
-    final nearBottom = _isNearBottom;
-    if (_stickToBottom && !nearBottom) {
+    if (_userScrollActive) return;
+    // Only release the pin here — never re-stick from a still-near-bottom
+    // offset. That two-way sync fought the user's first 120px of travel.
+    if (_stickToBottom && !_isNearBottom) {
       _scrollGeneration++;
-    }
-    if (_stickToBottom != nearBottom) {
-      setState(() => _stickToBottom = nearBottom);
+      setState(() => _stickToBottom = false);
     }
   }
 
@@ -616,7 +643,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         const SizedBox(height: 16),
       ],
       if (controller.errorMessage != null) ...<Widget>[
-        _InlineError(message: controller.errorMessage!),
+        _InlineError(
+          message: controller.errorMessage!,
+          onDismiss: controller.clearInlineError,
+        ),
         const SizedBox(height: 16),
       ],
       if (controller.activeRun != null || controller.toolEvents.isNotEmpty)
@@ -1008,35 +1038,14 @@ class _RateLimitStatusCard extends StatelessWidget {
 
   final AccountUsageAndLimits usage;
 
-  String _formatTokens(int amount) {
-    if (amount >= 1000000) {
-      final value = amount / 1000000;
-      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}M';
-    }
-    if (amount >= 1000) {
-      final value = amount / 1000;
-      return '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}k';
-    }
-    return amount.toString();
-  }
-
-  String? _nextDropLabel(DateTime? value) {
-    if (value == null) return null;
-    final remaining = value.difference(DateTime.now());
-    if (remaining.isNegative) return 'Usage updates shortly';
-    if (remaining.inHours > 0) {
-      return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
-    }
-    return 'Next usage drop in ${remaining.inMinutes + 1}m';
-  }
-
   Widget _buildWindow({
     required String label,
     required int usageAmount,
     required int? limit,
     required int remaining,
     required bool reached,
-    required DateTime? nextDecreaseAt,
+    required DateTime? recoversAt,
+    required DateTime? fullResetAt,
   }) {
     if (limit == null || limit <= 0) return const SizedBox.shrink();
     final progress = (usageAmount / limit).clamp(0.0, 1.0);
@@ -1045,7 +1054,11 @@ class _RateLimitStatusCard extends StatelessWidget {
         : progress >= 0.8
         ? _warning
         : _accent;
-    final nextDrop = _nextDropLabel(nextDecreaseAt);
+    final resetLabel = _usageWindowResetLabel(
+      reached: reached,
+      recoversAt: recoversAt,
+      fullResetAt: fullResetAt,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1054,7 +1067,7 @@ class _RateLimitStatusCard extends StatelessWidget {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(
-              reached ? 'Limit reached' : '${_formatTokens(remaining)} left',
+              reached ? 'Limit reached' : '${_formatTokenCount(remaining)} left',
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -1075,8 +1088,8 @@ class _RateLimitStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '${_formatTokens(usageAmount)} / ${_formatTokens(limit)} tokens'
-          '${nextDrop == null ? '' : ' · $nextDrop'}',
+          '${_formatTokenCount(usageAmount)} / ${_formatTokenCount(limit)} tokens'
+          '${resetLabel == null ? '' : ' · $resetLabel'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
       ],
@@ -1092,7 +1105,8 @@ class _RateLimitStatusCard extends StatelessWidget {
         limit: usage.fourHourLimit,
         remaining: usage.fourHourRemaining,
         reached: usage.fourHourReached,
-        nextDecreaseAt: usage.fourHourNextDecreaseAt,
+        recoversAt: usage.fourHourRecoversAt,
+        fullResetAt: usage.fourHourFullResetAt,
       ),
       _buildWindow(
         label: '7-day usage',
@@ -1100,7 +1114,8 @@ class _RateLimitStatusCard extends StatelessWidget {
         limit: usage.weeklyLimit,
         remaining: usage.weeklyRemaining,
         reached: usage.weeklyReached,
-        nextDecreaseAt: usage.weeklyNextDecreaseAt,
+        recoversAt: usage.weeklyRecoversAt,
+        fullResetAt: usage.weeklyFullResetAt,
       ),
     ];
     return Container(
@@ -1585,7 +1600,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
         _PageTitle(
           title: 'Messaging',
           subtitle:
-              'Connect channels, limit who can reach the agent, and monitor activity.',
+              'Connect channels, choose who ${controller.activeAgentLabel} talks to, and watch recent activity.',
           trailing: OutlinedButton.icon(
             onPressed: controller.refreshMessaging,
             icon: Icon(Icons.refresh_rounded),
@@ -2157,7 +2172,7 @@ class _IgnoredChatsPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'These channels are permanently silenced. To receive messages from them, add them manually to the access policy for the relevant platform.',
+                      'These channels stay silent. To hear from them again, add them under Who can message for that platform.',
                       style: TextStyle(
                         color: _textSecondary,
                         fontSize: 13,
@@ -2344,7 +2359,10 @@ class _MessagingActivityItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  message.content.ifEmpty('[empty]'),
+                  message.content.trim().isEmpty
+                      ? 'No message text'
+                      : message.content,
+
                   style: TextStyle(color: _textSecondary, height: 1.35),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -2694,6 +2712,18 @@ class _RunsPanelState extends State<RunsPanel> {
     ).showSnackBar(const SnackBar(content: Text('Copied final response')));
   }
 
+  Future<void> _showPromptInspector() async {
+    final runId = _selectedRunId;
+    if (runId == null) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) =>
+          _RunPromptDialog(controller: widget.controller, runId: runId),
+    );
+  }
+
   Future<void> _deleteSelectedRun() async {
     final run = widget.controller.recentRuns.cast<RunSummary?>().firstWhere(
       (item) => item?.id == _selectedRunId,
@@ -2786,6 +2816,7 @@ class _RunsPanelState extends State<RunsPanel> {
       loading: _loadingDetail,
       onDelete: _deleteSelectedRun,
       onCopyResponse: _copyResponse,
+      onShowPrompt: _showPromptInspector,
     );
 
     return LayoutBuilder(
@@ -2840,7 +2871,10 @@ class _RunsPanelState extends State<RunsPanel> {
             children: <Widget>[
               header,
               if (controller.errorMessage != null) ...<Widget>[
-                _InlineError(message: controller.errorMessage!),
+                _InlineError(
+                  message: controller.errorMessage!,
+                  onDismiss: controller.clearInlineError,
+                ),
                 const SizedBox(height: 12),
               ],
               if (controller.activeRun != null ||
@@ -2897,7 +2931,11 @@ class _MessagingCard extends StatelessWidget {
         : configured
         ? 'Reconnect'
         : 'Connect';
-    final accessLabel = accessCatalog.summary.ifEmpty('Access policy');
+    final accessLabel = accessCatalog.compactAccessLabel;
+    // Self-chat mode answers only the account owner's own notes, so there is
+    // nobody to allow and no other chat to review.
+    final selfChatOnly =
+        platform.id == 'whatsapp' && readWhatsAppSelfChatMode(controller);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2985,19 +3023,22 @@ class _MessagingCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _MessagingMiniPill(
-                icon: Icons.admin_panel_settings_outlined,
-                label: accessLabel,
-              ),
+              if (!selfChatOnly)
+                _MessagingMiniPill(
+                  icon: Icons.forum_outlined,
+                  label: accessLabel,
+                ),
               if (configured && !connected)
                 const _MessagingMiniPill(
                   icon: Icons.tune_rounded,
-                  label: 'Configured',
+                  label: 'Ready to connect',
                 ),
-              if (platform.configFields.isNotEmpty)
+              if (platform.id == 'whatsapp')
                 _MessagingMiniPill(
-                  icon: Icons.edit_note_rounded,
-                  label: '${platform.configFields.length} fields',
+                  icon: selfChatOnly
+                      ? Icons.bookmark_border_rounded
+                      : Icons.smartphone_rounded,
+                  label: selfChatOnly ? 'Self-chat only' : 'Separate account',
                 ),
             ],
           ),
@@ -3049,12 +3090,22 @@ class _MessagingCard extends StatelessWidget {
                       : Icon(Icons.link_off_rounded),
                 ),
               ],
-              const SizedBox(width: 8),
-              IconButton.outlined(
-                tooltip: 'Access policy',
-                onPressed: () => _editAccessPolicy(context, controller),
-                icon: Icon(Icons.group_add_outlined),
-              ),
+              if (platform.id == 'whatsapp') ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Chat mode',
+                  onPressed: onConnect,
+                  icon: Icon(Icons.swap_horiz_rounded),
+                ),
+              ],
+              if (!selfChatOnly) ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Who can message',
+                  onPressed: () => _editAccessPolicy(context, controller),
+                  icon: Icon(Icons.forum_outlined),
+                ),
+              ],
               if (connected) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
@@ -3082,6 +3133,7 @@ class _MessagingCard extends StatelessWidget {
     await _showMessagingAccessPolicyDialog(
       context,
       platform: platform,
+      agentName: controller.activeAgentLabel,
       initialCatalog: catalog,
       onRefreshCatalog: () =>
           controller.loadMessagingAccessCatalog(platform.id, force: true),
@@ -3101,6 +3153,7 @@ class _MessagingRuleSelection {
 Future<void> _showMessagingAccessPolicyDialog(
   BuildContext context, {
   required MessagingPlatformDescriptor platform,
+  required String agentName,
   required MessagingAccessCatalog initialCatalog,
   required Future<MessagingAccessCatalog> Function() onRefreshCatalog,
   required Future<void> Function(MessagingAccessPolicy policy) onSave,
@@ -3109,12 +3162,28 @@ Future<void> _showMessagingAccessPolicyDialog(
   var policy = initialCatalog.policy;
 
   List<MessagingAccessRule> dedupeRules(List<MessagingAccessRule> rules) {
-    final seen = <String>{};
     final result = <MessagingAccessRule>[];
     for (final rule in rules) {
       if (rule.value.trim().isEmpty) continue;
-      if (!seen.add(rule.id)) continue;
-      result.add(rule);
+      final index = result.indexWhere((item) => item.id == rule.id);
+      if (index < 0) {
+        result.add(rule);
+        continue;
+      }
+      final current = result[index];
+      if (looksLikeRawMessagingId(current.displayLabel) &&
+          !looksLikeRawMessagingId(rule.displayLabel)) {
+        result[index] = MessagingAccessRule(
+          scope: current.scope,
+          value: current.value,
+          label: rule.label ?? rule.value,
+          spaceScope: current.spaceScope ?? rule.spaceScope,
+          spaceValue: current.spaceValue ?? rule.spaceValue,
+          spaceLabel: (current.spaceLabel ?? '').trim().isNotEmpty
+              ? current.spaceLabel
+              : rule.spaceLabel,
+        );
+      }
     }
     return result;
   }
@@ -3149,7 +3218,7 @@ Future<void> _showMessagingAccessPolicyDialog(
           .where((target) => target.bucket == 'sharedSpaceRules')
           .map((target) => target.asRule),
     ];
-    return dedupeRules(spaces);
+    return dedupeRules(spaces).where((rule) => rule.isSharedSpace).toList();
   }
 
   bool allowsUntagged(MessagingAccessRule space) {
@@ -3159,29 +3228,6 @@ Future<void> _showMessagingAccessPolicyDialog(
       }
     }
     return policy.defaultAllowUntaggedInShared;
-  }
-
-  void setAllowsUntagged(
-    MessagingAccessRule space,
-    bool allow,
-    void Function(void Function()) setLocalState,
-  ) {
-    setLocalState(() {
-      final rules = policy.sharedParticipationRules
-          .where(
-            (rule) => !(rule.scope == space.scope && rule.value == space.value),
-          )
-          .toList();
-      rules.add(
-        MessagingSharedParticipationRule(
-          scope: space.scope,
-          value: space.value,
-          label: space.label,
-          allowUntagged: allow,
-        ),
-      );
-      policy = policy.copyWith(sharedParticipationRules: rules);
-    });
   }
 
   void addRule(
@@ -3285,21 +3331,14 @@ Future<void> _showMessagingAccessPolicyDialog(
         builder: (context, setLocalState) {
           final capabilities = catalog.capabilities;
           final participationSpaces = sharedSpaces();
-          final taggedOnlyCount = participationSpaces
-              .where((space) => !allowsUntagged(space))
-              .length;
-          final summaryText = [
-            'DMs ${policy.directPolicy}',
-            if (capabilities.supportsSharedPolicy)
-              'shared ${policy.sharedPolicy}',
-            if (capabilities.supportsUntaggedGroupToggle)
-              !policy.defaultAllowUntaggedInShared
-                  ? 'untagged off by default'
-                  : taggedOnlyCount == 0
-                  ? 'social intelligence enabled'
-                  : '$taggedOnlyCount tagged-only',
-            if (policy.totalRuleCount > 0) '${policy.totalRuleCount} rules',
-          ].join(' • ');
+          final previewCatalog = MessagingAccessCatalog(
+            platform: catalog.platform,
+            policy: policy,
+            capabilities: capabilities,
+            discoveredTargets: catalog.discoveredTargets,
+            suggestedTargets: catalog.suggestedTargets,
+            summary: catalog.summary,
+          );
 
           return AlertDialog(
             backgroundColor: _bgCard,
@@ -3319,10 +3358,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     color: platform.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(
-                    Icons.admin_panel_settings_outlined,
-                    color: platform.accent,
-                  ),
+                  child: Icon(Icons.forum_outlined, color: platform.accent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -3330,11 +3366,11 @@ Future<void> _showMessagingAccessPolicyDialog(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        '${platform.label} access',
+                        'Who can message on ${platform.label}',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'People, groups, and response behavior',
+                        'Choose who $agentName talks to, and when it joins group chats.',
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -3355,19 +3391,22 @@ Future<void> _showMessagingAccessPolicyDialog(
                   children: <Widget>[
                     MessagingAccessSummaryCard(
                       accent: platform.accent,
-                      summary: summaryText,
-                      hint: capabilities.manualEntryHint.ifEmpty(
-                        'Choose who can reach this platform and how shared spaces behave.',
+                      headline: previewCatalog.accessHeadline(
+                        agentName: agentName,
                       ),
+                      hint: previewCatalog.accessHint(agentName: agentName),
+                      details: previewCatalog.accessDetailChips,
                     ),
                     const SizedBox(height: 18),
                     if (capabilities.supportsDirectPolicy)
                       _AccessModeField(
                         icon: Icons.chat_bubble_outline_rounded,
-                        label: 'Direct messages',
+                        label: 'Private chats',
                         description:
-                            'Control who can reach the agent one-to-one.',
+                            'Who can send $agentName a one-to-one message.',
                         value: policy.directPolicy,
+                        shared: false,
+                        agentName: agentName,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(directPolicy: value);
                         }),
@@ -3376,10 +3415,12 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 12),
                       _AccessModeField(
                         icon: Icons.groups_2_outlined,
-                        label: 'Shared spaces',
+                        label: 'Groups and channels',
                         description:
-                            'Control access in groups, channels, and rooms.',
+                            'Who can talk to $agentName in a group, channel, or room.',
                         value: policy.sharedPolicy,
+                        shared: true,
+                        agentName: agentName,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
                         }),
@@ -3389,14 +3430,65 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 16),
                       _GroupParticipationSection(
                         spaces: participationSpaces,
+                        agentName: agentName,
+                        approvedOnly: policy.sharedPolicy == 'allowlist',
                         supportsMentionGate: capabilities.supportsMentionGate,
+                        defaultAllowUntagged:
+                            policy.defaultAllowUntaggedInShared,
                         allowsUntagged: allowsUntagged,
-                        onChanged: (space, value) =>
-                            setAllowsUntagged(space, value, setLocalState),
+                        onEdit: () async {
+                          final selection = await _showSocialIntelligencePicker(
+                            context,
+                            spaces: participationSpaces,
+                            agentName: agentName,
+                            approvedOnly: policy.sharedPolicy == 'allowlist',
+                            supportsMentionGate:
+                                capabilities.supportsMentionGate,
+                            defaultAllowUntagged:
+                                policy.defaultAllowUntaggedInShared,
+                            allowsUntagged: allowsUntagged,
+                          );
+                          if (selection == null) return;
+                          setLocalState(() {
+                            final selectedKeys = <String>{
+                              for (final space in participationSpaces)
+                                '${space.scope}:${space.value}',
+                            };
+                            policy = policy.copyWith(
+                              defaultAllowUntaggedInShared:
+                                  selection.defaultAllowUntagged,
+                              sharedParticipationRules:
+                                  <MessagingSharedParticipationRule>[
+                                    ...policy.sharedParticipationRules.where(
+                                      (rule) => !selectedKeys.contains(rule.id),
+                                    ),
+                                    ...selection.participationRules,
+                                  ],
+                            );
+                          });
+                        },
                       ),
                     ],
-                    const SizedBox(height: 14),
-                    Row(
+                    const SizedBox(height: 18),
+                    Text(
+                      'Approved people and groups',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      policy.directPolicy == 'allowlist' ||
+                              policy.sharedPolicy == 'allowlist'
+                          ? 'Add the people and groups $agentName is allowed to talk to.'
+                          : 'These lists are optional unless a section above is set to approved only.',
+                      style: TextStyle(color: _textSecondary, height: 1.35),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: <Widget>[
                         FilledButton.icon(
                           onPressed: () async {
@@ -3411,9 +3503,8 @@ Future<void> _showMessagingAccessPolicyDialog(
                             }
                           },
                           icon: Icon(Icons.add_rounded),
-                          label: Text('Add access'),
+                          label: Text('Add people or groups'),
                         ),
-                        const SizedBox(width: 10),
                         OutlinedButton.icon(
                           onPressed: () async {
                             final refreshed = await onRefreshCatalog();
@@ -3423,48 +3514,52 @@ Future<void> _showMessagingAccessPolicyDialog(
                             });
                           },
                           icon: Icon(Icons.travel_explore_rounded),
-                          label: Text('Refresh groups & people'),
+                          label: Text('Find recent chats'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     _AccessRuleSection(
-                      title: 'Direct-only rules',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'People in private chats',
                       subtitle:
-                          'Specific one-to-one chats that do not grant group access.',
+                          'These people can message $agentName one-to-one. This does not let them speak in groups.',
                       rules: policy.directRules,
-                      emptyLabel: 'No direct sender rules yet.',
+                      emptyLabel: 'No one added yet.',
                       onRemove: (rule) =>
                           removeRule('directRules', rule, setLocalState),
                     ),
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Everyone in a shared space',
+                        icon: Icons.groups_2_outlined,
+                        title: 'Whole groups',
                         subtitle:
-                            'Allow every sender in a selected channel, group, room, or server.',
+                            'Everyone in these groups, channels, or rooms can talk to $agentName.',
                         rules: policy.sharedSpaceRules,
-                        emptyLabel: 'No shared-space rules yet.',
+                        emptyLabel: 'No groups added yet.',
                         onRemove: (rule) =>
                             removeRule('sharedSpaceRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Senders everywhere',
+                        icon: Icons.person_outline_rounded,
+                        title: 'These people, anywhere',
                         subtitle:
-                            'Allow these people in DMs and shared spaces. Role rules apply only in shared spaces.',
+                            'These people can message $agentName in private chats and in any group they share.',
                         rules: policy.sharedActorRules,
-                        emptyLabel: 'No shared-actor rules yet.',
+                        emptyLabel: 'No people added yet.',
                         onRemove: (rule) =>
                             removeRule('sharedActorRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
-                        title: 'Senders in one shared space',
+                        icon: Icons.person_pin_circle_outlined,
+                        title: 'These people, in one group',
                         subtitle:
-                            'Allow a sender only in the selected group, channel, or room.',
+                            'These people can only message $agentName in the group you picked.',
                         rules: policy.sharedMemberRules,
-                        emptyLabel: 'No group-specific sender rules yet.',
+                        emptyLabel: 'No group-specific people added yet.',
                         onRemove: (rule) => removeRule(
                           'sharedMemberRules',
                           rule,
@@ -3506,6 +3601,8 @@ class _AccessModeField extends StatelessWidget {
     required this.description,
     required this.value,
     required this.onChanged,
+    required this.agentName,
+    this.shared = false,
   });
 
   final IconData icon;
@@ -3513,6 +3610,8 @@ class _AccessModeField extends StatelessWidget {
   final String description;
   final String value;
   final ValueChanged<String> onChanged;
+  final String agentName;
+  final bool shared;
 
   @override
   Widget build(BuildContext context) {
@@ -3542,24 +3641,37 @@ class _AccessModeField extends StatelessWidget {
                   runSpacing: 8,
                   children: <Widget>[
                     ChoiceChip(
-                      avatar: Icon(Icons.rule_rounded, size: 18),
-                      label: Text('Allowlist'),
+                      avatar: Icon(Icons.verified_user_outlined, size: 18),
+                      label: Text('Approved only'),
                       selected: value == 'allowlist',
                       onSelected: (_) => onChanged('allowlist'),
                     ),
                     ChoiceChip(
                       avatar: Icon(Icons.public_rounded, size: 18),
-                      label: Text('Open'),
+                      label: Text('Anyone'),
                       selected: value == 'open',
                       onSelected: (_) => onChanged('open'),
                     ),
                     ChoiceChip(
                       avatar: Icon(Icons.block_rounded, size: 18),
-                      label: Text('Off'),
+                      label: Text('No one'),
                       selected: value == 'disabled',
                       onSelected: (_) => onChanged('disabled'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  messagingAccessModeHelp(
+                    value,
+                    shared: shared,
+                    agentName: agentName,
+                  ),
+                  style: TextStyle(
+                    color: _textSecondary,
+                    height: 1.35,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -3570,18 +3682,742 @@ class _AccessModeField extends StatelessWidget {
   }
 }
 
+class _SocialIntelligenceSelection {
+  const _SocialIntelligenceSelection({
+    required this.defaultAllowUntagged,
+    required this.participationRules,
+  });
+
+  final bool defaultAllowUntagged;
+  final List<MessagingSharedParticipationRule> participationRules;
+}
+
 class _GroupParticipationSection extends StatelessWidget {
   const _GroupParticipationSection({
     required this.spaces,
+    required this.agentName,
+    required this.approvedOnly,
     required this.supportsMentionGate,
+    required this.defaultAllowUntagged,
     required this.allowsUntagged,
-    required this.onChanged,
+    required this.onEdit,
   });
 
   final List<MessagingAccessRule> spaces;
+  final String agentName;
+  final bool approvedOnly;
   final bool supportsMentionGate;
+  final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
-  final void Function(MessagingAccessRule, bool) onChanged;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabledSpaces = spaces.where(allowsUntagged).toList(growable: false);
+    final summaryText = spaces.isEmpty
+        ? 'No groups found yet'
+        : enabledSpaces.isEmpty
+        ? defaultAllowUntagged
+              ? 'On for new groups only'
+              : 'Only when $agentName is tagged'
+        : enabledSpaces.length == spaces.length
+        ? 'On for all ${spaces.length} groups'
+        : 'On for ${enabledSpaces.length} of ${spaces.length} groups';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.chat_bubble_outline_rounded, color: _accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Join group conversations',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      approvedOnly
+                          ? supportsMentionGate
+                                ? '$agentName still only hears people and groups you already approved. This just lets $agentName join ordinary chat there, not only tags and replies.'
+                                : '$agentName still only hears people and groups you already approved. This just chooses which of those groups it should join.'
+                          : supportsMentionGate
+                          ? 'If someone tags $agentName or replies, $agentName always answers. Turn this on if $agentName should also chime in on ordinary group chat.'
+                          : 'Choose which groups $agentName should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
+                      style: TextStyle(color: _textSecondary, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (spaces.isEmpty) ...<Widget>[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'No groups found yet. After $agentName sees a group message, use Find recent chats and they will show up here.',
+                style: TextStyle(color: _textMuted),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: Icon(Icons.tune_rounded),
+              label: Text('Default for new groups'),
+            ),
+          ] else ...<Widget>[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _bgSecondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    summaryText,
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    defaultAllowUntagged
+                        ? approvedOnly
+                              ? 'New groups will let $agentName join ordinary chat with approved people, until you turn them off.'
+                              : 'New groups will let $agentName join ordinary chat until you turn them off.'
+                        : approvedOnly
+                        ? 'New groups stay quiet unless an approved person tags $agentName, until you turn them on.'
+                        : 'New groups stay quiet unless someone tags $agentName, until you turn them on.',
+                    style: TextStyle(color: _textSecondary, height: 1.35),
+                  ),
+                  if (enabledSpaces.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        ...enabledSpaces
+                            .take(4)
+                            .map(
+                              (space) => Chip(
+                                avatar: Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 16,
+                                  color: _accent,
+                                ),
+                                label: Text(space.displayLabel),
+                              ),
+                            ),
+                        if (enabledSpaces.length > 4)
+                          Chip(
+                            label: Text('+${enabledSpaces.length - 4} more'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onEdit,
+              icon: Icon(Icons.tune_rounded),
+              label: Text('Choose groups'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+Future<_SocialIntelligenceSelection?> _showSocialIntelligencePicker(
+  BuildContext context, {
+  required List<MessagingAccessRule> spaces,
+  required String agentName,
+  required bool approvedOnly,
+  required bool supportsMentionGate,
+  required bool defaultAllowUntagged,
+  required bool Function(MessagingAccessRule) allowsUntagged,
+}) {
+  return showDialog<_SocialIntelligenceSelection>(
+    context: context,
+    builder: (dialogContext) {
+      return _SocialIntelligencePickerDialog(
+        spaces: spaces,
+        agentName: agentName,
+        approvedOnly: approvedOnly,
+        supportsMentionGate: supportsMentionGate,
+        defaultAllowUntagged: defaultAllowUntagged,
+        allowsUntagged: allowsUntagged,
+      );
+    },
+  );
+}
+
+class _SocialIntelligencePickerDialog extends StatefulWidget {
+  const _SocialIntelligencePickerDialog({
+    required this.spaces,
+    required this.agentName,
+    required this.approvedOnly,
+    required this.supportsMentionGate,
+    required this.defaultAllowUntagged,
+    required this.allowsUntagged,
+  });
+
+  final List<MessagingAccessRule> spaces;
+  final String agentName;
+  final bool approvedOnly;
+  final bool supportsMentionGate;
+  final bool defaultAllowUntagged;
+  final bool Function(MessagingAccessRule) allowsUntagged;
+
+  @override
+  State<_SocialIntelligencePickerDialog> createState() =>
+      _SocialIntelligencePickerDialogState();
+}
+
+class _SocialIntelligencePickerDialogState
+    extends State<_SocialIntelligencePickerDialog> {
+  static const String _filterAll = 'all';
+  static const String _filterOn = 'on';
+  static const String _filterOff = 'off';
+
+  late final TextEditingController _searchController;
+  late bool _defaultAllowUntagged;
+  late final Set<String> _enabledIds;
+  String _filter = _filterAll;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _defaultAllowUntagged = widget.defaultAllowUntagged;
+    _enabledIds = <String>{
+      for (final space in widget.spaces)
+        if (widget.allowsUntagged(space)) space.id,
+    };
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _isEnabled(MessagingAccessRule space) => _enabledIds.contains(space.id);
+
+  void _setEnabled(MessagingAccessRule space, bool enabled) {
+    setState(() {
+      if (enabled) {
+        _enabledIds.add(space.id);
+      } else {
+        _enabledIds.remove(space.id);
+      }
+    });
+  }
+
+  List<MessagingAccessRule> get _filteredSpaces {
+    final query = _searchController.text.trim().toLowerCase();
+    return widget.spaces
+        .where((space) {
+          final enabled = _isEnabled(space);
+          if (_filter == _filterOn && !enabled) return false;
+          if (_filter == _filterOff && enabled) return false;
+          if (_filter != _filterAll &&
+              _filter != _filterOn &&
+              _filter != _filterOff &&
+              space.scope != _filter) {
+            return false;
+          }
+          if (query.isEmpty) return true;
+          final haystack =
+              '${space.displayLabel} ${space.scopeLabel} ${space.scope} ${space.value}'
+                  .toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, List<MessagingAccessRule>> get _groupedSpaces {
+    final grouped = <String, List<MessagingAccessRule>>{};
+    for (final space in _filteredSpaces) {
+      grouped.putIfAbsent(space.scopeLabel, () => <MessagingAccessRule>[]);
+      grouped[space.scopeLabel]!.add(space);
+    }
+    return grouped;
+  }
+
+  List<String> get _availableScopes {
+    final seen = <String>{};
+    final scopes = <String>[];
+    for (final space in widget.spaces) {
+      if (seen.add(space.scope)) {
+        scopes.add(space.scope);
+      }
+    }
+    return scopes;
+  }
+
+  _SocialIntelligenceSelection _selection() {
+    return _SocialIntelligenceSelection(
+      defaultAllowUntagged: _defaultAllowUntagged,
+      participationRules: widget.spaces
+          .map(
+            (space) => MessagingSharedParticipationRule(
+              scope: space.scope,
+              value: space.value,
+              label: space.label,
+              allowUntagged: _isEnabled(space),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  IconData _scopeIcon(String scope) {
+    switch (scope) {
+      case 'group':
+        return Icons.groups_2_outlined;
+      case 'channel':
+        return Icons.tag_rounded;
+      case 'server':
+        return Icons.dns_outlined;
+      case 'room':
+        return Icons.meeting_room_outlined;
+      case 'chat':
+        return Icons.forum_outlined;
+      default:
+        return Icons.chat_bubble_outline_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = _groupedSpaces;
+    final enabledCount = widget.spaces.where(_isEnabled).length;
+    final query = _searchController.text.trim();
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          minWidth: 320,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Material(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 24,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _borderLight),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 8),
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              color: _accent,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Join group conversations',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: _textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  enabledCount == 0
+                                      ? widget.approvedOnly
+                                            ? 'Only when an approved person tags ${widget.agentName}, unless you turn a group on'
+                                            : 'Only when ${widget.agentName} is tagged, unless you turn a group on'
+                                      : widget.approvedOnly
+                                      ? '$enabledCount of ${widget.spaces.length} groups join ordinary chat with approved people'
+                                      : '$enabledCount of ${widget.spaces.length} groups join ordinary chat',
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 20,
+                              color: _textSecondary,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        widget.approvedOnly
+                            ? widget.supportsMentionGate
+                                  ? 'This does not approve new people. Tags and replies from approved people always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
+                                  : 'This does not approve new people. Turn a group on if ${widget.agentName} should join ordinary chat with people you already approved.'
+                            : widget.supportsMentionGate
+                            ? 'Tags and replies always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
+                            : 'Turn a group on if ${widget.agentName} should also read messages that do not tag it.',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          height: 1.35,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(color: _textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Search groups',
+                          hintStyle: TextStyle(color: _textMuted, fontSize: 14),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: _textMuted,
+                          ),
+                          suffixIcon: query.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () => setState(() {
+                                    _searchController.clear();
+                                  }),
+                                  icon: Icon(
+                                    Icons.cancel_rounded,
+                                    size: 16,
+                                    color: _textMuted,
+                                  ),
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          filled: true,
+                          fillColor: _bgSecondary,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _accent, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          ChoiceChip(
+                            label: Text('All'),
+                            selected: _filter == _filterAll,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterAll),
+                          ),
+                          ChoiceChip(
+                            label: Text('On'),
+                            selected: _filter == _filterOn,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterOn),
+                          ),
+                          ChoiceChip(
+                            label: Text('Off'),
+                            selected: _filter == _filterOff,
+                            onSelected: (_) =>
+                                setState(() => _filter = _filterOff),
+                          ),
+                          ..._availableScopes.map(
+                            (scope) => ChoiceChip(
+                              avatar: Icon(_scopeIcon(scope), size: 16),
+                              label: Text(
+                                MessagingAccessRule(
+                                  scope: scope,
+                                  value: scope,
+                                ).scopeLabel,
+                              ),
+                              selected: _filter == scope,
+                              onSelected: (_) =>
+                                  setState(() => _filter = scope),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _bgSecondary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: SwitchListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
+                          title: Text(
+                            'On by default for new groups',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            'Groups ${widget.agentName} has not seen yet will follow this.',
+                            style: TextStyle(color: _textSecondary),
+                          ),
+                          value: _defaultAllowUntagged,
+                          onChanged: (value) => setState(() {
+                            _defaultAllowUntagged = value;
+                          }),
+                        ),
+                      ),
+                    ),
+                    Divider(height: 1, thickness: 1, color: _border),
+                    Flexible(
+                      child: widget.spaces.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(28),
+                              child: Text(
+                                'No groups found yet. After ${widget.agentName} sees a group message, use Find recent chats.',
+                                style: TextStyle(color: _textMuted),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : _filteredSpaces.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(36),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 36,
+                                    color: _textMuted,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    query.isEmpty
+                                        ? 'No groups in this category'
+                                        : 'No results for "$query"',
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+                              shrinkWrap: true,
+                              children: grouped.entries
+                                  .expand((entry) {
+                                    return <Widget>[
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          8,
+                                          8,
+                                          8,
+                                          4,
+                                        ),
+                                        child: Text(
+                                          entry.key,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: _textSecondary,
+                                            fontSize: 12,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                      ...entry.value.map((space) {
+                                        final enabled = _isEnabled(space);
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _bgSecondary,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: SwitchListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 2,
+                                                ),
+                                            secondary: Icon(
+                                              enabled
+                                                  ? Icons
+                                                        .chat_bubble_outline_rounded
+                                                  : _scopeIcon(space.scope),
+                                              color: enabled
+                                                  ? _accent
+                                                  : _textMuted,
+                                            ),
+                                            title: Text(
+                                              space.displayLabel,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              enabled
+                                                  ? widget.approvedOnly
+                                                        ? '${widget.agentName} joins ordinary chat with approved people'
+                                                        : '${widget.agentName} can join ordinary chat'
+                                                  : widget.approvedOnly
+                                                  ? '${widget.agentName} only replies when an approved person tags it'
+                                                  : '${widget.agentName} only replies when tagged',
+                                              style: TextStyle(
+                                                color: _textSecondary,
+                                              ),
+                                            ),
+                                            value: enabled,
+                                            onChanged: (value) =>
+                                                _setEnabled(space, value),
+                                          ),
+                                        );
+                                      }),
+                                    ];
+                                  })
+                                  .toList(growable: false),
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      child: Row(
+                        children: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text('Cancel'),
+                          ),
+                          const Spacer(),
+                          FilledButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_selection()),
+                            child: Text('Apply'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccessRuleSection extends StatelessWidget {
+  const _AccessRuleSection({
+    required this.title,
+    required this.subtitle,
+    required this.rules,
+    required this.emptyLabel,
+    required this.onRemove,
+    this.icon,
+    this.showSpace = false,
+  });
+
+  final IconData? icon;
+  final String title;
+  final String subtitle;
+  final List<MessagingAccessRule> rules;
+  final String emptyLabel;
+  final ValueChanged<MessagingAccessRule> onRemove;
+  final bool showSpace;
+
+  IconData _scopeIcon(String scope) {
+    switch (scope) {
+      case 'group':
+        return Icons.groups_2_outlined;
+      case 'channel':
+        return Icons.tag_rounded;
+      case 'server':
+        return Icons.dns_outlined;
+      case 'room':
+        return Icons.meeting_room_outlined;
+      case 'phone_number':
+        return Icons.phone_outlined;
+      case 'role':
+        return Icons.badge_outlined;
+      case 'user':
+      case 'dm':
+        return Icons.person_outline_rounded;
+      default:
+        return Icons.chat_bubble_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3598,116 +4434,20 @@ class _GroupParticipationSection extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(Icons.alternate_email_rounded, color: _accent),
-              const SizedBox(width: 10),
+              if (icon != null) ...<Widget>[
+                Icon(icon, color: _accent, size: 20),
+                const SizedBox(width: 8),
+              ],
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Untagged group messages',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      supportsMentionGate
-                          ? 'Tags and replies always get a response. Choose which groups may also use social intelligence for untagged messages.'
-                          : 'Choose which shared spaces may use social intelligence for untagged messages. This bridge may not identify tags separately.',
-                      style: TextStyle(color: _textSecondary, height: 1.35),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (spaces.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _bgSecondary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'No groups discovered yet. Refresh discovery after the agent has seen a group message.',
-                style: TextStyle(color: _textMuted),
-              ),
-            )
-          else
-            ...spaces.map((space) {
-              final enabled = allowsUntagged(space);
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: SwitchListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 2,
-                  ),
-                  secondary: Icon(
-                    enabled
-                        ? Icons.psychology_alt_outlined
-                        : Icons.notifications_off_outlined,
-                    color: enabled ? _accent : _textMuted,
-                  ),
-                  title: Text(
-                    space.displayLabel,
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    enabled
-                        ? 'Untagged messages use social intelligence'
-                        : 'Untagged messages are ignored completely',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  value: enabled,
-                  onChanged: (value) => onChanged(space, value),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessRuleSection extends StatelessWidget {
-  const _AccessRuleSection({
-    required this.title,
-    required this.subtitle,
-    required this.rules,
-    required this.emptyLabel,
-    required this.onRemove,
-    this.showSpace = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<MessagingAccessRule> rules;
-  final String emptyLabel;
-  final ValueChanged<MessagingAccessRule> onRemove;
-  final bool showSpace;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: _textSecondary)),
+          Text(subtitle, style: TextStyle(color: _textSecondary, height: 1.35)),
           const SizedBox(height: 12),
           if (rules.isEmpty)
             Text(emptyLabel, style: TextStyle(color: _textMuted))
@@ -3722,9 +4462,8 @@ class _AccessRuleSection extends StatelessWidget {
                         ? ' in ${rule.spaceDisplayLabel}'
                         : '';
                     return Chip(
-                      label: Text(
-                        '${rule.scopeLabel}: ${rule.displayLabel}$spaceSuffix',
-                      ),
+                      avatar: Icon(_scopeIcon(rule.scope), size: 16),
+                      label: Text('${rule.displayLabel}$spaceSuffix'),
                       deleteIcon: Icon(Icons.close_rounded, size: 18),
                       onDeleted: () => onRemove(rule),
                     );
@@ -3774,6 +4513,7 @@ class _MessagingAccessRulePickerSheetState
   late String _selectedBucket;
   late String _selectedScope;
   late String _selectedSpaceScope;
+  late bool _showManualEntry;
 
   @override
   void initState() {
@@ -3781,6 +4521,9 @@ class _MessagingAccessRulePickerSheetState
     _queryController = TextEditingController();
     _valueController = TextEditingController();
     _spaceValueController = TextEditingController();
+    _showManualEntry =
+        widget.catalog.discoveredTargets.isEmpty &&
+        widget.catalog.suggestedTargets.isEmpty;
     _selectedBucket =
         widget.catalog.capabilities.sharedActorRuleScopes.isNotEmpty
         ? 'sharedActorRules'
@@ -3914,22 +4657,27 @@ class _MessagingAccessRulePickerSheetState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Add Access Rule',
+              'Add someone or a group',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(
-              'Choose a preset, a discovered target, or enter an id manually for ${widget.platform.label}.',
-              style: TextStyle(color: _textSecondary),
+              'Pick from recent ${widget.platform.label} chats, or add a person or group yourself.',
+              style: TextStyle(color: _textSecondary, height: 1.35),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            Text(
+              'What are you adding?',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
                 if (_directOnlyScopes().isNotEmpty)
                   ChoiceChip(
-                    label: Text('Direct only'),
+                    label: Text('Private chat'),
                     selected: _selectedBucket == 'directRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'directRules';
@@ -3942,7 +4690,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedSpaceRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Everyone in space'),
+                    label: Text('Whole group'),
                     selected: _selectedBucket == 'sharedSpaceRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedSpaceRules';
@@ -3955,7 +4703,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedActorRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Sender everywhere'),
+                    label: Text('This person, anywhere'),
                     selected: _selectedBucket == 'sharedActorRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedActorRules';
@@ -3973,7 +4721,7 @@ class _MessagingAccessRulePickerSheetState
                         .sharedSpaceRuleScopes
                         .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Sender in one space'),
+                    label: Text('This person, in one group'),
                     selected: _selectedBucket == 'sharedMemberRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedMemberRules';
@@ -3982,29 +4730,35 @@ class _MessagingAccessRulePickerSheetState
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: _queryController,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search_rounded),
-                labelText: 'Search discovered targets',
+                labelText: 'Search recent people and groups',
               ),
             ),
             const SizedBox(height: 16),
             if (targets.isNotEmpty) ...<Widget>[
               Text(
-                'Suggested & discovered',
+                'Recent chats',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               ...targets.take(10).map((target) {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    target.bucket == 'sharedSpaceRules'
+                        ? Icons.groups_2_outlined
+                        : Icons.person_outline_rounded,
+                    color: _accent,
+                  ),
                   title: Text(target.label),
                   subtitle: Text(
                     target.subtitle.ifEmpty(
-                      '${target.scope} • ${target.value}',
+                      messagingScopePickerLabel(target.scope),
                     ),
                   ),
                   trailing: Icon(Icons.add_circle_outline_rounded),
@@ -4023,7 +4777,7 @@ class _MessagingAccessRulePickerSheetState
                     memberSpaceTargets.isNotEmpty)) ...<Widget>[
               if (memberActorTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose a discovered sender',
+                  'Choose a person',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4038,6 +4792,7 @@ class _MessagingAccessRulePickerSheetState
                           onPressed: () => setState(() {
                             _selectedScope = target.scope;
                             _valueController.text = target.value;
+                            _showManualEntry = true;
                           }),
                         );
                       })
@@ -4047,7 +4802,7 @@ class _MessagingAccessRulePickerSheetState
               ],
               if (memberSpaceTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose a discovered shared space',
+                  'Choose their group',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4062,6 +4817,7 @@ class _MessagingAccessRulePickerSheetState
                           onPressed: () => setState(() {
                             _selectedSpaceScope = target.scope;
                             _spaceValueController.text = target.value;
+                            _showManualEntry = true;
                           }),
                         );
                       })
@@ -4071,88 +4827,164 @@ class _MessagingAccessRulePickerSheetState
               ],
               const Divider(height: 10),
             ],
-            Text('Manual entry', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            if (availableScopes.isNotEmpty)
-              InputDecorator(
-                decoration: InputDecoration(labelText: 'Rule scope'),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedScope,
-                    isExpanded: true,
-                    items: availableScopes
-                        .map(
-                          (scope) => DropdownMenuItem<String>(
-                            value: scope,
-                            child: Text(scope.replaceAll('_', ' ')),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedScope = value);
-                      }
-                    },
+            if (!_showManualEntry)
+              TextButton.icon(
+                onPressed: () => setState(() => _showManualEntry = true),
+                icon: Icon(Icons.edit_outlined),
+                label: Text('Add by name or ID instead'),
+              )
+            else ...<Widget>[
+              Text(
+                'Add by name or ID',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              if (availableScopes.isNotEmpty)
+                InputDecorator(
+                  decoration: InputDecoration(labelText: 'Type'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedScope,
+                      isExpanded: true,
+                      items: availableScopes
+                          .map(
+                            (scope) => DropdownMenuItem<String>(
+                              value: scope,
+                              child: Text(messagingScopePickerLabel(scope)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedScope = value);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _valueController,
-              decoration: InputDecoration(
-                labelText: _selectedBucket == 'sharedMemberRules'
-                    ? 'Sender ID / value'
-                    : 'ID / value',
-                helperText: widget.catalog.capabilities.manualEntryHint,
-              ),
-              onSubmitted: _selectedBucket == 'sharedMemberRules'
-                  ? null
-                  : (_) => _submitManualRule(context),
-            ),
-            if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
-              const SizedBox(height: 12),
-              InputDecorator(
-                decoration: InputDecoration(labelText: 'Shared-space scope'),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedSpaceScope,
-                    isExpanded: true,
-                    items: widget.catalog.capabilities.sharedSpaceRuleScopes
-                        .map(
-                          (scope) => DropdownMenuItem<String>(
-                            value: scope,
-                            child: Text(scope.replaceAll('_', ' ')),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedSpaceScope = value);
-                      }
-                    },
-                  ),
-                ),
-              ),
               const SizedBox(height: 12),
               TextField(
-                controller: _spaceValueController,
+                controller: _valueController,
                 decoration: InputDecoration(
-                  labelText: 'Group / channel / room ID',
+                  labelText: _selectedBucket == 'sharedMemberRules'
+                      ? 'Person'
+                      : _selectedBucket == 'sharedSpaceRules'
+                      ? 'Group or channel'
+                      : 'Person or chat',
+                  helperText: widget.catalog.capabilities.manualEntryHint
+                      .ifEmpty('Use a name, phone number, or chat ID.'),
+                  helperMaxLines: 3,
                 ),
-                onSubmitted: (_) => _submitManualRule(context),
+                onSubmitted: _selectedBucket == 'sharedMemberRules'
+                    ? null
+                    : (_) => _submitManualRule(context),
+              ),
+              if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
+                const SizedBox(height: 12),
+                InputDecorator(
+                  decoration: InputDecoration(labelText: 'Group type'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedSpaceScope,
+                      isExpanded: true,
+                      items: widget.catalog.capabilities.sharedSpaceRuleScopes
+                          .map(
+                            (scope) => DropdownMenuItem<String>(
+                              value: scope,
+                              child: Text(messagingScopePickerLabel(scope)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedSpaceScope = value);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _spaceValueController,
+                  decoration: InputDecoration(
+                    labelText: 'Group, channel, or room',
+                  ),
+                  onSubmitted: (_) => _submitManualRule(context),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: () => _submitManualRule(context),
+                  icon: Icon(Icons.add_rounded),
+                  label: Text('Add'),
+                ),
               ),
             ],
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => _submitManualRule(context),
-                icon: Icon(Icons.add_rounded),
-                label: Text('Add rule'),
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MessagingWebhookCard extends StatelessWidget {
+  const _MessagingWebhookCard({
+    required this.url,
+    required this.platformLabel,
+    required this.agentName,
+  });
+
+  final String url;
+  final String platformLabel;
+  final String agentName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Incoming messages',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'If $platformLabel asks for a webhook URL, paste this so messages can reach $agentName.',
+            style: TextStyle(color: _textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: SelectableText(
+                  url,
+                  style: TextStyle(fontSize: 12, color: _textPrimary),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copy webhook URL',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: url));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Webhook URL copied')),
+                  );
+                },
+                icon: Icon(Icons.copy_outlined, size: 18),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -4247,10 +5079,15 @@ class _RunMetricCard extends StatelessWidget {
 }
 
 class _RunHeroCard extends StatelessWidget {
-  const _RunHeroCard({required this.run, required this.onDelete});
+  const _RunHeroCard({
+    required this.run,
+    required this.onDelete,
+    required this.onShowPrompt,
+  });
 
   final RunSummary run;
   final Future<void> Function() onDelete;
+  final Future<void> Function() onShowPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -4282,6 +5119,13 @@ class _RunHeroCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                IconButton(
+                  tooltip: 'Show full prompt',
+                  icon: const Icon(Icons.article_outlined, size: 18),
+                  onPressed: onShowPrompt,
+                  visualDensity: VisualDensity.compact,
+                  color: _textSecondary,
+                ),
                 IconButton(
                   tooltip: 'Delete run',
                   icon: const Icon(Icons.delete_outline, size: 18),
@@ -4332,9 +5176,9 @@ class _RunHeroCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0x19EF4444),
+                  color: _danger.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0x4CEF4444)),
+                  border: Border.all(color: _danger.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   run.error,
@@ -4345,6 +5189,263 @@ class _RunHeroCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RunPromptDialog extends StatefulWidget {
+  const _RunPromptDialog({required this.controller, required this.runId});
+
+  final NeoAgentController controller;
+  final String runId;
+
+  @override
+  State<_RunPromptDialog> createState() => _RunPromptDialogState();
+}
+
+class _RunPromptDialogState extends State<_RunPromptDialog> {
+  List<RunPromptTurn> _turns = const <RunPromptTurn>[];
+  String? _selectedRequestId;
+  RunPromptSnapshot? _snapshot;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadTurns());
+  }
+
+  Future<void> _loadTurns() async {
+    try {
+      final turns = await widget.controller.fetchRunPromptTurns(widget.runId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _turns = turns;
+        _loading = false;
+      });
+      if (turns.isNotEmpty) {
+        await _loadTurn(turns.first.requestId);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = widget.controller.friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _loadTurn(String requestId) async {
+    setState(() {
+      _selectedRequestId = requestId;
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final snapshot = await widget.controller.fetchRunPrompt(
+        widget.runId,
+        requestId,
+      );
+      if (!mounted || _selectedRequestId != requestId) {
+        return;
+      }
+      setState(() {
+        _snapshot = snapshot;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || _selectedRequestId != requestId) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = widget.controller.friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _copyPrompt() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: snapshot.plainText));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copied full prompt')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final snapshot = _snapshot;
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Row(
+        children: <Widget>[
+          Icon(Icons.article_outlined, color: _accent),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Full prompt',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          if (snapshot != null)
+            Text(
+              '${_formatNumber(snapshot.characters)} chars',
+              style: TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+        ],
+      ),
+      content: SizedBox(
+        width: size.width * 0.9 > 820 ? 820 : size.width * 0.9,
+        height: size.height * 0.7,
+        child: _buildBody(snapshot),
+      ),
+      actions: <Widget>[
+        TextButton.icon(
+          onPressed: snapshot == null ? null : _copyPrompt,
+          icon: const Icon(Icons.copy_all_outlined, size: 18),
+          label: const Text('Copy'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(RunPromptSnapshot? snapshot) {
+    if (_error != null) {
+      return Center(child: _InlineError(message: _error!));
+    }
+    if (_turns.isEmpty) {
+      return Center(
+        child: Text(
+          _loading
+              ? 'Loading prompt…'
+              : 'No model request was recorded for this run.',
+          style: TextStyle(color: _textSecondary),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _turns
+                .map(
+                  (turn) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(turn.label),
+                      selected: turn.requestId == _selectedRequestId,
+                      onSelected: (_) => _loadTurn(turn.requestId),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_loading || snapshot == null)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: snapshot.sections.length + 1,
+              itemBuilder: (context, index) {
+                if (index == snapshot.sections.length) {
+                  return _RunPromptToolsBlock(toolNames: snapshot.toolNames);
+                }
+                final section = snapshot.sections[index];
+                return _RunPromptSectionTile(
+                  section: section,
+                  initiallyExpanded: index == 0,
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RunPromptSectionTile extends StatelessWidget {
+  const _RunPromptSectionTile({
+    required this.section,
+    required this.initiallyExpanded,
+  });
+
+  final RunPromptSection section;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      initiallyExpanded: initiallyExpanded,
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 10),
+      title: Text(
+        section.label,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      ),
+      subtitle: Text(
+        '${section.role} · ${_formatNumber(section.characters)} chars',
+        style: TextStyle(color: _textSecondary, fontSize: 11),
+      ),
+      children: <Widget>[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _bgPrimary,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
+          ),
+          child: SelectableText(
+            section.text.isEmpty ? '(empty)' : section.text,
+            style: TextStyle(
+              height: 1.5,
+              fontSize: 12.5,
+              color: _textPrimary,
+              fontFamily: GoogleFonts.geistMono().fontFamily,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RunPromptToolsBlock extends StatelessWidget {
+  const _RunPromptToolsBlock({required this.toolNames});
+
+  final List<String> toolNames;
+
+  @override
+  Widget build(BuildContext context) {
+    if (toolNames.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _RunDetailBlock(
+      label: 'Tools offered (${toolNames.length})',
+      value: toolNames.join(', '),
+      monospace: true,
     );
   }
 }
@@ -5296,6 +6397,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
     required this.loading,
     required this.onDelete,
     required this.onCopyResponse,
+    required this.onShowPrompt,
   });
 
   final RunSummary? run;
@@ -5304,6 +6406,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
   final bool loading;
   final Future<void> Function() onDelete;
   final Future<void> Function(String) onCopyResponse;
+  final Future<void> Function() onShowPrompt;
 
   RunStepItem? get _selectedStep {
     if (nodeId == null || detail == null) return null;
@@ -5324,7 +6427,7 @@ class _RunNodeDetailPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _RunHeroCard(run: r, onDelete: onDelete),
+        _RunHeroCard(run: r, onDelete: onDelete, onShowPrompt: onShowPrompt),
         const SizedBox(height: 12),
         if (step != null) ...<Widget>[
           _RunSelectedStepCard(step: step),
@@ -5488,16 +6591,203 @@ Future<void> openMessagingConfig(
 ) async {
   switch (platform.id) {
     case 'whatsapp':
-      await _connectMessagingPlatformHelper(
-        context,
-        controller,
-        platform: 'whatsapp',
-        platformLabel: platform.label,
-      );
-      return;
+      return _openWhatsAppModeDialog(context, controller, platform);
     default:
       return _openGenericMessagingConfigHelper(context, controller, platform);
   }
+}
+
+bool readWhatsAppSelfChatMode(NeoAgentController controller) {
+  final saved = _jsonMap(_decodeMaybeJson(controller.settings['whatsapp_config']));
+  return saved['selfChatMode'] == true ||
+      saved['selfChatMode']?.toString() == 'true';
+}
+
+Future<void> _openWhatsAppModeDialog(
+  BuildContext context,
+  NeoAgentController controller,
+  MessagingPlatformDescriptor platform,
+) async {
+  var selfChatMode = readWhatsAppSelfChatMode(controller);
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setLocalState) {
+          Widget modeTile({
+            required bool value,
+            required IconData icon,
+            required String title,
+            required String description,
+          }) {
+            final selected = selfChatMode == value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setLocalState(() => selfChatMode = value),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: selected
+                        ? platform.accent.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? platform.accent : _borderLight,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: selected ? platform.accent : _textSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                height: 1.4,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 20,
+                        color: selected ? platform.accent : _textMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 18,
+            ),
+            title: Row(
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: platform.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(platform.icon, color: platform.accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Connect WhatsApp',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'Pick how ${controller.activeAgentLabel} uses this account.',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    modeTile(
+                      value: false,
+                      icon: Icons.smartphone_rounded,
+                      title: 'Separate account',
+                      description:
+                          'Link a phone number that belongs to the agent. '
+                          'Anyone you allow can chat with it, in direct chats and groups.',
+                    ),
+                    modeTile(
+                      value: true,
+                      icon: Icons.bookmark_border_rounded,
+                      title: 'Personal self-chat',
+                      description:
+                          'Link your own number and talk to the agent in your '
+                          '"Message yourself" chat. Every other chat and group on '
+                          'this account is ignored.',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      selfChatMode
+                          ? 'Notes you write to yourself start a run, and replies land in the same chat. The allowlist does not apply here.'
+                          : 'Choose who may message the agent with "Who can message" on the WhatsApp card.',
+                      style: TextStyle(color: _textSecondary, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final config = <String, dynamic>{'selfChatMode': selfChatMode};
+                  final connected = await _connectMessagingPlatformHelper(
+                    context,
+                    controller,
+                    platform: platform.id,
+                    platformLabel: platform.label,
+                    config: config,
+                    configSnapshot: <String, dynamic>{
+                      platform.settingsKey: jsonEncode(config),
+                    },
+                  );
+                  if (connected && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: Text('Connect'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 Future<bool> _connectMessagingPlatformHelper(
@@ -5561,37 +6851,87 @@ Future<void> _openGenericMessagingConfigHelper(
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: Text(platform.label),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 18,
+              ),
+              title: Row(
+                children: <Widget>[
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: platform.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(platform.icon, color: platform.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Connect ${platform.label}',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          platform.subtitle,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               content: SizedBox(
                 width: 620,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      Text(
+                        platform.configFields.isEmpty
+                            ? 'Nothing extra is needed. Connect to start using ${platform.label}.'
+                            : 'Enter the details ${platform.label} gave you so ${controller.activeAgentLabel} can send and receive messages.',
+                        style: TextStyle(color: _textSecondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 16),
                       if (platform.configFields.isEmpty)
-                        Text(
-                          'No extra settings are required.',
-                          style: TextStyle(color: _textSecondary),
-                        )
+                        const SizedBox.shrink()
                       else
                         ...platform.configFields.map((field) {
                           if (field.kind == MessagingConfigFieldKind.boolean) {
-                            return SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(field.label),
-                              value: boolValues[field.key] ?? false,
-                              onChanged: (value) {
-                                setLocalState(() {
-                                  boolValues[field.key] = value;
-                                });
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(field.label),
+                                subtitle: field.hint == null
+                                    ? null
+                                    : Text(
+                                        field.hint!,
+                                        style: TextStyle(color: _textSecondary),
+                                      ),
+                                value: boolValues[field.key] ?? false,
+                                onChanged: (value) {
+                                  setLocalState(() {
+                                    boolValues[field.key] = value;
+                                  });
+                                },
+                              ),
                             );
                           }
-                          final controller = textControllers[field.key]!;
+                          final fieldController = textControllers[field.key]!;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: TextField(
-                              controller: controller,
+                              controller: fieldController,
                               obscureText:
                                   field.obscure ||
                                   field.kind ==
@@ -5608,6 +6948,8 @@ Future<void> _openGenericMessagingConfigHelper(
                                   : 1,
                               decoration: InputDecoration(
                                 labelText: field.label,
+                                helperText: field.hint,
+                                helperMaxLines: 3,
                               ),
                             ),
                           );
@@ -5615,13 +6957,15 @@ Future<void> _openGenericMessagingConfigHelper(
                       const SizedBox(height: 8),
                       if (platform.id == 'meshtastic')
                         Text(
-                          'Meshtastic connects directly to the device TCP API on port 4403 by default. Normal chat is limited to the configured channel.',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
+                          '${controller.activeAgentLabel} talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.',
+                          style: TextStyle(color: _textSecondary, height: 1.4),
                         )
                       else
-                        SelectableText(
-                          'Inbound webhook: ${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
+                        _MessagingWebhookCard(
+                          url:
+                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                          platformLabel: platform.label,
+                          agentName: controller.activeAgentLabel,
                         ),
                     ],
                   ),

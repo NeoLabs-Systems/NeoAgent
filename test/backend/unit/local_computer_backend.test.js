@@ -3,10 +3,11 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
+const { LocalComputerBackend } = require('../../../server/services/runtime/backends/local-computer');
 const {
-  LocalComputerBackend,
-  normalizeWorkspacePath,
-} = require('../../../server/services/runtime/backends/local-computer');
+  GUEST_WORKSPACE_DIR,
+  fromGuestWorkspacePath,
+} = require('../../../server/services/runtime/guest_paths');
 const { DESKTOP_COMMANDS } = require('../../../server/services/desktop/protocol');
 
 function createRegistry() {
@@ -41,9 +42,9 @@ function createRegistry() {
 }
 
 test('local workspace paths reuse the unified computer path contract', () => {
-  assert.equal(normalizeWorkspacePath('/home/neo/workspace'), '');
-  assert.equal(normalizeWorkspacePath('/home/neo/workspace/docs/note.md'), 'docs/note.md');
-  assert.equal(normalizeWorkspacePath('docs/note.md'), 'docs/note.md');
+  assert.equal(fromGuestWorkspacePath(GUEST_WORKSPACE_DIR), '');
+  assert.equal(fromGuestWorkspacePath(`${GUEST_WORKSPACE_DIR}/docs/note.md`), 'docs/note.md');
+  assert.equal(fromGuestWorkspacePath('docs/note.md'), 'docs/note.md');
 });
 
 test('local files, shell, and browser navigation share one connection', async () => {

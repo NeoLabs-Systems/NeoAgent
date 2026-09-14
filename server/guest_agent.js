@@ -7,6 +7,8 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
+const { coerceWritableText } = require('./services/workspace/text_edits');
+const { safeEqual } = require('./utils/security');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -22,6 +24,10 @@ function resolveGuestToken() {
 }
 
 const AUTH_TOKEN = resolveGuestToken();
+if (!AUTH_TOKEN) {
+  console.error('[GuestAgent] NEOAGENT_VM_GUEST_TOKEN or NEOAGENT_VM_GUEST_TOKEN_B64 is required.');
+  process.exit(1);
+}
 const RAW_GUEST_PROFILE = String(process.env.NEOAGENT_GUEST_PROFILE || 'browser_cli').trim();
 const GUEST_PROFILE = ['android', 'browser', 'cli', 'browser_cli'].includes(RAW_GUEST_PROFILE)
   ? RAW_GUEST_PROFILE
@@ -84,15 +90,10 @@ function isInsideAllowedRoots(targetPath) {
 }
 
 function requireToken(req, res, next) {
-  if (!AUTH_TOKEN) {
-    // Token not configured in this environment — allow but unauthenticated.
-    // Pass NEOAGENT_VM_GUEST_TOKEN to the container to enforce auth.
-    return next();
-  }
   const header = String(req.headers?.authorization || '').trim();
   const prefix = 'Bearer ';
   const provided = header.startsWith(prefix) ? header.slice(prefix.length).trim() : '';
-  if (!provided || provided !== AUTH_TOKEN) {
+  if (!safeEqual(provided, AUTH_TOKEN)) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
   return next();
@@ -229,7 +230,6 @@ async function handleRequest(req, res, work) {
     if (!res.writableEnded) controller.abort('Guest runtime request disconnected.');
   };
   req.once('aborted', abort);
-  res.once('close', abort);
   try {
     const result = await work(controller.signal);
     if (!res.headersSent && !res.writableEnded) res.json(result);
@@ -239,11 +239,8 @@ async function handleRequest(req, res, work) {
     }
   } finally {
     req.removeListener('aborted', abort);
-    res.removeListener('close', abort);
   }
 }
-
-app.use(requireToken);
 
 app.get('/health', (_req, res) => {
   const cloudInitFinished = fs.existsSync(CLOUD_INIT_BOOT_FINISHED);
@@ -256,6 +253,8 @@ app.get('/health', (_req, res) => {
     cloudInitFinished,
   });
 });
+
+app.use(requireToken);
 
 app.get('/system/boot-assets', async (_req, res) => {
   await handle(res, async () => {
@@ -476,7 +475,7 @@ app.get('/workspace/files/content', async (req, res) => {
 
 app.put('/workspace/files/content', async (req, res) => {
   await handle(res, async () => {
-    const content = String(req.body?.content ?? '');
+    const content = coerceWritableText(req.body?.content);
     const contentBytes = Buffer.byteLength(content, 'utf8');
     if (contentBytes > MAX_WORKSPACE_FILE_BYTES) {
       throw new Error('Workspace file is too large to edit.');
@@ -637,11 +636,13 @@ function desktopEnsureDiagnostics() {
 
 app.post('/desktop/ensure', async (_req, res) => {
   await handle(res, async () => {
+    if (displayServerAlive()) {
+      return { available: true, display: ':0' };
+    }
     if (fs.existsSync('/usr/local/bin/neoagent-ensure-desktop')) {
       const repaired = runSudo(['/usr/local/bin/neoagent-ensure-desktop'], { timeoutMs: 150000 });
       const output = `${repaired.stdout || ''}\n${repaired.stderr || ''}`;
       if (repaired.status === 0 || output.includes('DESKTOP_READY') || displayServerAlive()) {
-        runSudo(['chvt', '1']);
         return { available: true, display: ':0' };
       }
     }
@@ -817,12 +818,11 @@ app.post('/desktop/press-key', async (req, res) => {
 app.post('/desktop/launch-app', async (req, res) => {
   await handle(res, async () => {
     const application = String(req.body?.application || req.body?.app || '').trim().toLowerCase();
+    const { chromiumDesktopArgs, markChromiumSessionClean } = require('./services/browser/chromium_session');
+    const browserProfileDir = path.join(DATA_DIR, 'browser-profiles', 'default');
+    markChromiumSessionClean(browserProfileDir);
     const commands = {
-      browser: ['chromium', [
-        `--user-data-dir=${path.join(DATA_DIR, 'browser-profiles', 'default')}`,
-        '--no-first-run',
-        '--no-default-browser-check',
-      ]],
+      browser: ['chromium', chromiumDesktopArgs(browserProfileDir)],
       files: ['pcmanfm', [WORKSPACE_ROOT]],
       terminal: ['lxterminal', [`--working-directory=${WORKSPACE_ROOT}`]],
       editor: ['mousepad', []],

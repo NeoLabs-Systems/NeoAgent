@@ -198,6 +198,60 @@ test('completed conversations queue source-grounded learning instead of run rece
   assert.equal(stored.content, result.content);
 });
 
+test('messaging turns are stored without the per-turn routing envelope', async () => {
+  const conversationId = `messaging-${Date.now()}`;
+  ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
+    .run(conversationId, userId);
+  const engine = createEngine({
+    mode: 'direct_answer',
+    draft_reply: 'kurz und schmerzlos.',
+    draft_status: 'final',
+    goal: 'Answer the message',
+    confidence: 0.97,
+    complexity: 'simple',
+    autonomy_level: 'minimal',
+    progress_update_policy: 'none',
+    research_depth: 'none',
+    needs_verification: false,
+    success_criteria: ['Reply on whatsapp'],
+    suggested_tools: [],
+  });
+  const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
+  const msg = {
+    platform: 'whatsapp',
+    isGroup: false,
+    chatId: '4915112345678@lid',
+    sender: '4915112345678@lid',
+    senderName: 'Neo',
+    content: 'wieso kann ich nein nicht ausschreiben',
+  };
+  const envelope = buildIncomingPrompt(msg);
+
+  const result = await engine.run(userId, envelope, {
+    conversationId,
+    triggerSource: 'messaging',
+    source: msg.platform,
+    chatId: msg.chatId,
+    stream: false,
+    skipGlobalRecall: true,
+    context: {
+      rawUserMessage: msg.content,
+      socialIntelligence: { message: msg },
+    },
+  });
+
+  assert.equal(result.status, 'completed');
+  const stored = ctx.db.prepare(
+    `SELECT content FROM conversation_messages
+     WHERE conversation_id = ? AND run_id = ? AND role = 'user'`,
+  ).get(conversationId, result.runId);
+  assert.equal(
+    stored.content,
+    `[whatsapp message from Neo]\n<external_message>\n${msg.content}\n</external_message>`,
+  );
+  assert.ok(stored.content.length < envelope.length / 4);
+});
+
 test('voice uses the same one-turn loop and canonical outbox adapter', async () => {
   const engine = createEngine({
     mode: 'direct_answer',
@@ -1471,6 +1525,97 @@ test('a blank model turn is recovered instead of ending the run', async () => {
 
   const row = ctx.db.prepare('SELECT runtime_state FROM agent_runs WHERE id = ?').get(result.runId);
   assert.equal(row.runtime_state, 'completed');
+});
+
+test('an unparseable task analysis is recorded instead of passing silently', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Write the report',
+  });
+  engine.requestStructuredJson = async ({ fallback, phase }) => ({
+    value: fallback,
+    parsed: phase === 'task_analysis' ? false : true,
+    raw: '{"mode":"execute","goal":"Write the rep',
+    usage: 8,
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.requestModelResponse = async () => ({
+    response: {
+      content: '',
+      toolCalls: [{
+        id: 'done1',
+        type: 'function',
+        function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+      }],
+      usage: { total_tokens: 2 },
+    },
+    streamContent: '',
+  });
+  const recorded = [];
+  const recordRunEvent = engine.recordRunEvent.bind(engine);
+  engine.recordRunEvent = (...args) => {
+    recorded.push(args[2]);
+    return recordRunEvent(...args);
+  };
+
+  const result = await engine.run(userId, 'Schreib den Bericht', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.ok(recorded.includes('task_analysis_unparsed'));
+});
+
+test('file work found only by lexical matching still gets a shell', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Implement the function',
+    suggested_tools: [],
+  });
+  const schema = { type: 'object', properties: {} };
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: schema },
+    { name: 'write_file', description: 'Write content to a workspace file', parameters: schema },
+    { name: 'execute_command', description: 'Run shell commands', parameters: schema },
+    { name: 'list_chats', description: 'List known messaging conversations', parameters: schema },
+  ]);
+  let firstTurnTools = null;
+  engine.requestModelResponse = async ({ tools }) => {
+    if (!firstTurnTools && tools?.length) firstTurnTools = tools.map((tool) => tool.name);
+    return {
+      response: {
+        content: '',
+        toolCalls: [{
+          id: 'done1',
+          type: 'function',
+          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
+        }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+
+  await engine.run(userId, 'Write the function into solution.py', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    skipVerifier: true,
+    maxIterations: 3,
+  });
+
+  assert.ok(firstTurnTools.includes('write_file'), 'lexical match must be active');
+  assert.ok(firstTurnTools.includes('execute_command'), 'file work must come with a shell');
 });
 
 test('background run searches for an inactive tool and activates it', async () => {

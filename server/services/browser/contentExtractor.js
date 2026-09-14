@@ -220,15 +220,6 @@ function langFromClass(cls) {
   return m ? m[1] : '';
 }
 
-function bestImgSrc(el) {
-  const candidates = ['data-src', 'data-lazy-src', 'data-original', 'src'];
-  for (const attr of candidates) {
-    const v = el.attribs?.[attr] || '';
-    if (v && !v.startsWith('data:') && !v.startsWith('blob:')) return v;
-  }
-  return '';
-}
-
 const GENERIC_ALT = new Set(['logo', 'icon', 'image', 'img', 'photo', 'picture', 'banner', 'thumbnail']);
 
 function isMeaningfulAlt(alt) {
@@ -419,13 +410,6 @@ function mergeStats(lines) {
   return out;
 }
 
-function stripEmphasis(text) {
-  let inCode = false;
-  return text.replace(/(`{1,3})([\s\S]*?)\1/g, (m) => { inCode = !inCode; return m; })
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1');
-}
-
 // Actually do it line-aware to protect code blocks
 function stripEmphasisSafe(text) {
   const lines = text.split('\n');
@@ -487,7 +471,6 @@ function buildStructuredDataSection(items) {
 }
 
 function optimizeForLLM(rawMd, { metadata, links, structuredData, logoAlts }) {
-  // Step 1: metadata header
   const headerLines = [];
   if (metadata.url) headerLines.push(`> URL: ${metadata.url}`);
   if (metadata.title) headerLines.push(`> Title: ${metadata.title}`);
@@ -499,36 +482,22 @@ function optimizeForLLM(rawMd, { metadata, links, structuredData, logoAlts }) {
 
   let body = rawMd;
 
-  // Step 2: image stripping — inline ![alt](src) already resolved during conversion
-  // (we output alt text directly from nodeToMd — nothing left to strip)
-  // Collapse consecutive decorative logo alts if any leaked in
+  // nodeToMd already emits alt text inline and hoists links out of the body, so
+  // the only image work left is folding stray decorative logo alts into a lead.
   if (logoAlts.length > 1) {
     body = `${logoAlts.join(', ')}\n\n${body}`;
   }
 
-  // Step 3: emphasis stripping
   body = stripEmphasisSafe(body);
-
-  // Step 4: link normalization — links already extracted, body has plain text from nodeToMd
-
-  // Step 5: deduplication
   body = deduplicateParagraphs(body);
-
-  // Step 6: stat merging
-  const statLines = mergeStats(body.split('\n'));
-  body = statLines.join('\n');
-
-  // Step 7: whitespace collapse
+  body = mergeStats(body.split('\n')).join('\n');
   body = body
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/\t/g, '  ')
     .trim();
-
-  // Step 8: CSS class line filtering
   body = filterCssLines(body);
 
-  // Step 9: structured data section
   const linksSection = buildLinksSection(links);
   const structuredSection = buildStructuredDataSection(structuredData);
 

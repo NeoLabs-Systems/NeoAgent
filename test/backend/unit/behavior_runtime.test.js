@@ -226,6 +226,124 @@ test('mention-only rooms make zero model calls', async () => {
   assert.equal(inferenceCalls, 0);
 });
 
+test('plain name address engages without a mention tag', async () => {
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        throw new Error('should not run');
+      },
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+  const msg = groupMessage('NeoLabs, stimmt doch oder?', {
+    botUsername: 'NeoLabs',
+    botDisplayName: 'NeoLabs',
+  });
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg,
+  });
+
+  assert.equal(result.engage, true);
+  assert.equal(result.decision.tokenPath, 'gate_skip');
+  assert.deepEqual(result.decision.reasonCodes, ['addressed_by_name']);
+  assert.equal(inferenceCalls, 0);
+});
+
+test('name address does not bypass mention-only rooms', async () => {
+  behavior.setBehaviorConfig(user.userId, agentId, {
+    participationMode: 'mention_only',
+  });
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        throw new Error('should not run');
+      },
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+  const msg = groupMessage('NeoLabs antworte bitte', {
+    botUsername: 'NeoLabs',
+  });
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+  const result = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg,
+  });
+  assert.equal(result.engage, false);
+  assert.deepEqual(result.decision.reasonCodes, ['mention_only']);
+  assert.equal(inferenceCalls, 0);
+});
+
+test('legacy 0.72 need scores migrate to the slightly more open default', () => {
+  const migrated = behavior.normalizeStoredConfig({
+    schemaVersion: 1,
+    minimumNeedScore: 0.72,
+  });
+  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.minimumNeedScore, 0.58);
+
+  const custom = behavior.normalizeStoredConfig({
+    schemaVersion: 1,
+    minimumNeedScore: 0.8,
+  });
+  assert.equal(custom.minimumNeedScore, 0.8);
+});
+
+test('name tokens do not match inside longer words', () => {
+  assert.equal(behavior.contentAddressesAgent('the neon lights', ['Neo']), false);
+  assert.equal(behavior.contentAddressesAgent('NeoLabs hab dich lieb', ['NeoLabs']), true);
+  assert.equal(behavior.resolveAddressing({
+    userId: user.userId,
+    agentId,
+    msg: { content: 'the main issue' },
+  }).addressedByName, false);
+});
+
+test('a recent follow-up uses a slightly lower need threshold', async () => {
+  behavior.markSpoke(user.userId, agentId, 'telegram', 'group-1');
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        return {
+          parsed: {
+            decision: 'speak',
+            needScore: 0.5,
+            confidence: 0.8,
+            reasonCodes: ['follow_up'],
+            urgency: 'medium',
+            rationale: 'The room is waiting on a reply.',
+          },
+        };
+      },
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+  const msg = groupMessage('Okay dann antworte auf diese Nachricht');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+  const result = await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg,
+  });
+  assert.equal(result.engage, true);
+  assert.equal(result.decision.needScore, 0.5);
+});
+
 test('mentions always engage without a social decision call in automatic mode', async () => {
   let inferenceCalls = 0;
   const pipeline = behavior.createBehaviorPipeline({

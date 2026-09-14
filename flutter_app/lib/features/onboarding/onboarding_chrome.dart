@@ -4,13 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../src/theme/palette.dart';
 
 /// Shared chrome for the onboarding flow.
-///
-/// On wide viewports this renders the "Control Surface" two-pane onboarding:
-/// a brand / narrative pane on the left (logo, step counter, eyebrow, title,
-/// supporting copy and progress rail) over the olive [bgPrimary] surface, and
-/// an interaction pane on the right (the step's content + nav) over the deeper
-/// [bgSecondary]. It is fully theme-aware — light or dark follows the system
-/// brightness via [paletteOf].
 class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
     super.key,
@@ -74,7 +67,6 @@ class _NarrativePane extends StatelessWidget {
       decoration: BoxDecoration(color: p.bgPrimary),
       child: Stack(
         children: <Widget>[
-          // Sage glow, top-left — the brand "agent OS" atmosphere.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(

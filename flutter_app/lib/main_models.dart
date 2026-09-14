@@ -18,7 +18,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.send_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'botToken',
+        label: 'Bot token',
+        hint: 'From BotFather after you create the bot.',
+        obscure: true,
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -29,7 +34,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sports_esports_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'token', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Bot token',
+        hint: 'From the Discord Developer Portal, under your bot.',
+        obscure: true,
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -40,15 +50,22 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.tag_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'botToken', label: 'Bot Token', obscure: true),
+      MessagingConfigField(
+        key: 'botToken',
+        label: 'Bot token',
+        hint: 'Starts with xoxb-. From your Slack app credentials.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'signingSecret',
-        label: 'Signing Secret',
+        label: 'Signing secret',
+        hint: 'Used to verify that incoming Slack events are genuine.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional extra secret if you protect the inbound webhook.',
         obscure: true,
       ),
     ],
@@ -63,15 +80,21 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Google Chat space webhook this agent should post to.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Chat events.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'defaultTo', label: 'Default Space / Chat ID'),
+      MessagingConfigField(
+        key: 'defaultTo',
+        label: 'Default space',
+        hint: 'Space or chat ID used when this agent starts a conversation.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -84,15 +107,21 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Teams incoming webhook this agent should post to.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Teams events.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'defaultTo', label: 'Default Conversation ID'),
+      MessagingConfigField(
+        key: 'defaultTo',
+        label: 'Default conversation',
+        hint: 'Conversation ID used when this agent starts a chat.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -103,16 +132,26 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.grid_view_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'homeserver', label: 'Homeserver URL'),
+      MessagingConfigField(
+        key: 'homeserver',
+        label: 'Homeserver URL',
+        hint: 'For example https://matrix.org',
+      ),
       MessagingConfigField(
         key: 'accessToken',
-        label: 'Access Token',
+        label: 'Access token',
+        hint: 'From the Matrix client or bot account.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'userId', label: 'User ID'),
+      MessagingConfigField(
+        key: 'userId',
+        label: 'Bot user ID',
+        hint: 'Usually looks like @bot:matrix.org',
+      ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Poll Interval ms',
+        label: 'Check for messages every (ms)',
+        hint: 'How often this agent looks for new room messages.',
         defaultValue: '5000',
       ),
     ],
@@ -125,16 +164,26 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.lock_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'restUrl', label: 'signal-cli REST API URL'),
-      MessagingConfigField(key: 'account', label: 'Account Number'),
+      MessagingConfigField(
+        key: 'restUrl',
+        label: 'signal-cli server URL',
+        hint: 'The REST endpoint for your signal-cli instance.',
+      ),
+      MessagingConfigField(
+        key: 'account',
+        label: 'Account number',
+        hint: 'The Signal phone number this bot uses.',
+      ),
       MessagingConfigField(
         key: 'pollEnabled',
-        label: 'Enable receive polling',
+        label: 'Check for new messages automatically',
+        hint: 'Turn on if Signal should keep looking for incoming chats.',
         kind: MessagingConfigFieldKind.boolean,
       ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Poll Interval ms',
+        label: 'Check for messages every (ms)',
+        hint: 'How often this agent looks for new Signal messages.',
         defaultValue: '10000',
       ),
     ],
@@ -147,20 +196,27 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sms_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'serverUrl',
+        label: 'BlueBubbles server URL',
+        hint: 'The address of your BlueBubbles server.',
+      ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password / API Key',
+        label: 'Password or API key',
+        hint: 'The password you set in BlueBubbles.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send Path',
+        label: 'Send path',
+        hint: 'Leave as the default unless you customized BlueBubbles.',
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming iMessage events.',
         obscure: true,
       ),
     ],
@@ -173,20 +229,27 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.bubble_chart_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'serverUrl', label: 'BlueBubbles Server URL'),
+      MessagingConfigField(
+        key: 'serverUrl',
+        label: 'BlueBubbles server URL',
+        hint: 'The address of your BlueBubbles server.',
+      ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password / API Key',
+        label: 'Password or API key',
+        hint: 'The password you set in BlueBubbles.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send Path',
+        label: 'Send path',
+        hint: 'Leave as the default unless you customized BlueBubbles.',
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming iMessage events.',
         obscure: true,
       ),
     ],
@@ -199,14 +262,22 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.terminal_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'server', label: 'Server'),
+      MessagingConfigField(
+        key: 'server',
+        label: 'Server',
+        hint: 'Hostname of the IRC network, for example irc.libera.chat',
+      ),
       MessagingConfigField(key: 'port', label: 'Port', defaultValue: '6667'),
       MessagingConfigField(key: 'nick', label: 'Nickname'),
       MessagingConfigField(key: 'password', label: 'Password', obscure: true),
-      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+      MessagingConfigField(
+        key: 'channels',
+        label: 'Channels',
+        hint: 'Comma-separated, for example #general, #help',
+      ),
       MessagingConfigField(
         key: 'tls',
-        label: 'Use TLS',
+        label: 'Use a secure connection (TLS)',
         kind: MessagingConfigFieldKind.boolean,
       ),
     ],
@@ -219,13 +290,18 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.live_tv_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'nick', label: 'Bot Username'),
+      MessagingConfigField(key: 'nick', label: 'Bot username'),
       MessagingConfigField(
         key: 'oauthToken',
-        label: 'OAuth Token',
+        label: 'OAuth token',
+        hint: 'From twitchapps.com/tmi or your Twitch developer app.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'channels', label: 'Channels, comma-separated'),
+      MessagingConfigField(
+        key: 'channels',
+        label: 'Channels',
+        hint: 'Comma-separated channel names, without the #.',
+      ),
     ],
   ),
   MessagingPlatformDescriptor(
@@ -238,12 +314,14 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'channelAccessToken',
-        label: 'Channel Access Token',
+        label: 'Channel access token',
+        hint: 'From the LINE Developers Console.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming LINE events.',
         obscure: true,
       ),
     ],
@@ -258,14 +336,25 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'The Mattermost incoming webhook this agent should post to.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'baseUrl', label: 'Base URL'),
-      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'baseUrl',
+        label: 'Server URL',
+        hint: 'Your Mattermost site URL, if you use the REST API.',
+      ),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Access token',
+        hint: 'Personal access token for the Mattermost bot.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming Mattermost events.',
         obscure: true,
       ),
     ],
@@ -278,10 +367,15 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.router_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'host', label: 'Device IP Address'),
+      MessagingConfigField(
+        key: 'host',
+        label: 'Device IP address',
+        hint: 'The local IP of the Meshtastic device.',
+      ),
       MessagingConfigField(
         key: 'channel',
-        label: 'Channel Index',
+        label: 'Channel number',
+        hint: 'Usually 0 for the primary channel.',
         defaultValue: '0',
       ),
     ],
@@ -378,34 +472,49 @@ const List<MessagingConfigField> genericWebhookConfigFields =
     <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outbound Webhook URL',
+        label: 'Outgoing webhook URL',
+        hint: 'Where this agent should send replies.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'outboundUrl',
-        label: 'Custom Outbound URL',
+        label: 'Custom outgoing URL',
+        hint: 'Optional override if the webhook URL is not enough.',
         obscure: true,
       ),
-      MessagingConfigField(key: 'token', label: 'Access Token', obscure: true),
+      MessagingConfigField(
+        key: 'token',
+        label: 'Access token',
+        hint: 'If the service requires a token on outgoing requests.',
+        obscure: true,
+      ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Inbound Secret',
+        label: 'Webhook secret',
+        hint: 'Optional secret to verify incoming events.',
         obscure: true,
       ),
       MessagingConfigField(
         key: 'contentField',
-        label: 'Content Field',
+        label: 'Message text field',
+        hint: 'JSON field that contains the message text. Usually text.',
         defaultValue: 'text',
       ),
-      MessagingConfigField(key: 'recipientField', label: 'Recipient Field'),
+      MessagingConfigField(
+        key: 'recipientField',
+        label: 'Recipient field',
+        hint: 'JSON field that identifies who the message is for.',
+      ),
       MessagingConfigField(
         key: 'headers',
-        label: 'Headers JSON',
+        label: 'Custom headers (JSON)',
+        hint: 'Only needed if the service asks for extra HTTP headers.',
         kind: MessagingConfigFieldKind.multiline,
       ),
       MessagingConfigField(
         key: 'bodyTemplate',
-        label: 'Body Template JSON',
+        label: 'Message body template (JSON)',
+        hint: 'Only needed if you want to reshape the outgoing payload.',
         kind: MessagingConfigFieldKind.multiline,
       ),
     ];
@@ -418,6 +527,7 @@ class MessagingConfigField {
   const MessagingConfigField({
     required this.key,
     required this.label,
+    this.hint,
     this.kind = MessagingConfigFieldKind.text,
     this.obscure = false,
     this.defaultValue,
@@ -427,6 +537,7 @@ class MessagingConfigField {
 
   final String key;
   final String label;
+  final String? hint;
   final MessagingConfigFieldKind kind;
   final bool obscure;
   final String? defaultValue;
@@ -756,7 +867,20 @@ class MessagingAccessRule {
 
   String get id => '$scope:$value:${spaceScope ?? ''}:${spaceValue ?? ''}';
 
-  String get displayLabel => label?.ifEmpty(value) ?? value;
+  String get displayLabel =>
+      messagingRuleDisplayLabel(label: label, value: value);
+
+  bool get isSharedSpace {
+    switch (scope) {
+      case 'user':
+      case 'dm':
+      case 'phone_number':
+      case 'role':
+        return false;
+      default:
+        return !looksLikeDirectMessagingValue(value);
+    }
+  }
 
   String get spaceDisplayLabel =>
       spaceLabel?.ifEmpty(spaceValue ?? '') ?? spaceValue ?? '';
@@ -808,7 +932,8 @@ class MessagingSharedParticipationRule {
   final String? label;
 
   String get id => '$scope:$value';
-  String get displayLabel => label?.ifEmpty(value) ?? value;
+  String get displayLabel =>
+      messagingRuleDisplayLabel(label: label, value: value);
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'scope': scope,
@@ -841,7 +966,7 @@ class MessagingAccessPolicy {
           json['sharedPolicy']?.toString().ifEmpty('allowlist') ?? 'allowlist',
       defaultAllowUntaggedInShared: schemaVersion < 3
           ? json['requireMentionInShared'] != true
-          : json['defaultAllowUntaggedInShared'] != false,
+          : json['defaultAllowUntaggedInShared'] == true,
       directRules:
           (json['directRules'] is List
                   ? json['directRules'] as List
@@ -905,7 +1030,7 @@ class MessagingAccessPolicy {
     this.schemaVersion = 3,
     this.directPolicy = 'allowlist',
     this.sharedPolicy = 'allowlist',
-    this.defaultAllowUntaggedInShared = true,
+    this.defaultAllowUntaggedInShared = false,
     this.directRules = const <MessagingAccessRule>[],
     this.sharedSpaceRules = const <MessagingAccessRule>[],
     this.sharedActorRules = const <MessagingAccessRule>[],
@@ -1154,7 +1279,7 @@ class MessagingAccessCatalog {
       ),
       discoveredTargets: parseTargets(json['discoveredTargets']),
       suggestedTargets: parseTargets(json['suggestedTargets']),
-      summary: json['summary']?.toString() ?? 'Access policy',
+      summary: json['summary']?.toString() ?? 'Who can message',
     );
   }
 
@@ -1165,7 +1290,7 @@ class MessagingAccessCatalog {
       capabilities: const MessagingAccessCapabilities(),
       discoveredTargets: const <MessagingAccessTarget>[],
       suggestedTargets: const <MessagingAccessTarget>[],
-      summary: 'Access policy',
+      summary: 'Who can message',
     );
   }
 
@@ -1175,6 +1300,100 @@ class MessagingAccessCatalog {
   final List<MessagingAccessTarget> discoveredTargets;
   final List<MessagingAccessTarget> suggestedTargets;
   final String summary;
+
+  String get compactAccessLabel {
+    final direct = policy.directPolicy;
+    final shared = capabilities.supportsSharedPolicy
+        ? policy.sharedPolicy
+        : direct;
+    if (direct == 'disabled' &&
+        (!capabilities.supportsSharedPolicy || shared == 'disabled')) {
+      return 'No one can message';
+    }
+    if (direct == 'open' &&
+        (!capabilities.supportsSharedPolicy || shared == 'open')) {
+      return 'Open to anyone';
+    }
+    if (direct == 'allowlist' &&
+        (!capabilities.supportsSharedPolicy || shared == 'allowlist')) {
+      return policy.totalRuleCount == 0
+          ? 'Add who can message'
+          : 'Approved people only';
+    }
+    return 'Custom access';
+  }
+
+  String accessHeadline({String? agentName}) {
+    final name = messagingSubjectName(agentName);
+    if (!capabilities.supportsSharedPolicy) {
+      return 'Private chats: ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()}';
+    }
+    if (!capabilities.supportsDirectPolicy) {
+      return 'Groups: ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+    }
+    final sameMode = policy.directPolicy == policy.sharedPolicy;
+    if (sameMode) {
+      switch (policy.directPolicy) {
+        case 'open':
+          return 'Anyone on this platform can message $name';
+        case 'disabled':
+          return '$name will not reply on this platform';
+        default:
+          return policy.totalRuleCount == 0
+              ? 'Add the people and groups $name should talk to'
+              : '$name only talks to people and groups you approve';
+      }
+    }
+    return 'Private chats ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()} · groups ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+  }
+
+  String accessHint({String? agentName}) {
+    final name = messagingSubjectName(agentName);
+    if (policy.directPolicy == 'allowlist' ||
+        (capabilities.supportsSharedPolicy &&
+            policy.sharedPolicy == 'allowlist')) {
+      return 'When you choose approved only, add people or groups below.';
+    }
+    if (policy.directPolicy == 'open' &&
+        (!capabilities.supportsSharedPolicy || policy.sharedPolicy == 'open')) {
+      return 'Anyone who can reach this account can talk to $name.';
+    }
+    return 'Choose who can reach $name, then save your changes.';
+  }
+
+  List<String> get accessDetailChips {
+    final details = <String>[];
+    if (capabilities.supportsDirectPolicy) {
+      details.add(
+        'Private chats: ${messagingAccessModeLabel(policy.directPolicy)}',
+      );
+    }
+    if (capabilities.supportsSharedPolicy) {
+      details.add('Groups: ${messagingAccessModeLabel(policy.sharedPolicy)}');
+      if (capabilities.supportsUntaggedGroupToggle) {
+        if (!policy.defaultAllowUntaggedInShared) {
+          details.add('Replies when tagged');
+        } else {
+          final taggedOnly = policy.sharedParticipationRules
+              .where((rule) => !rule.allowUntagged)
+              .length;
+          details.add(
+            taggedOnly == 0
+                ? 'Joins group conversations'
+                : '$taggedOnly groups tagged-only',
+          );
+        }
+      }
+    }
+    if (policy.totalRuleCount > 0) {
+      details.add(
+        policy.totalRuleCount == 1
+            ? '1 person or group added'
+            : '${policy.totalRuleCount} people or groups added',
+      );
+    }
+    return details;
+  }
 }
 
 class BlockedSenderNotice {
@@ -1539,6 +1758,104 @@ class RunDetailSnapshot {
 
   int get planningStepCount =>
       steps.where((step) => step.isPlanningRelated).length;
+}
+
+class RunPromptTurn {
+  const RunPromptTurn({
+    required this.requestId,
+    required this.phase,
+    required this.iteration,
+    required this.provider,
+    required this.model,
+    required this.messageCount,
+    required this.toolCount,
+    required this.characters,
+    required this.createdAt,
+  });
+
+  factory RunPromptTurn.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptTurn(
+      requestId: json['requestId']?.toString() ?? '',
+      phase: json['phase']?.toString() ?? 'model_turn',
+      iteration: _asInt(json['iteration']),
+      provider: json['provider']?.toString() ?? '',
+      model: json['model']?.toString() ?? '',
+      messageCount: _asInt(json['messageCount']),
+      toolCount: _asInt(json['toolCount']),
+      characters: _asInt(json['characters']),
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+    );
+  }
+
+  final String requestId;
+  final String phase;
+  final int iteration;
+  final String provider;
+  final String model;
+  final int messageCount;
+  final int toolCount;
+  final int characters;
+  final DateTime? createdAt;
+
+  String get label {
+    final phaseLabel = _titleCase(phase.replaceAll('_', ' '));
+    return iteration > 0 ? '$phaseLabel $iteration' : phaseLabel;
+  }
+}
+
+class RunPromptSection {
+  const RunPromptSection({
+    required this.role,
+    required this.label,
+    required this.text,
+    required this.characters,
+  });
+
+  factory RunPromptSection.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptSection(
+      role: json['role']?.toString() ?? 'unknown',
+      label: json['label']?.toString() ?? 'Section',
+      text: json['text']?.toString() ?? '',
+      characters: _asInt(json['characters']),
+    );
+  }
+
+  final String role;
+  final String label;
+  final String text;
+  final int characters;
+}
+
+class RunPromptSnapshot {
+  const RunPromptSnapshot({
+    required this.requestId,
+    required this.sections,
+    required this.toolNames,
+  });
+
+  factory RunPromptSnapshot.fromJson(Map<dynamic, dynamic> json) {
+    return RunPromptSnapshot(
+      requestId: json['requestId']?.toString() ?? '',
+      sections: _jsonMapList(json['sections'])
+          .map(RunPromptSection.fromJson)
+          .toList(),
+      toolNames: _jsonMapList(json['tools'])
+          .map((tool) => tool['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  final String requestId;
+  final List<RunPromptSection> sections;
+  final List<String> toolNames;
+
+  int get characters =>
+      sections.fold(0, (total, section) => total + section.characters);
+
+  String get plainText => sections
+      .map((section) => '### ${section.label} (${section.role})\n${section.text}')
+      .join('\n\n');
 }
 
 class ArtifactContractItem {
@@ -2105,43 +2422,6 @@ class ModelMeta {
 
   /// Pricing tier: 'free' | 'cheap' | 'medium' | 'expensive' | null (unknown)
   final String? priceTier;
-}
-
-class AiProviderConfig {
-  const AiProviderConfig({
-    required this.id,
-    required this.enabled,
-    required this.baseUrl,
-  });
-
-  factory AiProviderConfig.empty(String id) {
-    return AiProviderConfig(
-      id: id,
-      enabled: true,
-      baseUrl: id == 'ollama' ? 'http://localhost:11434' : '',
-    );
-  }
-
-  factory AiProviderConfig.fromJson(String id, dynamic json) {
-    final map = json is Map
-        ? Map<String, dynamic>.from(json)
-        : const <String, dynamic>{};
-    return AiProviderConfig(
-      id: id,
-      enabled: map['enabled'] != false,
-      baseUrl:
-          map['baseUrl']?.toString() ??
-          (id == 'ollama' ? 'http://localhost:11434' : ''),
-    );
-  }
-
-  final String id;
-  final bool enabled;
-  final String baseUrl;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{'enabled': enabled, 'baseUrl': baseUrl.trim()};
-  }
 }
 
 class AiProviderMeta {
@@ -3273,6 +3553,7 @@ class TaskItem {
     required this.lastRunId,
     required this.lastRunStatus,
     required this.lastRunError,
+    required this.averageRunSeconds,
   });
 
   factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3329,6 +3610,9 @@ class TaskItem {
       lastRunId: json['lastRunId']?.toString() ?? '',
       lastRunStatus: json['lastRunStatus']?.toString() ?? '',
       lastRunError: json['lastRunError']?.toString() ?? '',
+      averageRunSeconds: json['averageRunSeconds'] == null
+          ? null
+          : _asInt(json['averageRunSeconds']),
     );
   }
 
@@ -3348,6 +3632,10 @@ class TaskItem {
   final String lastRunId;
   final String lastRunStatus;
   final String lastRunError;
+
+  /// Mean duration of this task's recent completed runs, or null while it has
+  /// never completed one.
+  final int? averageRunSeconds;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;
@@ -4066,8 +4354,10 @@ class AccountUsageAndLimits {
     this.weeklyRemaining = 0,
     this.fourHourReached = false,
     this.weeklyReached = false,
-    this.fourHourNextDecreaseAt,
-    this.weeklyNextDecreaseAt,
+    this.fourHourRecoversAt,
+    this.weeklyRecoversAt,
+    this.fourHourFullResetAt,
+    this.weeklyFullResetAt,
     this.fourHourIsCustom = false,
     this.weeklyIsCustom = false,
   });
@@ -4079,8 +4369,11 @@ class AccountUsageAndLimits {
         ? json['remaining'] as Map
         : const {};
     final reached = json['reached'] is Map ? json['reached'] as Map : const {};
-    final nextDecreaseAt = json['nextDecreaseAt'] is Map
-        ? json['nextDecreaseAt'] as Map
+    final recoversAt = json['recoversAt'] is Map
+        ? json['recoversAt'] as Map
+        : const {};
+    final fullResetAt = json['fullResetAt'] is Map
+        ? json['fullResetAt'] as Map
         : const {};
     return AccountUsageAndLimits(
       fourHourLimit: int.tryParse(limits['fourHour']?.toString() ?? ''),
@@ -4091,11 +4384,17 @@ class AccountUsageAndLimits {
       weeklyRemaining: _asInt(remaining['weekly']),
       fourHourReached: reached['fourHour'] == true,
       weeklyReached: reached['weekly'] == true,
-      fourHourNextDecreaseAt: DateTime.tryParse(
-        nextDecreaseAt['fourHour']?.toString() ?? '',
+      fourHourRecoversAt: DateTime.tryParse(
+        recoversAt['fourHour']?.toString() ?? '',
       ),
-      weeklyNextDecreaseAt: DateTime.tryParse(
-        nextDecreaseAt['weekly']?.toString() ?? '',
+      weeklyRecoversAt: DateTime.tryParse(
+        recoversAt['weekly']?.toString() ?? '',
+      ),
+      fourHourFullResetAt: DateTime.tryParse(
+        fullResetAt['fourHour']?.toString() ?? '',
+      ),
+      weeklyFullResetAt: DateTime.tryParse(
+        fullResetAt['weekly']?.toString() ?? '',
       ),
       fourHourIsCustom: limits['fourHourIsCustom'] == true,
       weeklyIsCustom: limits['weeklyIsCustom'] == true,
@@ -4110,8 +4409,10 @@ class AccountUsageAndLimits {
   final int weeklyRemaining;
   final bool fourHourReached;
   final bool weeklyReached;
-  final DateTime? fourHourNextDecreaseAt;
-  final DateTime? weeklyNextDecreaseAt;
+  final DateTime? fourHourRecoversAt;
+  final DateTime? weeklyRecoversAt;
+  final DateTime? fourHourFullResetAt;
+  final DateTime? weeklyFullResetAt;
   final bool fourHourIsCustom;
   final bool weeklyIsCustom;
 
@@ -4187,10 +4488,12 @@ class CoworkChat {
           ? CoworkInteractionMode.plan
           : CoworkInteractionMode.agent,
       device: CoworkDeviceSelection.fromJson(_jsonMap(json['device'])),
-      workspacePathOverride: (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
+      workspacePathOverride:
+          (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
           ? json['workspacePathOverride'].toString().trim()
           : null,
-      modelOverride: (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
+      modelOverride:
+          (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
           ? json['modelOverride'].toString().trim()
           : null,
       manuallyTitled: json['manuallyTitled'] == true,
@@ -4390,7 +4693,8 @@ class CoworkChangedFile {
   final String runId;
   final DateTime changedAt;
 
-  String get name => path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
+  String get name =>
+      path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
   String get directory {
     final index = path.lastIndexOf('/');
     return index <= 0 ? '' : path.substring(0, index);

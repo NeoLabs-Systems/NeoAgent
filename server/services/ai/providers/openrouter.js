@@ -8,6 +8,20 @@ const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 // Context windows fetched from the API are cached here so getContextWindow
 // can serve them without a network call at inference time.
 const contextWindowCache = new Map();
+// Per-model reasoning metadata from the same catalog response.
+const reasoningCatalog = new Map();
+
+// Effort is only sent to models that already reason by default, and only at a
+// level the catalog lists. On models where reasoning is optional (Claude via
+// OpenRouter, for example) the parameter would switch thinking on, changing
+// latency, cost, and sampling constraints instead of merely lowering effort.
+function catalogReasoningEffort(model, requested) {
+  const effort = String(requested || '').trim().toLowerCase();
+  const entry = reasoningCatalog.get(model);
+  if (!effort || !entry || !(entry.mandatory || entry.default_enabled)) return null;
+  const supported = Array.isArray(entry.supported_efforts) ? entry.supported_efforts : null;
+  return !supported || supported.includes(effort) ? effort : null;
+}
 
 class OpenRouterProvider extends OpenAICompatibleProvider {
   constructor(config = {}) {
@@ -50,6 +64,7 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     const models = data || [];
     for (const m of models) {
       if (m.context_length) contextWindowCache.set(m.id, m.context_length);
+      if (m.reasoning && typeof m.reasoning === 'object') reasoningCatalog.set(m.id, m.reasoning);
     }
     this.models = models.map((m) => m.id);
     return models;
@@ -66,6 +81,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens || 16384,
     };
+
+    const effort = catalogReasoningEffort(model, options.reasoningEffort);
+    if (effort) params.reasoning = { effort };
 
     if (tools && tools.length > 0) {
       params.tools = this.formatTools(tools);

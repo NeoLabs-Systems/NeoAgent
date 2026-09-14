@@ -245,6 +245,9 @@ class TelegramPlatform extends BasePlatform {
       senderTag: senderUsername,
       wasMentioned: !isPrivate && this._isMentioned(msg),
       repliedToAgent: Boolean(repliedToAgent),
+      botUsername: this._botUser?.username || null,
+      botDisplayName: this._botUser?.first_name || this._botUser?.username || null,
+      botTag: this._botUser?.username ? `@${this._botUser.username}` : null,
       replyToMessageId: msg.reply_to_message?.message_id
         ? String(msg.reply_to_message.message_id)
         : null,

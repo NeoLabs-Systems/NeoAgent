@@ -16,7 +16,14 @@ const {
     getIntegratedToolDefinitions,
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
+const {
+    executeAndroidTool,
+    executeDesktopTool,
+} = require('./integrated_tools/device_tools');
 const { runFileDiagnostics } = require('./file_diagnostics');
+const { coerceWritableText } = require('../workspace/text_edits');
+const { normalizeStoredString } = require('../../utils/text');
+const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -39,12 +46,15 @@ function compactToolDefinition(tool, options = {}) {
         }
     };
 
-    // Keep execution-only access metadata on the internal tool definition. The
-    // provider adapters serialize only name/description/parameters, so this is
-    // never sent as part of an LLM tool schema. The loop uses it to distinguish
-    // official-integration reads from writes without hard-coding provider names.
+    // Keep execution-only metadata on the internal tool definition. Provider
+    // adapters serialize only name/description/parameters, so these never enter
+    // the LLM schema. `access` distinguishes official-integration reads from
+    // writes; `family` groups incomplete sibling tools for activation.
     if (typeof tool.access === 'string' && tool.access.trim()) {
         compact.access = tool.access.trim().toLowerCase();
+    }
+    if (typeof tool.family === 'string' && tool.family.trim()) {
+        compact.family = tool.family.trim();
     }
 
     if (options.includeDescriptions) {
@@ -333,29 +343,9 @@ function markProactiveNoResponse({ runState, deliveryState }) {
     }
 }
 
-function normalizeStoredSettingString(value) {
-    if (value == null) return '';
-    if (typeof value !== 'string') return String(value || '').trim();
-    let current = value.trim();
-    for (let i = 0; i < 2; i += 1) {
-        if (!current) return '';
-        try {
-            const parsed = JSON.parse(current);
-            if (typeof parsed === 'string') {
-                current = parsed.trim();
-                continue;
-            }
-            return '';
-        } catch {
-            return current;
-        }
-    }
-    return current;
-}
-
 function normalizeMessagingTarget(target = {}) {
-    const platform = normalizeStoredSettingString(target.platform);
-    const to = normalizeStoredSettingString(target.to);
+    const platform = normalizeStoredString(target.platform);
+    const to = normalizeStoredString(target.to);
     if (!platform || !to) return null;
     return { platform, to };
 }
@@ -383,6 +373,81 @@ function isOriginMessagingDelivery({ triggerSource, source, chatId, platform, to
     const originAddress = canonicalMessagingAddress(originPlatform, chatId);
     const targetAddress = canonicalMessagingAddress(targetPlatform, to);
     return Boolean(originAddress && targetAddress && originAddress === targetAddress);
+}
+
+function inboundMessagingMessage(context, runState) {
+    return runState?.messagingContext?.behavior?.message
+        || context?.inboundMessage
+        || null;
+}
+
+function inboundMessagingIsGroup(context, runState) {
+    const behavior = runState?.messagingContext?.behavior;
+    return behavior?.isGroup === true
+        || behavior?.message?.isGroup === true
+        || context?.isGroup === true
+        || context?.inboundMessage?.isGroup === true;
+}
+
+function inboundMessagingSenderId(context, runState) {
+    const message = inboundMessagingMessage(context, runState);
+    return String(message?.sender || context?.senderId || '').trim();
+}
+
+function isSenderDirectTarget({ platform, to, senderId }) {
+    const target = String(to || '').trim();
+    const sender = String(senderId || '').trim();
+    if (!target || !sender) return false;
+    if (target === sender || target === `dm_${sender}`) return true;
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    if (normalizedPlatform !== 'whatsapp') return false;
+    const targetAddress = canonicalMessagingAddress('whatsapp', target);
+    const senderAddress = canonicalMessagingAddress('whatsapp', sender);
+    return Boolean(
+        targetAddress
+        && senderAddress
+        && targetAddress === senderAddress
+        && targetAddress.startsWith('direct:')
+    );
+}
+
+function resolveInboundMessagingSendTarget({
+    triggerSource,
+    source,
+    chatId,
+    platform,
+    to,
+    isGroup,
+    senderId,
+}) {
+    const resolvedPlatform = String(platform || source || '').trim();
+    const resolvedTo = String(to || '').trim();
+    const originChatId = String(chatId || '').trim();
+    const originPlatform = String(source || resolvedPlatform).trim();
+    if (
+        triggerSource === 'messaging'
+        && isGroup
+        && originChatId
+        && isSenderDirectTarget({ platform: resolvedPlatform, to: resolvedTo, senderId })
+        && !isOriginMessagingDelivery({
+            triggerSource,
+            source: originPlatform,
+            chatId: originChatId,
+            platform: resolvedPlatform,
+            to: resolvedTo,
+        })
+    ) {
+        return {
+            platform: originPlatform,
+            to: originChatId,
+            redirectedFromDirect: true,
+        };
+    }
+    return {
+        platform: resolvedPlatform,
+        to: resolvedTo,
+        redirectedFromDirect: false,
+    };
 }
 
 function buildAndroidUiMatchProperties(extra = {}) {
@@ -419,7 +484,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_navigate',
-            description: 'Navigate the visible Chromium instance in the user\'s cloud computer and return page content or a screenshot.',
+            family: 'browser_page',
+            description: 'Open a URL in the computer Chromium and return page content or a screenshot.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -435,7 +501,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_click',
-            description: 'Click an element on the current page',
+            family: 'browser_page',
+            description: 'Click an element on the current page by CSS selector or visible text.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -447,7 +514,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_type',
-            description: 'Type text into an input field',
+            family: 'browser_page',
+            description: 'Type text into an input field on the current page.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -461,7 +529,8 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'browser_extract',
-            description: 'Extract content from the current page',
+            family: 'browser_page',
+            description: 'Extract content from the current page.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -923,7 +992,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'send_message',
-            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+            description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. When the inbound message is a group or shared-space chat, reply in that same chat — do not switch the reply to the sender's DM. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -1940,182 +2009,34 @@ async function executeTool(toolName, args, context, engine) {
             return broker.httpRequest(userId, agentId, args, { runId, signal });
         }
 
-        case 'android_start_emulator': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.startEmulator({ ...(args || {}), signal });
-        }
+        case 'android_start_emulator':
+        case 'android_stop_emulator':
+        case 'android_list_devices':
+        case 'android_open_app':
+        case 'android_open_intent':
+        case 'android_tap':
+        case 'android_long_press':
+        case 'android_type':
+        case 'android_swipe':
+        case 'android_press_key':
+        case 'android_wait_for':
+        case 'android_observe':
+        case 'android_dump_ui':
+        case 'android_screenshot':
+        case 'android_list_apps':
+        case 'android_install_apk':
+        case 'android_shell':
+            return await executeAndroidTool(toolName, args, { getController: ac, signal });
 
-        case 'desktop_observe': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.observe({
-                includeTree: args.includeTree === true,
-                signal,
-            });
-        }
-
-        case 'desktop_click': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.clickPoint(args.x, args.y, {
-                button: args.button,
-                signal,
-            });
-        }
-
-        case 'desktop_drag': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.drag({
-                x1: args.x1,
-                y1: args.y1,
-                x2: args.x2,
-                y2: args.y2,
-                durationMs: args.durationMs,
-                signal,
-            });
-        }
-
-        case 'desktop_scroll': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.scroll({
-                deltaX: args.deltaX,
-                deltaY: args.deltaY,
-                signal,
-            });
-        }
-
-        case 'desktop_type': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.typeText(args.text, {
-                pressEnter: args.pressEnter === true,
-                signal,
-            });
-        }
-
-        case 'desktop_press_key': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.pressKey(args.key, {
-                signal,
-            });
-        }
-
-        case 'desktop_launch_app': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.launchApp({
-                app: args.app,
-                signal,
-            });
-        }
-
-        case 'desktop_get_tree': {
-            const controller = await dc();
-            if (!controller) return { error: 'Desktop provider not available' };
-            return await controller.getAccessibilityTree({
-                signal,
-            });
-        }
-
-        case 'android_stop_emulator': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.stopEmulator({ signal });
-        }
-
-        case 'android_list_devices': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return { devices: await controller.listDevices({ signal }) };
-        }
-
-        case 'android_open_app': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.openApp({ ...(args || {}), signal });
-        }
-
-        case 'android_open_intent': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.openIntent({ ...(args || {}), signal });
-        }
-
-        case 'android_tap': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.tap({ ...(args || {}), signal });
-        }
-
-        case 'android_long_press': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.longPress({ ...(args || {}), signal });
-        }
-
-        case 'android_type': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.type({ ...(args || {}), signal });
-        }
-
-        case 'android_swipe': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.swipe({ ...(args || {}), signal });
-        }
-
-        case 'android_press_key': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.pressKey({ ...(args || {}), signal });
-        }
-
-        case 'android_wait_for': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.waitFor({ ...(args || {}), signal });
-        }
-
-        case 'android_observe': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.observe({ ...(args || {}), signal });
-        }
-
-        case 'android_dump_ui': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.dumpUi({ ...(args || {}), signal });
-        }
-
-        case 'android_screenshot': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.screenshot({ ...(args || {}), signal });
-        }
-
-        case 'android_list_apps': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.listApps({ ...(args || {}), signal });
-        }
-
-        case 'android_install_apk': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.installApk({ ...(args || {}), signal });
-        }
-
-        case 'android_shell': {
-            const controller = await ac();
-            if (!controller) return { error: 'Android controller not available' };
-            return await controller.shell({ ...(args || {}), signal });
-        }
+        case 'desktop_observe':
+        case 'desktop_click':
+        case 'desktop_drag':
+        case 'desktop_scroll':
+        case 'desktop_type':
+        case 'desktop_press_key':
+        case 'desktop_launch_app':
+        case 'desktop_get_tree':
+            return await executeDesktopTool(toolName, args, { getController: dc, signal });
 
         case 'web_search': {
             const apiKey = process.env.BRAVE_SEARCH_API_KEY;
@@ -2468,8 +2389,17 @@ async function executeTool(toolName, args, context, engine) {
             const manager = msg();
             if (!manager) return { error: 'Messaging not available' };
             const runState = getRunState(engine, runId);
+            const sendTarget = resolveInboundMessagingSendTarget({
+                triggerSource,
+                source: context.source,
+                chatId: context.chatId,
+                platform: args.platform,
+                to: args.to,
+                isGroup: inboundMessagingIsGroup(context, runState),
+                senderId: inboundMessagingSenderId(context, runState),
+            });
             const message = typeof args.content === 'string' ? args.content : '';
-            const normalizedMessage = normalizeOutgoingMessageForPlatform(args.platform, message, {
+            const normalizedMessage = normalizeOutgoingMessageForPlatform(sendTarget.platform, message, {
                 stripNoResponseMarker: false
             });
             const suppressReply = normalizedMessage === '[NO RESPONSE]';
@@ -2477,8 +2407,8 @@ async function executeTool(toolName, args, context, engine) {
                 triggerSource,
                 source: context.source,
                 chatId: context.chatId,
-                platform: args.platform,
-                to: args.to,
+                platform: sendTarget.platform,
+                to: sendTarget.to,
             });
             if (isProactiveTrigger(triggerSource)) {
                 const proactiveValidation = validateProactiveSendMessageArgs({
@@ -2579,7 +2509,7 @@ async function executeTool(toolName, args, context, engine) {
                     };
                 }
             } else {
-                sendResult = await manager.sendMessage(userId, args.platform, args.to, args.content, {
+                sendResult = await manager.sendMessage(userId, sendTarget.platform, sendTarget.to, args.content, {
                     agentId,
                     mediaPath: args.media_path,
                     runId,
@@ -2599,7 +2529,13 @@ async function executeTool(toolName, args, context, engine) {
                     runState.explicitMessageSent = true;
                 }
             }
-            return sendResult;
+            return {
+                ...sendResult,
+                originDelivery,
+                redirectedFromDirect: sendTarget.redirectedFromDirect === true,
+                platform: sendTarget.platform,
+                to: sendTarget.to,
+            };
         }
 
         case 'call_user': {
@@ -2715,12 +2651,12 @@ async function executeTool(toolName, args, context, engine) {
                 if (!workspace) return { error: 'Workspace service is unavailable.' };
                 const targetPath = args.path || args.file_path;
                 if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
-                if (typeof args.content !== 'string') {
-                    return { success: false, error: 'write_file requires a string content argument; nothing was written.' };
+                if (args.content == null) {
+                    return { success: false, error: 'write_file requires a content argument; nothing was written.' };
                 }
                 return await withFileDiagnostics(await workspace.writeFile(userId, {
                     path: targetPath,
-                    content: args.content,
+                    content: coerceWritableText(args.content),
                     mode: args.mode,
                     deviceTarget,
                     workspaceRoot,
@@ -2916,8 +2852,8 @@ async function executeTool(toolName, args, context, engine) {
                     || null
                 );
                 const loadDefaultTarget = () => ({
-                    platform: normalizeStoredSettingString(loadAgentSetting('last_platform')),
-                    to: normalizeStoredSettingString(loadAgentSetting('last_chat_id'))
+                    platform: normalizeStoredString(loadAgentSetting('last_platform')),
+                    to: normalizeStoredString(loadAgentSetting('last_chat_id'))
                 });
 
                 let taskConfig = null;
@@ -2929,8 +2865,8 @@ async function executeTool(toolName, args, context, engine) {
                         try {
                             taskConfig = JSON.parse(task.task_config || '{}');
                             taskTarget = {
-                                platform: normalizeStoredSettingString(taskConfig.notifyPlatform),
-                                to: normalizeStoredSettingString(taskConfig.notifyTo)
+                                platform: normalizeStoredString(taskConfig.notifyPlatform),
+                                to: normalizeStoredString(taskConfig.notifyTo)
                             };
                         } catch { }
                     }
@@ -3152,7 +3088,11 @@ async function executeTool(toolName, args, context, engine) {
                     return { error: 'Artifact storage is unavailable.' };
                 }
                 const OpenAI = require('openai');
-                const xai = new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: 'https://api.x.ai/v1' });
+                const grokDefinition = AI_PROVIDER_DEFINITIONS.grok;
+                const xai = new OpenAI({
+                  apiKey: process.env.XAI_API_KEY,
+                  baseURL: process.env.XAI_BASE_URL || grokDefinition.defaultBaseUrl,
+                });
                 const count = Math.min(args.n || 1, 4);
                 const result = await xai.images.generate({
                     model: 'grok-imagine-image',

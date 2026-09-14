@@ -79,10 +79,6 @@ function repairMojibake(value) {
   return current;
 }
 
-function base64UrlToString(value) {
-  return repairMojibake(decodeBytes(base64UrlToBuffer(value), 'utf-8'));
-}
-
 function parseCharset(value) {
   const match = /charset\s*=\s*("?)([^";\s]+)\1/i.exec(String(value || ''));
   return match?.[2] || 'utf-8';
@@ -221,6 +217,11 @@ function summarizeFile(file) {
   };
 }
 
+function isGoogleApisHost(hostname) {
+  const host = String(hostname || '').trim().replace(/\.$/, '').toLowerCase();
+  return host === 'googleapis.com' || host.endsWith('.googleapis.com');
+}
+
 function requireGoogleApiUrl(pathOrUrl, defaultBaseUrl) {
   const raw = String(pathOrUrl || '').trim();
   if (!raw) throw new Error('path is required.');
@@ -228,7 +229,7 @@ function requireGoogleApiUrl(pathOrUrl, defaultBaseUrl) {
   const url = raw.startsWith('http://') || raw.startsWith('https://')
     ? new URL(raw)
     : new URL(raw.startsWith('/') ? raw : `/${raw}`, base);
-  if (!url.hostname.endsWith('googleapis.com')) {
+  if (url.protocol !== 'https:' || !isGoogleApisHost(url.hostname)) {
     throw new Error('Google API request URL must target a googleapis.com host.');
   }
   return url.toString();
@@ -266,7 +267,9 @@ module.exports = {
   executeGoogleApiRequest,
   extractMessageBody,
   getHeader,
+  isGoogleApisHost,
   normalizeDecodedText,
+  requireGoogleApiUrl,
   stringToBase64Url,
   summarizeFile,
 };

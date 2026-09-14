@@ -66,6 +66,9 @@ module.exports = {
     return {
       mode,
       cronExpression,
+      // When set, the run starts its measured average duration early so that it
+      // finishes at the scheduled time instead of starting then.
+      finishOnTime: config.finishOnTime === true || config.finish_on_time === true,
     };
   },
   summarize(config = {}) {

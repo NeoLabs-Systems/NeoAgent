@@ -51,3 +51,34 @@ test('Google model discovery follows every catalog page', async () => {
     delete require.cache[googlePath];
   }
 });
+
+test('Google requests set thinking only on catalog thinking models, in the shape each generation accepts', async () => {
+  const http = require('../../../server/services/network/http');
+  const originalFetchResponseText = http.fetchResponseText;
+  const googlePath = require.resolve('../../../server/services/ai/providers/google');
+  const model = (id, thinking) => ({ name: `models/${id}`, supportedGenerationMethods: ['generateContent'], thinking });
+  http.fetchResponseText = async () => ({
+    response: { ok: true, status: 200, headers: {} },
+    text: JSON.stringify({
+      models: [model('gemini-2.5-flash', true), model('gemini-3.1-pro-preview', true), model('gemma-3-27b-it', false)],
+    }),
+  });
+  delete require.cache[googlePath];
+
+  try {
+    const { GoogleProvider } = require(googlePath);
+    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    await provider.listModels();
+    const thinkingFor = (id, reasoningEffort) => provider
+      .buildGenerateConfig('', [], { model: id, reasoningEffort }).thinkingConfig;
+
+    assert.deepEqual(thinkingFor('gemini-2.5-flash', 'low'), { thinkingBudget: 1024 });
+    assert.deepEqual(thinkingFor('gemini-3.1-pro-preview', 'low'), { thinkingLevel: 'LOW' });
+    assert.equal(thinkingFor('gemma-3-27b-it', 'low'), undefined);
+    assert.equal(thinkingFor('gemini-3.1-pro-preview', 'minimal'), undefined);
+    assert.equal(thinkingFor('gemini-unlisted', 'low'), undefined);
+  } finally {
+    http.fetchResponseText = originalFetchResponseText;
+    delete require.cache[googlePath];
+  }
+});

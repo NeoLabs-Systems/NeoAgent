@@ -2,6 +2,13 @@
 
 const { buildSkillInstructions, isUsableProposal, proposalFailureMessage } = require('./learning_documents');
 
+// A learned skill is only ever as good as the runs that produced it, so a
+// sustained failure record is the evidence that it was learned wrong. Retiring
+// needs enough invocations to be more than noise, and only ever touches skills
+// this service created.
+const RETIREMENT_MIN_INVOCATIONS = 5;
+const RETIREMENT_MAX_SUCCESS_RATE = 0.25;
+
 class SkillLearningWriter {
   constructor({ skillRunner, repository, io = null }) {
     this.skillRunner = skillRunner;
@@ -10,13 +17,58 @@ class SkillLearningWriter {
   }
 
   skillCatalog(userId) {
-    return this.skillRunner.getAll(userId).slice(0, 80).map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      source: skill.metadata?.source || skill.ownerType,
-      learningManaged: this.isLearningManaged(skill),
-      workflowKey: skill.metadata?.learning?.workflowKey || '',
-    }));
+    const outcomes = this.repository.listSkillOutcomes(userId);
+    return this.skillRunner.getAll(userId).slice(0, 80).map((skill) => {
+      const observed = outcomes.get(skill.name);
+      return {
+        name: skill.name,
+        description: skill.description,
+        source: skill.metadata?.source || skill.ownerType,
+        learningManaged: this.isLearningManaged(skill),
+        workflowKey: skill.metadata?.learning?.workflowKey || '',
+        // Real invocation outcomes, so a review can correct a skill that keeps
+        // failing instead of judging it only on how it read when it was written.
+        ...(observed?.invocations ? {
+          invocations: observed.invocations,
+          failures: observed.failures,
+        } : {}),
+      };
+    });
+  }
+
+  /**
+   * Disable learning-managed skills whose observed outcomes say they do not
+   * work. They stay on disk and the owner can re-enable them from the skills
+   * view; only the auto-created ones are ever touched.
+   */
+  retireFailingSkills(userId) {
+    const retired = [];
+    for (const outcome of this.repository.listSkillOutcomes(userId).values()) {
+      if (outcome.invocations < RETIREMENT_MIN_INVOCATIONS) continue;
+      const successRate = outcome.successes / outcome.invocations;
+      if (successRate > RETIREMENT_MAX_SUCCESS_RATE) continue;
+      const skill = this.skillRunner.getSkill(outcome.skillName, userId);
+      if (!this.isLearningManaged(skill) || skill.metadata?.enabled === false) continue;
+
+      const reason = `Disabled after ${outcome.successes} of ${outcome.invocations} invocations succeeded.`;
+      const result = this.skillRunner.updateSkill(userId, skill.name, {
+        metadata: {
+          ...skill.metadata,
+          enabled: false,
+          learning: {
+            ...(skill.metadata.learning || {}),
+            retiredAt: new Date().toISOString(),
+            retiredReason: reason,
+            successRate: Number(successRate.toFixed(2)),
+          },
+        },
+        recordVersion: false,
+      });
+      if (!result?.success) continue;
+      retired.push({ name: skill.name, reason, successRate });
+      this.io?.to(`user:${userId}`).emit('skill:retired', { name: skill.name, reason });
+    }
+    return retired;
   }
 
   isLearningManaged(skill) {
@@ -125,4 +177,8 @@ class SkillLearningWriter {
   }
 }
 
-module.exports = { SkillLearningWriter };
+module.exports = {
+  RETIREMENT_MAX_SUCCESS_RATE,
+  RETIREMENT_MIN_INVOCATIONS,
+  SkillLearningWriter,
+};

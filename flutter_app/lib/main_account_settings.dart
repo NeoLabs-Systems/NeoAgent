@@ -322,7 +322,10 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             ),
           ),
         if (widget.controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: widget.controller.errorMessage!),
+          _InlineError(
+            message: widget.controller.errorMessage!,
+            onDismiss: widget.controller.clearInlineError,
+          ),
           const SizedBox(height: 16),
         ],
         if (showTabSwitcher && compact)
@@ -664,7 +667,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     } catch (err) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not export your data: $err')),
+        SnackBar(content: Text('Could not export your data: ${_formatCaughtError(err)}')),
       );
     } finally {
       if (mounted) setState(() => _isExportingData = false);
@@ -738,31 +741,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       if (!mounted) return;
       setState(() => _isDeletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete your account: $err')),
+        SnackBar(content: Text('Could not delete your account: ${_formatCaughtError(err)}')),
       );
     }
-  }
-
-  String _formatTokens(int amount) {
-    if (amount >= 1000000) {
-      final value = amount / 1000000;
-      return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}M';
-    }
-    if (amount >= 1000) {
-      final value = amount / 1000;
-      return '${value == value.truncateToDouble() ? value.toInt() : value.toStringAsFixed(1)}k';
-    }
-    return amount.toString();
-  }
-
-  String? _nextUsageDropLabel(DateTime? value) {
-    if (value == null) return null;
-    final remaining = value.difference(DateTime.now());
-    if (remaining.isNegative) return 'Usage updates shortly';
-    if (remaining.inHours > 0) {
-      return 'Next usage drop in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
-    }
-    return 'Next usage drop in ${remaining.inMinutes + 1}m';
   }
 
   Widget _buildUsagePanel() {
@@ -803,7 +784,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       int? limit, {
       required int remaining,
       required bool reached,
-      required DateTime? nextDecreaseAt,
+      required DateTime? recoversAt,
+      required DateTime? fullResetAt,
       bool isCustom = false,
     }) {
       final double progress = limit != null
@@ -811,7 +793,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           : 0.0;
       final bool nearLimit = progress > 0.8;
       final bool atLimit = reached || progress >= 1.0;
-      final nextDrop = _nextUsageDropLabel(nextDecreaseAt);
+      final resetLabel = _usageWindowResetLabel(
+        reached: atLimit,
+        recoversAt: recoversAt,
+        fullResetAt: fullResetAt,
+      );
 
       return Container(
         width: double.infinity,
@@ -868,7 +854,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text(
-                  _formatTokens(current),
+                  _formatTokenCount(current),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -889,7 +875,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 const Spacer(),
                 if (limit != null)
                   Text(
-                    'of ${_formatTokens(limit)}',
+                    'of ${_formatTokenCount(limit)}',
                     style: TextStyle(color: _textMuted, fontSize: 13),
                   )
                 else
@@ -919,9 +905,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               const SizedBox(height: 6),
               Text(
                 atLimit
-                    ? 'Limit reached${nextDrop == null ? '' : ' · $nextDrop'}'
-                    : '${(progress * 100).toStringAsFixed(0)}% used · ${_formatTokens(remaining)} remaining'
-                          '${nextDrop == null ? '' : ' · $nextDrop'}',
+                    ? 'Limit reached${resetLabel == null ? '' : ' · $resetLabel'}'
+                    : '${(progress * 100).toStringAsFixed(0)}% used · ${_formatTokenCount(remaining)} remaining'
+                          '${resetLabel == null ? '' : ' · $resetLabel'}',
                 style: TextStyle(
                   fontSize: 11,
                   color: atLimit
@@ -953,7 +939,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           usage.fourHourLimit,
           remaining: usage.fourHourRemaining,
           reached: usage.fourHourReached,
-          nextDecreaseAt: usage.fourHourNextDecreaseAt,
+          recoversAt: usage.fourHourRecoversAt,
+          fullResetAt: usage.fourHourFullResetAt,
           isCustom: usage.fourHourIsCustom,
         ),
         const SizedBox(height: 16),
@@ -963,7 +950,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           usage.weeklyLimit,
           remaining: usage.weeklyRemaining,
           reached: usage.weeklyReached,
-          nextDecreaseAt: usage.weeklyNextDecreaseAt,
+          recoversAt: usage.weeklyRecoversAt,
+          fullResetAt: usage.weeklyFullResetAt,
           isCustom: usage.weeklyIsCustom,
         ),
       ],

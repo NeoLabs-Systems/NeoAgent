@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { asObject, toOptionalString } = require('../utils/text');
 const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
 const cowork = require('./cowork/service');
@@ -47,17 +48,6 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'stream:subscribe': { windowMs: 10 * 1000, max: 40 },
   'stream:unsubscribe': { windowMs: 10 * 1000, max: 40 },
 });
-
-function asObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-}
-
-function toOptionalString(value, maxLength = 512) {
-  if (value == null) return '';
-  const normalized = String(value).trim();
-  if (!normalized) return '';
-  return normalized.slice(0, maxLength);
-}
 
 function normalizeCoworkMessageOptions(options, task) {
   const displayContent = toOptionalString(

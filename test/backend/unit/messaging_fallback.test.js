@@ -142,7 +142,7 @@ test('buildMessagingFailureScenario assembles a structured evidence string', () 
 
 test('buildDeterministicMessagingErrorReply special-cases provider and timeout errors', () => {
   assert.match(
-    buildDeterministicMessagingErrorReply({ err: { message: 'No AI providers are currently available' }, toolExecutions: [] }),
+    buildDeterministicMessagingErrorReply({ err: { message: 'No AI providers are configured' }, toolExecutions: [] }),
     /no AI provider is available/,
   );
   assert.match(

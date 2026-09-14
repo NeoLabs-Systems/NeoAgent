@@ -8,6 +8,8 @@ const {
   ChannelType,
 } = require('discord.js');
 
+const FATAL_DISCORD_CLOSE_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
+
 /**
  * Whitelist entry format (prefixed strings):
  *   "user:SNOWFLAKE"    → allow DMs; allow guild messages only when @mentioned
@@ -69,14 +71,17 @@ class DiscordPlatform extends BasePlatform {
       this._client.on('error', (err) => console.error('[Discord] Client error:', err.message));
       this._client.on('shardDisconnect', (event, shardId) => {
         if (this._manualDisconnect) return;
+        const code = event?.code || null;
+        const fatal = FATAL_DISCORD_CLOSE_CODES.has(code);
         this.status = 'disconnected';
-        console.warn(`[Discord] Shard ${shardId} disconnected (${event?.code || 'unknown'})`);
+        console.warn(`[Discord] Shard ${shardId} disconnected (${code || 'unknown'})`);
         this.emit('disconnected', {
           manual: false,
-          willReconnect: true,
+          willReconnect: !fatal,
+          requiresUserAction: fatal,
           shardId,
-          code: event?.code || null,
-          reason: event?.reason || null,
+          code,
+          reason: event?.reason || (fatal ? 'authentication_required' : null),
         });
       });
       this._client.on('shardReconnecting', (shardId) => {
@@ -219,6 +224,12 @@ class DiscordPlatform extends BasePlatform {
       roleIds: !isDM && message.member ? [...message.member.roles.cache.keys()] : [],
       wasMentioned: !isDM && this._isMentioned(message),
       repliedToAgent: Boolean(repliedToAgent),
+      botUsername: this._botUser?.username || null,
+      botDisplayName: this._botUser?.globalName
+        || this._botUser?.displayName
+        || this._botUser?.username
+        || null,
+      botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
       content,
       mediaType: null,
@@ -302,6 +313,21 @@ class DiscordPlatform extends BasePlatform {
           subtitle: guild.name || 'Discord role',
         });
       }
+    }
+    const channels = this._client.channels?.cache?.values?.() || [];
+    for (const channel of channels) {
+      if (channel?.type !== ChannelType.DM) continue;
+      const recipient = channel.recipient;
+      const userId = String(recipient?.id || '').trim();
+      if (!userId) continue;
+      targets.push({
+        source: 'live',
+        bucket: 'directRules',
+        scope: 'user',
+        value: userId,
+        label: recipient.globalName || recipient.username || 'Private chat',
+        subtitle: 'Discord private chat',
+      });
     }
     return targets;
   }

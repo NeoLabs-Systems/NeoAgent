@@ -1,13 +1,5 @@
 part of 'main.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cowork — conversation column
-//
-// Header (title, context pills, run status), transcript (messages with the
-// tool activity of each run inlined between the request and the reply),
-// structured-input cards, and the composer slot.
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _CoworkConversation extends StatelessWidget {
   const _CoworkConversation({
     required this.controller,

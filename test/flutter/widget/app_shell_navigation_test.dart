@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +105,17 @@ void main() {
     expect(find.byType(Drawer), findsNothing);
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
     expect(scaffold.bottomNavigationBar, isNull);
+  });
+
+  testWidgets('the desktop sidebar lists the server section', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final controller = await pumpShell(tester, const Size(1440, 900));
+
+    controller.setSelectedSection(AppSection.settings);
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppSection.server.label), findsWidgets);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('an empty chat greets with the date', (tester) async {

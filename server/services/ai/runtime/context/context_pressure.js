@@ -124,6 +124,7 @@ function createContextPressureController({ summarize, onEvent } = {}) {
       before_tokens: beforeTokens,
       after_tokens: afterTokens,
       compacted_messages: cut.compacted.length,
+      split_turn: Boolean(cut.splitTurn),
       ...budget,
     });
     return {

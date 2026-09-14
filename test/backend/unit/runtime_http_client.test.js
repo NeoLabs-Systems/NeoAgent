@@ -5,6 +5,8 @@ const http = require('node:http');
 const { afterEach, test } = require('node:test');
 
 const {
+  GUEST_HEALTH_TIMEOUT_MS,
+  LocalVmExecutionBackend,
   RuntimeHttpClient,
   VmBrowserProvider,
 } = require('../../../server/services/runtime/backends/local-vm');
@@ -113,4 +115,102 @@ test('VM browser status and cookie reads forward cancellation', async () => {
 
   assert.equal(calls.length, 2);
   assert.ok(calls.every((call) => call.options.signal === controller.signal));
+});
+
+test('guest health wait accepts a reachable agent and does not wait for cloud-init', async () => {
+  assert.equal(GUEST_HEALTH_TIMEOUT_MS, 100_000);
+  const { url } = await listen((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ status: 'starting', runtime: 'guest-agent' }));
+  });
+  const client = new RuntimeHttpClient(url);
+  const health = await client.waitForHealth({ timeoutMs: 2_000 });
+  assert.equal(health.status, 'starting');
+});
+
+test('guest health wait stops at the requested deadline', async () => {
+  const { url } = await listen((request) => request.socket.destroy());
+  const client = new RuntimeHttpClient(url);
+  const startedAt = Date.now();
+  await assert.rejects(
+    client.waitForHealth({ timeoutMs: 250, intervalMs: 50 }),
+    /Timed out waiting for the guest runtime/,
+  );
+  assert.ok(Date.now() - startedAt < 2_000);
+});
+
+function fakeSession(overrides = {}) {
+  return {
+    baseUrl: '',
+    guestToken: 'token',
+    state: 'starting',
+    process: { pid: process.pid },
+    directBoot: false,
+    getLastError: () => '',
+    ...overrides,
+  };
+}
+
+function fakeVmManager(session, overrides = {}) {
+  const manager = {
+    bootTimeoutMs: 20 * 60 * 1000,
+    instances: new Map([['user-1', session]]),
+    ensureVm: async () => session,
+    failVm: async () => { manager.failures += 1; },
+    cacheDirectBootAssets: async () => true,
+    failures: 0,
+    ...overrides,
+  };
+  return manager;
+}
+
+test('a VM that still has to provision waits for the manager boot timeout, not the warm ceiling', async () => {
+  const observed = [];
+  const original = RuntimeHttpClient.prototype.waitForHealth;
+  RuntimeHttpClient.prototype.waitForHealth = async function waitForHealth(options) {
+    observed.push(options.timeoutMs);
+    return { status: 'ok' };
+  };
+  try {
+    const provisioning = fakeSession({ directBoot: false });
+    const warm = fakeSession({ directBoot: true });
+    const backend = new LocalVmExecutionBackend({
+      vmManager: fakeVmManager(provisioning, { bootTimeoutMs: 900_000 }),
+    });
+    await backend.getClientForUser('user-1');
+    const warmBackend = new LocalVmExecutionBackend({
+      vmManager: fakeVmManager(warm, { bootTimeoutMs: 900_000 }),
+    });
+    await warmBackend.getClientForUser('user-1');
+    assert.deepEqual(observed, [900_000, GUEST_HEALTH_TIMEOUT_MS]);
+  } finally {
+    RuntimeHttpClient.prototype.waitForHealth = original;
+  }
+});
+
+test('direct-boot asset caching stays off the request path and never fails the VM', async () => {
+  const { url } = await listen((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ status: 'ok', runtime: 'guest-agent' }));
+  });
+  let cacheCalls = 0;
+  let released;
+  const finished = new Promise((resolve) => { released = resolve; });
+  const session = fakeSession({ baseUrl: url, directBoot: true });
+  const manager = fakeVmManager(session, {
+    cacheDirectBootAssets: async () => {
+      cacheCalls += 1;
+      released();
+      throw new Error('Guest runtime request timed out after 120000ms.');
+    },
+  });
+  const backend = new LocalVmExecutionBackend({ vmManager: manager });
+
+  const client = await backend.getClientForUser('user-1');
+  assert.ok(client instanceof RuntimeHttpClient);
+  await finished;
+  await backend.shutdown();
+
+  assert.equal(cacheCalls, 1);
+  assert.equal(manager.failures, 0);
 });

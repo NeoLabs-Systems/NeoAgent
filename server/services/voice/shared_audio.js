@@ -6,10 +6,6 @@ const DEFAULT_PCM = Object.freeze({
   bitsPerSample: 16,
 });
 
-function pcmMimeType(format = DEFAULT_PCM) {
-  return `audio/pcm;rate=${format.sampleRate};channels=${format.channels}`;
-}
-
 function wrapPcmAsWav(audioBytes, format = DEFAULT_PCM) {
   const data = Buffer.isBuffer(audioBytes) ? audioBytes : Buffer.from(audioBytes || []);
   const sampleRate = Number(format.sampleRate) || DEFAULT_PCM.sampleRate;
@@ -36,6 +32,5 @@ function wrapPcmAsWav(audioBytes, format = DEFAULT_PCM) {
 
 module.exports = {
   DEFAULT_PCM,
-  pcmMimeType,
   wrapPcmAsWav,
 };

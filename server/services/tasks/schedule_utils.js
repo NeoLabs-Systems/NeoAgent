@@ -1,6 +1,11 @@
 'use strict';
 
 const MINUTE_MS = 60 * 1000;
+// A head start is capped so that a single pathological run (a task that once
+// took hours) cannot drag every future occurrence arbitrarily far forward.
+const MAX_LEAD_TIME_MS = 60 * 60 * 1000;
+// How many recent completed runs feed the average used for the head start.
+const RUN_SAMPLE_SIZE = 10;
 const MONTH_NAMES = new Map([
   ['jan', 1],
   ['feb', 2],
@@ -184,35 +189,20 @@ function findNextRun(expression, fromDate = new Date(), maxLookaheadMinutes = 36
   return null;
 }
 
-function getMinimumIntervalMinutes(expression, occurrenceCount = 3) {
-  const matches = [];
-  let cursor = new Date();
-  for (let index = 0; index < occurrenceCount; index += 1) {
-    const next = findNextRun(expression, cursor);
-    if (!next) {
-      break;
-    }
-    matches.push(next);
-    cursor = new Date(next.getTime());
-  }
-  if (matches.length < 2) {
-    return null;
-  }
-
-  let minInterval = Number.POSITIVE_INFINITY;
-  for (let index = 1; index < matches.length; index += 1) {
-    const intervalMinutes = Math.round((matches[index].getTime() - matches[index - 1].getTime()) / MINUTE_MS);
-    if (intervalMinutes < minInterval) {
-      minInterval = intervalMinutes;
-    }
-  }
-
-  return Number.isFinite(minInterval) ? minInterval : null;
+// How long before its scheduled time a run must start so that it finishes at
+// that time: its measured average duration. Returns 0 when there is no usable
+// history yet, which keeps the task starting at its configured time.
+function resolveLeadTimeMs(averageRunSeconds) {
+  const averageSeconds = Number(averageRunSeconds);
+  if (!Number.isFinite(averageSeconds) || averageSeconds <= 0) return 0;
+  return Math.min(Math.round(averageSeconds * 1000), MAX_LEAD_TIME_MS);
 }
 
 module.exports = {
+  MINUTE_MS,
+  RUN_SAMPLE_SIZE,
   findNextRun,
-  getMinimumIntervalMinutes,
   matchesCron,
   parseCronExpression,
+  resolveLeadTimeMs,
 };

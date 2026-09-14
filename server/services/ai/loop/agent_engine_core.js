@@ -6,7 +6,7 @@ const db = require('../../../db/database');
 const {
   getConversationContext,
 } = require('../history');
-const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
+const { getAiSettings } = require('../settings');
 const {
   buildPlanPrompt,
   buildVerifierPrompt,
@@ -15,7 +15,6 @@ const {
   parseJsonObject,
 } = require('../taskAnalysis');
 const { shouldAcceptTaskComplete } = require('../completion');
-const { shortenRunId, summarizeForLog } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
 const {
   recordModelFailure,
@@ -80,10 +79,7 @@ const {
   getAvailableTools: getAvailableToolsImpl,
   isReadOnlyToolCall: isReadOnlyToolCallImpl,
 } = require('./tool_dispatch');
-const {
-  normalizeOutgoingMessage,
-  clampRunContext,
-} = require('../messagingFallback');
+const { clampRunContext } = require('../messagingFallback');
 const {
   assessResearchAdequacy,
   summarizeToolExecutions,
@@ -1270,7 +1266,6 @@ class AgentEngine {
   // maxIterations is derived in runWithModel from loopPolicy.maxIterations.
 
   getReasoningEffort(providerName, options = {}) {
-    if (providerName === 'google') return undefined;
     if (options.latencyProfile === 'voice') {
       return 'low';
     }

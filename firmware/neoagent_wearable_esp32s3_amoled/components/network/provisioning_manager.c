@@ -46,7 +46,10 @@ static TickType_t s_scan_last_finished_ticks = 0;
 static SemaphoreHandle_t s_scan_mutex = NULL;
 static TaskHandle_t s_scan_task = NULL;
 static bool s_sntp_initialized = false;
-static char s_captive_portal_uri[48] = "http://192.168.4.1";
+// The SoftAP falls back to the ESP-IDF default address when the netif cannot
+// report one; the live value is whatever the portal actually listens on.
+#define DEFAULT_CAPTIVE_PORTAL_URI "http://192.168.4.1"
+static char s_captive_portal_uri[48] = DEFAULT_CAPTIVE_PORTAL_URI;
 static int s_time_offset_seconds = 0;
 static bool s_time_offset_configured = false;
 
@@ -902,7 +905,7 @@ static void maybe_set_captive_portal_uri(esp_netif_t *netif) {
             IP2STR(&ap_ip_info.ip)
         );
     } else {
-        strlcpy(s_captive_portal_uri, "http://192.168.4.1", sizeof(s_captive_portal_uri));
+        strlcpy(s_captive_portal_uri, DEFAULT_CAPTIVE_PORTAL_URI, sizeof(s_captive_portal_uri));
     }
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_dhcps_stop(netif));
     if (have_ap_ip) {
@@ -1307,7 +1310,7 @@ esp_err_t provisioning_manager_start_portal(provisioning_manager_t *manager, ses
     manager->portal_running = true;
     ensure_scan_task_started();
     s_scan_requested = true;
-    ESP_LOGI(TAG, "provisioning portal ready ssid=%s password=<open> url=http://192.168.4.1", manager->ap_ssid);
+    ESP_LOGI(TAG, "provisioning portal ready ssid=%s password=<open> url=%s", manager->ap_ssid, s_captive_portal_uri);
     return ESP_OK;
 }
 

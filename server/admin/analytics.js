@@ -317,14 +317,6 @@ function fmtNum(n) {
   return Number(n).toLocaleString();
 }
 
-function fmtTokens(n) {
-  if (!n) return '0';
-  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
-  return String(n);
-}
-
 function fmtBytes(n) {
   if (!n) return '0 B';
   if (n >= 1_073_741_824) return (n / 1_073_741_824).toFixed(1) + ' GB';

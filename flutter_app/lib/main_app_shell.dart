@@ -39,12 +39,24 @@ class SplashView extends StatelessWidget {
 }
 
 class AuthView extends StatefulWidget {
-  const AuthView({super.key, required this.controller});
+  const AuthView({super.key, required this.controller, this.runtimeManager});
 
   final NeoAgentController controller;
+  final LocalRuntimeManager? runtimeManager;
 
   @override
   State<AuthView> createState() => _AuthViewState();
+}
+
+// Mirrors the server rule in server/services/account/email.js, so the form
+// rejects exactly what registration would reject rather than guessing.
+final RegExp _emailShape = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
+bool _looksLikeEmail(String value) {
+  final email = value.trim().toLowerCase();
+  return email.length <= 320 &&
+      _emailShape.hasMatch(email) &&
+      !email.contains('..');
 }
 
 class _AuthViewState extends State<AuthView> {
@@ -55,6 +67,7 @@ class _AuthViewState extends State<AuthView> {
   late final TextEditingController _twoFactorController;
   bool _registerMode = false;
   bool _qrAutoRequestedForVisibleMode = false;
+  LocalRuntimeStatus? _localRuntimeStatus;
 
   @override
   void initState() {
@@ -70,6 +83,50 @@ class _AuthViewState extends State<AuthView> {
     );
     _confirmPasswordController = TextEditingController();
     _twoFactorController = TextEditingController();
+    unawaited(_refreshLocalRuntimeStatus());
+  }
+
+  Future<void> _refreshLocalRuntimeStatus() async {
+    if (!_supportsDesktopShell) return;
+    try {
+      final status =
+          await (widget.runtimeManager ?? LocalRuntimeManager()).inspect();
+      if (!mounted) return;
+      setState(() => _localRuntimeStatus = status);
+    } on Object {
+      // No readable runtime on this computer simply means no shortcut.
+    }
+  }
+
+  /// Whether this computer hosts the server this window signs in to.
+  ///
+  /// The status comes from the local runtime CLI and the address has to be the
+  /// loopback one already selected, so a remote NeoAgent server never surfaces
+  /// the shortcut — there would be nothing here for it to repair.
+  bool get _showsLocalServerRepair {
+    final status = _localRuntimeStatus;
+    return _supportsDesktopShell &&
+        status?.installed == true &&
+        widget.controller.isLocalRuntimeBackend(status?.backendUrl);
+  }
+
+  Future<void> _openLocalServerSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+          body: ServerPanel(controller: widget.controller),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _refreshLocalRuntimeStatus();
+    if (!mounted) return;
+    // Signing in can only work once the server answers again.
+    if (_localRuntimeStatus?.running == true &&
+        !widget.controller.isAuthenticated) {
+      await widget.controller.bootstrap();
+    }
   }
 
   @override
@@ -317,7 +374,10 @@ class _AuthViewState extends State<AuthView> {
         ),
         const SizedBox(height: 20),
         if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(message: controller.errorMessage!),
+          _InlineError(
+            message: controller.errorMessage!,
+            onDismiss: controller.clearInlineError,
+          ),
           const SizedBox(height: 16),
         ],
         if (controller.authInfoMessage != null) ...<Widget>[
@@ -376,29 +436,49 @@ class _AuthViewState extends State<AuthView> {
               ? null
               : () async {
                   if (awaitingTwoFactor) {
-                    await controller.completeTwoFactorLogin(
-                      code: _twoFactorController.text,
-                    );
+                    final code = _twoFactorController.text.trim();
+                    if (code.isEmpty) {
+                      widget.controller.showInlineError(
+                        'Enter your 2FA or recovery code.',
+                      );
+                      return;
+                    }
+                    await controller.completeTwoFactorLogin(code: code);
                     return;
                   }
-                  if (_registerMode &&
-                      _passwordController.text !=
-                          _confirmPasswordController.text) {
-                    widget.controller.showInlineError(
-                      'Passwords do not match.',
-                    );
+                  final username = _usernameController.text.trim();
+                  final password = _passwordController.text;
+                  if (username.isEmpty) {
+                    widget.controller.showInlineError('Enter a username.');
+                    return;
+                  }
+                  if (password.isEmpty) {
+                    widget.controller.showInlineError('Enter a password.');
                     return;
                   }
                   if (_registerMode) {
+                    final email = _emailController.text.trim();
+                    if (email.isEmpty || !_looksLikeEmail(email)) {
+                      widget.controller.showInlineError(
+                        'Enter a valid email address.',
+                      );
+                      return;
+                    }
+                    if (password != _confirmPasswordController.text) {
+                      widget.controller.showInlineError(
+                        'Passwords do not match.',
+                      );
+                      return;
+                    }
                     await controller.register(
-                      username: _usernameController.text,
-                      email: _emailController.text,
-                      password: _passwordController.text,
+                      username: username,
+                      email: email,
+                      password: password,
                     );
                   } else {
                     await controller.login(
-                      username: _usernameController.text,
-                      password: _passwordController.text,
+                      username: username,
+                      password: password,
                     );
                   }
                 },
@@ -526,6 +606,18 @@ class _AuthViewState extends State<AuthView> {
               ),
             ),
           ],
+        ],
+        if (_showsLocalServerRepair) ...<Widget>[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _openLocalServerSettings,
+            icon: const Icon(Icons.dns_outlined, size: 18),
+            label: Text(
+              _localRuntimeStatus?.running == true
+                  ? 'Server on this computer'
+                  : 'The server on this computer is not running',
+            ),
+          ),
         ],
       ],
     );
@@ -949,8 +1041,8 @@ class _HomeViewState extends State<HomeView> {
             .then((_) {
               if (mounted) {
                 locationService.startGeofenceTracking(
+                  widget.controller.backendClient,
                   backendUrl,
-                  sessionCookie,
                 );
               }
             })
@@ -1296,7 +1388,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Choose exactly where this sender should be allowed. You can change or remove the rule later in Messaging.',
+                      'Choose where this person should be allowed to talk to ${widget.controller.activeAgentLabel}. You can change this later under Who can message.',
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[
@@ -1306,6 +1398,7 @@ class _HomeViewState extends State<HomeView> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _BlockedAccessChoice(
                             suggestion: suggestion,
+                            agentName: widget.controller.activeAgentLabel,
                             onPressed: () async {
                               Navigator.of(dialogContext).pop();
                               await widget.controller.allowMessagingSuggestion(
@@ -1328,7 +1421,7 @@ class _HomeViewState extends State<HomeView> {
                   widget.controller.setSelectedSection(AppSection.messaging);
                   Navigator.of(dialogContext).pop();
                 },
-                child: Text('Review all access'),
+                child: Text('Who can message'),
               ),
               TextButton(
                 onPressed: () async {
@@ -1360,10 +1453,12 @@ class _BlockedAccessChoice extends StatelessWidget {
   const _BlockedAccessChoice({
     required this.suggestion,
     required this.onPressed,
+    required this.agentName,
   });
 
   final QuickAllowSuggestion suggestion;
   final VoidCallback onPressed;
+  final String agentName;
 
   @override
   Widget build(BuildContext context) {
@@ -1371,22 +1466,22 @@ class _BlockedAccessChoice extends StatelessWidget {
       'sharedMemberRules' => (
         Icons.person_pin_circle_outlined,
         'Only in this group',
-        'Allow this sender here, without granting access in DMs or other groups.',
+        'Let this person talk to $agentName here, but not in private chats or other groups.',
       ),
       'sharedActorRules' => (
         Icons.person_add_alt_1_rounded,
-        'This sender everywhere',
-        'Allow this person in DMs and in every group or shared space.',
+        'This person, anywhere',
+        'Let this person talk to $agentName in private chats and in any group they share.',
       ),
       'sharedSpaceRules' => (
         Icons.groups_2_outlined,
         'Everyone in this group',
-        'Allow messages from every participant in this group or shared space.',
+        'Let everyone in this group talk to $agentName.',
       ),
       _ => (
         Icons.person_outline_rounded,
-        'Allow this sender',
-        'Allow this person to message the agent directly.',
+        'Private chats only',
+        'Let this person send $agentName a one-to-one message.',
       ),
     };
     return Material(

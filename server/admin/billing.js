@@ -413,23 +413,3 @@ function billingPromptPlan(plans) {
     modal.querySelector('#billing-plan-confirm').focus();
   });
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function esc(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function escAttr(str) {
-  // JSON.stringify gives us a properly quoted JS string; strip the outer quotes
-  // so it can be embedded in an HTML attribute value (already inside quotes).
-  return JSON.stringify(String(str ?? '')).slice(1, -1).replace(/"/g, '&quot;');
-}
-
-function fmtTokens(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
-  return String(n);
-}

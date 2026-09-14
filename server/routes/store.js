@@ -1,6 +1,9 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
+const { sendJsonError } = require('../http/errors');
 const { STORE_CATALOG } = require('../services/skills/catalog');
 const { getSkillRunner } = require('../services/skills/runtime');
 const {
@@ -15,34 +18,29 @@ const {
 router.use(requireAuth);
 const CATALOG = STORE_CATALOG;
 
-// ── Routes ─────────────────────────────────────────────────────────────────────
-
-/** GET /api/store — return catalog with installed status */
 router.get('/', async (req, res) => {
   try {
     const runner = await getSkillRunner(req.app);
     res.json(listCatalog(CATALOG, runner));
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Failed to load store catalog' });
+    sendJsonError(res, error);
   }
 });
 
-/** POST /api/store/:id/install — write the skill file */
 router.post('/:id/install', async (req, res) => {
   try {
     const skill = CATALOG.find(s => s.id === req.params.id);
     if (!skill) return res.status(404).json({ error: 'Skill not found in catalog' });
 
     const skillRunner = req.app.locals?.skillRunner;
-    const { skillPath } = await installCatalogSkill(skill, skillRunner);
+    await installCatalogSkill(skill, skillRunner);
 
-    res.json({ success: true, id: skill.id, name: skill.name, filePath: skillPath });
+    res.json({ success: true, id: skill.id, name: skill.name });
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Failed to install skill' });
+    sendJsonError(res, error);
   }
 });
 
-/** DELETE /api/store/:id/uninstall — remove the skill file */
 router.delete('/:id/uninstall', async (req, res) => {
   try {
     const skill = CATALOG.find(s => s.id === req.params.id);
@@ -51,7 +49,7 @@ router.delete('/:id/uninstall', async (req, res) => {
 
     res.json({ success: true, id: skill.id });
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Failed to uninstall skill' });
+    sendJsonError(res, error);
   }
 });
 

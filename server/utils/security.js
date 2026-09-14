@@ -1,15 +1,10 @@
-/**
- * Security utilities — shared helpers for input validation and output sanitization.
- */
+'use strict';
+
+const crypto = require('crypto');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || '';
 const PROJECT_ROOT = require('path').join(__dirname, '../..');
 
-/**
- * Strip internal filesystem paths and module stack frames from an error message
- * before sending it to a client. Prevents leaking absolute paths, internal
- * directory structure, or dependency internals in API responses.
- */
 function sanitizeError(err) {
   if (!err) return 'An unexpected error occurred';
   const raw = typeof err === 'string' ? err : err.message || String(err);
@@ -45,9 +40,6 @@ function sanitizeError(err) {
   return msg.trim() || 'An unexpected error occurred';
 }
 
-/**
- * Validate that a value is a plain string within an allowed length range.
- */
 function validateString(value, { maxLength = 50000, name = 'value' } = {}) {
   if (typeof value !== 'string') throw new Error(`${name} must be a string`);
   if (value.length === 0) throw new Error(`${name} must not be empty`);
@@ -55,13 +47,6 @@ function validateString(value, { maxLength = 50000, name = 'value' } = {}) {
   return value;
 }
 
-/**
- * Returns true if the string looks like it contains a prompt injection attempt.
- * This is a heuristic for logging/alerting — NOT a hard block (context window still applies).
- *
- * Covers: classic override phrases, jailbreak personas (DAN, AIM, etc.), roleplay unlocks,
- * structural tag injection, credential fishing, and multi-language variants.
- */
 function detectPromptInjection(text) {
   if (typeof text !== 'string') return false;
   const patterns = [
@@ -115,4 +100,28 @@ function detectPromptInjection(text) {
   return patterns.some(p => p.test(text));
 }
 
-module.exports = { sanitizeError, validateString, detectPromptInjection };
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left ?? ''), 'utf8');
+  const b = Buffer.from(String(right ?? ''), 'utf8');
+  if (a.length === 0 || b.length === 0) return false;
+  const size = Math.max(a.length, b.length);
+  const paddedA = Buffer.alloc(size);
+  const paddedB = Buffer.alloc(size);
+  a.copy(paddedA);
+  b.copy(paddedB);
+  return crypto.timingSafeEqual(paddedA, paddedB) && a.length === b.length;
+}
+
+// PKCE code challenges and similar OAuth values need base64url, which Node's
+// digest() does not emit directly.
+function base64UrlSha256(value) {
+  return crypto
+    .createHash('sha256')
+    .update(String(value || ''))
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+module.exports = { base64UrlSha256, sanitizeError, validateString, detectPromptInjection, safeEqual };

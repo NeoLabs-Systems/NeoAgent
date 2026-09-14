@@ -11,12 +11,10 @@ const {
 const { encryptValue } = require('../secrets');
 const { BITWARDEN_APP, BITWARDEN_PROVIDER_KEY } = require('./constants');
 const { buildBitwardenSnapshot } = require('./snapshot');
+const { trimText: text } = require('../../../utils/text');
+const { upsertConnectedIntegration } = require('../connection_store');
 
 const DEFAULT_SERVER_URL = 'https://vault.bitwarden.com';
-
-function text(value) {
-  return String(value || '').trim();
-}
 
 function normalizeServerUrl(value) {
   const url = new URL(text(value) || DEFAULT_SERVER_URL);
@@ -67,34 +65,23 @@ function publicConfig(config, connection, status = {}) {
 
 function upsertConnection(userId, agentId, config) {
   const existing = loadConnection(userId, agentId);
-  const metadata = JSON.stringify({
+  const metadata = {
     access_mode: getConnectionAccessMode(existing),
     idleTimeoutMinutes: config.idleTimeoutMinutes,
-  });
-  db.prepare(
-    `INSERT INTO integration_connections (
-       user_id, agent_id, provider_key, app_key, status, account_email,
-       scopes_json, credentials_json, metadata_json, last_connected_at, updated_at
-     ) VALUES (?, ?, ?, ?, 'connected', ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(user_id, agent_id, provider_key, app_key, account_email) DO UPDATE SET
-       status = excluded.status,
-       credentials_json = excluded.credentials_json,
-       metadata_json = excluded.metadata_json,
-       last_connected_at = excluded.last_connected_at,
-       updated_at = excluded.updated_at`,
-  ).run(
+  };
+  upsertConnectedIntegration({
     userId,
     agentId,
-    BITWARDEN_PROVIDER_KEY,
-    BITWARDEN_APP.id,
-    config.email,
-    JSON.stringify(['vault:read_selected']),
-    encryptValue(JSON.stringify({
+    providerKey: BITWARDEN_PROVIDER_KEY,
+    appKey: BITWARDEN_APP.id,
+    accountEmail: config.email,
+    scopes: ['vault:read_selected'],
+    credentialsJson: encryptValue(JSON.stringify({
       serverUrl: config.serverUrl,
       email: config.email,
     })),
     metadata,
-  );
+  });
   if (existing && existing.account_email !== config.email) {
     db.prepare('DELETE FROM integration_connections WHERE id = ?').run(existing.id);
   }
