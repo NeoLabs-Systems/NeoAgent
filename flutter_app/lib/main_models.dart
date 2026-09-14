@@ -3553,6 +3553,7 @@ class TaskItem {
     required this.lastRunId,
     required this.lastRunStatus,
     required this.lastRunError,
+    required this.averageRunSeconds,
   });
 
   factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3609,6 +3610,9 @@ class TaskItem {
       lastRunId: json['lastRunId']?.toString() ?? '',
       lastRunStatus: json['lastRunStatus']?.toString() ?? '',
       lastRunError: json['lastRunError']?.toString() ?? '',
+      averageRunSeconds: json['averageRunSeconds'] == null
+          ? null
+          : _asInt(json['averageRunSeconds']),
     );
   }
 
@@ -3628,6 +3632,10 @@ class TaskItem {
   final String lastRunId;
   final String lastRunStatus;
   final String lastRunError;
+
+  /// Mean duration of this task's recent completed runs, or null while it has
+  /// never completed one.
+  final int? averageRunSeconds;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;

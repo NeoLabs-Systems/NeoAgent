@@ -3224,6 +3224,7 @@ class _TaskScheduleDraft {
     required this.weekdays,
     required this.monthDay,
     required this.customCronExpression,
+    this.leadTimeFactor = 0,
   });
 
   factory _TaskScheduleDraft.fromTask(TaskItem? task) {
@@ -3241,8 +3242,14 @@ class _TaskScheduleDraft {
     final cron =
         task?.triggerConfig['cronExpression']?.toString().trim() ??
         '*/30 * * * *';
+    final leadTimeFactor = _parseTaskLeadTimeFactor(
+      task?.triggerConfig['leadTimeFactor'],
+    );
     final parsed = _parseCronExpression(cron);
-    if (parsed != null) return parsed;
+    if (parsed != null) {
+      parsed.leadTimeFactor = leadTimeFactor;
+      return parsed;
+    }
     return _TaskScheduleDraft(
       mode: 'recurring',
       presetId: 'custom',
@@ -3250,6 +3257,7 @@ class _TaskScheduleDraft {
       weekdays: <int>{1},
       monthDay: 1,
       customCronExpression: cron,
+      leadTimeFactor: leadTimeFactor,
     );
   }
 
@@ -3259,6 +3267,10 @@ class _TaskScheduleDraft {
   Set<int> weekdays;
   int monthDay;
   String customCronExpression;
+
+  /// Share of the task's average run duration to start early by, so that the
+  /// run finishes at the configured time. 0 starts it at that time.
+  double leadTimeFactor;
 
   bool get usesTime =>
       presetId == 'daily' ||
@@ -3343,6 +3355,31 @@ _TaskScheduleDraft? _parseCronExpression(String cron) {
     return _recurringScheduleDraft('monthly', time: time, monthDay: parsedDay);
   }
   return null;
+}
+
+double _parseTaskLeadTimeFactor(Object? value) {
+  final parsed = value is num ? value.toDouble() : double.tryParse('$value');
+  if (parsed == null || parsed <= 0) return 0;
+  return parsed > 1 ? 1 : parsed;
+}
+
+/// Mirrors the head start the backend is willing to apply to one occurrence.
+const int _maxTaskLeadTimeSeconds = 60 * 60;
+
+int _taskLeadTimeSeconds(int averageRunSeconds, double leadTimeFactor) {
+  final seconds = (averageRunSeconds * leadTimeFactor).round();
+  return seconds > _maxTaskLeadTimeSeconds ? _maxTaskLeadTimeSeconds : seconds;
+}
+
+String _formatTaskDuration(int seconds) {
+  if (seconds < 60) return '$seconds sec';
+  final minutes = seconds ~/ 60;
+  final remainder = seconds % 60;
+  if (minutes < 60 && remainder != 0) return '$minutes min $remainder sec';
+  if (minutes < 60) return '$minutes min';
+  final hours = minutes ~/ 60;
+  final leftoverMinutes = minutes % 60;
+  return leftoverMinutes == 0 ? '$hours h' : '$hours h $leftoverMinutes min';
 }
 
 bool _looksLikeCronExpression(String cron) {
@@ -4410,6 +4447,53 @@ class _TasksPanelState extends State<TasksPanel> {
     );
   }
 
+  Widget _buildTaskLeadTimeSlider({
+    required _TaskScheduleDraft scheduleDraft,
+    required int? averageRunSeconds,
+    required StateSetter setLocalState,
+  }) {
+    final factor = scheduleDraft.leadTimeFactor;
+    final percent = (factor * 100).round();
+    final leadSeconds = averageRunSeconds == null
+        ? 0
+        : _taskLeadTimeSeconds(averageRunSeconds, factor);
+    final String hint;
+    if (factor == 0) {
+      hint = 'The run starts at the scheduled time.';
+    } else if (averageRunSeconds == null) {
+      hint =
+          'This task has no completed run yet, so it still starts at the '
+          'scheduled time. Once runs are measured it will start earlier.';
+    } else {
+      hint =
+          'Recent runs take about ${_formatTaskDuration(averageRunSeconds)}, '
+          'so the run starts ${_formatTaskDuration(leadSeconds)} early to '
+          'finish at the scheduled time.';
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          factor == 0 ? 'Head start: off' : 'Head start: $percent%',
+          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w600),
+        ),
+        Slider(
+          value: factor,
+          min: 0,
+          max: 1,
+          divisions: 20,
+          label: factor == 0 ? 'Off' : '$percent%',
+          onChanged: (value) =>
+              setLocalState(() => scheduleDraft.leadTimeFactor = value),
+        ),
+        Text(
+          hint,
+          style: TextStyle(color: _textSecondary, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
   Future<void> _openTaskEditor(
     BuildContext context, {
     TaskItem? task,
@@ -4862,6 +4946,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                       },
                                     ),
                                   ),
+                                  const SizedBox(height: 12),
+                                  _buildTaskLeadTimeSlider(
+                                    scheduleDraft: scheduleDraft,
+                                    averageRunSeconds: task?.averageRunSeconds,
+                                    setLocalState: setLocalState,
+                                  ),
                                 ],
                               ],
                             );
@@ -5199,6 +5289,8 @@ class _TasksPanelState extends State<TasksPanel> {
                           return;
                         }
                         triggerConfig['cronExpression'] = cronExpression;
+                        triggerConfig['leadTimeFactor'] =
+                            scheduleDraft.leadTimeFactor;
                       } else {
                         if (runAt.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(

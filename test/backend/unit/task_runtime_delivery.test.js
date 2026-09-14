@@ -818,7 +818,8 @@ describe('scheduled task result delivery', () => {
 
     assert.equal(first.state, 'running');
     assert.equal(second.state, 'running');
-    assert.equal(cronHarness.jobs.length, 2);
+    // One-time, lead-time and integration pollers.
+    assert.equal(cronHarness.jobs.length, 3);
     assert.equal(runtime.getStatus().started, true);
 
     const stopped = await runtime.stop();

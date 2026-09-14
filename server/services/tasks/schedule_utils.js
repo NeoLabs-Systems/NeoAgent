@@ -1,6 +1,11 @@
 'use strict';
 
 const MINUTE_MS = 60 * 1000;
+// A head start is capped so that a single pathological run (a task that once
+// took hours) cannot drag every future occurrence arbitrarily far forward.
+const MAX_LEAD_TIME_MS = 60 * 60 * 1000;
+// How many recent completed runs feed the average used for the head start.
+const RUN_SAMPLE_SIZE = 10;
 const MONTH_NAMES = new Map([
   ['jan', 1],
   ['feb', 2],
@@ -184,8 +189,24 @@ function findNextRun(expression, fromDate = new Date(), maxLookaheadMinutes = 36
   return null;
 }
 
+// Translate a task's measured average run duration and its configured lead-time
+// factor into how long before the scheduled time the run must start so that it
+// finishes on time. Returns 0 when there is no usable history yet, which keeps
+// the task starting at its configured time.
+function resolveLeadTimeMs(averageRunSeconds, leadTimeFactor) {
+  const factor = Number(leadTimeFactor);
+  const averageSeconds = Number(averageRunSeconds);
+  if (!Number.isFinite(factor) || factor <= 0) return 0;
+  if (!Number.isFinite(averageSeconds) || averageSeconds <= 0) return 0;
+  const leadMs = averageSeconds * 1000 * Math.min(factor, 1);
+  return Math.min(Math.round(leadMs), MAX_LEAD_TIME_MS);
+}
+
 module.exports = {
+  MINUTE_MS,
+  RUN_SAMPLE_SIZE,
   findNextRun,
   matchesCron,
   parseCronExpression,
+  resolveLeadTimeMs,
 };
