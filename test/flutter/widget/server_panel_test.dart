@@ -26,6 +26,19 @@ class _InstalledRuntimeManager extends LocalRuntimeManager {
   );
 }
 
+/// The runtime was updated on disk, but the old process still holds the port.
+class _StaleProcessRuntimeManager extends LocalRuntimeManager {
+  @override
+  Future<LocalRuntimeStatus> inspect() async => const LocalRuntimeStatus(
+    installed: true,
+    running: true,
+    version: '3.4.8',
+    runningVersion: '3.4.7',
+    backendUrl: 'http://localhost:8081',
+    releaseChannel: 'stable',
+  );
+}
+
 class _MissingRuntimeManager extends LocalRuntimeManager {
   @override
   Future<LocalRuntimeStatus> inspect() async =>
@@ -168,6 +181,21 @@ void main() {
     expect(text, contains('/logs/neoagent.error.log'));
     expect(text, contains('boom'));
     expect(find.text('Copy all'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('an activated update that is not serving yet says so', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await _pumpServerPanel(
+      tester,
+      'http://127.0.0.1:8081',
+      runtimeManager: _StaleProcessRuntimeManager(),
+    );
+
+    expect(find.textContaining('3.4.7 is still running'), findsOneWidget);
+    expect(find.text('Restart'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 }

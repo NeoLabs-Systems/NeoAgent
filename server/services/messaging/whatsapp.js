@@ -123,6 +123,13 @@ class WhatsAppPlatform extends BasePlatform {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
     }
+    // Two live sockets on one set of credentials make WhatsApp replace the
+    // first, and both then reconnect forever while inbound messages land on
+    // whichever socket is currently winning.
+    if (this.sock) {
+      log.warn('Closing the previous WhatsApp socket before connecting again.');
+      this._discardSocket();
+    }
     if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
 
     const {
@@ -171,6 +178,9 @@ class WhatsAppPlatform extends BasePlatform {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
+        if (this.status !== 'awaiting_qr') {
+          log.warn('Waiting for a QR scan; WhatsApp is not linked and will not receive messages.');
+        }
         this.qrCode = qr;
         this.status = 'awaiting_qr';
         this.emit('qr', qr);
@@ -179,6 +189,15 @@ class WhatsAppPlatform extends BasePlatform {
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
+        const reasonName = Object.keys(DisconnectReason)
+          .find((name) => DisconnectReason[name] === statusCode) || 'unknown';
+        log.warn(
+          `Connection closed (${reasonName}, status ${statusCode ?? 'none'}).`
+          + ` ${this._manualDisconnect ? 'Stopped on request.' : shouldReconnect ? 'Reconnecting.' : 'Not reconnecting.'}`
+          + (reasonName === 'connectionReplaced'
+            ? ' Another WhatsApp Web session took this one over.'
+            : ''),
+        );
 
         this.status = 'disconnected';
         this.emit('disconnected', {
@@ -199,6 +218,7 @@ class WhatsAppPlatform extends BasePlatform {
       }
 
       if (connection === 'open') {
+        log.info('Connection open; inbound messages will be processed.');
         this.status = 'connected';
         this.qrCode = null;
         this.reconnectAttempts = 0;
@@ -349,10 +369,25 @@ class WhatsAppPlatform extends BasePlatform {
     return { status: this.status };
   }
 
+  _discardSocket() {
+    const previous = this.sock;
+    this.sock = null;
+    if (!previous) return;
+    try {
+      previous.ev?.removeAllListeners?.('connection.update');
+      previous.ev?.removeAllListeners?.('messages.upsert');
+      previous.ev?.removeAllListeners?.('creds.update');
+      previous.end();
+    } catch {
+      // The socket is being thrown away either way.
+    }
+  }
+
   _scheduleReconnect() {
     if (this._manualDisconnect || this._reconnectTimer) return;
     this.reconnectAttempts++;
     const delay = Math.min(1000 * (2 ** Math.min(this.reconnectAttempts, 10)), 60000);
+    log.info(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts}).`);
     this._reconnectTimer = setTimeout(() => {
       this._reconnectTimer = null;
       if (this._manualDisconnect) return;
@@ -370,10 +405,7 @@ class WhatsAppPlatform extends BasePlatform {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
     }
-    if (this.sock) {
-      this.sock.end();
-      this.sock = null;
-    }
+    this._discardSocket();
     this.status = 'disconnected';
     this.emit('disconnected', { manual: true });
   }

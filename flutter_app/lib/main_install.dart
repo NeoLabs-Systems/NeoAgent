@@ -218,6 +218,15 @@ class _ServerPanelState extends State<ServerPanel> {
   bool get _showsAppUpdates =>
       _managesLocalBackend && widget.controller.appUpdaterConfigured;
 
+  /// An update that activated a new runtime while the old process kept the
+  /// port: the panel would otherwise show the installed version and imply the
+  /// update is live.
+  bool get _staleRuntimeProcess {
+    final running = _status?.runningVersion;
+    final installed = _status?.version;
+    return running != null && installed != null && running != installed;
+  }
+
   String? get _localBackendUrl =>
       _installResult?.backendUrl ?? _status?.backendUrl;
 
@@ -358,6 +367,14 @@ class _ServerPanelState extends State<ServerPanel> {
                       _MetaPill(icon: Icons.dns_outlined, label: url),
                 ],
               ),
+            if (_staleRuntimeProcess) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(
+                message:
+                    'Version ${status?.version} is installed, but ${status?.runningVersion} is still running.'
+                    ' Restart to finish the update.',
+              ),
+            ],
             if (status?.errorCode case final errorCode?) ...<Widget>[
               const SizedBox(height: 12),
               _InlineError(
