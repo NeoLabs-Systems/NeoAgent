@@ -58,12 +58,9 @@ class RuntimeHttpClient {
 
   async waitForHealth(options = {}) {
     const requestedTimeout = Number(options.timeoutMs);
-    const timeoutMs = Math.min(
-      GUEST_HEALTH_TIMEOUT_MS,
-      Number.isFinite(requestedTimeout) && requestedTimeout > 0
-        ? requestedTimeout
-        : GUEST_HEALTH_TIMEOUT_MS,
-    );
+    const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+      ? requestedTimeout
+      : GUEST_HEALTH_TIMEOUT_MS;
     const intervalMs = Number(options.intervalMs || 1000);
     const checkLiveness = options.checkLiveness || (() => true);
     const startedAt = Date.now();
@@ -433,6 +430,7 @@ class LocalVmExecutionBackend {
     this.artifactStore = options.artifactStore || null;
     this.lastActivity = new Map();
     this.activeOperations = new Map();
+    this.bootAssetCaching = new Map();
     this.reaperInterval = null;
     this.reaperInFlight = false;
     this.shuttingDown = false;
@@ -525,7 +523,12 @@ class LocalVmExecutionBackend {
     });
     try {
       await client.waitForHealth({
-        timeoutMs: GUEST_HEALTH_TIMEOUT_MS,
+        // A direct boot skips provisioning and answers within seconds, but a VM that
+        // still has to run cloud-init installs a desktop and its packages first, which
+        // takes far longer than the warm-start ceiling.
+        timeoutMs: session.directBoot
+          ? GUEST_HEALTH_TIMEOUT_MS
+          : Number(this.vmManager.bootTimeoutMs) || GUEST_HEALTH_TIMEOUT_MS,
         signal: options.signal,
         checkLiveness: () => {
           const key = String(userId || '').trim();
@@ -534,7 +537,6 @@ class LocalVmExecutionBackend {
         },
       });
       if (session.state === 'starting') session.state = 'ready';
-      await this.vmManager.cacheDirectBootAssets?.(userId, client);
     } catch (error) {
       if (options.signal?.aborted) throw abortError(options.signal);
       const runtimeError = typeof session.getLastError === 'function' ? session.getLastError() : '';
@@ -546,7 +548,27 @@ class LocalVmExecutionBackend {
       }
       throw startupError;
     }
+    this.#cacheDirectBootAssets(userId, client);
     return client;
+  }
+
+  // Caching the guest kernel and initramfs only shortens the *next* start, and the
+  // transfer runs into hundreds of megabytes, so it stays off the request path and a
+  // failure never takes the running VM down with it.
+  #cacheDirectBootAssets(userId, client) {
+    const key = String(userId || '').trim();
+    if (typeof this.vmManager?.cacheDirectBootAssets !== 'function') return;
+    if (this.bootAssetCaching.has(key)) return;
+    const task = Promise.resolve()
+      .then(() => this.vmManager.cacheDirectBootAssets(key, client))
+      .catch((error) => {
+        console.warn(
+          `[Runtime:${this.runtimeProfile}] Direct-boot asset caching failed for user ${key}:`,
+          error?.message || error,
+        );
+      })
+      .finally(() => this.bootAssetCaching.delete(key));
+    this.bootAssetCaching.set(key, task);
   }
 
   async getClientForUser(userId, options = {}) {
@@ -710,6 +732,7 @@ class LocalVmExecutionBackend {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.shuttingDown = true;
     this.activeOperations.clear();
+    await Promise.allSettled(this.bootAssetCaching.values());
     if (this.reaperInterval) {
       clearInterval(this.reaperInterval);
       this.reaperInterval = null;

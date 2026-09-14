@@ -167,6 +167,8 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
     AppSection.settings,
+    // The panel manages the runtime on this machine, so it exists on desktop only.
+    if (_supportsDesktopShell) AppSection.server,
     if (controller.showBillingSection) AppSection.billing,
     AppSection.runs,
     AppSection.agents,

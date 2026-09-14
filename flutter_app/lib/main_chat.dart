@@ -2932,6 +2932,10 @@ class _MessagingCard extends StatelessWidget {
         ? 'Reconnect'
         : 'Connect';
     final accessLabel = accessCatalog.compactAccessLabel;
+    // Self-chat mode answers only the account owner's own notes, so there is
+    // nobody to allow and no other chat to review.
+    final selfChatOnly =
+        platform.id == 'whatsapp' && readWhatsAppSelfChatMode(controller);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3019,10 +3023,11 @@ class _MessagingCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _MessagingMiniPill(
-                icon: Icons.forum_outlined,
-                label: accessLabel,
-              ),
+              if (!selfChatOnly)
+                _MessagingMiniPill(
+                  icon: Icons.forum_outlined,
+                  label: accessLabel,
+                ),
               if (configured && !connected)
                 const _MessagingMiniPill(
                   icon: Icons.tune_rounded,
@@ -3030,12 +3035,10 @@ class _MessagingCard extends StatelessWidget {
                 ),
               if (platform.id == 'whatsapp')
                 _MessagingMiniPill(
-                  icon: readWhatsAppSelfChatMode(controller)
+                  icon: selfChatOnly
                       ? Icons.bookmark_border_rounded
                       : Icons.smartphone_rounded,
-                  label: readWhatsAppSelfChatMode(controller)
-                      ? 'Self-chat'
-                      : 'Separate account',
+                  label: selfChatOnly ? 'Self-chat only' : 'Separate account',
                 ),
             ],
           ),
@@ -3095,12 +3098,14 @@ class _MessagingCard extends StatelessWidget {
                   icon: Icon(Icons.swap_horiz_rounded),
                 ),
               ],
-              const SizedBox(width: 8),
-              IconButton.outlined(
-                tooltip: 'Who can message',
-                onPressed: () => _editAccessPolicy(context, controller),
-                icon: Icon(Icons.forum_outlined),
-              ),
+              if (!selfChatOnly) ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Who can message',
+                  onPressed: () => _editAccessPolicy(context, controller),
+                  icon: Icon(Icons.forum_outlined),
+                ),
+              ],
               if (connected) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(

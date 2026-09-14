@@ -68,7 +68,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('NeoAgent on this computer'), findsOneWidget);
+      expect(find.text('Backend on this computer'), findsOneWidget);
       expect(
         find.textContaining('terminal commands are not required'),
         findsOneWidget,

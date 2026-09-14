@@ -39,9 +39,10 @@ class SplashView extends StatelessWidget {
 }
 
 class AuthView extends StatefulWidget {
-  const AuthView({super.key, required this.controller});
+  const AuthView({super.key, required this.controller, this.runtimeManager});
 
   final NeoAgentController controller;
+  final LocalRuntimeManager? runtimeManager;
 
   @override
   State<AuthView> createState() => _AuthViewState();
@@ -66,6 +67,7 @@ class _AuthViewState extends State<AuthView> {
   late final TextEditingController _twoFactorController;
   bool _registerMode = false;
   bool _qrAutoRequestedForVisibleMode = false;
+  LocalRuntimeStatus? _localRuntimeStatus;
 
   @override
   void initState() {
@@ -81,6 +83,50 @@ class _AuthViewState extends State<AuthView> {
     );
     _confirmPasswordController = TextEditingController();
     _twoFactorController = TextEditingController();
+    unawaited(_refreshLocalRuntimeStatus());
+  }
+
+  Future<void> _refreshLocalRuntimeStatus() async {
+    if (!_supportsDesktopShell) return;
+    try {
+      final status =
+          await (widget.runtimeManager ?? LocalRuntimeManager()).inspect();
+      if (!mounted) return;
+      setState(() => _localRuntimeStatus = status);
+    } on Object {
+      // No readable runtime on this computer simply means no shortcut.
+    }
+  }
+
+  /// Whether this computer hosts the server this window signs in to.
+  ///
+  /// The status comes from the local runtime CLI and the address has to be the
+  /// loopback one already selected, so a remote NeoAgent server never surfaces
+  /// the shortcut — there would be nothing here for it to repair.
+  bool get _showsLocalServerRepair {
+    final status = _localRuntimeStatus;
+    return _supportsDesktopShell &&
+        status?.installed == true &&
+        widget.controller.isLocalRuntimeBackend(status?.backendUrl);
+  }
+
+  Future<void> _openLocalServerSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+          body: ServerPanel(controller: widget.controller),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _refreshLocalRuntimeStatus();
+    if (!mounted) return;
+    // Signing in can only work once the server answers again.
+    if (_localRuntimeStatus?.running == true &&
+        !widget.controller.isAuthenticated) {
+      await widget.controller.bootstrap();
+    }
   }
 
   @override
@@ -560,6 +606,18 @@ class _AuthViewState extends State<AuthView> {
               ),
             ),
           ],
+        ],
+        if (_showsLocalServerRepair) ...<Widget>[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _openLocalServerSettings,
+            icon: const Icon(Icons.dns_outlined, size: 18),
+            label: Text(
+              _localRuntimeStatus?.running == true
+                  ? 'Server on this computer'
+                  : 'The server on this computer is not running',
+            ),
+          ),
         ],
       ],
     );

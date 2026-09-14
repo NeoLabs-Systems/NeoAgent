@@ -18,6 +18,7 @@ class WhatsAppPlatform extends BasePlatform {
     this.reconnectAttempts = 0;
     this.authDir = config.authDir || AUTH_DIR;
     this.artifactStore = config.artifactStore || null;
+    this.resolveAgentName = typeof config.resolveAgentName === 'function' ? config.resolveAgentName : null;
     this.userId = config.userId;
     this._manualDisconnect = false;
     this._reconnectTimer = null;
@@ -320,6 +321,7 @@ class WhatsAppPlatform extends BasePlatform {
           localMediaPath,
           isGroup,
           messageId: msg.key.id,
+          metadata: this.selfChatMode ? { selfChat: true } : null,
           timestamp: msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000).toISOString() : new Date().toISOString(),
           rawMessage: msg
         });
@@ -358,16 +360,26 @@ class WhatsAppPlatform extends BasePlatform {
     this.emit('disconnected', { manual: true });
   }
 
+  // In the self chat both sides are the same account, so replies carry the agent
+  // name to keep them apart from the user's own notes.
+  _withAgentLabel(content) {
+    const text = String(content || '').trim();
+    if (!this.selfChatMode || !text) return content;
+    const name = String(this.resolveAgentName?.() || '').trim();
+    return name ? `(${name}): ${text}` : content;
+  }
+
   _outboundPayload(content, options) {
-    if (!options.mediaPath) return { text: content };
+    const body = this._withAgentLabel(content);
+    if (!options.mediaPath) return { text: body };
 
     const media = fs.readFileSync(options.mediaPath);
     const ext = path.extname(options.mediaPath).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-      return { image: media, caption: content || undefined };
+      return { image: media, caption: body || undefined };
     }
     if (['.mp4', '.avi', '.mov'].includes(ext)) {
-      return { video: media, caption: content || undefined };
+      return { video: media, caption: body || undefined };
     }
     if (['.mp3', '.ogg', '.m4a'].includes(ext)) {
       return { audio: media, mimetype: 'audio/mp4' };
@@ -375,7 +387,7 @@ class WhatsAppPlatform extends BasePlatform {
     return {
       document: media,
       fileName: path.basename(options.mediaPath),
-      caption: content || undefined
+      caption: body || undefined
     };
   }
 

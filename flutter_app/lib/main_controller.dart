@@ -841,6 +841,20 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// Whether the selected backend is the runtime installed on this computer.
+  ///
+  /// [runtimeBackendUrl] comes from the local runtime CLI, never from the
+  /// network. Both sides must be loopback, so a remote server can never match
+  /// this test no matter what address or metadata it reports.
+  bool isLocalRuntimeBackend(String? runtimeBackendUrl) {
+    final local = Uri.tryParse(_normalizeBackendUrl(runtimeBackendUrl ?? ''));
+    final selected = Uri.tryParse(_normalizeBackendUrl(backendUrl));
+    if (local == null || selected == null) {
+      return false;
+    }
+    return _isSameLoopbackBackend(selected, local);
+  }
+
   /// The installer and the manual backend field disagree on loopback spelling
   /// (`localhost` vs `127.0.0.1`), so compare the port on loopback hosts.
   bool _isSameLoopbackBackend(Uri left, Uri right) {
@@ -1764,6 +1778,12 @@ class NeoAgentController extends ChangeNotifier {
       (section) => section.name == rawSection,
       orElse: () => AppSection.chat,
     );
+    if (restoredSection == AppSection.server && !_supportsDesktopShell) {
+      // Stored preferences are editable outside the app (localStorage on web),
+      // so restoring one never reaches a desktop-only section.
+      selectedSection = AppSection.chat;
+      return;
+    }
     selectedSection = restoredSection;
   }
 

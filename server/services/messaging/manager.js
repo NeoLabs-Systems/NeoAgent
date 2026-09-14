@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { AGENT_DATA_DIR, DATA_DIR } = require('../../../runtime/paths');
-const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { getAgentById, isMainAgent, resolveAgentId } = require('../agents/manager');
 const { WhatsAppPlatform } = require('./whatsapp');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
@@ -666,6 +666,7 @@ class MessagingManager extends EventEmitter {
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
     if (platformName === 'whatsapp') {
       config.artifactStore = this.artifactStore;
+      config.resolveAgentName = () => getAgentById(userId, agentId)?.display_name || '';
     }
     config.autoConnect = true;
     const existingConnection = db

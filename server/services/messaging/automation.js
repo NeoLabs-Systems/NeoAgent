@@ -509,6 +509,10 @@ function buildSenderIdentityBlock(msg) {
 }
 
 async function isAllowedMessagingSender({ io, userId, msg }) {
+  // A self-chat note is written by the account owner in their own chat, so there
+  // is no sender left to approve and no allowlist prompt worth raising.
+  if (msg.metadata?.selfChat === true) return true;
+
   const agentId = msg.agentId || null;
   const policyRow = db
     .prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')

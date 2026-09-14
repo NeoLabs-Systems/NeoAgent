@@ -370,6 +370,49 @@ describe('messaging automation queue', () => {
     assert.equal(io.events.some((entry) => entry.event === 'messaging:error'), false);
   });
 
+  test('a WhatsApp self-chat note needs no sender approval', async () => {
+    const io = createIoRecorder();
+    const msg = createMessage(mainAgentId, 'remember the milk', {
+      platform: 'whatsapp',
+      chatId: '49123456789@s.whatsapp.net',
+      sender: '49123456789@s.whatsapp.net',
+      metadata: { selfChat: true },
+    });
+
+    const allowed = await automation.isAllowedMessagingSender({
+      io,
+      userId: user.userId,
+      msg,
+    });
+
+    assert.equal(allowed, true);
+    assert.equal(
+      io.events.some((entry) => entry.event === 'messaging:blocked_sender'),
+      false
+    );
+  });
+
+  test('a WhatsApp message outside the allowlist still asks for approval', async () => {
+    const io = createIoRecorder();
+    const msg = createMessage(mainAgentId, 'hi there', {
+      platform: 'whatsapp',
+      chatId: '49987654321@s.whatsapp.net',
+      sender: '49987654321@s.whatsapp.net',
+    });
+
+    const allowed = await automation.isAllowedMessagingSender({
+      io,
+      userId: user.userId,
+      msg,
+    });
+
+    assert.equal(allowed, false);
+    assert.equal(
+      io.events.some((entry) => entry.event === 'messaging:blocked_sender'),
+      true
+    );
+  });
+
   test('starts typing for group messaging runs', async () => {
     const manager = new MessagingManagerStub();
     const agentEngine = {

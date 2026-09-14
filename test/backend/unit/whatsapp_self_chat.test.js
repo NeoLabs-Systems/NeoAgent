@@ -121,6 +121,36 @@ test('WhatsApp sent message memory stays bounded', () => {
   assert.equal(platform._sentMessageIds.has('sent-0'), false);
 });
 
+test('WhatsApp self-chat replies carry the agent name so the user can tell them apart', async () => {
+  const platform = selfChatPlatform();
+  platform.resolveAgentName = () => 'NeoAgent';
+  platform.status = 'connected';
+  const payloads = [];
+  platform.sock.sendMessage = async (jid, payload) => {
+    payloads.push(payload);
+    return { key: { id: `sent-${payloads.length}` } };
+  };
+
+  await platform.sendMessage(OWN_JID, 'on it');
+
+  assert.deepEqual(payloads, [{ text: '(NeoAgent): on it' }]);
+});
+
+test('WhatsApp bot mode sends replies unlabeled', async () => {
+  const platform = new WhatsAppPlatform({ resolveAgentName: () => 'NeoAgent' });
+  platform.sock = { user: { id: '49123456789:21@s.whatsapp.net' } };
+  platform.status = 'connected';
+  const payloads = [];
+  platform.sock.sendMessage = async (jid, payload) => {
+    payloads.push(payload);
+    return { key: { id: 'sent-1' } };
+  };
+
+  await platform.sendMessage('49987654321', 'on it');
+
+  assert.deepEqual(payloads, [{ text: 'on it' }]);
+});
+
 test('WhatsApp self-chat mode skips the allowlist for the account owner', () => {
   const platform = selfChatPlatform();
   const blocked = [];
