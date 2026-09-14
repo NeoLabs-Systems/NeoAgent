@@ -104,6 +104,16 @@ function logRequestSummary(level, req, message, extra = null) {
     console[level](redactSecrets(`${prefix} ${message}`), summary);
 }
 
+// Messaging sender ids are phone numbers and account handles. Logs are read in
+// the app and pasted into bug reports, so they keep only enough of an id to
+// recognize which contact it was.
+function maskSenderId(value) {
+    const text = String(value || '').trim();
+    if (!text) return '(unknown)';
+    if (text.length <= 4) return `${text[0]}***`;
+    return `${text.slice(0, 2)}***${text.slice(-2)}`;
+}
+
 function createServiceLogger(serviceName) {
     const prefix = `[${String(serviceName || 'Service').trim() || 'Service'}]`;
     return {
@@ -188,6 +198,7 @@ function setupConsoleInterceptor() {
 module.exports = {
     createServiceLogger,
     formatLogArgs,
+    maskSenderId,
     logRequestSummary,
     setupConsoleInterceptor
 };

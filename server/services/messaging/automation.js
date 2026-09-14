@@ -2,6 +2,7 @@
 
 const db = require('../../db/database');
 const { detectPromptInjection } = require('../../utils/security');
+const { maskSenderId } = require('../../utils/logger');
 const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
@@ -538,8 +539,9 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     return true;
   }
 
-  console.log(
-    `[Messaging] Blocked ${msg.platform} message from ${msg.sender} (${decision.reason})`
+  console.warn(
+    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${decision.reason}).`
+    + ' Allow the sender under Messaging access to let it through.'
   );
   emitBlockedSenderSuggestion({ io, userId, msg });
   return false;

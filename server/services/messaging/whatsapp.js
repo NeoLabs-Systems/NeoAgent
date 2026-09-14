@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
+const { createServiceLogger } = require('../../utils/logger');
+
+const log = createServiceLogger('WhatsApp');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const SENT_MESSAGE_MEMORY = 200;
@@ -82,7 +85,14 @@ class WhatsAppPlatform extends BasePlatform {
     if (upsertType !== 'notify') return false;
     if (this._sentMessageIds.has(msg?.key?.id)) return false;
     if (!this.selfChatMode) return msg?.key?.fromMe !== true;
-    return this._isSelfChat(msg?.key?.remoteJid);
+    if (this._isSelfChat(msg?.key?.remoteJid)) return true;
+    // Self-chat mode answers notes in your own chat only. Everyone else is
+    // dropped here, which looks exactly like a broken connection.
+    log.warn(
+      'Ignored a message because self-chat mode is on and it was not sent in your own chat.'
+      + ' Turn self-chat mode off to answer other contacts.',
+    );
+    return false;
   }
 
   _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
@@ -133,7 +143,7 @@ class WhatsAppPlatform extends BasePlatform {
     }
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`[WhatsApp] Using WA version ${version.join('.')}, isLatest: ${isLatest}`);
+    log.info(`Using WA version ${version.join('.')}, isLatest: ${isLatest}`);
 
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
@@ -230,7 +240,11 @@ class WhatsAppPlatform extends BasePlatform {
           mediaType = 'sticker';
         }
 
-        if (!content && !mediaType) continue;
+        if (!content && !mediaType) {
+          const kinds = Object.keys(msg.message || {}).join(', ') || 'empty payload';
+          log.warn(`Ignored a message with no readable content (${kinds}).`);
+          continue;
+        }
 
         const access = this._checkMessageAccess(msg, {
           chatId,
@@ -284,14 +298,14 @@ class WhatsAppPlatform extends BasePlatform {
                   response_format: 'text'
                 });
                 content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
-                console.log(`[WhatsApp] Voice note transcribed (${content.length} chars)`);
+                log.info(`Voice note transcribed (${content.length} chars)`);
               } catch (transcribeErr) {
-                console.error('[WhatsApp] Audio transcription failed:', transcribeErr.message);
+                log.error('Audio transcription failed:', transcribeErr.message);
                 content = '[Voice Note - transcription failed]';
               }
             }
           } catch (dlErr) {
-            console.error('[WhatsApp] Media download failed:', dlErr.message);
+            log.error('Media download failed:', dlErr.message);
           }
         }
 
@@ -299,6 +313,10 @@ class WhatsAppPlatform extends BasePlatform {
           await this.sock.readMessages([msg.key]);
         } catch { /* non-fatal */ }
 
+        log.info(
+          `Accepted ${isGroup ? 'group' : 'direct'} message`
+          + `${mediaType ? ` (${mediaType})` : ''} for processing.`,
+        );
         this.emit('message', {
           platform: 'whatsapp',
           chatId,
@@ -339,7 +357,7 @@ class WhatsAppPlatform extends BasePlatform {
       this._reconnectTimer = null;
       if (this._manualDisconnect) return;
       this.connect().catch((err) => {
-        console.error('[WhatsApp] Reconnect failed:', err.message);
+        log.error('Reconnect failed:', err.message);
         this._scheduleReconnect();
       });
     }, delay);

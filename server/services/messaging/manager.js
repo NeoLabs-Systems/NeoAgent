@@ -326,7 +326,15 @@ class MessagingManager extends EventEmitter {
   }
 
   async _processInboundJob(job, payload) {
-    if (this.isShuttingDown || !job || this.messageHandlers.length === 0) return false;
+    if (this.isShuttingDown || !job) return false;
+    if (this.messageHandlers.length === 0) {
+      // The message is stored and shows up in chat, but nothing will answer it.
+      messagingLogger.warn(
+        `Stored a ${job.platform} message with no automation handler registered;`
+        + ' the agent will not reply until messaging automation is running.',
+      );
+      return false;
+    }
     const tracked = this._trackInboundJob(job.id);
     if (tracked.alreadyTracked) {
       await tracked.promise;

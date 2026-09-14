@@ -117,44 +117,40 @@ class _ServerPanelState extends State<ServerPanel> {
     }
     if (!mounted) return;
     setState(() => _viewingLogs = false);
+
+    // One field, so the whole thing can be selected, scrolled and pasted into a
+    // bug report in a single go.
+    final logText = logs.isEmpty
+        ? 'The local runtime has not written a log file yet.'
+        : logs
+              .map(
+                (log) =>
+                    '=== ${log.path} ===\n'
+                    '${log.content.isEmpty ? '(empty)' : log.content}',
+              )
+              .join('\n\n');
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Logs on this computer'),
         content: SizedBox(
-          width: 720,
-          child: logs.isEmpty
-              ? const Text('The local runtime has not written a log file yet.')
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      for (final log in logs) ...<Widget>[
-                        Text(
-                          log.path,
-                          style: TextStyle(
-                            color: _textMuted,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        SelectableText(
-                          log.content.isEmpty ? '(empty)' : log.content,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.45,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                      ],
-                    ],
-                  ),
-                ),
+          width: 760,
+          height: 460,
+          child: _LogView(text: logText),
         ),
         actions: <Widget>[
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: logText));
+              if (!dialogContext.mounted) return;
+              ScaffoldMessenger.of(
+                dialogContext,
+              ).showSnackBar(const SnackBar(content: Text('Logs copied.')));
+            },
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            label: const Text('Copy all'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
@@ -666,4 +662,41 @@ class _ServerPanelState extends State<ServerPanel> {
   }
 
   String _channelLabel(String channel) => channel == 'beta' ? 'Beta' : 'Stable';
+}
+
+class _LogView extends StatefulWidget {
+  const _LogView({required this.text});
+
+  final String text;
+
+  @override
+  State<_LogView> createState() => _LogViewState();
+}
+
+class _LogViewState extends State<_LogView> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scrollbar(
+      controller: _controller,
+      child: SingleChildScrollView(
+        controller: _controller,
+        child: SelectableText(
+          widget.text,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            height: 1.45,
+          ),
+        ),
+      ),
+    );
+  }
 }

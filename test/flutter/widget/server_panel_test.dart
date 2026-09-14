@@ -9,6 +9,14 @@ import 'package:neoagent_flutter/src/local_runtime_manager.dart';
 /// Reports an installed local runtime without touching the real machine.
 class _InstalledRuntimeManager extends LocalRuntimeManager {
   @override
+  Future<List<LocalRuntimeLogFile>> readRecentLogs({
+    int maxLines = 400,
+  }) async => const <LocalRuntimeLogFile>[
+    LocalRuntimeLogFile(path: '/logs/neoagent.log', content: 'started'),
+    LocalRuntimeLogFile(path: '/logs/neoagent.error.log', content: 'boom'),
+  ];
+
+  @override
   Future<LocalRuntimeStatus> inspect() async => const LocalRuntimeStatus(
     installed: true,
     running: true,
@@ -138,6 +146,28 @@ void main() {
     expect(find.text('Start'), findsNothing);
     expect(find.text('Stop'), findsNothing);
     expect(find.text('View logs'), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('both log files open in a single selectable field', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await _pumpServerPanel(tester, 'http://127.0.0.1:8081');
+
+    await tester.tap(find.text('View logs'));
+    await tester.pumpAndSettle();
+
+    final fields = tester.widgetList<SelectableText>(
+      find.byType(SelectableText),
+    );
+    expect(fields.length, 1);
+    final text = fields.single.data ?? '';
+    expect(text, contains('/logs/neoagent.log'));
+    expect(text, contains('started'));
+    expect(text, contains('/logs/neoagent.error.log'));
+    expect(text, contains('boom'));
+    expect(find.text('Copy all'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 }
