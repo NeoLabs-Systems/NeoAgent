@@ -12,18 +12,6 @@ function normalizeRunAt(value) {
   return date.toISOString();
 }
 
-// The lead-time factor is the share of the measured average run duration that a
-// run starts early by, so that it finishes at the configured time. 0 keeps the
-// run starting exactly at that time.
-function normalizeLeadTimeFactor(value) {
-  if (value === undefined || value === null || value === '') return 0;
-  const factor = Number(value);
-  if (!Number.isFinite(factor) || factor < 0 || factor > 1) {
-    throw new Error('Schedule leadTimeFactor must be a number between 0 and 1.');
-  }
-  return Math.round(factor * 100) / 100;
-}
-
 function normalizeCronExpression(value) {
   const raw = String(value || '').trim();
   if (!raw) {
@@ -78,7 +66,9 @@ module.exports = {
     return {
       mode,
       cronExpression,
-      leadTimeFactor: normalizeLeadTimeFactor(config.leadTimeFactor ?? config.lead_time_factor),
+      // When set, the run starts its measured average duration early so that it
+      // finishes at the scheduled time instead of starting then.
+      finishOnTime: config.finishOnTime === true || config.finish_on_time === true,
     };
   },
   summarize(config = {}) {

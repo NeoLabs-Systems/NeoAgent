@@ -112,11 +112,11 @@ describe('lead-time task scheduling', () => {
   }
 
   test('no head start is applied until the task has completed runs', () => {
-    assert.equal(resolveLeadTimeMs(null, 1), 0);
-    assert.equal(resolveLeadTimeMs(0, 1), 0);
-    assert.equal(resolveLeadTimeMs(240, 0), 0);
-    assert.equal(resolveLeadTimeMs(240, 1), 240 * 1000);
-    assert.equal(resolveLeadTimeMs(240, 0.5), 120 * 1000);
+    assert.equal(resolveLeadTimeMs(null), 0);
+    assert.equal(resolveLeadTimeMs(0), 0);
+    assert.equal(resolveLeadTimeMs(240), 240 * 1000);
+    // The head start one occurrence can claim is capped at an hour.
+    assert.equal(resolveLeadTimeMs(24 * 60 * 60), 60 * 60 * 1000);
   });
 
   test('a task without a head start stays on node-cron', async () => {
@@ -125,12 +125,12 @@ describe('lead-time task scheduling', () => {
   });
 
   test('a task with a head start is driven by the poller, not node-cron', async () => {
-    await createTask({ cronExpression: '0 6 * * *', leadTimeFactor: 1 });
+    await createTask({ cronExpression: '0 6 * * *', finishOnTime: true });
     assert.deepEqual(cronHarness.jobs, []);
   });
 
   test('a task without run history starts at its configured time', async (t) => {
-    const task = await createTask({ cronExpression: cronAt(0), leadTimeFactor: 1 });
+    const task = await createTask({ cronExpression: cronAt(0), finishOnTime: true });
     await tick(t);
 
     assert.equal(runCalls.length, 1);
@@ -142,7 +142,7 @@ describe('lead-time task scheduling', () => {
   });
 
   test('a task starts early enough to finish at its configured time', async (t) => {
-    const task = await createTask({ cronExpression: cronAt(4), leadTimeFactor: 1 });
+    const task = await createTask({ cronExpression: cronAt(4), finishOnTime: true });
     recordRunHistory(task.id, [300, 300]);
 
     const serialized = runtime._serializeTask(
@@ -157,16 +157,16 @@ describe('lead-time task scheduling', () => {
     assert.equal(runCalls[0].scheduledAt, new Date(FIXED_NOW + (4 * MINUTE_MS)).toISOString());
   });
 
-  test('a partial head start does not start the run too early', async (t) => {
-    const task = await createTask({ cronExpression: cronAt(4), leadTimeFactor: 0.5 });
-    recordRunHistory(task.id, [300]);
+  test('a run is not started before its head start begins', async (t) => {
+    const task = await createTask({ cronExpression: cronAt(4), finishOnTime: true });
+    recordRunHistory(task.id, [90]);
 
     await tick(t);
     assert.equal(runCalls.length, 0);
   });
 
   test('an occurrence already started before a restart is not started again', async (t) => {
-    const task = await createTask({ cronExpression: cronAt(4), leadTimeFactor: 1 });
+    const task = await createTask({ cronExpression: cronAt(4), finishOnTime: true });
     recordRunHistory(task.id, [300]);
     // A fresh runtime has no memory of the head start it already gave out; the
     // recorded last run is what keeps the occurrence from running twice.
@@ -177,7 +177,7 @@ describe('lead-time task scheduling', () => {
   });
 
   test('an occurrence is only started once', async (t) => {
-    const task = await createTask({ cronExpression: cronAt(4), leadTimeFactor: 1 });
+    const task = await createTask({ cronExpression: cronAt(4), finishOnTime: true });
     recordRunHistory(task.id, [300]);
 
     await tick(t);

@@ -57,9 +57,8 @@ function stringifyTaskResult(result) {
   return '';
 }
 
-function readLeadTimeFactor(triggerConfig = {}) {
-  const factor = Number(triggerConfig.leadTimeFactor);
-  return Number.isFinite(factor) && factor > 0 ? Math.min(factor, 1) : 0;
+function finishesOnTime(triggerConfig = {}) {
+  return triggerConfig.finishOnTime === true || triggerConfig.finish_on_time === true;
 }
 
 function isTaskLoopPaused(taskConfig = {}) {
@@ -364,8 +363,7 @@ class TaskRuntime {
     for (const task of this.taskRepository.listEnabledByTriggerTypes(['schedule'])) {
       if (this.abortController.signal.aborted) break;
       const triggerConfig = this._normalizeJson(task.trigger_config);
-      const leadTimeFactor = readLeadTimeFactor(triggerConfig);
-      if (!leadTimeFactor) continue;
+      if (!finishesOnTime(triggerConfig)) continue;
       const cronExpression = String(triggerConfig.cronExpression || task.cron_expression || '').trim();
       if (!cronExpression) continue;
 
@@ -384,7 +382,7 @@ class TaskRuntime {
       const occurrenceIso = occurrence.toISOString();
       if (this.leadTimeOccurrences.get(task.id) === occurrenceIso) continue;
       const averageRunSeconds = this.taskRepository.getAverageRunSeconds(task.id, task.user_id, RUN_SAMPLE_SIZE);
-      const leadTimeMs = resolveLeadTimeMs(averageRunSeconds, leadTimeFactor);
+      const leadTimeMs = resolveLeadTimeMs(averageRunSeconds);
       const occurrenceWindowStartMs = occurrence.getTime() - leadTimeMs;
       if (occurrenceWindowStartMs > now) continue;
       this.leadTimeOccurrences.set(task.id, occurrenceIso);
@@ -477,7 +475,7 @@ class TaskRuntime {
     }
     // A task that starts early to finish on time is owned by the lead-time
     // poller; registering it here too would run it twice per occurrence.
-    if (readLeadTimeFactor(triggerConfig)) {
+    if (finishesOnTime(triggerConfig)) {
       return;
     }
     const job = this.cron.schedule(cronExpression, async () => {

@@ -189,17 +189,13 @@ function findNextRun(expression, fromDate = new Date(), maxLookaheadMinutes = 36
   return null;
 }
 
-// Translate a task's measured average run duration and its configured lead-time
-// factor into how long before the scheduled time the run must start so that it
-// finishes on time. Returns 0 when there is no usable history yet, which keeps
-// the task starting at its configured time.
-function resolveLeadTimeMs(averageRunSeconds, leadTimeFactor) {
-  const factor = Number(leadTimeFactor);
+// How long before its scheduled time a run must start so that it finishes at
+// that time: its measured average duration. Returns 0 when there is no usable
+// history yet, which keeps the task starting at its configured time.
+function resolveLeadTimeMs(averageRunSeconds) {
   const averageSeconds = Number(averageRunSeconds);
-  if (!Number.isFinite(factor) || factor <= 0) return 0;
   if (!Number.isFinite(averageSeconds) || averageSeconds <= 0) return 0;
-  const leadMs = averageSeconds * 1000 * Math.min(factor, 1);
-  return Math.min(Math.round(leadMs), MAX_LEAD_TIME_MS);
+  return Math.min(Math.round(averageSeconds * 1000), MAX_LEAD_TIME_MS);
 }
 
 module.exports = {
