@@ -437,7 +437,9 @@ async function startServices(app, io) {
       mcpClient,
       skillRunner,
     }));
-    const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService());
+    const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService({
+      securityModeOverride: process.env.NEOAGENT_TOOL_SECURITY_MODE || null,
+    }));
     const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
     registerToolSecurityHooks(toolPolicyService, approvalGateService);
     logServiceReady('Tool security hooks registered');
