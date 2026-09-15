@@ -170,8 +170,12 @@ function calculateReservation(limits) {
   );
 }
 
+function rateLimitsDisabledByEnv() {
+  return String(process.env.NEOAGENT_DISABLE_RATE_LIMITS || '').toLowerCase() === 'true';
+}
+
 function enforceRateLimits(userId, options = {}) {
-  if (options.bypass === true) {
+  if (options.bypass === true || rateLimitsDisabledByEnv()) {
     return {
       snapshot: getRateLimitSnapshot(userId, { includeReservations: false }),
       releaseReservation: noopReleaseReservation,
