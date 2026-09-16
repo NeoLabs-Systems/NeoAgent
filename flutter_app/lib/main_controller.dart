@@ -3530,11 +3530,6 @@ class NeoAgentController extends ChangeNotifier {
       await _backendClient.fetchTasks(backendUrl, agentId: _scopedAgentId),
       TaskItem.fromJson,
     );
-    for (final item in taskItems) {
-      debugPrint(
-        '[NotifyDebug] refreshTasks agent=$_scopedAgentId task=${item.id} notifyPlatform=${item.taskConfig['notifyPlatform']} notifyTo=${item.taskConfig['notifyTo']}',
-      );
-    }
     notifyListeners();
   }
 

@@ -69,6 +69,9 @@ function normalizeStoredString(value) {
         current = parsed.trim();
         continue;
       }
+      // Numeric IDs (Discord snowflakes, Telegram chat ids, phone numbers) are
+      // valid JSON numbers; keep the raw text so precision isn't lost.
+      if (typeof parsed === 'number') return current;
       return '';
     } catch {
       return current;

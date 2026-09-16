@@ -55,7 +55,6 @@ router.post('/', async (req, res) => {
       prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     } = req.body || {};
-    console.log('[NotifyDebug] POST /api/tasks body', JSON.stringify({ agentId, taskConfig: taskConfig ?? task_config }));
     const task = await tasks.createTask(req.session.userId, {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
@@ -63,7 +62,6 @@ router.post('/', async (req, res) => {
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
       agentId,
     });
-    console.log('[NotifyDebug] POST /api/tasks response', task.id, JSON.stringify(task.taskConfig));
     res.status(201).json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
@@ -83,14 +81,12 @@ router.put('/:id', async (req, res) => {
       prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     } = req.body || {};
-    console.log('[NotifyDebug] PUT /api/tasks/' + taskId + ' body', JSON.stringify({ taskConfig: taskConfig ?? task_config }));
     const task = await tasks.updateTask(taskId, req.session.userId, {
       name, triggerType, trigger_type, triggerConfig, trigger_config,
       taskType, task_type, taskConfig, task_config, enabled,
       prompt, model,
       oneTime, one_time, cronExpression, cron_expression, runAt, run_at,
     });
-    console.log('[NotifyDebug] PUT /api/tasks/' + taskId + ' response', JSON.stringify(task.taskConfig));
     res.json(task);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

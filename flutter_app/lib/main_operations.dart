@@ -4486,15 +4486,6 @@ class _TasksPanelState extends State<TasksPanel> {
     final selectedDeliveryTarget = ValueNotifier<TaskDeliveryTarget?>(
       _taskDeliveryTargetFromTask(task),
     );
-    debugPrint(
-      '[NotifyDebug] editor open task=${task?.id} notifyPlatform=${task?.taskConfig['notifyPlatform']} notifyTo=${task?.taskConfig['notifyTo']}',
-    );
-    selectedDeliveryTarget.addListener(() {
-      final value = selectedDeliveryTarget.value;
-      debugPrint(
-        '[NotifyDebug] selection changed -> ${value?.platform}:${value?.to} (${value?.source})\n${StackTrace.current.toString().split('\n').take(4).join('\n')}',
-      );
-    });
     final queryController = TextEditingController(
       text:
           task?.triggerConfig['query']?.toString() ??
@@ -5057,9 +5048,6 @@ class _TasksPanelState extends State<TasksPanel> {
                                 agentId: selectedAgentId,
                                 selected: deliveryTarget,
                               );
-                              debugPrint(
-                                '[NotifyDebug] picker returned ${picked?.platform}:${picked?.to} label=${picked?.label} source=${picked?.source}',
-                              );
                               if (picked == null) return;
                               selectedDeliveryTarget.value =
                                   picked.platform.isEmpty ? null : picked;
@@ -5363,9 +5351,6 @@ class _TasksPanelState extends State<TasksPanel> {
                       taskConfig['notifyPlatform'] = deliveryTarget.platform;
                       taskConfig['notifyTo'] = deliveryTarget.to;
                     }
-                    debugPrint(
-                      '[NotifyDebug] saving task=${task?.id} agent=$selectedAgentId notifyPlatform=${taskConfig['notifyPlatform']} notifyTo=${taskConfig['notifyTo']}',
-                    );
                     await controller.saveTask(
                       id: task?.id,
                       name: nameController.text.trim(),
