@@ -2895,12 +2895,16 @@ async function executeTool(toolName, args, context, engine) {
                 };
 
                 addCandidate(taskTarget);
-                addCandidate(fallbackTarget);
-                for (const row of recentTargets) {
-                    addCandidate({
-                        platform: row.platform,
-                        to: row.platform_chat_id
-                    });
+                // A task's configured destination is authoritative; only tasks
+                // without one fall back to the default or recent chats.
+                if (candidateTargets.length === 0) {
+                    addCandidate(fallbackTarget);
+                    for (const row of recentTargets) {
+                        addCandidate({
+                            platform: row.platform,
+                            to: row.platform_chat_id
+                        });
+                    }
                 }
 
                 if (candidateTargets.length === 0) {
@@ -2924,13 +2928,6 @@ async function executeTool(toolName, args, context, engine) {
                             persistConversation: true,
                             signal,
                         });
-                        if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
-                            taskConfig.notifyPlatform = target.platform;
-                            taskConfig.notifyTo = target.to;
-                            db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
-                                .run(JSON.stringify(taskConfig), taskId, userId);
-                        }
-
                         markProactiveMessageSent({ runState, deliveryState, content: message });
                         return {
                             sent: true,

@@ -313,6 +313,37 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
   });
 
+  test('staged replies go to the configured target, not the chat the model picked', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        options.deliveryState.proactiveMessageStaged = true;
+        options.deliveryState.stagedProactiveMessage = {
+          platform: 'telegram',
+          to: 'owner-dm',
+          content: 'Summary ready.',
+          purpose: 'final_result',
+          mediaPath: null,
+        };
+        return { content: 'Summary ready.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].platform, 'whatsapp');
+    assert.equal(messagingManager.sent[0].to, 'recipient');
+    const stored = runtime.taskRepository.getTaskById(task.id, user.userId);
+    assert.equal(JSON.parse(stored.task_config).notifyTo, 'recipient');
+  });
+
   test('delivers a failure notice when every attempt returns empty', async () => {
     const messagingManager = createMessagingManager();
     let callCount = 0;

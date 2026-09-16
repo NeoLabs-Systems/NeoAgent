@@ -1067,7 +1067,15 @@ class TaskRuntime {
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
     if (deliveryState?.messagingSent || deliveryState?.noResponse) return null;
-    const targets = this._buildNotifyTargets(userId, agentId, taskConfig);
+    // A configured destination is authoritative: never redirect to the chat the
+    // model picked or to the default DM, so a broken target fails visibly.
+    const configuredTarget = normalizeNotifyTarget({
+      platform: taskConfig.notifyPlatform,
+      to: taskConfig.notifyTo,
+    });
+    const targets = configuredTarget
+      ? [configuredTarget]
+      : this._buildNotifyTargets(userId, agentId, taskConfig);
     if (!targets.length) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
@@ -1112,8 +1120,8 @@ class TaskRuntime {
     let lastError = null;
     const resolvedTargets = explicitStagedDelivery
       ? [{
-        platform: deliveryState.stagedProactiveMessage.platform,
-        to: deliveryState.stagedProactiveMessage.to,
+        platform: configuredTarget?.platform || deliveryState.stagedProactiveMessage.platform,
+        to: configuredTarget?.to || deliveryState.stagedProactiveMessage.to,
         mediaPath: deliveryState.stagedProactiveMessage.mediaPath || null,
       }]
       : targets;
@@ -1149,14 +1157,6 @@ class TaskRuntime {
           deliveryState.sentMessages = [];
         }
         deliveryState.sentMessages.push(message);
-
-        if (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to) {
-          this.taskRepository.updateTaskConfig(taskId, userId, {
-            ...taskConfig,
-            notifyPlatform: target.platform,
-            notifyTo: target.to,
-          });
-        }
 
         return {
           sent: true,
