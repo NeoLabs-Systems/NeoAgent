@@ -619,7 +619,8 @@ class IntegrationManager {
         ),
       );
       if (connectedAppIds.length === 0) continue;
-      definitions.push(...provider.getToolDefinitions({ connectedAppIds }));
+      definitions.push(...provider.getToolDefinitions({ connectedAppIds })
+        .map((definition) => ({ ...definition, integration: provider.key })));
     }
     return definitions;
   }
@@ -964,12 +965,13 @@ class IntegrationManager {
     return { state: 'stopped', providerCount: providers.length };
   }
 
-  summarizeConnectedProviders(userId, agentId = null) {
+  connectedProviderSnapshots(userId, agentId = null, providerKeys = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
     const ingestionService = this.app?.locals?.memoryIngestionService || null;
-    const providers = this.registry.list().map((provider) => ({
-      provider,
-      snapshot: (() => {
+    const keys = providerKeys ? new Set(providerKeys) : null;
+    return this.registry.list()
+      .filter((provider) => !keys || keys.has(provider.key))
+      .map((provider) => {
         const snapshot = provider.buildSnapshot(
           this.listConnections(userId, provider.key, scopedAgentId),
           {
@@ -977,15 +979,30 @@ class IntegrationManager {
             agentId: scopedAgentId,
           },
         );
-        return ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot;
-      })(),
-    })).filter(({ snapshot }) => snapshot?.connection?.connected);
+        return {
+          provider,
+          snapshot: ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot,
+        };
+      })
+      .filter(({ snapshot }) => snapshot?.connection?.connected);
+  }
 
-    if (providers.length === 0) {
-      return '';
-    }
+  // One line naming what is connected. Per-provider usage notes are served
+  // with the tools themselves (see summarizeConnectedProviders).
+  listConnectedProviderLabels(userId, agentId = null) {
+    return this.connectedProviderSnapshots(userId, agentId)
+      .map(({ provider, snapshot }) => {
+        const apps = (snapshot.apps || [])
+          .filter((app) => app.connection?.connected)
+          .map((app) => app.label)
+          .filter((label) => label && label !== provider.label);
+        return apps.length ? `${provider.label} (${apps.join(', ')})` : provider.label;
+      })
+      .join(', ');
+  }
 
-    return providers
+  summarizeConnectedProviders(userId, agentId = null, providerKeys = null) {
+    return this.connectedProviderSnapshots(userId, agentId, providerKeys)
       .map(({ provider, snapshot }) => {
         const memoryCoverage = snapshot.memoryCoverage?.supported
           ? ` Memory ingestion: ${snapshot.memoryCoverage.status}; domains: ${(snapshot.memoryCoverage.dataDomains || []).join(', ') || 'none'}; documents: ${snapshot.memoryCoverage.documentCount || 0}.`

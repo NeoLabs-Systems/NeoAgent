@@ -44,6 +44,7 @@ const {
   applyQueuedSystemSteering: applyQueuedSystemSteeringImpl,
   attachProcessToRun: attachProcessToRunImpl,
   buildProgressLedgerSnapshot: buildProgressLedgerSnapshotImpl,
+  describeIntegrationsForRun: describeIntegrationsForRunImpl,
   detachProcessFromRun: detachProcessFromRunImpl,
   enqueueSteering: enqueueSteeringImpl,
   enqueueSystemSteering: enqueueSystemSteeringImpl,
@@ -723,7 +724,6 @@ class AgentEngine {
     model,
     messages,
     analysis,
-    capabilitySummary,
     options,
   }) {
     const response = await this.requestStructuredJson({
@@ -731,7 +731,7 @@ class AgentEngine {
       providerName,
       model,
       messages,
-      prompt: buildPlanPrompt(analysis, capabilitySummary),
+      prompt: buildPlanPrompt(analysis),
       maxTokens: 1400,
       normalize: normalizeExecutionPlan,
       fallback: {
@@ -1142,6 +1142,10 @@ class AgentEngine {
 
   getActiveTools(runId) {
     return getActiveToolsImpl(this, runId);
+  }
+
+  describeIntegrationsForRun(runId, tools = []) {
+    return describeIntegrationsForRunImpl(this, runId, tools);
   }
 
   searchToolsForRun(runId, query, limit = 8) {

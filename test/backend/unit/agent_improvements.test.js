@@ -482,7 +482,6 @@ test('execution guidance keeps source checkouts in the shared workspace', () => 
   assert.match(prompt, /shared workspace/);
   assert.match(prompt, /Prefer the highest-level available tool/);
   assert.match(prompt, /pass those directly/);
-  assert.match(prompt, /prefer file tools/);
   assert.doesNotMatch(prompt, /git clone[^\n]+\/tmp\/repo-name/);
 });
 

@@ -14,23 +14,18 @@ function capabilityEntry(overrides = {}) {
   };
 }
 
+// Only capabilities that need the model's attention go into the prompt.
+// Healthy defaults are implied by the tools themselves, and integration status
+// is reported separately with the connected-integration line.
 function summarizeCapabilityHealth(health) {
   const lines = [];
   for (const [name, entry] of Object.entries(health.capabilities || {})) {
-    const state = entry.healthy
-      ? (entry.degraded ? 'degraded' : 'healthy')
-      : (entry.configured ? 'unhealthy' : 'unconfigured');
+    if (name === 'integrations') continue;
+    if (!entry.configured || (entry.healthy && !entry.degraded)) continue;
+    const state = entry.healthy ? 'degraded' : 'unhealthy';
     const detail = entry.summary ? ` - ${entry.summary}` : '';
     lines.push(`${name}: ${state}${detail}`);
   }
-
-  if (Array.isArray(health.providers) && health.providers.length > 0) {
-    const providerLine = health.providers
-      .map((provider) => `${provider.id}:${provider.healthy ? 'healthy' : provider.configured ? 'unhealthy' : 'unconfigured'}`)
-      .join(', ');
-    lines.push(`providers: ${providerLine}`);
-  }
-
   return lines.join('\n');
 }
 

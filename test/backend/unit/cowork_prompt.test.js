@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
-  buildCoworkExecutionGuidance,
   buildCoworkOperatingContract,
   workspaceFolderName,
 } = require('../../../server/services/cowork/prompt');
@@ -84,24 +83,6 @@ test('cowork system prompt includes the attached folder and channel style', asyn
   assert.match(prompt, /CHANNEL: cowork/);
   assert.match(prompt, /WORKFLOW/);
   assert.doesNotMatch(prompt, /CHANNEL: short paragraphs/);
-});
-
-test('cowork execution guidance tells the model to edit the attached folder', () => {
-  const prompt = buildExecutionGuidance({
-    triggerSource: 'cowork',
-    analysis: {
-      mode: 'execute',
-      goal: 'Revamp the portfolio.',
-      success_criteria: ['The local files are updated.'],
-    },
-  });
-  assert.match(prompt, /attached workspace/);
-  assert.match(prompt, /make the requested edits now/);
-  assert.match(prompt, /Verify changed state from disk/);
-  assert.deepEqual(
-    buildCoworkExecutionGuidance({ triggerSource: 'messaging' }),
-    [],
-  );
 });
 
 test('web, messaging, and voice prompts stay free of cowork-only rules', async () => {

@@ -1,5 +1,3 @@
-const { buildCoworkExecutionGuidance } = require('../cowork/prompt');
-
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
 const COMPLEXITY_LEVELS = ['simple', 'standard', 'complex'];
@@ -99,19 +97,16 @@ const VERIFIER_PROMPT_INSTRUCTIONS = [
   'Set safe_to_deliver=true only when final_reply is fully supported or has been rewritten into a truthful, clearly limited partial answer with every unsupported claim removed. Otherwise set it false.',
 ];
 const EXECUTION_GUIDANCE_ACTION_LINES = [
-  'Act end-to-end. Run independent searches or inspections in parallel when possible. Prefer native integration tools and structured APIs over browser automation or shell scraping. Use exact IDs and required parameters; list or search first when you do not have them.',
   'For research and multi-entity comparisons, cover each requested target with its own search/open path. Do not stop after one partial lead or invent the remaining devices from memory. Open primary sources before stating concrete specs.',
   'For GitHub issue implementation or PR work, fetch the issue once, then establish or reuse a writable local checkout, create a task branch, inspect/edit/test locally, and push/open the PR. Use direct GitHub file mutation tools only as a fallback when a local checkout is unavailable.',
   'Prefer the highest-level available tool for the job. If a tool accepts normal text, JSON, file paths, or line ranges, pass those directly instead of reconstructing equivalent data through shell commands.',
-  'Your shell (execute_command) starts in your workspace, and the file tools (read_file, read_files, write_file, edit_file, replace_file_range, list_directory, search_files) operate on that same workspace. Keep source checkouts and generated files in the shared workspace, then prefer file tools for inspection and edits instead of shell snippets. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
+  'Your shell (execute_command) starts in your workspace, and the file tools (read_file, read_files, write_file, edit_file, replace_file_range, list_directory, search_files) operate on that same workspace. Keep source checkouts and generated files in the shared workspace. Clone a repo once and reuse it; do not re-clone or re-list the same tree.',
   'Tool results are already present in the conversation as tool output. Do not assume a tool result was persisted to a readable /tmp path unless that exact path was explicitly returned by the tool result.',
   'A successful write_file, edit_file, or replace_file_range result is the evidence for that file. Do not re-read a file you just wrote unless a later step depends on content you did not author. If the result carries diagnostics, the file has a syntax error: fix it before moving on.',
   'After writing or changing code, run it once (the project tests, the file\'s own doctests, or a minimal invocation through execute_command). If it fails, make one fix and run it once more, then finish: report the result as it stands, including anything that still fails and why. Do not report code as done on the strength of having written it.',
   'Use send_interim_update sparingly when a short real update or question would help.',
   'Do not create background tasks for immediate short work. Answer directly unless the user asked to schedule, repeat, monitor, defer, or manage a saved task.',
   'When you must ask for missing required user input, ask once, then wait for the reply instead of re-asking in the same run.',
-  'For outbound messages, calls, emails, shared edits, installs, restarts, or task mutations, verify the action result before claiming it happened. If user confirmation is required and missing, draft or ask instead of sending.',
-  'Retry with alternative tools or approaches when one path fails. If evidence is still insufficient, say so explicitly instead of guessing.',
   'When completion_confidence_required is high, do not call task_complete with low confidence. Verify, inspect, or revise until confidence is at least medium and preferably high.',
 ];
 
@@ -195,10 +190,6 @@ function formatPlannedSteps(steps = []) {
     const tools = step.suggested_tools?.length ? ` [tools: ${step.suggested_tools.join(', ')}]` : '';
     return `${index + 1}. ${step.title}${tools}`;
   }).join('\n')}`;
-}
-
-function formatRuntimeCapabilityHealth(capabilityHealth) {
-  return capabilityHealth ? `Runtime capability health:\n${capabilityHealth}` : '';
 }
 
 function formatAvailableToolsLine(toolNames) {
@@ -669,12 +660,11 @@ function buildAnalysisPrompt({
   ], ANALYSIS_SCHEMA_EXAMPLE);
 }
 
-function buildPlanPrompt(analysis, capabilityHealth) {
+function buildPlanPrompt(analysis) {
   const taskGoal = analysis.goal || 'Complete the user request.';
   return composeJsonPrompt([
     JSON_ONLY_RESPONSE_RULE,
     ...PLAN_PROMPT_INSTRUCTIONS,
-    formatRuntimeCapabilityHealth(capabilityHealth),
     `Task goal: ${taskGoal}`,
     formatExistingSuccessCriteriaLine(analysis.success_criteria),
     formatSuggestedToolsFromAnalysisLine(analysis.suggested_tools),
@@ -685,7 +675,6 @@ function buildPlanPrompt(analysis, capabilityHealth) {
 function buildExecutionGuidance({
   analysis,
   plan = null,
-  triggerSource = null,
 } = {}) {
   const lines = [
     `Execution mode: ${analysis.mode}.`,
@@ -705,7 +694,6 @@ function buildExecutionGuidance({
     formatPlannedSteps(plan?.steps),
     formatBulletSection('Verification focus', plan?.verification_focus),
     ...EXECUTION_GUIDANCE_ACTION_LINES,
-    ...buildCoworkExecutionGuidance({ triggerSource }),
   );
 
   return lines.filter(Boolean).join('\n\n');

@@ -666,15 +666,18 @@ class DurableRunRuntime {
       messages = this.engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
       const capabilityHealth = await capabilityHealthPromise;
       const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
-      if (capabilitySummary) {
-        messages.push({ role: 'system', content: `[Capability health]\n${capabilitySummary}` });
-      }
       const connectedIntegrations = app?.locals?.integrationManager
-        ?.summarizeConnectedProviders?.(userId, agentId);
-      if (connectedIntegrations) {
+        ?.listConnectedProviderLabels?.(userId, agentId);
+      if (capabilitySummary || connectedIntegrations) {
         messages.push({
           role: 'system',
-          content: `[Connected integrations]\n${connectedIntegrations}`,
+          content: [
+            '[Runtime status]',
+            connectedIntegrations
+              ? `Connected integrations: ${connectedIntegrations}. search_tools returns their tools with usage notes.`
+              : '',
+            capabilitySummary ? `Needs attention:\n${capabilitySummary}` : '',
+          ].filter(Boolean).join('\n'),
         });
       }
       messages.push(this.engine.buildUserMessage(userMessage, options));
@@ -838,7 +841,8 @@ class DurableRunRuntime {
           '[Tool discovery]',
           buildToolDiscoverySummary(allTools, tools),
           'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
-        ].join('\n'),
+          this.engine.describeIntegrationsForRun?.(runId, tools) || '',
+        ].filter(Boolean).join('\n'),
       });
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
         activeToolNames: tools.map((tool) => tool.name),
@@ -978,8 +982,6 @@ class DurableRunRuntime {
             })),
             success_criteria: contract.success_criteria,
           },
-          capabilityHealth: capabilitySummary,
-          triggerSource,
         }),
       });
       if (options.latencyPriority === 'interactive') {
