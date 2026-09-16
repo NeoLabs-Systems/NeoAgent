@@ -622,6 +622,7 @@ class TaskRuntime {
     let completedRunId = null;
     try {
       normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
+      console.log('[NotifyDebug] run start', taskId, JSON.stringify({ stored: { notifyPlatform: taskConfig.notifyPlatform, notifyTo: taskConfig.notifyTo }, effective: { notifyPlatform: normalizedConfig.notifyPlatform, notifyTo: normalizedConfig.notifyTo } }));
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
       const manualRun = executionMeta.manual === true;
@@ -1076,6 +1077,7 @@ class TaskRuntime {
     const targets = configuredTarget
       ? [configuredTarget]
       : this._buildNotifyTargets(userId, agentId, taskConfig);
+    console.log('[NotifyDebug] deliver', taskId, JSON.stringify({ configuredTarget, targets, staged: deliveryState?.stagedProactiveMessage ? { platform: deliveryState.stagedProactiveMessage.platform, to: deliveryState.stagedProactiveMessage.to } : null, messagingSent: deliveryState?.messagingSent, noResponse: deliveryState?.noResponse }));
     if (!targets.length) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
@@ -1141,6 +1143,7 @@ class TaskRuntime {
         continue;
       }
 
+      console.log('[NotifyDebug] deliver sending', taskId, target.platform, target.to, 'status', status?.status);
       try {
         const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
           agentId,
@@ -1165,6 +1168,7 @@ class TaskRuntime {
           result: sendResult,
         };
       } catch (error) {
+        console.log('[NotifyDebug] deliver send failed', taskId, target.platform, target.to, error?.message);
         lastError = error;
       }
     }

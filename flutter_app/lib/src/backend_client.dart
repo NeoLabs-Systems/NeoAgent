@@ -1877,7 +1877,13 @@ class BackendClient {
       'model': model,
       'enabled': enabled,
     }, agentId);
-    return _saveByOptionalId(baseUrl, '/api/tasks', id, payload);
+    final saved = await _saveByOptionalId(baseUrl, '/api/tasks', id, payload);
+    final savedConfig = saved['taskConfig'];
+    // ignore: avoid_print
+    print(
+      '[NotifyDebug] saveTask response id=${saved['id']} notifyPlatform=${savedConfig is Map ? savedConfig['notifyPlatform'] : null} notifyTo=${savedConfig is Map ? savedConfig['notifyTo'] : null}',
+    );
+    return saved;
   }
 
   Future<Map<String, dynamic>> updateTask(

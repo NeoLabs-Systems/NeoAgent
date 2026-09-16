@@ -4,6 +4,7 @@ const db = require('../../db/database');
 
 class TaskRepository {
   createTask(userId, normalizedTask) {
+    console.log('[NotifyDebug] repo.createTask', JSON.stringify({ notifyPlatform: normalizedTask.taskConfig?.notifyPlatform, notifyTo: normalizedTask.taskConfig?.notifyTo }));
     const result = db.prepare(
       `INSERT INTO scheduled_tasks (
         user_id, agent_id, name, trigger_type, trigger_config, cron_expression, run_at, one_time,
@@ -27,6 +28,7 @@ class TaskRepository {
   }
 
   updateTask(taskId, userId, normalizedTask) {
+    console.log('[NotifyDebug] repo.updateTask', taskId, JSON.stringify({ notifyPlatform: normalizedTask.taskConfig?.notifyPlatform, notifyTo: normalizedTask.taskConfig?.notifyTo }));
     db.prepare(
       `UPDATE scheduled_tasks
        SET agent_id = ?, name = ?, trigger_type = ?, trigger_config = ?, cron_expression = ?, run_at = ?,
@@ -187,6 +189,7 @@ class TaskRepository {
   }
 
   updateTaskConfig(taskId, userId, taskConfig) {
+    console.log('[NotifyDebug] updateTaskConfig', taskId, JSON.stringify({ notifyPlatform: taskConfig?.notifyPlatform, notifyTo: taskConfig?.notifyTo }), new Error().stack.split('\n').slice(2, 5).join(' | '));
     db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
       .run(JSON.stringify(taskConfig), taskId, userId);
   }

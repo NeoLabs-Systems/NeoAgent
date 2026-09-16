@@ -2445,6 +2445,7 @@ async function executeTool(toolName, args, context, engine) {
                 };
             }
 
+            console.log('[NotifyDebug] send_message tool', JSON.stringify({ triggerSource, taskId: taskId ?? null, args: { platform: args.platform, to: args.to, purpose: args.purpose }, resolved: sendTarget, staging: context.stageProactiveMessages === true }));
             if (isProactiveTrigger(triggerSource) && context.stageProactiveMessages === true && !suppressReply) {
                 markProactiveMessageStaged({
                     runState,
@@ -2907,6 +2908,7 @@ async function executeTool(toolName, args, context, engine) {
                     }
                 }
 
+                console.log('[NotifyDebug] notify_user candidates', taskId, JSON.stringify(candidateTargets));
                 if (candidateTargets.length === 0) {
                     throw new Error('No messaging target is configured for this task run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
                 }
