@@ -10,6 +10,17 @@ const log = createServiceLogger('WhatsApp');
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const SENT_MESSAGE_MEMORY = 200;
 
+// Baileys reports this as a number, a numeric string, or a protobuf Long,
+// depending on how the message reached the socket.
+function messageTimestampSeconds(msg) {
+  const raw = msg?.messageTimestamp;
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return Number(raw) || 0;
+  if (typeof raw?.toNumber === 'function') return raw.toNumber();
+  if (typeof raw?.low === 'number') return raw.low;
+  return 0;
+}
+
 class WhatsAppPlatform extends BasePlatform {
   constructor(config = {}) {
     super('whatsapp', config);
@@ -26,6 +37,9 @@ class WhatsAppPlatform extends BasePlatform {
     this._manualDisconnect = false;
     this._reconnectTimer = null;
     this._sentMessageIds = new Set();
+    // Until a connection reports open there is no point from which a message
+    // counts as new, so replayed history stays out.
+    this._connectedAt = Infinity;
   }
 
   _ownIds() {
@@ -77,12 +91,11 @@ class WhatsAppPlatform extends BasePlatform {
     }
   }
 
-  // Two independent signals separate what the user wrote from what this agent
-  // wrote: Baileys emits the socket's own sends as an 'append' upsert (never
-  // 'notify'), and every send records its message id here. Self-chat mode needs
-  // both, because there the user's own notes also arrive with fromMe set.
+  // Every send records its message id here, which is what keeps this agent from
+  // reading its own replies back. Self-chat mode relies on it entirely, because
+  // there the user's own notes also arrive with fromMe set.
   _shouldProcessInbound(msg, upsertType) {
-    if (upsertType !== 'notify') return false;
+    if (!this._isLiveUpsert(msg, upsertType)) return false;
     if (this._sentMessageIds.has(msg?.key?.id)) return false;
     if (!this.selfChatMode) return msg?.key?.fromMe !== true;
     if (this._isSelfChat(msg?.key?.remoteJid)) return true;
@@ -93,6 +106,17 @@ class WhatsAppPlatform extends BasePlatform {
       + ' Turn self-chat mode off to answer other contacts.',
     );
     return false;
+  }
+
+  // A note typed on the phone reaches this linked device as an 'append' upsert
+  // rather than 'notify', so self-chat mode has to accept those or it answers
+  // nothing at all. WhatsApp also replays existing chats as appends right after
+  // linking, and working through that backlog would bury the user in replies,
+  // so appends from before this connection are left alone.
+  _isLiveUpsert(msg, upsertType) {
+    if (upsertType === 'notify') return true;
+    if (upsertType !== 'append' || !this.selfChatMode) return false;
+    return messageTimestampSeconds(msg) >= this._connectedAt;
   }
 
   _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
@@ -219,6 +243,7 @@ class WhatsAppPlatform extends BasePlatform {
 
       if (connection === 'open') {
         log.info('Connection open; inbound messages will be processed.');
+        this._connectedAt = Math.floor(Date.now() / 1000);
         this.status = 'connected';
         this.qrCode = null;
         this.reconnectAttempts = 0;

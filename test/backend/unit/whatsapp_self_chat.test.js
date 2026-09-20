@@ -7,14 +7,23 @@ const { WhatsAppPlatform } = require('../../../server/services/messaging/whatsap
 
 const OWN_JID = '49123456789@s.whatsapp.net';
 
+const CONNECTED_AT = 1_700_000_000;
+
 function selfChatPlatform() {
   const platform = new WhatsAppPlatform({ selfChatMode: true });
   platform.sock = { user: { id: '49123456789:21@s.whatsapp.net' } };
+  platform._connectedAt = CONNECTED_AT;
   return platform;
 }
 
-function message({ remoteJid, fromMe, id = 'message-1', participant }) {
-  return { key: { remoteJid, fromMe, id, participant } };
+function message({
+  remoteJid,
+  fromMe,
+  id = 'message-1',
+  participant,
+  messageTimestamp = CONNECTED_AT + 5,
+}) {
+  return { key: { remoteJid, fromMe, id, participant }, messageTimestamp };
 }
 
 test('WhatsApp bot mode keeps ignoring messages sent by the linked account', () => {
@@ -77,12 +86,11 @@ test('WhatsApp self-chat mode never reads back what the agent wrote', () => {
     id: 'agent-reply-1',
   });
 
-  // Baileys reports this socket's own sends as an 'append' upsert.
-  assert.equal(platform._shouldProcessInbound(agentReply, 'append'), false);
-
-  // And the recorded send id holds even if the same message arrives as 'notify'.
+  // The recorded send id is what rules the agent's own reply out, whichever
+  // upsert kind it arrives as.
   platform._rememberSentMessage('agent-reply-1');
   assert.equal(platform._shouldProcessInbound(agentReply, 'notify'), false);
+  assert.equal(platform._shouldProcessInbound(agentReply, 'append'), false);
 
   // A note typed on the user's phone still gets through.
   assert.equal(
@@ -91,6 +99,101 @@ test('WhatsApp self-chat mode never reads back what the agent wrote', () => {
       'notify'
     ),
     true
+  );
+});
+
+test('WhatsApp self-chat mode answers notes typed on the phone, which arrive as appends', () => {
+  const platform = selfChatPlatform();
+
+  // WhatsApp syncs what the user writes on their own phone to this linked
+  // device as an 'append'. Dropping those left self-chat mode answering
+  // nothing while the connection looked perfectly healthy.
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({ remoteJid: OWN_JID, fromMe: true, id: 'note-from-phone' }),
+      'append'
+    ),
+    true
+  );
+});
+
+test('WhatsApp self-chat mode leaves the history replayed after linking alone', () => {
+  const platform = selfChatPlatform();
+
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({
+        remoteJid: OWN_JID,
+        fromMe: true,
+        id: 'old-note',
+        messageTimestamp: CONNECTED_AT - 60,
+      }),
+      'append'
+    ),
+    false
+  );
+
+  // Before the socket ever opens there is no cutoff, so nothing is answered.
+  const fresh = new WhatsAppPlatform({ selfChatMode: true });
+  fresh.sock = { user: { id: '49123456789:21@s.whatsapp.net' } };
+  assert.equal(
+    fresh._shouldProcessInbound(
+      message({ remoteJid: OWN_JID, fromMe: true }),
+      'append'
+    ),
+    false
+  );
+});
+
+test('WhatsApp bot mode still ignores appends entirely', () => {
+  const platform = new WhatsAppPlatform();
+  platform.sock = { user: { id: '49123456789:21@s.whatsapp.net' } };
+  platform._connectedAt = CONNECTED_AT;
+
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({ remoteJid: '49987654321@s.whatsapp.net', fromMe: false }),
+      'append'
+    ),
+    false
+  );
+});
+
+test('WhatsApp reads the message timestamp in each shape Baileys reports it', () => {
+  const platform = selfChatPlatform();
+  const note = (messageTimestamp) => message({
+    remoteJid: OWN_JID,
+    fromMe: true,
+    id: 'note',
+    messageTimestamp,
+  });
+
+  // Plain number, numeric string, and protobuf Long all have to resolve, or a
+  // live note gets mistaken for history and silently dropped.
+  assert.equal(platform._shouldProcessInbound(note(CONNECTED_AT + 5), 'append'), true);
+  assert.equal(platform._shouldProcessInbound(note(String(CONNECTED_AT + 5)), 'append'), true);
+  assert.equal(
+    platform._shouldProcessInbound(
+      note({ low: CONNECTED_AT + 5, high: 0, unsigned: true }),
+      'append'
+    ),
+    true
+  );
+  assert.equal(
+    platform._shouldProcessInbound(
+      note({ toNumber: () => CONNECTED_AT + 5 }),
+      'append'
+    ),
+    true
+  );
+  // A message carrying no timestamp at all cannot be placed after the
+  // connection, so it is treated as history rather than answered blindly.
+  assert.equal(
+    platform._shouldProcessInbound(
+      { key: { remoteJid: OWN_JID, fromMe: true, id: 'note' } },
+      'append'
+    ),
+    false
   );
 });
 
