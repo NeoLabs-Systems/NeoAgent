@@ -5,12 +5,13 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { LocalVmExecutionBackend } = require('./backends/local-vm');
-const { QemuVMManager } = require('./qemu_vm_manager');
+const { createComputerVmManager } = require('./vm_manager');
 const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
 const { guestDesktopRepairCommand, summarizeDesktopRepairOutput } = require('./guest_desktop');
+const { getRuntimeSettings } = require('./settings');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -57,7 +58,7 @@ class RuntimeManager {
     this.providerModes = new Map();
 
     const vmManager = options.computerVmManager
-      || (options.computerBackend ? null : new QemuVMManager());
+      || (options.computerBackend ? null : createComputerVmManager());
     this.computerBackend = options.computerBackend || new LocalVmExecutionBackend({
       runtimeProfile: 'browser_cli',
       vmManager,
@@ -79,8 +80,7 @@ class RuntimeManager {
 
   getSettings() {
     return {
-      runtime_profile: 'cloud-computer',
-      runtime_backend: 'qemu',
+      ...getRuntimeSettings(),
       computer_backend: 'unified',
       android_backend: 'host',
       mcp_backend: 'host-remote',

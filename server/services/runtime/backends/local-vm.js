@@ -37,18 +37,6 @@ function delayWithSignal(ms, signal) {
   });
 }
 
-function isPidAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return false;
-  }
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 class RuntimeHttpClient {
   constructor(baseUrl, token = '', options = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/+$/, '');
@@ -530,11 +518,8 @@ class LocalVmExecutionBackend {
           ? GUEST_HEALTH_TIMEOUT_MS
           : Number(this.vmManager.bootTimeoutMs) || GUEST_HEALTH_TIMEOUT_MS,
         signal: options.signal,
-        checkLiveness: () => {
-          const key = String(userId || '').trim();
-          const session = this.vmManager.instances.get(key);
-          return Boolean(session && session.process && isPidAlive(session.process.pid));
-        },
+        // The manager owns what "still running" means for its guest technology.
+        checkLiveness: () => this.vmManager.hasVm?.(userId) !== false,
       });
       if (session.state === 'starting') session.state = 'ready';
     } catch (error) {

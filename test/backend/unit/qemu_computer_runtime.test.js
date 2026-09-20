@@ -16,11 +16,11 @@ const {
   parseAccelerators,
   selectAccelerators,
   getSparseDiskLiabilityBytes,
-  isProcessAlive,
   normalizeArchitecture,
   resolveQemuImgBinary,
   waitForLoopbackPort,
 } = require('../../../server/services/runtime/qemu_vm_manager');
+const { isProcessAlive } = require('../../../server/services/runtime/vm_session');
 
 test('QEMU computer exposes display and guest agent only on loopback', () => {
   const args = buildQemuArgs({

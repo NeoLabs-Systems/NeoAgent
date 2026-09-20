@@ -22,6 +22,12 @@ const {
 } = require('./computer_display');
 const { ensureGuestBootstrapSeed } = require('./guest_bootstrap');
 const {
+  VmStartTracker,
+  findAvailablePort,
+  isProcessAlive,
+  userDirectoryKey,
+} = require('./vm_session');
+const {
   packagedQemuExecutableCandidates,
   packagedQemuRuntimeDirectory,
 } = require('../../../lib/qemu_runtime_install');
@@ -165,18 +171,6 @@ function runChecked(command, args, options = {}) {
   return String(result.stdout || '').trim();
 }
 
-function findAvailablePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.unref();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      server.close(() => resolve(address.port));
-    });
-  });
-}
-
 async function findVncDisplay() {
   for (let display = 10; display < 100; display += 1) {
     const port = 5900 + display;
@@ -227,10 +221,6 @@ function readQemuLogTail(logPath, limit = 32 * 1024) {
 function composeQemuFailure(reason, logPath) {
   const log = readQemuLogTail(logPath);
   return log ? `${reason}\n${log}` : reason;
-}
-
-function userDirectoryKey(userId) {
-  return crypto.createHash('sha256').update(String(userId)).digest('hex').slice(0, 24);
 }
 
 function hashFile(filePath, algorithm = 'sha512') {
@@ -558,17 +548,6 @@ function buildQemuArgs({
   return args;
 }
 
-function isProcessAlive(processHandle) {
-  if (!processHandle || processHandle.killed || processHandle.exitCode != null) return false;
-  if (!Number.isInteger(processHandle.pid) || processHandle.pid <= 0) return false;
-  try {
-    process.kill(processHandle.pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // A QEMU that outlived the server holds the write lock on its disks, so the next start
 // fails on every image operation. Only a process whose command line still points at this
 // instance is ours to reclaim.
@@ -612,10 +591,6 @@ async function terminateOrphanedVm(pid) {
   if (await exited(5000)) return true;
   try { process.kill(pid, 'SIGKILL'); } catch {}
   return exited(3000);
-}
-
-function isQueueableCapacityError(error) {
-  return error?.code === 'COMPUTER_CAPACITY';
 }
 
 function requestQmpCommand(qmpSocket, execute, args = undefined, timeoutMs = 30000) {
@@ -685,8 +660,7 @@ async function requestQmpPowerdown(qmpSocket) {
 
 class QemuVMManager {
   instances = new Map();
-  #pending = new Map();
-  #transientStatus = new Map();
+  #starts = new VmStartTracker();
 
   constructor(options = {}) {
     this.architecture = normalizeArchitecture(options.architecture);
@@ -856,11 +830,10 @@ class QemuVMManager {
     const key = String(userId || '').trim();
     const session = this.instances.get(key);
     if (!session) {
-      const transient = this.#transientStatus.get(key);
+      const transient = this.#starts.status(key);
       if (transient) {
         return {
           ...transient,
-          error: transient.lastError || null,
           capabilities: ['desktop', 'browser', 'shell', 'files', 'teach'],
           readiness: this.getReadiness(),
         };
@@ -943,25 +916,7 @@ class QemuVMManager {
     const existing = this.instances.get(key);
     if (existing && isProcessAlive(existing.process)) return existing;
     if (existing) this.instances.delete(key);
-    if (this.#pending.has(key)) return this.#pending.get(key);
-    this.#transientStatus.set(key, { state: 'starting', startedAt: new Date().toISOString() });
-    const promise = this.#startVm(key)
-      .then((session) => {
-        this.#transientStatus.delete(key);
-        return session;
-      })
-      .catch((error) => {
-        this.#transientStatus.set(key, {
-          state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
-          lastError: error.message,
-          error: error.message,
-          errorCode: error.code || null,
-        });
-        throw error;
-      })
-      .finally(() => this.#pending.delete(key));
-    this.#pending.set(key, promise);
-    return promise;
+    return this.#starts.begin(key, () => this.#startVm(key));
   }
 
   async #startVm(key) {
@@ -1190,7 +1145,7 @@ class QemuVMManager {
 
   async killVm(userId) {
     const key = String(userId || '').trim();
-    this.#transientStatus.delete(key);
+    this.#starts.clear(key);
     const session = this.instances.get(key);
     this.instances.delete(key);
     if (!session?.process || !isProcessAlive(session.process)) return;
@@ -1211,24 +1166,19 @@ class QemuVMManager {
   async failVm(userId, error) {
     const key = String(userId || '').trim();
     await this.killVm(key);
-    this.#transientStatus.set(key, {
-      state: isQueueableCapacityError(error) ? 'capacity_wait' : 'error',
-      lastError: String(error?.message || error || 'Cloud computer failed.'),
-      error: String(error?.message || error || 'Cloud computer failed.'),
-      errorCode: error?.code || null,
-    });
+    this.#starts.fail(key, error);
   }
 
   async sleepVm(userId) {
     const key = String(userId || '').trim();
     await this.killVm(key);
-    this.#transientStatus.set(key, { state: 'sleeping' });
+    this.#starts.sleep(key);
   }
 
   async shutdown() {
-    await Promise.allSettled(this.#pending.values());
+    await this.#starts.settled();
     await Promise.allSettled(Array.from(this.instances.keys(), (userId) => this.killVm(userId)));
-    this.#transientStatus.clear();
+    this.#starts.clearAll();
   }
 }
 
@@ -1239,7 +1189,6 @@ module.exports = {
   buildQemuArgs,
   findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
-  isProcessAlive,
   normalizeArchitecture,
   parseAccelerators,
   resolveQemuImgBinary,

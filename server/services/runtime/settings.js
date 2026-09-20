@@ -1,17 +1,26 @@
 'use strict';
 
+const { getDeploymentPolicy } = require('../../utils/deployment');
+
+// `runtime_backend` is the isolation technology TERMINAL_ENV selected; the rest
+// of the runtime shape is fixed.
 const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
   runtime_profile: 'cloud-computer',
-  runtime_backend: 'qemu',
   computer_backend: 'cloud',
   android_backend: 'host',
   mcp_backend: 'host-remote',
 });
 
-const RUNTIME_SETTING_KEYS = Object.freeze(Object.keys(DEFAULT_RUNTIME_SETTINGS));
+const RUNTIME_SETTING_KEYS = Object.freeze([
+  ...Object.keys(DEFAULT_RUNTIME_SETTINGS),
+  'runtime_backend',
+]);
 
 function normalizeRuntimeSettings() {
-  return { ...DEFAULT_RUNTIME_SETTINGS };
+  return {
+    ...DEFAULT_RUNTIME_SETTINGS,
+    runtime_backend: getDeploymentPolicy().runtimeDefaults.runtime_backend,
+  };
 }
 
 function validateRuntimeSettings() {

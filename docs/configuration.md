@@ -129,11 +129,20 @@ plan management.
 
 | Variable | Purpose |
 |---|---|
+| `TERMINAL_ENV` | Isolation technology: `qemu` (default) or `docker` |
 | `NEOAGENT_VM_BASE_IMAGE_URL` | Download source for the guest image |
 | `NEOAGENT_VM_BASE_IMAGE` | Existing local guest image |
 | `NEOAGENT_VM_GUEST_TOKEN` | Server-to-runtime authentication token |
 | `NEOAGENT_VM_MEMORY_MB` | Guest memory allocation |
 | `NEOAGENT_VM_CPUS` | Guest CPU allocation |
+| `NEOAGENT_GUEST_BASE_IMAGE` | Base image for the Docker guest build |
+
+`TERMINAL_ENV=docker` gives every user a Docker container instead of a QEMU
+micro-VM. The container runs the same guest agent from the same payload, so
+shell, browser, and file tools behave identically; it starts in seconds and
+needs no guest image download, but it shares the host kernel and offers no
+desktop view. `neoagent repair` builds the guest image for whichever backend is
+selected. The memory and CPU allocation settings apply to both.
 
 The installer generates the guest token. Do not reuse the example values from
 documentation or issue reports.

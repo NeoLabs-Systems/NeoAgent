@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDeploymentPolicy } = require('../../utils/deployment');
+const { TERMINAL_ENV_DOCKER, getDeploymentPolicy, getTerminalEnv } = require('../../utils/deployment');
 
 function getRuntimeValidation(runtimeManager) {
   const policy = getDeploymentPolicy();
@@ -11,8 +11,10 @@ function getRuntimeValidation(runtimeManager) {
   if (policy.profile === 'prod' || nodeEnvIsProd) {
     if (!computerReadiness) {
       issues.push('prod profile requires the isolated cloud computer runtime.');
-    } else if (!computerReadiness.qemuAvailable) {
-      issues.push('prod profile requires the CLI-managed QEMU computer runtime. Run neoagent repair.');
+    } else if (!computerReadiness.ready) {
+      issues.push(getTerminalEnv() === TERMINAL_ENV_DOCKER
+        ? 'prod profile requires a reachable Docker daemon for the container computer runtime. Run neoagent repair.'
+        : 'prod profile requires the CLI-managed QEMU computer runtime. Run neoagent repair.');
     }
   }
 

@@ -4,6 +4,8 @@ const DEPLOYMENT_MODE_SELF_HOSTED = 'self_hosted';
 const DEPLOYMENT_MODE_MANAGED = 'managed';
 const DEPLOYMENT_PROFILE_PRIVATE = 'private';
 const DEPLOYMENT_PROFILE_PROD = 'prod';
+const TERMINAL_ENV_QEMU = 'qemu';
+const TERMINAL_ENV_DOCKER = 'docker';
 
 function parseDeploymentMode(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -54,6 +56,24 @@ function getDeploymentProfile(env = process.env) {
   return parseDeploymentProfile(env.NEOAGENT_PROFILE);
 }
 
+// Which isolation technology backs every user's computer: a QEMU micro-VM
+// (default) or a per-user Docker container.
+function parseTerminalEnv(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  switch (normalized) {
+    case 'docker':
+    case 'container':
+    case 'containers':
+      return TERMINAL_ENV_DOCKER;
+    default:
+      return TERMINAL_ENV_QEMU;
+  }
+}
+
+function getTerminalEnv(env = process.env) {
+  return parseTerminalEnv(env.TERMINAL_ENV);
+}
+
 function getAllowSignup(env = process.env) {
   const raw = String(env.NEOAGENT_ALLOW_SIGNUP ?? '').trim().toLowerCase();
   if (raw === 'false' || raw === '0' || raw === 'no') return false;
@@ -71,7 +91,7 @@ function getDeploymentPolicy(env = process.env) {
     registrationOpen: getAllowSignup(env),
     runtimeDefaults: {
       runtime_profile: 'cloud-computer',
-      runtime_backend: 'qemu',
+      runtime_backend: getTerminalEnv(env),
       computer_backend: 'cloud',
       android_backend: 'host',
       mcp_backend: 'host-remote',
@@ -93,11 +113,15 @@ module.exports = {
   DEPLOYMENT_MODE_SELF_HOSTED,
   DEPLOYMENT_PROFILE_PRIVATE,
   DEPLOYMENT_PROFILE_PROD,
+  TERMINAL_ENV_DOCKER,
+  TERMINAL_ENV_QEMU,
   getDeploymentInfo,
   getDeploymentMode,
   getDeploymentPolicy,
   getDeploymentProfile,
+  getTerminalEnv,
   isManagedDeployment,
   parseDeploymentMode,
   parseDeploymentProfile,
+  parseTerminalEnv,
 };
