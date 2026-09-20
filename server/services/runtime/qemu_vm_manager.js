@@ -1163,6 +1163,18 @@ class QemuVMManager {
     }
   }
 
+  // Deletes the user's persisted disks and boot cache (GDPR erasure). The VM
+  // must already be stopped so QEMU has released the files.
+  removeUserData(userId) {
+    const key = String(userId || '').trim();
+    if (!key) return;
+    try {
+      fs.rmSync(path.join(INSTANCE_ROOT, userDirectoryKey(key)), { recursive: true, force: true });
+    } catch (error) {
+      logger.warn(`Failed to remove computer data for user ${key}: ${error.message}`);
+    }
+  }
+
   async failVm(userId, error) {
     const key = String(userId || '').trim();
     await this.killVm(key);
@@ -1184,6 +1196,7 @@ class QemuVMManager {
 
 module.exports = {
   COMPUTER_ROOT,
+  INSTANCE_ROOT,
   PINNED_IMAGES,
   QemuVMManager,
   buildQemuArgs,
@@ -1192,6 +1205,7 @@ module.exports = {
   normalizeArchitecture,
   parseAccelerators,
   resolveQemuImgBinary,
+  userDirectoryKey,
   resolveQemuDataDirectory,
   resolveQemuSystemBinary,
   selectAccelerators,
