@@ -5,6 +5,7 @@ const { test } = require('node:test');
 
 const {
   TERMINAL_ENV_DOCKER,
+  TERMINAL_ENV_HOST,
   TERMINAL_ENV_QEMU,
   getDeploymentPolicy,
   parseTerminalEnv,
@@ -17,6 +18,7 @@ const {
   homeVolumeName,
 } = require('../../../server/services/runtime/docker_vm_manager');
 const { GUEST_HOME } = require('../../../server/services/runtime/guest_paths');
+const { DesktopCompanionRegistry } = require('../../../server/services/desktop/registry');
 
 function withTerminalEnv(value, run) {
   const previous = process.env.TERMINAL_ENV;
@@ -30,10 +32,13 @@ function withTerminalEnv(value, run) {
   }
 }
 
-test('TERMINAL_ENV selects the container runtime and defaults to QEMU', () => {
+test('TERMINAL_ENV selects the runtime and defaults to QEMU', () => {
   assert.equal(parseTerminalEnv('docker'), TERMINAL_ENV_DOCKER);
   assert.equal(parseTerminalEnv('DOCKER'), TERMINAL_ENV_DOCKER);
   assert.equal(parseTerminalEnv('containers'), TERMINAL_ENV_DOCKER);
+  assert.equal(parseTerminalEnv('host'), TERMINAL_ENV_HOST);
+  assert.equal(parseTerminalEnv('local'), TERMINAL_ENV_HOST);
+  assert.equal(parseTerminalEnv('server'), TERMINAL_ENV_HOST);
   assert.equal(parseTerminalEnv(''), TERMINAL_ENV_QEMU);
   assert.equal(parseTerminalEnv(undefined), TERMINAL_ENV_QEMU);
   assert.equal(parseTerminalEnv('nonsense'), TERMINAL_ENV_QEMU);
@@ -41,15 +46,62 @@ test('TERMINAL_ENV selects the container runtime and defaults to QEMU', () => {
     getDeploymentPolicy({ TERMINAL_ENV: 'docker' }).runtimeDefaults.runtime_backend,
     'docker',
   );
+  // The host runtime is the only one that puts the agent on the server itself.
+  assert.equal(getDeploymentPolicy({ TERMINAL_ENV: 'host' }).allowHostRuntime, true);
+  assert.equal(getDeploymentPolicy({ TERMINAL_ENV: 'docker' }).allowHostRuntime, false);
+  assert.equal(getDeploymentPolicy({}).allowHostRuntime, false);
 });
 
-test('the runtime factory builds the manager TERMINAL_ENV names', () => {
-  const { createComputerVmManager } = require('../../../server/services/runtime/vm_manager');
+test('the runtime factory builds the backend TERMINAL_ENV names', () => {
+  const {
+    createComputerBackend,
+    createComputerVmManager,
+  } = require('../../../server/services/runtime/backend_factory');
   withTerminalEnv('docker', () => {
     assert.equal(createComputerVmManager().constructor.name, 'DockerVMManager');
+    assert.equal(createComputerBackend().constructor.name, 'LocalVmExecutionBackend');
   });
   withTerminalEnv(undefined, () => {
     assert.equal(createComputerVmManager().constructor.name, 'QemuVMManager');
+    assert.equal(createComputerBackend().constructor.name, 'LocalVmExecutionBackend');
+  });
+  withTerminalEnv('host', () => {
+    // Nothing to boot, so there is no guest manager to build.
+    assert.equal(createComputerVmManager(), null);
+    const backend = createComputerBackend({ desktopCompanionRegistry: new DesktopCompanionRegistry() });
+    assert.equal(backend.constructor.name, 'LocalComputerBackend');
+    // Only a guest VM owns a Linux desktop session to bring up and repair.
+    assert.notEqual(backend.providesGuestDesktop, true);
+  });
+});
+
+test('the host runtime reports itself ready but unisolated, with shell and files only', () => {
+  withTerminalEnv('host', () => {
+    const { createComputerBackend } = require('../../../server/services/runtime/backend_factory');
+    const backend = createComputerBackend({ desktopCompanionRegistry: new DesktopCompanionRegistry() });
+    const readiness = backend.vmManager.getReadiness();
+    assert.equal(readiness.ready, true);
+    assert.equal(readiness.isolated, false);
+    assert.deepEqual(readiness.missing, []);
+    assert.deepEqual(backend.getStatus('1').capabilities, ['shell', 'files']);
+  });
+});
+
+test('the host runtime warns instead of blocking, and only it warns', () => {
+  const { getRuntimeValidation } = require('../../../server/services/runtime/validation');
+  const hostManager = {
+    computerBackend: { vmManager: { getReadiness: () => ({ ready: true, isolated: false, host: 'example-host' }) } },
+  };
+  withTerminalEnv('host', () => {
+    const validation = getRuntimeValidation(hostManager);
+    assert.equal(validation.ready, true);
+    assert.deepEqual(validation.issues, []);
+    assert.equal(validation.warnings.length, 1);
+    assert.match(validation.warnings[0], /example-host/);
+    assert.match(validation.warnings[0], /no isolation|not in an isolated computer/);
+  });
+  withTerminalEnv(undefined, () => {
+    assert.deepEqual(getRuntimeValidation(hostManager).warnings, []);
   });
 });
 

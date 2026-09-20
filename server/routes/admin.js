@@ -186,7 +186,6 @@ router.get('/api/version', requireAdminAuth, (req, res) => {
     gitBranch: version.gitBranch,
     releaseChannel: status.releaseChannel || version.releaseChannel,
     deploymentMode: version.deploymentMode,
-    deploymentProfile: version.deploymentProfile,
     allowSelfUpdate: version.allowSelfUpdate,
     updateStatus: {
       state: status.state,
@@ -270,7 +269,7 @@ router.get('/api/health', requireAdminAuth, async (req, res) => {
 router.get('/api/config', requireAdminAuth, (req, res) => {
   const safe = [
     'PORT', 'NODE_ENV', 'PUBLIC_URL', 'NEOAGENT_DEPLOYMENT_MODE',
-    'NEOAGENT_PROFILE', 'NEOAGENT_RELEASE_CHANNEL', 'ALLOWED_ORIGINS',
+    'NEOAGENT_RELEASE_CHANNEL', 'ALLOWED_ORIGINS',
     'SECURE_COOKIES', 'TRUST_PROXY', 'ADMIN_USERNAME',
   ];
   const config = {};
@@ -746,7 +745,6 @@ router.get('/api/config/general', requireAdminAuth, (req, res) => {
     settings: {
       publicUrl: process.env.PUBLIC_URL || '',
       secureCookies: parseEnvBool('SECURE_COOKIES', false),
-      neoagentProfile: process.env.NEOAGENT_PROFILE || '',
       allowedOrigins: process.env.ALLOWED_ORIGINS || '',
       meshtasticEnabled: parseEnvBool('MESHTASTIC_ENABLED', true),
       memoryIngestionIntervalMs: parseEnvInt('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', 600000),
@@ -763,10 +761,6 @@ router.put('/api/config/general', requireAdminAuth, settingsLimiter, express.jso
         return res.status(400).json({ error: 'publicUrl must be a valid URL.' });
       }
     }
-    const profile = cleanLine(b.neoagentProfile);
-    if (profile && !['prod', 'private'].includes(profile)) {
-      return res.status(400).json({ error: 'neoagentProfile must be "prod" or "private".' });
-    }
     const allowedOrigins = cleanLine(b.allowedOrigins);
     const intervalMs = parseInt(b.memoryIngestionIntervalMs, 10);
     if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
@@ -781,7 +775,6 @@ router.put('/api/config/general', requireAdminAuth, settingsLimiter, express.jso
 
     persistEnv('PUBLIC_URL', publicUrl);
     persistEnv('SECURE_COOKIES', b.secureCookies ? 'true' : 'false');
-    persistEnv('NEOAGENT_PROFILE', profile);
     persistEnv('ALLOWED_ORIGINS', allowedOrigins);
     persistEnv('MESHTASTIC_ENABLED', b.meshtasticEnabled ? 'true' : 'false');
     persistEnv('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', String(intervalMs));

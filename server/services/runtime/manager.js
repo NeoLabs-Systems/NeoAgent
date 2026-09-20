@@ -4,8 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { LocalVmExecutionBackend } = require('./backends/local-vm');
-const { createComputerVmManager } = require('./vm_manager');
+const { createComputerBackend } = require('./backend_factory');
 const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
@@ -57,12 +56,11 @@ class RuntimeManager {
     this.io = options.io || null;
     this.providerModes = new Map();
 
-    const vmManager = options.computerVmManager
-      || (options.computerBackend ? null : createComputerVmManager());
-    this.computerBackend = options.computerBackend || new LocalVmExecutionBackend({
-      runtimeProfile: 'browser_cli',
-      vmManager,
+    this.computerBackend = options.computerBackend || createComputerBackend({
+      vmManager: options.computerVmManager,
       artifactStore: this.artifactStore,
+      workspaceManager: this.workspaceManager,
+      desktopCompanionRegistry: options.desktopCompanionRegistry,
     });
     this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId, { provider: 'cloud' }));
     // A viewer whose computer stopped is watching an address that no longer answers, so
@@ -300,9 +298,11 @@ class RuntimeManager {
     this._emitStatus(userId);
     try {
       const backend = this._computerBackendForUser(userId, options.deviceTarget);
-      if (backend === this.localComputerBackend) await backend.pause(userId, false);
+      if (typeof backend.pause === 'function') await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
-      if (backend === this.computerBackend) {
+      // Only a guest VM has a Linux desktop session to bring up; the host
+      // runtime is already sitting in one and must not be "repaired".
+      if (backend === this.computerBackend && backend.providesGuestDesktop !== false) {
         const session = backend.vmManager.instances.get(String(userId || '').trim());
         let ensured = null;
         try {
@@ -437,7 +437,7 @@ class RuntimeManager {
 
   getDesktopProviderForUser(userId, options = {}) {
     const backend = this._computerBackendForUser(userId, options.deviceTarget);
-    if (backend === this.localComputerBackend) {
+    if (typeof backend.getDesktopProviderForUser === 'function') {
       return backend.getDesktopProviderForUser(userId);
     }
     return new ComputerDesktopProvider({

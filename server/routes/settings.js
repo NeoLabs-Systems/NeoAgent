@@ -132,7 +132,6 @@ router.get('/update/status', requireAuth, (req, res) => {
       releaseChannel: status.releaseChannel || version.releaseChannel,
       targetBranch: status.targetBranch || version.targetBranch,
       deploymentMode: version.deploymentMode,
-      deploymentProfile: version.deploymentProfile,
       managedDeployment: version.managedDeployment,
       allowSelfUpdate: version.allowSelfUpdate,
       runtimeDefaults: version.runtimeDefaults,

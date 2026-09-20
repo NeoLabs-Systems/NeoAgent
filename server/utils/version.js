@@ -69,7 +69,6 @@ function buildVersionInfo() {
     releaseChannel,
     targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
     deploymentMode: deployment.mode,
-    deploymentProfile: deployment.profile,
     managedDeployment: deployment.managed,
     allowSelfUpdate: deployment.allowSelfUpdate,
     runtimeDefaults: deployment.runtimeDefaults,

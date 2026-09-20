@@ -126,7 +126,6 @@ class NeoAgentController extends ChangeNotifier {
   bool hasUser = true;
   bool registrationOpen = false;
   bool serviceEmailConfigured = false;
-  String deploymentProfile = 'private';
   String backendUrl = _defaultBackendUrl;
   String username = '';
   String email = '';
@@ -761,7 +760,6 @@ class NeoAgentController extends ChangeNotifier {
       serviceEmailConfigured =
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
-      deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
       final rawAuthProviders = status['providers'];
       final authProviderRows = rawAuthProviders is List
           ? rawAuthProviders

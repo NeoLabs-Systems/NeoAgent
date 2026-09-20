@@ -186,6 +186,7 @@ function createRuntimeManager(app) {
       shellWorkerPool,
       workspaceManager: app.locals.workspaceManager,
       localComputerBackend,
+      desktopCompanionRegistry: localComputerRegistry,
     }),
   );
   localComputerRegistry.onConnectionChange = (userId) => {
@@ -410,6 +411,9 @@ async function startServices(app, io) {
     registerLocal(app, 'runtimeValidation', runtimeValidation);
     if (!runtimeValidation.ready) {
       console.warn('[Services] Runtime validation is degraded:', runtimeValidation.issues.join(' '));
+    }
+    for (const warning of runtimeValidation.warnings) {
+      console.warn(`[Services] ${warning}`);
     }
     const skillRunner = await createSkillRunner(app, runtimeManager);
     const agentEngine = createAgentEngine(app, io, {

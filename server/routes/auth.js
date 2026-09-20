@@ -283,7 +283,6 @@ router.get('/api/auth/status', (req, res) => {
     return res.json({
       hasUser: count.count > 0,
       registrationOpen: policy.registrationOpen || count.count === 0,
-      deploymentProfile: policy.profile,
       authenticated: false,
       user: null,
       email: {
@@ -297,7 +296,6 @@ router.get('/api/auth/status', (req, res) => {
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
-    deploymentProfile: policy.profile,
     authenticated: Boolean(currentUser),
     user: currentUser ? toUserPayload(currentUser) : null,
     email: {

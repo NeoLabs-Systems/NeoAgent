@@ -44,8 +44,9 @@ changes are applied through the migration layer rather than ad hoc service SQL.
 ### Execution runtimes
 
 Browser, desktop, terminal, and file tools use one selected Computer provider
-per user. The cloud provider is a persistent QEMU Linux guest, or a per-user
-Docker container when `TERMINAL_ENV=docker`; desktop builds
+per user. The cloud provider is a persistent QEMU Linux guest, a per-user Docker
+container when `TERMINAL_ENV=docker`, or the server process itself when
+`TERMINAL_ENV=host`; desktop builds
 can instead supply the local macOS, Windows, or Linux session through the same
 runtime contract and permission gate. Android remains a separate host ADB
 capability.

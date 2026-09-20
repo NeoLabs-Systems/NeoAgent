@@ -171,9 +171,6 @@ class _LogsPanelState extends State<LogsPanel> {
         'deploymentMode':
             versionInfo?['deploymentMode'] ??
             controller.updateStatus.deploymentMode,
-        'deploymentProfile':
-            versionInfo?['deploymentProfile'] ??
-            controller.updateStatus.deploymentProfile,
         'allowSelfUpdate':
             versionInfo?['allowSelfUpdate'] ??
             controller.updateStatus.allowSelfUpdate,
@@ -230,7 +227,6 @@ class _LogsPanelState extends State<LogsPanel> {
         'state': controller.updateStatus.state,
         'progress': controller.updateStatus.progress,
         'message': controller.updateStatus.message,
-        'deploymentProfile': controller.updateStatus.deploymentProfile,
         'versionBefore': controller.updateStatus.versionBefore,
         'versionAfter': controller.updateStatus.versionAfter,
         'installedVersion': controller.updateStatus.installedVersion,

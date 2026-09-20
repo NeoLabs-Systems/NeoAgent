@@ -2769,7 +2769,6 @@ class UpdateStatusSnapshot {
     this.releaseChannel = 'stable',
     this.allowSelfUpdate = true,
     this.deploymentMode = 'self_hosted',
-    this.deploymentProfile = 'private',
     this.targetBranch,
     this.versionBefore,
     this.versionAfter,
@@ -2790,7 +2789,6 @@ class UpdateStatusSnapshot {
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
       allowSelfUpdate: json['allowSelfUpdate'] != false,
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
-      deploymentProfile: json['deploymentProfile']?.toString() ?? 'private',
       targetBranch: json['targetBranch']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
@@ -2818,7 +2816,6 @@ class UpdateStatusSnapshot {
   final String releaseChannel;
   final bool allowSelfUpdate;
   final String deploymentMode;
-  final String deploymentProfile;
   final String? targetBranch;
   final String? versionBefore;
   final String? versionAfter;
@@ -2859,13 +2856,6 @@ class UpdateStatusSnapshot {
   String get releaseChannelLabel =>
       releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
 
-  String get deploymentProfileLabel =>
-      deploymentProfile.toLowerCase() == 'prod' ? 'Production' : 'Private';
-
-  String get runtimeModeLabel => deploymentProfile.toLowerCase() == 'prod'
-      ? 'Cloud runtime'
-      : 'Trusted host runtime';
-
   String get runtimeValidationLabel =>
       runtimeValidationReady ? 'Runtime ready' : 'Runtime setup required';
 
@@ -2883,7 +2873,7 @@ class UpdateStatusSnapshot {
         ? ''
         : ' | Installed: $installedVersion';
     final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Profile: $deploymentProfileLabel | Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
+    return 'Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>

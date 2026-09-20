@@ -271,20 +271,11 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   const raw = readEnvFileRaw(envFile);
   const parsed = parseEnv(raw);
   const changes = [];
-  const defaultProfile = 'prod';
   const sessionPlaceholders = new Set([
     'neoagent-dev-secret-change-me',
     'change-this-to-a-random-secret-in-production',
     'change-me-to-something-random',
   ]);
-
-  let deploymentProfile = String(env.NEOAGENT_PROFILE || parsed.get('NEOAGENT_PROFILE') || '').trim();
-  if (!deploymentProfile) {
-    deploymentProfile = defaultProfile;
-    upsertEnvValue(envFile, 'NEOAGENT_PROFILE', deploymentProfile);
-    changes.push('NEOAGENT_PROFILE');
-  }
-  env.NEOAGENT_PROFILE = deploymentProfile;
 
   let vmBaseImageUrl = String(env.NEOAGENT_VM_BASE_IMAGE_URL || parsed.get('NEOAGENT_VM_BASE_IMAGE_URL') || '').trim();
   const preferredVmBaseImageUrl = getDefaultVmBaseImageUrl();

@@ -7,7 +7,6 @@ const db = require('../../db/database');
 const {
   SETUP_COMPLETION_SECTIONS,
 } = require('../../../lib/setup/contract');
-const { getDeploymentPolicy } = require('../../utils/deployment');
 const { getVersionInfo } = require('../../utils/version');
 const { ENV_FILE, upsertEnvValue } = require('../../../runtime/paths');
 
@@ -51,7 +50,6 @@ function userCount() {
 function getSetupHandshake() {
   const instance = ensureInstance();
   const version = getVersionInfo();
-  const policy = getDeploymentPolicy();
   const hasUser = userCount() > 0;
   return {
     product: 'NeoAgent',
@@ -59,7 +57,6 @@ function getSetupHandshake() {
     serverVersion: version.packageVersion,
     instanceId: instance.instance_id,
     displayName: instance.display_name,
-    deploymentProfile: policy.profile,
     claimed: hasUser,
     pairingSupported: true,
     capabilities: ['qr-login'],
