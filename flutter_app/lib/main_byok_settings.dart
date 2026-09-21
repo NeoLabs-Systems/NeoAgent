@@ -123,6 +123,11 @@ class _ByokProviderRow extends StatelessWidget {
     final description = provider['description']?.toString() ?? '';
     final configured = provider['configured'] == true;
     final isCustomEndpoint = provider['isCustomEndpoint'] == true;
+    final supportsApiKey = provider['supportsApiKey'] == true;
+    // A provider with no API key concept (e.g. Ollama) is only ever "yours"
+    // by pointing it at a custom address -- same connect-a-URL flow as a
+    // custom OpenAI-compatible endpoint.
+    final isUrlOnly = isCustomEndpoint || !supportsApiKey;
     final customLabel = provider['customLabel']?.toString() ?? '';
     final baseUrl = provider['baseUrl']?.toString() ?? '';
 
@@ -144,7 +149,7 @@ class _ByokProviderRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      isCustomEndpoint && customLabel.isNotEmpty
+                      isUrlOnly && customLabel.isNotEmpty
                           ? customLabel
                           : label,
                       style: TextStyle(
@@ -168,7 +173,7 @@ class _ByokProviderRow extends StatelessWidget {
               ),
             ],
           ),
-          if (configured && isCustomEndpoint && baseUrl.isNotEmpty) ...<Widget>[
+          if (configured && isUrlOnly && baseUrl.isNotEmpty) ...<Widget>[
             const SizedBox(height: 8),
             Text(
               baseUrl,
@@ -188,7 +193,7 @@ class _ByokProviderRow extends StatelessWidget {
                   configured ? Icons.edit_outlined : Icons.add_circle_outline,
                   size: 18,
                 ),
-                label: Text(configured ? 'Update' : (isCustomEndpoint ? 'Connect endpoint' : 'Add key')),
+                label: Text(configured ? 'Update' : (isUrlOnly ? 'Connect endpoint' : 'Add key')),
               ),
               if (configured)
                 OutlinedButton.icon(
@@ -206,7 +211,8 @@ class _ByokProviderRow extends StatelessWidget {
   Future<void> _openEditDialog(BuildContext context) async {
     final providerId = provider['id']?.toString() ?? '';
     final providerLabel = provider['label']?.toString() ?? providerId;
-    final isCustom = provider['isCustomEndpoint'] == true;
+    final supportsApiKey = provider['supportsApiKey'] == true;
+    final isCustom = provider['isCustomEndpoint'] == true || !supportsApiKey;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => _ByokEditDialog(
@@ -214,6 +220,7 @@ class _ByokProviderRow extends StatelessWidget {
         providerId: providerId,
         providerLabel: providerLabel,
         isCustomEndpoint: isCustom,
+        supportsApiKey: supportsApiKey,
         requiresBaseUrl: provider['requiresBaseUrl'] == true,
         supportsBaseUrl: provider['supportsBaseUrl'] == true,
         defaultBaseUrl: provider['defaultBaseUrl']?.toString() ?? '',
@@ -270,6 +277,7 @@ class _ByokEditDialog extends StatefulWidget {
     required this.providerId,
     required this.providerLabel,
     required this.isCustomEndpoint,
+    required this.supportsApiKey,
     required this.requiresBaseUrl,
     required this.supportsBaseUrl,
     required this.defaultBaseUrl,
@@ -281,6 +289,7 @@ class _ByokEditDialog extends StatefulWidget {
   final String providerId;
   final String providerLabel;
   final bool isCustomEndpoint;
+  final bool supportsApiKey;
   final bool requiresBaseUrl;
   final bool supportsBaseUrl;
   final String defaultBaseUrl;
@@ -324,7 +333,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
 
   Future<void> _test() async {
     final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isEmpty) {
+    if (widget.supportsApiKey && apiKey.isEmpty) {
       setState(() {
         _testOk = false;
         _testMessage = 'Enter an API key first.';
@@ -339,7 +348,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     try {
       final result = await widget.controller.testByokProvider(
         widget.providerId,
-        apiKey: apiKey,
+        apiKey: widget.supportsApiKey ? apiKey : null,
         baseUrl: widget.supportsBaseUrl ? _baseUrlController.text.trim() : null,
       );
       setState(() {
@@ -360,12 +369,13 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
 
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isEmpty) {
+    if (widget.supportsApiKey && apiKey.isEmpty) {
       setState(() => _errorMessage = 'An API key is required.');
       return;
     }
     final baseUrl = _baseUrlController.text.trim();
-    if (widget.requiresBaseUrl && baseUrl.isEmpty) {
+    final baseUrlRequired = widget.requiresBaseUrl || !widget.supportsApiKey;
+    if (baseUrlRequired && baseUrl.isEmpty) {
       setState(() => _errorMessage = 'A base URL is required for this endpoint.');
       return;
     }
@@ -376,7 +386,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     try {
       await widget.controller.saveByokProvider(
         widget.providerId,
-        apiKey: apiKey,
+        apiKey: widget.supportsApiKey ? apiKey : '',
         baseUrl: widget.supportsBaseUrl ? baseUrl : null,
         label: widget.isCustomEndpoint ? _labelController.text.trim() : null,
       );
@@ -391,6 +401,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _testing;
+    final baseUrlRequired = widget.requiresBaseUrl || !widget.supportsApiKey;
     return AlertDialog(
       title: Text(
         widget.isCustomEndpoint
@@ -427,30 +438,35 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
               TextField(
                 controller: _baseUrlController,
                 decoration: InputDecoration(
-                  labelText: widget.requiresBaseUrl ? 'Base URL' : 'Base URL (optional)',
+                  labelText: baseUrlRequired ? 'Base URL' : 'Base URL (optional)',
                   hintText: widget.defaultBaseUrl.isNotEmpty
                       ? widget.defaultBaseUrl
                       : 'https://api.example.com/v1',
+                  helperText: 'Must be reachable on the public internet -- local and '
+                      'private network addresses aren\'t allowed.',
+                  helperMaxLines: 2,
                 ),
                 keyboardType: TextInputType.url,
               ),
               const SizedBox(height: 12),
             ],
-            TextField(
-              controller: _apiKeyController,
-              obscureText: _obscureKey,
-              autocorrect: false,
-              decoration: InputDecoration(
-                labelText: 'API key',
-                hintText: 'sk-...',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            if (widget.supportsApiKey) ...<Widget>[
+              TextField(
+                controller: _apiKeyController,
+                obscureText: _obscureKey,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: 'API key',
+                  hintText: 'sk-...',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () => setState(() => _obscureKey = !_obscureKey),
                   ),
-                  onPressed: () => setState(() => _obscureKey = !_obscureKey),
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,

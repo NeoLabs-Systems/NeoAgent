@@ -37,6 +37,7 @@ const {
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
+const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -247,13 +248,42 @@ function isValidByokBaseUrl(value) {
   }
 }
 
+// A BYOK base URL is user-controlled input pointed at from the server, so it
+// must never be allowed to resolve to the server's own loopback/LAN network
+// (SSRF into internal services, cloud metadata, etc.). Checks both the
+// literal host and, for a hostname, what it actually resolves to.
+async function assertSafeByokBaseUrl(baseUrl, res, signal) {
+  if (!isValidByokBaseUrl(baseUrl)) {
+    res.status(400).json({ success: false, ok: false, error: 'Base URL must be a valid http(s) URL.' });
+    return false;
+  }
+  const result = await validateCloudUrlWithDns(baseUrl, { signal });
+  if (!result.allowed) {
+    res.status(400).json({
+      success: false,
+      ok: false,
+      error: 'That base URL points at a local or private network address, which isn\'t allowed.',
+    });
+    return false;
+  }
+  return true;
+}
+
+// Providers a user can't actually self-serve through a pasted key: OAuth
+// login flows (`neoagent login <provider>`) and MiniMax's account-bound
+// coding-plan subscription. They have no place in a self-service BYOK UI.
+const BYOK_EXCLUDED_PROVIDER_IDS = new Set(['minimax']);
+function isByokEligible(definition) {
+  return definition.authentication !== 'oauth' && !BYOK_EXCLUDED_PROVIDER_IDS.has(definition.id);
+}
+
 router.get('/byok', async (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const providers = await getProviderHealthCatalog(userId, agentId, { signal: req.signal });
   res.json({
     providers: providers
-      .filter((provider) => provider.supportsApiKey || provider.supportsBaseUrl)
+      .filter((provider) => (provider.supportsApiKey || provider.supportsBaseUrl) && isByokEligible(provider))
       .map((provider) => ({
         id: provider.id,
         label: provider.label,
@@ -275,7 +305,7 @@ router.put('/byok/:providerId', byokWriteLimiter, async (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const providerId = String(req.params.providerId || '').trim();
   const definition = AI_PROVIDER_DEFINITIONS[providerId];
-  if (!definition || !definition.supportsApiKey) {
+  if (!definition || (!definition.supportsApiKey && !definition.supportsBaseUrl) || !isByokEligible(definition)) {
     return res.status(404).json({ success: false, error: 'Unknown or unsupported provider.' });
   }
 
@@ -283,18 +313,21 @@ router.put('/byok/:providerId', byokWriteLimiter, async (req, res) => {
   const baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : undefined;
   const label = typeof req.body?.label === 'string' ? req.body.label.trim() : undefined;
 
-  if (!apiKey) {
+  if (definition.supportsApiKey && !apiKey) {
     return res.status(400).json({ success: false, error: 'An API key is required.' });
   }
-  if (definition.requiresBaseUrl && !baseUrl) {
+  // A provider with no API key concept (e.g. Ollama) is only ever "yours"
+  // by pointing it at your own custom address, so that address is mandatory.
+  const baseUrlRequired = definition.requiresBaseUrl || !definition.supportsApiKey;
+  if (baseUrlRequired && !baseUrl) {
     return res.status(400).json({ success: false, error: 'A base URL is required for this provider.' });
   }
-  if (baseUrl && !isValidByokBaseUrl(baseUrl)) {
-    return res.status(400).json({ success: false, error: 'Base URL must be a valid http(s) URL.' });
-  }
+  if (baseUrl && !(await assertSafeByokBaseUrl(baseUrl, res, req.signal))) return;
 
   try {
-    setProviderSecret(userId, providerId, apiKey, agentId);
+    if (definition.supportsApiKey) {
+      setProviderSecret(userId, providerId, apiKey, agentId);
+    }
     if (definition.supportsBaseUrl && (baseUrl !== undefined || label !== undefined)) {
       setProviderConfig(userId, providerId, { baseUrl, label }, agentId);
     }
@@ -309,11 +342,17 @@ router.delete('/byok/:providerId', byokWriteLimiter, (req, res) => {
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const providerId = String(req.params.providerId || '').trim();
-  if (!AI_PROVIDER_DEFINITIONS[providerId]) {
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition || !isByokEligible(definition)) {
     return res.status(404).json({ success: false, error: 'Unknown provider.' });
   }
   try {
-    setProviderSecret(userId, providerId, '', agentId);
+    if (definition.supportsApiKey) {
+      setProviderSecret(userId, providerId, '', agentId);
+    }
+    if (!definition.supportsApiKey && definition.supportsBaseUrl) {
+      setProviderConfig(userId, providerId, { baseUrl: '', label: '' }, agentId);
+    }
     res.json({ success: true, configured: false });
   } catch (error) {
     console.error('[Settings][BYOK] Failed to clear provider credential:', error.message);
@@ -329,7 +368,7 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
   const providerId = String(req.params.providerId || '').trim();
   const definition = AI_PROVIDER_DEFINITIONS[providerId];
   const factory = PROVIDER_FACTORIES[providerId];
-  if (!definition || !factory) {
+  if (!definition || !factory || !isByokEligible(definition)) {
     return res.status(404).json({ success: false, error: 'Unknown provider.' });
   }
 
@@ -344,9 +383,11 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
   if (definition.supportsApiKey && !apiKey) {
     return res.status(400).json({ success: false, ok: false, error: 'No API key to test.' });
   }
-  if (definition.requiresBaseUrl && (!baseUrl || !isValidByokBaseUrl(baseUrl))) {
-    return res.status(400).json({ success: false, ok: false, error: 'A valid base URL is required.' });
+  const baseUrlRequired = definition.requiresBaseUrl || !definition.supportsApiKey;
+  if (baseUrlRequired && !baseUrl) {
+    return res.status(400).json({ success: false, ok: false, error: 'A base URL is required.' });
   }
+  if (baseUrl && !(await assertSafeByokBaseUrl(baseUrl, res, req.signal))) return;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);

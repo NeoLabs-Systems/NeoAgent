@@ -34,6 +34,7 @@ const { getDisabledModelIds } = require('./model_visibility');
 const { getModelHealthSnapshot } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
+const { isPrivateHost } = require('../../utils/cloud-security');
 
 // Maps a provider id to its class and which runtime fields its constructor takes.
 // Adding a provider is a one-line entry here instead of another dispatch branch.
@@ -120,6 +121,21 @@ async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
     }
 }
 
+// A user-supplied base URL (BYOK custom endpoint, or a custom Ollama
+// address) must never be allowed to point at the server's own loopback/LAN
+// network -- that's an SSRF vector into the host's internal services. The
+// provider's own hardcoded default (e.g. Ollama's localhost address, meant
+// for a self-hosted single-machine install) is a different trust boundary
+// and is exempt: it was never attacker-supplied.
+function isUnsafeUserBaseUrl(url, definition) {
+    if (!url || url === definition.defaultBaseUrl) return false;
+    try {
+        return isPrivateHost(new URL(url).hostname);
+    } catch {
+        return true;
+    }
+}
+
 function getProviderRuntimeConfig(userId, providerId, agentId = null) {
     const definition = AI_PROVIDER_DEFINITIONS[providerId];
     if (!definition) {
@@ -134,12 +150,16 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? (process.env[definition.baseUrlEnvKey] || '').trim()
         : '';
     const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
-    const configBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+    const rawConfigBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+    const configBaseUrl = isUnsafeUserBaseUrl(rawConfigBaseUrl, definition) ? '' : rawConfigBaseUrl;
     // A user's own (BYOK) credential always wins over the server/env one --
     // that is the point of "bring your own key" -- and its base URL follows
     // the same precedence so a personal custom endpoint isn't shadowed by an
-    // admin-configured env default.
-    const isByok = Boolean(scopedApiKey);
+    // admin-configured env default. A provider with no API key concept (e.g.
+    // Ollama) is BYOK'd by pointing it at a custom (non-default) address.
+    const isByok = definition.supportsApiKey
+        ? Boolean(scopedApiKey)
+        : Boolean(definition.supportsBaseUrl && configBaseUrl);
     const apiKey = scopedApiKey || envApiKey;
     const baseUrl = definition.supportsBaseUrl
         ? (isByok
