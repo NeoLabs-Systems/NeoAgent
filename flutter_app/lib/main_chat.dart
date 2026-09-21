@@ -878,21 +878,37 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: TextField(
-                            controller: _composerController,
-                            minLines: 1,
-                            maxLines: 6,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            decoration: InputDecoration(
-                              hintText: controller.chatComposerHint,
-                              isDense: true,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 10,
+                          child: CallbackShortcuts(
+                            bindings: <ShortcutActivator, VoidCallback>{
+                              const SingleActivator(
+                                LogicalKeyboardKey.enter,
+                                meta: true,
+                              ): _isSendingChatMessage
+                                  ? () {}
+                                  : sendComposerMessage,
+                              const SingleActivator(
+                                LogicalKeyboardKey.enter,
+                                control: true,
+                              ): _isSendingChatMessage
+                                  ? () {}
+                                  : sendComposerMessage,
+                            },
+                            child: TextField(
+                              controller: _composerController,
+                              minLines: 1,
+                              maxLines: 6,
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
+                              decoration: InputDecoration(
+                                hintText: controller.chatComposerHint,
+                                isDense: true,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                               ),
                             ),
                           ),
