@@ -481,9 +481,8 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
   void _openModelPicker() {
     final controller = widget.controller;
     if (controller.hasLiveRun) return;
-    final enabled = controller.enabledModelIds;
     final models = controller.supportedModels
-        .where((m) => enabled.contains(m.id))
+        .where((m) => m.available)
         .toList();
     final options = _modelPickerOptions(models, allowAuto: true);
     showGeneralDialog<void>(
