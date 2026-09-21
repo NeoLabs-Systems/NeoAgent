@@ -2979,9 +2979,9 @@ async function confirmLocalExecution(skipPrompt) {
 
 function parseExecArguments(args) {
   const options = {
-    instruction: null, model: null, provider: null, agent: null, cwd: null, allowAllTools: false, yes: false,
+    instruction: null, model: null, agent: null, cwd: null, allowAllTools: false, yes: false,
   };
-  const flags = { '--model': 'model', '--provider': 'provider', '--agent': 'agent', '--cwd': 'cwd' };
+  const flags = { '--model': 'model', '--agent': 'agent', '--cwd': 'cwd' };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--json') continue;
@@ -3033,7 +3033,6 @@ async function cmdExec(args = []) {
   const result = await runHeadlessTask({
     instruction: options.instruction,
     model: options.model,
-    provider: options.provider,
     agent: options.agent,
     workspaceRoot: options.cwd ? path.resolve(options.cwd) : process.cwd(),
   });
@@ -3080,7 +3079,7 @@ function printHelp() {
   cliSection('Run');
   row('account create',      'Create the first account on a fresh install');
   row('exec "<task>"',       'Run one task in the current directory, then exit');
-  row('exec --model M --provider P', 'Run one task on a specific provider/model (--model alone also accepts "provider/model")');
+  row('exec --model P/M',    'Run one task on a specific provider/model');
   row('exec --allow-all-tools', 'Skip tool approval prompts for that run');
   row('exec --yes',          'Skip the local-execution warning (non-interactive)');
   console.log('');
