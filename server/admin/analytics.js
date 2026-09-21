@@ -97,7 +97,7 @@ function buildBarChart(data, key, altKey) {
   const innerH = H - pad.top - pad.bottom;
 
   const accentColor = 'var(--accent)';
-  const mutedColor = 'rgba(126,210,126,0.18)';
+  const mutedColor = 'color-mix(in srgb, var(--accent-alt) 18%, transparent)';
 
   const bars = data.map((d, i) => {
     const v = d[key] || 0;

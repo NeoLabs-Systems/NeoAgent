@@ -13,7 +13,7 @@ function showToast(message, type = 'info') {
   }
   const toast = document.createElement('div');
   const colors = { info: 'var(--info,#3b82f6)', success: 'var(--success,#22c55e)', error: 'var(--danger,#ef4444)' };
-  toast.style.cssText = `background:var(--bg-primary,#1a1a1a);border:1px solid ${colors[type] || colors.info};border-radius:10px;padding:12px 18px;color:var(--text,#fff);font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,0.4);pointer-events:auto;max-width:360px;line-height:1.5;opacity:0;transform:translateY(8px);transition:opacity 0.18s,transform 0.18s;`;
+  toast.style.cssText = `background:var(--bg-card,#1a1a1a);border:1px solid ${colors[type] || colors.info};border-radius:10px;padding:12px 18px;color:var(--text,#fff);font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,0.4);pointer-events:auto;max-width:360px;line-height:1.5;opacity:0;transform:translateY(8px);transition:opacity 0.18s,transform 0.18s;`;
   toast.textContent = message;
   stack.appendChild(toast);
   requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
@@ -34,7 +34,7 @@ function showConfirmModal({ title, body, confirmLabel = 'Confirm', confirmClass 
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'admin-modal-title');
-    modal.style.cssText = 'width:440px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
+    modal.style.cssText = 'width:440px;max-width:calc(100vw - 32px);background:var(--bg-card,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
     modal.innerHTML = `
       <div id="admin-modal-title" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;"></div>
       <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">${body}</div>

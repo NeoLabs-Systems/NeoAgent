@@ -221,7 +221,7 @@ async function editRateLimits(id, username) {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(2px);';
     const modal = document.createElement('div');
     modal.className = 'card';
-    modal.style.cssText = 'width:440px;background:var(--bg-primary);box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:24px;';
+    modal.style.cssText = 'width:440px;background:var(--bg-card);box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:24px;';
     modal.innerHTML = `
       <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">Rate Limits</div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">

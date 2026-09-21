@@ -383,7 +383,7 @@ function billingPromptPlan(plans) {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99990;backdrop-filter:blur(2px);';
     const optionsHtml = plans.map((p) => `<option value="${escAttr(p.id)}">${esc(p.id)} — ${esc(p.name)}</option>`).join('');
     const modal = document.createElement('div');
-    modal.style.cssText = 'width:400px;max-width:calc(100vw - 32px);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
+    modal.style.cssText = 'width:400px;max-width:calc(100vw - 32px);background:var(--bg-card,#1a1a1a);border:1px solid var(--border,#2a2a2a);border-radius:12px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.6);';
     modal.innerHTML = `
       <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">Assign plan</div>
       <div style="margin-bottom:16px;">

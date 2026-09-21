@@ -238,8 +238,8 @@
       flex-shrink: 0;
     }
 
-    .status-dot.ok   { background: var(--success); box-shadow: 0 0 6px rgba(116,192,124,0.5); }
-    .status-dot.fail { background: var(--danger);  box-shadow: 0 0 6px rgba(222,138,120,0.5); }
+    .status-dot.ok   { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 50%, transparent); }
+    .status-dot.fail { background: var(--danger);  box-shadow: 0 0 6px color-mix(in srgb, var(--danger) 50%, transparent); }
 
     .status-label  { font-size: 13px; font-weight: 600; color: var(--text); }
     .status-detail { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
@@ -517,10 +517,10 @@
       font-weight: 600;
     }
 
-    .run-completed { background: rgba(116,192,124,0.15); color: var(--success); }
-    .run-failed    { background: rgba(222,138,120,0.15); color: var(--danger); }
+    .run-completed { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+    .run-failed    { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
     .run-running   { background: var(--accent-muted);    color: var(--accent); }
-    .run-pending   { background: rgba(126,136,119,0.15); color: var(--text-muted); }
+    .run-pending   { background: color-mix(in srgb, var(--text-muted) 15%, transparent); color: var(--text-muted); }
 
     /* ── User avatar ────────────────────────────────────────────── */
     .user-avatar {
@@ -585,8 +585,8 @@
       color: var(--text-muted);
       margin-top: 14px;
       padding: 10px 14px;
-      background: rgba(222, 138, 120, 0.05);
-      border: 1px solid rgba(222, 138, 120, 0.15);
+      background: color-mix(in srgb, var(--danger) 5%, transparent);
+      border: 1px solid color-mix(in srgb, var(--danger) 15%, transparent);
       border-radius: var(--radius-sm);
       line-height: 1.5;
     }
@@ -676,8 +676,8 @@
     .sql-error {
       padding: 12px 14px;
       margin-top: 10px;
-      background: rgba(222,138,120,0.08);
-      border: 1px solid rgba(222,138,120,0.2);
+      background: color-mix(in srgb, var(--danger) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
       border-radius: var(--radius-sm);
       color: var(--danger);
       font-family: var(--font-mono);
@@ -797,8 +797,8 @@
     }
 
     .key-reveal-box {
-      background: rgba(225, 176, 82, 0.07);
-      border: 1px solid rgba(225, 176, 82, 0.25);
+      background: color-mix(in srgb, var(--accent) 7%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
       border-radius: var(--radius-sm);
       padding: 12px 14px;
       margin-top: 14px;
