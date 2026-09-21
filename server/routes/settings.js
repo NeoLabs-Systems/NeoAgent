@@ -17,9 +17,12 @@ const {
   getReleaseChannelBranchPolicy,
 } = require('../../runtime/release_channel');
 const {
+  AI_PROVIDER_DEFINITIONS,
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
+  setProviderConfig,
+  setProviderSecret,
 } = require('../services/ai/settings');
 const {
   readMeshtasticEnabled,
@@ -33,7 +36,7 @@ const {
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
-const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
+const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -216,6 +219,158 @@ router.get('/meta/ai-providers', async (req, res) => {
       availableModelCount: modelCounts[`${provider.id}:available`] || 0,
     })),
   });
+});
+
+// ── Bring-your-own-key (BYOK) provider credentials ──────────────────────
+// Every route below is scoped strictly to req.session.userId (and the agent
+// it resolves to, which is itself owned by that user) -- a user can only
+// ever read the status of, set, clear, or test their own keys. Raw key
+// values are never echoed back once saved.
+const BYOK_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const byokWriteLimiter = rateLimit({
+  windowMs: BYOK_RATE_LIMIT_WINDOW_MS,
+  max: 20,
+  message: { success: false, error: 'Too many requests, try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function isValidByokBaseUrl(value) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && Boolean(url.hostname)
+      && !url.username
+      && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+router.get('/byok', async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providers = await getProviderHealthCatalog(userId, agentId, { signal: req.signal });
+  res.json({
+    providers: providers
+      .filter((provider) => provider.supportsApiKey || provider.supportsBaseUrl)
+      .map((provider) => ({
+        id: provider.id,
+        label: provider.label,
+        description: provider.description,
+        supportsApiKey: provider.supportsApiKey,
+        supportsBaseUrl: provider.supportsBaseUrl,
+        requiresBaseUrl: provider.requiresBaseUrl,
+        defaultBaseUrl: provider.defaultBaseUrl,
+        isCustomEndpoint: provider.id === 'openai-compatible',
+        configured: provider.isByok,
+        baseUrl: provider.isByok ? provider.baseUrl : '',
+        customLabel: provider.isByok ? (provider.customLabel || '') : '',
+      })),
+  });
+});
+
+router.put('/byok/:providerId', byokWriteLimiter, async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition || !definition.supportsApiKey) {
+    return res.status(404).json({ success: false, error: 'Unknown or unsupported provider.' });
+  }
+
+  const apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  const baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : undefined;
+  const label = typeof req.body?.label === 'string' ? req.body.label.trim() : undefined;
+
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: 'An API key is required.' });
+  }
+  if (definition.requiresBaseUrl && !baseUrl) {
+    return res.status(400).json({ success: false, error: 'A base URL is required for this provider.' });
+  }
+  if (baseUrl && !isValidByokBaseUrl(baseUrl)) {
+    return res.status(400).json({ success: false, error: 'Base URL must be a valid http(s) URL.' });
+  }
+
+  try {
+    setProviderSecret(userId, providerId, apiKey, agentId);
+    if (definition.supportsBaseUrl && (baseUrl !== undefined || label !== undefined)) {
+      setProviderConfig(userId, providerId, { baseUrl, label }, agentId);
+    }
+    res.json({ success: true, configured: true });
+  } catch (error) {
+    console.error('[Settings][BYOK] Failed to save provider credential:', error.message);
+    res.status(500).json({ success: false, error: 'Could not save this credential.' });
+  }
+});
+
+router.delete('/byok/:providerId', byokWriteLimiter, (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  if (!AI_PROVIDER_DEFINITIONS[providerId]) {
+    return res.status(404).json({ success: false, error: 'Unknown provider.' });
+  }
+  try {
+    setProviderSecret(userId, providerId, '', agentId);
+    res.json({ success: true, configured: false });
+  } catch (error) {
+    console.error('[Settings][BYOK] Failed to clear provider credential:', error.message);
+    res.status(500).json({ success: false, error: 'Could not clear this credential.' });
+  }
+});
+
+// Tests a key/endpoint the user is about to save (or has already saved, when
+// no body is sent) without persisting anything from this call.
+router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  const factory = PROVIDER_FACTORIES[providerId];
+  if (!definition || !factory) {
+    return res.status(404).json({ success: false, error: 'Unknown provider.' });
+  }
+
+  let apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  let baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
+  if (!apiKey) {
+    const { getProviderRuntimeConfig } = require('../services/ai/models');
+    const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
+    apiKey = runtime.apiKey;
+    baseUrl = baseUrl || runtime.baseUrl;
+  }
+  if (definition.supportsApiKey && !apiKey) {
+    return res.status(400).json({ success: false, ok: false, error: 'No API key to test.' });
+  }
+  if (definition.requiresBaseUrl && (!baseUrl || !isValidByokBaseUrl(baseUrl))) {
+    return res.status(400).json({ success: false, ok: false, error: 'A valid base URL is required.' });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const config = {};
+    if (factory.apiKey) config.apiKey = apiKey;
+    if (factory.baseUrl) config.baseUrl = baseUrl;
+    const provider = new factory.Provider(config);
+    if (typeof provider.listModels !== 'function') {
+      return res.json({ success: true, ok: true, message: 'Credential saved format looks valid; this provider does not support a live connection test.' });
+    }
+    const models = await provider.listModels(controller.signal);
+    res.json({
+      success: true,
+      ok: true,
+      message: Array.isArray(models) && models.length
+        ? `Connected — found ${models.length} model(s).`
+        : 'Connected, but no models were returned.',
+    });
+  } catch (error) {
+    res.json({ success: true, ok: false, error: error?.message || 'Connection failed.' });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 // Get all settings

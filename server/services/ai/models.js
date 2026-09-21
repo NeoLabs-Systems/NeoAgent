@@ -135,19 +135,30 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         : '';
     const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
     const configBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+    // A user's own (BYOK) credential always wins over the server/env one --
+    // that is the point of "bring your own key" -- and its base URL follows
+    // the same precedence so a personal custom endpoint isn't shadowed by an
+    // admin-configured env default.
+    const isByok = Boolean(scopedApiKey);
+    const apiKey = scopedApiKey || envApiKey;
     const baseUrl = definition.supportsBaseUrl
-        ? (envBaseUrl || configBaseUrl || definition.defaultBaseUrl || '')
+        ? (isByok
+            ? (configBaseUrl || envBaseUrl || definition.defaultBaseUrl || '')
+            : (envBaseUrl || configBaseUrl || definition.defaultBaseUrl || ''))
         : '';
 
     return {
         ...definition,
         enabled: config.enabled !== false,
-        apiKey: envApiKey || scopedApiKey,
-        credentialConfigured: Boolean(envApiKey || scopedApiKey),
+        apiKey,
+        credentialConfigured: Boolean(apiKey),
         baseUrl,
         baseUrlConfigured: Boolean(baseUrl),
         baseUrlValid: !baseUrl || isValidHttpUrl(baseUrl),
-        hasScopedApiKey: Boolean(scopedApiKey),
+        hasScopedApiKey: isByok,
+        isByok,
+        source: isByok ? 'byok' : (envApiKey ? 'server' : 'none'),
+        label: typeof config.label === 'string' ? config.label : '',
     };
 }
 
@@ -238,6 +249,8 @@ function getProviderCatalog(userId, agentId = null) {
             credentialConfigured: runtime.credentialConfigured,
             baseUrlConfigured: runtime.baseUrlConfigured,
             baseUrl: runtime.baseUrl,
+            customLabel: runtime.label || '',
+            isByok: runtime.isByok,
             status,
             statusLabel,
             availabilityReason
@@ -440,7 +453,9 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             available,
             runtimeUnavailable,
             providerStatus: provider?.status || 'unknown',
-            providerStatusLabel: provider?.statusLabel || 'Unknown'
+            providerStatusLabel: provider?.statusLabel || 'Unknown',
+            isByok: Boolean(provider?.isByok),
+            byokLabel: provider?.customLabel || ''
         };
     });
 }

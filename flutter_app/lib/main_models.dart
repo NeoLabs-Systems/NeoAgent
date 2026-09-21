@@ -2395,6 +2395,8 @@ class ModelMeta {
     this.providerStatus = '',
     this.providerStatusLabel = '',
     this.priceTier,
+    this.isByok = false,
+    this.byokLabel = '',
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2408,6 +2410,8 @@ class ModelMeta {
       providerStatus: json['providerStatus']?.toString() ?? '',
       providerStatusLabel: json['providerStatusLabel']?.toString() ?? '',
       priceTier: json['priceTier']?.toString(),
+      isByok: json['isByok'] == true,
+      byokLabel: json['byokLabel']?.toString() ?? '',
     );
   }
 
@@ -2422,6 +2426,11 @@ class ModelMeta {
 
   /// Pricing tier: 'free' | 'cheap' | 'medium' | 'expensive' | null (unknown)
   final String? priceTier;
+
+  /// True when this model runs on the current user's own (bring-your-own-key)
+  /// provider credentials rather than the server's shared ones.
+  final bool isByok;
+  final String byokLabel;
 }
 
 class AiProviderMeta {
@@ -2443,6 +2452,7 @@ class AiProviderMeta {
     required this.availableModelCount,
     this.authentication = 'api_key',
     this.requiresBaseUrl = false,
+    this.isByok = false,
   });
 
   factory AiProviderMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2464,6 +2474,7 @@ class AiProviderMeta {
       availableModelCount: _asInt(json['availableModelCount']),
       authentication: json['authentication']?.toString() ?? 'api_key',
       requiresBaseUrl: json['requiresBaseUrl'] == true,
+      isByok: json['isByok'] == true,
     );
   }
 
@@ -2484,6 +2495,7 @@ class AiProviderMeta {
   final int availableModelCount;
   final String authentication;
   final bool requiresBaseUrl;
+  final bool isByok;
 
   bool get usesApiKey => authentication == 'api_key' && supportsApiKey;
   bool get isLocal => authentication == 'local';

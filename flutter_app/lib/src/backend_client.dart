@@ -596,6 +596,59 @@ class BackendClient {
     return putMap(baseUrl, '/api/settings', _withAgentId(payload, agentId));
   }
 
+  Future<Map<String, dynamic>> fetchByokProviders(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(baseUrl, _withAgentQuery('/api/settings/byok', agentId));
+  }
+
+  Future<Map<String, dynamic>> saveByokProvider(
+    String baseUrl,
+    String providerId, {
+    required String apiKey,
+    String? baseUrlOverride,
+    String? label,
+    String? agentId,
+  }) async {
+    final payload = <String, dynamic>{'apiKey': apiKey};
+    if (baseUrlOverride != null) payload['baseUrl'] = baseUrlOverride;
+    if (label != null) payload['label'] = label;
+    return putMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/byok/$providerId', agentId),
+      _withAgentId(payload, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> clearByokProvider(
+    String baseUrl,
+    String providerId, {
+    String? agentId,
+  }) async {
+    return deleteMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/byok/$providerId', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> testByokProvider(
+    String baseUrl,
+    String providerId, {
+    String? apiKey,
+    String? baseUrlOverride,
+    String? agentId,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (apiKey != null) payload['apiKey'] = apiKey;
+    if (baseUrlOverride != null) payload['baseUrl'] = baseUrlOverride;
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/byok/$providerId/test', agentId),
+      _withAgentId(payload, agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> fetchBehaviorConfig(
     String baseUrl, {
     String? agentId,

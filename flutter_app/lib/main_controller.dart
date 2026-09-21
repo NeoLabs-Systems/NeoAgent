@@ -177,6 +177,8 @@ class NeoAgentController extends ChangeNotifier {
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
+  List<Map<String, dynamic>> byokProviders = const <Map<String, dynamic>>[];
+  bool isLoadingByokProviders = false;
   List<RunSummary> recentRuns = const <RunSummary>[];
   List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
@@ -6459,6 +6461,70 @@ class NeoAgentController extends ChangeNotifier {
       onError: (Object _, StackTrace __) {},
     );
     return write;
+  }
+
+  Future<void> refreshByokProviders() async {
+    isLoadingByokProviders = true;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchByokProviders(
+        backendUrl,
+        agentId: _scopedAgentId,
+      );
+      final raw = response['providers'];
+      byokProviders = raw is List
+          ? raw.whereType<Map>().map(Map<String, dynamic>.from).toList()
+          : const <Map<String, dynamic>>[];
+    } catch (_) {
+      // Keep whatever list is already in memory.
+    } finally {
+      isLoadingByokProviders = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveByokProvider(
+    String providerId, {
+    required String apiKey,
+    String? baseUrl,
+    String? label,
+  }) async {
+    final response = await _backendClient.saveByokProvider(
+      backendUrl,
+      providerId,
+      apiKey: apiKey,
+      baseUrlOverride: baseUrl,
+      label: label,
+      agentId: _scopedAgentId,
+    );
+    await refreshByokProviders();
+    await refreshAiCatalog();
+    return response;
+  }
+
+  Future<Map<String, dynamic>> clearByokProvider(String providerId) async {
+    final response = await _backendClient.clearByokProvider(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    await refreshByokProviders();
+    await refreshAiCatalog();
+    return response;
+  }
+
+  Future<Map<String, dynamic>> testByokProvider(
+    String providerId, {
+    String? apiKey,
+    String? baseUrl,
+  }) async {
+    return _backendClient.testByokProvider(
+      backendUrl,
+      providerId,
+      apiKey: apiKey,
+      baseUrlOverride: baseUrl,
+      agentId: _scopedAgentId,
+    );
   }
 
   Future<Map<String, dynamic>> refreshSocialReachStatus() async {

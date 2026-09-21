@@ -37,6 +37,8 @@ const {
   summarizeProgressToolExecutions,
 } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
+const { parseModelSelectionId } = require('../model_identity');
+const { getProviderRuntimeConfig } = require('../models');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const {
@@ -247,8 +249,26 @@ class DurableRunRuntime {
       };
     };
 
+    // Server usage limits don't apply when the run's explicitly selected
+    // model resolves to a provider the user configured with their own (BYOK)
+    // credentials -- only they pay for those calls. This only covers an
+    // explicit model selection; 'auto' selection can still land on a
+    // server-funded model, so it stays rate-limited.
+    let byokRateLimitBypass = false;
+    const requestedModelId = String(modelOverride || aiSettings.default_chat_model || '').trim();
+    const requestedModelParsed = parseModelSelectionId(requestedModelId);
+    if (requestedModelParsed) {
+      try {
+        byokRateLimitBypass = Boolean(
+          getProviderRuntimeConfig(userId, requestedModelParsed.provider, agentId).isByok,
+        );
+      } catch {
+        byokRateLimitBypass = false;
+      }
+    }
+
     const { releaseReservation } = enforceRateLimits(userId, {
-      bypass: options.bypassUserRateLimits === true,
+      bypass: options.bypassUserRateLimits === true || byokRateLimitBypass,
     });
 
     try {

@@ -79,6 +79,7 @@ part 'main_cowork_composer.dart';
 part 'main_cowork_workbench.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
+part 'main_byok_settings.dart';
 part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';

@@ -10,6 +10,7 @@ class _ModelPickerOption {
     this.icon,
     this.isAuto = false,
     this.priceTier,
+    this.isByok = false,
   });
 
   final String value;
@@ -21,6 +22,8 @@ class _ModelPickerOption {
   final bool isAuto;
   /// 'free' | 'cheap' | 'medium' | 'expensive' | null
   final String? priceTier;
+  /// True when this model runs on the current user's own (BYOK) credentials.
+  final bool isByok;
 }
 
 // ─── Provider helpers ─────────────────────────────────────────────────────────
@@ -125,6 +128,7 @@ List<_ModelPickerOption> _modelPickerOptions(
         color: _providerPickerColor(m.provider),
         icon: _providerPickerIcon(m.provider),
         priceTier: m.priceTier,
+        isByok: m.isByok,
       );
     }),
   ];
@@ -547,6 +551,32 @@ class _PriceTierChip extends StatelessWidget {
   }
 }
 
+class _ByokChip extends StatelessWidget {
+  const _ByokChip();
+
+  @override
+  Widget build(BuildContext context) {
+    const Color color = Color(0xFF8B5CF6);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
+      ),
+      child: const Text(
+        'BYOK',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF8B5CF6),
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
 class _PickerGroupHeader extends StatelessWidget {
   const _PickerGroupHeader({required this.label, required this.color});
 
@@ -659,6 +689,10 @@ class _PickerRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              if (option.isByok) ...<Widget>[
+                const _ByokChip(),
+                const SizedBox(width: 6),
+              ],
               if (option.priceTier != null) ...<Widget>[
                 _PriceTierChip(tier: option.priceTier!),
                 const SizedBox(width: 6),

@@ -83,6 +83,21 @@ const _modelsSettingsSection =
       'smart selector',
     ]);
 
+const _advancedSettingsSection = _SettingsSection(
+  'advanced',
+  'Advanced',
+  Icons.vpn_key_outlined,
+  <String>[
+    'advanced',
+    'byok',
+    'bring your own key',
+    'api key',
+    'custom endpoint',
+    'openai compatible',
+    'own model',
+  ],
+);
+
 const _socialReachSettingsSection = _SettingsSection(
   'social reach',
   'Social reach',
@@ -152,6 +167,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _desktopSettingsSection,
   _securitySettingsSection,
   _diagnosticsSettingsSection,
+  _advancedSettingsSection,
 ];
 
 class _SettingsPanelState extends State<SettingsPanel> {
@@ -453,6 +469,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
               availableModels: availableModels,
               enabledSmartModels: enabledSmartModels,
             ),
+            const SizedBox(height: 16),
+          ],
+          if (_showsSettingsSection(
+            searchQuery,
+            _advancedSettingsSection,
+          )) ...<Widget>[
+            _ByokSettingsCard(controller: controller),
             const SizedBox(height: 16),
           ],
           if (_showsSettingsSection(
@@ -1431,7 +1454,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 12),
             Text(
-              'AI provider keys and endpoints are server configuration. Add them in the admin dashboard, then choose models here.',
+              'Shared provider keys are server configuration, managed in the admin dashboard. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.',
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 4),
@@ -2658,6 +2681,10 @@ class _SmartPoolRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (model.isByok) ...<Widget>[
+                  const _ByokChip(),
+                  const SizedBox(width: 6),
+                ],
                 if (model.priceTier != null)
                   _PriceTierChip(tier: model.priceTier!),
                 const SizedBox(width: 2),
