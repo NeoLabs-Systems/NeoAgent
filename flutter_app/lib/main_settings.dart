@@ -720,16 +720,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
               const SizedBox(height: 14),
               const _InlineError(
                 message:
-                    'No AI provider is configured, so chat and messaging cannot '
-                    'run yet. Add a provider API key in the admin dashboard.',
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: controller.openAdminDashboard,
-                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                  label: const Text('Open admin dashboard'),
-                ),
+                    'No AI provider is configured, so chat and messaging '
+                    'cannot run yet.',
               ),
             ],
             const SizedBox(height: 14),
@@ -1405,17 +1397,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Shared provider keys are server configuration, managed in the admin dashboard. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.',
+              'Shared provider keys are configured on the server. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.',
               style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: widget.controller.openAdminDashboard,
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: const Text('Open admin dashboard'),
-              ),
             ),
             const SizedBox(height: 8),
             const Divider(height: 32),

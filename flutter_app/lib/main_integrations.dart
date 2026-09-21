@@ -2068,7 +2068,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
           : OutlinedButton.icon(
               onPressed: null,
               icon: const Icon(Icons.settings_suggest_outlined),
-              label: const Text('Admin Setup Required'),
+              label: const Text('Setup Required'),
             );
     }
 

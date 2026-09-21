@@ -4429,24 +4429,6 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  /// AI provider credentials are server configuration, so the admin dashboard
-  /// is the only place to add them. Desktop installs have no `neoagent` CLI on
-  /// PATH, which makes this the one reachable route for them.
-  Future<void> openAdminDashboard() async {
-    final base = _normalizeBackendUrl(backendUrl);
-    if (base.isEmpty) {
-      return;
-    }
-    final result = await _oauthLauncher.openExternal(
-      url: '$base/admin',
-      label: 'neoagent_admin_dashboard',
-    );
-    if (!result.launched) {
-      errorMessage = result.error ?? 'Could not open the admin dashboard.';
-      notifyListeners();
-    }
-  }
-
   Uri resolveRuntimeAsset(String path) {
     final separator = path.contains('?') ? '&' : '?';
     return _backendClient.resolveAssetUri(
