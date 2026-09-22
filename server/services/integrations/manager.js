@@ -35,6 +35,11 @@ function isLikelyExpiredConnectionError(error) {
   ].some((hint) => message.includes(hint));
 }
 
+function withAgentQuery(url, agentId) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}agentId=${encodeURIComponent(agentId)}`;
+}
+
 function assertDurableOAuthCredentials(provider, credentials) {
   const label = String(provider?.label || 'This integration').trim() || 'This integration';
   const normalizedCredentials =
@@ -302,9 +307,16 @@ class IntegrationManager {
         signal: options.signal || null,
       });
       const url = String(result?.url || '').trim();
+      // The connect page opens in a popup that carries no agent context of its
+      // own, so the scope has to travel in the URL. Without it the page falls
+      // back to the default agent and cannot find a session any other agent
+      // opened, which makes interactive providers unlinkable for those agents.
       const absoluteUrl = url.startsWith('http')
         ? url
-        : `${require('./env').resolvePublicBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+        : withAgentQuery(
+          `${require('./env').resolvePublicBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`,
+          agentId,
+        );
       return {
         provider: provider.key,
         appId: appKey,

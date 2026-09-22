@@ -15,228 +15,116 @@ void _showControllerError(
   );
 }
 
-class IntegrationsPanel extends StatelessWidget {
-  const IntegrationsPanel({
+/// Everything about one official integration — status, guidance, and the
+/// per-app connect/account controls — shown from the Tools page.
+class IntegrationDetailView extends StatelessWidget {
+  const IntegrationDetailView({
     super.key,
     required this.controller,
-    this.embedded = false,
+    required this.providerId,
   });
 
   final NeoAgentController controller;
-  final bool embedded;
+  final String providerId;
 
   @override
   Widget build(BuildContext context) {
-    final body = Column(
-      children: <Widget>[
-        if (!embedded) ...<Widget>[
-          _PageTitle(
-            title: 'Integrations',
-            subtitle:
-                'Connect and manage official integrations separately from reusable skills.',
-          ),
-          const SizedBox(height: 12),
-        ],
-        Expanded(child: OfficialIntegrationsTab(controller: controller)),
-      ],
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final item = controller.officialIntegrations
+            .where((provider) => provider.id == providerId)
+            .firstOrNull;
+        if (item == null) {
+          return Text(
+            'This integration is no longer available.',
+            style: TextStyle(color: _textSecondary),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              item.description,
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _StatusPill(
+                  label: item.statusLabel,
+                  color: item.isConnected
+                      ? _success
+                      : item.hasExpiredAccounts
+                      ? _warning
+                      : item.env.configured
+                      ? _info
+                      : _warning,
+                ),
+                _MetaPill(
+                  label: '${item.connection.accountCount} accounts',
+                  icon: Icons.alternate_email_rounded,
+                ),
+                _MetaPill(
+                  label: '${item.connection.appCount} apps active',
+                  icon: Icons.apps_rounded,
+                ),
+                _MetaPill(
+                  label: '${item.availableToolCount} tools',
+                  icon: Icons.build_outlined,
+                ),
+                _MetaPill(
+                  label: item.memoryCoverage.supported
+                      ? 'Memory ${item.memoryCoverage.statusLabel}'
+                      : 'No memory sync',
+                  icon: Icons.psychology_alt_outlined,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              _integrationGuidance(item),
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 18),
+            ...item.apps.map(
+              (app) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _OfficialIntegrationAppCard(
+                  controller: controller,
+                  provider: item,
+                  app: app,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
-    if (embedded) {
-      return body;
-    }
-    return Padding(padding: _pagePadding(context), child: body);
   }
 }
 
-class OfficialIntegrationsTab extends StatelessWidget {
-  const OfficialIntegrationsTab({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleIntegrations =
-        controller.officialIntegrations
-            .where(
-              (item) =>
-                  item.env.configured ||
-                  item.env.setupMode == 'user' ||
-                  item.isConnected,
-            )
-            .toList()
-          ..sort(_compareOfficialIntegrationItems);
-
-    if (visibleIntegrations.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(
-            child: Text(
-              'No official integrations are available yet.',
-              style: TextStyle(color: _textSecondary),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final connectedIntegrations = visibleIntegrations
-        .where((item) => item.isConnected)
-        .toList();
-    final availableIntegrations = visibleIntegrations
-        .where(
-          (item) =>
-              !item.isConnected &&
-              (item.env.configured || item.env.setupMode == 'user'),
-        )
-        .toList();
-
-    return Card(
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          if (connectedIntegrations.isNotEmpty) ...[
-            const _IntegrationSectionTitle(title: 'Connected'),
-            ...connectedIntegrations.asMap().entries.map(
-              (entry) => Padding(
-                padding: EdgeInsets.only(
-                  bottom: entry.key < connectedIntegrations.length - 1 ? 12 : 0,
-                ),
-                child: _buildIntegrationCard(context, entry.value),
-              ),
-            ),
-          ],
-          if (connectedIntegrations.isNotEmpty &&
-              availableIntegrations.isNotEmpty)
-            const SizedBox(height: 24),
-          if (availableIntegrations.isNotEmpty) ...[
-            const _IntegrationSectionTitle(title: 'Available'),
-            ...availableIntegrations.asMap().entries.map(
-              (entry) => Padding(
-                padding: EdgeInsets.only(
-                  bottom: entry.key < availableIntegrations.length - 1 ? 12 : 0,
-                ),
-                child: _buildIntegrationCard(context, entry.value),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+String _integrationGuidance(OfficialIntegrationItem item) {
+  if (!item.env.configured) {
+    return item.env.summary;
   }
-
-  Widget _buildIntegrationCard(
-    BuildContext context,
-    OfficialIntegrationItem item,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: item.isConnected ? _accentMuted : _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              _OfficialIntegrationIcon(item: item),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            item.label,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        _StatusPill(
-                          label: item.statusLabel,
-                          color: item.isConnected
-                              ? _success
-                              : item.hasExpiredAccounts
-                              ? _warning
-                              : item.env.configured
-                              ? _info
-                              : _warning,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.description,
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _MetaPill(
-                          label: '${item.connection.accountCount} accounts',
-                          icon: Icons.alternate_email_rounded,
-                        ),
-                        _MetaPill(
-                          label: '${item.connection.appCount} apps active',
-                          icon: Icons.apps_rounded,
-                        ),
-                        _MetaPill(
-                          label: '${item.availableToolCount} tools',
-                          icon: Icons.build_outlined,
-                        ),
-                        _MetaPill(
-                          label: item.memoryCoverage.supported
-                              ? 'Memory ${item.memoryCoverage.statusLabel}'
-                              : 'No memory sync',
-                          icon: Icons.psychology_alt_outlined,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      !item.env.configured
-                          ? item.env.summary
-                          : item.hasExpiredAccounts
-                          ? item.id == 'google_workspace'
-                                ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
-                                : 'One or more accounts expired. Reconnect the affected account to restore tool access.'
-                          : !item.supportsMultipleAccounts && item.isConnected
-                          ? 'This integration currently supports one connected account per agent. Re-open setup to replace it.'
-                          : item.isConnected
-                          ? 'Connect as many accounts as you want. Each app can use a different account.'
-                          : ((item.connectPrompt ?? '').trim().isNotEmpty
-                                ? item.connectPrompt!.trim()
-                                : 'Connect app accounts individually so the AI can use the right account for each official integration.'),
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...item.apps.map(
-            (app) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _OfficialIntegrationAppCard(
-                controller: controller,
-                provider: item,
-                app: app,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  if (item.hasExpiredAccounts) {
+    return item.id == 'google_workspace'
+        ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
+        : 'One or more accounts expired. Reconnect the affected account to restore tool access.';
   }
+  if (!item.supportsMultipleAccounts && item.isConnected) {
+    return 'This integration currently supports one connected account per agent. Re-open setup to replace it.';
+  }
+  if (item.isConnected) {
+    return 'Connect as many accounts as you want. Each app can use a different account.';
+  }
+  final prompt = (item.connectPrompt ?? '').trim();
+  return prompt.isNotEmpty
+      ? prompt
+      : 'Connect app accounts individually so the AI can use the right account for each official integration.';
 }
 
 void _openOfficialIntegrationSetupDialog(
@@ -1624,7 +1512,9 @@ Future<void> _showTrelloSetupDialog(
                             }
                           } catch (error) {
                             setState(() {
-                              formError = controller.friendlyErrorMessage(error);
+                              formError = controller.friendlyErrorMessage(
+                                error,
+                              );
                               connecting = false;
                             });
                           }
@@ -2155,26 +2045,4 @@ int _officialIntegrationRank(OfficialIntegrationItem item) {
     'google_workspace' => 3,
     _ => 10,
   };
-}
-
-class _IntegrationSectionTitle extends StatelessWidget {
-  const _IntegrationSectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          color: _textSecondary,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
 }
