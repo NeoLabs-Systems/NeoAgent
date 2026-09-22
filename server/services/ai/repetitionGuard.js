@@ -74,14 +74,22 @@ class ToolRepetitionGuard {
     return `${String(toolName || '')}:${stableHash(canonicalToolArgs(toolName, args))}`;
   }
 
-  shouldBlock(toolName, args) {
+  // Unchanged reads are blocked outright. Any other call is blocked only once
+  // it has failed the same way repeatedly: a failed call changed nothing, so
+  // repeating it cannot turn out differently.
+  shouldBlock(toolName, args, { readOnly = true } = {}) {
     const entry = this.entries.get(this.key(toolName, args));
-    return Boolean(entry && entry.unchangedCount >= this.unchangedLimit);
+    if (!entry || entry.unchangedCount < this.unchangedLimit) return false;
+    return readOnly || Boolean(entry.failure);
   }
 
-  observe(toolName, args, result) {
+  lastFailure(toolName, args) {
+    return this.entries.get(this.key(toolName, args))?.failure || '';
+  }
+
+  observe(toolName, args, result, failure = '') {
     const key = this.key(toolName, args);
-    const resultHash = stableHash(result);
+    const resultHash = stableHash(failure ? { failure } : result);
     const previous = this.entries.get(key);
     const unchangedCount = previous?.resultHash === resultHash
       ? previous.unchangedCount + 1
@@ -91,6 +99,7 @@ class ToolRepetitionGuard {
       argsHash: stableHash(canonicalToolArgs(toolName, args)),
       resultHash,
       unchangedCount,
+      failure,
     };
     this.entries.set(key, next);
     return next;

@@ -62,6 +62,30 @@ test('repetition guard blocks the third unchanged result but allows progress', (
   assert.equal(progressing.shouldBlock('wait_subagent', { handle: 'one' }), false);
 });
 
+test('repetition guard blocks a mutating call that keeps failing the same way', () => {
+  const guard = new ToolRepetitionGuard();
+  const failing = { error: 'Nextcloud request failed: 401' };
+  guard.observe('nextcloud_list_calendars', {}, failing, failing.error);
+  assert.equal(guard.shouldBlock('nextcloud_list_calendars', {}, { readOnly: false }), false);
+  guard.observe('nextcloud_list_calendars', {}, failing, failing.error);
+  assert.equal(guard.shouldBlock('nextcloud_list_calendars', {}, { readOnly: false }), true);
+  assert.equal(guard.lastFailure('nextcloud_list_calendars', {}), failing.error);
+
+  // A write that succeeds with the same result is not blocked by this guard.
+  const writes = new ToolRepetitionGuard();
+  writes.observe('send_message', { to: 'a' }, { success: true });
+  writes.observe('send_message', { to: 'a' }, { success: true });
+  assert.equal(writes.shouldBlock('send_message', { to: 'a' }, { readOnly: false }), false);
+});
+
+test('command output is not cut to a dozen lines', () => {
+  const stdout = Array.from({ length: 200 }, (_, index) => `row ${index + 1}`).join('\n');
+  const compact = JSON.parse(compactToolResult('execute_command', { command: 'cat big.txt' }, {
+    exitCode: 0, stdout,
+  }, { softLimit: 16000, hardLimit: 32000 }));
+  assert.equal(compact.stdout, stdout);
+});
+
 test('stable hashes ignore object key order', () => {
   assert.equal(stableHash({ b: 2, a: 1 }), stableHash({ a: 1, b: 2 }));
 });
@@ -112,7 +136,7 @@ test('tool activation replaces unrelated schemas while preserving control tools'
   assert.equal(result.evicted.length, 1);
 });
 
-test('tool discovery stays compact and searches inactive capabilities generically', () => {
+test('tool discovery lists inactive capabilities and searches them generically', () => {
   const tools = [
     { name: 'search_tools', description: 'Search tools.' },
     { name: 'activate_tools', description: 'Activate tools.' },
@@ -122,7 +146,8 @@ test('tool discovery stays compact and searches inactive capabilities genericall
   const active = tools.slice(0, 2);
   const summary = buildToolDiscoverySummary(tools, active);
   assert.match(summary, /Discoverable tools: 4/);
-  assert.doesNotMatch(summary, /google_workspace_calendar_list_events/);
+  assert.match(summary, /google_workspace_calendar_list_events: List Google Calendar events/);
+  assert.doesNotMatch(summary, /search_tools: Search tools/);
 
   const matches = searchTools(tools, 'task calendar events', {
     activeNames: active.map((tool) => tool.name),
@@ -601,11 +626,13 @@ test('truncated workspace results explain how to recover omitted evidence', () =
   assert.equal(file.truncated, true);
   assert.match(file.note, /narrower line range/);
 
-  const compactedPreview = JSON.parse(compactToolResult('read_file', { path: 'many-lines.js' }, {
-    content: Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join('\n'),
+  // A file that fits the budget comes back whole, however many lines it has.
+  const manyLines = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join('\n');
+  const wholeFile = JSON.parse(compactToolResult('read_file', { path: 'many-lines.js' }, {
+    content: manyLines,
   }, { softLimit: 900, hardLimit: 1400 }));
-  assert.equal(compactedPreview.truncated, true);
-  assert.match(compactedPreview.note, /narrower line range/);
+  assert.equal(wholeFile.truncated, false);
+  assert.equal(wholeFile.content, manyLines);
 
   const search = JSON.parse(compactToolResult('search_files', { pattern: 'handler' }, {
     count: 9,

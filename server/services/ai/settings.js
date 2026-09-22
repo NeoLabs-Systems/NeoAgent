@@ -35,7 +35,7 @@ function createDefaultAiSettings() {
   return {
     cost_mode: 'balanced_auto',
     chat_history_window: 20,
-    tool_replay_budget_chars: 6000,
+    tool_replay_budget_chars: 12000,
     tool_replay_budget_file_chars: null,
     tool_replay_budget_browser_chars: null,
     tool_replay_budget_command_chars: null,
@@ -262,7 +262,7 @@ function getAiSettings(userId, agentId = null) {
   }
 
   settings.chat_history_window = Math.max(6, Math.min(Number(settings.chat_history_window) || DEFAULT_AI_SETTINGS.chat_history_window, 40));
-  settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 12000));
+  settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 50000));
   settings.tool_replay_budget_file_chars = normalizeOptionalNumber(settings.tool_replay_budget_file_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_browser_chars = normalizeOptionalNumber(settings.tool_replay_budget_browser_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_command_chars = normalizeOptionalNumber(settings.tool_replay_budget_command_chars, 500, 500_000, { integer: true });

@@ -130,6 +130,21 @@ function searchTools(tools = [], query = '', {
     .map(({ score, ...result }) => result);
 }
 
+function summarizeToolCatalog(tools = []) {
+  return tools
+    .map((tool) => {
+      const name = String(tool?.name || '').trim();
+      if (!name) return '';
+      const description = compactDescription(tool?.description, 72);
+      return description ? `${name}: ${description}` : name;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+// The inactive catalog is listed by name so the model can activate what it
+// needs directly. Without it, every capability costs a search_tools turn
+// before the activate_tools turn before the real call.
 function buildToolDiscoverySummary(tools = [], activeTools = []) {
   const sourceCounts = new Map();
   for (const tool of tools) {
@@ -140,11 +155,14 @@ function buildToolDiscoverySummary(tools = [], activeTools = []) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([source, count]) => `${source}:${count}`)
     .join(', ');
+  const activeNames = new Set(activeTools.map((tool) => tool?.name));
+  const inactiveCatalog = summarizeToolCatalog(tools.filter((tool) => !activeNames.has(tool?.name)));
   return [
     `Active tools: ${activeTools.map((tool) => tool.name).join(', ') || 'none'}.`,
     `Discoverable tools: ${tools.length}${sources ? ` (${sources})` : ''}.`,
-    'Use search_tools with a capability description, then activate_tools with exact returned names.',
-  ].join('\n');
+    inactiveCatalog ? `Inactive tools (name: description):\n${inactiveCatalog}` : '',
+    'To use an inactive tool, call activate_tools with its exact name from this list. Use search_tools only when nothing listed fits.',
+  ].filter(Boolean).join('\n');
 }
 
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
@@ -249,6 +267,7 @@ module.exports = {
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
+  summarizeToolCatalog,
   selectToolsForTask,
   selectMcpTools,
 };

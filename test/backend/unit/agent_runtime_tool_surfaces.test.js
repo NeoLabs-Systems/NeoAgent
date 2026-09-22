@@ -290,11 +290,12 @@ test('browser work activates click and type instead of navigate alone', async ()
 });
 
 for (const [label, runOptions] of SURFACES) {
-  test(`${label}: inactive tools stay searchable without a full catalog dump`, async () => {
+  test(`${label}: inactive tools are listed by name and stay searchable`, async () => {
     const observed = await observeFirstTurn(runOptions);
 
     assert.ok(observed.discovery, 'no discovery summary reached the model');
-    assert.doesNotMatch(observed.discovery, /google_workspace_calendar_list_events/);
+    assert.match(observed.discovery, /google_workspace_calendar_list_events/);
+    assert.match(observed.discovery, /mcp_srv_do_thing/);
     assert.ok(observed.searchResults.some((tool) => tool.name === 'google_workspace_calendar_list_events'));
     assert.ok(observed.searchResults.some((tool) => tool.name === 'mcp_srv_do_thing'));
     assert.ok(observed.mcpRequested, 'MCP tools were never collected');

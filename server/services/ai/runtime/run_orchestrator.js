@@ -34,6 +34,7 @@ const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilit
 const {
   classifyToolExecution,
   gatheredNewEvidence,
+  inferToolFailureMessage,
   summarizeProgressToolExecutions,
 } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
@@ -2081,6 +2082,7 @@ class DurableRunRuntime {
             let result;
             let success = true;
             let errorMessage = null;
+            let repetitionBlocked = false;
             const repetitionGuard = this.engine.getRunMeta(runId)?.repetitionGuard;
             try {
               if (
@@ -2107,9 +2109,13 @@ class DurableRunRuntime {
                   success = false;
                   errorMessage = hookResult.reason || 'Blocked by policy hook';
                   result = { error: errorMessage, blocked: true };
-                } else if (isReadOnly && repetitionGuard?.shouldBlock(call.name, call.arguments)) {
+                } else if (repetitionGuard?.shouldBlock(call.name, call.arguments, { readOnly: isReadOnly })) {
+                  const priorFailure = repetitionGuard.lastFailure(call.name, call.arguments);
+                  repetitionBlocked = true;
                   success = false;
-                  errorMessage = 'The same read-only call already returned an unchanged result twice.';
+                  errorMessage = priorFailure
+                    ? `This exact call already failed twice with: ${priorFailure}`
+                    : 'The same read-only call already returned an unchanged result twice.';
                   result = { status: 'blocked', reason: errorMessage };
                 } else {
                   // Flatten run options the same way the legacy loop did so
@@ -2160,6 +2166,16 @@ class DurableRunRuntime {
             const elapsed = Date.now() - started;
             budget.recordToolRuntime(elapsed);
 
+            // Tools report most failures in the result rather than by throwing.
+            // Those must count as failures, or the consecutive-failure guard never
+            // sees a run that keeps retrying a broken integration.
+            const reportedFailure = success ? inferToolFailureMessage(call.name, result) : '';
+            if (reportedFailure) {
+              success = false;
+              errorMessage = reportedFailure;
+              budget.recordToolFailure(true, 'tool_error');
+            }
+
             const execution = classifyToolExecution(
               call.name,
               call.arguments || {},
@@ -2167,7 +2183,11 @@ class DurableRunRuntime {
               errorMessage,
               definition,
             );
-            const observed = repetitionGuard?.observe(call.name, call.arguments, result);
+            // A blocked call never ran; observing it would reset the streak and
+            // let the next identical call through.
+            const observed = repetitionBlocked
+              ? null
+              : repetitionGuard?.observe(call.name, call.arguments, result, reportedFailure);
             // "No progress" means the turn changed no state and surfaced no new
             // evidence. Reads that pull in new information are progress, so a long
             // research run is never mistaken for churn. A mutation repeated with
@@ -2189,7 +2209,9 @@ class DurableRunRuntime {
               (!execution.stateChanged && !addedEvidence) || repeatedMutation || blindRewrite,
             );
             if (addedEvidence) budget.recordEvidence(1);
-            if (success) budget.recordToolFailure(false);
+            // Only a substantive success clears the failure streak; a tool search
+            // or a think between two identical failures is not a recovery.
+            if (success && execution.evidenceRelevant) budget.recordToolFailure(false);
 
             let churnNote = null;
             if (repeatedMutation) {

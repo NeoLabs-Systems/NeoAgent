@@ -1,3 +1,5 @@
+const { summarizeToolCatalog } = require('./toolSelector');
+
 const ANALYSIS_MODES = ['direct_answer', 'execute', 'plan_execute'];
 const VERIFICATION_STATUSES = ['verified', 'needs_revision', 'insufficient_evidence'];
 const COMPLEXITY_LEVELS = ['simple', 'standard', 'complex'];
@@ -315,21 +317,6 @@ function summarizeTools(tools = []) {
   return tools
     .map((tool) => String(tool?.name || '').trim())
     .filter(Boolean);
-}
-
-function summarizeToolCatalog(tools = []) {
-  return tools
-    .map((tool) => {
-      const name = String(tool?.name || '').trim();
-      if (!name) return '';
-      const rawDescription = String(tool?.description || '').replace(/\s+/g, ' ').trim();
-      const description = rawDescription.length > 72
-        ? `${rawDescription.slice(0, 69).trimEnd()}...`
-        : rawDescription;
-      return description ? `${name}: ${description}` : name;
-    })
-    .filter(Boolean)
-    .join('\n');
 }
 
 function normalizeTaskAnalysis(raw = {}, fallback = {}) {

@@ -1274,7 +1274,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'search_tools',
-            description: 'Search the complete tool registry by capability. Use this when the needed tool is not active; the result returns exact names and descriptions for activate_tools.',
+            description: 'Search the complete tool registry by capability. Use this only when no tool in the listed catalog fits; the result returns exact names and descriptions for activate_tools.',
             access: 'read',
             parameters: {
                 type: 'object',
@@ -1287,14 +1287,14 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'activate_tools',
-            description: 'Activate tools by exact name returned from search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.',
+            description: 'Activate tools by exact name from the tool catalog or search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.',
             parameters: {
                 type: 'object',
                 properties: {
                     names: {
                         type: 'array',
                         items: { type: 'string' },
-                        description: 'Exact tool names returned by search_tools.'
+                        description: 'Exact tool names from the tool catalog or search_tools.'
                     }
                 },
                 required: ['names']
