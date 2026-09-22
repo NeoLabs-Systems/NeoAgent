@@ -3106,18 +3106,19 @@ class NeoAgentController extends ChangeNotifier {
       } catch (_) {
         healthResponse = null;
       }
-      if (!_isCurrentAuthCycle(authCycle)) {
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
 
-      officialIntegrations = _decodeModelList(
-        'official_integrations',
-        await officialIntegrationsFuture,
-        OfficialIntegrationItem.fromJson,
-      );
-      if (!_isCurrentAuthCycle(authCycle)) {
+      final officialIntegrationsResponse = await officialIntegrationsFuture;
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
+      officialIntegrations = _decodeModelList(
+        'official_integrations',
+        officialIntegrationsResponse,
+        OfficialIntegrationItem.fromJson,
+      );
 
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
@@ -3144,7 +3145,7 @@ class NeoAgentController extends ChangeNotifier {
       final socialReachResponse = await socialReachFuture;
       final androidResponse = await androidFuture;
       final teachResponse = await teachFuture;
-      if (!_isCurrentAuthCycle(authCycle)) {
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
 
@@ -3260,6 +3261,13 @@ class NeoAgentController extends ChangeNotifier {
 
   bool _isCurrentAuthCycle(int authCycle) =>
       isAuthenticated && _authCycle == authCycle;
+
+  /// A refresh loads everything for the agent selected when it started. Startup
+  /// restores the persisted agent while an earlier refresh is still in flight,
+  /// so without this the older response can land last and show the selected
+  /// agent another agent's integrations, chats and memory.
+  bool _isCurrentRefreshScope(int authCycle, String? agentId) =>
+      _isCurrentAuthCycle(authCycle) && agentId == _scopedAgentId;
 
   Future<T> _softRefreshLoad<T>(
     String label,

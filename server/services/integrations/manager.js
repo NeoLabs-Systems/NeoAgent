@@ -472,12 +472,10 @@ class IntegrationManager {
 
     const connection = this.getConnectionById(userId, connectionId, agentId);
     if (!connection || connection.provider_key !== provider.key) {
-      return {
-        disconnected: true,
-        provider: provider.key,
-        connectionId,
-        existed: false,
-      };
+      // Reporting success here hid real failures: a connection id belonging to
+      // another agent deleted nothing while the client reported the account
+      // disconnected, so the account kept showing as connected after a refresh.
+      throw new Error(`That ${provider.label} account is not connected to this agent.`);
     }
 
     if (typeof provider.disconnect === 'function') {
@@ -496,7 +494,6 @@ class IntegrationManager {
       provider: provider.key,
       appId: connection.app_key,
       connectionId: connection.id,
-      existed: true,
     };
   }
 

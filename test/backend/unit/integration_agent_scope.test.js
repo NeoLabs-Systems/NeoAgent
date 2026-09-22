@@ -116,3 +116,39 @@ test('connected accounts stay private to the agent that linked them', async () =
   assert.equal(manager.listConnections(user.userId, null, specialist.id).length, 0);
   assert.equal(manager.listProviders(user.userId, specialist.id)[0].connection.connected, false);
 });
+
+test('disconnecting an account that belongs to another agent reports failure', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'disconnect_scope' });
+  const { createAgent, ensureMainAgent } = require('../../../server/services/agents/manager');
+  const mainAgent = ensureMainAgent(user.userId);
+  const specialist = createAgent(user.userId, { displayName: 'Specialist' });
+  const provider = createInteractiveProvider(new Map());
+  const { upsertConnectedIntegration } = require('../../../server/services/integrations/connection_store');
+
+  upsertConnectedIntegration({
+    userId: user.userId,
+    agentId: mainAgent.id,
+    providerKey: provider.key,
+    appKey: 'account',
+    accountEmail: 'person@example.test',
+    credentialsJson: '{}',
+  });
+  const connectionId = ctx.db
+    .prepare('SELECT id FROM integration_connections WHERE agent_id = ?')
+    .get(mainAgent.id).id;
+
+  const manager = createManagerWith(provider);
+  await assert.rejects(
+    manager.disconnect(user.userId, provider.key, { connectionId, agentId: specialist.id }),
+    /not connected to this agent/,
+  );
+  assert.equal(manager.listConnections(user.userId, null, mainAgent.id).length, 1);
+
+  const result = await manager.disconnect(user.userId, provider.key, {
+    connectionId,
+    agentId: mainAgent.id,
+  });
+  assert.equal(result.disconnected, true);
+  assert.equal(manager.listConnections(user.userId, null, mainAgent.id).length, 0);
+});
