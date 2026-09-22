@@ -1,4 +1,5 @@
 const { analyzeImageForUser } = require('./imageAnalysis');
+const { transcribeFile } = require('../voice/voice_note');
 const { resolveUserFileReference } = require('../files/user_file_access');
 const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
 const { isAbortError } = require('../../utils/abort');
@@ -1494,6 +1495,17 @@ function getAvailableTools(app, options = {}) {
                     question: { type: 'string', description: 'What to answer or describe about the image (default: describe the image in detail)' }
                 },
                 required: ['image_path']
+            }
+        },
+        {
+            name: 'transcribe_audio',
+            description: 'Transcribe speech in an audio file (for example a voice note or recording the user shared) with the configured speech-to-text provider.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    audio_path: { type: 'string', description: 'Absolute path to the audio file' }
+                },
+                required: ['audio_path']
             }
         },
         {
@@ -3145,6 +3157,22 @@ async function executeTool(toolName, args, context, engine) {
                     question: args.question || 'Describe this image in detail.',
                 });
                 return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'transcribe_audio': {
+            try {
+                const audioPath = resolveUserFileReference({
+                    userId,
+                    reference: args.audio_path,
+                    artifactStore,
+                    workspaceManager: wc(),
+                    label: 'Audio',
+                });
+                const transcript = await transcribeFile(audioPath, { userId, agentId, signal });
+                return { transcript };
             } catch (err) {
                 return { error: err.message };
             }

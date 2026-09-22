@@ -4,6 +4,7 @@ const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
+const { fileExtensionForMimeType } = require('../voice/liveAudio');
 
 const log = createServiceLogger('WhatsApp');
 
@@ -263,6 +264,8 @@ class WhatsAppPlatform extends BasePlatform {
 
         let content = '';
         let mediaType = null;
+        let voiceNote = null;
+        const documentMimeType = String(msg.message?.documentMessage?.mimetype || '');
 
         if (msg.message?.conversation) {
           content = msg.message.conversation;
@@ -275,8 +278,17 @@ class WhatsAppPlatform extends BasePlatform {
           content = msg.message.videoMessage.caption || '[Video]';
           mediaType = 'video';
         } else if (msg.message?.audioMessage) {
-          content = '[Voice Note]';
+          const audio = msg.message.audioMessage;
           mediaType = 'audio';
+          voiceNote = {
+            source: audio.ptt ? 'whatsapp_ptt' : 'whatsapp_audio',
+            durationSec: Number(audio.seconds) || null,
+            forwarded: audio.contextInfo?.isForwarded === true,
+          };
+        } else if (documentMimeType.startsWith('audio/')) {
+          content = msg.message.documentMessage.caption || '';
+          mediaType = 'audio';
+          voiceNote = { source: 'whatsapp_audio', durationSec: null };
         } else if (msg.message?.documentMessage) {
           content = msg.message.documentMessage.fileName || '[Document]';
           mediaType = 'document';
@@ -308,8 +320,11 @@ class WhatsAppPlatform extends BasePlatform {
               logger: this._logger,
               reuploadRequest: this.sock.updateMediaMessage
             });
-            const extMap = { image: 'jpg', video: 'mp4', document: 'bin', audio: 'ogg' };
-            const ext = extMap[mediaType] || 'bin';
+            const extMap = { image: 'jpg', video: 'mp4', document: 'bin' };
+            const audioMimeType = mediaType === 'audio'
+              ? String(msg.message.audioMessage?.mimetype || documentMimeType || 'audio/ogg').split(';')[0]
+              : null;
+            const ext = audioMimeType ? fileExtensionForMimeType(audioMimeType) : (extMap[mediaType] || 'bin');
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
             if (!this.artifactStore || !this.userId) {
               throw new Error('Per-user artifact storage is unavailable.');
@@ -318,10 +333,9 @@ class WhatsAppPlatform extends BasePlatform {
               kind: 'messaging-inbound-media',
               filenameBase: `${Date.now()}_${safeId}`,
               extension: ext,
-              contentType: {
+              contentType: audioMimeType || {
                 image: 'image/jpeg',
                 video: 'video/mp4',
-                audio: 'audio/ogg',
               }[mediaType] || 'application/octet-stream',
               content: buffer,
               metadata: {
@@ -331,24 +345,6 @@ class WhatsAppPlatform extends BasePlatform {
               },
             });
             localMediaPath = artifact.filePath;
-
-            // Transcribe WhatsApp voice notes using OpenAI Whisper
-            if (mediaType === 'audio' && process.env.OPENAI_API_KEY) {
-              try {
-                const OpenAI = require('openai');
-                const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-                const transcription = await openai.audio.transcriptions.create({
-                  file: fs.createReadStream(localMediaPath),
-                  model: 'whisper-1',
-                  response_format: 'text'
-                });
-                content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
-                log.info(`Voice note transcribed (${content.length} chars)`);
-              } catch (transcribeErr) {
-                log.error('Audio transcription failed:', transcribeErr.message);
-                content = '[Voice Note - transcription failed]';
-              }
-            }
           } catch (dlErr) {
             log.error('Media download failed:', dlErr.message);
           }
@@ -382,6 +378,7 @@ class WhatsAppPlatform extends BasePlatform {
           content,
           mediaType,
           localMediaPath,
+          voiceNote: localMediaPath ? voiceNote : null,
           isGroup,
           messageId: msg.key.id,
           metadata: this.selfChatMode ? { selfChat: true } : null,

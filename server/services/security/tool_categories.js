@@ -149,6 +149,7 @@ const BUILT_IN_TOOLS = new Set([
   'generate_table',
   'generate_graph',
   'analyze_image',
+  'transcribe_audio',
   'ocr_extract',
   'read_health_data',
   'social_video_extract',

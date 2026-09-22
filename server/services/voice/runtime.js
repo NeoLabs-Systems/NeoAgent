@@ -3,13 +3,17 @@
 const { buildPlatformFormattingGuide } = require('../messaging/formatting_guides');
 const { getAiSettings } = require('../ai/settings');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('../messaging/sender_identity');
+const { INTENT_DICTATION } = require('./voice_note');
 
 const VOICE_REASONING_EFFORT = 'low';
 const VOICE_LATENCY_PROFILE = 'voice';
 
+// Live voice calls and dictated voice notes run as spoken turns. An audio clip
+// shared as context is a normal message with media attached.
 function isVoiceLikeMessage(msg = {}) {
   const mediaType = String(msg.mediaType || '').trim().toLowerCase();
-  return mediaType === 'voice' || mediaType === 'audio';
+  if (mediaType === 'voice') return true;
+  return mediaType === 'audio' && msg.voiceNote?.intent === INTENT_DICTATION;
 }
 
 function buildVoiceMessagingPrompt(msg = {}) {
@@ -21,6 +25,7 @@ function buildVoiceMessagingPrompt(msg = {}) {
   const mediaNote = msg.localMediaPath
     ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}).`
     : '';
+  const sttError = msg.voiceNote?.sttError;
 
   if (isLiveVoiceCall) {
     return [
@@ -45,6 +50,21 @@ function buildVoiceMessagingPrompt(msg = {}) {
     ].join('\n');
   }
 
+  if (sttError) {
+    return [
+      `You received a voice note on ${channel}, but transcribing it failed (${sttError}).`,
+      senderIdentity,
+      '',
+      SENDER_IDENTITY_NOTE,
+      `The original audio is kept at: ${msg.localMediaPath}`,
+      '',
+      formattingGuide,
+      '',
+      'Do not guess what was said. You may retry once with transcribe_audio on that path.',
+      `If that does not work, reply with send_message platform="${msg.platform}" to="${msg.chatId}" asking one short question so the sender can repeat or type the request.`,
+    ].join('\n');
+  }
+
   return [
     `You received a spoken request on ${channel}.`,
     senderIdentity,
@@ -55,7 +75,9 @@ function buildVoiceMessagingPrompt(msg = {}) {
     '</spoken_request>',
     '',
     SENDER_IDENTITY_NOTE,
-    mediaNote,
+    msg.localMediaPath
+      ? `The original voice note is kept at: ${msg.localMediaPath}. If the sender says it was not meant as a request, treat that clip as shared audio instead.`
+      : '',
     '',
     formattingGuide,
     '',

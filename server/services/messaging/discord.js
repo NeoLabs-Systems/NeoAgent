@@ -6,7 +6,14 @@ const {
   GatewayIntentBits,
   Partials,
   ChannelType,
+  MessageFlags,
 } = require('discord.js');
+const { fetchResponseBuffer } = require('../network/http');
+const { fileExtensionForMimeType } = require('../voice/liveAudio');
+const { createServiceLogger } = require('../../utils/logger');
+
+const log = createServiceLogger('Discord');
+const MAX_AUDIO_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 const FATAL_DISCORD_CLOSE_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
 
@@ -28,6 +35,8 @@ class DiscordPlatform extends BasePlatform {
     this.supportsMedia = false;
 
     this.token = config.token || '';
+    this.artifactStore = config.artifactStore || null;
+    this.userId = config.userId;
     if (Array.isArray(config.allowedIds)) {
       this.setAllowedEntries(config.allowedIds);
     }
@@ -188,11 +197,16 @@ class DiscordPlatform extends BasePlatform {
     }
 
     let content = (!isDM && this._isMentioned(message)) ? this._stripMention(message.content) : (message.content || '');
-    if (message.attachments.size > 0) {
-      const urls = [...message.attachments.values()].map(a => a.url).join(', ');
-      content += (content ? '\n' : '') + `[Attachment: ${urls}]`;
+    const attachments = [...message.attachments.values()];
+    const audioAttachment = attachments.find((a) => String(a.contentType || '').startsWith('audio/'));
+    const audio = audioAttachment ? await this._storeAudioAttachment(message, audioAttachment) : null;
+    const otherUrls = attachments
+      .filter((a) => !audio || a !== audioAttachment)
+      .map((a) => a.url);
+    if (otherUrls.length) {
+      content += (content ? '\n' : '') + `[Attachment: ${otherUrls.join(', ')}]`;
     }
-    if (!content) return;
+    if (!content && !audio) return;
 
     const senderUsername = message.author.username || null;
     const senderTag = message.author.tag || senderUsername || userId;
@@ -232,7 +246,9 @@ class DiscordPlatform extends BasePlatform {
       botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
       content,
-      mediaType: null,
+      mediaType: audio ? 'audio' : null,
+      localMediaPath: audio?.filePath || null,
+      voiceNote: audio?.voiceNote || null,
       isGroup: !isDM,
       messageId: message.id,
       timestamp: message.createdAt.toISOString(),
@@ -240,6 +256,39 @@ class DiscordPlatform extends BasePlatform {
       channelName: isDM ? null : (message.channel.name || channelId),
       guildName: message.guild?.name || null,
     });
+  }
+
+  // Voice messages and uploaded audio files feed the shared voice-note flow,
+  // so the clip is downloaded once and kept as inbound media.
+  async _storeAudioAttachment(message, attachment) {
+    if (!this.artifactStore || !this.userId) return null;
+    try {
+      const { response, body } = await fetchResponseBuffer(attachment.url, {
+        serviceName: 'Discord attachment',
+        maxResponseBytes: MAX_AUDIO_ATTACHMENT_BYTES,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const mimeType = String(attachment.contentType).split(';')[0];
+      const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+        kind: 'messaging-inbound-media',
+        filenameBase: `${Date.now()}_${attachment.id}`,
+        extension: fileExtensionForMimeType(mimeType),
+        contentType: mimeType,
+        content: body,
+        metadata: { platform: 'discord', mediaType: 'audio', messageId: message.id },
+      });
+      const isVoiceMessage = message.flags?.has(MessageFlags.IsVoiceMessage) === true;
+      return {
+        filePath: artifact.filePath,
+        voiceNote: {
+          source: isVoiceMessage ? 'discord_voice_message' : 'discord_audio_file',
+          durationSec: Number(attachment.duration) || null,
+        },
+      };
+    } catch (error) {
+      log.error('Audio attachment download failed:', error.message);
+      return null;
+    }
   }
 
   // ── Send ───────────────────────────────────────────────────────────────────

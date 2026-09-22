@@ -231,6 +231,7 @@ class MessagingManager extends EventEmitter {
       content: normalizedIncomingContent,
       mediaType: msg.mediaType || null,
       localMediaPath: msg.localMediaPath || null,
+      voiceNote: msg.voiceNote || null,
       isGroup: msg.isGroup === true,
       timestamp: msg.timestamp || new Date().toISOString(),
       channelContext: Array.isArray(msg.channelContext) ? msg.channelContext.slice(-20) : null,
@@ -672,8 +673,10 @@ class MessagingManager extends EventEmitter {
     config.userId = userId;
     config.agentId = agentId;
     config.accessPolicy = this._loadAccessPolicy(userId, agentId, platformName);
-    if (platformName === 'whatsapp') {
+    if (platformName === 'whatsapp' || platformName === 'discord') {
       config.artifactStore = this.artifactStore;
+    }
+    if (platformName === 'whatsapp') {
       config.resolveAgentName = () => getAgentById(userId, agentId)?.display_name || '';
     }
     config.autoConnect = true;

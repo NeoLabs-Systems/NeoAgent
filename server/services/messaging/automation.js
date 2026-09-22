@@ -20,6 +20,12 @@ const {
   buildVoiceMessagingRunOptions,
   isVoiceLikeMessage,
 } = require('../voice/runtime');
+const {
+  INTENT_AUDIO_CONTEXT,
+  isPendingVoiceNote,
+  prepareVoiceNote,
+  voiceNoteHistoryText,
+} = require('../voice/voice_note');
 const { getErrorMessage } = require('../bootstrap_helpers');
 const { processInboundQueue } = require('./inbound_queue');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
@@ -263,6 +269,28 @@ async function executeQueuedMessage({
     reportSideEffectError('mark read', error);
   }
 
+  // VAD and, for dictation, STT run before the behavior gate so it and the
+  // prompt see the transcript instead of a placeholder.
+  if (isPendingVoiceNote(msg)) {
+    const stopTyping = startTypingKeepalive({
+      messagingManager,
+      userId,
+      agentId,
+      runId,
+      platform: msg.platform,
+      chatId: msg.chatId,
+      signal,
+      onError: reportSideEffectError,
+    });
+    try {
+      msg = await prepareVoiceNote(msg, { userId, agentId, signal });
+    } catch (error) {
+      return { runId, result: null, error: signal?.aborted ? createAbortError(signal) : error };
+    } finally {
+      await stopTyping();
+    }
+  }
+
   let behaviorResult = null;
   if (behaviorPipeline && typeof behaviorPipeline.handleInbound === 'function') {
     try {
@@ -362,13 +390,12 @@ async function executeQueuedMessage({
           chatId: msg.chatId,
           messagingInboundJobId: inboundJobIds[0] || null,
           context: {
-            rawUserMessage: msg.content,
             additionalContext: additionalContext || undefined,
           },
         };
     runOptions.context = {
       ...(runOptions.context || {}),
-      rawUserMessage: msg.content,
+      rawUserMessage: voiceNoteHistoryText(msg),
       additionalContext: additionalContext || runOptions.context?.additionalContext,
       socialIntelligence: {
         enabled: socialConfig.enabled !== false,
@@ -451,6 +478,9 @@ function buildIncomingPrompt(msg, options = {}) {
   const mediaNote = msg.localMediaPath
     ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}). You can reference or forward it with send_message media_path.`
     : '';
+  const audioContextNote = msg.voiceNote?.intent === INTENT_AUDIO_CONTEXT
+    ? `\nThe audio clip is something the sender shared, not a spoken request. No transcript was made; use transcribe_audio on that path if its spoken content matters. ${msg.content ? 'The message text is the request.' : 'No text came with it, so infer from the conversation what the sender wants with it, or ask briefly.'}`
+    : '';
 
   if (flaggedInjection) {
     console.warn(
@@ -486,7 +516,7 @@ Use send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
     ? 'Do not send interim progress or presence updates into the shared room.'
     : 'Use send_interim_update sparingly — only for a real progress update or a blocking question (set expects_reply=true for the latter).';
 
-  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${roomContext}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
+  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${audioContextNote}${roomContext}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
 }
 
 async function isAllowedMessagingSender({ io, userId, msg }) {

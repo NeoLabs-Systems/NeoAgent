@@ -72,6 +72,7 @@ async function removeTempFile(filePath) {
 }
 
 module.exports = {
+  fileExtensionForMimeType,
   normalizeAudioMimeType,
   parsePcmMimeType,
   wrapPcm16AsWav,
