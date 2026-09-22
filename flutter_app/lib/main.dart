@@ -53,6 +53,7 @@ import 'src/workspace_recents.dart';
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
+import 'features/tasks/task_recommendations.dart';
 import 'features/memory/views/retrieval_inspector_view.dart';
 
 part 'main_spacing.dart';
@@ -108,14 +109,17 @@ const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';
+const String _desktopTrayWindowsIconAsset =
+    'assets/branding/tray_icon_windows.ico';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
 const String _sessionCookieSecureStorageKey = 'auth.sessionCookie.secure';
 
-String get _desktopTrayIconAsset =>
-    defaultTargetPlatform == TargetPlatform.macOS
-    ? _desktopTrayTemplateIconAsset
-    : _desktopWindowIconAsset;
+String get _desktopTrayIconAsset => switch (defaultTargetPlatform) {
+  TargetPlatform.macOS => _desktopTrayTemplateIconAsset,
+  TargetPlatform.windows => _desktopTrayWindowsIconAsset,
+  _ => _desktopWindowIconAsset,
+};
 
 bool get _supportsDesktopShell =>
     !kIsWeb &&

@@ -334,8 +334,14 @@ class AgentsPanel extends StatelessWidget {
                           ? delegateTargets.toList(growable: false)
                           : const <String>[],
                     );
-                    if (saved && context.mounted) {
+                    if (!context.mounted) return;
+                    if (saved) {
                       Navigator.of(context).pop();
+                    } else {
+                      _showFormError(
+                        context,
+                        controller.errorMessage ?? 'Could not save agent.',
+                      );
                     }
                   },
                   child: Text('Save'),

@@ -72,7 +72,6 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
-  final Set<String> _addingTaskRecommendations = <String>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
@@ -6750,38 +6749,6 @@ class NeoAgentController extends ChangeNotifier {
       agentId: agentId ?? _scopedAgentId,
     );
     await refreshTasks();
-  }
-
-  TaskRecommendationStatus taskRecommendationStatus(
-    TaskRecommendation recommendation,
-  ) {
-    if (_addingTaskRecommendations.contains(recommendation.title)) {
-      return TaskRecommendationStatus.adding;
-    }
-    final exists = taskItems.any((task) => task.name == recommendation.title);
-    return exists
-        ? TaskRecommendationStatus.added
-        : TaskRecommendationStatus.idle;
-  }
-
-  Future<void> addRecommendedTask(TaskRecommendation recommendation) async {
-    if (!_addingTaskRecommendations.add(recommendation.title)) return;
-    notifyListeners();
-    try {
-      await saveTask(
-        name: recommendation.title,
-        triggerType: 'schedule',
-        triggerConfig: <String, dynamic>{
-          'mode': 'recurring',
-          'cronExpression': recommendation.cronExpression,
-          'finishOnTime': false,
-        },
-        prompt: recommendation.prompt,
-      );
-    } finally {
-      _addingTaskRecommendations.remove(recommendation.title);
-      notifyListeners();
-    }
   }
 
   String _manualRunCooldownKey(String scope, String id) => '$scope:$id';

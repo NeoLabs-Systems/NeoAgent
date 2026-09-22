@@ -1,12 +1,5 @@
 part of 'main.dart';
 
-void _showFormError(BuildContext context, String message) {
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-}
-
 class LogsPanel extends StatefulWidget {
   const LogsPanel({super.key, required this.controller, this.embedded = false});
 
@@ -1269,19 +1262,10 @@ class _SkillsPanelState extends State<SkillsPanel>
             ),
             FilledButton(
               onPressed: () async {
-                try {
-                  await widget.controller.saveSkillContent(
-                    name: name,
-                    content: contentController.text,
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  _showFormError(
-                    context,
-                    widget.controller.friendlyErrorMessage(error),
-                  );
-                  return;
-                }
+                await widget.controller.saveSkillContent(
+                  name: name,
+                  content: contentController.text,
+                );
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }
@@ -1339,24 +1323,10 @@ Write the instructions for this skill here.
             ),
             FilledButton(
               onPressed: () async {
-                final filename = nameController.text.trim();
-                if (filename.isEmpty) {
-                  _showFormError(context, 'Please enter a filename.');
-                  return;
-                }
-                try {
-                  await widget.controller.createSkill(
-                    filename: filename,
-                    content: contentController.text,
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  _showFormError(
-                    context,
-                    widget.controller.friendlyErrorMessage(error),
-                  );
-                  return;
-                }
+                await widget.controller.createSkill(
+                  filename: nameController.text.trim(),
+                  content: contentController.text,
+                );
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }
@@ -1409,11 +1379,7 @@ Write the instructions for this skill here.
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to delete "$name": ${_formatCaughtError(error)}',
-          ),
-        ),
+        SnackBar(content: Text('Failed to delete "$name": ${_formatCaughtError(error)}')),
       );
     }
   }
@@ -1470,11 +1436,7 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to generate prompt: ${_formatCaughtError(error)}',
-          ),
-        ),
+        SnackBar(content: Text('Failed to generate prompt: ${_formatCaughtError(error)}')),
       );
     } finally {
       if (mounted) setState(() => _llmPromptLoading = false);
@@ -1547,9 +1509,9 @@ class _MemoryPanelState extends State<MemoryPanel>
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')));
     } finally {
       if (mounted) setState(() => _llmImporting = false);
     }
@@ -2300,26 +2262,12 @@ class _MemoryPanelState extends State<MemoryPanel>
             ),
             FilledButton(
               onPressed: () async {
-                final content = contentController.text.trim();
-                if (content.isEmpty) {
-                  _showFormError(context, 'Please enter the memory content.');
-                  return;
-                }
-                try {
-                  await controller.createMemory(
-                    content: content,
-                    category: category,
-                    importance:
-                        int.tryParse(importanceController.text.trim()) ?? 5,
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  _showFormError(
-                    context,
-                    controller.friendlyErrorMessage(error),
-                  );
-                  return;
-                }
+                await controller.createMemory(
+                  content: contentController.text.trim(),
+                  category: category,
+                  importance:
+                      int.tryParse(importanceController.text.trim()) ?? 5,
+                );
                 if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -2375,24 +2323,10 @@ class _MemoryPanelState extends State<MemoryPanel>
             ),
             FilledButton(
               onPressed: () async {
-                final key = keyController.text.trim();
-                if (key.isEmpty) {
-                  _showFormError(context, 'Please enter a key.');
-                  return;
-                }
-                try {
-                  await controller.updateCoreMemory(
-                    key,
-                    valueController.text.trim(),
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  _showFormError(
-                    context,
-                    controller.friendlyErrorMessage(error),
-                  );
-                  return;
-                }
+                await controller.updateCoreMemory(
+                  keyController.text.trim(),
+                  valueController.text.trim(),
+                );
                 if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -3371,26 +3305,6 @@ class _TaskScheduleDraft {
   }
 }
 
-/// Copies a recommendation's recurring schedule into the task form draft.
-void _applyTaskInspiration(
-  TaskRecommendation recommendation, {
-  required _TaskScheduleDraft scheduleDraft,
-  required TextEditingController customCronController,
-  required TextEditingController runAtController,
-}) {
-  final cron = recommendation.cronExpression;
-  final parsed = _parseCronExpression(cron);
-  scheduleDraft
-    ..mode = 'recurring'
-    ..presetId = parsed?.presetId ?? 'custom'
-    ..time = parsed?.time ?? scheduleDraft.time
-    ..weekdays = parsed?.weekdays ?? scheduleDraft.weekdays
-    ..monthDay = parsed?.monthDay ?? scheduleDraft.monthDay
-    ..customCronExpression = parsed?.customCronExpression ?? cron;
-  customCronController.text = scheduleDraft.customCronExpression;
-  runAtController.clear();
-}
-
 _TaskScheduleDraft? _parseCronExpression(String cron) {
   final fields = cron.trim().split(RegExp(r'\s+'));
   if (fields.length != 5) return null;
@@ -3756,13 +3670,11 @@ List<_ModelPickerOption> _taskModelOverrideOptions({
   if (selectedModel != 'default' &&
       !options.any((option) => option.value == selectedModel)) {
     final saved = _modelForValue(selectedModel, models);
-    options.add(
-      _ModelPickerOption(
-        value: selectedModel,
-        label: '${saved?.label ?? selectedModel} (unavailable saved override)',
-        icon: Icons.history_rounded,
-      ),
-    );
+    options.add(_ModelPickerOption(
+      value: selectedModel,
+      label: '${saved?.label ?? selectedModel} (unavailable saved override)',
+      icon: Icons.history_rounded,
+    ));
   }
   return options;
 }
@@ -4150,127 +4062,6 @@ class _TaskDeliveryNotice extends StatelessWidget {
   }
 }
 
-class _TaskRecommendationsGallery extends StatelessWidget {
-  const _TaskRecommendationsGallery({
-    required this.controller,
-    required this.onCreateCustom,
-  });
-
-  final NeoAgentController controller;
-  final VoidCallback onCreateCustom;
-
-  Future<void> _add(
-    BuildContext context,
-    TaskRecommendation recommendation,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await controller.addRecommendedTask(recommendation);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '${recommendation.title} added. Edit it any time to change the '
-            'prompt or schedule.',
-          ),
-        ),
-      );
-    } catch (error) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(controller.friendlyErrorMessage(error))),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _EntranceMotion(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(Icons.auto_awesome_rounded, color: _accent),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'Start with a recommended task',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Tasks run on their own and message you with the '
-                          'result. One click adds one; you can edit it later.',
-                          style: TextStyle(color: _textSecondary, height: 1.4),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const spacing = 12.0;
-                  final columns = (constraints.maxWidth / 300).floor().clamp(
-                    1,
-                    3,
-                  );
-                  final cardWidth =
-                      (constraints.maxWidth - spacing * (columns - 1)) /
-                      columns;
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
-                    children: taskRecommendations.map((recommendation) {
-                      return SizedBox(
-                        width: cardWidth,
-                        height: 178,
-                        child: TaskRecommendationCard(
-                          recommendation: recommendation,
-                          status: controller.taskRecommendationStatus(
-                            recommendation,
-                          ),
-                          onAdd: () => _add(context, recommendation),
-                        ),
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onCreateCustom,
-                  icon: const Icon(Icons.edit_note_rounded, size: 18),
-                  label: const Text('Or build your own task'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class TasksPanel extends StatefulWidget {
   const TasksPanel({super.key, required this.controller});
 
@@ -4448,12 +4239,9 @@ class _TasksPanelState extends State<TasksPanel> {
           const SizedBox(height: 14),
         ],
         if (controller.taskItems.isEmpty)
-          _TaskRecommendationsGallery(
-            controller: controller,
-            onCreateCustom: () => _openTaskEditor(
-              context,
-              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
-            ),
+          const _EmptyCard(
+            title: 'No tasks yet',
+            subtitle: 'Create a task with a trigger to automate regular work.',
           )
         else if (filteredTasks.isEmpty)
           _EmptyCard(
@@ -4917,9 +4705,6 @@ class _TasksPanelState extends State<TasksPanel> {
                                   )
                                 else ...<Widget>[
                                   DropdownButtonFormField<String>(
-                                    key: ValueKey<String>(
-                                      scheduleDraft.presetId,
-                                    ),
                                     initialValue: scheduleDraft.presetId,
                                     isExpanded: true,
                                     decoration: const InputDecoration(
@@ -5235,27 +5020,6 @@ class _TasksPanelState extends State<TasksPanel> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      if (task == null) ...<Widget>[
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TaskInspirationButton(
-                            onPicked: (recommendation) => setLocalState(() {
-                              _applyTaskInspiration(
-                                recommendation,
-                                scheduleDraft: scheduleDraft,
-                                customCronController: customCronController,
-                                runAtController: runAtController,
-                              );
-                              nameController.text = recommendation.title;
-                              promptController.text = recommendation.prompt;
-                              triggerType.value = 'schedule';
-                              selectedConnectionId.value = null;
-                              connectionIdController.clear();
-                            }),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
                       TextField(
                         controller: promptController,
                         minLines: 5,
@@ -5455,16 +5219,6 @@ class _TasksPanelState extends State<TasksPanel> {
                 ),
                 FilledButton(
                   onPressed: () async {
-                    final name = nameController.text.trim();
-                    final prompt = promptController.text.trim();
-                    if (name.isEmpty) {
-                      _showFormError(context, 'Please enter a task name.');
-                      return;
-                    }
-                    if (prompt.isEmpty) {
-                      _showFormError(context, 'Please enter a prompt.');
-                      return;
-                    }
                     final selectedTriggerType = triggerType.value;
                     final triggerConfig = <String, dynamic>{};
                     if (selectedTriggerType == 'manual') {
@@ -5593,28 +5347,17 @@ class _TasksPanelState extends State<TasksPanel> {
                       taskConfig['notifyPlatform'] = deliveryTarget.platform;
                       taskConfig['notifyTo'] = deliveryTarget.to;
                     }
-                    try {
-                      await controller.saveTask(
-                        id: task?.id,
-                        name: name,
-                        triggerType: selectedTriggerType,
-                        triggerConfig: triggerConfig,
-                        prompt: prompt,
-                        taskConfig: taskConfig,
-                        model: selectedModel == 'default'
-                            ? null
-                            : selectedModel,
-                        enabled: enabled,
-                        agentId: selectedAgentId,
-                      );
-                    } catch (error) {
-                      if (!context.mounted) return;
-                      _showFormError(
-                        context,
-                        controller.friendlyErrorMessage(error),
-                      );
-                      return;
-                    }
+                    await controller.saveTask(
+                      id: task?.id,
+                      name: nameController.text.trim(),
+                      triggerType: selectedTriggerType,
+                      triggerConfig: triggerConfig,
+                      prompt: promptController.text.trim(),
+                      taskConfig: taskConfig,
+                      model: selectedModel == 'default' ? null : selectedModel,
+                      enabled: enabled,
+                      agentId: selectedAgentId,
+                    );
                     if (context.mounted) {
                       Navigator.of(context).pop();
                     }

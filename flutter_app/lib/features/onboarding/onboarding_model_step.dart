@@ -80,7 +80,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
 
     return OnboardingScaffold(
       step: 2,
-      totalSteps: 3,
+      totalSteps: 5,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
       description:
@@ -89,8 +89,8 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           OnboardingPrimaryButton(
-            label: 'Finish setup',
-            icon: Icons.check_rounded,
+            label: 'Continue',
+            icon: Icons.arrow_forward_rounded,
             onPressed: widget.onNext,
           ),
         ],

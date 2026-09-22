@@ -1601,6 +1601,11 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
           ),
+          if (_supportsDesktopShell)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: _DesktopModeSwitch(controller: controller, expand: true),
+            ),
           if (controller.agentProfiles.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
@@ -2242,6 +2247,10 @@ class _MobileTopBar extends StatelessWidget {
                     alignment: CrossAxisAlignment.start,
                   ),
           ),
+          if (_supportsDesktopShell) ...<Widget>[
+            const SizedBox(width: 8),
+            _DesktopModeSwitch(controller: controller),
+          ],
           const SizedBox(width: 8),
           _ProfileSettingsButton(
             controller: controller,

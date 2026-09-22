@@ -30,46 +30,45 @@ class DesktopStandardWorkspace extends StatelessWidget {
 
   final NeoAgentController controller;
 
+  // The Standard/Cowork switch lives in the sidebar and phone top bar rather
+  // than floating over the page, where it covered each page's header actions.
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: <Widget>[
-        HomeView(controller: controller),
-        Positioned(
-          top: 12,
-          right: 18,
-          child: _DesktopModeSwitch(controller: controller),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => HomeView(controller: controller);
 }
 
 class _DesktopModeSwitch extends StatelessWidget {
-  const _DesktopModeSwitch({required this.controller});
+  const _DesktopModeSwitch({required this.controller, this.expand = false});
 
   final NeoAgentController controller;
 
+  /// Stretch both segments to fill the available width (sidebar placement).
+  final bool expand;
+
   @override
   Widget build(BuildContext context) {
+    Widget segment(Widget pill) => expand ? Expanded(child: pill) : pill;
     return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.pill),
       fillColor: _bgCard.withValues(alpha: 0.88),
       padding: const EdgeInsets.all(4),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
         children: <Widget>[
-          _CoworkSegPill(
-            selected: !controller.desktopCoworkMode,
-            icon: Icons.dashboard_outlined,
-            label: 'Standard',
-            onTap: () => controller.setDesktopCoworkMode(false),
+          segment(
+            _CoworkSegPill(
+              selected: !controller.desktopCoworkMode,
+              icon: Icons.dashboard_outlined,
+              label: 'Standard',
+              onTap: () => controller.setDesktopCoworkMode(false),
+            ),
           ),
-          _CoworkSegPill(
-            selected: controller.desktopCoworkMode,
-            leading: const _LogoBadge(size: 14),
-            label: 'Cowork',
-            onTap: () => controller.setDesktopCoworkMode(true),
+          segment(
+            _CoworkSegPill(
+              selected: controller.desktopCoworkMode,
+              leading: const _LogoBadge(size: 14),
+              label: 'Cowork',
+              onTap: () => controller.setDesktopCoworkMode(true),
+            ),
           ),
         ],
       ),
