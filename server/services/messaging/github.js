@@ -16,6 +16,7 @@ const log = createServiceLogger('GitHubMessaging');
 const POLL_INTERVAL_MS = 30000;
 const MAX_PAGES_PER_POLL = 3;
 const MAX_SEEN_COMMENTS = 2000;
+const MAX_TRACKED_RUN_COMMENTS = 500;
 const CURSOR_SETTING_KEY = 'github_mentions_cursors';
 const MENTIONS_APP_KEY = 'mentions';
 const THREAD_ID_PATTERN = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#(\d+)(?::(\d+))?$/;
@@ -64,6 +65,7 @@ class GithubPlatform extends BasePlatform {
     this.cursors = {};
     this.seenCommentIds = new Set();
     this.ownCommentIds = new Set();
+    this.runCommentIds = new Map();
     this.accessTargetsCache = null;
   }
 
@@ -341,11 +343,28 @@ class GithubPlatform extends BasePlatform {
     return false;
   }
 
-  async sendMessage(to, content) {
+  // One comment per run and thread: the run's first message (usually its
+  // opening line) is posted, and every later one, ending with the answer,
+  // replaces it. A thread then shows one reply that grows into the result
+  // instead of a trail of status comments.
+  async sendMessage(to, content, options = {}) {
     const thread = parseThreadId(to);
     if (!thread) throw new Error(`Not a GitHub thread: ${to}. Use owner/repo#number.`);
     const auth = this._auth();
     if (!auth) throw new Error('The GitHub Mentions account for this agent is not connected.');
+    const commentsPath = thread.reviewCommentId
+      ? `/repos/${thread.repo}/pulls/comments`
+      : `/repos/${thread.repo}/issues/comments`;
+    const runKey = options.runId ? `${options.runId}|${to}` : null;
+    const existingId = runKey ? this.runCommentIds.get(runKey) : null;
+    if (existingId) {
+      await githubApiRequest(auth, {
+        method: 'PATCH',
+        path: `${commentsPath}/${existingId}`,
+        body: { body: content },
+      });
+      return { success: true, messageId: String(existingId), edited: true };
+    }
     const comment = thread.reviewCommentId
       ? await githubApiRequest(auth, {
           method: 'POST',
@@ -357,8 +376,31 @@ class GithubPlatform extends BasePlatform {
           path: `/repos/${thread.repo}/issues/${thread.number}/comments`,
           body: { body: content },
         });
-    if (thread.reviewCommentId && comment?.id) this.ownCommentIds.add(Number(comment.id));
-    return { success: true, messageId: comment?.id ? String(comment.id) : null };
+    const commentId = Number(comment?.id) || null;
+    if (thread.reviewCommentId && commentId) this.ownCommentIds.add(commentId);
+    if (runKey && commentId) {
+      this.runCommentIds.set(runKey, commentId);
+      if (this.runCommentIds.size > MAX_TRACKED_RUN_COMMENTS) {
+        this.runCommentIds.delete(this.runCommentIds.keys().next().value);
+      }
+    }
+    return { success: true, messageId: commentId ? String(commentId) : null };
+  }
+
+  // GitHub's read receipt: an eyes reaction on the comment the agent picked up,
+  // shown as soon as the run starts.
+  async markRead(chatId, messageId) {
+    const thread = parseThreadId(chatId);
+    const [kind, id] = String(messageId || '').split(':');
+    const auth = this._auth();
+    if (!thread || !id || !auth) return;
+    const targets = {
+      issue_comment: `/repos/${thread.repo}/issues/comments/${id}/reactions`,
+      review_comment: `/repos/${thread.repo}/pulls/comments/${id}/reactions`,
+      issue_body: `/repos/${thread.repo}/issues/${thread.number}/reactions`,
+    };
+    if (!targets[kind]) return;
+    await githubApiRequest(auth, { method: 'POST', path: targets[kind], body: { content: 'eyes' } });
   }
 
   async listAccessTargets() {

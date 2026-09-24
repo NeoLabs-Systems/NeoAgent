@@ -356,3 +356,36 @@ test('a public run sees only its allowlist and is refused anything else at dispa
   }, {});
   assert.match(refused.error, /not available/);
 });
+
+test('a run posts one comment and edits it with each later message, ending on the answer', async () => {
+  const { GithubPlatform } = require('../../../server/services/messaging/github');
+  const integrationManager = fakeIntegrationManager([{
+    user_id: 1,
+    agent_id: 'agent-a',
+    provider_key: 'github',
+    app_key: 'mentions',
+    status: 'connected',
+    credentials_json: JSON.stringify({ access_token: 'token-a' }),
+  }]);
+  let nextId = 500;
+  const calls = stubFetch((url, options) => (
+    options.method === 'POST' && url.pathname.endsWith('/comments')
+      ? jsonResponse({ id: nextId++ })
+      : jsonResponse({})
+  ));
+  const platform = new GithubPlatform({ userId: 1, agentId: 'agent-a', integrationManager });
+
+  await platform.sendMessage('neo/app#5', 'Looking into the flaky test now.', { runId: 'run-1' });
+  const final = await platform.sendMessage('neo/app#5', 'Fixed in `neoagent/fix-5`, see #6.', { runId: 'run-1' });
+  await platform.sendMessage('neo/app#5', 'Another request, another reply.', { runId: 'run-2' });
+  await platform.markRead('neo/app#5', 'issue_comment:77');
+
+  assert.deepEqual(calls.map((call) => `${call.method} ${call.url.pathname}`), [
+    'POST /repos/neo/app/issues/5/comments',
+    'PATCH /repos/neo/app/issues/comments/500',
+    'POST /repos/neo/app/issues/5/comments',
+    'POST /repos/neo/app/issues/comments/77/reactions',
+  ]);
+  assert.equal(final.messageId, '500');
+  assert.equal(final.edited, true);
+});

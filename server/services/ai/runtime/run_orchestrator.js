@@ -408,8 +408,6 @@ class DurableRunRuntime {
           // terminalInterim means the agent asked the user something and is
           // waiting; anything after that would talk over the question.
           if (meta.finalDeliverySent || meta.noResponse || meta.terminalInterim) return true;
-          // On a public thread every update is a permanent comment; answer once.
-          if (getPublicRunScope(runId)) return true;
           return meta.deliveryState?.finalContentDelivered === true
             || meta.deliveryState?.noResponse === true;
         },
