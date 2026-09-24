@@ -1,10 +1,18 @@
+---
+title: Memory architecture
+sidebar_label: Memory architecture
+description: Data model, ingestion, retrieval, and prompt paths for NeoAgent's structured memory.
+---
+
 # Memory architecture
+
+*Source material, readable memories, structured facts, and retrieval telemetry.*
 
 NeoAgent memory separates source material, readable memories, structured
 facts, and retrieval telemetry. The design keeps current facts useful while
 retaining provenance and history.
 
-## Data model
+## 🗃️ Data model
 
 ### Memories
 
@@ -37,7 +45,7 @@ an extracted memory to its source chunk and document.
 This keeps source evidence available without injecting complete documents into
 every prompt.
 
-## Ingestion
+## 📥 Ingestion
 
 Conversation consolidation is a structured model pass after the run. It
 extracts a bounded list of durable candidates and excludes secrets, routine
@@ -47,7 +55,7 @@ Integration ingestion runs through durable jobs with source cursors and
 freshness metadata. Chunk extraction attempts are tracked so failed work can be
 retried without treating incomplete content as processed.
 
-## Retrieval
+## 🔍 Retrieval
 
 The local candidate stage combines:
 
@@ -68,7 +76,7 @@ Retrieval events record candidate counts, result IDs, estimated context size,
 and latency. Enhancement events record why planning was used and which results
 survived.
 
-## Prompt context
+## 🧩 Prompt context
 
 Memory reaches the model through three bounded paths:
 
@@ -79,7 +87,7 @@ Memory reaches the model through three bounded paths:
 All paths are scoped to the selected user and agent. Subagents receive the
 agent scope supplied by their parent run.
 
-## Privacy and trust
+## 🔐 Privacy and trust
 
 Memory remains in NeoAgent storage, but hosted models and embedding providers
 receive the text sent to them. External source content is marked as untrusted

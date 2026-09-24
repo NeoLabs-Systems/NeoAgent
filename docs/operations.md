@@ -1,8 +1,16 @@
+---
+title: Operations and troubleshooting
+sidebar_label: Operations
+description: Service commands, release channels, backups, recovery, and the failures you are most likely to hit.
+---
+
 # Operations and troubleshooting
+
+*Day-two work: updates, backups, recovery, and what to check when something breaks.*
 
 Run service commands on the machine hosting NeoAgent.
 
-## Service commands
+## 🕹️ Service commands
 
 ```bash
 neoagent status
@@ -17,7 +25,7 @@ neoagent logs
 problems. `logs` tails the server logs. Logs from a laptop or client do not
 describe a NeoAgent instance running on another server.
 
-## Release channels and updates
+## 🔄 Release channels and updates
 
 ```bash
 neoagent channel
@@ -48,7 +56,7 @@ something else. Runtime state remains under `~/.neoagent`; the installer does
 not rerun onboarding when it detects existing state. If `NEOAGENT_HOME` points
 somewhere else, archive that directory instead of `~/.neoagent`.
 
-## Recovery
+## 🚑 Recovery
 
 ```bash
 neoagent repair
@@ -71,13 +79,13 @@ Interrupted setup progress contains no secrets. Resume continues the selected
 Quickstart or Full profile; secrets are saved only after their section
 validates.
 
-## Backups
+## 💾 Backups
 
 Stop the service or take an application-consistent filesystem snapshot, then
 back up:
 
 | Path | Contents |
-|---|---|
+| --- | --- |
 | `~/.neoagent/.env` | Server configuration and secrets |
 | `~/.neoagent/data/` | SQLite database, sessions, logs, update state |
 | `~/.neoagent/agent-data/` | Skills, memory files, daily data |
@@ -85,10 +93,10 @@ back up:
 If `NEOAGENT_HOME` is set, these paths live under that directory instead.
 Protect backups as credentials and personal data.
 
-## Common failures
+## 🩺 Common failures
 
 | Symptom | Check |
-|---|---|
+| --- | --- |
 | Service does not start | `neoagent status`, then `neoagent logs` |
 | Chat has no response | Provider connection, selected model, provider quota |
 | Browser or shell unavailable | Docker installed and running, then first runtime boot |

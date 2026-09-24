@@ -1,10 +1,18 @@
+---
+title: Memory
+sidebar_label: Memory
+description: What NeoAgent remembers across conversations, how recall works, and how to inspect or delete it.
+---
+
 # Memory
+
+*Useful context that survives the chat — without making the whole transcript permanent.*
 
 NeoAgent keeps useful context across conversations without treating the entire
 chat transcript as permanent memory. Memory data is stored by the NeoAgent
 server and scoped to a user and agent.
 
-## What gets remembered
+## 🧠 What gets remembered
 
 After a conversation, the model can extract durable information such as:
 
@@ -18,7 +26,7 @@ Routine tool output, credentials, guesses, and one-off task narration should
 not become long-term memory. The agent can also save an explicit fact with its
 memory tool when a conversation requires it.
 
-## Structured facts
+## 🧩 Structured facts
 
 A saved memory contains readable text plus structured facts. A fact records a
 subject, relationship, value, category, confidence, and optional time bounds.
@@ -31,7 +39,7 @@ New information can:
 Normal recall favors active facts and excludes superseded or expired facts.
 Historical queries can still use version context when it is relevant.
 
-## Retrieval
+## 🔍 Retrieval
 
 NeoAgent combines several local signals:
 
@@ -48,7 +56,7 @@ model does not receive unrestricted access to the database.
 Stable facts and current context also form a bounded user profile that is
 available to the owning agent even when a narrow search would not retrieve it.
 
-## Integration memory
+## 📥 Integration memory
 
 Supported integrations can ingest source documents in the background. Source
 content is chunked, indexed, and linked to extracted memories so recalled
@@ -58,16 +66,18 @@ External source text is treated as data rather than instructions. Conflicts
 with high-confidence or stable memories may require review instead of silently
 replacing the existing fact.
 
-## Manage memory
+## 🛠️ Manage memory
 
 Open **Memory** to search and inspect stored items. NeoAgent supports editing,
 archiving, bulk deletion, permanent deletion, core-memory management, and
 conversation search.
 
+:::caution Deleting a conversation is not deleting memory
 Deleting a conversation is not the same as deleting extracted memory. Review
 both areas when removing personal information.
+:::
 
-## Storage and privacy
+## 🔐 Storage and privacy
 
 Memory is stored in NeoAgent's SQLite database and runtime data directories.
 It is not sent to an external memory service. Content still leaves the server

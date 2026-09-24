@@ -1,4 +1,12 @@
+---
+title: Licensing decision
+sidebar_label: Licensing
+description: Why NeoAgent stays on AGPL-3.0-only, and what MPL-2.0 would change.
+---
+
 # Licensing decision
+
+*Why the project stays on AGPL-3.0-only.*
 
 NeoAgent remains licensed under the **GNU Affero General Public License
 version 3 only** (`AGPL-3.0-only`).
@@ -7,7 +15,7 @@ The package metadata and README already declared AGPL-3.0-only. The repository's
 `LICENSE` file contained the standard GPLv3 text instead of the Affero GPLv3
 text; that inconsistency has been corrected.
 
-## Why retain AGPL
+## ⚖️ Why retain AGPL
 
 NeoAgent is primarily a networked, self-hosted service. AGPLv3 requires an
 operator who modifies the program and makes that modified version available to
@@ -29,7 +37,7 @@ AGPL's network-interaction source requirement.
 | Patent grant | Included | Included |
 | Warranty disclaimer | Included | Included |
 
-## Legal-risk considerations
+## 🧾 Legal-risk considerations
 
 Changing licenses does not remove copyright, provenance, patent, trademark, or
 third-party dependency obligations. Relicensing existing material also requires
@@ -37,8 +45,10 @@ the necessary rights from its copyright holders. For those reasons, adopting
 MPL-2.0 should be treated as a separate relicensing project if the project's
 commercial-integration goals later outweigh AGPL's network reciprocity.
 
+:::note Not legal advice
 This document records the project decision and is not legal advice. The
 authoritative terms are in the repository's root `LICENSE` file. Useful primary
 references are Mozilla's [MPL 2.0 FAQ](https://www.mozilla.org/MPL/2.0/FAQ/) and
 the GNU Project's
 [explanation of the Affero GPL](https://www.gnu.org/licenses/why-affero-gpl.html).
+:::

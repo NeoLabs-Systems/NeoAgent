@@ -1,22 +1,28 @@
+---
+title: Capabilities
+sidebar_label: Capabilities
+description: A small index page kept for existing links; capabilities are now grouped by workflow.
+---
+
 # Capabilities
 
 This page is retained for existing links. The documentation now groups
 capabilities by workflow instead of maintaining one long inventory.
 
-## Work with the agent
+## 💬 Work with the agent
 
 - [Models and providers](models.md)
 - [Agents and users](agents-and-users.md)
 - [Memory](memory.md)
 - [Skills and MCP](skills.md)
 
-## Connect systems
+## 🔌 Connect systems
 
 - [Integrations and messaging](integrations.md)
 - [Devices and interfaces](devices.md)
 - [Health](health.md)
 
-## Run unattended work
+## ⏰ Run unattended work
 
 - [Automation and triggers](automation.md)
 - [Security and permissions](security-boundaries.md)

@@ -1,10 +1,18 @@
+---
+title: Agents, automation, and triggers
+sidebar_label: Automation architecture
+description: How agents, tasks, and runs share scope, and how the trigger registry schedules execution.
+---
+
 # Agents, automation, and triggers
+
+*Tasks do not create a new context — they invoke one that already exists.*
 
 Agents, tasks, and runs share a common scope: user ID plus agent ID. A task does
 not create a separate agent context; it invokes the configured agent with
 trigger metadata.
 
-## Agent profiles
+## 👥 Agent profiles
 
 The agent manager resolves the selected profile and guarantees a main agent for
 each user. Agent-scoped tables store settings, conversations, memory, runs,
@@ -14,7 +22,7 @@ Orchestrator profiles can delegate work through subagents. Delegated runs keep
 their own execution state while preserving the caller's user and intended
 agent scope.
 
-## Task adapters
+## 🔌 Task adapters
 
 The trigger registry loads adapters for:
 
@@ -29,7 +37,7 @@ The trigger registry loads adapters for:
 Adapters validate and normalize configuration, summarize it for the UI, and
 provide trigger-specific runtime behavior.
 
-## Scheduling and polling
+## ⏱️ Scheduling and polling
 
 Recurring schedules are registered with `node-cron`. One-time tasks and polled
 integration triggers are checked by runtime pollers. Event-capable integration
@@ -39,7 +47,7 @@ The repository prevents duplicate active executions for the same task and
 records trigger fingerprints so the same external event is not repeatedly
 processed.
 
-## Execution and delivery
+## 📤 Execution and delivery
 
 The task runtime creates an agent run with trigger context, captures the final
 response, and optionally sends it to a normalized messaging target. Run success

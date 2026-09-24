@@ -1,9 +1,17 @@
+---
+title: Agent run lifecycle
+sidebar_label: Agent run lifecycle
+description: The five stages of a durable agent run, from context resolution to post-run memory consolidation.
+---
+
 # Agent run lifecycle
+
+*One durable record per request, wherever the request came from.*
 
 An agent run is the durable execution record for a chat request, scheduled
 task, integration event, messaging event, or delegated job.
 
-## 1. Resolve context
+## 1️⃣ Resolve context
 
 The caller supplies the user, agent, trigger source, conversation, and optional
 model override. The engine resolves the effective agent settings and available
@@ -21,7 +29,7 @@ The prompt context can include:
 
 Large history and tool results are compacted before model calls.
 
-## 2. Analyze and select tools
+## 2️⃣ Analyze and select tools
 
 The engine classifies the request as a direct response or an execution task,
 selects a planning depth, and activates a bounded tool catalog. Complex runs
@@ -31,7 +39,7 @@ pass.
 Model selection is scoped to the user and agent. Explicit run or task
 overrides take precedence when the requested model is enabled and available.
 
-## 3. Execute the loop
+## 3️⃣ Execute the loop
 
 Each model turn can return text, completion state, or tool calls. Before a tool
 runs:
@@ -51,7 +59,7 @@ and parks the in-process run until the authenticated resume action releases it.
 If a state-changing tool is interrupted after dispatch, its outcome is recorded
 as unknown and must be verified before the model can attempt it again.
 
-## 4. Complete and deliver
+## 4️⃣ Complete and deliver
 
 The final response is sanitized and stored. Messaging-triggered runs send an
 explicit message or use the final response as a fallback when nothing visible
@@ -61,11 +69,13 @@ The engine emits `run:complete`, persists prompt and usage metrics, refreshes
 conversation summaries and working state, and cancels unfinished subagents.
 Failures and user stops produce separate terminal run states.
 
-Terminal transitions are first-writer-wins. A late model, tool, verifier, or
-delivery callback cannot overwrite an earlier stop or interruption, and active
-run, step, and delegation rows are settled together.
+:::info Terminal transitions are first-writer-wins
+A late model, tool, verifier, or delivery callback cannot overwrite an earlier
+stop or interruption, and active run, step, and delegation rows are settled
+together.
+:::
 
-## 5. Post-run processing
+## 5️⃣ Post-run processing
 
 Completed conversations can run structured memory consolidation. The engine
 extracts durable candidates, reconciles updates, and invalidates prompt caches

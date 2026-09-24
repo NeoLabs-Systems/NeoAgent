@@ -1,4 +1,12 @@
+---
+title: Integrations and messaging
+sidebar_label: Integrations
+description: Connect app accounts for structured tools, and messaging channels so people can talk to the agent.
+---
+
 # Integrations and messaging
+
+*Two connection layers: tools for accounts, and channels for people.*
 
 NeoAgent has two connection layers with different purposes.
 
@@ -7,12 +15,12 @@ channels** let people talk to the agent and receive automation results.
 Connecting Slack or WhatsApp in one layer does not automatically configure the
 other.
 
-## Official integrations
+## 🔌 Official integrations
 
 Connect accounts in **Integrations**.
 
 | Provider | Available areas |
-|---|---|
+| --- | --- |
 | Google Workspace | Gmail, Calendar, Drive, Docs, Sheets |
 | Microsoft 365 | Outlook, Calendar, OneDrive, Teams |
 | GitHub | Repositories, issues, pull requests, files, branches, workflows |
@@ -30,13 +38,13 @@ Connect accounts in **Integrations**.
 Available operations are discovered from the current server implementation and
 connected account. They may differ by provider permissions.
 
-### Read-only accounts
+### 👀 Read-only accounts
 
 Connected accounts can be set to **Read Only**. NeoAgent blocks their write
 tools server-side. Use read-only mode unless an agent must create, send, update,
 or delete data.
 
-### Setup
+### 🔧 Setup
 
 Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth
 application credentials on the server. The callback URL for every provider is
@@ -56,7 +64,7 @@ prefixes, listed in [Configuration](configuration.md).
 NeoRecall, Nextcloud, Home Assistant, and Trello need no server-side app
 registration; users configure them from the application.
 
-### NeoRecall
+### 🧠 NeoRecall
 
 Open **Integrations**, choose **NeoRecall**, and enter the base URL of the
 NeoRecall server. NeoAgent validates the server and opens NeoRecall's own
@@ -77,7 +85,7 @@ OAuth authorize always opens the NeoRecall base URL you configured (not a
 possibly-local `NEORECALL_PUBLIC_URL`). NeoAgent's own `PUBLIC_URL` must still
 be reachable from the browser so the callback can finish.
 
-### Nextcloud
+### ☁️ Nextcloud
 
 Open **Integrations**, choose **Nextcloud**, and enter the URL of your
 Nextcloud instance (Nextcloud.com or self-hosted). NeoAgent checks `status.php`,
@@ -89,7 +97,7 @@ writes, shares, and event or contact changes honor the connection's read-only
 setting. Use `nextcloud_ocs_request` for other Nextcloud apps under `/ocs/v2.php/`.
 Talk chat stays in **Settings > Messaging**.
 
-## Messaging channels
+## 💬 Messaging channels
 
 Configure messaging under **Settings > Messaging**. Supported bridges include
 WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal,
@@ -116,7 +124,7 @@ path is:
 PUBLIC_URL/api/messaging/webhook/:platform
 ```
 
-## Troubleshooting
+## 🩺 Troubleshooting
 
 For failed OAuth connections, confirm the public URL, callback, client
 credentials, and provider scopes. For messaging failures, inspect **Runs** and

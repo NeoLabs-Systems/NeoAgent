@@ -1,10 +1,18 @@
+---
+title: Integrations and messaging architecture
+sidebar_label: Integrations architecture
+description: The integration registry, tool execution path, memory ingestion, and how messaging adapters differ.
+---
+
 # Integrations and messaging architecture
+
+*Two service families that can front the same product over different data paths.*
 
 Official integrations and messaging channels are separate service families.
 They can expose the same external product while using different credentials
 and data paths.
 
-## Integration registry
+## 🗂️ Integration registry
 
 The integration registry loads provider implementations. A provider describes
 its applications, environment readiness, connection flow, tool definitions,
@@ -18,14 +26,14 @@ the durable token.
 Connections are scoped by user, agent, provider, and account. Read-only access
 is enforced when the integration tool is executed, not through prompt wording.
 
-## Tool execution
+## 🛠️ Tool execution
 
 Integration tools join the agent tool catalog when the owning agent has a
 usable connection. The integration manager resolves the connection, refreshes
 credentials when required, enforces access mode, invokes the provider, and
 persists updated credentials.
 
-## Memory ingestion
+## 🧠 Memory ingestion
 
 Providers that support background memory expose source collectors. The
 ingestion service creates durable jobs, fetches changed source objects, stores
@@ -46,7 +54,7 @@ into the run context and prefers the daily-summary, search, and conversation
 list tools in the initial active set so personal day questions route to
 NeoRecall automatically.
 
-## Messaging
+## 💬 Messaging
 
 Messaging providers are long-running channel adapters managed separately from
 official integrations. They normalize inbound messages, enforce chat and

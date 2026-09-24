@@ -1,9 +1,14 @@
+---
+title: Runtime and tool execution
+sidebar_label: Runtime and tools
+description: One Computer provider contract, the QEMU guest, control leases, ADB, and the pre-dispatch security hook.
+---
+
 # Runtime and tool execution
 
-Tool security is checked before dispatch, independent of the model that
-requested an action.
+*Tool security is checked before dispatch, independent of the model that asked.*
 
-## Unified computer runtime
+## 🧩 Unified computer runtime
 
 Browser, desktop, shell, and workspace tools use one provider selected for the
 user's **Computer**: `CloudQemuComputerProvider` or the outbound authenticated
@@ -22,7 +27,7 @@ remote.
 Teach Mode remains cloud-only because its recorder depends on the guest's CDP,
 AT-SPI, shell, and file event collectors.
 
-## Cloud provider
+## ☁️ Cloud provider
 
 The immutable Debian base image is paired with a persistent system overlay and
 a separate sparse data disk for home, workspace, browser sessions, packages,
@@ -41,25 +46,27 @@ while retaining UEFI as the provisioning and recovery path. This keeps a
 hardware-accelerated ready desktop within the ten-second startup budget on the
 supported baseline.
 
-## Control leases
+## 🎛️ Control leases
 
 User, agent, and Teach Mode input is mutually exclusive. A user takeover asks
 the active run to pause and then grants user control. An active run keeps the
 computer awake; an idle computer is shut down without deleting its disks.
 
-## Android
+## 🤖 Android
 
 Android remains a separate per-user provider that executes through ADB on the
 NeoAgent host. Its device selection, screenshots, UI observation, input,
 intents, application installation, and shell commands do not use the Linux
 computer.
 
-## Tool security hook
+## 🛂 Tool security hook
 
 `before_tool_call` runs before execution. Sensitive categories use the user's
 deny, approval, session-allow, or persistent-allow policy. Approval waits are
 delivered through Socket.IO, and denial or timeout is returned to the agent as
 a structured blocked result.
 
+:::warning No destination-level egress filtering
 The runtime does not currently provide destination-level network egress
 filtering. See [Security](security-boundaries.md) for deployment guidance.
+:::

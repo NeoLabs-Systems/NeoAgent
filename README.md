@@ -40,6 +40,8 @@
   <img src="marketing/final/trailer.gif" alt="NeoAgent trailer" width="100%">
 </p>
 
+---
+
 ## 🚀 Install
 
 The repository installer clones NeoAgent directly from GitHub (requires Git,
@@ -68,7 +70,7 @@ Good to know:
 - **Optional SaaS billing.** Stripe subscriptions behind `NEOAGENT_BILLING_ENABLED=true` — invisible when off. See [Billing](docs/billing.md).
 - **Many interfaces, one server.** Web, Android, desktop, and launcher clients, messaging bridges, and ESP32-S3 wearable firmware.
 
-## 🖥️ Interfaces
+## 🧭 Explore it
 
 | Operator interface | Memory | Remote devices |
 | --- | --- | --- |
@@ -99,7 +101,7 @@ accounts.
 - 🐛 [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues) for reproducible bugs
 - 🔒 [SECURITY.md](SECURITY.md) for vulnerability reports
 
-## License
+## 📄 License
 
 [AGPL-3.0-only](LICENSE) — the [licensing decision](docs/licensing.md)
 explains why.

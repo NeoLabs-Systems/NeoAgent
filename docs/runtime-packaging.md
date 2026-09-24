@@ -1,11 +1,19 @@
+---
+title: Runtime packaging and trust
+sidebar_label: Runtime packaging
+description: How release runtime artifacts are built, signed, and activated.
+---
+
 # Runtime packaging and trust
+
+*Signed, per-platform runtime artifacts shared by desktop apps and the standalone CLI.*
 
 Desktop apps and standalone CLI executables use the same release runtime
 artifacts. Each artifact contains the Node runtime, production dependencies,
 native modules, server files, and prebuilt Flutter web client for one operating
 system and processor architecture.
 
-Release CI creates:
+## 📦 Release CI creates
 
 - one target- and version-named `neoagent-runtime` ZIP per build
 - metadata with platform, architecture, byte size, and SHA-256
@@ -18,6 +26,8 @@ key from `lib/setup/runtime_signing_public_key.txt`. The private PKCS#8 key is
 a GitHub Actions secret named `NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY`. Release
 CI refuses to publish if that private key is missing or does not match the
 embedded public key.
+
+## 🔑 Generating a key pair
 
 Generate a key pair locally, commit the public value, and store only the
 private value as a GitHub Actions secret:
@@ -33,9 +43,13 @@ console.log('NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY=' +
 NODE
 ```
 
+:::warning Treat the private key as a release credential
 Treat the private value as a release signing credential. Rotating it requires a
 desktop and standalone CLI release containing the new public key before runtime
 manifests are signed exclusively with the new private key.
+:::
+
+## 🖊️ Platform signing
 
 Production release jobs also require the Windows Authenticode certificate
 secrets and the macOS Developer ID/notarization secrets declared by
@@ -44,6 +58,8 @@ credential is absent. macOS app bundles use Hardened Runtime, the DMG is
 Developer ID signed, submitted to Apple notary service, and stapled. Windows
 application binaries, the Inno Setup installer, and standalone CLI are
 timestamped and Authenticode signed.
+
+## 🚀 Activation
 
 Runtime staging is versioned under the per-user NeoAgent data directory.
 Activation writes `app/current.json` atomically. The desktop installer restores
