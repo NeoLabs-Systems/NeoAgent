@@ -79,7 +79,16 @@ test('a watched repository alone never admits commenters on GitHub', () => {
     sharedActorRules: [{ scope: 'user', value: '10' }],
   });
   assert.equal(evaluateAccessPolicy(withPerson, githubContext(), 'github').allowed, true);
-  assert.equal(evaluateAccessPolicy(withPerson, githubContext({ groupId: 'neo/other', chatId: 'neo/other#1' }), 'github').allowed, false);
+  // A person approved everywhere is answered in any repository they tag it in.
+  assert.equal(evaluateAccessPolicy(withPerson, githubContext({ groupId: 'neo/other', chatId: 'neo/other#1' }), 'github').allowed, true);
+
+  // A role approved everywhere only counts in listed repositories: a stranger is OWNER of their own repo.
+  const anyOwner = normalizeAccessPolicy('github', {
+    ...policy,
+    sharedActorRules: [{ scope: 'role', value: 'OWNER' }],
+  });
+  assert.equal(evaluateAccessPolicy(anyOwner, githubContext({ roleIds: ['OWNER'] }), 'github').allowed, true);
+  assert.equal(evaluateAccessPolicy(anyOwner, githubContext({ roleIds: ['OWNER'], groupId: 'stranger/repo', chatId: 'stranger/repo#1' }), 'github').allowed, false);
 
   const byRole = normalizeAccessPolicy('github', {
     sharedMemberRules: [{ scope: 'role', value: 'COLLABORATOR', spaceScope: 'group', spaceValue: 'neo/app' }],
@@ -388,4 +397,61 @@ test('a run posts one comment and edits it with each later message, ending on th
   ]);
   assert.equal(final.messageId, '500');
   assert.equal(final.edited, true);
+});
+
+test('a person approved everywhere is answered in a repository nobody listed', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'github_global_person' });
+  const { ensureMainAgent } = require('../../../server/services/agents/manager');
+  const { GithubPlatform } = require('../../../server/services/messaging/github');
+  const agentId = ensureMainAgent(user.userId).id;
+  const integrationManager = fakeIntegrationManager([{
+    user_id: user.userId,
+    agent_id: agentId,
+    provider_key: 'github',
+    app_key: 'mentions',
+    status: 'connected',
+    credentials_json: JSON.stringify({ access_token: 'token-a' }),
+  }]);
+  const mention = {
+    id: 88,
+    user: { id: 10, login: 'neo', type: 'User' },
+    body: '@neo-bot what does this function do?',
+    author_association: 'OWNER',
+    created_at: '2099-01-01T00:00:05Z',
+    html_url: 'https://github.com/neo/side-project/issues/2#issuecomment-88',
+    issue_url: 'https://api.github.com/repos/neo/side-project/issues/2',
+  };
+  stubFetch((url) => {
+    if (url.pathname === '/user') return jsonResponse({ id: 900, login: 'neo-bot' });
+    if (url.pathname === '/notifications') {
+      return jsonResponse([{
+        reason: 'mention',
+        updated_at: '2099-01-01T00:00:06Z',
+        repository: { full_name: 'neo/side-project' },
+        subject: { latest_comment_url: 'https://api.github.com/repos/neo/side-project/issues/comments/88' },
+      }]);
+    }
+    if (url.pathname === '/repos/neo/side-project/issues/comments/88') return jsonResponse(mention);
+    return jsonResponse([]);
+  });
+
+  const platform = new GithubPlatform({
+    userId: user.userId,
+    agentId,
+    integrationManager,
+    accessPolicy: { sharedPolicy: 'allowlist', sharedActorRules: [{ scope: 'user', value: '10' }] },
+  });
+  const messages = [];
+  const blocked = [];
+  platform.on('message', (msg) => messages.push(msg));
+  platform.on('blocked_sender', (info) => blocked.push(info));
+  await platform.connect();
+  await platform.poll();
+  await platform.disconnect();
+
+  assert.equal(blocked.length, 0);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].chatId, 'neo/side-project#2');
+  assert.equal(messages[0].groupId, 'neo/side-project');
 });

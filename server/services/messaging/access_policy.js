@@ -52,7 +52,8 @@ function capabilityTemplate(overrides = {}) {
     // Modes the owner may pick for shared spaces. Public platforms drop 'open'.
     sharedModes: ACCESS_MODES,
     // When true a shared-space rule only says where the agent listens; every
-    // sender still needs an actor or member rule of their own.
+    // sender still needs a person or member rule of their own, and role rules
+    // count only inside listed spaces.
     requireSharedActor: false,
     // When true the agent answers shared spaces only when addressed.
     mentionOnly: false,
@@ -673,12 +674,17 @@ function evaluateAccessPolicy(policyInput, context, platform) {
     }
     if (policy.sharedPolicy === 'allowlist') {
       const sharedSpaceMatch = policy.sharedSpaceRules.some((rule) => contextMatchesRule(rule, context));
-      const sharedActorMatch = policy.sharedActorRules.some((rule) => contextMatchesRule(rule, context));
       const sharedMemberMatch = policy.sharedMemberRules.some(
         (rule) => contextMatchesSharedMemberRule(rule, context),
       );
+      // Where anyone can post, a space rule alone admits no one. An approved
+      // person is trusted wherever they ask, but a role only inside a listed
+      // space: roles are relative to the space, and a stranger holds OWNER in
+      // their own repository.
+      const sharedActorMatch = policy.sharedActorRules.some((rule) => contextMatchesRule(rule, context)
+        && (!capabilities.requireSharedActor || rule.scope !== 'role' || sharedSpaceMatch));
       const allowed = capabilities.requireSharedActor
-        ? (sharedSpaceMatch && sharedActorMatch) || sharedMemberMatch
+        ? sharedActorMatch || sharedMemberMatch
         : sharedSpaceMatch || sharedActorMatch || sharedMemberMatch;
       if (!allowed) {
         return { allowed: false, reason: 'shared_not_allowed', policy };
@@ -823,9 +829,7 @@ function buildBlockedSenderSuggestions(platform, context, options = {}) {
         spaceLabel: sharedSpace.label,
       }));
     }
-    // Where a space rule only marks where the agent listens, an "everywhere"
-    // approval would not cover this space, so only the in-space one is offered.
-    if (actorValue && canUseSharedActor && sharedSpace && !capabilities.requireSharedActor) {
+    if (actorValue && canUseSharedActor && sharedSpace) {
       suggestions.push(makeSuggestion({
         scope: actorScope,
         value: actorValue,

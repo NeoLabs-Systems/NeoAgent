@@ -204,10 +204,9 @@ class GithubPlatform extends BasePlatform {
     this._saveCursors();
   }
 
-  // Mentions in repositories nobody approved yet are only found through the
-  // account's notifications. They cannot start a run; they raise the usual
-  // "allow this sender?" prompt so the owner can approve person and repository
-  // in one step.
+  // Mentions outside the watched repositories are only found through the
+  // account's notifications. A person approved everywhere is answered there;
+  // anyone else raises the usual "allow this sender?" prompt.
   async _discoverMentions(auth, watched, startedAt) {
     const since = this.cursors[NOTIFICATIONS_CURSOR_KEY] || startedAt;
     const notifications = await githubApiRequest(auth, {

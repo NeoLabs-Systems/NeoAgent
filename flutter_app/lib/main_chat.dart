@@ -3581,7 +3581,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.person_outline_rounded,
                         title: 'These people, anywhere',
                         subtitle: capabilities.requireSharedActor
-                            ? 'These people can ask $agentName in every place it listens.'
+                            ? 'These people can ask $agentName wherever they tag it. Roles count only in the places listed above.'
                             : 'These people can message $agentName in private chats and in any group they share.',
                         rules: policy.sharedActorRules,
                         emptyLabel: 'No people added yet.',
