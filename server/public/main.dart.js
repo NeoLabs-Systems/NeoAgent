@@ -123935,7 +123935,7 @@ n=b?m+" watches these places for mentions. Anyone can post here, so people still
 k=e.b
 j=h.w
 q=A.aOi("No groups added yet.",B.hz,new A.bjX(j,a1),k.f,!1,n,q)
-b=b?"These people can ask "+m+" in every place it listens.":f+m+u.i
+b=b?"These people can ask "+m+" wherever they tag it. Roles count only in the places listed above.":f+m+u.i
 B.e.A(p,A.a([B.V,q,B.V,A.aOi("No people added yet.",B.j6,new A.bjY(j,a1),k.r,!1,b,"These people, anywhere"),B.V,A.aOi("No group-specific people added yet.",B.xs,new A.bjZ(j,a1),k.w,!0,"These people can only message "+m+" in the group you picked.","These people, in one group")],l))}b=A.eQ(A.W(p,B.p,B.h,B.F,0,B.m),g,B.v,g,g,g,B.ab)
 q=h.x
 return A.dX(A.a([A.c7(!1,A.m("Cancel",g,g,g,g,g,g,g,g,g),g,g,!0,g,g,g,g,new A.bk_(q),g,g),A.dc(!1,A.m("Save changes",g,g,g,g,g,g,g,g,g),B.k,g,g,g,g,g,new A.bk0(e,h.y,q),g,g)],l),s.d,new A.at(760,g,b,g),B.l0,new A.d6(r,B.B),o,g)},
@@ -138404,7 +138404,7 @@ if(r){r=s.d
 r===$&&A.b()
 p.push(A.l5(q,A.i5(!1,new A.Y(B.wf,A.cN(new A.cq(B.nC,new A.a88(r,q),q),q,q),q),!1,B.H,!0),q,q,0,0,0,q))}if(!s.ax){r=s.e
 r===$&&A.b()
-r=B.b.q("mug00o51-960ebc3").length!==0&&r.b}else r=!1
+r=B.b.q("mug18n7c-2bd28bb").length!==0&&r.b}else r=!1
 if(r){r=s.d
 r===$&&A.b()
 r=r.aE&&!r.bq?84:0
@@ -144893,7 +144893,7 @@ $S:12}
 A.a_J.prototype={}
 A.Tz.prototype={
 qg(a){var s=this
-if(B.b.q("mug00o51-960ebc3").length===0||s.a!=null)return
+if(B.b.q("mug18n7c-2bd28bb").length===0||s.a!=null)return
 s.AB()
 s.a=A.jw(B.Uj,new A.bgd(s))},
 AB(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f
@@ -144911,7 +144911,7 @@ if(!t.f.b(k)){s=1
 break}i=J.S(k,"buildId")
 h=i==null?null:B.b.q(J.o(i))
 j=h==null?"":h
-if(J.bb(j)===0||J.e(j,"mug00o51-960ebc3")){s=1
+if(J.bb(j)===0||J.e(j,"mug18n7c-2bd28bb")){s=1
 break}n.b=!0
 n.C()
 p=2
@@ -144928,7 +144928,7 @@ case 2:return A.h(o.at(-1),r)}})
 return A.j($async$AB,r)},
 vs(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
 var $async$vs=A.l(function(a2,a3){if(a2===1){o.push(a3)
-s=p}while(true)switch(s){case 0:if(B.b.q("mug00o51-960ebc3").length===0||n.c){s=1
+s=p}while(true)switch(s){case 0:if(B.b.q("mug18n7c-2bd28bb").length===0||n.c){s=1
 break}n.c=!0
 n.C()
 p=4
