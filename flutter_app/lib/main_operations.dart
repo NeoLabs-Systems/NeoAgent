@@ -2479,6 +2479,7 @@ class _TaskTriggerOption {
     required this.icon,
     this.providerKey,
     this.appKey,
+    this.requiresConnection = false,
   });
 
   final String type;
@@ -2497,6 +2498,10 @@ class _TaskTriggerOption {
   /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
   /// duplicate accounts.
   final String? appKey;
+
+  /// Hides the trigger from the picker until the integration has a connected
+  /// account.
+  final bool requiresConnection;
 }
 
 const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
@@ -2549,6 +2554,17 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     icon: Icons.groups_rounded,
     providerKey: 'microsoft_365',
     appKey: 'teams',
+  ),
+  _TaskTriggerOption(
+    type: 'github_issue_opened',
+    section: 'Developer',
+    label: 'GitHub Issue Opened',
+    description:
+        'Run when a new issue matching your filters is opened in a repository.',
+    icon: Icons.bug_report_rounded,
+    providerKey: 'github',
+    appKey: 'repos',
+    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'weather_event',
@@ -2907,10 +2923,16 @@ String _formatTaskWeekdays(Set<int> weekdays) {
 
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
-  String selectedType,
-) {
+  String selectedType, {
+  required bool Function(_TaskTriggerOption option) isConnected,
+}) {
   final optionsBySection = <String, List<_TaskTriggerOption>>{};
   for (final option in _taskTriggerOptions) {
+    if (option.requiresConnection &&
+        option.type != selectedType &&
+        !isConnected(option)) {
+      continue;
+    }
     optionsBySection
         .putIfAbsent(option.section, () => <_TaskTriggerOption>[])
         .add(option);
@@ -4108,6 +4130,18 @@ class _TasksPanelState extends State<TasksPanel> {
     final senderController = TextEditingController(
       text: task?.triggerConfig['sender']?.toString() ?? '',
     );
+    final repoController = TextEditingController(
+      text: task?.triggerConfig['repo']?.toString() ?? '',
+    );
+    final authorController = TextEditingController(
+      text: task?.triggerConfig['author']?.toString() ?? '',
+    );
+    final assigneeController = TextEditingController(
+      text: task?.triggerConfig['assignee']?.toString() ?? '',
+    );
+    final labelsController = TextEditingController(
+      text: task?.triggerConfig['labels']?.toString() ?? '',
+    );
     final promptController = TextEditingController(text: task?.prompt ?? '');
     var enabled = task?.enabled ?? true;
     var loopPaused = task?.loopPaused ?? false;
@@ -4168,6 +4202,10 @@ class _TasksPanelState extends State<TasksPanel> {
                               final nextType = await _pickTaskTriggerType(
                                 context,
                                 selectedTriggerType,
+                                isConnected: (option) =>
+                                    _connectedAccountsForTrigger(
+                                      option.type,
+                                    ).isNotEmpty,
                               );
                               if (nextType != null) {
                                 triggerType.value = nextType;
@@ -4607,6 +4645,50 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               ],
                               if (selectedTriggerType ==
+                                  'github_issue_opened') ...<Widget>[
+                                TextField(
+                                  controller: repoController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Repository',
+                                    helperText: 'Required. Format: owner/repo',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: authorController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Author (optional)',
+                                    helperText:
+                                        'GitHub username that opened the issue',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: assigneeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Assignee (optional)',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: labelsController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Labels (optional)',
+                                    helperText:
+                                        'Comma separated. The issue must have all of them.',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: queryController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Contains Text (optional)',
+                                    helperText:
+                                        'Matched against title and body',
+                                  ),
+                                ),
+                              ],
+                              if (selectedTriggerType ==
                                   'whatsapp_personal_message_received') ...<
                                 Widget
                               >[
@@ -4954,6 +5036,31 @@ class _TasksPanelState extends State<TasksPanel> {
                       if (selectedTriggerType == 'slack_message_received') {
                         triggerConfig['channel'] = channelController.text
                             .trim();
+                      }
+                      if (selectedTriggerType == 'github_issue_opened') {
+                        final repo = repoController.text.trim();
+                        if (!RegExp(r'^[\w.-]+/[\w.-]+$').hasMatch(repo)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Repository must be in the format owner/repo.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        triggerConfig['repo'] = repo;
+                        final filters = <String, TextEditingController>{
+                          'author': authorController,
+                          'assignee': assigneeController,
+                          'labels': labelsController,
+                          'query': queryController,
+                        };
+                        filters.forEach((key, fieldController) {
+                          final value = fieldController.text.trim();
+                          if (value.isNotEmpty) triggerConfig[key] = value;
+                        });
                       }
                       if (selectedTriggerType == 'teams_message_received' ||
                           selectedTriggerType ==

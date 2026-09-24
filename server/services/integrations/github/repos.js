@@ -91,6 +91,10 @@ const githubToolDefinitions = [
           type: 'string',
           description: 'Filter by assignee username (use @me for self).',
         },
+        creator: {
+          type: 'string',
+          description: 'Filter by the username of the issue author.',
+        },
         sort: {
           type: 'string',
           enum: SORT_OPTIONS,
@@ -835,6 +839,7 @@ async function executeGithubTool(toolName, args, auth) {
       if (args.state) query.state = args.state;
       if (args.labels) query.labels = args.labels;
       if (args.assignee) query.assignee = args.assignee;
+      if (args.creator) query.creator = args.creator;
       if (args.sort) query.sort = args.sort;
       if (args.direction) query.direction = args.direction;
       return await githubApiRequest(auth, {

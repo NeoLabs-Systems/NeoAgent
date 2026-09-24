@@ -8,6 +8,7 @@ module.exports = [
   require('./outlook_email_received'),
   require('./slack_message_received'),
   require('./teams_message_received'),
+  require('./github_issue_opened'),
   require('./weather_event'),
   require('./webhook'),
   require('./whatsapp_personal_message_received'),

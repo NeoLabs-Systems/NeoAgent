@@ -13,6 +13,18 @@ hardware-button events, device settings, and pairing.
 Build mode is selected at compile time. Release artifacts distinguish standard
 and launcher APKs.
 
+## Mascot
+
+The live mascot ([user guide](mascot.md)) is split so the widget stays thin:
+
+- `lib/src/mascot/mascot_frames.dart` — the 9×9 frames and clips for each mood
+- `lib/src/mascot/mascot_mood.dart` — `MascotMood` and `MascotMoodStabilizer` (dwell times, one-shot done/blocked)
+- `lib/src/mascot/neo_mascot.dart` — `NeoMascot`: frames step on timers, only cross-fades use the ticker
+- `lib/main_mascot.dart` — maps controller state to a mood and drives `_LiveMascot`
+
+`landing/js/mascot.js` draws the same frames in SVG for the landing page. The
+frame tables exist in both files, so change them together.
+
 ## Backend communication
 
 The backend client wraps authenticated HTTP calls. Socket.IO streams chat

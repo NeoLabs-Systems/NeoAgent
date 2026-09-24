@@ -51,11 +51,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/mai
 
 Good to know:
 
-- Re-running the installer over an older package installation preserves
-  `~/.neoagent`, creates a backup, and switches the service to the Git checkout.
-- The first account is protected by a short-lived one-time setup claim.
-- The app finds the server's port automatically and discovers nearby NeoAgent servers on the local network.
-- The CLI downloads the signed QEMU runtime, firmware, and guest image for the isolated cloud computer — no separate VM product.
 - Read the [installation guide](docs/getting-started.md) before exposing the service to a network.
 
 ## ✨ What makes it different
@@ -74,18 +69,13 @@ Good to know:
 | --- | --- | --- |
 | ![NeoAgent dashboard](landing/images/dashboard-dark.png) | ![NeoAgent memory view](landing/images/memory-dark.png) | ![NeoAgent device controls](landing/images/remote-devices-dark.png) |
 
-## 🔎 NeoAgent, OpenClaw, and Hermes
+## 🤖 Meet the mascot
 
-| Project | Strength |
-| --- | --- |
-| **NeoAgent** | UI-first, structured memory, multi-user, automation, Android control — one install |
-| **OpenClaw** | Broader gateway and node ecosystem |
-| **Hermes** | Terminal-first agent workflow |
+<p align="center">
+  <img src="docs/images/mascot.gif" alt="The NeoAgent mascot cycling through idle, listening, thinking, working, waiting, blocked, done and asleep" width="100%">
+</p>
 
-Different tradeoffs, not drop-in replacements. Switching anyway?
-`neoagent migrate` [imports](docs/migration.md) skills, memory, and API keys
-from both. The [comparison page](docs/why-neoagent.md) records the concrete
-differences with sources.
+**Your agent's face.** A dot-matrix tile in the sidebar, chat, and wearable.
 
 ## 🧪 Project status
 
