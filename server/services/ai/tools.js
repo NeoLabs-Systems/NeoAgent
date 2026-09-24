@@ -26,6 +26,7 @@ const { coerceWritableText } = require('../workspace/text_edits');
 const { normalizeStoredString } = require('../../utils/text');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 const { buildGuestGitEnv } = require('../integrations/github/git_proxy');
+const { checkPublicToolCall, getPublicRunScope } = require('../messaging/public_audience');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1702,7 +1703,12 @@ function getAvailableTools(app, options = {}) {
     }
 
     const integrationManager = app?.locals?.integrationManager;
-    if (integrationManager && options.userId != null) {
+    const publicScope = options.publicScope || null;
+    if (integrationManager && publicScope) {
+        // A public run uses the platform's own connection, so its integration
+        // tools do not depend on which apps the owner connected for chat.
+        tools.push(...integrationManager.getProviderToolDefinitions(publicScope.integration.providerKey));
+    } else if (integrationManager && options.userId != null) {
         const integrationTools = integrationManager.getToolDefinitions(options.userId, options.agentId || null) || [];
         tools.push(...integrationTools);
     }
@@ -1726,6 +1732,9 @@ function getAvailableTools(app, options = {}) {
     const compacted = visibleTools
         .map((tool) => compactToolDefinition(tool, options))
         .filter(Boolean);
+    if (publicScope) {
+        return compacted.filter((tool) => publicScope.toolNames.has(tool.name));
+    }
     if (options.names && Array.isArray(options.names)) {
         const allow = new Set(options.names);
         return compacted.filter((tool) => allow.has(tool.name));
@@ -1776,6 +1785,11 @@ async function executeTool(toolName, args, context, engine) {
         deviceTarget = null,
         workspaceRoot = null,
     } = context;
+    const publicScope = getPublicRunScope(runId);
+    if (publicScope) {
+        const refusal = checkPublicToolCall(publicScope, toolName, args);
+        if (refusal) return { error: refusal };
+    }
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
         const manager = runtime();
@@ -1866,6 +1880,7 @@ async function executeTool(toolName, args, context, engine) {
                 triggerSource,
                 taskId,
                 scheduledAt,
+                publicScope,
             },
         );
         if (

@@ -15,6 +15,12 @@ const PLATFORM_FORMATTING = {
     spokenOnly: false,
     inlineCode: true,
   },
+  // A GitHub comment is a rendered Markdown document, not a chat bubble.
+  github: {
+    spokenOnly: false,
+    inlineCode: true,
+    markdownDocument: true,
+  },
 };
 
 function getPlatformFormattingProfile(platform) {
@@ -22,17 +28,24 @@ function getPlatformFormattingProfile(platform) {
   return PLATFORM_FORMATTING[key] || PLATFORM_FORMATTING.default;
 }
 
-function buildPlatformFormattingGuide(_platform, options = {}) {
+function buildPlatformFormattingGuide(platform, options = {}) {
   const intro = options.intro === false
     ? ''
     : 'Reply formatting guide:';
-  const body = [
-    'Prefer short paragraphs or multi-line chat bursts over document structure.',
-    'Use simple single-level lists only when they genuinely improve clarity.',
-    'Avoid tables, raw HTML, and formal report formatting in chat replies.',
-    'A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat.',
-    'The runtime will adapt the final text to the destination platform.'
-  ].map((line) => `- ${line}`).join('\n');
+  const lines = getPlatformFormattingProfile(platform).markdownDocument
+    ? [
+      'Write one comment in GitHub-flavored Markdown; it is posted as a single comment.',
+      'Fenced code blocks, lists, and links render. Use them where they help the reader.',
+      'Skip greetings and sign-offs; lead with the answer or the change you made.',
+    ]
+    : [
+      'Prefer short paragraphs or multi-line chat bursts over document structure.',
+      'Use simple single-level lists only when they genuinely improve clarity.',
+      'Avoid tables, raw HTML, and formal report formatting in chat replies.',
+      'A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat.',
+      'The runtime will adapt the final text to the destination platform.'
+    ];
+  const body = lines.map((line) => `- ${line}`).join('\n');
   return [intro, body].filter(Boolean).join('\n');
 }
 
@@ -114,7 +127,12 @@ function normalizeOutgoingMessageForPlatform(platform, content, options = {}) {
 
   text = text
     .replace(/\r\n/g, '\n');
-  text = stripRawHtml(text)
+  // GitHub sanitizes HTML itself, and stripping tags here would eat code such
+  // as `Array<string>` from the comment.
+  if (!getPlatformFormattingProfile(platform).markdownDocument) {
+    text = stripRawHtml(text);
+  }
+  text = text
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -132,6 +150,7 @@ function splitOutgoingMessageForPlatform(platform, content) {
   });
 
   if (!normalized) return [];
+  if (getPlatformFormattingProfile(platform).markdownDocument) return [normalized];
 
   const chunks = normalized
     .split(/\n{2,}/)

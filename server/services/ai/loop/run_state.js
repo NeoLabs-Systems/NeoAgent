@@ -7,6 +7,7 @@ const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
 const { mergeGoalContracts } = require('./completion_judge');
 const { buildInitialProgressLedger } = require('./progress_monitor');
+const { getPublicRunScope } = require('../../messaging/public_audience');
 const {
   createDeliveryState,
   markInterimDelivered,
@@ -170,6 +171,8 @@ function describeIntegrationsForRun(engine, runId, tools = []) {
   const runMeta = engine.getRunMeta(runId);
   const integrationManager = engine.app?.locals?.integrationManager;
   if (!runMeta || typeof integrationManager?.summarizeConnectedProviders !== 'function') return '';
+  // The owner's account summaries stay out of runs answering public threads.
+  if (getPublicRunScope(runId)) return '';
   runMeta.describedIntegrations ||= new Set();
   const keys = [...new Set(tools.map((tool) => tool?.integration).filter(Boolean))]
     .filter((key) => !runMeta.describedIntegrations.has(key));

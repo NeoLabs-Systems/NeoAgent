@@ -1588,6 +1588,11 @@ class _MessagingPanelState extends State<MessagingPanel> {
         ],
       ),
       const (
+        'Code Hosting',
+        'Public issue and pull request threads, answered only for approved people.',
+        ['github'],
+      ),
+      const (
         'Configurable Webhooks',
         'Bridge any provider that can post and receive webhook payloads.',
         [
@@ -2940,9 +2945,16 @@ class _MessagingCard extends StatelessWidget {
       platform.id,
       'disconnect',
     );
+    final isSigningIn =
+        platform.connectMethod == MessagingConnectMethod.integration &&
+        controller.isOfficialIntegrationBusy(
+          '${platform.integrationProvider}:${platform.integrationApp}:connect',
+        );
     final accent = platform.accent;
     final actionLabel = connected
         ? 'Connected'
+        : isSigningIn
+        ? 'Signing in...'
         : disabled
         ? 'Disabled'
         : configured
@@ -3080,7 +3092,7 @@ class _MessagingCard extends StatelessWidget {
                         ),
                       )
                     : FilledButton.icon(
-                        onPressed: disabled || isDisconnecting
+                        onPressed: disabled || isDisconnecting || isSigningIn
                             ? null
                             : onConnect,
                         icon: Icon(Icons.power_settings_new_rounded, size: 18),
@@ -3437,6 +3449,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             'Who can talk to $agentName in a group, channel, or room.',
                         value: policy.sharedPolicy,
                         shared: true,
+                        modes: capabilities.sharedModes,
                         agentName: agentName,
                         onChanged: (value) => setLocalState(() {
                           policy = policy.copyWith(sharedPolicy: value);
@@ -3535,24 +3548,29 @@ Future<void> _showMessagingAccessPolicyDialog(
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    _AccessRuleSection(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      title: 'People in private chats',
-                      subtitle:
-                          'These people can message $agentName one-to-one. This does not let them speak in groups.',
-                      rules: policy.directRules,
-                      emptyLabel: 'No one added yet.',
-                      onRemove: (rule) =>
-                          removeRule('directRules', rule, setLocalState),
-                    ),
+                    if (capabilities.supportsDirectPolicy) ...<Widget>[
+                      const SizedBox(height: 18),
+                      _AccessRuleSection(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'People in private chats',
+                        subtitle:
+                            'These people can message $agentName one-to-one. This does not let them speak in groups.',
+                        rules: policy.directRules,
+                        emptyLabel: 'No one added yet.',
+                        onRemove: (rule) =>
+                            removeRule('directRules', rule, setLocalState),
+                      ),
+                    ],
                     if (capabilities.supportsSharedPolicy) ...<Widget>[
                       const SizedBox(height: 16),
                       _AccessRuleSection(
                         icon: Icons.groups_2_outlined,
-                        title: 'Whole groups',
-                        subtitle:
-                            'Everyone in these groups, channels, or rooms can talk to $agentName.',
+                        title: capabilities.requireSharedActor
+                            ? 'Where $agentName listens'
+                            : 'Whole groups',
+                        subtitle: capabilities.requireSharedActor
+                            ? '$agentName watches these places for mentions. Anyone can post here, so people still need their own approval below.'
+                            : 'Everyone in these groups, channels, or rooms can talk to $agentName.',
                         rules: policy.sharedSpaceRules,
                         emptyLabel: 'No groups added yet.',
                         onRemove: (rule) =>
@@ -3562,8 +3580,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessRuleSection(
                         icon: Icons.person_outline_rounded,
                         title: 'These people, anywhere',
-                        subtitle:
-                            'These people can message $agentName in private chats and in any group they share.',
+                        subtitle: capabilities.requireSharedActor
+                            ? 'These people can ask $agentName in every place it listens.'
+                            : 'These people can message $agentName in private chats and in any group they share.',
                         rules: policy.sharedActorRules,
                         emptyLabel: 'No people added yet.',
                         onRemove: (rule) =>
@@ -3620,6 +3639,7 @@ class _AccessModeField extends StatelessWidget {
     required this.onChanged,
     required this.agentName,
     this.shared = false,
+    this.modes = const <String>['allowlist', 'open', 'disabled'],
   });
 
   final IconData icon;
@@ -3629,6 +3649,9 @@ class _AccessModeField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final String agentName;
   final bool shared;
+
+  /// The modes this platform offers; public platforms leave out 'open'.
+  final List<String> modes;
 
   @override
   Widget build(BuildContext context) {
@@ -3657,24 +3680,27 @@ class _AccessModeField extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: <Widget>[
-                    ChoiceChip(
-                      avatar: Icon(Icons.verified_user_outlined, size: 18),
-                      label: Text('Approved only'),
-                      selected: value == 'allowlist',
-                      onSelected: (_) => onChanged('allowlist'),
-                    ),
-                    ChoiceChip(
-                      avatar: Icon(Icons.public_rounded, size: 18),
-                      label: Text('Anyone'),
-                      selected: value == 'open',
-                      onSelected: (_) => onChanged('open'),
-                    ),
-                    ChoiceChip(
-                      avatar: Icon(Icons.block_rounded, size: 18),
-                      label: Text('No one'),
-                      selected: value == 'disabled',
-                      onSelected: (_) => onChanged('disabled'),
-                    ),
+                    if (modes.contains('allowlist'))
+                      ChoiceChip(
+                        avatar: Icon(Icons.verified_user_outlined, size: 18),
+                        label: Text('Approved only'),
+                        selected: value == 'allowlist',
+                        onSelected: (_) => onChanged('allowlist'),
+                      ),
+                    if (modes.contains('open'))
+                      ChoiceChip(
+                        avatar: Icon(Icons.public_rounded, size: 18),
+                        label: Text('Anyone'),
+                        selected: value == 'open',
+                        onSelected: (_) => onChanged('open'),
+                      ),
+                    if (modes.contains('disabled'))
+                      ChoiceChip(
+                        avatar: Icon(Icons.block_rounded, size: 18),
+                        label: Text('No one'),
+                        selected: value == 'disabled',
+                        onSelected: (_) => onChanged('disabled'),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -6606,11 +6632,40 @@ Future<void> openMessagingConfig(
   NeoAgentController controller,
   MessagingPlatformDescriptor platform,
 ) async {
+  if (platform.connectMethod == MessagingConnectMethod.integration) {
+    return _connectIntegrationMessagingPlatform(context, controller, platform);
+  }
   switch (platform.id) {
     case 'whatsapp':
       return _openWhatsAppModeDialog(context, controller, platform);
     default:
       return _openGenericMessagingConfigHelper(context, controller, platform);
+  }
+}
+
+Future<void> _connectIntegrationMessagingPlatform(
+  BuildContext context,
+  NeoAgentController controller,
+  MessagingPlatformDescriptor platform,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  try {
+    await controller.connectIntegrationMessagingPlatform(platform);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          '${platform.label} connected. Choose repositories and people under Who can message.',
+        ),
+      ),
+    );
+  } catch (error) {
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Failed to connect ${platform.label}: ${controller.friendlyErrorMessage(error)}',
+        ),
+      ),
+    );
   }
 }
 

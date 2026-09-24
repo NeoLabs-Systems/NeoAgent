@@ -93,7 +93,7 @@ Talk chat stays in **Settings > Messaging**.
 
 Configure messaging under **Settings > Messaging**. Supported bridges include
 WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal,
-iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, and
+iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, GitHub, and
 several webhook-backed services.
 
 Each channel has its own authentication and allowlist behavior. Restrict which
@@ -108,6 +108,24 @@ switchable later with **Chat mode** on the WhatsApp card:
   "Message yourself" chat. Notes you write there start a run and replies land in
   the same chat; every other chat and group on the account is ignored, and the
   allowlist no longer applies.
+
+GitHub works as a public channel: approved people @mention the agent's account
+on an issue or pull request, and the agent replies in that thread.
+
+- Connecting it runs the same OAuth flow as the GitHub integration, under its
+  own **Mentions** app. Connect a dedicated account (for example a bot user) to
+  keep its comments and commits apart from your own. To do that, sign into that
+  account on github.com first.
+- Under **Who can message**, add the repositories to watch and the people or
+  roles (such as `COLLABORATOR`) who may ask. A watched repository alone admits
+  no one, "Anyone" is not offered, and the agent only answers when tagged.
+- Runs started from GitHub are restricted. They see none of your memory or
+  other integrations, get no shell, and cannot reply outside the thread. They
+  keep their own memory for each repository. GitHub access is
+  limited to the thread's repository. Commits can go only to the pull
+  request's own branch or a new `neoagent/*` branch, never the default branch.
+- Each agent polls with its own connection every 30 seconds, so no webhook or
+  `PUBLIC_URL` is needed.
 
 Webhook-based channels require a reachable `PUBLIC_URL`. The generic inbound
 path is:

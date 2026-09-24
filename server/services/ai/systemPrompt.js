@@ -168,14 +168,15 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     coworkContract,
     ...behaviorPrompt.stable,
   ];
-  const userTimeZone = getUserTimeZone(userId);
+  // Public threads get neither the owner's timezone nor host details.
+  const userTimeZone = context.publicAudience ? null : getUserTimeZone(userId);
   const dynamic = [
     userTimeZone
       ? `Current time in the user's timezone: ${formatCurrentLocalDateTime(userTimeZone)}. Times the user mentions are in this timezone unless they say otherwise.`
       : `Current server clock: ${formatCurrentLocalDateTime(serverTimeZone())}. Use it for date arithmetic only; it does not establish the user's location or timezone.`,
     ...behaviorPrompt.dynamic,
   ];
-  if (context.includeRuntimeDetails || context.additionalContext) {
+  if (!context.publicAudience && (context.includeRuntimeDetails || context.additionalContext)) {
     dynamic.push(`Runtime details:\n${buildRuntimeDetails()}`);
   }
 

@@ -3993,6 +3993,7 @@ class _TasksPanelState extends State<TasksPanel> {
 
   List<OfficialIntegrationAccountItem> _connectedAccountsForTrigger(
     String triggerType,
+    List<OfficialIntegrationItem> integrations,
   ) {
     final option = _taskTriggerOptionForType(triggerType);
     final providerKey = option.providerKey;
@@ -4000,7 +4001,7 @@ class _TasksPanelState extends State<TasksPanel> {
     final appKey = option.appKey;
     final seen = <int>{};
     final result = <OfficialIntegrationAccountItem>[];
-    for (final integration in controller.officialIntegrations) {
+    for (final integration in integrations) {
       if (integration.id != providerKey) continue;
       for (final app in integration.apps) {
         if (appKey != null && app.id != appKey) continue;
@@ -4016,11 +4017,12 @@ class _TasksPanelState extends State<TasksPanel> {
 
   Widget _buildConnectionIdSelector({
     required String triggerType,
+    required List<OfficialIntegrationItem> integrations,
     required ValueNotifier<int?> selectedConnectionId,
     required TextEditingController fallbackController,
     required StateSetter setLocalState,
   }) {
-    final accounts = _connectedAccountsForTrigger(triggerType);
+    final accounts = _connectedAccountsForTrigger(triggerType, integrations);
     if (accounts.isEmpty) {
       return TextField(
         controller: fallbackController,
@@ -4170,6 +4172,24 @@ class _TasksPanelState extends State<TasksPanel> {
           ? null
           : controller.agentProfiles.first.id;
     }
+    // Integration accounts are per agent, so the account picker must list the
+    // assigned agent's connections rather than the app-wide selected agent's.
+    final agentIntegrations = ValueNotifier<List<OfficialIntegrationItem>>(
+      selectedAgentId == controller.selectedAgentId
+          ? controller.officialIntegrations
+          : const <OfficialIntegrationItem>[],
+    );
+    Future<void> loadAgentIntegrations(String? agentId) async {
+      List<OfficialIntegrationItem> items;
+      try {
+        items = await controller.fetchOfficialIntegrationsForAgent(agentId);
+      } catch (_) {
+        items = const <OfficialIntegrationItem>[];
+      }
+      if (agentId == selectedAgentId) agentIntegrations.value = items;
+    }
+
+    unawaited(loadAgentIntegrations(selectedAgentId));
 
     await showDialog<void>(
       context: context,
@@ -4205,6 +4225,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                 isConnected: (option) =>
                                     _connectedAccountsForTrigger(
                                       option.type,
+                                      agentIntegrations.value,
                                     ).isNotEmpty,
                               );
                               if (nextType != null) {
@@ -4563,11 +4584,20 @@ class _TasksPanelState extends State<TasksPanel> {
 
                           return Column(
                             children: <Widget>[
-                              _buildConnectionIdSelector(
-                                triggerType: selectedTriggerType,
-                                selectedConnectionId: selectedConnectionId,
-                                fallbackController: connectionIdController,
-                                setLocalState: setLocalState,
+                              ValueListenableBuilder<
+                                List<OfficialIntegrationItem>
+                              >(
+                                valueListenable: agentIntegrations,
+                                builder: (context, integrations, _) =>
+                                    _buildConnectionIdSelector(
+                                      triggerType: selectedTriggerType,
+                                      integrations: integrations,
+                                      selectedConnectionId:
+                                          selectedConnectionId,
+                                      fallbackController:
+                                          connectionIdController,
+                                      setLocalState: setLocalState,
+                                    ),
                               ),
                               const SizedBox(height: 12),
                               if (selectedTriggerType ==
@@ -4901,10 +4931,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) => setLocalState(() {
-                            selectedAgentId = value;
-                            selectedDeliveryTarget.value = null;
-                          }),
+                          onChanged: (value) {
+                            setLocalState(() {
+                              selectedAgentId = value;
+                              selectedDeliveryTarget.value = null;
+                              selectedConnectionId.value = null;
+                              connectionIdController.clear();
+                            });
+                            unawaited(loadAgentIntegrations(value));
+                          },
                         ),
                       ],
                       const SizedBox(height: 12),

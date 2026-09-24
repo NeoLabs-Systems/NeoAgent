@@ -7,6 +7,7 @@ const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('./sender_identity');
+const { buildPublicRunScope, getPublicProfile, registerPublicRun } = require('./public_audience');
 const {
   accessPolicyKey,
   legacyWhitelistKey,
@@ -89,7 +90,8 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
     }
     throwIfAborted(signal, 'Messaging automation stopped before handling the message.');
 
-    const commandRouter = app?.locals?.commandRouter;
+    // Slash commands change the owner's settings; a public thread never reaches them.
+    const commandRouter = getPublicProfile(msg.platform) ? null : app?.locals?.commandRouter;
     if (commandRouter) {
       let commandResult;
       try {
@@ -406,14 +408,21 @@ async function executeQueuedMessage({
         message: msg,
       },
     };
-    runOptions.skipGlobalRecall = Boolean(msg.isGroup);
-    runOptions.memoryAudience = msg.isGroup ? 'shared' : 'owner';
-    runOptions.memoryScope = msg.isGroup
+    const publicScope = buildPublicRunScope(msg);
+    runOptions.skipGlobalRecall = Boolean(msg.isGroup) || Boolean(publicScope);
+    runOptions.memoryAudience = msg.isGroup || publicScope ? 'shared' : 'owner';
+    runOptions.memoryScope = msg.isGroup || publicScope
       ? {
           scopeType: 'channel',
-          scopeId: `${msg.platform}:${msg.chatId}`,
+          // Public threads share what they learn across their whole space
+          // (a repository), which is public anyway.
+          scopeId: `${msg.platform}:${publicScope ? publicScope.spaceId : msg.chatId}`,
         }
       : null;
+    if (publicScope) {
+      registerPublicRun(runId, publicScope);
+      runOptions.context.publicAudience = true;
+    }
 
     if (msg.localMediaPath) {
       runOptions.mediaAttachments = [
@@ -508,6 +517,8 @@ Use send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
       msg.channelContext.map((item) => `[${item.author || item.sender || 'participant'}]: ${item.content}`).join('\n')
     : '';
 
+  const publicPromptGuide = getPublicProfile(msg.platform)?.promptGuide;
+  const publicGuide = publicPromptGuide ? `\n\n${publicPromptGuide}` : '';
   const socialMode = options.socialMode === true || Boolean(msg.isGroup);
   const responseGuide = socialMode
     ? `The turn-taking gate has selected this message for a response. Respond with one useful, socially natural contribution and do not re-run the speak-or-silence decision. Reply in this shared chat only (to="${msg.chatId}"). Do not switch the reply to a DM with the sender.`
@@ -516,7 +527,7 @@ Use send_message with platform="${msg.platform}" and to="${msg.chatId}".`;
     ? 'Do not send interim progress or presence updates into the shared room.'
     : 'Use send_interim_update sparingly — only for a real progress update or a blocking question (set expects_reply=true for the latter).';
 
-  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${audioContextNote}${roomContext}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
+  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n<external_message>\n${msg.content}\n</external_message>${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
 }
 
 async function isAllowedMessagingSender({ io, userId, msg }) {

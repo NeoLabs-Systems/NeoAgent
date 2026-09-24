@@ -380,6 +380,16 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       ),
     ],
   ),
+  MessagingPlatformDescriptor(
+    id: 'github',
+    label: 'GitHub',
+    subtitle: 'Answers @mentions on issues and pull requests',
+    accent: Color(0xFF8B949E),
+    connectMethod: MessagingConnectMethod.integration,
+    icon: Icons.code_rounded,
+    integrationProvider: 'github',
+    integrationApp: 'mentions',
+  ),
   ...longTailMessagingPlatforms,
 ];
 
@@ -517,9 +527,11 @@ const List<MessagingConfigField> genericWebhookConfigFields =
         hint: 'Only needed if you want to reshape the outgoing payload.',
         kind: MessagingConfigFieldKind.multiline,
       ),
-    ];
+];
 
-enum MessagingConnectMethod { qr, config }
+/// `integration` platforms sign in through an official integration's OAuth
+/// flow instead of asking for tokens in a form.
+enum MessagingConnectMethod { qr, config, integration }
 
 enum MessagingConfigFieldKind { text, password, multiline, boolean }
 
@@ -557,6 +569,8 @@ class MessagingPlatformDescriptor {
     required this.icon,
     this.configFields = const <MessagingConfigField>[],
     this.accessCapabilities,
+    this.integrationProvider,
+    this.integrationApp,
   });
 
   final String id;
@@ -567,6 +581,11 @@ class MessagingPlatformDescriptor {
   final IconData icon;
   final List<MessagingConfigField> configFields;
   final MessagingAccessCapabilities? accessCapabilities;
+
+  /// Official integration provider and app whose connection this platform uses
+  /// when [connectMethod] is [MessagingConnectMethod.integration].
+  final String? integrationProvider;
+  final String? integrationApp;
 
   String get settingsKey => '${id}_config';
 }
@@ -1114,6 +1133,9 @@ class MessagingAccessCapabilities {
     this.sharedSpaceRuleScopes = const <String>[],
     this.sharedActorRuleScopes = const <String>[],
     this.manualEntryHint = '',
+    this.sharedModes = const <String>['allowlist', 'open', 'disabled'],
+    this.requireSharedActor = false,
+    this.mentionOnly = false,
   });
 
   factory MessagingAccessCapabilities.fromJson(Map<String, dynamic> json) {
@@ -1135,6 +1157,11 @@ class MessagingAccessCapabilities {
       sharedSpaceRuleScopes: stringList(json['sharedSpaceRuleScopes']),
       sharedActorRuleScopes: stringList(json['sharedActorRuleScopes']),
       manualEntryHint: json['manualEntryHint']?.toString() ?? '',
+      sharedModes: json['sharedModes'] is List
+          ? stringList(json['sharedModes'])
+          : const <String>['allowlist', 'open', 'disabled'],
+      requireSharedActor: json['requireSharedActor'] == true,
+      mentionOnly: json['mentionOnly'] == true,
     );
   }
 
@@ -1148,6 +1175,14 @@ class MessagingAccessCapabilities {
   final List<String> sharedActorRuleScopes;
   final String manualEntryHint;
 
+  /// Modes the owner may choose for groups; public platforms leave out 'open'.
+  final List<String> sharedModes;
+
+  /// When true, a group rule only says where the agent listens and every
+  /// sender still needs their own approval.
+  final bool requireSharedActor;
+  final bool mentionOnly;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'supportsDirectPolicy': supportsDirectPolicy,
     'supportsSharedPolicy': supportsSharedPolicy,
@@ -1158,6 +1193,9 @@ class MessagingAccessCapabilities {
     'sharedSpaceRuleScopes': sharedSpaceRuleScopes,
     'sharedActorRuleScopes': sharedActorRuleScopes,
     'manualEntryHint': manualEntryHint,
+    'sharedModes': sharedModes,
+    'requireSharedActor': requireSharedActor,
+    'mentionOnly': mentionOnly,
   };
 }
 

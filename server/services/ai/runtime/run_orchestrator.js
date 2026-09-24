@@ -38,6 +38,7 @@ const {
   summarizeProgressToolExecutions,
 } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
+const { getPublicRunScope } = require('../../messaging/public_audience');
 const { parseModelSelectionId } = require('../model_identity');
 const { getProviderRuntimeConfig } = require('../models');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
@@ -407,6 +408,8 @@ class DurableRunRuntime {
           // terminalInterim means the agent asked the user something and is
           // waiting; anything after that would talk over the question.
           if (meta.finalDeliverySent || meta.noResponse || meta.terminalInterim) return true;
+          // On a public thread every update is a permanent comment; answer once.
+          if (getPublicRunScope(runId)) return true;
           return meta.deliveryState?.finalContentDelivered === true
             || meta.deliveryState?.noResponse === true;
         },
@@ -652,15 +655,17 @@ class DurableRunRuntime {
         }));
       systemPrompt = await systemPromptPromise;
 
+      const publicScope = getPublicRunScope(runId);
       const builtInTools = this.engine.getAvailableTools(app, {
         includeDescriptions: true,
         userId,
         agentId,
         triggerType,
         triggerSource,
+        publicScope,
       });
       const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.engine.mcpManager;
-      const mcpTools = mcpManager ? mcpManager.getAllTools(userId, { agentId }) : [];
+      const mcpTools = mcpManager && !publicScope ? mcpManager.getAllTools(userId, { agentId }) : [];
       const disallowedToolNames = new Set(
         (Array.isArray(options.disallowedToolNames) ? options.disallowedToolNames : [])
           .map((name) => String(name || '').trim())
@@ -686,9 +691,11 @@ class DurableRunRuntime {
 
       messages = this.engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
       const capabilityHealth = await capabilityHealthPromise;
-      const capabilitySummary = summarizeCapabilityHealth(capabilityHealth);
-      const connectedIntegrations = app?.locals?.integrationManager
-        ?.listConnectedProviderLabels?.(userId, agentId);
+      // A public run must not learn what the owner has connected.
+      const capabilitySummary = publicScope ? '' : summarizeCapabilityHealth(capabilityHealth);
+      const connectedIntegrations = publicScope
+        ? null
+        : app?.locals?.integrationManager?.listConnectedProviderLabels?.(userId, agentId);
       if (capabilitySummary || connectedIntegrations) {
         messages.push({
           role: 'system',

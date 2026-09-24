@@ -11,6 +11,7 @@ const { WhatsAppPlatform } = require('./whatsapp');
 const { DiscordPlatform } = require('./discord');
 const { TelegramPlatform } = require('./telegram');
 const { MeshtasticPlatform } = require('./meshtastic');
+const { GithubPlatform } = require('./github');
 const {
   SlackPlatform,
   GoogleChatPlatform,
@@ -93,6 +94,7 @@ class MessagingManager extends EventEmitter {
     this.io = io;
     this.artifactStore = options.artifactStore || null;
     this.workspaceManager = options.workspaceManager || null;
+    this.integrationManager = options.integrationManager || null;
     this.platforms = new Map();
     this.accessSuggestions = new Map();
     this.messageHandlers = [];
@@ -113,6 +115,7 @@ class MessagingManager extends EventEmitter {
       whatsapp: WhatsAppPlatform,
       discord:  DiscordPlatform,
       telegram: TelegramPlatform,
+      github: GithubPlatform,
       slack: SlackPlatform,
       google_chat: GoogleChatPlatform,
       teams: TeamsPlatform,
@@ -678,6 +681,9 @@ class MessagingManager extends EventEmitter {
     }
     if (platformName === 'whatsapp') {
       config.resolveAgentName = () => getAgentById(userId, agentId)?.display_name || '';
+    }
+    if (platformName === 'github') {
+      config.integrationManager = this.integrationManager;
     }
     config.autoConnect = true;
     const existingConnection = db

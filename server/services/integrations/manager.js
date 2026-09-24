@@ -478,7 +478,14 @@ class IntegrationManager {
       throw new Error(`That ${provider.label} account is not connected to this agent.`);
     }
 
-    if (typeof provider.disconnect === 'function') {
+    // Apps connected with the same account share one stored token (see
+    // persistSharedCredentials); revoking it would silently break the others.
+    const accountEmail = String(connection.account_email || '').trim().toLowerCase();
+    const tokenStillShared = this.listConnections(userId, provider.key, agentId).some(
+      (row) => row.id !== connection.id
+        && String(row.account_email || '').trim().toLowerCase() === accountEmail,
+    );
+    if (!tokenStillShared && typeof provider.disconnect === 'function') {
       await provider.disconnect(connection, {
         signal: options.signal || null,
       }).catch(() => {});
@@ -632,6 +639,15 @@ class IntegrationManager {
         .map((definition) => ({ ...definition, integration: provider.key })));
     }
     return definitions;
+  }
+
+  // Every tool a provider offers, whatever the owner connected. Public runs
+  // narrow this to their own allowlist and run it on the platform connection.
+  getProviderToolDefinitions(providerKey) {
+    const provider = this.getProvider(providerKey);
+    if (!provider) return [];
+    return provider.getToolDefinitions({ connectedAppIds: provider.apps.map((app) => app.id) })
+      .map((definition) => ({ ...definition, integration: provider.key }));
   }
 
   getToolStatus(userId, providerKey, agentId = null) {
@@ -811,6 +827,23 @@ class IntegrationManager {
     };
   }
 
+  // A public run always acts as the account connected for its platform, never
+  // as whichever account the model names.
+  selectPublicToolConnection(provider, publicScope, userId, agentId = null) {
+    const { providerKey, appKey } = publicScope.integration;
+    if (provider.key !== providerKey) {
+      return { error: `${provider.label} tools are not available in this run.` };
+    }
+    const connection = this.listConnections(userId, provider.key, agentId).find(
+      (row) => row.status === 'connected' && String(row.app_key || '').trim() === appKey,
+    );
+    if (!connection) {
+      const appLabel = provider.getApp?.(appKey)?.label || appKey;
+      return { error: `${provider.label} ${appLabel} is not connected for this agent.` };
+    }
+    return { connection };
+  }
+
   connectionExecutionKey(connection) {
     return [
       connection.user_id,
@@ -863,7 +896,9 @@ class IntegrationManager {
         return { error: env.summary };
       }
 
-      const selection = this.selectToolConnection(provider, toolName, args, userId, agentId);
+      const selection = options.publicScope
+        ? this.selectPublicToolConnection(provider, options.publicScope, userId, agentId)
+        : this.selectToolConnection(provider, toolName, args, userId, agentId);
       if (selection.error) {
         return { error: selection.error };
       }

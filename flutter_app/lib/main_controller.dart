@@ -3546,7 +3546,20 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
+  Future<List<OfficialIntegrationItem>> fetchOfficialIntegrationsForAgent(
+    String? agentId,
+  ) async {
+    return _decodeModelList(
+      'official_integrations',
+      await _backendClient.fetchOfficialIntegrations(
+        backendUrl,
+        agentId: agentId ?? _scopedAgentId,
+      ),
+      OfficialIntegrationItem.fromJson,
+    );
+  }
+
+    Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
     String? query,
     String? platform,
     String? agentId,
@@ -6401,6 +6414,28 @@ class NeoAgentController extends ChangeNotifier {
       agentId: _scopedAgentId,
     );
     await refreshMessaging();
+  }
+
+  /// Connects a messaging platform that signs in through an official
+  /// integration. The integration's own OAuth flow runs first when this
+  /// agent has not connected that app yet; the platform then starts on it.
+  Future<void> connectIntegrationMessagingPlatform(
+    MessagingPlatformDescriptor platform,
+  ) async {
+    final providerId = platform.integrationProvider!;
+    final appId = platform.integrationApp!;
+    await refreshSkills();
+    if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
+      await connectOfficialIntegration(providerId, appId: appId);
+      final failure = errorMessage;
+      if (failure != null) throw Exception(failure);
+      if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
+        throw Exception(
+          'Finish signing in to ${platform.label} in your browser, then connect again.',
+        );
+      }
+    }
+    await connectMessagingPlatform(platform: platform.id);
   }
 
   Future<void> saveSettingsPayload(Map<String, dynamic> payload) async {

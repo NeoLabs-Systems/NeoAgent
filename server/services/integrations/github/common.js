@@ -26,6 +26,9 @@ async function githubApiRequest(auth, options = {}) {
     }
   }
 
+  // Set on runs answering public threads; throws when the request leaves scope.
+  auth?.requestGuard?.(String(method).toUpperCase(), url);
+
   const headers = {
     'Accept': 'application/vnd.github.v3+json',
     'Authorization': `Bearer ${token}`,

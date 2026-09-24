@@ -280,6 +280,7 @@ function createMessagingManager(app, io, agentEngine) {
     new MessagingManager(io, {
       artifactStore: app.locals.artifactStore,
       workspaceManager: app.locals.workspaceManager,
+      integrationManager: app.locals.integrationManager,
     }),
   );
   agentEngine.messagingManager = messagingManager;
