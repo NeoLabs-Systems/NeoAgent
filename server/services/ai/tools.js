@@ -25,6 +25,7 @@ const { runFileDiagnostics } = require('./file_diagnostics');
 const { coerceWritableText } = require('../workspace/text_edits');
 const { normalizeStoredString } = require('../../utils/text');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
+const { buildGuestGitEnv } = require('../integrations/github/git_proxy');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1913,9 +1914,15 @@ async function executeTool(toolName, args, context, engine) {
             if (!runtimeManager) {
                 return { error: 'Command execution is unavailable. No runtime manager found.' };
             }
+            const timeout = args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000);
+            const guestHost = runtimeManager.getGuestHostAddress(userId, { deviceTarget });
+            const integrationManager = integrations();
             const execOptions = {
                 cwd: args.cwd,
-                timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
+                timeout,
+                env: guestHost && integrationManager
+                    ? buildGuestGitEnv({ integrationManager, userId, agentId, runId, guestHost, ttlMs: timeout })
+                    : null,
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
                 inputs: Array.isArray(args.inputs) ? args.inputs : [],

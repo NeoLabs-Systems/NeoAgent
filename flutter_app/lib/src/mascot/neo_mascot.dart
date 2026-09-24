@@ -218,7 +218,7 @@ class _MascotPainter extends CustomPainter {
 
   static const Color _gold = Color(0xFFE1B052);
   static const Color _alert = Color(0xFFDE8A78);
-  static const Color _lip = Color(0xFF040605);
+  static const Color _lip = Color(0xFF070B09);
   static const Color _screen = Color(0xFF030504);
   static const Color _unlit = Color(0xFF17201A);
   static const Color _edge = Color(0x24ECEFE5);
@@ -238,7 +238,7 @@ class _MascotPainter extends CustomPainter {
     final p = picture;
     final side = math.min(size.width, size.height);
     final small = side < _smallSide;
-    final lip = small ? 0.0 : side * 0.05;
+    final lip = small ? 0.0 : side * 0.025;
     final tileSide = side - lip;
     final tile = Rect.fromLTWH(
       (size.width - tileSide) / 2,

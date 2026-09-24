@@ -19,6 +19,7 @@ const routeRegistry = [
   { basePath: '/api/messaging', modulePath: '../routes/messaging' },
   { basePath: '/api/mcp', modulePath: '../routes/mcp' },
   { basePath: '/api/integrations', modulePath: '../routes/integrations' },
+  { basePath: '/api/git-proxy', modulePath: '../routes/git_proxy' },
   { basePath: '/api/skills', modulePath: '../routes/skills' },
   { basePath: '/api/store', modulePath: '../routes/store' },
   { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },

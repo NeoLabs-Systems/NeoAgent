@@ -92,8 +92,9 @@
     '</defs>';
   document.body.prepend(defs);
 
-  // Geometry on a 100-unit box: a 95-unit tile standing on a 5-unit lip.
+  // Geometry: a 95-unit tile standing on a thin 2.5-unit lip.
   const TILE = 95;
+  const LIP = 2.5;
   const RADIUS = TILE * 0.33;
   const INSET = TILE * 0.06;
   const SCREEN = TILE - INSET * 2;
@@ -116,8 +117,8 @@
       this.onScreen = true;
       this.running = true;
 
-      const root = svg('svg', { viewBox: '0 0 100 100', class: 'mascot-svg', focusable: 'false' });
-      root.append(svg('rect', { class: 'm-lip', x: 0, y: 5, width: TILE, height: TILE, rx: RADIUS }));
+      const root = svg('svg', { viewBox: `0 0 ${TILE} ${TILE + LIP}`, class: 'mascot-svg', focusable: 'false' });
+      root.append(svg('rect', { class: 'm-lip', x: 0, y: LIP, width: TILE, height: TILE, rx: RADIUS }));
       this.body = svg('g', { class: 'm-body' });
       this.rim = svg('rect', { class: 'm-rim', x: 1, y: 1, width: TILE - 2, height: TILE - 2, rx: RADIUS - 1 });
       const off = svg('g', { class: 'm-off' });

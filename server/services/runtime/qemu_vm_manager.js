@@ -679,6 +679,8 @@ class QemuVMManager {
     });
     this.bootTimeoutMs = Number(options.bootTimeoutMs || process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 20 * 60 * 1000);
     this.guestAgentPort = Number(options.guestAgentPort || 8421);
+    // QEMU user networking forwards this guest address to the host's loopback.
+    this.guestHostAddress = '10.0.2.2';
     this.baseImagePath = String(options.baseImagePath || process.env.NEOAGENT_VM_BASE_IMAGE || '').trim() || null;
     this.baseImagePromise = null;
     ensurePrivateDirectory(COMPUTER_ROOT);

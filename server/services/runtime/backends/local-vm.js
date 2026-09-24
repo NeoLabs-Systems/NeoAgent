@@ -597,6 +597,7 @@ class LocalVmExecutionBackend {
         stdin_input: options.stdinInput,
         pty: options.pty === true,
         inputs: options.inputs || [],
+        env: options.env || undefined,
       }, {
         timeoutMs: transportTimeout,
         retryCount: 0,

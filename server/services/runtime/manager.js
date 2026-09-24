@@ -419,6 +419,13 @@ class RuntimeManager {
       .killCommand(userId, pid, reason);
   }
 
+  // The address a guest computer uses to reach this server, or null when
+  // commands run on a user's own machine instead of a guest.
+  getGuestHostAddress(userId, options = {}) {
+    if (this.resolveComputerProvider(userId, options.deviceTarget) === 'local') return null;
+    return this._computerBackendForUser(userId, options.deviceTarget).vmManager?.guestHostAddress || null;
+  }
+
   getCommandExecutorForUser(userId, options = {}) {
     return this._computerBackendForUser(userId, options.deviceTarget)
       .getCommandExecutorForUser(userId);

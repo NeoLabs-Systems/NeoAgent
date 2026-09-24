@@ -72,6 +72,7 @@ class DockerVMManager {
     this.resourceProfile = options.resourceProfile || getComputerResourceProfile();
     this.bootTimeoutMs = Number(options.bootTimeoutMs || process.env.NEOAGENT_VM_BOOT_TIMEOUT_MS || 5 * 60 * 1000);
     this.pidsLimit = Number(options.pidsLimit || process.env.NEOAGENT_VM_PIDS_LIMIT || 512);
+    this.guestHostAddress = 'host.docker.internal';
     this.orphansRemoved = false;
     ensurePrivateDirectory(CONTAINER_ROOT);
     ensurePrivateDirectory(INSTANCE_ROOT);
@@ -213,6 +214,7 @@ class DockerVMManager {
       '--shm-size', '1g',
       ...hostUserArgs(),
       '--publish', `127.0.0.1:${hostAgentPort}:${GUEST_AGENT_PORT}`,
+      '--add-host', 'host.docker.internal:host-gateway',
       '--volume', `${homeVolumeName(key)}:${GUEST_HOME}`,
       '--env', `NEOAGENT_GUEST_AGENT_PORT=${GUEST_AGENT_PORT}`,
       '--env', `NEOAGENT_VM_GUEST_TOKEN=${guestToken}`,
