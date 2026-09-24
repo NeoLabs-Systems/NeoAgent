@@ -19,10 +19,14 @@ const MAX_SEEN_COMMENTS = 2000;
 const CURSOR_SETTING_KEY = 'github_mentions_cursors';
 const MENTIONS_APP_KEY = 'mentions';
 const THREAD_ID_PATTERN = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#(\d+)(?::(\d+))?$/;
+// Where a mention can be written: a comment in the conversation, a line
+// comment in a review, or the description of a new issue or pull request.
 const COMMENT_SOURCES = Object.freeze([
-  { kind: 'issue_comment', path: 'issues/comments', numberFrom: 'issue_url' },
-  { kind: 'review_comment', path: 'pulls/comments', numberFrom: 'pull_request_url' },
+  { kind: 'issue_comment', path: 'issues/comments', numberOf: (item) => numberFromUrl(item.issue_url) },
+  { kind: 'review_comment', path: 'pulls/comments', numberOf: (item) => numberFromUrl(item.pull_request_url) },
+  { kind: 'issue_body', path: 'issues', numberOf: (item) => Number(item.number) || null, query: { state: 'all' } },
 ]);
+const NOTIFICATIONS_CURSOR_KEY = '@notifications';
 const REPO_ROLES = Object.freeze(['OWNER', 'MEMBER', 'COLLABORATOR']);
 // The client loads every platform's access catalog on each messaging refresh.
 const ACCESS_TARGETS_TTL_MS = 5 * 60 * 1000;
@@ -169,9 +173,11 @@ class GithubPlatform extends BasePlatform {
       return;
     }
     const startedAt = new Date().toISOString();
-    for (const repo of this.watchedRepos()) {
+    const watched = this.watchedRepos();
+    for (const repo of watched) {
       const key = repo.toLowerCase();
-      // A newly watched repository starts now; its history is not replayed.
+      // A newly watched repository starts now, or at the mention that led the
+      // owner to approve it, so that request still gets its answer.
       const since = this.cursors[key] || startedAt;
       let newest = since;
       try {
@@ -188,14 +194,50 @@ class GithubPlatform extends BasePlatform {
         log.warn(`Polling ${repo} failed: ${error.message}`);
       }
     }
+    try {
+      await this._discoverMentions(auth, new Set(watched.map((repo) => repo.toLowerCase())), startedAt);
+    } catch (error) {
+      log.warn(`Reading GitHub notifications failed: ${error.message}`);
+    }
     this._saveCursors();
+  }
+
+  // Mentions in repositories nobody approved yet are only found through the
+  // account's notifications. They cannot start a run; they raise the usual
+  // "allow this sender?" prompt so the owner can approve person and repository
+  // in one step.
+  async _discoverMentions(auth, watched, startedAt) {
+    const since = this.cursors[NOTIFICATIONS_CURSOR_KEY] || startedAt;
+    const notifications = await githubApiRequest(auth, {
+      path: '/notifications',
+      query: { all: true, participating: true, since, per_page: 50 },
+    });
+    let newest = since;
+    for (const notification of Array.isArray(notifications) ? notifications : []) {
+      const updatedAt = String(notification.updated_at || '');
+      if (updatedAt > newest) newest = updatedAt;
+      const repo = String(notification.repository?.full_name || '');
+      if (notification.reason !== 'mention' || !repo || watched.has(repo.toLowerCase())) continue;
+      const url = String(notification.subject?.latest_comment_url || notification.subject?.url || '');
+      const source = /\/pulls\/comments\/\d+$/.test(url)
+        ? COMMENT_SOURCES[1]
+        : /\/issues\/comments\/\d+$/.test(url) ? COMMENT_SOURCES[0] : COMMENT_SOURCES[2];
+      const item = await githubApiRequest(auth, { path: new URL(url).pathname });
+      const mentionedAt = String(item?.created_at || '');
+      const blocked = await this._handleComment(auth, repo, source, item, { seenPrefix: 'discovered' });
+      const key = repo.toLowerCase();
+      if (blocked && mentionedAt && (!this.cursors[key] || mentionedAt < this.cursors[key])) {
+        this.cursors[key] = mentionedAt;
+      }
+    }
+    this.cursors[NOTIFICATIONS_CURSOR_KEY] = newest;
   }
 
   async _pollSource(auth, repo, source, since, newest) {
     for (let page = 1; page <= MAX_PAGES_PER_POLL; page += 1) {
       const comments = await githubApiRequest(auth, {
         path: `/repos/${repo}/${source.path}`,
-        query: { since, sort: 'created', direction: 'asc', per_page: 100, page },
+        query: { ...source.query, since, sort: 'created', direction: 'asc', per_page: 100, page },
       });
       const list = Array.isArray(comments) ? comments : [];
       for (const comment of list) {
@@ -229,17 +271,19 @@ class GithubPlatform extends BasePlatform {
     }
   }
 
-  async _handleComment(auth, repo, source, comment) {
-    const seenKey = `${source.kind}:${comment.id}`;
-    if (this.seenCommentIds.has(seenKey)) return;
+  // Returns true when a mention was refused by the access policy.
+  async _handleComment(auth, repo, source, comment, { seenPrefix = '' } = {}) {
+    const messageId = `${source.kind}:${comment.id}`;
+    const seenKey = seenPrefix ? `${seenPrefix}:${messageId}` : messageId;
+    if (this.seenCommentIds.has(seenKey)) return false;
     this._markSeen(seenKey);
 
     const author = comment.user || {};
     if (Number(author.id) === this.account.id) {
       if (source.kind === 'review_comment') this.ownCommentIds.add(Number(comment.id));
-      return;
+      return false;
     }
-    if (author.type === 'Bot') return;
+    if (author.type === 'Bot') return false;
 
     const body = String(comment.body || '');
     const wasMentioned = this.mentionPattern.test(body);
@@ -247,10 +291,10 @@ class GithubPlatform extends BasePlatform {
       && await this._isOwnReviewComment(auth, repo, Number(comment.in_reply_to_id));
     // Chatter that does not address the agent is none of its business and
     // should not show up as a blocked sender either.
-    if (!wasMentioned && !repliedToAgent) return;
+    if (!wasMentioned && !repliedToAgent) return false;
 
-    const number = numberFromUrl(comment[source.numberFrom]);
-    if (!number) return;
+    const number = source.numberOf(comment);
+    if (!number) return false;
     const isPullRequest = source.kind === 'review_comment' || /\/pull\/\d+/.test(String(comment.html_url || ''));
     const reviewThreadId = source.kind === 'review_comment'
       ? Number(comment.in_reply_to_id || comment.id)
@@ -266,7 +310,7 @@ class GithubPlatform extends BasePlatform {
     const msg = {
       platform: 'github',
       chatId: reviewThreadId ? `${repo}#${number}:${reviewThreadId}` : `${repo}#${number}`,
-      messageId: seenKey,
+      messageId,
       sender: String(author.id),
       senderName: `@${login}`,
       senderUsername: login,
@@ -292,8 +336,9 @@ class GithubPlatform extends BasePlatform {
       groupLabel: repo,
       meta: `${repo} ${msg.channelName}`,
     });
-    if (!access.allowed) return;
+    if (!access.allowed) return true;
     this.emit('message', msg);
+    return false;
   }
 
   async sendMessage(to, content) {

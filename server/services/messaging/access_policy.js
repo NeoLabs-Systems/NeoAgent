@@ -56,6 +56,8 @@ function capabilityTemplate(overrides = {}) {
     requireSharedActor: false,
     // When true the agent answers shared spaces only when addressed.
     mentionOnly: false,
+    // What the owner calls a shared space on this platform, for prompts.
+    spaceNoun: null,
     ...overrides,
   });
 }
@@ -176,6 +178,7 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     sharedModes: Object.freeze(['allowlist', 'disabled']),
     requireSharedActor: true,
     mentionOnly: true,
+    spaceNoun: 'repository',
     manualEntryHint: 'Use a repository (owner/repo), a GitHub user ID, or a role such as COLLABORATOR.',
   }),
   meshtastic: capabilityTemplate({
@@ -808,16 +811,21 @@ function buildBlockedSenderSuggestions(platform, context, options = {}) {
       options,
       capabilities.sharedSpaceRuleScopes,
     );
+    const spaceNoun = capabilities.spaceNoun || labelForScope(sharedSpace?.scope);
     if (actorValue && canUseSharedActor && sharedSpace) {
       suggestions.push(makeSuggestion({
         scope: actorScope,
         value: actorValue,
-        label: `Allow sender in this ${labelForScope(sharedSpace.scope)} only (${senderLabel || actorValue})`,
+        label: `Allow sender in this ${spaceNoun} only (${senderLabel || actorValue})`,
         bucket: 'sharedMemberRules',
         spaceScope: sharedSpace.scope,
         spaceValue: sharedSpace.value,
         spaceLabel: sharedSpace.label,
       }));
+    }
+    // Where a space rule only marks where the agent listens, an "everywhere"
+    // approval would not cover this space, so only the in-space one is offered.
+    if (actorValue && canUseSharedActor && sharedSpace && !capabilities.requireSharedActor) {
       suggestions.push(makeSuggestion({
         scope: actorScope,
         value: actorValue,
