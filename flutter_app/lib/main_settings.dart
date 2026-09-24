@@ -39,6 +39,13 @@ const _overviewSettingsSection = _SettingsSection(
   <String>['overview', 'summary', 'onboarding', 'platform', 'providers'],
 );
 
+const _timeZoneSettingsSection = _SettingsSection(
+  'time zone',
+  'Time zone',
+  Icons.schedule_outlined,
+  <String>['time zone', 'timezone', 'clock', 'region', 'schedule', 'dst'],
+);
+
 const _workspaceSettingsSection = _SettingsSection(
   'workspace',
   'Workspace',
@@ -159,6 +166,7 @@ const _securitySettingsSection = _SettingsSection(
 
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
+  _timeZoneSettingsSection,
   _modelsSettingsSection,
   _workspaceSettingsSection,
   _behaviorSettingsSection,
@@ -434,6 +442,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             _overviewSettingsSection,
           )) ...<Widget>[
             _buildSettingsOverview(controller, availableModels.length),
+            const SizedBox(height: 16),
+          ],
+          if (_showsSettingsSection(
+            searchQuery,
+            _timeZoneSettingsSection,
+          )) ...<Widget>[
+            _TimeZoneSettingsCard(controller: controller),
             const SizedBox(height: 16),
           ],
           if (_showsSettingsSection(
@@ -2000,6 +2015,141 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TimeZoneSettingsCard extends StatefulWidget {
+  const _TimeZoneSettingsCard({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_TimeZoneSettingsCard> createState() => _TimeZoneSettingsCardState();
+}
+
+class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
+  List<String> _zones = const <String>[];
+  String? _deviceZone;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    final deviceZone = await widget.controller.deviceTimeZone();
+    List<String> zones = const <String>[];
+    try {
+      zones = (await FlutterTimezone.getAvailableTimezones())
+          .map((zone) => zone.identifier)
+          .toSet()
+          .toList()
+        ..sort();
+    } catch (error) {
+      debugPrint('[TimeZone] Could not list time zones: $error');
+    }
+    if (!mounted) return;
+    setState(() {
+      _deviceZone = deviceZone;
+      _zones = zones;
+    });
+  }
+
+  Future<void> _save(Map<String, dynamic> payload) async {
+    setState(() => _saving = true);
+    try {
+      await widget.controller.saveSettingsPayload(payload);
+    } catch (_) {
+      // saveSettingsPayload shows the error inline.
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _setFollowsDevice(bool follow) {
+    final deviceZone = _deviceZone;
+    _save(<String, dynamic>{
+      'timezone_auto': follow,
+      if (follow && deviceZone != null) 'timezone': deviceZone,
+    });
+  }
+
+  void _chooseZone(String zone) {
+    if (zone == widget.controller.timeZone) return;
+    _save(<String, dynamic>{'timezone_auto': false, 'timezone': zone});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final followsDevice = controller.timeZoneFollowsDevice;
+    final current = controller.timeZone;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Time zone'),
+            const SizedBox(height: 10),
+            Text(
+              'The agent reads times you mention, and runs scheduled tasks, in this time zone.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _MetaPill(
+                  icon: Icons.public,
+                  label: current.isEmpty ? 'Not set' : current,
+                ),
+                if (_deviceZone != null)
+                  _MetaPill(
+                    icon: Icons.devices_outlined,
+                    label: 'This device: $_deviceZone',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _SettingToggle(
+              title: 'Match this device',
+              subtitle:
+                  'Update the time zone automatically from the device you are using.',
+              value: followsDevice,
+              onChanged: _setFollowsDevice,
+            ),
+            const SizedBox(height: 8),
+            if (_zones.isNotEmpty)
+              DropdownMenu<String>(
+                key: ValueKey<String>('timezone-$current-$followsDevice'),
+                enabled: !followsDevice && !_saving,
+                initialSelection: _zones.contains(current) ? current : null,
+                expandedInsets: EdgeInsets.zero,
+                enableFilter: true,
+                requestFocusOnTap: true,
+                menuHeight: 320,
+                label: const Text('Time zone'),
+                leadingIcon: const Icon(Icons.search),
+                dropdownMenuEntries: _zones
+                    .map(
+                      (zone) => DropdownMenuEntry<String>(
+                        value: zone,
+                        label: zone,
+                      ),
+                    )
+                    .toList(),
+                onSelected: (zone) {
+                  if (zone != null) _chooseZone(zone);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -3,6 +3,8 @@
 const os = require('os');
 const { buildBehaviorSystemPrompt } = require('../behavior/system_prompt');
 const { buildCoworkOperatingContract } = require('../cowork/prompt');
+const { getUserTimeZone } = require('../account/timezone');
+const { formatUtcOffset, serverTimeZone, utcOffsetMinutes } = require('../../utils/timezone');
 
 const PROMPT_CACHE_TTL = 30_000;
 const PROMPT_CACHE_MAX = 500;
@@ -103,8 +105,7 @@ function buildRuntimeDetails() {
   ].join('\n');
 }
 
-function formatCurrentLocalDateTime(now = new Date()) {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+function formatCurrentLocalDateTime(timeZone, now = new Date()) {
   const localDateTime = new Intl.DateTimeFormat('sv-SE', {
     timeZone,
     year: 'numeric',
@@ -126,12 +127,7 @@ function formatCurrentLocalDateTime(now = new Date()) {
     timeZoneName: 'long'
   }).formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || timeZone;
 
-  const offsetMinutes = -now.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? '+' : '-';
-  const absOffset = Math.abs(offsetMinutes);
-  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-  const offsetMins = String(absOffset % 60).padStart(2, '0');
-  const utcOffset = `${sign}${offsetHours}:${offsetMins}`;
+  const utcOffset = formatUtcOffset(utcOffsetMinutes(timeZone, now));
 
   return `${weekday} ${localDateTime} (${timeZone}, ${tzName}, UTC${utcOffset})`;
 }
@@ -172,8 +168,11 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     coworkContract,
     ...behaviorPrompt.stable,
   ];
+  const userTimeZone = getUserTimeZone(userId);
   const dynamic = [
-    `Current server clock: ${formatCurrentLocalDateTime()}. Use it for date arithmetic only; it does not establish the user's location or timezone.`,
+    userTimeZone
+      ? `Current time in the user's timezone: ${formatCurrentLocalDateTime(userTimeZone)}. Times the user mentions are in this timezone unless they say otherwise.`
+      : `Current server clock: ${formatCurrentLocalDateTime(serverTimeZone())}. Use it for date arithmetic only; it does not establish the user's location or timezone.`,
     ...behaviorPrompt.dynamic,
   ];
   if (context.includeRuntimeDetails || context.additionalContext) {

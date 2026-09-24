@@ -38,6 +38,7 @@ const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
+const { normalizeTimeZone } = require('../utils/timezone');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -108,6 +109,17 @@ const RETIRED_SETTING_KEYS = new Set([
   'compaction_threshold',
   'subagent_max_iterations',
 ]);
+
+// The prompt clock and recurring task schedules both follow the user's time zone.
+function applyTimeZoneChange(req, userId, agentId) {
+  const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
+  invalidateSystemPromptCache(userId, agentId);
+  const taskRuntime = req.app?.locals?.taskRuntime;
+  if (!taskRuntime) return;
+  taskRuntime.rescheduleUserTasks(userId).catch((error) => {
+    console.error('[Settings] Rescheduling tasks after time zone change failed:', error.message);
+  });
+}
 
 function isProtectedSecretSettingKey(key) {
   return /^social_reach_cookies_/i.test(String(key || ''));
@@ -465,6 +477,14 @@ router.put('/', async (req, res) => {
   for (const key of RETIRED_SETTING_KEYS) delete normalizedBody[key];
   for (const key of SERVER_MANAGED_SETTING_KEYS) delete normalizedBody[key];
 
+  if ('timezone' in normalizedBody) {
+    const timeZone = normalizeTimeZone(normalizedBody.timezone);
+    if (!timeZone) {
+      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
+    normalizedBody.timezone = timeZone;
+  }
+
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
     if (typeof whitelist === 'string') {
@@ -529,6 +549,9 @@ router.put('/', async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(normalizedBody, 'assistant_behavior_notes')) {
     const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
     invalidateSystemPromptCache(userId, agentId);
+  }
+  if ('timezone' in normalizedBody) {
+    applyTimeZoneChange(req, userId, agentId);
   }
 
   res.json({ success: true });
@@ -725,6 +748,11 @@ router.put('/:key', async (req, res) => {
       }
     }
     value = normalizeWhatsAppWhitelist(value);
+  } else if (req.params.key === 'timezone') {
+    value = normalizeTimeZone(value);
+    if (!value) {
+      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
   } else if (
     ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
       .includes(req.params.key)
@@ -754,6 +782,9 @@ router.put('/:key', async (req, res) => {
   } else {
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
       .run(userId, req.params.key, v);
+  }
+  if (req.params.key === 'timezone') {
+    applyTimeZoneChange(req, userId, agentId);
   }
 
   res.json({ success: true });
@@ -795,6 +826,9 @@ router.delete('/:key', (req, res) => {
       .run(userId, agentId, req.params.key);
   } else {
     db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(userId, req.params.key);
+  }
+  if (req.params.key === 'timezone') {
+    applyTimeZoneChange(req, userId, agentId);
   }
   res.json({ success: true });
 });

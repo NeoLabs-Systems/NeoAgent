@@ -55,6 +55,17 @@ describe('runtime, settings, memory, tasks, and messaging routes', () => {
     await client.get('/api/settings/meta/ai-providers').expect(200);
   });
 
+  test('time zone setting only accepts known IANA zones', async () => {
+    await client.put('/api/settings/timezone').send({ value: 'Mars/Olympus' }).expect(400);
+    await client.put('/api/settings').send({ timezone: 'Not/AZone' }).expect(400);
+    await client.put('/api/settings/timezone').send({ value: 'Europe/Berlin' }).expect(200);
+    assert.equal((await client.get('/api/settings/timezone').expect(200)).body.value, 'Europe/Berlin');
+    await client.put('/api/settings').send({ timezone: 'Asia/Tokyo', timezone_auto: false }).expect(200);
+    const settings = await client.get('/api/settings').expect(200);
+    assert.equal(settings.body.timezone, 'Asia/Tokyo');
+    assert.equal(settings.body.timezone_auto, false);
+  });
+
   test('memory overview, CRUD, recall, and core routes run without external services', async () => {
     const overview = await client.get('/api/memory').expect(200);
     assert.equal(typeof overview.body.agentId, 'string');

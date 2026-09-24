@@ -19,6 +19,7 @@ const {
   resolveLeadTimeMs,
 } = require('./schedule_utils');
 const { normalizeJsonObject } = require('./utils');
+const { getUserTimeZone } = require('../account/timezone');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
 const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
@@ -258,6 +259,16 @@ class TaskRuntime {
     return this._serializeTask(this.taskRepository.getTaskById(taskId, userId), userId);
   }
 
+  // Recurring schedules fire on the user's wall clock, so a time zone change
+  // has to rebuild their cron jobs.
+  async rescheduleUserTasks(userId) {
+    if (!this.started) return;
+    for (const task of this.taskRepository.listEnabledTasks()) {
+      if (task.user_id !== userId) continue;
+      await this._registerTask(task);
+    }
+  }
+
   deleteTask(taskId, userId) {
     const existing = this.taskRepository.getTaskById(taskId, userId);
     if (!existing) throw new Error('Task not found');
@@ -372,7 +383,7 @@ class TaskRuntime {
         // Look ahead from the previous minute so that the occurrence falling in
         // the current minute still counts: a task with no history yet has a zero
         // head start and must fire exactly at its configured time.
-        occurrence = findNextRun(cronExpression, new Date(now - MINUTE_MS));
+        occurrence = findNextRun(cronExpression, new Date(now - MINUTE_MS), getUserTimeZone(task.user_id));
       } catch (error) {
         console.error(`[Tasks] Lead-time task ${task.id} has an unusable cron expression:`, error.message);
         continue;
@@ -478,6 +489,7 @@ class TaskRuntime {
     if (finishesOnTime(triggerConfig)) {
       return;
     }
+    const timeZone = getUserTimeZone(task.user_id);
     const job = this.cron.schedule(cronExpression, async () => {
       try {
         await this._executeTask(task.id, task.user_id, {
@@ -490,7 +502,7 @@ class TaskRuntime {
       } catch (error) {
         console.error(`[Tasks] Scheduled task ${task.id} error:`, error.message);
       }
-    });
+    }, timeZone ? { timezone: timeZone } : undefined);
     this.scheduleJobs.set(task.id, { task: job, userId: task.user_id });
   }
 
@@ -925,7 +937,7 @@ class TaskRuntime {
       triggerType,
       triggerConfig,
       triggerSummary,
-      nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig) : null,
+      nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig, getUserTimeZone(userId)) : null,
       averageRunSeconds: averageRunSeconds === null ? null : Math.round(averageRunSeconds),
       enabled: !!row.enabled,
       lastRun: row.last_run_started_at || row.last_run || null,

@@ -2,10 +2,18 @@
 
 const cron = require('node-cron');
 const { findNextRun, parseCronExpression } = require('../schedule_utils');
+const { getUserTimeZone } = require('../../account/timezone');
+const { wallClockToDate } = require('../../../utils/timezone');
 
-function normalizeRunAt(value) {
+const ZONELESS_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
+
+// A datetime without an offset is the user's wall-clock time, not the server's.
+function normalizeRunAt(value, timeZone) {
   if (!value) return null;
-  const date = new Date(value);
+  const raw = String(value).trim();
+  const date = timeZone && ZONELESS_DATETIME_RE.test(raw)
+    ? wallClockToDate(Date.parse(`${raw.replace(' ', 'T')}Z`), timeZone)
+    : new Date(raw);
   if (Number.isNaN(date.getTime())) {
     throw new Error('A valid runAt datetime is required.');
   }
@@ -46,13 +54,13 @@ function normalizeCronExpression(value) {
 module.exports = {
   type: 'schedule',
   label: 'Schedule',
-  async validateConfig(config = {}) {
+  async validateConfig(config = {}, context = {}) {
     const mode = String(config.mode || '').trim() || ((config.runAt || config.run_at) ? 'one_time' : 'recurring');
     if (!['recurring', 'one_time'].includes(mode)) {
       throw new Error('Schedule trigger mode must be "recurring" or "one_time".');
     }
     if (mode === 'one_time') {
-      const runAt = normalizeRunAt(config.runAt || config.run_at);
+      const runAt = normalizeRunAt(config.runAt || config.run_at, getUserTimeZone(context.userId));
       if (!runAt) {
         throw new Error('one_time schedule requires runAt');
       }
@@ -77,10 +85,10 @@ module.exports = {
     }
     return String(config.cronExpression || '').trim() || 'Recurring schedule';
   },
-  nextRun(config = {}) {
+  nextRun(config = {}, timeZone = null) {
     if (config.mode === 'one_time') return config.runAt || null;
     try {
-      return findNextRun(config.cronExpression)?.toISOString() || null;
+      return findNextRun(config.cronExpression, new Date(), timeZone)?.toISOString() || null;
     } catch {
       return null;
     }

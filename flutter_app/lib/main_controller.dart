@@ -3250,6 +3250,7 @@ class NeoAgentController extends ChangeNotifier {
       await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) return;
       unawaited(ensureLocalDeviceConnected());
+      unawaited(_syncDeviceTimeZone());
       _ensureSocketConnected();
       _ensureUpdatePolling();
     } catch (error) {
@@ -6434,6 +6435,35 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> deviceTimeZone() async {
+    try {
+      final zone = (await FlutterTimezone.getLocalTimezone()).identifier.trim();
+      return zone.isEmpty ? null : zone;
+    } catch (error) {
+      debugPrint('[TimeZone] Could not read the device time zone: $error');
+      return null;
+    }
+  }
+
+  // Adopts the device zone when the user has none yet, or while they follow
+  // whichever device they are using. Runs in the background, so a failure is
+  // logged instead of shown.
+  Future<void> _syncDeviceTimeZone() async {
+    if (!timeZoneFollowsDevice && timeZone.isNotEmpty) return;
+    final zone = await deviceTimeZone();
+    if (zone == null || zone == timeZone) return;
+    final agentId = _scopedAgentId;
+    try {
+      await _queueSettingsWrite(<String, dynamic>{
+        'timezone': zone,
+      }, agentId: agentId);
+      settings = <String, dynamic>{...settings, 'timezone': zone};
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[TimeZone] Could not save the device time zone: $error');
+    }
+  }
+
   Future<Map<String, dynamic>> _queueSettingsWrite(
     Map<String, dynamic> payload, {
     required String? agentId,
@@ -7285,6 +7315,10 @@ class NeoAgentController extends ChangeNotifier {
   bool get headlessBrowser => true;
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
+
+  String get timeZone => settings['timezone']?.toString().trim() ?? '';
+
+  bool get timeZoneFollowsDevice => settings['timezone_auto'] != false;
 
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];

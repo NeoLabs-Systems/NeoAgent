@@ -42,6 +42,7 @@ dependencies:
   video_player: ^2.9.2
   flutter_animate: ^4.5.2
   flutter_local_notifications: ^18.0.0
+  flutter_timezone: ^5.1.0
 
 dependency_overrides:
   flutter_secure_storage_linux:

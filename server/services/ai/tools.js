@@ -1378,7 +1378,7 @@ function getAvailableTools(app, options = {}) {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
                     trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, github_issue_opened, weather_event, whatsapp_personal_message_received, or android_notification_received.' },
-                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported). For github_issue_opened use { connectionId, repo: "owner/repo", author?, assignee?, labels?: "bug,urgent" (all must match), query?: text in title/body }.' },
+                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. Cron fields and runAt values without an offset are read in the user\'s timezone. 5-field cron only (seconds unsupported). For github_issue_opened use { connectionId, repo: "owner/repo", author?, assignee?, labels?: "bug,urgent" (all must match), query?: text in title/body }.' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
                     model: { type: 'string', description: 'Optional model override.' }
@@ -1412,7 +1412,7 @@ function getAvailableTools(app, options = {}) {
                     name: { type: 'string', description: 'New name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Use { type, config } to update trigger in one section.' },
                     trigger_type: { type: 'string', description: 'Updated trigger type, e.g. manual, schedule, or integration trigger type.' },
-                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time).' },
+                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time), both read in the user\'s timezone unless runAt carries an offset.' },
                     prompt: { type: 'string', description: 'Updated task prompt.' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task.' },
                     model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' }
