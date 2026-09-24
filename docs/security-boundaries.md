@@ -1,11 +1,19 @@
+---
+title: Security and permissions
+sidebar_label: Security and permissions
+description: What NeoAgent is allowed to do, where each capability runs, and the limitations you must know before connecting accounts.
+---
+
 # Security and permissions
+
+*Authorization comes from server-enforced boundaries — not from asking the model nicely.*
 
 NeoAgent reads untrusted content from websites, email, messages, files,
 integrations, and MCP servers. Any of that content can contain prompt
 injection. Model instructions and injection warnings help, but authorization
 must come from server-enforced boundaries and operator choices.
 
-## Tool permissions
+## 🛂 Tool permissions
 
 Sensitive tools are grouped into categories for shell commands, file writes,
 privileged Android actions, desktop control, browser evaluation, network
@@ -14,7 +22,7 @@ writes, and skill mutation.
 Each category can be:
 
 | Policy | Result |
-|---|---|
+| --- | --- |
 | Deny | The tool does not run |
 | Require approval | The run pauses for a user decision |
 | Allow | The tool runs for the current session |
@@ -27,10 +35,10 @@ allow-all mode.
 Approval prompts time out after 30 seconds. A denied or timed-out call is
 reported to the model as blocked rather than executed.
 
-## Where tools run
+## 🖥️ Where tools run
 
 | Capability | Runtime |
-|---|---|
+| --- | --- |
 | Browser, desktop, shell, and workspace files | Selected Computer provider: per-user QEMU guest or authenticated desktop app |
 | Android | The selected host-attached ADB device or emulator |
 | Integrations | NeoAgent server using stored account credentials |
@@ -40,7 +48,7 @@ controlled sudo only inside the guest and no direct access to the NeoAgent
 host. Local computer commands run with the signed-in desktop user's rights only
 after the corresponding app-level permission is granted.
 
-## Account and integration controls
+## 🔐 Account and integration controls
 
 - Credentials remain on the server.
 - Official integration accounts can be set to read-only.
@@ -52,7 +60,7 @@ after the corresponding app-level permission is granted.
 - Local file tools are confined to `NeoAgent Workspace`; local shell access is
   a separate, explicit permission because it can reach anything the OS user can.
 
-## Important limitations
+## ⚠️ Important limitations
 
 - Read-only tools do not require approval by default.
 - Outbound network access is not filtered by destination.
@@ -62,7 +70,7 @@ after the corresponding app-level permission is granted.
 - Multi-user application isolation does not make NeoAgent suitable for
   mutually hostile tenants on a shared host.
 
-## Deployment guidance
+## 🧰 Deployment guidance
 
 - Run NeoAgent as a dedicated unprivileged OS account.
 - Use HTTPS for remote access.

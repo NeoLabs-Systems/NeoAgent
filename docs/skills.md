@@ -1,9 +1,17 @@
+---
+title: Skills and MCP
+sidebar_label: Skills and MCP
+description: Two ways to extend the agent — Markdown instruction sets, and external Model Context Protocol tool servers.
+---
+
 # Skills and MCP
+
+*Both extend the agent. They solve different problems.*
 
 Skills and MCP servers both extend the agent, but they solve different
 problems.
 
-## Skills
+## 📄 Skills
 
 A skill is a Markdown instruction set for a repeatable workflow. Skills can
 teach an agent how to use existing tools, commands, file formats, or local
@@ -23,7 +31,7 @@ Use a skill when:
 - the agent already has the required underlying tools; and
 - written procedure is enough to make the work reliable.
 
-## MCP servers
+## 🔌 MCP servers
 
 The [Model Context Protocol](https://modelcontextprotocol.io/) connects NeoAgent
 to external tool servers. Configure servers in **MCP**, choose the supported
@@ -33,7 +41,7 @@ tools to an agent.
 Use MCP when an external system exposes a maintained MCP server or when a
 capability requires a real API implementation rather than instructions.
 
-## Choosing the right extension
+## 🧭 Choosing the right extension
 
 Prefer, in order:
 

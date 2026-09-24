@@ -1,10 +1,18 @@
+---
+title: Architecture
+sidebar_label: Architecture
+description: How the server, clients, persistence layer, and execution runtimes fit together.
+---
+
 # Architecture
+
+*Nodes, clients, and runtime backends — the shape of the system.*
 
 NeoAgent is a Node.js service with Flutter clients. The server owns
 authentication, model access, agent execution, tools, integrations, automation,
 memory, persistence, and real-time state.
 
-## Main components
+## 🗺️ Main components
 
 ```text
 Flutter clients and messaging channels
@@ -16,7 +24,7 @@ Flutter clients and messaging channels
  runtime backends / SQLite / agent data
 ```
 
-### Server
+### 🖥️ Server
 
 `server/index.js` creates the application and service managers. Express routes
 handle HTTP boundaries and delegate behavior to services. Socket.IO publishes
@@ -25,14 +33,14 @@ run progress, approvals, messages, device state, and operational updates.
 The server uses CommonJS. Routes should remain thin; business logic belongs in
 `server/services/`.
 
-### Clients
+### 📱 Clients
 
 The Flutter codebase produces the web operator interface, Android client,
 desktop clients, and Android launcher build. `MainController` is the root
 application state object. Platform behavior is implemented through conditional
 bridge files and native Android code where required.
 
-### Persistence
+### 💾 Persistence
 
 NeoAgent uses one `better-sqlite3` database instance. It stores users, agents,
 settings, conversations, runs, tasks, integration connections, memory,
@@ -41,7 +49,7 @@ health data, permissions, and operational state.
 Runtime files live outside the package source under `NEOAGENT_HOME`. Schema
 changes are applied through the migration layer rather than ad hoc service SQL.
 
-### Execution runtimes
+### ⚙️ Execution runtimes
 
 Browser, desktop, terminal, and file tools use one selected Computer provider
 per user. The cloud provider is a persistent QEMU Linux guest; desktop builds
@@ -49,7 +57,7 @@ can instead supply the local macOS, Windows, or Linux session through the same
 runtime contract and permission gate. Android remains a separate host ADB
 capability.
 
-## Subsystem guides
+## 📚 Subsystem guides
 
 - [Agent run lifecycle](agent-run-lifecycle.md)
 - [Memory architecture](memory-architecture.md)

@@ -2,17 +2,22 @@
 slug: /
 title: NeoAgent documentation
 sidebar_label: Overview
+description: Self-hosted AI agent that runs continuously on your own server — install it, connect it, and let it work.
 ---
 
 # NeoAgent documentation
+
+*Everything you need to install, operate, and extend a self-hosted NeoAgent service.*
 
 NeoAgent is a self-hosted AI agent that runs continuously on a macOS or Linux
 server. It provides an operator interface for chat, automation, integrations,
 memory, and connected devices.
 
-NeoAgent is beta software. Install it on a machine you administer, start with
-restricted tool permissions, and read the security guide before connecting
+:::warning Beta software
+Install it on a machine you administer, start with restricted tool permissions,
+and read the [security guide](security-boundaries.md) before connecting
 sensitive accounts.
+:::
 
 ## 🚀 Start here
 
@@ -20,8 +25,8 @@ sensitive accounts.
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
-On a new machine, the bare command detects that NeoAgent is not installed,
-runs the installer, and guides you through AI provider API keys. It starts the
+On a new machine, the bare command detects that NeoAgent is not installed, runs
+the installer, and guides you through AI provider API keys. It starts the
 service and prints any host-specific action items. Open
 `http://localhost:3333` when it finishes.
 
@@ -35,7 +40,7 @@ Continue with:
 ## 🧭 User guide
 
 | Guide | Use it for |
-|---|---|
+| --- | --- |
 | [Installation](getting-started.md) | Host requirements, installation, first run |
 | [Models](models.md) | Local, API-key, and account-backed model providers |
 | [Agents and users](agents-and-users.md) | Specialist agents and multi-user administration |
@@ -56,7 +61,9 @@ The developer guide explains the implementation rather than the product setup.
 Start with [Architecture](architecture.md), then follow the subsystem links in
 the developer section of the sidebar.
 
+:::info Contributing
 Contributors must also follow
 [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md)
 and
 [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md).
+:::
