@@ -482,7 +482,7 @@ class _CoworkTopBar extends StatelessWidget {
             ),
             const SizedBox(width: 10),
           ],
-          const _LogoBadge(size: 30),
+          _LiveMascot(controller: controller, size: 30),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

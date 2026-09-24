@@ -1468,7 +1468,9 @@ class _TypingIndicatorBubbleState extends State<_TypingIndicatorBubble>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _MessageAvatar(assistant: true),
+        const ExcludeSemantics(
+          child: NeoMascot(mood: MascotMood.thinking, size: 34),
+        ),
         const SizedBox(width: 12),
         Flexible(
           child: Container(

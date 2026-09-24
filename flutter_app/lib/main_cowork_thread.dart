@@ -1595,7 +1595,13 @@ class _CoworkMessageBubble extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              const _LogoBadge(size: 16),
+              const ExcludeSemantics(
+                child: NeoMascot(
+                  mood: MascotMood.idle,
+                  size: 16,
+                  animate: false,
+                ),
+              ),
               const SizedBox(width: 7),
               Text(
                 message.senderName?.ifEmpty('NeoAgent') ?? 'NeoAgent',

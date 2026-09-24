@@ -1568,7 +1568,7 @@ class _Sidebar extends StatelessWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  const _LogoBadge(size: 38),
+                  _LiveMascot(controller: controller, size: 38),
                   const SizedBox(width: 11),
                   Expanded(
                     child: Column(
@@ -2233,18 +2233,22 @@ class _MobileTopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 4),
       child: Row(
         children: <Widget>[
+          _LiveMascot(controller: controller, size: 30),
+          const SizedBox(width: 10),
           Expanded(
             child: controller.agentProfiles.isNotEmpty
                 ? Align(
                     alignment: Alignment.centerLeft,
                     child: _AgentSwitcher(controller: controller, compact: true),
                   )
-                : const _BrandLockup(
-                    logoSize: 26,
-                    titleFontSize: 16,
-                    direction: Axis.horizontal,
-                    spacing: 9,
-                    alignment: CrossAxisAlignment.start,
+                : Text(
+                    'NeoAgent',
+                    style: GoogleFonts.geist(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                      letterSpacing: -0.4,
+                    ),
                   ),
           ),
           if (_supportsDesktopShell) ...<Widget>[

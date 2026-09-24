@@ -1210,51 +1210,26 @@ class _LogoBadgeState extends State<_LogoBadge> {
 }
 
 class _BrandLockup extends StatelessWidget {
-  const _BrandLockup({
-    required this.logoSize,
-    this.titleFontSize = 28,
-    this.direction = Axis.vertical,
-    this.spacing = 18,
-    this.alignment = CrossAxisAlignment.center,
-  });
+  const _BrandLockup({required this.logoSize});
 
   final double logoSize;
-  final double titleFontSize;
-  final Axis direction;
-  final double spacing;
-  final CrossAxisAlignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = Theme.of(context).colorScheme.onSurface;
-    final title = Text(
-      'NeoAgent',
-      style: GoogleFonts.geist(
-        fontSize: titleFontSize,
-        fontWeight: FontWeight.w700,
-        color: titleColor,
-        letterSpacing: -0.4,
-      ),
-    );
-
-    if (direction == Axis.horizontal) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          _LogoBadge(size: logoSize),
-          SizedBox(width: spacing),
-          Flexible(child: title),
-        ],
-      );
-    }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: alignment,
       children: <Widget>[
         _LogoBadge(size: logoSize),
-        SizedBox(height: spacing),
-        title,
+        const SizedBox(height: 18),
+        Text(
+          'NeoAgent',
+          style: GoogleFonts.geist(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurface,
+            letterSpacing: -0.4,
+          ),
+        ),
       ],
     );
   }
@@ -2062,23 +2037,20 @@ class _MessageAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (assistant) {
+      return const ExcludeSemantics(
+        child: NeoMascot(mood: MascotMood.idle, size: 34, animate: false),
+      );
+    }
     return Container(
-      width: assistant ? 34 : 30,
-      height: assistant ? 34 : 30,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(assistant ? 10 : 999),
-        color: assistant ? null : _bgTertiary,
-        border: assistant ? null : Border.all(color: _borderLight),
+        shape: BoxShape.circle,
+        color: _bgTertiary,
+        border: Border.all(color: _borderLight),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: assistant
-          ? Image.asset(
-              MediaQuery.platformBrightnessOf(context) == Brightness.dark
-                  ? 'assets/branding/app_icon_1024.png'
-                  : 'assets/branding/app_icon_light_1024.png',
-              filterQuality: FilterQuality.high,
-            )
-          : Icon(Icons.person, size: 16, color: _textSecondary),
+      child: Icon(Icons.person, size: 16, color: _textSecondary),
     );
   }
 }

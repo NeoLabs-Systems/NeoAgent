@@ -259,6 +259,9 @@ class NeoAgentController extends ChangeNotifier {
       _coworkThreads[conversationId] ?? const CoworkThreadState();
 
   ActiveRunState? activeRun;
+  // The foreground run that last ended in an error, cleared when the next one
+  // starts. The mascot plays its blocked face once for it.
+  String? _failedForegroundRunId;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
   String streamingAssistant = '';
   // Which model turn the live bubble belongs to, so a new turn replaces it
@@ -7906,12 +7909,14 @@ class NeoAgentController extends ChangeNotifier {
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
         _backgroundRunIds.add(runId);
+        unawaited(refreshRunsOnly());
         return;
       }
       if (!_matchesSelectedAgent(agentId)) {
         _backgroundRunIds.add(runId);
         return;
       }
+      _failedForegroundRunId = null;
       activeRun = ActiveRunState(
         runId: runId,
         title:
@@ -8526,8 +8531,11 @@ class NeoAgentController extends ChangeNotifier {
         }
       }
       streamingAssistant = '';
+      _failedForegroundRunId =
+          runId ?? DateTime.now().microsecondsSinceEpoch.toString();
       activeRun = null;
       isSendingMessage = false;
+      unawaited(refreshRunsOnly());
       final message =
           payload['error']?.toString().trim() ??
           'I could not complete that request right now. Please try again in a moment.';

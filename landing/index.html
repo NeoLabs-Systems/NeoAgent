@@ -18,49 +18,10 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id="nb-tile" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#705331"></stop>
-        <stop offset="100%" stop-color="#22564c"></stop>
-      </linearGradient>
-      <radialGradient id="nb-shine" cx="26%" cy="14%" r="72%">
-        <stop offset="0%" stop-color="#fff" stop-opacity="0.22"></stop>
-        <stop offset="100%" stop-color="#fff" stop-opacity="0"></stop>
-      </radialGradient>
-      <radialGradient id="nb-core" cx="38%" cy="32%" r="75%">
-        <stop offset="0%" stop-color="#fffdf6"></stop>
-        <stop offset="48%" stop-color="#eee3cc"></stop>
-        <stop offset="100%" stop-color="#b5a888"></stop>
-      </radialGradient>
-      <radialGradient id="nb-node" cx="36%" cy="30%" r="80%">
-        <stop offset="0%" stop-color="#f8dca8"></stop>
-        <stop offset="52%" stop-color="#d3a85f"></stop>
-        <stop offset="100%" stop-color="#9b6f2f"></stop>
-      </radialGradient>
-      <linearGradient id="nb-tube" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#fffaf0"></stop>
-        <stop offset="52%" stop-color="#efe7d6"></stop>
-        <stop offset="100%" stop-color="#cabf9f"></stop>
-      </linearGradient>
-    </defs>
-  </svg>
-
   <header class="nav" data-nav>
     <div class="nav-inner">
       <a class="brand" href="#top" aria-label="NeoAgent home">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 100 100">
-            <rect width="100" height="100" rx="22.5" fill="url(#nb-tile)"></rect>
-            <rect width="100" height="100" rx="22.5" fill="url(#nb-shine)"></rect>
-            <g fill="none" stroke="url(#nb-tube)" stroke-linecap="round">
-              <circle cx="50" cy="50" r="17" stroke-width="5" stroke-dasharray="78 29" stroke-opacity=".92"></circle>
-              <circle cx="50" cy="50" r="30" stroke-width="5" stroke-dasharray="150 39" stroke-opacity=".8"></circle>
-            </g>
-            <circle cx="50" cy="50" r="7" fill="url(#nb-core)"></circle>
-            <circle cx="50" cy="20" r="5.6" fill="url(#nb-node)"></circle>
-          </svg>
-        </span>
+        <span class="brand-mark mascot" data-mascot="look" aria-hidden="true"></span>
         NeoAgent
       </a>
 
@@ -132,7 +93,10 @@
 
           <div class="hrun-log reveal" data-d="3">
             <div class="hrun-log-head">
-              <span class="eyebrow">What it did after you left</span>
+              <span class="hrun-who">
+                <span class="mascot hrun-mascot" data-mascot="story" aria-hidden="true"></span>
+                <span class="eyebrow">What it did after you left</span>
+              </span>
               <span class="hrun-stage hrun-status">
               <span class="hrun-slide" data-slide="1">Still open · nothing booked yet</span>
               <span class="hrun-slide" data-slide="2" aria-hidden="true">Closed · 2 h 35 m</span>
@@ -142,25 +106,25 @@
             </div>
 
             <div class="hrun-stage hrun-rails">
-              <ol class="hrun-rail hrun-slide" data-slide="1">
+              <ol class="hrun-rail hrun-slide" data-slide="1" data-mascot-end="waiting">
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:12</time><b>Searched</b><span class="hrun-detail">Practices near you, filtered by the insurer already in its memory.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:19</time><b>Browsed</b><span class="hrun-detail">Opened the booking page in a real browser and filled the form.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>08:24</time><b>Asked you</b><span class="hrun-detail">Two slots left. Sent both back to the thread you started in.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-hold"></span><span class="hrun-wire"></span><time>now</time><b>Holding</b><span class="hrun-detail">It won’t confirm an appointment without you.</span></li>
               </ol>
-              <ol class="hrun-rail hrun-slide" data-slide="2" aria-hidden="true">
+              <ol class="hrun-rail hrun-slide" data-slide="2" data-mascot-end="done" aria-hidden="true">
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>23:41</time><b>Set a trigger</b><span class="hrun-detail">Watched the pipeline, then let the machine idle.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:14</time><b>Caught the failure</b><span class="hrun-detail">The nightly build broke while you were asleep.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:14</time><b>Read the log</b><span class="hrun-detail">Found the failing test and the commit that moved it.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>02:15</time><b>Woke you</b><span class="hrun-detail">Called your phone, with the log already attached.</span></li>
               </ol>
-              <ol class="hrun-rail hrun-slide" data-slide="3" aria-hidden="true">
+              <ol class="hrun-rail hrun-slide" data-slide="3" data-mascot-end="done" aria-hidden="true">
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Thu 17:05</time><b>Saved a routine</b><span class="hrun-detail">Plain language in. No node editor, no flowchart.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:00</time><b>Ran itself</b><span class="hrun-detail">Read the week’s commits, tickets and calendar.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:02</time><b>Wrote it up</b><span class="hrun-detail">What shipped, what slipped, and what it wasn’t sure about.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>Fri 17:02</time><b>Sent it</b><span class="hrun-detail">Back down the same channel you asked from.</span></li>
               </ol>
-              <ol class="hrun-rail hrun-slide" data-slide="4" aria-hidden="true">
+              <ol class="hrun-rail hrun-slide" data-slide="4" data-mascot-end="done" aria-hidden="true">
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:02</time><b>Opened a terminal</b><span class="hrun-detail">Mounted the share on your own desktop, not a sandbox.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:05</time><b>Sorted them</b><span class="hrun-detail">By vendor and month, the way the folders already were.</span></li>
                 <li class="hrun-node"><span class="hrun-mark hrun-done"></span><span class="hrun-wire"></span><time>14:09</time><b>Filed them</b><span class="hrun-detail">Renamed to match everything filed before them.</span></li>
@@ -414,18 +378,7 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <a class="brand" href="#top">
-            <span class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 100 100">
-                <rect width="100" height="100" rx="22.5" fill="url(#nb-tile)"></rect>
-                <rect width="100" height="100" rx="22.5" fill="url(#nb-shine)"></rect>
-                <g fill="none" stroke="url(#nb-tube)" stroke-linecap="round">
-                  <circle cx="50" cy="50" r="17" stroke-width="5" stroke-dasharray="78 29" stroke-opacity=".92"></circle>
-                  <circle cx="50" cy="50" r="30" stroke-width="5" stroke-dasharray="150 39" stroke-opacity=".8"></circle>
-                </g>
-                <circle cx="50" cy="50" r="7" fill="url(#nb-core)"></circle>
-                <circle cx="50" cy="20" r="5.6" fill="url(#nb-node)"></circle>
-              </svg>
-            </span>
+            <span class="brand-mark mascot" data-mascot="still" aria-hidden="true"></span>
             NeoAgent
           </a>
           <p>An open-source AI agent that keeps working after the chat ends. Built by people who wanted one, for people who want one.</p>
@@ -467,6 +420,7 @@
   </footer>
 
   <script src="js/main.js" defer></script>
+  <script src="js/mascot.js" defer></script>
   <script src="js/cookie-notice.js" defer></script>
 </body>
 </html>
