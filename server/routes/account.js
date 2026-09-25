@@ -46,6 +46,7 @@ const {
   renameCredential: renameWebAuthnCredential,
 } = require('../services/account/webauthn');
 const { getRateLimitSnapshot } = require('../services/ai/rate_limits');
+const { isAdminUser } = require('../services/access/admin');
 
 const accountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -82,6 +83,7 @@ function accountPayload(req) {
           created_at: user.created_at,
           last_login: user.last_login,
           hasPassword: Number(user.password_login_enabled || 0) === 1,
+          isAdmin: isAdminUser(user.id),
         }
       : null,
     twoFactor: getTwoFactorStatus(req.session.userId),
@@ -422,6 +424,14 @@ router.post('/delete', accountLimiter, (req, res) => {
       .get(userId);
     if (!user) {
       return res.status(404).json({ error: 'Account not found.' });
+    }
+    // An install's admin deleting themselves could leave nobody able to reach
+    // the admin page. Admin is removed from the operator side first.
+    if (isAdminUser(userId)) {
+      return res.status(403).json({
+        error: 'Admin accounts can’t delete themselves. Ask the operator to run `neoagent admin revoke <username>` first.',
+        code: 'ADMIN_SELF_DELETE',
+      });
     }
     const confirm = String(req.body?.confirmUsername || '').trim();
     if (confirm !== user.username) {

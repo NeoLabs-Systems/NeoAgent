@@ -2380,7 +2380,7 @@ class _SectionChip extends StatelessWidget {
   }
 }
 
-/// Four tabs over the four sidebar groups the app already has.
+/// One tab per sidebar group the account can see.
 class _MobileTabBar extends StatelessWidget {
   const _MobileTabBar({
     required this.controller,
@@ -2514,6 +2514,12 @@ class _SectionBody extends StatelessWidget {
         return ServerPanel(controller: controller);
       case AppSection.billing:
         return BillingPanel(controller: controller);
+      case AppSection.team:
+        return TeamPanel(controller: controller);
+      case AppSection.admin:
+        return controller.isAdmin
+            ? AdminPanel(controller: controller)
+            : ChatPanel(controller: controller);
     }
   }
 }

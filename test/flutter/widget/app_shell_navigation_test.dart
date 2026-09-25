@@ -38,7 +38,7 @@ Future<NeoAgentController> pumpShell(WidgetTester tester, Size size) async {
 }
 
 void main() {
-  testWidgets('a phone navigates by the four group tabs, not a drawer', (
+  testWidgets('a phone navigates by the group tabs, not a drawer', (
     tester,
   ) async {
     final controller = await pumpShell(tester, const Size(390, 844));
@@ -47,12 +47,15 @@ void main() {
     expect(find.byIcon(Icons.menu), findsNothing);
 
     for (final group in SidebarGroup.values) {
+      if (group == SidebarGroup.admin) continue;
       expect(
         find.text(group.label),
         findsWidgets,
         reason: '${group.label} should have a tab',
       );
     }
+    // The Admin tab is only for admin accounts; this one isn't.
+    expect(find.text(SidebarGroup.admin.label), findsNothing);
 
     await tester.tap(find.text(SidebarGroup.automation.label).last);
     await tester.pumpAndSettle();

@@ -173,6 +173,9 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.runs,
     AppSection.agents,
     AppSection.messaging,
+    AppSection.team,
+    // Shown for admin accounts only; the server enforces it on every request.
+    if (controller.isAdmin) AppSection.admin,
   ];
 }
 
@@ -2246,6 +2249,644 @@ class _InlineSuccess extends StatelessWidget {
   }
 }
 
+/// A tinted explanation box, e.g. that a setting needs a restart.
+class _InlineNote extends StatelessWidget {
+  const _InlineNote({
+    required this.message,
+    this.icon = Icons.info_outline,
+    this.color,
+  });
+
+  final String message;
+  final IconData icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? _info;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.tag),
+        border: Border.all(color: tint.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 18, color: tint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The result of the last save: its error, else its success note, else
+/// nothing.
+class _SaveFeedback extends StatelessWidget {
+  const _SaveFeedback({this.error, this.notice, this.onDismissError});
+
+  final String? error;
+  final String? notice;
+  final VoidCallback? onDismissError;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = this.error;
+    final notice = this.notice;
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: _InlineError(message: error, onDismiss: onDismissError),
+      );
+    }
+    if (notice != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: _InlineSuccess(message: notice),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+}
+
+/// A failed load, with a way to try again.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _InlineError(message: message),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_rounded, size: 18),
+          label: const Text('Try again'),
+        ),
+      ],
+    );
+  }
+}
+
+/// A small spinner in place of content that is still loading.
+class _LoadingPlaceholder extends StatelessWidget {
+  const _LoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 28),
+      child: Center(
+        child: SizedBox.square(
+          dimension: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+/// What an empty list says instead of rows.
+class _EmptyText extends StatelessWidget {
+  const _EmptyText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(text, style: TextStyle(fontSize: 13, color: _textMuted)),
+    );
+  }
+}
+
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton({required this.busy, required this.onPressed});
+
+  /// Shows a spinner instead of the icon while a load runs.
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Refresh',
+      onPressed: busy ? null : onPressed,
+      icon: busy
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_rounded, size: 20),
+    );
+  }
+}
+
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({
+    required this.saving,
+    required this.onPressed,
+    this.label = 'Save',
+  });
+
+  final bool saving;
+  final VoidCallback? onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: saving ? null : onPressed,
+      icon: saving
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.check_rounded, size: 18),
+      label: Text(saving ? 'Saving…' : label),
+    );
+  }
+}
+
+/// A search box with a clear button once something is typed. The owner
+/// rebuilds on [onChanged] so the clear button follows the text.
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    required this.onClear,
+    this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                onPressed: onClear,
+                icon: const Icon(Icons.close_rounded),
+              ),
+      ),
+    );
+  }
+}
+
+/// A small label for dense lists where [_MetaPill] is too heavy.
+class _Tag extends StatelessWidget {
+  const _Tag(this.label, {this.color});
+
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? _textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: tint.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: tint,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Section cards ────────────────────────────────────────────────────────────
+// The titled cards that admin, Team and settings-style pages are built from,
+// and the rows, fields and request bookkeeping that go inside them.
+
+/// Names the [_SectionCard] a search result or link should bring into view.
+class _SectionFocus extends InheritedWidget {
+  const _SectionFocus({required this.title, required super.child});
+
+  /// Title of the card to reveal; null reveals none.
+  final String? title;
+
+  static String? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_SectionFocus>()?.title;
+
+  @override
+  bool updateShouldNotify(_SectionFocus oldWidget) => title != oldWidget.title;
+}
+
+/// A titled card: an uppercase heading with an optional trailing control and
+/// description, then the body. When the enclosing [_SectionFocus] names its
+/// [title], it scrolls itself into view and outlines itself briefly so the
+/// eye lands on it.
+class _SectionCard extends StatefulWidget {
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.description,
+    this.trailing,
+  });
+
+  final String title;
+  final String? description;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard> {
+  bool _handled = false;
+  bool _highlight = false;
+  Timer? _settle;
+  Timer? _fade;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_handled || _SectionFocus.of(context) != widget.title) return;
+    _handled = true;
+    _highlight = true;
+    // Cards above this one often finish loading after the first frame and
+    // push it down, so settle on it again once they have.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    _settle = Timer.periodic(const Duration(milliseconds: 300), (timer) {
+      if (timer.tick >= 8) timer.cancel();
+      _reveal();
+    });
+    _fade = Timer(const Duration(milliseconds: 2600), () {
+      if (mounted) setState(() => _highlight = false);
+    });
+  }
+
+  void _reveal() {
+    if (!mounted) return;
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      alignment: 0.05,
+    );
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    _fade?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final description = widget.description;
+    final trailing = widget.trailing;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: _highlight ? _accent : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(child: _SectionTitle(widget.title)),
+                    if (trailing != null) ...<Widget>[
+                      const SizedBox(width: 10),
+                      trailing,
+                    ],
+                  ],
+                ),
+                if (description != null) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    description,
+                    style: TextStyle(color: _textSecondary, height: 1.45),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                widget.child,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Section cards stacked with the standard gap between them.
+class _SectionStack extends StatelessWidget {
+  const _SectionStack({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (var i = 0; i < children.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(height: 16),
+          children[i],
+        ],
+      ],
+    );
+  }
+}
+
+/// The bordered surface of one entry in a list inside a section card.
+class _RowSurface extends StatelessWidget {
+  const _RowSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(AppRadius.tag),
+        border: Border.all(color: _border),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Title, secondary line and a trailing status: the head of a list row.
+class _RowHeader extends StatelessWidget {
+  const _RowHeader({
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    this.monospaceSubtitle = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget trailing;
+  final bool monospaceSubtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitleStyle = monospaceSubtitle
+        ? _monoStyle(size: 11.5, color: _textMuted)
+        : TextStyle(color: _textSecondary, fontSize: 12.5);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (subtitle.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: subtitleStyle,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        trailing,
+      ],
+    );
+  }
+}
+
+/// Lays form fields out two per row on wide screens and stacked on phones.
+/// Wrap a field in [_WideField] to give it a whole row.
+class _FieldGrid extends StatelessWidget {
+  const _FieldGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 14.0;
+        final full = constraints.maxWidth;
+        final half = full >= 620 ? ((full - gap) / 2).floorToDouble() : full;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: <Widget>[
+            for (final child in children)
+              SizedBox(width: child is _WideField ? full : half, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WideField extends StatelessWidget {
+  const _WideField(this.child);
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+class _FormTextField extends StatelessWidget {
+  const _FormTextField({
+    required this.controller,
+    required this.label,
+    this.hint,
+    this.helper,
+    this.keyboardType,
+    this.wholeNumber = false,
+    this.enabled = true,
+    this.maxLines = 1,
+    this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? hint;
+  final String? helper;
+  final TextInputType? keyboardType;
+  final bool wholeNumber;
+  final bool enabled;
+  final int maxLines;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: wholeNumber ? TextInputType.number : keyboardType,
+      inputFormatters: wholeNumber
+          ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+          : null,
+      autocorrect: false,
+      maxLines: maxLines,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        helperText: helper,
+        helperMaxLines: 3,
+      ),
+    );
+  }
+}
+
+/// Load and save bookkeeping for a card or tab backed by the server: a
+/// spinner until the first load lands (or its error with a retry), then an
+/// inline error or success note per save.
+mixin _LoadSaveState<T extends StatefulWidget> on State<T> {
+  bool _loading = true;
+  String? _loadError;
+  bool _saving = false;
+  String? _saveError;
+  String? _saveNotice;
+
+  NeoAgentController get _controller;
+
+  BackendClient get _client => _controller.backendClient;
+
+  String get _baseUrl => _controller.backendUrl;
+
+  /// Runs [load] with a spinner (or its error) in place of the content.
+  Future<void> _runLoad(Future<void> Function() load) async {
+    if (!_loading) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    String? error;
+    try {
+      await load();
+    } catch (caught) {
+      error = _controller._friendlyErrorMessage(caught);
+    }
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _loadError = error;
+    });
+  }
+
+  /// Runs [save] with the save controls busy; shows [notice] on success.
+  Future<bool> _runSave(Future<void> Function() save, String notice) async {
+    if (!mounted) return false;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+      _saveNotice = null;
+    });
+    String? error;
+    try {
+      await save();
+    } catch (caught) {
+      error = _controller._friendlyErrorMessage(caught);
+    }
+    if (mounted) {
+      setState(() {
+        _saving = false;
+        _saveError = error;
+        _saveNotice = error == null ? notice : null;
+      });
+    }
+    return error == null;
+  }
+
+  /// Shows a client-side validation problem where a server error would go.
+  void _rejectSave(String problem) {
+    setState(() {
+      _saveError = problem;
+      _saveNotice = null;
+    });
+  }
+
+  /// Hides the last save's success note once the form is edited again.
+  void _onEdited() {
+    if (_saveNotice != null) setState(() => _saveNotice = null);
+  }
+
+  /// The body while loading or after a failed load; null once loaded.
+  Widget? _loadGate(Future<void> Function() load) {
+    if (_loading) return const _LoadingPlaceholder();
+    final error = _loadError;
+    if (error == null) return null;
+    return _LoadError(message: error, onRetry: () => _runLoad(load));
+  }
+
+  Widget _saveFeedback() {
+    return _SaveFeedback(
+      error: _saveError,
+      notice: _saveNotice,
+      onDismissError: () => setState(() => _saveError = null),
+    );
+  }
+}
+
 class _GlobalNetworkBanner extends StatelessWidget {
   const _GlobalNetworkBanner({required this.controller});
 
@@ -2982,6 +3623,27 @@ double _asDouble(dynamic value, {double fallback = 0}) {
   return double.tryParse(value?.toString() ?? '') ?? fallback;
 }
 
+/// A whole number from JSON or a text field; null when there is none.
+int? _asOptionalInt(Object? value) {
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+/// A whole number typed into a form, or null when it isn't one or lies
+/// outside [min]..[max].
+int? _parseBoundedInt(String text, {required int min, int? max}) {
+  final value = int.tryParse(text.trim());
+  if (value == null || value < min) return null;
+  if (max != null && value > max) return null;
+  return value;
+}
+
+/// Trimmed text of a JSON value, or [fallback] when it is missing or blank.
+String _asText(Object? value, {String fallback = '—'}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
 DateTime _parseTimestamp(String? raw) {
   if (raw == null || raw.isEmpty) {
     return DateTime.now();
@@ -3003,6 +3665,37 @@ String _formatTimestamp(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '$month/$day $hour:$minute';
+}
+
+const List<String> _monthAbbreviations = <String>[
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// A calendar day such as "Jan 5, 2026" in local time; '—' when unknown.
+String _formatDate(DateTime? value) {
+  if (value == null) return '—';
+  final local = value.toLocal();
+  return '${_monthAbbreviations[local.month - 1]} ${local.day}, ${local.year}';
+}
+
+/// [_formatDate] for an ISO-8601 string; one that doesn't parse shows its
+/// first ten characters.
+String _formatIsoDate(String? iso) {
+  if (iso == null) return '—';
+  final parsed = DateTime.tryParse(iso);
+  if (parsed == null) return iso.substring(0, 10);
+  return _formatDate(parsed);
 }
 
 String _formatTimeOnly(DateTime value) {
@@ -3048,6 +3741,26 @@ String _formatNumber(int value) {
   }
   final formatted = buffer.toString().split('').reversed.join();
   return value < 0 ? '-$formatted' : formatted;
+}
+
+String _formatBytes(int bytes) {
+  const kb = 1024;
+  const mb = kb * 1024;
+  const gb = mb * 1024;
+  if (bytes >= gb) return '${(bytes / gb).toStringAsFixed(1)} GB';
+  if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
+  if (bytes >= kb) return '${(bytes / kb).toStringAsFixed(1)} KB';
+  return '$bytes B';
+}
+
+/// Monospace text for ids, logs, keys and query results.
+TextStyle _monoStyle({double size = 12, Color? color, FontWeight? weight}) {
+  return GoogleFonts.geistMono(
+    fontSize: size,
+    color: color ?? _textPrimary,
+    fontWeight: weight,
+    height: 1.45,
+  );
 }
 
 String _summarizeToolArgs(dynamic raw) {

@@ -5,6 +5,7 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const db = require('../db/database');
 const { TOOL_CATEGORIES, getCategoryForTool } = require('../services/security/tool_categories');
+const { describeManagerLocks } = require('../services/access/summary');
 
 router.use(requireAuth);
 
@@ -28,7 +29,12 @@ router.get('/policies', (req, res) => {
   const { toolPolicyService } = req.app.locals;
   const policies = toolPolicyService.getPolicies(req.session.userId);
   const mode = toolPolicyService.getSecurityMode(req.session.userId);
-  res.json({ policies, mode, categories: Object.keys(TOOL_CATEGORIES) });
+  res.json({
+    policies,
+    mode,
+    categories: Object.keys(TOOL_CATEGORIES),
+    lockedByManager: describeManagerLocks(req.session.userId),
+  });
 });
 
 router.put('/policies', (req, res) => {

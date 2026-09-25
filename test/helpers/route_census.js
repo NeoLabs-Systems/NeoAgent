@@ -7,6 +7,7 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const ROUTE_BASES = {
   account: '/api/account',
+  admin: '/api/admin',
   agent_profiles: '/api/agent-profiles',
   agents: '/api/agents',
   android: '/api/android',

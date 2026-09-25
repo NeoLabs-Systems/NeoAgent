@@ -25,15 +25,27 @@ Self-hosted installations can support more than one account. Administrative
 controls include account management, provider configuration, logs, and runtime
 updates.
 
-Optional SMTP configuration enables:
+## Admins
 
-- Signup confirmation
-- Password reset
-- Email-change confirmation
-- New-device or unusual-login notifications
-- Password and account-change notifications
+- **First account is admin** — on a fresh install the first account created becomes the admin.
+- **More admins** — `neoagent admin grant <username>`, or list usernames in `NEOAGENT_ADMIN_USERS`.
+- **Revoke** — `neoagent admin revoke <username>`; it applies on the next request.
+- **Admin tab** — admins get an **Admin** tab in the app with a search box: users, server, providers, models, integrations, configuration, billing, analytics, SQL, and the access activity log.
+- **No self-delete** — an admin account can't delete itself; revoke admin first.
+- **Existing installs** — a single-account install promotes its only account; with several accounts, run `neoagent admin grant <username>` (startup and `neoagent status` remind you).
 
-See [Configuration](configuration.md#service-email) for the server variables.
+## Teams
+
+- **Team tab** — every account has a **Team** tab: who manages you, whom you manage, and your invite links.
+- **On your own** — by default you decide which tools your agent may use (Tool Permissions).
+- **Invite links** — anyone can create a link listing which tools the recipient's agent may use, with an expiry and single-use or reusable. A link can only hand out tools you hold yourself, and never grants admin.
+- **Joining** — the recipient enters the link on the **Team** tab, sees who will manage them and what they'll be allowed, and confirms.
+- **What a manager controls** — the tool permission categories (shell, file writes, desktop control, …). A manager's "off" beats the account's own Tool Permissions setting, including "Allow all".
+- **What a manager sees** — username, display name and those permissions. Never chats, memories, files or email.
+- **Chains** — A manages B, B manages C (up to four levels). A decision higher up wins and shows as locked, with the name of whoever made it.
+- **Leaving** — a managed account can leave at any time; the manager can also stop managing it.
+- **Removing a manager** — when a manager's account is deleted, the people they managed move up to their manager (or become independent at the top).
+- **Audit** — admin grants, invite links and team changes are logged under **Admin › Users › Access activity**.
 
 ## Isolation model
 

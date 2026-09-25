@@ -25,9 +25,10 @@ const PERSISTENT_IDENTITY_ENV_KEYS = new Set([
   'SESSION_SECRET',
   'NEOAGENT_ENCRYPTION_KEY',
   'NEOAGENT_VM_GUEST_TOKEN',
-  'ADMIN_USERNAME',
-  'ADMIN_PASSWORD',
 ]);
+// The standalone admin dashboard's login and API key. Admin is now a flag on a
+// user account, so these are dropped from the env file when found.
+const RETIRED_ADMIN_ENV_KEYS = ['ADMIN_USERNAME', 'ADMIN_PASSWORD', 'ADMIN_API_KEY'];
 const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
   arm64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-arm64-20260810-2566.qcow2',
   x64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-amd64-20260810-2566.qcow2',
@@ -310,21 +311,10 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   }
   env.SESSION_SECRET = sessionSecret;
 
-  let adminUsername = String(env.ADMIN_USERNAME || parsed.get('ADMIN_USERNAME') || '').trim();
-  if (!adminUsername) {
-    adminUsername = 'admin';
-    upsertEnvValue(envFile, 'ADMIN_USERNAME', adminUsername);
-    changes.push('ADMIN_USERNAME');
+  const retiredAdminKeys = RETIRED_ADMIN_ENV_KEYS.filter((key) => parsed.has(key));
+  for (const key of retiredAdminKeys) {
+    removeEnvValue(envFile, key);
   }
-  env.ADMIN_USERNAME = adminUsername;
-
-  let adminPassword = String(env.ADMIN_PASSWORD || parsed.get('ADMIN_PASSWORD') || '').trim();
-  if (!adminPassword) {
-    adminPassword = generateSecret(16);
-    upsertEnvValue(envFile, 'ADMIN_PASSWORD', adminPassword);
-    changes.push('ADMIN_PASSWORD');
-  }
-  env.ADMIN_PASSWORD = adminPassword;
 
   let guestToken = String(env.NEOAGENT_VM_GUEST_TOKEN || parsed.get('NEOAGENT_VM_GUEST_TOKEN') || '').trim();
   if (!isValidVmGuestToken(guestToken)) {
@@ -333,6 +323,16 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
     changes.push('NEOAGENT_VM_GUEST_TOKEN');
   }
   env.NEOAGENT_VM_GUEST_TOKEN = guestToken;
+
+  if (retiredAdminKeys.length > 0 && logger) {
+    const message = `Removed retired admin dashboard credentials from ${envFile}: ${retiredAdminKeys.join(', ')}. `
+      + 'Admin is now a user-account flag; manage it with `neoagent admin`.';
+    if (typeof logger.warn === 'function') {
+      logger.warn(message);
+    } else if (typeof logger.log === 'function') {
+      logger.log(message);
+    }
+  }
 
   if (changes.length > 0 && logger) {
     const message = `Initialized runtime defaults: ${changes.join(', ')}`;

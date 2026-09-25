@@ -496,6 +496,305 @@ class BackendClient {
     });
   }
 
+  // ── Delegation (managed / managing accounts) ─────────────────────────────
+
+  Future<Map<String, dynamic>> fetchDelegation(String baseUrl) async {
+    return getMap(baseUrl, '/api/delegation');
+  }
+
+  Future<Map<String, dynamic>> createDelegationInvite(
+    String baseUrl, {
+    required String label,
+    required List<String> permissions,
+    required int? expiresInHours,
+    required bool singleUse,
+  }) async {
+    return postMap(baseUrl, '/api/delegation/invites', <String, dynamic>{
+      'label': label,
+      'permissions': permissions,
+      'expiresInHours': expiresInHours,
+      'maxUses': singleUse ? 1 : null,
+    });
+  }
+
+  Future<Map<String, dynamic>> revokeDelegationInvite(
+    String baseUrl,
+    String inviteId,
+  ) async {
+    return deleteMap(
+      baseUrl,
+      '/api/delegation/invites/${Uri.encodeComponent(inviteId)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> previewDelegationInvite(
+    String baseUrl,
+    String link,
+  ) async {
+    return postMap(baseUrl, '/api/delegation/invites/preview', <String, dynamic>{
+      'link': link,
+    });
+  }
+
+  Future<Map<String, dynamic>> redeemDelegationInvite(
+    String baseUrl,
+    String link,
+  ) async {
+    return postMap(baseUrl, '/api/delegation/invites/redeem', <String, dynamic>{
+      'link': link,
+    });
+  }
+
+  Future<Map<String, dynamic>> leaveDelegation(String baseUrl) async {
+    return postMap(baseUrl, '/api/delegation/leave', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> releaseManagedAccount(
+    String baseUrl,
+    int userId,
+  ) async {
+    return deleteMap(baseUrl, '/api/delegation/managing/$userId');
+  }
+
+  Future<Map<String, dynamic>> setManagedPermission(
+    String baseUrl, {
+    required int userId,
+    required String permission,
+    required bool allowed,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/delegation/managing/$userId/permissions',
+      <String, dynamic>{'permission': permission, 'allowed': allowed},
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAccessAudit(
+    String baseUrl, {
+    int limit = 100,
+  }) async {
+    return getMap(baseUrl, '/api/delegation/audit?limit=$limit');
+  }
+
+  // ── Admin console (admin accounts only) ──────────────────────────────────
+
+  Future<Map<String, dynamic>> fetchAdminVersion(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/version');
+  }
+
+  Future<Map<String, dynamic>> fetchAdminHealth(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/health');
+  }
+
+  Future<Map<String, dynamic>> fetchAdminLogs(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/logs');
+  }
+
+  Future<Map<String, dynamic>> fetchAdminAnalytics(
+    String baseUrl, {
+    required int rangeDays,
+  }) async {
+    return getMap(baseUrl, '/api/admin/analytics?range=$rangeDays');
+  }
+
+  Future<Map<String, dynamic>> fetchAdminUsers(
+    String baseUrl, {
+    String query = '',
+  }) async {
+    final trimmed = query.trim();
+    final suffix = trimmed.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(trimmed)}';
+    return getMap(baseUrl, '/api/admin/users$suffix');
+  }
+
+  Future<Map<String, dynamic>> deleteAdminUser(String baseUrl, int userId) async {
+    return deleteMap(baseUrl, '/api/admin/users/$userId');
+  }
+
+  Future<Map<String, dynamic>> revokeAdminUserSessions(
+    String baseUrl,
+    int userId,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/users/$userId/sessions');
+  }
+
+  Future<Map<String, dynamic>> fetchAdminUserRateLimits(
+    String baseUrl,
+    int userId,
+  ) async {
+    return getMap(baseUrl, '/api/admin/users/$userId/rate-limits');
+  }
+
+  Future<Map<String, dynamic>> saveAdminUserRateLimits(
+    String baseUrl, {
+    required int userId,
+    required int? fourHour,
+    required int? weekly,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/admin/users/$userId/rate-limits',
+      <String, dynamic>{'rate_limit_4h': fourHour, 'rate_limit_weekly': weekly},
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAdminDefaultRateLimits(
+    String baseUrl,
+  ) async {
+    return getMap(baseUrl, '/api/admin/config/rate-limits');
+  }
+
+  Future<Map<String, dynamic>> saveAdminDefaultRateLimits(
+    String baseUrl, {
+    required int? fourHour,
+    required int? weekly,
+  }) async {
+    return putMap(baseUrl, '/api/admin/config/rate-limits', <String, dynamic>{
+      'rate_limit_4h': fourHour,
+      'rate_limit_weekly': weekly,
+    });
+  }
+
+  Future<Map<String, dynamic>> runAdminSql(String baseUrl, String query) async {
+    return postMap(baseUrl, '/api/admin/sql', <String, dynamic>{
+      'query': query,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminAccess(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/access');
+  }
+
+  Future<Map<String, dynamic>> setAdminSignupEnabled(
+    String baseUrl,
+    bool enabled,
+  ) async {
+    return putMap(baseUrl, '/api/admin/access/signup', <String, dynamic>{
+      'enabled': enabled,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminProviders(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/providers');
+  }
+
+  Future<Map<String, dynamic>> saveAdminProvider(
+    String baseUrl, {
+    required String key,
+    required String value,
+  }) async {
+    return putMap(baseUrl, '/api/admin/providers', <String, dynamic>{
+      'key': key,
+      'value': value,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminModels(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/models');
+  }
+
+  Future<Map<String, dynamic>> saveAdminDisabledModels(
+    String baseUrl,
+    List<String> disabledModels,
+  ) async {
+    return putMap(baseUrl, '/api/admin/models/config', <String, dynamic>{
+      'disabledModels': disabledModels,
+    });
+  }
+
+  /// [section] is one of `general`, `vm`, `integrations`, `billing-setup`,
+  /// `email` (the `/api/admin/config/<section>` endpoints).
+  Future<Map<String, dynamic>> fetchAdminConfig(
+    String baseUrl,
+    String section,
+  ) async {
+    return getMap(baseUrl, '/api/admin/config/$section');
+  }
+
+  Future<Map<String, dynamic>> saveAdminConfig(
+    String baseUrl,
+    String section,
+    Map<String, dynamic> payload,
+  ) async {
+    return putMap(baseUrl, '/api/admin/config/$section', payload);
+  }
+
+  Future<Map<String, dynamic>> fetchAdminBillingPlans(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/billing/plans');
+  }
+
+  Future<Map<String, dynamic>> createAdminBillingPlan(
+    String baseUrl,
+    Map<String, dynamic> plan,
+  ) async {
+    return postMap(baseUrl, '/api/admin/billing/plans', plan);
+  }
+
+  Future<Map<String, dynamic>> updateAdminBillingPlan(
+    String baseUrl,
+    String planId,
+    Map<String, dynamic> plan,
+  ) async {
+    return putMap(
+      baseUrl,
+      '/api/admin/billing/plans/${Uri.encodeComponent(planId)}',
+      plan,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteAdminBillingPlan(
+    String baseUrl,
+    String planId,
+  ) async {
+    return deleteMap(
+      baseUrl,
+      '/api/admin/billing/plans/${Uri.encodeComponent(planId)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAdminSubscriptions(
+    String baseUrl, {
+    int limit = 50,
+    int offset = 0,
+    String? status,
+  }) async {
+    final query = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+      if (status != null && status.isNotEmpty) 'status': status,
+    };
+    return getMap(
+      baseUrl,
+      '/api/admin/billing/subscriptions?${Uri(queryParameters: query).query}',
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAdminUserSubscription(
+    String baseUrl,
+    int userId,
+  ) async {
+    return getMap(baseUrl, '/api/admin/billing/users/$userId/subscription');
+  }
+
+  Future<Map<String, dynamic>> setAdminUserSubscription(
+    String baseUrl, {
+    required int userId,
+    required String planId,
+    String? status,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/admin/billing/users/$userId/subscription',
+      <String, dynamic>{'planId': planId, if (status != null) 'status': status},
+    );
+  }
+
+  Future<Map<String, dynamic>> cancelAdminUserSubscription(
+    String baseUrl,
+    int userId,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/billing/users/$userId/subscription');
+  }
+
   // ── Agent profiles ────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> createAgentProfile(

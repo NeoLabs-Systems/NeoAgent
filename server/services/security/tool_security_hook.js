@@ -1,20 +1,49 @@
 'use strict';
 
 const { globalHooks } = require('../ai/hooks');
-const { SAFE_TOOLS } = require('./tool_categories');
+const { SAFE_TOOLS, getCategoryForTool } = require('./tool_categories');
+const { isPermitted } = require('../access/permissions');
 
 /**
- * Registers two before_tool_call hooks:
+ * Registers three before_tool_call hooks:
+ *   Priority 1  — delegation check: block categories a manager has taken away
+ *                 from this account. Runs first and ignores the user's own
+ *                 security mode, so 'allow_all' cannot bypass it.
  *   Priority 5  — policy check: block tools whose category is set to 'deny';
  *                 respect the user's global security_mode override.
  *   Priority 10 — approval gate: suspend the run until the user approves/denies.
  *
- * Both hooks skip SAFE_TOOLS with a fast Set.has() check.
+ * All hooks skip SAFE_TOOLS with a fast Set.has() check.
  *
  * Reasons returned in { block: true, reason, blocked_by } are surfaced to the
  * model by engine.js so the AI can communicate them to the user naturally.
  */
 function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
+  // ── Hook 0: delegated permissions (synchronous) ─────────────────────────
+  globalHooks.register('before_tool_call', async ({ toolName, toolArgs, userId }) => {
+    if (SAFE_TOOLS.has(toolName)) return;
+    let category;
+    let permitted;
+    try {
+      category = getCategoryForTool(toolName, toolArgs ?? {});
+      permitted = !category || isPermitted(userId, category);
+    } catch (err) {
+      // Hook errors are skipped by the runner, so a check that cannot decide
+      // must block rather than let the call through.
+      console.error(`[ToolPolicy] Delegation check failed for tool=${toolName}: ${err.message}`);
+      return { block: true, blocked_by: 'delegation', reason: `The tool "${toolName}" could not be checked against this account's team permissions.` };
+    }
+    if (permitted) return;
+    console.info(`[ToolPolicy] Blocked tool=${toolName} user=${userId} category=${category} by delegation`);
+    return {
+      block: true,
+      blocked_by: 'delegation',
+      reason:
+        `The tool "${toolName}" is turned off for this account by the person who manages it. ` +
+        'The user cannot change this in their own settings; only their manager can.',
+    };
+  }, { priority: 1, id: 'tool-delegation-check' });
+
   // ── Hook 1: global mode + deny check (synchronous) ────────────────────────
   globalHooks.register('before_tool_call', async ({ toolName, toolArgs, userId }) => {
     if (SAFE_TOOLS.has(toolName)) return;

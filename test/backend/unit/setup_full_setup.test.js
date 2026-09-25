@@ -52,12 +52,11 @@ test('full setup environment plan preserves identity and omits blank options', (
     TRUST_PROXY: 'false',
     SESSION_SECRET: 'existing-session-secret',
     NEOAGENT_VM_GUEST_TOKEN: 'existing-guest-token',
-    ADMIN_PASSWORD: 'existing-admin-password',
     OPENAI_API_KEY: '',
   });
   assert.equal(updates.SESSION_SECRET, 'existing-session-secret');
   assert.equal(updates.NEOAGENT_VM_GUEST_TOKEN, 'existing-guest-token');
-  assert.equal(updates.ADMIN_PASSWORD, 'existing-admin-password');
+  assert.equal(Object.hasOwn(updates, 'ADMIN_PASSWORD'), false);
   assert.equal(updates.OPENAI_API_KEY, undefined);
   assert.equal(updates.PUBLIC_URL, undefined);
 });

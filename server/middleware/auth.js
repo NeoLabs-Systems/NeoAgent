@@ -1,3 +1,5 @@
+const { isAdminUser } = require('../services/access/admin');
+
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
     console.warn(`[Auth] Unauthorized request for ${req.method} ${req.originalUrl || req.url}`);
@@ -10,6 +12,15 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Admin is read from the account row on every request (never cached in the
+// session), so revoking it locks the account out of admin routes immediately.
+function requireAdmin(req, res, next) {
+  if (!req.session?.userId || !isAdminUser(req.session.userId)) {
+    return res.status(403).json({ error: 'Admin access required', code: 'ADMIN_REQUIRED' });
+  }
+  next();
+}
+
 function requireNoAuth(req, res, next) {
   if (req.session && req.session.userId) {
     console.log(`[Auth] Redirecting authenticated user ${req.session.userId} away from ${req.method} ${req.originalUrl || req.url}`);
@@ -18,4 +29,4 @@ function requireNoAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireNoAuth };
+module.exports = { requireAuth, requireAdmin, requireNoAuth };

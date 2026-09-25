@@ -2106,7 +2106,7 @@ class DurableRunRuntime {
                 const hookResult = await globalHooks.run('before_tool_call', {
                   runId,
                   toolName: call.name,
-                  args: call.arguments,
+                  toolArgs: call.arguments,
                   userId,
                   agentId,
                 });

@@ -40,36 +40,43 @@ test('runtime env updates are sanitized and atomically replace the target', (t) 
   );
 });
 
-test('runtime defaults generate admin credentials once and reuse them', (t) => {
+test('runtime defaults drop the retired admin dashboard credentials', (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'neoagent-runtime-defaults-'),
   );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const envFile = path.join(directory, '.env');
-  const firstEnvironment = {};
-
-  const firstResult = ensureSecureRuntimeEnv({
+  fs.writeFileSync(
     envFile,
-    env: firstEnvironment,
-    logger: null,
-  });
-  const generatedPassword = firstEnvironment.ADMIN_PASSWORD;
+    [
+      'PORT=3333',
+      'ADMIN_USERNAME=admin',
+      'ADMIN_PASSWORD=old-admin-password',
+      'ADMIN_API_KEY=old-admin-api-key',
+      '',
+    ].join('\n'),
+  );
+  const warnings = [];
 
-  assert.equal(firstEnvironment.ADMIN_USERNAME, 'admin');
-  assert.match(generatedPassword, /^[a-f0-9]{32}$/);
-  assert.ok(firstResult.changes.includes('ADMIN_USERNAME'));
-  assert.ok(firstResult.changes.includes('ADMIN_PASSWORD'));
-
-  const restartedEnvironment = {};
-  const restartedResult = ensureSecureRuntimeEnv({
+  ensureSecureRuntimeEnv({
     envFile,
-    env: restartedEnvironment,
-    logger: null,
+    env: {},
+    logger: { warn: (message) => warnings.push(message), info() {} },
   });
 
-  assert.equal(restartedEnvironment.ADMIN_USERNAME, 'admin');
-  assert.equal(restartedEnvironment.ADMIN_PASSWORD, generatedPassword);
-  assert.equal(restartedResult.changes.includes('ADMIN_PASSWORD'), false);
+  const contents = fs.readFileSync(envFile, 'utf8');
+  assert.doesNotMatch(contents, /ADMIN_(USERNAME|PASSWORD|API_KEY)=/);
+  assert.match(contents, /^PORT=3333$/m);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /neoagent admin/);
+
+  const repeatWarnings = [];
+  ensureSecureRuntimeEnv({
+    envFile,
+    env: {},
+    logger: { warn: (message) => repeatWarnings.push(message), info() {} },
+  });
+  assert.equal(repeatWarnings.length, 0);
 });
 
 test('legacy desktop config migrates without rotating persistent identity', (t) => {
@@ -86,7 +93,7 @@ test('legacy desktop config migrates without rotating persistent identity', (t) 
       'PORT=4444',
       'OPENAI_API_KEY=legacy-provider-key',
       'SESSION_SECRET=legacy-session-secret',
-      'ADMIN_PASSWORD=legacy-admin-password',
+      'NEOAGENT_ENCRYPTION_KEY=legacy-encryption-key',
       '',
     ].join('\n'),
   );
@@ -95,7 +102,7 @@ test('legacy desktop config migrates without rotating persistent identity', (t) 
     [
       'PORT=3333',
       'SESSION_SECRET=stable-session-secret',
-      'ADMIN_PASSWORD=stable-admin-password',
+      'NEOAGENT_ENCRYPTION_KEY=stable-encryption-key',
       '',
     ].join('\n'),
   );
@@ -122,7 +129,7 @@ test('legacy desktop config migrates without rotating persistent identity', (t) 
   assert.equal(migrated.PORT, '4444');
   assert.equal(migrated.OPENAI_API_KEY, 'legacy-provider-key');
   assert.equal(migrated.SESSION_SECRET, 'stable-session-secret');
-  assert.equal(migrated.ADMIN_PASSWORD, 'stable-admin-password');
+  assert.equal(migrated.NEOAGENT_ENCRYPTION_KEY, 'stable-encryption-key');
   assert.equal(fs.existsSync(legacyEnvFile), false);
   assert.equal(fs.existsSync(`${legacyEnvFile}.migrated`), true);
   assert.equal(messages.length, 1);

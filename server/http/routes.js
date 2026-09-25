@@ -12,6 +12,8 @@ const routeRegistry = [
   { basePath: '/api/cowork', modulePath: '../routes/cowork' },
   { basePath: null, modulePath: '../routes/auth' },
   { basePath: '/api/account', modulePath: '../routes/account' },
+  { basePath: '/api/delegation', modulePath: '../routes/delegation' },
+  { basePath: '/api/admin', modulePath: '../routes/admin' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
   { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },

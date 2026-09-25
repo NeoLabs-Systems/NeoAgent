@@ -610,9 +610,13 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         const _SectionTitle('Your data'),
         const SizedBox(height: 10),
         Text(
-          'Download a copy of your data, or permanently delete your account. '
-          'Deletion removes all your conversations, memories, files, tasks and '
-          'settings and cannot be undone.',
+          controller.isAdmin
+              ? 'Download a copy of your data. Admin accounts can’t delete '
+                    'themselves; the server operator removes admin first with '
+                    '`neoagent admin revoke <username>`.'
+              : 'Download a copy of your data, or permanently delete your account. '
+                    'Deletion removes all your conversations, memories, files, tasks and '
+                    'settings and cannot be undone.',
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
@@ -631,7 +635,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               label: const Text('Export my data'),
             ),
             OutlinedButton.icon(
-              onPressed: _isDeletingAccount ? null : _confirmDeleteAccount,
+              onPressed: _isDeletingAccount || controller.isAdmin
+                  ? null
+                  : _confirmDeleteAccount,
               style: OutlinedButton.styleFrom(
                 foregroundColor: _danger,
                 side: BorderSide(color: _danger.withValues(alpha: 0.6)),

@@ -3,22 +3,31 @@
 const { sanitizeError } = require('../utils/security');
 const { logRequestSummary } = require('../utils/logger');
 
+// Application error codes (e.g. INVITE_EXPIRED) are safe to hand to clients so
+// they can show the right state; anything else in `err.code` is not.
+function publicErrorCode(err) {
+  return typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(err.code)
+    ? err.code
+    : undefined;
+}
+
 function sendJsonError(res, err, fallbackStatus = 500) {
   const status = Number(err?.status || err?.statusCode || fallbackStatus) || fallbackStatus;
-  const message = status >= 500
-    ? sanitizeError(err)
-    : (err?.message || 'Request failed.');
-  return res.status(status).json({ error: message });
+  if (status >= 500) {
+    return res.status(status).json({ error: sanitizeError(err) });
+  }
+  const code = publicErrorCode(err);
+  return res.status(status).json({
+    error: err?.message || 'Request failed.',
+    ...(code ? { code } : {}),
+  });
 }
 
 function registerErrorHandler(app) {
   app.use((err, req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = sanitizeError(err);
-    const code = typeof err?.code === 'string'
-      && /^[A-Z][A-Z0-9_]{1,63}$/.test(err.code)
-      ? err.code
-      : undefined;
+    const code = publicErrorCode(err);
     console.error('[Unhandled error]', {
       status,
       message,

@@ -27,6 +27,7 @@ startup.
 | `SECURE_COOKIES` | inferred | Require secure session cookies |
 | `TRUST_PROXY` | inferred | Trust proxy headers from the deployment proxy |
 | `ALLOWED_ORIGINS` | unset | Additional comma-separated CORS origins |
+| `NEOAGENT_ADMIN_USERS` | unset | Comma-separated usernames granted admin on every start (never revoked by removal) |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Update channel |
 | `NEOAGENT_SETUP_PROFILE` | `quick` | Last selected setup profile |
 | `NEOAGENT_SETUP_COMPLETED_SECTIONS` | `core` | Non-secret setup completion state |

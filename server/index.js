@@ -22,6 +22,7 @@ const express = require('express');
 const { createServer } = require('http');
 
 const db = require('./db/database');
+const { applyEnvAdminGrants, needsAdminGrant } = require('./services/access/admin');
 const { setupConsoleInterceptor } = require('./utils/logger');
 const { validateOrigin } = require('./config/origins');
 const {
@@ -90,6 +91,33 @@ function logStartupConfig() {
 }
 
 logStartupConfig();
+
+// NEOAGENT_ADMIN_USERS grants admin on every start. Installs from before
+// per-account admin, with several accounts and none promoted, get a pointer to
+// the CLI rather than a silently unreachable Admin tab.
+function applyStartupAdminAccess() {
+  const { granted, missing, revoked } = applyEnvAdminGrants();
+  if (granted.length > 0) {
+    console.log(`[Startup] Granted admin from NEOAGENT_ADMIN_USERS: ${granted.join(', ')}`);
+  }
+  if (missing.length > 0) {
+    console.warn(
+      `[Startup] NEOAGENT_ADMIN_USERS names accounts that don't exist: ${missing.join(', ')}. `
+      + 'Those names are reserved; remove them from the list to let someone register them.',
+    );
+  }
+  if (revoked.length > 0) {
+    console.warn(
+      `[Startup] NEOAGENT_ADMIN_USERS lists accounts revoked with the CLI, left as they are: ${revoked.join(', ')}. `
+      + 'Use `neoagent admin grant <username>` to restore them.',
+    );
+  }
+  if (needsAdminGrant()) {
+    console.warn('[Startup] No account is an admin, so nobody can open the Admin tab. Run `neoagent admin grant <username>`.');
+  }
+}
+
+applyStartupAdminAccess();
 
 const app = express();
 app.disable('x-powered-by');

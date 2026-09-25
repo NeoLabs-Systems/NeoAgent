@@ -4918,3 +4918,238 @@ class CoworkThreadState {
     );
   }
 }
+
+// ── Delegated access (who manages whom) ─────────────────────────────────────
+
+/// The only account fields the server shares across a delegation.
+class AccessPerson {
+  const AccessPerson({
+    required this.id,
+    required this.username,
+    required this.displayName,
+  });
+
+  static AccessPerson? tryParse(Object? json) {
+    if (json is! Map) return null;
+    return AccessPerson(
+      id: _asInt(json['id']),
+      username: json['username']?.toString() ?? '',
+      displayName: json['displayName']?.toString() ?? '',
+    );
+  }
+
+  final int id;
+  final String username;
+  final String displayName;
+
+  String get label => displayName.isNotEmpty ? displayName : username;
+}
+
+class AccessPermission {
+  const AccessPermission({
+    required this.key,
+    required this.allowed,
+    required this.editable,
+    required this.setBy,
+  });
+
+  factory AccessPermission.fromJson(Map<dynamic, dynamic> json) {
+    return AccessPermission(
+      key: json['key']?.toString() ?? '',
+      allowed: json['allowed'] == true,
+      editable: json['editable'] == true,
+      setBy: AccessPerson.tryParse(json['setBy']),
+    );
+  }
+
+  final String key;
+  final bool allowed;
+
+  /// Only present on the manager's view of an account they manage: false when
+  /// an upstream manager took this permission away from the manager.
+  final bool editable;
+
+  /// The manager whose decision is in force, or null when nobody manages the
+  /// account.
+  final AccessPerson? setBy;
+}
+
+List<AccessPermission> _parseAccessPermissions(Object? raw) {
+  if (raw is! List) return const <AccessPermission>[];
+  return raw
+      .whereType<Map<dynamic, dynamic>>()
+      .map(AccessPermission.fromJson)
+      .toList(growable: false);
+}
+
+class ManagedBy {
+  const ManagedBy({
+    required this.manager,
+    required this.since,
+    required this.chain,
+  });
+
+  static ManagedBy? tryParse(Object? json) {
+    if (json is! Map) return null;
+    final manager = AccessPerson.tryParse(json['manager']);
+    if (manager == null) return null;
+    final chain = json['chain'];
+    return ManagedBy(
+      manager: manager,
+      since: _parseOptionalTimestamp(json['since']?.toString()),
+      chain: chain is List
+          ? chain
+                .map(AccessPerson.tryParse)
+                .whereType<AccessPerson>()
+                .toList(growable: false)
+          : <AccessPerson>[manager],
+    );
+  }
+
+  final AccessPerson manager;
+  final DateTime? since;
+
+  /// Direct manager first, then theirs, up to the top of the chain.
+  final List<AccessPerson> chain;
+}
+
+class ManagedAccount {
+  const ManagedAccount({
+    required this.person,
+    required this.since,
+    required this.permissions,
+  });
+
+  static ManagedAccount? tryParse(Object? json) {
+    if (json is! Map) return null;
+    final person = AccessPerson.tryParse(json['user']);
+    if (person == null) return null;
+    return ManagedAccount(
+      person: person,
+      since: _parseOptionalTimestamp(json['since']?.toString()),
+      permissions: _parseAccessPermissions(json['permissions']),
+    );
+  }
+
+  final AccessPerson person;
+  final DateTime? since;
+  final List<AccessPermission> permissions;
+}
+
+class DelegationInvite {
+  const DelegationInvite({
+    required this.id,
+    required this.label,
+    required this.permissions,
+    required this.singleUse,
+    required this.useCount,
+    required this.expiresAt,
+    required this.createdAt,
+    required this.status,
+  });
+
+  factory DelegationInvite.fromJson(Map<dynamic, dynamic> json) {
+    final permissions = json['permissions'];
+    return DelegationInvite(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      permissions: permissions is List
+          ? permissions.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      singleUse: json['maxUses'] == 1,
+      useCount: _asInt(json['useCount']),
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+      status: json['status']?.toString() ?? 'active',
+    );
+  }
+
+  final String id;
+  final String label;
+  final List<String> permissions;
+  final bool singleUse;
+  final int useCount;
+  final DateTime? expiresAt;
+  final DateTime? createdAt;
+
+  /// `active`, `expired`, `revoked` or `used`.
+  final String status;
+
+  bool get isActive => status == 'active';
+}
+
+class AccessSummary {
+  const AccessSummary({
+    required this.isAdmin,
+    required this.catalog,
+    required this.maxDepth,
+    required this.permissions,
+    required this.managedBy,
+    required this.managing,
+    required this.invites,
+  });
+
+  factory AccessSummary.fromJson(Map<dynamic, dynamic> json) {
+    final catalog = json['catalog'];
+    final managing = json['managing'];
+    final invites = json['invites'];
+    return AccessSummary(
+      isAdmin: json['isAdmin'] == true,
+      catalog: catalog is List
+          ? catalog.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      maxDepth: _asInt(json['maxDepth']),
+      permissions: _parseAccessPermissions(json['permissions']),
+      managedBy: ManagedBy.tryParse(json['managedBy']),
+      managing: managing is List
+          ? managing
+                .map(ManagedAccount.tryParse)
+                .whereType<ManagedAccount>()
+                .toList(growable: false)
+          : const <ManagedAccount>[],
+      invites: invites is List
+          ? invites
+                .whereType<Map<dynamic, dynamic>>()
+                .map(DelegationInvite.fromJson)
+                .toList(growable: false)
+          : const <DelegationInvite>[],
+    );
+  }
+
+  final bool isAdmin;
+  final List<String> catalog;
+  final int maxDepth;
+  final List<AccessPermission> permissions;
+  final ManagedBy? managedBy;
+  final List<ManagedAccount> managing;
+  final List<DelegationInvite> invites;
+}
+
+/// What a pasted invite link would do, shown before the user confirms.
+class DelegationInvitePreview {
+  const DelegationInvitePreview({
+    required this.issuer,
+    required this.permissions,
+    required this.expiresAt,
+    required this.singleUse,
+  });
+
+  factory DelegationInvitePreview.fromJson(Map<dynamic, dynamic> json) {
+    final permissions = json['permissions'];
+    return DelegationInvitePreview(
+      issuer:
+          AccessPerson.tryParse(json['issuer']) ??
+          const AccessPerson(id: 0, username: '', displayName: ''),
+      permissions: permissions is List
+          ? permissions.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+      singleUse: json['singleUse'] == true,
+    );
+  }
+
+  final AccessPerson issuer;
+  final List<String> permissions;
+  final DateTime? expiresAt;
+  final bool singleUse;
+}

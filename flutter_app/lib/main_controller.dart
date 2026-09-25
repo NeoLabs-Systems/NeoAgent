@@ -130,6 +130,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isOpeningAppUpdate = false;
   bool isLoadingBilling = false;
   bool showBillingSection = false;
+  bool isLoadingAccess = false;
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
@@ -171,6 +172,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
   AccountUsageAndLimits? usageAndLimits;
+  AccessSummary? accessSummary;
   List<AuthProviderCatalogItem> authProviders =
       const <AuthProviderCatalogItem>[];
   List<LinkedAuthProviderItem> linkedAuthProviders =
@@ -1621,6 +1623,7 @@ class NeoAgentController extends ChangeNotifier {
     accountTwoFactor = const <String, dynamic>{};
     accountSessions = const <AccountSessionItem>[];
     usageAndLimits = null;
+    accessSummary = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     accountSecurityKeys = const <SecurityKeyItem>[];
     settings = const <String, dynamic>{};
@@ -5448,6 +5451,111 @@ class NeoAgentController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  // ── Delegated access (managed / managing accounts) ───────────────────────
+
+  Future<void> refreshAccess() async {
+    if (!isAuthenticated) return;
+    isLoadingAccess = true;
+    notifyListeners();
+    try {
+      _applyAccessSummary(await _backendClient.fetchDelegation(backendUrl));
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingAccess = false;
+      notifyListeners();
+    }
+  }
+
+  void _applyAccessSummary(Map<String, dynamic> json) {
+    final summary = AccessSummary.fromJson(json);
+    accessSummary = summary;
+    // Admin is granted and revoked from the operator side; keep the Admin tab
+    // in step with what the server just said.
+    final current = user;
+    if (current != null && (current['isAdmin'] == true) != summary.isAdmin) {
+      user = <String, dynamic>{...current, 'isAdmin': summary.isAdmin};
+    }
+  }
+
+  Future<bool> _changeAccess(
+    Future<Map<String, dynamic>> Function() request,
+  ) async {
+    errorMessage = null;
+    try {
+      _applyAccessSummary(await request());
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// Throws [BackendException] carrying the server's reason (expired, revoked,
+  /// already used, ...) so the confirmation dialog can show it.
+  Future<DelegationInvitePreview> previewDelegationInvite(String link) async {
+    return DelegationInvitePreview.fromJson(
+      await _backendClient.previewDelegationInvite(backendUrl, link),
+    );
+  }
+
+  /// Throws like [previewDelegationInvite]: the link can change between the
+  /// preview and the confirmation.
+  Future<void> redeemDelegationInvite(String link) async {
+    _applyAccessSummary(
+      await _backendClient.redeemDelegationInvite(backendUrl, link),
+    );
+    notifyListeners();
+  }
+
+  Future<bool> leaveManager() {
+    return _changeAccess(() => _backendClient.leaveDelegation(backendUrl));
+  }
+
+  /// Returns the shareable link. Throws on failure so the dialog stays open
+  /// with the reason.
+  Future<String> createDelegationInvite({
+    required String label,
+    required List<String> permissions,
+    required int? expiresInHours,
+    required bool singleUse,
+  }) async {
+    final response = await _backendClient.createDelegationInvite(
+      backendUrl,
+      label: label,
+      permissions: permissions,
+      expiresInHours: expiresInHours,
+      singleUse: singleUse,
+    );
+    unawaited(refreshAccess());
+    return response['link']?.toString() ?? '';
+  }
+
+  Future<bool> revokeDelegationInvite(String inviteId) {
+    return _changeAccess(
+      () => _backendClient.revokeDelegationInvite(backendUrl, inviteId),
+    );
+  }
+
+  Future<bool> releaseManagedAccount(int userId) {
+    return _changeAccess(
+      () => _backendClient.releaseManagedAccount(backendUrl, userId),
+    );
+  }
+
+  Future<bool> setManagedPermission(int userId, String key, bool allowed) {
+    return _changeAccess(
+      () => _backendClient.setManagedPermission(
+        backendUrl,
+        userId: userId,
+        permission: key,
+        allowed: allowed,
+      ),
+    );
+  }
+
   // ── Billing ──────────────────────────────────────────────────────────────
 
   Future<void> checkBillingEnabled() async {
@@ -7457,6 +7565,10 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
 
   DateTime? get liveVoiceCaptureStartedAt => _liveVoiceCaptureStartedAt;
+
+  /// Mirrors the server's per-request admin flag; only decides what the UI
+  /// shows. Every admin endpoint re-checks it server-side.
+  bool get isAdmin => user?['isAdmin'] == true;
 
   String get accountLabel {
     final displayName = user?['display_name']?.toString().trim() ?? '';

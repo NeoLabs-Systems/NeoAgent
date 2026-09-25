@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const db = require('../../db/database');
 const { getDeploymentPolicy } = require('../../utils/deployment');
+const { isReservedAdminUsername } = require('../access/admin');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { createAuthProviderRegistry } = require('./auth_providers/registry');
 const { parseJsonObject } = require('../../utils/text');
@@ -386,7 +387,7 @@ class AuthProviderManager {
       const existing = db.prepare(
         'SELECT id FROM users WHERE username = ?',
       ).get(username);
-      if (!existing) return username;
+      if (!existing && !isReservedAdminUsername(username)) return username;
     }
     return `user${Date.now().toString().slice(-6)}`;
   }

@@ -30,8 +30,8 @@ neoagent billing enable    # set NEOAGENT_BILLING_ENABLED=true and restart
 neoagent billing disable   # set NEOAGENT_BILLING_ENABLED=false and restart
 ```
 
-When enabled the admin dashboard will show a **Billing** navigation item and
-the `/api/billing/*` endpoints become active.
+When enabled the app's **Admin › Billing** tab shows plans and subscriptions,
+and the `/api/billing/*` endpoints become active.
 
 > **Manual alternative** — you can also set variables directly and restart:
 > ```bash
