@@ -2187,7 +2187,7 @@ class RunStepItem {
       case 'failed':
         return _danger;
       case 'running':
-        return _warning;
+        return _info;
       default:
         return _textSecondary;
     }
@@ -2655,6 +2655,10 @@ class RunSummary {
 
   bool get isFailure => status == 'failed' || status == 'error';
 
+  /// Still executing: counts toward the live section and ticks its elapsed time.
+  bool get isActive =>
+      status == 'running' || status == 'paused' || status == 'waiting_input';
+
   String get createdAtLabel => _formatTimestamp(createdAt);
 
   String get totalTokensLabel => _formatNumber(totalTokens);
@@ -2678,6 +2682,9 @@ class RunSummary {
       case 'error':
         return _danger;
       case 'running':
+        return _info;
+      case 'paused':
+      case 'waiting_input':
         return _warning;
       default:
         return _textSecondary;

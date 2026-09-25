@@ -77,6 +77,7 @@ part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
 part 'main_chat.dart';
+part 'main_runs.dart';
 part 'main_cowork.dart';
 part 'main_cowork_sessions.dart';
 part 'main_cowork_thread.dart';

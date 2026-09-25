@@ -1230,19 +1230,9 @@ class RunsAndLogsPanel extends StatefulWidget {
 class _RunsAndLogsPanelState extends State<RunsAndLogsPanel> {
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
     return Padding(
       padding: _pagePadding(context),
-      child: Column(
-        children: <Widget>[
-          const _PageTitle(
-            title: 'Runs',
-            subtitle: 'Inspect execution history, failures, and tool traces.',
-          ),
-          const SizedBox(height: 12),
-          Expanded(child: RunsPanel(controller: controller, embedded: true)),
-        ],
-      ),
+      child: RunsPanel(controller: widget.controller),
     );
   }
 }

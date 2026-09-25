@@ -1,5 +1,23 @@
 part of 'main.dart';
 
+/// Run socket events that change a run's status or recorded steps.
+const Set<String> _runActivityEvents = <String>{
+  'run:start',
+  'run:analysis',
+  'run:plan',
+  'run:tool_start',
+  'run:tool_end',
+  'run:subagent',
+  'run:verification',
+  'run:input_required',
+  'run:paused',
+  'run:resumed',
+  'run:complete',
+  'run:stopped',
+  'run:interrupted',
+  'run:error',
+};
+
 class NeoAgentController extends ChangeNotifier {
   NeoAgentController({
     this.appMode = NeoAgentAppMode.standard,
@@ -181,6 +199,12 @@ class NeoAgentController extends ChangeNotifier {
   List<Map<String, dynamic>> byokProviders = const <Map<String, dynamic>>[];
   bool isLoadingByokProviders = false;
   List<RunSummary> recentRuns = const <RunSummary>[];
+  DateTime? runsRefreshedAt;
+
+  /// Fires on every run lifecycle socket event so open run views can refresh
+  /// themselves without the whole app polling.
+  final ValueNotifier<({int seq, String runId})> runActivity =
+      ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
   List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
   Map<String, dynamic>? billingSubscription;
@@ -426,6 +450,7 @@ class NeoAgentController extends ChangeNotifier {
     _liveVoiceRecoveryTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
     _socket?.dispose();
+    runActivity.dispose();
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
@@ -2227,6 +2252,10 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> stopCoworkRun() async {
     final runId = selectedCoworkThread.activeRunId;
     if (runId == null) return;
+    await stopRun(runId);
+  }
+
+  Future<void> stopRun(String runId) async {
     try {
       await _backendClient.abortAgentRun(backendUrl, runId);
     } catch (error) {
@@ -3341,6 +3370,7 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
       _runDetailsCache.clear();
+      runsRefreshedAt = DateTime.now();
       tokenUsage = TokenUsageSnapshot.fromJson(
         await _backendClient.fetchTokenUsageSummary(
           backendUrl,
@@ -7545,6 +7575,15 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     final socket = io.io(origin, options);
+    socket.onAny((event, data) {
+      if (!_runActivityEvents.contains(event)) {
+        return;
+      }
+      runActivity.value = (
+        seq: runActivity.value.seq + 1,
+        runId: _jsonMap(data)['runId']?.toString() ?? '',
+      );
+    });
     socket.onConnect((_) {
       socketConnected = true;
       unawaited(_AppNotificationService.requestIncomingCallPermission());
