@@ -80,6 +80,7 @@ async function requestStructuredJson(engine, {
             model: durableRequest.header.model,
             maxTokens: durableRequest.header.maxTokens,
             reasoningEffort: durableRequest.header.reasoningEffort,
+            structured: true,
             signal: modelAbortController.signal,
           }
         ),
