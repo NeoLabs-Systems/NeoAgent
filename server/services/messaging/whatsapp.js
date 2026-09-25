@@ -120,13 +120,9 @@ class WhatsAppPlatform extends BasePlatform {
     return messageTimestampSeconds(msg) >= this._connectedAt;
   }
 
-  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
-    // Self-chat mode only ever reaches this point for notes the account owner
-    // wrote in their own chat, so the allowlist has nothing left to decide.
-    if (this.selfChatMode) return { allowed: true };
-
+  _accessContext(msg, { chatId, isGroup, sender }) {
     const senderId = normalizeWhatsAppId(sender);
-    return this._checkInboundAccess({
+    return {
       platform: 'whatsapp',
       senderId,
       chatId,
@@ -135,10 +131,41 @@ class WhatsAppPlatform extends BasePlatform {
       groupId: isGroup ? chatId : '',
       phoneNumber: senderId,
       wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
-    }, {
-      senderName: pushName || senderId,
+    };
+  }
+
+  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    // Self-chat mode only ever reaches this point for notes the account owner
+    // wrote in their own chat, so the allowlist has nothing left to decide.
+    if (this.selfChatMode) return { allowed: true };
+
+    const context = this._accessContext(msg, { chatId, isGroup, sender });
+    return this._checkInboundAccess(context, {
+      senderName: pushName || context.senderId,
       meta: isGroup ? `Group: ${chatId}` : '',
       groupLabel: chatId,
+    });
+  }
+
+  // A reaction is feedback on an earlier message, not a request: it is recorded
+  // for context and never starts a run. Access is checked quietly, since a
+  // stranger's reaction is no reason to suggest allowlisting them.
+  _emitReaction(msg, { chatId, sender, pushName }) {
+    const reaction = msg.message.reactionMessage;
+    const emoji = String(reaction.text || '').trim();
+    // Empty text means the reaction was removed.
+    if (!emoji || !reaction.key?.id) return;
+    if (!this.selfChatMode && !this.evaluateAccess(this._accessContext(msg, { chatId, isGroup: false, sender })).allowed) {
+      return;
+    }
+    this.emit('reaction', {
+      platform: 'whatsapp',
+      chatId,
+      sender,
+      senderName: pushName,
+      targetMessageId: reaction.key.id,
+      emoji,
+      timestamp: msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000).toISOString() : new Date().toISOString(),
     });
   }
 
@@ -261,6 +288,11 @@ class WhatsAppPlatform extends BasePlatform {
         const sender = isGroup ? msg.key.participant : chatId;
         const pushName = msg.pushName || '';
         const wasMentioned = isGroup && this._isGroupAddressedToBot(msg.message || {});
+
+        if (msg.message?.reactionMessage) {
+          if (!isGroup) this._emitReaction(msg, { chatId, sender, pushName });
+          continue;
+        }
 
         let content = '';
         let mediaType = null;
@@ -473,7 +505,22 @@ class WhatsAppPlatform extends BasePlatform {
 
     const sent = await this.sock.sendMessage(jid, this._outboundPayload(content, options));
     this._rememberSentMessage(sent?.key?.id);
-    return sent;
+    return { success: true, messageId: sent?.key?.id || null };
+  }
+
+  async sendReaction(chatId, messageId, emoji) {
+    if (!this.sock || this.status !== 'connected') {
+      throw new Error('WhatsApp not connected');
+    }
+    const jid = toWhatsAppJid(chatId);
+    if (!jid) throw new Error('Invalid WhatsApp chat');
+    const sent = await this.sock.sendMessage(jid, {
+      react: { text: emoji, key: { remoteJid: jid, id: messageId, fromMe: false } },
+    });
+    // Self-chat echoes our own reaction back; remembering it keeps it from
+    // being read as the user's reaction.
+    this._rememberSentMessage(sent?.key?.id);
+    return { success: true };
   }
 
   async markRead(chatId, messageId) {

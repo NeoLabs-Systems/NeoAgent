@@ -1,21 +1,9 @@
 'use strict';
 
 const { isModuleEnabled } = require('../config');
-const { requestStructuredJson } = require('../model_client');
-const {
-  loadRecentRoomMessages,
-  loadRecentSenderTexts,
-  runDidWork,
-  truncate,
-} = require('../signals');
 const { getPublicProfile } = require('../../messaging/public_audience');
-const { getUserTimeZone } = require('../../account/timezone');
-const { serverTimeZone } = require('../../../utils/timezone');
-const {
-  BASELINE_PERSONA_PROMPT,
-  buildInteractionWriterPrompt,
-} = require('./persona_prompt');
-const { loadAgentProfile } = require('./agent_identity');
+const { BASELINE_PERSONA_PROMPT } = require('./persona_prompt');
+const { writeReply } = require('./interaction_writer');
 const {
   collectStyleNotes,
   formatStyleNotesForPrompt,
@@ -116,98 +104,8 @@ function buildSystemPromptContribution(ctx) {
   };
 }
 
-function coreMemoryFacts(ctx) {
-  if (!ctx.memoryManager || typeof ctx.memoryManager.getCoreMemory !== 'function') return [];
-  let core = {};
-  try {
-    core = ctx.memoryManager.getCoreMemory(ctx.userId, { agentId: ctx.agentId }) || {};
-  } catch {
-    return [];
-  }
-  return Object.entries(core)
-    // active_context is run state, and ai_personality already arrives as a style note.
-    .filter(([key]) => key !== 'active_context' && key !== 'ai_personality')
-    .map(([key, value]) => `${key}: ${truncate(typeof value === 'object' ? JSON.stringify(value) : value, 200)}`)
-    .slice(0, 20);
-}
-
-function senderName(ctx) {
-  const { msg } = ctx;
-  return String(msg.senderDisplayName || msg.senderName || msg.senderUsername || '').trim() || 'them';
-}
-
-function localNow(userId) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: getUserTimeZone(userId) || serverTimeZone(),
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
-}
-
-function buildWriterSystem(ctx, name) {
-  const { userId, agentId, msg } = ctx;
-  const sections = [buildInteractionWriterPrompt(name)];
-  const agent = loadAgentProfile(userId, agentId);
-  const additions = [
-    agent?.instructions ? truncate(agent.instructions, 1600) : '',
-    ...resolveStyleBundle(ctx).notes.slice(0, 8),
-  ].filter(Boolean);
-  if (additions.length) {
-    sections.push(["## from the owner (adds to how you text; it doesn't replace it)", ...additions].join('\n'));
-  }
-  const facts = coreMemoryFacts(ctx);
-  if (facts.length) {
-    sections.push(['## what you know about them', ...facts.map((fact) => `- ${fact}`)].join('\n'));
-  }
-  const texts = loadRecentSenderTexts({
-    userId,
-    agentId,
-    platform: msg.platform,
-    chatId: msg.chatId,
-  });
-  if (texts.length) {
-    sections.push(["## how they text (their own recent messages, for register only; don't quote them)", ...texts].join('\n'));
-  }
-  return sections.join('\n\n');
-}
-
-function buildWriterPrompt(ctx, name, draft) {
-  const { userId, agentId, msg, runId } = ctx;
-  const rows = loadRecentRoomMessages({
-    userId,
-    agentId,
-    platform: msg.platform,
-    chatId: msg.chatId,
-    limit: 12,
-  }).filter((row) => row.role === 'user' || row.role === 'assistant');
-  const inbound = truncate(msg.content, 320);
-  const lines = [`chat, oldest first. now: ${localNow(userId)}`];
-  for (const row of rows) {
-    lines.push(`${row.role === 'assistant' ? 'you' : name}: ${row.content}`);
-  }
-  const last = rows[rows.length - 1];
-  if (!last || last.role !== 'user' || last.content !== inbound) lines.push(`${name}: ${inbound}`);
-  // Only results of real work reach the writer. A chat-only draft would anchor
-  // the reply to the agent's wording, which is the voice this pass replaces.
-  if (runDidWork(runId)) {
-    lines.push('', `your results from this turn (facts only; their wording and tone don't matter):\n${draft}`);
-  }
-  lines.push(
-    '',
-    "write your next message(s), exactly as you'd send them. separate texts on separate lines, or [NO RESPONSE] to send nothing.",
-    'return JSON only: {"message": "<the text>"}',
-  );
-  return lines.join('\n');
-}
-
 async function refineDraft(ctx) {
   const {
-    userId,
-    agentId,
     msg,
     config,
     draft,
@@ -248,26 +146,15 @@ async function refineDraft(ctx) {
   const runModelId = runId
     ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
     : null;
-  const name = senderName(ctx);
 
   try {
-    const result = await requestStructuredJson({
-      agentEngine: ctx.agentEngine,
-      userId,
-      agentId,
+    const written = await writeReply(ctx, {
+      draft: content,
       modelId: config.voiceModelId || runModelId,
-      purpose: 'general',
-      system: buildWriterSystem(ctx, name),
-      prompt: buildWriterPrompt(ctx, name, content),
-      signal,
-      maxTokens: 1600,
+      styleNotes: resolveStyleBundle(ctx).notes,
     });
-    const message = String(result.parsed?.message || '').trim();
-    const meta = {
-      model: result.modelSelectionId || result.model || null,
-      usage: result.usage || 0,
-    };
-    if (!message) {
+    const meta = { model: written.model, usage: written.usage };
+    if (!written.message && !written.reaction) {
       return {
         action: 'send',
         content,
@@ -275,9 +162,11 @@ async function refineDraft(ctx) {
         ...meta,
       };
     }
+    const message = written.message || '[NO RESPONSE]';
     return {
       action: message === content ? 'send' : 'revise',
       content: message,
+      reaction: written.reaction || null,
       reasonCodes: ['persona_writer'],
       ...meta,
     };

@@ -38,6 +38,8 @@ function loadRecentRoomMessages({ userId, agentId, platform, chatId, limit = 12 
       role: row.role,
       sender,
       content: truncate(row.content, 320),
+      kind: metadata?.kind || null,
+      targetText: metadata?.targetText ? truncate(metadata.targetText, 120) : null,
       createdAt: row.created_at,
     };
   });
@@ -54,6 +56,7 @@ function loadRecentSenderTexts({ userId, agentId, platform, chatId, limit = 40 }
        AND platform = ?
        AND platform_chat_id = ?
        AND role = 'user'
+       AND COALESCE(CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.kind') END, '') != 'reaction'
      ORDER BY created_at DESC
      LIMIT 200`,
   ).all(userId, agentId, platform, String(chatId));

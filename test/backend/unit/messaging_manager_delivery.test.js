@@ -580,3 +580,62 @@ test('reconnecting a disconnected WhatsApp session keeps saved auth files', asyn
   assert.equal(fs.readFileSync(credsPath, 'utf8'), '{"noiseKey":true}');
   await manager.shutdown();
 });
+
+test('outgoing messages keep their platform id so a later reaction resolves to its text without starting a run', async () => {
+  const io = { to() { return { emit() {} }; } };
+  const manager = new MessagingManager(io);
+  const agentId = manager._agentId(user.userId, {});
+  manager.platforms.set(manager._key(user.userId, agentId, 'whatsapp'), {
+    async sendMessage() {
+      return { success: true, messageId: 'wa-out-1' };
+    },
+  });
+
+  await manager.sendMessage(user.userId, 'whatsapp', 'chat-1', 'take the smaller one', { agentId, runId: 'run-x' });
+  manager.recordInboundReaction(user.userId, 'whatsapp', {
+    chatId: 'chat-1',
+    sender: 'chat-1',
+    senderName: 'Sam',
+    targetMessageId: 'wa-out-1',
+    emoji: '🔥',
+  }, { agentId });
+
+  const sent = ctx.db.prepare("SELECT platform_msg_id FROM messages WHERE role = 'assistant' AND run_id = 'run-x'").get();
+  assert.equal(sent.platform_msg_id, 'wa-out-1');
+  const reaction = ctx.db.prepare("SELECT content, metadata FROM messages WHERE role = 'user' AND platform_chat_id = 'chat-1'").get();
+  assert.equal(reaction.content, '🔥');
+  assert.equal(JSON.parse(reaction.metadata).targetText, 'take the smaller one');
+  const jobs = ctx.db.prepare('SELECT COUNT(*) AS count FROM messaging_inbound_jobs').get();
+  assert.equal(jobs.count, 0);
+});
+
+test('reactions go through the adapter and are kept as assistant chat context', async () => {
+  const io = { to() { return { emit() {} }; } };
+  const manager = new MessagingManager(io);
+  const agentId = manager._agentId(user.userId, {});
+  const reacted = [];
+  manager.platforms.set(manager._key(user.userId, agentId, 'telegram'), {
+    async sendMessage() {
+      return { success: true };
+    },
+  });
+  manager.platforms.set(manager._key(user.userId, agentId, 'whatsapp'), {
+    async sendMessage() {
+      return { success: true };
+    },
+    async sendReaction(chatId, messageId, emoji) {
+      reacted.push([chatId, messageId, emoji]);
+      return { success: true };
+    },
+  });
+
+  assert.equal(manager.supportsReactions(user.userId, 'telegram', { agentId }), false);
+  assert.equal(manager.supportsReactions(user.userId, 'whatsapp', { agentId }), true);
+  await manager.sendReaction(user.userId, 'whatsapp', 'chat-2', 'in-9', '❤️', { agentId, runId: 'run-r' });
+
+  assert.deepEqual(reacted, [['chat-2', 'in-9', '❤️']]);
+  const row = ctx.db.prepare("SELECT role, content, metadata FROM messages WHERE run_id = 'run-r'").get();
+  assert.equal(row.role, 'assistant');
+  assert.equal(row.content, '❤️');
+  assert.deepEqual(JSON.parse(row.metadata), { kind: 'reaction', targetMessageId: 'in-9' });
+});

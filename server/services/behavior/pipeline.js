@@ -248,6 +248,7 @@ function createBehaviorPipeline(deps = {}) {
         signal,
         agentEngine,
         memoryManager,
+        messagingManager,
         runId,
       });
     const tom = await registry.get('theory_of_mind').refineDraft({
@@ -276,11 +277,28 @@ function createBehaviorPipeline(deps = {}) {
       };
     }
 
+    // A reaction lands before any text, the way people tap one and then reply.
+    let reacted = false;
+    if (persona.reaction && msg.messageId) {
+      try {
+        await messagingManager.sendReaction(userId, msg.platform, msg.chatId, msg.messageId, persona.reaction, {
+          agentId,
+          runId,
+          signal,
+        });
+        reacted = true;
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        logger.warn('reaction delivery failed:', error?.message || error);
+      }
+    }
+
     if (!content || content.toUpperCase() === '[NO RESPONSE]') {
       return {
         ...tom,
         delivered: false,
         suppressed: true,
+        reacted,
         content,
         reasonCodes,
         personaAction: persona.action,
@@ -322,6 +340,7 @@ function createBehaviorPipeline(deps = {}) {
       ...tom,
       delivered: delivery?.success !== false && delivery?.suppressed !== true,
       suppressed: delivery?.suppressed === true,
+      reacted,
       delivery,
       content,
       reasonCodes,

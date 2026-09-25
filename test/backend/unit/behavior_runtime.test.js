@@ -742,6 +742,112 @@ test('owner agent instructions reach the writer as additions to its voice', asyn
   assert.match(calls[0].system, /## from the owner \(adds to how you text; it doesn't replace it\)\nYou are Nova\./);
 });
 
+test('the writer can answer with a reaction alone, sent before any text', async () => {
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured(request) {
+        calls.push(request);
+        return { parsed: { message: '[NO RESPONSE]', reaction: '❤️' } };
+      },
+    },
+  });
+  const msg = directMessage('good night');
+  const reacted = [];
+  let sendCalls = 0;
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Good night! Sleep well.',
+    messagingManager: {
+      supportsReactions: () => true,
+      async sendReaction(_userId, platform, chatId, messageId, emoji) {
+        reacted.push([platform, chatId, messageId, emoji]);
+        return { success: true };
+      },
+      async sendMessage() {
+        sendCalls += 1;
+        return { success: true };
+      },
+    },
+    deliver: true,
+  });
+
+  assert.match(calls[0].system, /react to their last message with one emoji/);
+  assert.match(calls[0].prompt, /"reaction": "<one emoji, or empty>"/);
+  assert.deepEqual(reacted, [['telegram', 'direct-1', msg.messageId, '❤️']]);
+  assert.equal(sendCalls, 0);
+  assert.equal(result.suppressed, true);
+  assert.equal(result.reacted, true);
+});
+
+test('the writer is not offered reactions where the platform cannot send them', async () => {
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured(request) {
+        calls.push(request);
+        return { parsed: { message: 'night', reaction: '❤️' } };
+      },
+    },
+  });
+  const msg = directMessage('good night');
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Good night!',
+    messagingManager: { supportsReactions: () => false },
+  });
+
+  assert.doesNotMatch(calls[0].system, /react to their last message/);
+  assert.doesNotMatch(calls[0].prompt, /"reaction"/);
+  assert.equal(result.content, 'night');
+});
+
+test('the writer sees profile facts, memories related to the message, and reactions in the chat', async () => {
+  const calls = [];
+  const recallQueries = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: writerEngine(calls, 'lol'),
+    memoryManager: {
+      getCoreMemory: () => ({ name: 'Sam', active_context: 'scheduler run log' }),
+      getUserProfile: () => ({ static: ['Works as a junior developer'], dynamic: ['Is shopping for a home server'] }),
+      async recallMemory(_userId, query) {
+        recallQueries.push(query);
+        return [{ content: 'Promised to stop coding past midnight' }];
+      },
+    },
+  });
+  const msg = directMessage('who even pushes code at 2am');
+  storeChat(msg, [['assistant', 'build is green']]);
+  ctx.db.prepare(
+    `INSERT INTO messages (user_id, agent_id, role, content, platform, platform_chat_id, metadata, created_at)
+     VALUES (?, ?, 'user', '😂', ?, ?, ?, datetime('now', '-30 seconds'))`,
+  ).run(user.userId, agentId, msg.platform, msg.chatId, JSON.stringify({ kind: 'reaction', targetText: 'build is green' }));
+
+  await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Committing late at night is common.',
+  });
+
+  assert.deepEqual(recallQueries, ['who even pushes code at 2am']);
+  assert.match(calls[0].system, /- name: Sam/);
+  assert.doesNotMatch(calls[0].system, /scheduler run log/);
+  assert.match(calls[0].system, /- Is shopping for a home server/);
+  assert.match(calls[0].system, /- Promised to stop coding past midnight/);
+  assert.doesNotMatch(calls[0].system, /how they text[^#]*😂/);
+  assert.match(calls[0].prompt, /Participant reacted 😂 to "build is green"/);
+});
+
 test('group replies without theory of mind bypass the direct-chat writer', async () => {
   behavior.setBehaviorConfig(user.userId, agentId, {
     modules: { theory_of_mind: { enabled: false } },

@@ -820,6 +820,15 @@ class MessagingManager extends EventEmitter {
       });
     });
 
+    platform.on('reaction', (reaction) => {
+      if (this.isShuttingDown) return;
+      try {
+        this.recordInboundReaction(userId, platformName, reaction, { agentId });
+      } catch (error) {
+        console.error('[Messaging] Failed to record inbound reaction:', error?.message || error);
+      }
+    });
+
     if (!existingConnection) {
       db.prepare('INSERT INTO platform_connections (user_id, agent_id, platform, config, status) VALUES (?, ?, ?, ?, ?)')
         .run(userId, agentId, platformName, storedConfig, 'connecting');
@@ -924,8 +933,8 @@ class MessagingManager extends EventEmitter {
       throw error;
     }
 
-    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, to, mediaReference, metadata ? JSON.stringify(metadata) : null);
+    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_msg_id, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, result?.messageId || null, to, mediaReference, metadata ? JSON.stringify(metadata) : null);
 
     if (persistConversation) {
       const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
@@ -1185,6 +1194,59 @@ class MessagingManager extends EventEmitter {
       };
     })();
     return this.shutdownPromise;
+  }
+
+  supportsReactions(userId, platformName, options = {}) {
+    const platform = this.platforms.get(this._key(userId, this._agentId(userId, options), platformName));
+    return typeof platform?.sendReaction === 'function';
+  }
+
+  async sendReaction(userId, platformName, chatId, messageId, emoji, options = {}) {
+    this._assertRunning();
+    const agentId = this._agentId(userId, options);
+    const platform = this.platforms.get(this._key(userId, agentId, platformName));
+    if (typeof platform?.sendReaction !== 'function') {
+      throw new Error(`Platform ${platformName} cannot send reactions`);
+    }
+    await this._runOperation(
+      options,
+      `${platformName} reaction`,
+      (signal) => platform.sendReaction(chatId, messageId, emoji, { ...options, signal }),
+      15000,
+    );
+    const metadata = { kind: 'reaction', targetMessageId: String(messageId) };
+    db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, options.runId || null, 'assistant', emoji, platformName, chatId, JSON.stringify(metadata));
+    this.io.to(`user:${userId}`).emit('messaging:sent', {
+      platform: platformName,
+      agentId,
+      to: chatId,
+      content: emoji,
+      runId: options.runId || null,
+      deliveryKind: 'reaction',
+      metadata,
+    });
+    return { success: true };
+  }
+
+  // Reactions are kept as chat context, with the text they point at, and never
+  // start a run: reacting is how people close a thread, not open one.
+  recordInboundReaction(userId, platformName, reaction, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const target = db.prepare(
+      `SELECT content FROM messages
+       WHERE user_id = ? AND agent_id IS ? AND platform = ? AND platform_chat_id = ? AND platform_msg_id = ?
+       ORDER BY id DESC LIMIT 1`,
+    ).get(userId, agentId, platformName, String(reaction.chatId), String(reaction.targetMessageId));
+    const metadata = {
+      kind: 'reaction',
+      sender: reaction.sender,
+      senderName: reaction.senderName || null,
+      targetMessageId: String(reaction.targetMessageId),
+      targetText: target?.content ? String(target.content).slice(0, 200) : null,
+    };
+    db.prepare('INSERT INTO messages (user_id, agent_id, role, content, platform, platform_chat_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, agentId, 'user', reaction.emoji, platformName, String(reaction.chatId), JSON.stringify(metadata), reaction.timestamp || new Date().toISOString());
   }
 
   async markRead(userId, platformName, chatId, messageId, options = {}) {
