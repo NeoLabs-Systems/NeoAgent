@@ -10,13 +10,18 @@ function clamp(text, maxChars) {
   return `${value.slice(0, maxChars)}\n...[trimmed]`;
 }
 
-function buildSystemPromptContribution(ctx) {
-  if (!ctx.agentId || !isModuleEnabled(ctx.config, 'agent_identity')) return '';
-  const agent = db.prepare(
+function loadAgentProfile(userId, agentId) {
+  if (!agentId) return null;
+  return db.prepare(
     `SELECT display_name, slug, description, responsibilities, instructions
      FROM agents
      WHERE user_id = ? AND id = ?`,
-  ).get(ctx.userId, ctx.agentId);
+  ).get(userId, agentId) || null;
+}
+
+function buildSystemPromptContribution(ctx) {
+  if (!ctx.agentId || !isModuleEnabled(ctx.config, 'agent_identity')) return '';
+  const agent = loadAgentProfile(ctx.userId, ctx.agentId);
   if (!agent) return '';
   const active = [
     '## Active Agent',
@@ -24,6 +29,7 @@ function buildSystemPromptContribution(ctx) {
     agent.description ? `Description: ${clamp(agent.description, 600)}` : '',
     agent.responsibilities ? `Responsibilities: ${clamp(agent.responsibilities, 1000)}` : '',
     agent.instructions ? `Agent instructions: ${clamp(agent.instructions, 1600)}` : '',
+    agent.instructions ? 'Tone or personality in these instructions adds to your default voice; it does not replace it.' : '',
   ].filter(Boolean).join('\n');
   const roster = ctx.triggerSource === 'agent_delegation'
     ? ''
@@ -34,4 +40,5 @@ function buildSystemPromptContribution(ctx) {
 module.exports = {
   id: 'agent_identity',
   composeSystemPrompt: buildSystemPromptContribution,
+  loadAgentProfile,
 };

@@ -601,54 +601,179 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
   assert.equal(sendCalls, 1);
 });
 
-test('direct messaging uses the run model for one lightweight interaction-voice pass', async () => {
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      getRunMeta(runId) {
-        assert.equal(runId, 'run-voice');
-        return { modelSelectionId: 'provider::main-model' };
-      },
-      async inferStructured(request) {
-        calls.push(request);
-        return {
-          parsed: {
-            action: 'revise',
-            revisedContent: 'natural final text',
-            reasonCodes: ['removed_assistant_framing'],
-            rationale: 'The draft had a generic service preamble.',
-          },
-          modelSelectionId: request.modelId,
-          usage: 51,
-        };
-      },
+function writerEngine(calls, message, runModel = 'provider::main-model') {
+  return {
+    getRunMeta() {
+      return { modelSelectionId: runModel };
     },
-  });
-  const msg = directMessage('can you make this sound normal');
-  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
+    async inferStructured(request) {
+      calls.push(request);
+      return {
+        parsed: { message },
+        modelSelectionId: request.modelId,
+        usage: 40,
+      };
+    },
+  };
+}
+
+function directConfig(msg) {
+  return behavior.resolveBehaviorConfig(user.userId, agentId, {
     platform: msg.platform,
     chatId: msg.chatId,
     isGroup: false,
   });
+}
+
+function storeChat(msg, rows) {
+  const insert = ctx.db.prepare(
+    `INSERT INTO messages (user_id, agent_id, role, content, platform, platform_chat_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))`,
+  );
+  rows.forEach(([role, content], index) => {
+    insert.run(user.userId, agentId, role, content, msg.platform, msg.chatId, `-${rows.length - index} minutes`);
+  });
+}
+
+test('direct messaging writes the final text from the chat, not from a chat-only draft', async () => {
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: writerEngine(calls, 'haha fair'),
+  });
+  const msg = directMessage('that was a joke btw');
+  storeChat(msg, [
+    ['user', 'working from home tomorrow, zero plans'],
+    ['assistant', 'sounds relaxed'],
+  ]);
 
   const result = await pipeline.refineAndMaybeDeliver({
     userId: user.userId,
     agentId,
     msg,
-    config,
-    draft: 'Here is a polished response. Let me know if you need anything else.',
-    runId: 'run-voice',
+    config: directConfig(msg),
+    draft: 'Understood! Let me know if you need anything else.',
+    runId: 'run-chat',
   });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].modelId, 'provider::main-model');
   assert.equal(calls[0].purpose, 'general');
-  assert.equal(result.content, 'natural final text');
+  assert.match(calls[0].system, /you're texting with Participant/);
+  assert.match(calls[0].system, /working from home tomorrow, zero plans/);
+  assert.match(calls[0].prompt, /you: sounds relaxed/);
+  assert.match(calls[0].prompt, /Participant: that was a joke btw/);
+  assert.doesNotMatch(calls[0].prompt, /Let me know if you need anything else/);
+  assert.equal(result.content, 'haha fair');
   assert.equal(result.personaAction, 'revise');
-  assert.deepEqual(result.reasonCodes, [
-    'removed_assistant_framing',
-    'tom_disabled_or_direct',
-  ]);
+  assert.deepEqual(result.reasonCodes, ['persona_writer', 'tom_disabled_or_direct']);
+});
+
+test('the writer receives the draft as results when the run did real work, on the voice model', async () => {
+  ctx.db.prepare('INSERT INTO agent_runs (id, user_id, agent_id) VALUES (?, ?, ?)').run('run-work', user.userId, agentId);
+  const insertStep = ctx.db.prepare(
+    `INSERT INTO agent_steps (id, run_id, step_index, type, tool_name)
+     VALUES (?, 'run-work', ?, ?, ?)`,
+  );
+  insertStep.run('step-1', 0, 'tool', 'web_search');
+  insertStep.run('step-2', 1, 'messaging', 'send_message');
+  behavior.setBehaviorConfig(user.userId, agentId, { voiceModelId: 'provider::voice-model' });
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: writerEngine(calls, 'last s3 at 00:47, platform 1'),
+  });
+  const msg = directMessage('when is the last train');
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'The last S3 departs at 00:47 from platform 1.',
+    runId: 'run-work',
+  });
+
+  assert.equal(calls[0].modelId, 'provider::voice-model');
+  assert.match(calls[0].prompt, /your results from this turn[^\n]*\nThe last S3 departs at 00:47 from platform 1\./);
+  assert.equal(result.content, 'last s3 at 00:47, platform 1');
+});
+
+test('the writer can end a direct chat without a reply', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: writerEngine([], '[NO RESPONSE]'),
+  });
+  const msg = directMessage('k');
+  let sendCalls = 0;
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Okay! Let me know if there is anything else.',
+    messagingManager: {
+      async sendMessage() {
+        sendCalls += 1;
+        return { success: true };
+      },
+    },
+    deliver: true,
+  });
+
+  assert.equal(result.suppressed, true);
+  assert.equal(sendCalls, 0);
+});
+
+test('owner agent instructions reach the writer as additions to its voice', async () => {
+  ctx.db.prepare('UPDATE agents SET instructions = ? WHERE id = ?').run('You are Nova.', agentId);
+  const calls = [];
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: writerEngine(calls, 'ja bin da'),
+  });
+  const msg = directMessage('hallo?');
+
+  await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Hello! How can I help?',
+  });
+
+  assert.match(calls[0].system, /## from the owner \(adds to how you text; it doesn't replace it\)\nYou are Nova\./);
+});
+
+test('group replies without theory of mind bypass the direct-chat writer', async () => {
+  behavior.setBehaviorConfig(user.userId, agentId, {
+    modules: { theory_of_mind: { enabled: false } },
+  });
+  let inferenceCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        inferenceCalls += 1;
+        return { parsed: { message: 'unused' } };
+      },
+    },
+  });
+  const msg = groupMessage('anyone around');
+  const turnEpoch = pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: behavior.resolveBehaviorConfig(user.userId, agentId, {
+      platform: msg.platform,
+      chatId: msg.chatId,
+      isGroup: true,
+    }),
+    draft: 'here',
+    turnEpoch,
+  });
+
+  assert.equal(inferenceCalls, 0);
+  assert.equal(result.content, 'here');
+  assert.equal(result.reasonCodes[0], 'persona_writer_direct_only');
 });
 
 test('group messaging combines interaction voice and theory of mind in one model call', async () => {

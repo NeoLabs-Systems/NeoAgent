@@ -247,6 +247,7 @@ function createBehaviorPipeline(deps = {}) {
         draft,
         signal,
         agentEngine,
+        memoryManager,
         runId,
       });
     const tom = await registry.get('theory_of_mind').refineDraft({

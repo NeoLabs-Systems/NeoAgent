@@ -216,6 +216,9 @@ class AgentsPanel extends StatelessWidget {
                         maxLines: 8,
                         decoration: const InputDecoration(
                           labelText: 'Instructions',
+                          helperText:
+                              'Optional. The agent already has its own personality. Anything you add about tone is layered on top of it, so you never have to define one.',
+                          helperMaxLines: 3,
                         ),
                       ),
                       const SizedBox(height: 12),

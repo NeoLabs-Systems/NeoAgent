@@ -2,8 +2,20 @@
 
 const { isModuleEnabled } = require('../config');
 const { requestStructuredJson } = require('../model_client');
-const { truncate } = require('../signals');
-const { BASELINE_PERSONA_PROMPT } = require('./persona_prompt');
+const {
+  loadRecentRoomMessages,
+  loadRecentSenderTexts,
+  runDidWork,
+  truncate,
+} = require('../signals');
+const { getPublicProfile } = require('../../messaging/public_audience');
+const { getUserTimeZone } = require('../../account/timezone');
+const { serverTimeZone } = require('../../../utils/timezone');
+const {
+  BASELINE_PERSONA_PROMPT,
+  buildInteractionWriterPrompt,
+} = require('./persona_prompt');
+const { loadAgentProfile } = require('./agent_identity');
 const {
   collectStyleNotes,
   formatStyleNotesForPrompt,
@@ -17,19 +29,6 @@ const INTERACTION_VOICE_RULES = `Mandatory interaction-voice editing rules:
 - Casual lowercase is fine when it fits; never force it.
 - At most a light touch of wit; never on serious topics.
 - In groups: one brief contribution.`;
-
-const INTERACTION_EDITOR_PROMPT = `You are a light voice editor for a personal messaging agent.
-Return JSON with keys:
-action ("send" or "revise"),
-revisedContent (string; empty when action is send),
-reasonCodes (array of short strings),
-rationale (one short sentence).
-
-Make the smallest edit that removes botty habits. Do not rewrite a good draft into your own voice. Do not invent facts.
-
-${INTERACTION_VOICE_RULES}
-
-If the draft is already fine, action "send".`;
 
 function readAiPersonality(ctx) {
   if (!ctx.memoryManager || ctx.userId == null || typeof ctx.memoryManager.getCoreMemory !== 'function') {
@@ -117,6 +116,94 @@ function buildSystemPromptContribution(ctx) {
   };
 }
 
+function coreMemoryFacts(ctx) {
+  if (!ctx.memoryManager || typeof ctx.memoryManager.getCoreMemory !== 'function') return [];
+  let core = {};
+  try {
+    core = ctx.memoryManager.getCoreMemory(ctx.userId, { agentId: ctx.agentId }) || {};
+  } catch {
+    return [];
+  }
+  return Object.entries(core)
+    // active_context is run state, and ai_personality already arrives as a style note.
+    .filter(([key]) => key !== 'active_context' && key !== 'ai_personality')
+    .map(([key, value]) => `${key}: ${truncate(typeof value === 'object' ? JSON.stringify(value) : value, 200)}`)
+    .slice(0, 20);
+}
+
+function senderName(ctx) {
+  const { msg } = ctx;
+  return String(msg.senderDisplayName || msg.senderName || msg.senderUsername || '').trim() || 'them';
+}
+
+function localNow(userId) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: getUserTimeZone(userId) || serverTimeZone(),
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+}
+
+function buildWriterSystem(ctx, name) {
+  const { userId, agentId, msg } = ctx;
+  const sections = [buildInteractionWriterPrompt(name)];
+  const agent = loadAgentProfile(userId, agentId);
+  const additions = [
+    agent?.instructions ? truncate(agent.instructions, 1600) : '',
+    ...resolveStyleBundle(ctx).notes.slice(0, 8),
+  ].filter(Boolean);
+  if (additions.length) {
+    sections.push(["## from the owner (adds to how you text; it doesn't replace it)", ...additions].join('\n'));
+  }
+  const facts = coreMemoryFacts(ctx);
+  if (facts.length) {
+    sections.push(['## what you know about them', ...facts.map((fact) => `- ${fact}`)].join('\n'));
+  }
+  const texts = loadRecentSenderTexts({
+    userId,
+    agentId,
+    platform: msg.platform,
+    chatId: msg.chatId,
+  });
+  if (texts.length) {
+    sections.push(["## how they text (their own recent messages, for register only; don't quote them)", ...texts].join('\n'));
+  }
+  return sections.join('\n\n');
+}
+
+function buildWriterPrompt(ctx, name, draft) {
+  const { userId, agentId, msg, runId } = ctx;
+  const rows = loadRecentRoomMessages({
+    userId,
+    agentId,
+    platform: msg.platform,
+    chatId: msg.chatId,
+    limit: 12,
+  }).filter((row) => row.role === 'user' || row.role === 'assistant');
+  const inbound = truncate(msg.content, 320);
+  const lines = [`chat, oldest first. now: ${localNow(userId)}`];
+  for (const row of rows) {
+    lines.push(`${row.role === 'assistant' ? 'you' : name}: ${row.content}`);
+  }
+  const last = rows[rows.length - 1];
+  if (!last || last.role !== 'user' || last.content !== inbound) lines.push(`${name}: ${inbound}`);
+  // Only results of real work reach the writer. A chat-only draft would anchor
+  // the reply to the agent's wording, which is the voice this pass replaces.
+  if (runDidWork(runId)) {
+    lines.push('', `your results from this turn (facts only; their wording and tone don't matter):\n${draft}`);
+  }
+  lines.push(
+    '',
+    "write your next message(s), exactly as you'd send them. separate texts on separate lines, or [NO RESPONSE] to send nothing.",
+    'return JSON only: {"message": "<the text>"}',
+  );
+  return lines.join('\n');
+}
+
 async function refineDraft(ctx) {
   const {
     userId,
@@ -140,6 +227,16 @@ async function refineDraft(ctx) {
     };
   }
 
+  // The writer voices one-to-one chats. Groups keep the combined room review,
+  // and public surfaces such as GitHub comments are documents, not chat.
+  if (msg.isGroup || getPublicProfile(msg.platform)) {
+    return {
+      action: 'send',
+      content,
+      reasonCodes: ['persona_writer_direct_only'],
+    };
+  }
+
   if (content.length > 2800) {
     return {
       action: 'send',
@@ -151,53 +248,38 @@ async function refineDraft(ctx) {
   const runModelId = runId
     ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
     : null;
-  const bundle = resolveStyleBundle(ctx);
+  const name = senderName(ctx);
 
   try {
     const result = await requestStructuredJson({
       agentEngine: ctx.agentEngine,
       userId,
       agentId,
-      modelId: config.decisionModelId || runModelId,
-      purpose: runModelId ? 'general' : config.decisionModelPurpose,
-      system: INTERACTION_EDITOR_PROMPT,
-      prompt: JSON.stringify({
-        channel: {
-          platform: msg.platform,
-          audience: msg.isGroup ? 'shared' : 'direct',
-        },
-        inbound: truncate(msg.content, 900),
-        draft: content,
-        styleNotes: bundle.notes.slice(0, 8),
-      }),
+      modelId: config.voiceModelId || runModelId,
+      purpose: 'general',
+      system: buildWriterSystem(ctx, name),
+      prompt: buildWriterPrompt(ctx, name, content),
       signal,
-      maxTokens: 1200,
+      maxTokens: 1600,
     });
-    const parsed = result.parsed || {};
-    if (
-      parsed.action === 'revise'
-      && String(parsed.revisedContent || '').trim()
-    ) {
+    const message = String(result.parsed?.message || '').trim();
+    const meta = {
+      model: result.modelSelectionId || result.model || null,
+      usage: result.usage || 0,
+    };
+    if (!message) {
       return {
-        action: 'revise',
-        content: String(parsed.revisedContent).trim(),
-        reasonCodes: Array.isArray(parsed.reasonCodes)
-          ? parsed.reasonCodes
-          : ['persona_revise'],
-        rationale: String(parsed.rationale || '').trim(),
-        model: result.modelSelectionId || result.model || null,
-        usage: result.usage || 0,
+        action: 'send',
+        content,
+        reasonCodes: ['persona_writer_empty'],
+        ...meta,
       };
     }
     return {
-      action: 'send',
-      content,
-      reasonCodes: Array.isArray(parsed.reasonCodes)
-        ? parsed.reasonCodes
-        : ['persona_send'],
-      rationale: String(parsed.rationale || '').trim(),
-      model: result.modelSelectionId || result.model || null,
-      usage: result.usage || 0,
+      action: message === content ? 'send' : 'revise',
+      content: message,
+      reasonCodes: ['persona_writer'],
+      ...meta,
     };
   } catch (error) {
     if (signal?.aborted) throw error;

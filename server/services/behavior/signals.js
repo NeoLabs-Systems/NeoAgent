@@ -43,6 +43,44 @@ function loadRecentRoomMessages({ userId, agentId, platform, chatId, limit = 12 
   });
 }
 
+// The sender's own short chat messages, used as a register reference so the
+// reply mirrors how this person actually texts.
+function loadRecentSenderTexts({ userId, agentId, platform, chatId, limit = 40 }) {
+  const rows = db.prepare(
+    `SELECT content
+     FROM messages
+     WHERE user_id = ?
+       AND agent_id IS ?
+       AND platform = ?
+       AND platform_chat_id = ?
+       AND role = 'user'
+     ORDER BY created_at DESC
+     LIMIT 200`,
+  ).all(userId, agentId, platform, String(chatId));
+  const texts = [];
+  for (const row of rows) {
+    const text = String(row.content || '').trim();
+    if (!text || text.length > 90 || text.includes('\n') || text.startsWith('/') || /https?:\/\//.test(text)) continue;
+    if (texts.includes(text)) continue;
+    texts.push(text);
+    if (texts.length >= limit) break;
+  }
+  return texts.reverse();
+}
+
+// True when the run executed work tools, not just messaging or bookkeeping steps.
+function runDidWork(runId) {
+  if (!runId) return false;
+  const row = db.prepare(
+    `SELECT 1 FROM agent_steps
+     WHERE run_id = ?
+       AND tool_name IS NOT NULL
+       AND type NOT IN ('messaging', 'note', 'thinking')
+     LIMIT 1`,
+  ).get(String(runId));
+  return Boolean(row);
+}
+
 function buildDecisionPacket({
   msg,
   config,
@@ -106,5 +144,7 @@ module.exports = {
   truncate,
   buildChannelScopeId,
   loadRecentRoomMessages,
+  loadRecentSenderTexts,
+  runDidWork,
   buildDecisionPacket,
 };

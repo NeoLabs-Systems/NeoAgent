@@ -199,6 +199,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late double _behaviorMinimumNeedScore;
   late double _behaviorBatchWindowMs;
   late String _behaviorDecisionModelId;
+  late String _behaviorVoiceModelId;
   late String _behaviorDeliveryStyle;
   late bool _behaviorTheoryOfMindEnabled;
   late bool _behaviorSocialMemoryEnabled;
@@ -322,6 +323,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             .toDouble();
     _behaviorDecisionModelId =
         behavior['decisionModelId']?.toString().trim() ?? '';
+    _behaviorVoiceModelId = behavior['voiceModelId']?.toString().trim() ?? '';
     _behaviorDeliveryStyle = behavior['deliveryStyle'] == 'single'
         ? 'single'
         : 'natural_bubbles';
@@ -665,6 +667,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
       'decisionModelId': _behaviorDecisionModelId.isEmpty
           ? null
           : _behaviorDecisionModelId,
+      'voiceModelId': _behaviorVoiceModelId.isEmpty
+          ? null
+          : _behaviorVoiceModelId,
       'deliveryStyle': _behaviorDeliveryStyle,
       'modules': existingModules,
     });
@@ -798,6 +803,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   ) {
     final modelIds = <String>{
       if (_behaviorDecisionModelId.isNotEmpty) _behaviorDecisionModelId,
+      if (_behaviorVoiceModelId.isNotEmpty) _behaviorVoiceModelId,
       ...routingModels.map((model) => model.id),
     }.toList();
     return Card(
@@ -923,6 +929,33 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       if (value == null) return;
                       setState(() {
                         _behaviorDecisionModelId = value;
+                        _hasUnsavedChanges = true;
+                      });
+                    },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _behaviorVoiceModelId,
+              decoration: const InputDecoration(
+                labelText: 'Voice model',
+                helperText:
+                    'Writes the final text in direct chats. A strong model here makes replies sound far more natural; the work itself still runs on the chat model.',
+              ),
+              items: <DropdownMenuItem<String>>[
+                const DropdownMenuItem(
+                  value: '',
+                  child: Text('Same as the chat model'),
+                ),
+                ...modelIds.map(
+                  (id) => DropdownMenuItem(value: id, child: Text(id)),
+                ),
+              ],
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _behaviorVoiceModelId = value;
                         _hasUnsavedChanges = true;
                       });
                     },
