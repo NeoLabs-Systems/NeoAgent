@@ -34,7 +34,8 @@ function buildPlatformFormattingGuide(platform, options = {}) {
     : 'Reply formatting guide:';
   const lines = getPlatformFormattingProfile(platform).markdownDocument
     ? [
-      'Write one comment in GitHub-flavored Markdown; it is posted as a single comment.',
+      'Your reply is one public comment in GitHub-flavored Markdown. Every send_message in this run overwrites that same comment, so only the last message you send stays posted.',
+      'Make that last message the complete answer on its own. Never end with a short follow-up, recap pointer, or sign-off, because it would replace the answer.',
       'Fenced code blocks, lists, and links render. Use them where they help the reader.',
       'Skip greetings and sign-offs; lead with the answer or the change you made.',
     ]
