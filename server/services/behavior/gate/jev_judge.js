@@ -56,14 +56,15 @@ function decisionFromJev(answers) {
   const forSomeoneElse = answers.for_someone_else.noul;
   const reasonCodes = ['jev_gate', speak >= 0.5 ? 'agent_can_help' : 'hold_back'];
   if (forSomeoneElse >= 0.5) reasonCodes.push('meant_for_someone_else');
-  return normalizeDecision({
+  const decision = normalizeDecision({
     decision: speak >= 0.5 ? 'speak' : 'stay_silent',
     needScore: speak * (1 - forSomeoneElse),
     confidence: Math.max(speak, 1 - speak),
     reasonCodes,
     urgency: URGENCY_LEVELS[Math.round(Math.max(0, Math.min(2, answers.urgency.score)))],
-    rationale: `speak ${speak.toFixed(2)}, meant for someone else ${forSomeoneElse.toFixed(2)}`,
   }, { tokenPath: 'jev_gate', model: 'jev' });
+  // Jev gives probabilities, not prose; these are its whole explanation.
+  return { ...decision, jevScores: { speak, forSomeoneElse } };
 }
 
 async function askJev(ctx, packet) {

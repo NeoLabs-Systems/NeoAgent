@@ -155,7 +155,8 @@ class _GroupDecisionsSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final replied = entries.where((entry) => entry.spoke).length;
-    final judged = entries.where((entry) => entry.askedModel).length;
+    final byJev = entries.where((entry) => entry.judgedByJev).length;
+    final byLlm = entries.where((entry) => entry.judgedByLlm).length;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -170,11 +171,18 @@ class _GroupDecisionsSummary extends StatelessWidget {
           label: '${entries.length - replied} stayed quiet',
           color: _textMuted,
         ),
-        _DecisionPill(
-          icon: Icons.psychology_outlined,
-          label: '$judged judged by AI',
-          color: _info,
-        ),
+        if (byJev > 0)
+          _DecisionPill(
+            icon: Icons.bolt_rounded,
+            label: '$byJev scored by JEV',
+            color: _info,
+          ),
+        if (byLlm > 0)
+          _DecisionPill(
+            icon: Icons.psychology_outlined,
+            label: '$byLlm judged by LLM',
+            color: _warning,
+          ),
       ],
     );
   }
@@ -194,8 +202,17 @@ class _GroupDecisionTile extends StatelessWidget {
               ? '${entry.serverName} › ${entry.chatName}'
               : entry.chatName!
         : entry.chatId;
+    // Jev's own verdict codes repeat what its score meters already show.
     final reasons = entry.reasonCodes
-        .where((code) => code != 'jev_gate')
+        .where(
+          (code) =>
+              !entry.judgedByJev ||
+              !const <String>{
+                'jev_gate',
+                'agent_can_help',
+                'hold_back',
+              }.contains(code),
+        )
         .map((code) => _decisionReasonLabel(code, agentName))
         .toSet();
 
@@ -265,32 +282,167 @@ class _GroupDecisionTile extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: <Widget>[
-              entry.askedModel
-                  ? _DecisionPill(
-                      icon: Icons.psychology_outlined,
-                      label:
-                          'AI judged · ${(entry.needScore * 100).round()}% needed',
-                      color: _info,
-                    )
-                  : _DecisionPill(
-                      icon: Icons.rule_rounded,
-                      label: 'Decided by rule',
-                      color: _textSecondary,
-                    ),
+              _DecisionJudgePill(entry: entry),
               ...reasons.map(
                 (label) => _DecisionPill(label: label, color: _textSecondary),
               ),
             ],
           ),
-          if (entry.askedModel && entry.rationale.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 6),
-            Text(
-              entry.rationale,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: _textMuted, fontSize: 12, height: 1.35),
-            ),
+          if (entry.judgedByJev && entry.jevSpeak != null) ...<Widget>[
+            const SizedBox(height: 10),
+            _JevScores(entry: entry, agentName: agentName),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DecisionJudgePill extends StatelessWidget {
+  const _DecisionJudgePill({required this.entry});
+
+  final BehaviorDecisionEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entry.judgedByJev) {
+      return Tooltip(
+        message: 'JEV scored this message directly. No language model ran.',
+        child: _DecisionPill(
+          icon: Icons.bolt_rounded,
+          label: 'JEV',
+          color: _info,
+        ),
+      );
+    }
+    if (entry.judgedByLlm) {
+      return Tooltip(
+        message: 'A language model judged this message because JEV is off.',
+        child: _DecisionPill(
+          icon: Icons.psychology_outlined,
+          label: 'LLM',
+          color: _warning,
+        ),
+      );
+    }
+    return _DecisionPill(
+      icon: Icons.rule_rounded,
+      label: 'Rule',
+      color: _textSecondary,
+    );
+  }
+}
+
+// Jev answers with probabilities, so its explanation is the scores
+// themselves and how the need score compares with the reply threshold.
+class _JevScores extends StatelessWidget {
+  const _JevScores({required this.entry, required this.agentName});
+
+  final BehaviorDecisionEntry entry;
+  final String agentName;
+
+  @override
+  Widget build(BuildContext context) {
+    final threshold = entry.needThreshold;
+    return Wrap(
+      spacing: 16,
+      runSpacing: 10,
+      children: <Widget>[
+        _ScoreMeter(
+          label: 'Wanted a reply from $agentName',
+          value: entry.jevSpeak!,
+        ),
+        if (entry.jevForSomeoneElse != null)
+          _ScoreMeter(
+            label: 'Meant for someone else',
+            value: entry.jevForSomeoneElse!,
+          ),
+        _ScoreMeter(
+          label: threshold == null
+              ? 'Need to reply'
+              : 'Need to reply · ${(threshold * 100).round()}% to speak',
+          value: entry.needScore,
+          marker: threshold,
+          color: entry.spoke ? _success : _textMuted,
+        ),
+      ],
+    );
+  }
+}
+
+class _ScoreMeter extends StatelessWidget {
+  const _ScoreMeter({
+    required this.label,
+    required this.value,
+    this.marker,
+    this.color,
+  });
+
+  final String label;
+  final double value;
+  final double? marker;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = color ?? _info;
+    final clamped = value.clamp(0.0, 1.0);
+    return SizedBox(
+      width: 172,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _textSecondary, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${(clamped * 100).round()}%',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 6,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _bgTertiary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    Container(
+                      width: width * clamped,
+                      decoration: BoxDecoration(
+                        color: fill,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    if (marker != null)
+                      Positioned(
+                        left: (width * marker!.clamp(0.0, 1.0)) - 1,
+                        top: -3,
+                        bottom: -3,
+                        child: Container(width: 2, color: _textPrimary),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

@@ -13,8 +13,7 @@ decision ("speak" or "stay_silent"),
 needScore (0-1 number measuring how worthwhile an agent contribution is now),
 confidence (0-1 number),
 reasonCodes (array of short snake_case strings),
-urgency ("low"|"medium"|"high"),
-rationale (one short sentence).`;
+urgency ("low"|"medium"|"high").`;
 
 const PARSE_FALLBACK = Object.freeze({
   decision: 'stay_silent',
@@ -36,13 +35,12 @@ async function askModel(ctx, packet) {
     prompt: JSON.stringify(packet),
     signal: ctx.signal,
     maxTokens: 220,
-    fallback: { ...PARSE_FALLBACK, rationale: 'The decision could not be parsed.' },
+    fallback: PARSE_FALLBACK,
   });
   const model = result.modelSelectionId || result.model;
   return {
     ...normalizeDecision(result.parsed || {}, {
       ...PARSE_FALLBACK,
-      rationale: 'Could not parse gate response; holding back.',
       tokenPath: 'gate_only',
       model,
     }),

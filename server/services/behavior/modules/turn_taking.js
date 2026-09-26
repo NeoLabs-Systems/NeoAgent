@@ -28,13 +28,17 @@ function applyNeedThreshold(decision, config, secondsSinceSpoke) {
   let needThreshold = Number(config.minimumNeedScore ?? 0.58);
   if (secondsSinceSpoke != null && secondsSinceSpoke < 120) needThreshold = Math.min(needThreshold, 0.45);
   if (decision.tokenPath === 'jev_gate') needThreshold -= JEV_THRESHOLD_OFFSET;
-  if (decision.decision !== 'speak' || Number(decision.needScore || 0) >= needThreshold) return decision;
-  return normalizeDecision({
+  if (decision.decision !== 'speak' || Number(decision.needScore || 0) >= needThreshold) {
+    return { ...decision, needThreshold };
+  }
+  const held = normalizeDecision({
     ...decision,
     decision: 'stay_silent',
     reasonCodes: [...(decision.reasonCodes || []), 'below_need_threshold'],
-    rationale: decision.rationale || 'The contribution value is below the room threshold.',
   }, { tokenPath: decision.tokenPath || 'gate_only', model: decision.model });
+  return decision.jevScores
+    ? { ...held, jevScores: decision.jevScores, needThreshold }
+    : { ...held, needThreshold };
 }
 
 async function shouldEngage(ctx) {

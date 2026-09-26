@@ -1,6 +1,6 @@
 'use strict';
 
-const { requestStructuredJson } = require('../model_client');
+const { requestDecision, requestStructuredJson } = require('../model_client');
 const { isModuleEnabled } = require('../config');
 const { truncate } = require('../signals');
 const { INTERACTION_VOICE_RULES } = require('./persona');
@@ -9,10 +9,44 @@ const BASE_SYSTEM_PROMPT = `You are the final reviewer for an AI draft in a mult
 Return JSON with keys:
 action ("send"|"revise"|"suppress"),
 revisedContent (string, required if action is revise, else empty),
-risk ("low"|"medium"|"high"),
-reasonCodes (array of short strings),
-rationale (one short sentence).
+reasonCodes (array of short strings).
 Prefer minimal edits. Suppress only if the draft is likely harmful, invasive, clearly socially damaging, redundant after the conversation moved on, or no longer worth adding.`;
+
+// Jev clears a draft that can go out untouched, so the reviewer model only
+// runs when something may need changing. The bar is high: in evaluation every
+// draft the model revised or suppressed scored 0.3 or lower.
+const JEV_READY_THRESHOLD = 0.8;
+
+function readyQuestion(voiceRules) {
+  return {
+    ready_as_is: {
+      type: 'noul',
+      instructions: voiceRules
+        ? '`draft` can be posted in the group chat exactly as written, with no edits: it fits `inbound`, follows every rule in `voice_rules`, and is not harmful, invasive, insensitive, or redundant.'
+        : '`draft` can be posted in the group chat exactly as written, with no edits: it fits `inbound` and is not harmful, invasive, insensitive, or redundant.',
+    },
+  };
+}
+
+async function jevClearsDraft(ctx, content, voiceRules) {
+  const { msg } = ctx;
+  const answers = await requestDecision({
+    agentEngine: ctx.agentEngine,
+    userId: ctx.userId,
+    agentId: ctx.agentId,
+    runId: ctx.runId || null,
+    phase: 'jev_draft_review',
+    signal: ctx.signal || null,
+    state: {
+      ...(voiceRules ? { voice_rules: voiceRules } : {}),
+      chat: { platform: msg.platform, group: true },
+      inbound: { sender: msg.senderName || msg.sender, content: truncate(msg.content, 500) },
+      draft: truncate(content, 2800),
+    },
+    questions: readyQuestion(voiceRules),
+  });
+  return Number(answers?.ready_as_is?.noul) >= JEV_READY_THRESHOLD;
+}
 
 async function refineDraft(ctx) {
   const {
@@ -29,7 +63,6 @@ async function refineDraft(ctx) {
     return {
       action: 'send',
       content: draft,
-      risk: 'low',
       reasonCodes: ['tom_disabled_or_direct'],
     };
   }
@@ -39,8 +72,16 @@ async function refineDraft(ctx) {
     return {
       action: 'send',
       content,
-      risk: 'low',
       reasonCodes: ['empty_or_silent'],
+    };
+  }
+
+  const voiceRules = isModuleEnabled(config, 'persona') ? INTERACTION_VOICE_RULES : '';
+  if (await jevClearsDraft(ctx, content, voiceRules)) {
+    return {
+      action: 'send',
+      content,
+      reasonCodes: ['jev_ready_as_is'],
     };
   }
 
@@ -48,16 +89,13 @@ async function refineDraft(ctx) {
     const runModelId = runId
       ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
       : null;
-    const system = isModuleEnabled(config, 'persona')
-      ? `${BASE_SYSTEM_PROMPT}\n\n${INTERACTION_VOICE_RULES}`
-      : BASE_SYSTEM_PROMPT;
     const result = await requestStructuredJson({
       agentEngine: ctx.agentEngine,
       userId,
       agentId,
       modelId: config.decisionModelId || runModelId,
       purpose: runModelId ? 'general' : config.decisionModelPurpose,
-      system,
+      system: voiceRules ? `${BASE_SYSTEM_PROMPT}\n\n${voiceRules}` : BASE_SYSTEM_PROMPT,
       prompt: JSON.stringify({
         room: {
           platform: msg.platform,
@@ -79,33 +117,26 @@ async function refineDraft(ctx) {
       return {
         action,
         content: '[NO RESPONSE]',
-        risk: parsed.risk || 'high',
         reasonCodes: parsed.reasonCodes || ['tom_suppress'],
-        rationale: parsed.rationale || '',
       };
     }
     if (action === 'revise' && String(parsed.revisedContent || '').trim()) {
       return {
         action,
         content: String(parsed.revisedContent).trim(),
-        risk: parsed.risk || 'medium',
         reasonCodes: parsed.reasonCodes || ['tom_revise'],
-        rationale: parsed.rationale || '',
       };
     }
     return {
       action: 'send',
       content,
-      risk: parsed.risk || 'low',
       reasonCodes: parsed.reasonCodes || ['tom_send'],
-      rationale: parsed.rationale || '',
     };
   } catch (error) {
     if (signal?.aborted) throw error;
     return {
       action: 'send',
       content,
-      risk: 'low',
       reasonCodes: ['tom_error_passthrough'],
       failureCode: 'model_unavailable',
     };

@@ -78,7 +78,6 @@ function createBehaviorPipeline(deps = {}) {
       needScore: decision.needScore,
       reasonCodes: decision.reasonCodes || [],
       urgency: decision.urgency,
-      rationale: decision.rationale || '',
       tokenPath: decision.tokenPath || 'gate_only',
       turnEpoch: decision.turnEpoch,
       model: decision.model || null,
@@ -105,21 +104,13 @@ function createBehaviorPipeline(deps = {}) {
       && !msg.repliedToAgent
     ) {
       return skipped(false, {
-        ...ruleDecision(
-          'stay_silent',
-          'untagged_disabled_for_shared_space',
-          'Untagged responses are disabled for this shared space.',
-        ),
+        ...ruleDecision('stay_silent', 'untagged_disabled_for_shared_space'),
         turnEpoch,
       });
     }
     if (config.enabled === false) {
       return skipped(true, {
-        ...ruleDecision(
-          'speak',
-          'behavior_disabled',
-          'Behavior modules are disabled; using the standard response path.',
-        ),
+        ...ruleDecision('speak', 'behavior_disabled'),
         turnEpoch: claimSpeakTurn({ userId, agentId, msg }),
       });
     }
@@ -147,11 +138,7 @@ function createBehaviorPipeline(deps = {}) {
       ? (await registry.run('decide', { ...baseCtx, memoryHints, jevEnabled }))
         .find((item) => item.moduleId === 'turn_taking')?.value
       : {
-        ...ruleDecision(
-          'speak',
-          'turn_taking_disabled',
-          'Turn-taking is disabled; using the standard response path.',
-        ),
+        ...ruleDecision('speak', 'turn_taking_disabled'),
         latencyMs: 0,
         turnEpoch,
       };

@@ -368,12 +368,9 @@ async function executeQueuedMessage({
       decision: behaviorResult?.decision || null,
     });
     const conversationId = ensureConversation(userId, msg);
-    const additionalContext = [
-      ...(Array.isArray(behaviorResult?.promptBlocks) ? behaviorResult.promptBlocks : []),
-      behaviorResult?.decision?.rationale
-        ? `Turn-taking decision: speak (${behaviorResult.decision.rationale})`
-        : '',
-    ].filter(Boolean).join('\n\n');
+    const additionalContext = (Array.isArray(behaviorResult?.promptBlocks) ? behaviorResult.promptBlocks : [])
+      .filter(Boolean)
+      .join('\n\n');
 
     const runOptions = isVoiceLikeMessage(msg)
       ? buildVoiceMessagingRunOptions({

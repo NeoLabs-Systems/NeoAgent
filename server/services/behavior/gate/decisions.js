@@ -3,7 +3,7 @@
 const URGENCY_LEVELS = ['low', 'medium', 'high'];
 
 // A turn settled by a rule, with no model involved.
-function ruleDecision(decision, reasonCode, rationale, { confidence = 1 } = {}) {
+function ruleDecision(decision, reasonCode, { confidence = 1 } = {}) {
   const speak = decision === 'speak';
   return {
     decision,
@@ -11,7 +11,6 @@ function ruleDecision(decision, reasonCode, rationale, { confidence = 1 } = {}) 
     confidence,
     reasonCodes: [reasonCode],
     urgency: speak ? 'medium' : 'low',
-    rationale,
     tokenPath: 'gate_skip',
   };
 }
@@ -25,7 +24,6 @@ function holdBackDecision(failureCode) {
       confidence: 0.7,
       reasonCodes: ['prefer_hold_back', failureCode],
       urgency: 'low',
-      rationale: 'Fallback gate holds back in groups when address is unclear.',
     }, { tokenPath: 'gate_fallback' }),
     failureCode,
   };
@@ -48,7 +46,6 @@ function normalizeDecision(raw, fallback) {
     urgency: URGENCY_LEVELS.includes(String(raw?.urgency || ''))
       ? String(raw.urgency)
       : (fallback.urgency || 'low'),
-    rationale: String(raw?.rationale || fallback.rationale || '').trim().slice(0, 240),
     tokenPath: fallback.tokenPath || 'gate_only',
     model: raw?.model || fallback.model || null,
   };

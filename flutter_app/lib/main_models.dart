@@ -850,7 +850,6 @@ class BehaviorDecisionEntry {
     required this.chatId,
     required this.decision,
     required this.reasonCodes,
-    required this.rationale,
     required this.needScore,
     required this.tokenPath,
     required this.preview,
@@ -860,9 +859,15 @@ class BehaviorDecisionEntry {
     this.serverName,
     this.senderName,
     this.model,
+    this.needThreshold,
+    this.jevSpeak,
+    this.jevForSomeoneElse,
   });
 
   factory BehaviorDecisionEntry.fromJson(Map<String, dynamic> json) {
+    final jevScores = json['jevScores'] is Map
+        ? Map<String, dynamic>.from(json['jevScores'] as Map)
+        : null;
     return BehaviorDecisionEntry(
       at:
           DateTime.tryParse(json['at']?.toString() ?? '')?.toLocal() ??
@@ -880,10 +885,16 @@ class BehaviorDecisionEntry {
                 .map((item) => item.toString())
                 .toList(growable: false)
           : const <String>[],
-      rationale: json['rationale']?.toString() ?? '',
       needScore: (json['needScore'] as num?)?.toDouble() ?? 0,
       tokenPath: json['tokenPath']?.toString() ?? '',
       model: json['model']?.toString(),
+      needThreshold: (json['needThreshold'] as num?)?.toDouble(),
+      jevSpeak: jevScores?['speak'] is num
+          ? (jevScores!['speak'] as num).toDouble()
+          : null,
+      jevForSomeoneElse: jevScores?['forSomeoneElse'] is num
+          ? (jevScores!['forSomeoneElse'] as num).toDouble()
+          : null,
     );
   }
 
@@ -897,15 +908,19 @@ class BehaviorDecisionEntry {
   final bool repliedToAgent;
   final String decision;
   final List<String> reasonCodes;
-  final String rationale;
   final double needScore;
   final String tokenPath;
   final String? model;
+  final double? needThreshold;
+  final double? jevSpeak;
+  final double? jevForSomeoneElse;
 
   bool get spoke => decision == 'speak';
 
-  // The AI gate ran only when no rule settled the turn first.
-  bool get askedModel => tokenPath == 'jev_gate' || tokenPath == 'gate_only';
+  // Jev scores the message itself; no language model runs for these turns.
+  bool get judgedByJev => tokenPath == 'jev_gate';
+
+  bool get judgedByLlm => tokenPath == 'gate_only';
 }
 
 class MessagingAccessRule {

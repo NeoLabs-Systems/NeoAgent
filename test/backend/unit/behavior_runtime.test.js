@@ -111,7 +111,6 @@ test('low need score holds back without full run or memory work', async () => {
             confidence: 0.99,
             reasonCodes: ['could_comment'],
             urgency: 'low',
-            rationale: 'A reply is possible but unnecessary.',
           },
           modelSelectionId: 'fast-model',
           usage: 42,
@@ -166,7 +165,6 @@ test('a zero need threshold is honored without truthy-default coercion', async (
             confidence: 1,
             reasonCodes: ['configured_threshold'],
             urgency: 'low',
-            rationale: 'The configured threshold permits this response.',
           },
         };
       },
@@ -367,7 +365,6 @@ test('a recent follow-up uses a slightly lower need threshold', async () => {
             confidence: 0.8,
             reasonCodes: ['follow_up'],
             urgency: 'medium',
-            rationale: 'The room is waiting on a reply.',
           },
         };
       },
@@ -428,7 +425,6 @@ test('per-group untagged policy is a hard gate before social intelligence', asyn
             confidence: 1,
             reasonCodes: ['worthwhile'],
             urgency: 'medium',
-            rationale: 'The message warrants a response.',
           },
         };
       },
@@ -935,9 +931,7 @@ test('group messaging combines interaction voice and theory of mind in one model
           parsed: {
             action: 'revise',
             revisedContent: 'one useful room reply',
-            risk: 'low',
             reasonCodes: ['kept_group_reply_brief'],
-            rationale: 'The original draft was too long for the room.',
           },
           modelSelectionId: 'provider::review-model',
         };
@@ -1278,6 +1272,10 @@ test('messages meant for someone else stay quiet under Jev', async () => {
 
   assert.equal(result.engage, false);
   assert.ok(result.decision.reasonCodes.includes('below_need_threshold'));
+  // The held-back turn keeps Jev's scores so the settings can explain it.
+  const [logged] = pipeline.listDecisions(user.userId, agentId, 'telegram');
+  assert.deepEqual(logged.jevScores, { speak: 0.59, forSomeoneElse: 0.41 });
+  assert.ok(Math.abs(logged.needThreshold - 0.5) < 1e-9);
 });
 
 test('the model gate still decides when Jev has no answer', async () => {
@@ -1349,3 +1347,55 @@ test('with Jev on, background analysis waits for Jev to say speak', async () => 
     assert.equal(backgroundTasks, 1);
   });
 });
+
+function draftReviewEngine(readyAsIs, onModelCall) {
+  return {
+    async decide({ phase, state, questions }) {
+      assert.equal(phase, 'jev_draft_review');
+      assert.deepEqual(Object.keys(questions), ['ready_as_is']);
+      assert.ok(state.draft);
+      return readyAsIs == null ? null : { ready_as_is: { type: 'noul', noul: readyAsIs } };
+    },
+    async inferStructured() {
+      onModelCall();
+      return { parsed: { action: 'revise', revisedContent: 'tighter reply', reasonCodes: ['trimmed'] } };
+    },
+  };
+}
+
+async function reviewDraft(engine) {
+  const theoryOfMind = require('../../../server/services/behavior/modules/theory_of_mind');
+  const msg = groupMessage('is the api down for anyone else?');
+  return theoryOfMind.refineDraft({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: behavior.resolveBehaviorConfig(user.userId, agentId, {
+      platform: msg.platform,
+      chatId: msg.chatId,
+      isGroup: true,
+    }),
+    draft: 'yeah, 502s since 14:10. looks like the gateway.',
+    agentEngine: engine,
+  });
+}
+
+test('a draft Jev clears as ready goes out without the reviewer model', async () => {
+  let modelCalls = 0;
+  const result = await reviewDraft(draftReviewEngine(0.9, () => { modelCalls += 1; }));
+  assert.equal(modelCalls, 0);
+  assert.equal(result.action, 'send');
+  assert.equal(result.content, 'yeah, 502s since 14:10. looks like the gateway.');
+  assert.deepEqual(result.reasonCodes, ['jev_ready_as_is']);
+});
+
+test('a draft Jev doubts, or Jev being off, still goes to the reviewer model', async () => {
+  for (const readyAsIs of [0.6, null]) {
+    let modelCalls = 0;
+    const result = await reviewDraft(draftReviewEngine(readyAsIs, () => { modelCalls += 1; }));
+    assert.equal(modelCalls, 1);
+    assert.equal(result.action, 'revise');
+    assert.equal(result.content, 'tighter reply');
+  }
+});
+
