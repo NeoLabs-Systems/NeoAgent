@@ -129788,7 +129788,7 @@ p=q?B.c:B.b
 o=A.a0(16)
 n=A.aE((q?B.c:B.b).as,1)
 m=A.aa(B.ed,(q?B.c:B.b).w,f,f,f)
-l=A.m("Join group conversations",f,f,f,f,f,A.u(f,f,f,f,f,f,f,f,f,f,f,f,f,f,B.w,f,f,!0,f,f,f,f,f,f,f,f),f,f,f)
+l=A.m("Social intelligence",f,f,f,f,f,A.u(f,f,f,f,f,f,f,f,f,f,f,f,f,f,B.w,f,f,!0,f,f,f,f,f,f,f,f),f,f,f)
 q=g.e
 if(q){k=g.d
 j=g.f?k+" still only hears people and groups you already approved. This just lets "+k+" join ordinary chat there, not only tags and replies.":k+" still only hears people and groups you already approved. This just chooses which of those groups it should join."
@@ -129901,7 +129901,7 @@ h=A.a0(12)
 $.c.toString
 l=q.d.d===B.e
 i=A.ae(a6,A.aa(B.ed,(l?B.c:B.b).w,a6,a6,a6),B.l,a6,a6,new A.a3(i,a6,a6,h,a6,a6,B.q),a6,40,a6,a6,a6,a6,a6,40)
-h=A.m("Join group conversations",a6,a6,a6,a6,a6,A.u(a6,a6,(l?B.c:B.b).e,a6,a6,a6,a6,a6,a6,a6,a6,17,a6,a6,B.ar,a6,a6,!0,a6,a6,a6,a6,a6,a6,a6,a6),a6,a6,a6)
+h=A.m("Social intelligence",a6,a6,a6,a6,a6,A.u(a6,a6,(l?B.c:B.b).e,a6,a6,a6,a6,a6,a6,a6,a6,17,a6,a6,B.ar,a6,a6,!0,a6,a6,a6,a6,a6,a6,a6,a6),a6,a6,a6)
 if(b0===0){l=a5.a
 g=l.e
 l=l.d
@@ -146103,7 +146103,7 @@ if(r){r=s.d
 r===$&&A.b()
 p.push(A.jT(q,A.i7(!1,new A.S(B.x6,A.cC(new A.co(B.od,new A.ab9(r,q),q),q,q),q),!1,B.J,!0),q,q,0,0,0,q))}if(!s.ax){r=s.e
 r===$&&A.b()
-r=B.d.q("muijns9l-b8bf8e3").length!==0&&r.b}else r=!1
+r=B.d.q("muiko40u-170cb92").length!==0&&r.b}else r=!1
 if(r){r=s.d
 r===$&&A.b()
 r=r.S&&!r.O?84:0
@@ -153338,7 +153338,7 @@ $S:11}
 A.a2l.prototype={}
 A.W8.prototype={
 qu(a){var s=this
-if(B.d.q("muijns9l-b8bf8e3").length===0||s.a!=null)return
+if(B.d.q("muiko40u-170cb92").length===0||s.a!=null)return
 s.Bh()
 s.a=A.fR(B.VX,new A.bqh(s))},
 Bh(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f
@@ -153356,7 +153356,7 @@ if(!t.f.b(k)){s=1
 break}i=J.N(k,"buildId")
 h=i==null?null:B.d.q(J.n(i))
 j=h==null?"":h
-if(J.bc(j)===0||J.f(j,"muijns9l-b8bf8e3")){s=1
+if(J.bc(j)===0||J.f(j,"muiko40u-170cb92")){s=1
 break}n.b=!0
 n.E()
 p=2
@@ -153373,7 +153373,7 @@ case 2:return A.h(o.at(-1),r)}})
 return A.j($async$Bh,r)},
 w_(){var s=0,r=A.k(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
 var $async$w_=A.l(function(a2,a3){if(a2===1){o.push(a3)
-s=p}while(true)switch(s){case 0:if(B.d.q("muijns9l-b8bf8e3").length===0||n.c){s=1
+s=p}while(true)switch(s){case 0:if(B.d.q("muiko40u-170cb92").length===0||n.c){s=1
 break}n.c=!0
 n.E()
 p=4
