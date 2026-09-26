@@ -34,12 +34,13 @@ function normalizeUsage(usage) {
 const thinkingModels = new Set();
 // Gemini 2.x only takes a token budget (these are Google's own effort
 // mappings); later models take a level. MINIMAL is left out because Pro
-// models reject it.
+// models reject it. Gemma models served by the same API think but reject both
+// settings, so only Gemini models get one.
 const THINKING_BUDGETS = { low: 1024, medium: 8192, high: 24576 };
 
 function thinkingConfigFor(model, requested) {
   const effort = String(requested || '').trim().toLowerCase();
-  if (!thinkingModels.has(model) || !THINKING_BUDGETS[effort]) return null;
+  if (!/^gemini-/.test(model) || !thinkingModels.has(model) || !THINKING_BUDGETS[effort]) return null;
   return /^gemini-2\./.test(model)
     ? { thinkingBudget: THINKING_BUDGETS[effort] }
     : { thinkingLevel: effort.toUpperCase() };

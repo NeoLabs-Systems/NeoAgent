@@ -10,10 +10,12 @@ const LIVE_PATH = '/ws/google.ai.generativelanguage.v1beta.GenerativeService.Bid
 const OPEN_TIMEOUT_MS = 15000;
 const RUN_TASK = 'run_task';
 
+// run_task returns at once with the task's real state. Gemini fills the silence
+// of a pending (non-blocking) call by inventing an outcome, so the call never
+// stays open: the outcome arrives later as a separate message.
 const RUN_TASK_DECLARATION = Object.freeze({
   name: RUN_TASK,
-  description: 'Hand a request to the NeoAgent task runtime, which does the work with the owner\'s tools, integrations, memory, and approvals. Runs in the background; the result arrives later as this call\'s response.',
-  behavior: 'NON_BLOCKING',
+  description: 'Start a request in the NeoAgent task runtime, which does the work with the owner\'s tools, integrations, memory, and approvals. Returns at once while the task keeps running in the background; its outcome, success or failure, arrives later as a separate message.',
   parameters: {
     type: 'OBJECT',
     properties: {
@@ -25,6 +27,7 @@ const RUN_TASK_DECLARATION = Object.freeze({
     required: ['request'],
   },
 });
+const TASK_STARTED = 'The task is now running in the background. Nothing is done yet: tell the owner you are on it, not that it is done. Its outcome will arrive as a separate message.';
 
 function liveSocketUrl(baseUrl, apiKey) {
   const origin = new URL(baseUrl || DEFAULT_ORIGIN).origin.replace(/^http/i, 'ws');
@@ -49,7 +52,7 @@ class GeminiLiveAdapter {
     this.ws = null;
     this.closing = false;
     this.resumeHandle = null;
-    this.openCalls = new Set();
+    this.requests = new Map();
   }
 
   async connect({ instructions, history, resumeHandle = null }) {
@@ -122,19 +125,19 @@ class GeminiLiveAdapter {
     this.#clientText(`Context update (do not read aloud unless it becomes relevant):\n${text}`, false);
   }
 
-  acknowledgeTask(handle, text) {
-    this.#respond(handle, text, 'SILENT');
+  acknowledgeTask(_handle, text) {
+    this.note(text);
   }
 
-  taskProgress(_handle, text, { speak = false } = {}) {
-    if (speak) this.say(text);
-    else this.note(text);
+  taskProgress(handle, text, { speak = false } = {}) {
+    const labelled = this.#forTask(handle, text);
+    if (speak) this.say(labelled);
+    else this.note(labelled);
   }
 
-  // A call the model cancelled, or one opened on an earlier connection, can no
-  // longer take a function response; its result is spoken as a new turn.
   completeTask(handle, text) {
-    if (!this.#respond(handle, text, 'WHEN_IDLE')) this.say(text);
+    this.say(this.#forTask(handle, `The task finished. Its outcome:\n${text}`));
+    this.requests.delete(handle);
   }
 
   async close() {
@@ -145,17 +148,9 @@ class GeminiLiveAdapter {
     }
   }
 
-  #respond(handle, text, scheduling) {
-    if (!this.openCalls.delete(handle)) return false;
-    return this.#send({
-      toolResponse: {
-        functionResponses: [{
-          id: handle,
-          name: RUN_TASK,
-          response: { result: String(text || ''), scheduling },
-        }],
-      },
-    });
+  #forTask(handle, text) {
+    const request = this.requests.get(handle);
+    return request ? `Task "${request}": ${text}` : text;
   }
 
   #clientText(text, turnComplete) {
@@ -194,11 +189,14 @@ class GeminiLiveAdapter {
     }
     for (const call of message.toolCall?.functionCalls || []) {
       if (call.name !== RUN_TASK || !call.id) continue;
-      this.openCalls.add(call.id);
-      this.handlers.onDelegation({ handle: call.id, request: String(call.args?.request || '') });
-    }
-    for (const id of message.toolCallCancellation?.ids || []) {
-      this.openCalls.delete(id);
+      const request = String(call.args?.request || '');
+      this.requests.set(call.id, request);
+      this.#send({
+        toolResponse: {
+          functionResponses: [{ id: call.id, name: RUN_TASK, response: { result: TASK_STARTED } }],
+        },
+      });
+      this.handlers.onDelegation({ handle: call.id, request });
     }
     if (message.goAway) {
       this.#handleClose('go_away');

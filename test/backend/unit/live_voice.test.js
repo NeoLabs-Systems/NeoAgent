@@ -310,7 +310,7 @@ test('a hand-off during a running task steers that run instead of starting anoth
   assert.equal(reply.agent_run_id, engine.runs[0].options.runId);
 });
 
-test('Gemini Live session: run_task tool, non-blocking result, interruption, and resumption', async (t) => {
+test('Gemini Live session: run_task returns at once, outcome as a message, interruption, and resumption', async (t) => {
   const ctx = createTestRuntime();
   const fake = await startFakeLiveServer();
   t.after(async () => {
@@ -359,7 +359,6 @@ test('Gemini Live session: run_task tool, non-blocking result, interruption, and
   );
   const declaration = setupMessage.setup.tools[0].functionDeclarations[0];
   assert.equal(declaration.name, 'run_task');
-  assert.equal(declaration.behavior, 'NON_BLOCKING');
   assert.match(setupMessage.setup.systemInstruction.parts[0].text, /SYSTEM PROMPT role=front/);
   fake.send({ setupComplete: {} });
   await connecting;
@@ -374,12 +373,14 @@ test('Gemini Live session: run_task tool, non-blocking result, interruption, and
 
   fake.send({ serverContent: { inputTranscription: { text: 'Wie warm ist es?' } } });
   fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request: 'Aktuelle Temperatur in Berlin' } }] } });
+  // The call returns at once with the task's real state, so the model never
+  // has an open call to invent an outcome for.
   const response = await fake.next((event) => event.toolResponse);
-  assert.deepEqual(response.toolResponse.functionResponses[0], {
-    id: 'call-1',
-    name: 'run_task',
-    response: { result: 'Es sind 21 Grad.', scheduling: 'WHEN_IDLE' },
-  });
+  const started = response.toolResponse.functionResponses[0];
+  assert.equal(started.id, 'call-1');
+  assert.match(started.response.result, /Nothing is done yet/);
+  const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(outcome.clientContent.turns[0].parts[0].text, /Task "Aktuelle Temperatur in Berlin": The task finished\. Its outcome:\nEs sind 21 Grad\./);
   assert.equal(engine.runs[0].request, 'Aktuelle Temperatur in Berlin');
 
   fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAE=' } }] } } });
