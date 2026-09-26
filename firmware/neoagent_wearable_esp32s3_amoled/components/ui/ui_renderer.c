@@ -3,45 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static void append_text(char *destination, size_t destination_size, const char *text) {
-    if (destination == NULL || destination_size == 0 || text == NULL) {
-        return;
-    }
-    size_t used = strlen(destination);
-    if (used >= destination_size - 1) {
-        return;
-    }
-    size_t available = destination_size - used - 1;
-    size_t text_length = strlen(text);
-    size_t to_copy = text_length < available ? text_length : available;
-    if (to_copy == 0) {
-        return;
-    }
-    memcpy(destination + used, text, to_copy);
-    destination[used + to_copy] = '\0';
-}
-
-static void append_row_detail(char *destination, size_t destination_size, const neoagent_widget_row_t *row) {
-    if (destination == NULL || destination_size == 0 || row == NULL) {
-        return;
-    }
-    if (row->label[0] == '\0' && row->value[0] == '\0') {
-        return;
-    }
-    char line[160];
-    if (row->label[0] != '\0' && row->value[0] != '\0') {
-        snprintf(line, sizeof(line), "%s: %s", row->label, row->value);
-    } else if (row->value[0] != '\0') {
-        snprintf(line, sizeof(line), "%s", row->value);
-    } else {
-        snprintf(line, sizeof(line), "%s", row->label);
-    }
-    if (destination[0] != '\0') {
-        append_text(destination, destination_size, "\n");
-    }
-    append_text(destination, destination_size, line);
-}
-
 esp_err_t ui_renderer_init(ui_renderer_t *renderer, board_support_t *board) {
     if (renderer == NULL || board == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -51,14 +12,6 @@ esp_err_t ui_renderer_init(ui_renderer_t *renderer, board_support_t *board) {
     return ESP_OK;
 }
 
-esp_err_t ui_renderer_show_status_card(ui_renderer_t *renderer, neoagent_screen_id_t screen_id, const char *title, const char *line1, const char *line2) {
-    if (renderer == NULL || renderer->board == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    renderer->visible_screen = screen_id;
-    return board_support_show_message(renderer->board, title != NULL ? title : "NeoAgent", line1 != NULL ? line1 : "", line2 != NULL ? line2 : "");
-}
-
 esp_err_t ui_renderer_set_screen(ui_renderer_t *renderer, neoagent_screen_id_t screen_id) {
     if (renderer == NULL || renderer->board == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -66,86 +19,32 @@ esp_err_t ui_renderer_set_screen(ui_renderer_t *renderer, neoagent_screen_id_t s
     renderer->visible_screen = screen_id;
     switch (screen_id) {
         case NEOAGENT_SCREEN_PROVISIONING:
-            return board_support_show_message(renderer->board, "NeoAgent Setup", "Preparing the setup hotspot...", "Your phone should open the setup page automatically.");
+            return board_support_show_message(renderer->board, MASCOT_MOOD_THINKING, "NeoAgent Setup", "Preparing the setup hotspot...", "Your phone should open the setup page automatically.");
         case NEOAGENT_SCREEN_PAIRING:
-            return board_support_show_message(renderer->board, "Ready To Pair", "Setup is saved.", "Next step is QR approval from an existing NeoAgent session.");
-        case NEOAGENT_SCREEN_ASSISTANT:
-            return board_support_show_message(renderer->board, "NeoAgent Ready", "Pairing completed.", "Loading assistant home...");
-        case NEOAGENT_SCREEN_SETTINGS:
-            return board_support_show_settings(renderer->board, "Settings", "Preparing controls", "Loading device settings.", NULL, false);
-        case NEOAGENT_SCREEN_WIDGETS:
-            return board_support_show_message(renderer->board, "Widgets", "Loading live widgets...", "");
+            return board_support_show_message(renderer->board, MASCOT_MOOD_IDLE, "Ready To Pair", "Setup is saved.", "Next step is QR approval from an existing NeoAgent session.");
         default:
-            return board_support_show_message(renderer->board, "NeoAgent", "Loading...", "");
+            return board_support_show_message(renderer->board, MASCOT_MOOD_THINKING, "NeoAgent", "Loading...", "");
     }
 }
-
-esp_err_t ui_renderer_show_assistant_home(
-    ui_renderer_t *renderer,
-    const char *status,
-    const char *hint,
-    bool mic_active,
-    board_assistant_state_t state
-) {
-    if (renderer == NULL || renderer->board == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    renderer->visible_screen = NEOAGENT_SCREEN_ASSISTANT;
-    return board_support_show_assistant(renderer->board, status, hint, mic_active, state);
-}
-
-esp_err_t ui_renderer_show_widget(ui_renderer_t *renderer, const neoagent_widget_snapshot_t *snapshot, size_t index, size_t total) {
-    if (renderer == NULL || renderer->board == NULL || snapshot == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    char detail[192];
-    char footer[96];
-    const bool metric_from_subtitle = snapshot->metric[0] == '\0' && snapshot->subtitle[0] != '\0';
-    const char *metric = snapshot->metric[0] != '\0' ? snapshot->metric : snapshot->subtitle;
-    renderer->visible_screen = NEOAGENT_SCREEN_WIDGETS;
-
-    detail[0] = '\0';
-    footer[0] = '\0';
-    if (snapshot->body[0] != '\0') {
-        append_text(detail, sizeof(detail), snapshot->body);
-    } else if (snapshot->row_count > 0) {
-        for (size_t row_index = 0; row_index < snapshot->row_count; ++row_index) {
-            append_row_detail(detail, sizeof(detail), &snapshot->rows[row_index]);
-        }
-    } else if (snapshot->metric_label[0] != '\0') {
-        append_text(detail, sizeof(detail), snapshot->metric_label);
-    }
-
-    if (detail[0] == '\0' && (metric == NULL || metric[0] == '\0')) {
-        append_text(detail, sizeof(detail), "No live data yet");
-    }
-
-    if (metric_from_subtitle && snapshot->metric_label[0] != '\0') {
-        append_text(footer, sizeof(footer), snapshot->metric_label);
-    } else if (!metric_from_subtitle && snapshot->subtitle[0] != '\0') {
-        append_text(footer, sizeof(footer), snapshot->subtitle);
-    } else if (snapshot->metric[0] != '\0' && snapshot->metric_label[0] != '\0') {
-        append_text(footer, sizeof(footer), snapshot->metric_label);
-    }
-
-    return board_support_show_widget_card(renderer->board, snapshot->title, metric, detail, footer[0] != '\0' ? footer : NULL, index, total);
-}
-
 
 esp_err_t ui_renderer_show_provisioning(ui_renderer_t *renderer, const char *ssid, const char *password) {
     if (renderer == NULL || renderer->board == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     char line1[160];
-    char line2[200];
     if (password != NULL && password[0] != '\0') {
         snprintf(line1, sizeof(line1), "Join %s\nPassword %s", ssid != NULL ? ssid : "NeoAgent Setup", password);
     } else {
         snprintf(line1, sizeof(line1), "Join %s\nNo password needed", ssid != NULL ? ssid : "NeoAgent Setup");
     }
-    snprintf(line2, sizeof(line2), "If the page does not open, visit http://192.168.4.1\nThen enter your Wi-Fi and NeoAgent server.");
-    return ui_renderer_show_status_card(renderer, NEOAGENT_SCREEN_PROVISIONING, "NeoAgent Setup", line1, line2);
+    renderer->visible_screen = NEOAGENT_SCREEN_PROVISIONING;
+    return board_support_show_message(
+        renderer->board,
+        MASCOT_MOOD_WAITING,
+        "NeoAgent Setup",
+        line1,
+        "If the page does not open, visit http://192.168.4.1\nThen enter your Wi-Fi and NeoAgent server."
+    );
 }
 
 esp_err_t ui_renderer_show_pairing_qr(ui_renderer_t *renderer, const char *qr_payload) {
@@ -161,10 +60,18 @@ esp_err_t ui_renderer_show_pairing_qr(ui_renderer_t *renderer, const char *qr_pa
     );
 }
 
-esp_err_t ui_renderer_show_settings(ui_renderer_t *renderer, const char *section_title, const char *headline, const char *body, const char *selected_value, bool show_reset) {
+esp_err_t ui_renderer_show_call(ui_renderer_t *renderer, const board_call_view_t *view) {
+    if (renderer == NULL || renderer->board == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    renderer->visible_screen = NEOAGENT_SCREEN_ASSISTANT;
+    return board_support_show_call(renderer->board, view);
+}
+
+esp_err_t ui_renderer_show_settings(ui_renderer_t *renderer, const board_settings_view_t *view) {
     if (renderer == NULL || renderer->board == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     renderer->visible_screen = NEOAGENT_SCREEN_SETTINGS;
-    return board_support_show_settings(renderer->board, section_title, headline, body, selected_value, show_reset);
+    return board_support_show_settings(renderer->board, view);
 }

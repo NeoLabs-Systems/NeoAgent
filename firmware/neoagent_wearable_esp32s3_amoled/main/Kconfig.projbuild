@@ -13,8 +13,10 @@ menu "NeoAgent Wearable Configuration"
         default 30
         help
             Turn off the AMOLED after this period without touch or button input.
-            Voice capture and playback keep the display awake. Networking remains
-            connected so the wearable wakes without a full reboot.
+            A reply playing, a push-to-talk hold or a call being placed keeps the
+            display awake; an open hands-free call keeps running with the display
+            off. Networking remains connected so the wearable wakes without a
+            full reboot.
 
     config NEOAGENT_AUTO_OTA
         bool "Automatically install firmware releases"

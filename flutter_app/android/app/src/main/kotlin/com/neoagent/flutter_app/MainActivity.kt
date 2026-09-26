@@ -507,7 +507,7 @@ class MainActivity : FlutterFragmentActivity() {
             },
         )
 
-        HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
+        HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, this)
 
         captureLaunchIntent(intent)
     }

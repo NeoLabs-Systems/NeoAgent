@@ -8,11 +8,11 @@ const { INTENT_DICTATION } = require('./voice_note');
 const VOICE_REASONING_EFFORT = 'low';
 const VOICE_LATENCY_PROFILE = 'voice';
 
-// Live voice calls and dictated voice notes run as spoken turns. An audio clip
-// shared as context is a normal message with media attached.
+// Dictated voice notes run as spoken turns. An audio clip shared as context is
+// a normal message with media attached. Live calls never come through here:
+// they run on the live voice model (services/voice/live/).
 function isVoiceLikeMessage(msg = {}) {
   const mediaType = String(msg.mediaType || '').trim().toLowerCase();
-  if (mediaType === 'voice') return true;
   return mediaType === 'audio' && msg.voiceNote?.intent === INTENT_DICTATION;
 }
 
@@ -20,35 +20,8 @@ function buildVoiceMessagingPrompt(msg = {}) {
   const senderIdentity = buildSenderIdentityBlock(msg);
   const formattingGuide = buildPlatformFormattingGuide(msg.platform);
   const transcript = String(msg.content || '').trim();
-  const isLiveVoiceCall = String(msg.mediaType || '').trim().toLowerCase() === 'voice';
   const channel = String(msg.platform || 'voice').trim();
-  const mediaNote = msg.localMediaPath
-    ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}).`
-    : '';
   const sttError = msg.voiceNote?.sttError;
-
-  if (isLiveVoiceCall) {
-    return [
-      'You are on a live voice call. Every second of silence is a bad experience.',
-      senderIdentity,
-      '',
-      'The caller said:',
-      '<caller_speech>',
-      transcript,
-      '</caller_speech>',
-      '',
-      SENDER_IDENTITY_NOTE,
-      mediaNote,
-      '',
-      formattingGuide,
-      '',
-      'Send send_interim_update immediately with a brief spoken acknowledgment — do not leave silence while working.',
-      'Keep interim updates to one spoken sentence: no bullet points, markdown, or lists.',
-      'If the task takes time, give one short update then work, do not narrate every step.',
-      `Finish with send_message platform="${msg.platform}" to="${msg.chatId}".`,
-      'Final reply must be natural spoken language with direct address and short sentences.',
-    ].join('\n');
-  }
 
   if (sttError) {
     return [

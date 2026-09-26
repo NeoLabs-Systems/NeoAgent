@@ -28,57 +28,40 @@
 static const char *TAG = "NeoAgentWearable";
 
 #define NEOAGENT_RUNTIME_TASK_STACK_SIZE 24576
-#define NEOAGENT_TOUCH_SCREEN_WIDTH 448
-#define NEOAGENT_TOUCH_SCREEN_HEIGHT 368
 #define NEOAGENT_CHROME_REFRESH_INTERVAL_MS 5000
-#define NEOAGENT_ASSISTANT_RENDER_MIN_INTERVAL_MS 250
 #define NEOAGENT_TOUCH_ACTION_COOLDOWN_MS 300
-#define NEOAGENT_PTT_HOLD_THRESHOLD_MS 280
 #define NEOAGENT_SLEEP_BOOT_GPIO GPIO_NUM_0
 #define NEOAGENT_SLEEP_POWER_GPIO GPIO_NUM_17
 #define NEOAGENT_SLEEP_WAKE_GPIO_MASK ((1ULL << NEOAGENT_SLEEP_BOOT_GPIO) | (1ULL << NEOAGENT_SLEEP_POWER_GPIO))
 #define NEOAGENT_SLEEP_WAKE_RELEASE_TIMEOUT_MS 3000
 #define NEOAGENT_SLEEP_WAKE_RELEASE_STABLE_MS 180
-#define NEOAGENT_NAV_WIDTH 64
-#define NEOAGENT_NAV_ASSISTANT_MAX_Y (NEOAGENT_TOUCH_SCREEN_HEIGHT / 2)
-#define NEOAGENT_ASSISTANT_ORB_CENTER_X 256
-#define NEOAGENT_ASSISTANT_ORB_CENTER_Y 164
-#define NEOAGENT_ASSISTANT_ORB_RADIUS 78
-#define NEOAGENT_SETTINGS_NETWORK_TOP_Y 64
-#define NEOAGENT_SETTINGS_NETWORK_BOTTOM_Y 118
-#define NEOAGENT_SETTINGS_UPDATE_TOP_Y 126
-#define NEOAGENT_SETTINGS_UPDATE_BOTTOM_Y 180
-#define NEOAGENT_SETTINGS_ABOUT_TOP_Y 188
-#define NEOAGENT_SETTINGS_ABOUT_BOTTOM_Y 244
-#define NEOAGENT_SETTINGS_UPDATE_STABLE_TOP_Y 70
-#define NEOAGENT_SETTINGS_UPDATE_STABLE_BOTTOM_Y 126
-#define NEOAGENT_SETTINGS_UPDATE_BETA_TOP_Y 124
-#define NEOAGENT_SETTINGS_UPDATE_BETA_BOTTOM_Y 180
-#define NEOAGENT_SETTINGS_UPDATE_ACTION_TOP_Y 188
-#define NEOAGENT_SETTINGS_UPDATE_ACTION_BOTTOM_Y 236
-#define NEOAGENT_SETTINGS_SETUP_ACTION_TOP_Y 236
-#define NEOAGENT_SETTINGS_SETUP_ACTION_BOTTOM_Y 286
-#define NEOAGENT_SETTINGS_BACK_TOP_Y 314
-#define NEOAGENT_SETTINGS_BACK_BOTTOM_Y 360
-#define NEOAGENT_SETTINGS_RESET_TOP_Y 220
-#define NEOAGENT_SETTINGS_RESET_BOTTOM_Y 292
-
 typedef enum {
-    SHELL_TAB_ASSISTANT = 0,
+    SHELL_TAB_CALL = 0,
     SHELL_TAB_SETTINGS = 1,
 } shell_tab_t;
 
-typedef enum {
-    SETTINGS_VIEW_ROOT = 0,
-    SETTINGS_VIEW_NETWORK = 1,
-    SETTINGS_VIEW_UPDATE = 2,
-    SETTINGS_VIEW_ABOUT = 3,
-} settings_view_t;
+// The last hand-off result or failed call, for the mascot's done/blocked face.
+typedef struct {
+    uint32_t id;
+    bool ok;
+    uint32_t task_outcome_seq;
+    uint32_t error_seq;
+} call_moment_t;
+
+// Everything the shell shows, redrawn only when something in it changed.
+typedef struct {
+    shell_tab_t tab;
+    board_settings_page_t page;
+    board_call_view_t call;
+    char status[48];
+    char caption[NEOAGENT_VOICE_TEXT_MAX];
+    char task[NEOAGENT_VOICE_TEXT_MAX];
+} shell_view_t;
 
 static session_store_t s_session_store;
 static provisioning_manager_t s_provisioning;
 static pairing_manager_t s_pairing;
-static wearable_voice_client_t s_voice_client;
+static wearable_voice_client_t *s_voice;
 static power_manager_t s_power_manager;
 static screen_router_t s_router;
 static app_shell_t s_shell;
@@ -86,7 +69,6 @@ static board_support_t s_board;
 static ui_renderer_t s_ui;
 static update_manager_t s_updates;
 
-static bool is_voice_available(void);
 static esp_err_t persist_firmware_update_channel(const char *channel);
 static size_t configured_wifi_network_count(const neoagent_device_config_t *device_config);
 
@@ -297,101 +279,126 @@ static void append_bounded(char *destination, size_t destination_size, const cha
     destination[used + to_copy] = '\0';
 }
 
-static board_assistant_state_t assistant_visual_state_from_snapshot(const wearable_voice_snapshot_t *voice_snapshot) {
-    if (voice_snapshot == NULL) {
-        return BOARD_ASSISTANT_STATE_IDLE;
-    }
-    if (voice_snapshot->last_error[0] != '\0') {
-        return BOARD_ASSISTANT_STATE_ERROR;
-    }
-    if (voice_snapshot->recording) {
-        return BOARD_ASSISTANT_STATE_LISTENING;
-    }
-    if (strcmp(voice_snapshot->state, "speaking") == 0 || voice_snapshot->assistant_speaking) {
-        return BOARD_ASSISTANT_STATE_SPEAKING;
-    }
-    if (strcmp(voice_snapshot->state, "thinking") == 0) {
-        return BOARD_ASSISTANT_STATE_THINKING;
-    }
-    if (strcmp(voice_snapshot->state, "transcribing") == 0) {
-        return BOARD_ASSISTANT_STATE_TRANSCRIBING;
-    }
-    if (strcmp(voice_snapshot->state, "listening") == 0) {
-        return BOARD_ASSISTANT_STATE_LISTENING;
-    }
-    return BOARD_ASSISTANT_STATE_IDLE;
-}
-
-static void render_assistant_tab(
-    const neoagent_device_config_t *device_config,
-    const wearable_voice_snapshot_t *voice_snapshot
-) {
-    char status[96];
-    char hint[180];
-    char display_hint[180];
-    const bool voice_available = voice_snapshot != NULL && voice_snapshot->transport_available;
-    const bool mic_active = voice_snapshot != NULL && voice_snapshot->recording;
-    const board_assistant_state_t visual_state = assistant_visual_state_from_snapshot(voice_snapshot);
-
-    snprintf(
-        status,
-        sizeof(status),
-        voice_snapshot != NULL && voice_snapshot->last_error[0] != '\0'
-            ? "Voice issue"
-            : (visual_state == BOARD_ASSISTANT_STATE_LISTENING ? "Listening"
-                : (visual_state == BOARD_ASSISTANT_STATE_TRANSCRIBING ? "Transcribing"
-                    : (visual_state == BOARD_ASSISTANT_STATE_THINKING ? "Thinking"
-                        : (visual_state == BOARD_ASSISTANT_STATE_SPEAKING ? "Speaking"
-                            : (voice_available ? "Ready" : "Voice unavailable")))))
-    );
-    if (voice_snapshot != NULL && voice_snapshot->last_error[0] != '\0') {
-        snprintf(hint, sizeof(hint), "%s", voice_snapshot->last_error);
-    } else if (voice_snapshot != NULL && voice_snapshot->assistant_text[0] != '\0') {
-        sanitize_display_text(hint, sizeof(hint), voice_snapshot->assistant_text);
-    } else if (voice_snapshot != NULL && voice_snapshot->transcript[0] != '\0') {
-        sanitize_display_text(hint, sizeof(hint), voice_snapshot->transcript);
+static void read_voice(wearable_voice_snapshot_t *snapshot) {
+    if (s_voice != NULL) {
+        wearable_voice_client_snapshot(s_voice, snapshot);
     } else {
-        hint[0] = '\0';
+        memset(snapshot, 0, sizeof(*snapshot));
     }
-    sanitize_display_text(display_hint, sizeof(display_hint), hint);
-    (void)device_config;
-    log_ui_result(ui_renderer_show_assistant_home(&s_ui, status, display_hint, mic_active, visual_state), "assistant");
 }
 
-static bool is_voice_available(void) {
-    return s_voice_client.transport_available;
+static void track_moment(call_moment_t *moment, const wearable_voice_snapshot_t *voice) {
+    if (voice->task_outcome_seq != moment->task_outcome_seq) {
+        moment->task_outcome_seq = voice->task_outcome_seq;
+        moment->id += 1;
+        moment->ok = voice->task_outcome_ok;
+    }
+    if (voice->error_seq != moment->error_seq) {
+        moment->error_seq = voice->error_seq;
+        // A hiccup the server recovers from mid-call is not a failure.
+        if (voice->call == WEARABLE_CALL_IDLE) {
+            moment->id += 1;
+            moment->ok = false;
+        }
+    }
 }
 
-static void render_settings_tab(
-    const neoagent_device_config_t *device_config,
-    const neoagent_session_state_t *session_state,
-    settings_view_t settings_view,
-    bool show_reset
-) {
-    (void)session_state;
-    char headline[140];
-    char body[220];
+// The mascot's mood read straight off the call; the stabilizer decides what shows.
+static mascot_mood_t call_mood(const wearable_voice_snapshot_t *voice, const call_moment_t *moment) {
+    if (!voice->server_connected) {
+        return MASCOT_MOOD_ASLEEP;
+    }
+    if (voice->capturing || voice->speaking) {
+        return MASCOT_MOOD_LISTENING;
+    }
+    if (voice->task_running) {
+        return MASCOT_MOOD_WORKING;
+    }
+    if (voice->call == WEARABLE_CALL_CONNECTING || voice->reconnecting) {
+        return MASCOT_MOOD_THINKING;
+    }
+    if (moment->id != 0) {
+        return moment->ok ? MASCOT_MOOD_DONE : MASCOT_MOOD_BLOCKED;
+    }
+    return MASCOT_MOOD_IDLE;
+}
 
-    if (show_reset) {
-        log_ui_result(ui_renderer_show_settings(&s_ui, "Reset", "Forget this device", "Clear pairing and Wi-Fi setup, then return to provisioning.", NULL, true), "settings_reset");
+static void format_call_status(char *status, size_t size, const wearable_voice_snapshot_t *voice) {
+    if (voice->call == WEARABLE_CALL_CONNECTING) {
+        snprintf(status, size, "Calling...");
         return;
     }
-
-    if (settings_view == SETTINGS_VIEW_ROOT) {
-        snprintf(headline, sizeof(headline), "Device settings");
-        body[0] = '\0';
-        log_ui_result(ui_renderer_show_settings(&s_ui, "Settings", headline, body, NULL, false), "settings_root");
+    if (voice->call == WEARABLE_CALL_IDLE) {
+        snprintf(status, size, voice->server_connected ? "Tap to call" : "Connecting...");
         return;
     }
-
-    if (settings_view == SETTINGS_VIEW_UPDATE) {
-        headline[0] = '\0';
-        body[0] = '\0';
-        log_ui_result(ui_renderer_show_settings(&s_ui, "Update", headline, body, update_manager_channel(&s_updates), false), "settings_update");
-        return;
+    const char *state = "Ready";
+    if (voice->reconnecting) {
+        state = "Reconnecting";
+    } else if (voice->speaking) {
+        state = "Speaking";
+    } else if (voice->capturing) {
+        state = "Listening";
+    } else if (voice->hands_free) {
+        state = "Muted";
     }
+    const int64_t elapsed_us = voice->call_started_at_us > 0 ? esp_timer_get_time() - voice->call_started_at_us : 0;
+    const unsigned seconds = (unsigned)(elapsed_us / 1000000);
+    if (seconds >= 3600) {
+        snprintf(status, size, "%02u:%02u:%02u - %s", seconds / 3600, (seconds / 60) % 60, seconds % 60, state);
+    } else {
+        snprintf(status, size, "%02u:%02u - %s", seconds / 60, seconds % 60, state);
+    }
+}
 
-    if (settings_view == SETTINGS_VIEW_ABOUT) {
+static void build_call_view(shell_view_t *view, const wearable_voice_snapshot_t *voice, mascot_mood_t mood) {
+    board_call_view_t *call = &view->call;
+    call->mood = mood;
+    call->phase = voice->call == WEARABLE_CALL_ACTIVE
+        ? BOARD_CALL_ACTIVE
+        : (voice->call == WEARABLE_CALL_CONNECTING ? BOARD_CALL_DIALING : BOARD_CALL_IDLE);
+    call->hands_free = voice->hands_free;
+    call->capturing = voice->capturing;
+    call->speaking = voice->speaking;
+    call->name = "NeoAgent";
+    format_call_status(view->status, sizeof(view->status), voice);
+    call->status = view->status;
+    // A call that failed or dropped says why until the next one starts.
+    const bool show_error = voice->call == WEARABLE_CALL_IDLE && voice->last_error[0] != '\0';
+    sanitize_display_text(view->caption, sizeof(view->caption), show_error ? voice->last_error : voice->caption);
+    call->caption = view->caption;
+    call->caption_from_assistant = !show_error && voice->caption_from_assistant;
+    if (voice->task_running) {
+        sanitize_display_text(view->task, sizeof(view->task), voice->task_request);
+        call->task = view->task;
+    } else {
+        call->task = NULL;
+    }
+}
+
+static bool call_view_changed(const shell_view_t *previous, const shell_view_t *current) {
+    const board_call_view_t *a = &previous->call;
+    const board_call_view_t *b = &current->call;
+    return a->mood != b->mood
+        || a->phase != b->phase
+        || a->hands_free != b->hands_free
+        || a->capturing != b->capturing
+        || a->speaking != b->speaking
+        || (a->task == NULL) != (b->task == NULL)
+        || a->caption_from_assistant != b->caption_from_assistant
+        || strcmp(previous->status, current->status) != 0
+        || strcmp(previous->caption, current->caption) != 0
+        || strcmp(previous->task, current->task) != 0;
+}
+
+static void render_settings(const neoagent_device_config_t *device_config, board_settings_page_t page) {
+    char headline[140] = {0};
+    char body[220] = {0};
+    board_settings_view_t view = {.page = page};
+
+    if (page == BOARD_SETTINGS_UPDATE) {
+        view.channel = update_manager_channel(&s_updates);
+    } else if (page == BOARD_SETTINGS_DEVICE) {
         const esp_app_desc_t *app_desc = esp_app_get_description();
         const uint32_t uptime_seconds = (uint32_t)(esp_timer_get_time() / 1000000);
         snprintf(headline, sizeof(headline), "%s", device_config != NULL && device_config->device_label[0] != '\0' ? device_config->device_label : "NeoAgent wearable");
@@ -405,23 +412,23 @@ static void render_settings_tab(
             (unsigned)(esp_get_free_heap_size() / 1024),
             provisioning_manager_is_connected(&s_provisioning) ? "connected" : "reconnecting"
         );
-        log_ui_result(ui_renderer_show_settings(&s_ui, "Device", headline, body, NULL, false), "settings_device");
-        return;
+    } else if (page == BOARD_SETTINGS_NETWORK) {
+        snprintf(
+            headline,
+            sizeof(headline),
+            "Wi-Fi %s",
+            device_config != NULL && device_config->wifi_ssid[0] != '\0' ? device_config->wifi_ssid : "not configured"
+        );
+        snprintf(body, sizeof(body), "Saved networks: %u\nServer\n", (unsigned)configured_wifi_network_count(device_config));
+        append_bounded(
+            body,
+            sizeof(body),
+            device_config != NULL && device_config->server_url[0] != '\0' ? device_config->server_url : "No backend configured"
+        );
     }
-
-    snprintf(
-        headline,
-        sizeof(headline),
-        "Wi-Fi %s",
-        device_config != NULL && device_config->wifi_ssid[0] != '\0' ? device_config->wifi_ssid : "not configured"
-    );
-    snprintf(body, sizeof(body), "Saved networks: %u\nServer\n", (unsigned)configured_wifi_network_count(device_config));
-    append_bounded(
-        body,
-        sizeof(body),
-        device_config != NULL && device_config->server_url[0] != '\0' ? device_config->server_url : "No backend configured"
-    );
-    log_ui_result(ui_renderer_show_settings(&s_ui, "Network", headline, body, NULL, false), "settings_network");
+    view.headline = headline;
+    view.body = body;
+    log_ui_result(ui_renderer_show_settings(&s_ui, &view), "settings");
 }
 
 static esp_err_t persist_firmware_update_channel(const char *channel) {
@@ -447,6 +454,7 @@ static void show_firmware_install_started(void *context) {
     log_ui_result(
         board_support_show_message(
             &s_board,
+            MASCOT_MOOD_WORKING,
             "Installing Firmware",
             "Downloading the latest GitHub release...",
             "Keep the device powered on."
@@ -463,13 +471,13 @@ static bool start_firmware_update(
 ) {
     if (device_config == NULL || session_state == NULL) {
         if (interactive) {
-            log_ui_result(board_support_show_message(&s_board, "Update Failed", "Missing device state", "Cannot start OTA without a saved server and session."), "update_missing_state");
+            log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_BLOCKED, "Update Failed", "Missing device state", "Cannot start OTA without a saved server and session."), "update_missing_state");
         }
         return false;
     }
 
     if (interactive) {
-        log_ui_result(board_support_show_message(&s_board, "Checking For Updates", "Looking for the latest GitHub release...", "This can take a moment."), "update_start");
+        log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_THINKING, "Checking For Updates", "Looking for the latest GitHub release...", "This can take a moment."), "update_start");
         vTaskDelay(pdMS_TO_TICKS(250));
     }
 
@@ -487,7 +495,7 @@ static bool start_firmware_update(
     );
     if (update_err == ESP_OK) {
         if (interactive) {
-            log_ui_result(board_support_show_message(&s_board, "Update Complete", "Rebooting into new firmware", "The device will restart now."), "update_complete");
+            log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_DONE, "Update Complete", "Rebooting into new firmware", "The device will restart now."), "update_complete");
             vTaskDelay(pdMS_TO_TICKS(1500));
         }
         esp_restart();
@@ -497,7 +505,7 @@ static bool start_firmware_update(
     if (update_err == ESP_ERR_INVALID_STATE) {
         ESP_LOGI(TAG, "firmware is already current");
         if (interactive) {
-            log_ui_result(board_support_show_message(&s_board, "Already Up To Date", "No firmware update was installed", "The current version matches the configured release."), "update_current");
+            log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_DONE, "Already Up To Date", "No firmware update was installed", "The current version matches the configured release."), "update_current");
         }
         return false;
     }
@@ -505,7 +513,7 @@ static bool start_firmware_update(
     if (update_err == ESP_ERR_NOT_FOUND) {
         ESP_LOGW(TAG, "firmware release asset is unavailable");
         if (interactive) {
-            log_ui_result(board_support_show_message(&s_board, "Update Unavailable", "No firmware download is configured", "The manifest did not publish an OTA image."), "update_unavailable");
+            log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_IDLE, "Update Unavailable", "No firmware download is configured", "The manifest did not publish an OTA image."), "update_unavailable");
         }
         return false;
     }
@@ -513,7 +521,7 @@ static bool start_firmware_update(
     if (update_err == ESP_ERR_INVALID_ARG) {
         ESP_LOGW(TAG, "firmware update is missing server or session state");
         if (interactive) {
-            log_ui_result(board_support_show_message(&s_board, "Update Failed", "Missing server or session", "Connect the device and sign in before trying again."), "update_invalid_state");
+            log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_BLOCKED, "Update Failed", "Missing server or session", "Connect the device and sign in before trying again."), "update_invalid_state");
         }
         return false;
     }
@@ -525,22 +533,14 @@ static bool start_firmware_update(
             : update_err == ESP_ERR_TIMEOUT
                 ? "The firmware download timed out"
                 : "The firmware could not be downloaded or verified";
-        log_ui_result(board_support_show_message(&s_board, "Update Failed", detail, "Check the connection and try again."), "update_failed");
+        log_ui_result(board_support_show_message(&s_board, MASCOT_MOOD_BLOCKED, "Update Failed", detail, "Check the connection and try again."), "update_failed");
     }
     return false;
 }
 
-static void render_current_tab(
-    shell_tab_t current_tab,
-    const neoagent_device_config_t *device_config,
-    const neoagent_session_state_t *session_state,
-    settings_view_t settings_view,
-    const wearable_voice_snapshot_t *voice_snapshot,
-    bool settings_show_reset
-) {
+static void refresh_chrome(const neoagent_session_state_t *session_state) {
     neoagent_status_chrome_t chrome = {0};
     char time_label[8];
-
     const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
     if (power_status != NULL) {
         chrome = *power_status;
@@ -549,30 +549,15 @@ static void render_current_tab(
     chrome.paired = session_state != NULL && session_state->authenticated;
     format_time_label(time_label, sizeof(time_label));
     log_ui_result(board_support_set_chrome(&s_board, &chrome, time_label), "chrome");
-
-    switch (current_tab) {
-        case SHELL_TAB_ASSISTANT:
-            render_assistant_tab(device_config, voice_snapshot);
-            break;
-        case SHELL_TAB_SETTINGS:
-            render_settings_tab(device_config, session_state, settings_view, settings_show_reset);
-            break;
-    }
 }
 
-static bool voice_snapshot_changed(const wearable_voice_snapshot_t *previous, const wearable_voice_snapshot_t *current) {
-    if (previous == NULL || current == NULL) {
-        return previous != current;
+static void render_shell(const shell_view_t *view, const neoagent_device_config_t *device_config, const neoagent_session_state_t *session_state) {
+    if (view->tab == SHELL_TAB_CALL) {
+        log_ui_result(ui_renderer_show_call(&s_ui, &view->call), "call");
+    } else {
+        render_settings(device_config, view->page);
     }
-    return previous->transport_available != current->transport_available
-        || previous->websocket_connected != current->websocket_connected
-        || previous->session_ready != current->session_ready
-        || previous->recording != current->recording
-        || previous->assistant_speaking != current->assistant_speaking
-        || strcmp(previous->state, current->state) != 0
-        || strcmp(previous->transcript, current->transcript) != 0
-        || strcmp(previous->assistant_text, current->assistant_text) != 0
-        || strcmp(previous->last_error, current->last_error) != 0;
+    refresh_chrome(session_state);
 }
 
 static bool sleep_wake_buttons_released(void) {
@@ -636,9 +621,9 @@ static esp_err_t configure_deep_sleep_wake_sources(void) {
     return esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 }
 
-static void enter_deep_sleep(const wearable_voice_snapshot_t *voice_snapshot) {
-    if (voice_snapshot != NULL && voice_snapshot->recording) {
-        wearable_voice_client_stop_ptt(&s_voice_client);
+static void enter_deep_sleep(void) {
+    if (s_voice != NULL) {
+        wearable_voice_client_call_end(s_voice);
     }
     if (!wait_for_sleep_wake_buttons_released()) {
         ESP_LOGW(TAG, "deep sleep skipped because a wake button is still held");
@@ -685,23 +670,132 @@ static bool wake_display_from_standby(bool *display_sleeping) {
     return true;
 }
 
+static void forget_session_and_restart(void) {
+    ESP_LOGW(TAG, "saved wearable session was rejected; returning to pairing");
+    ESP_ERROR_CHECK(session_store_clear_session(&s_session_store));
+    vTaskDelay(pdMS_TO_TICKS(250));
+    esp_restart();
+}
+
+// A tap on a settings control; returns true when the page must be redrawn.
+static bool handle_settings_target(
+    board_target_t target,
+    shell_view_t *view,
+    const neoagent_device_config_t *device_config,
+    const neoagent_session_state_t *session_state,
+    bool *display_sleeping
+) {
+    switch (target) {
+        case BOARD_TARGET_BACK:
+            if (view->page == BOARD_SETTINGS_ROOT) {
+                view->tab = SHELL_TAB_CALL;
+            } else {
+                view->page = BOARD_SETTINGS_ROOT;
+            }
+            return true;
+        case BOARD_TARGET_SETTINGS_NETWORK:
+            view->page = BOARD_SETTINGS_NETWORK;
+            return true;
+        case BOARD_TARGET_SETTINGS_UPDATE:
+            view->page = BOARD_SETTINGS_UPDATE;
+            return true;
+        case BOARD_TARGET_SETTINGS_DEVICE:
+            view->page = BOARD_SETTINGS_DEVICE;
+            return true;
+        case BOARD_TARGET_SETTINGS_FORGET:
+            view->page = BOARD_SETTINGS_FORGET;
+            return true;
+        case BOARD_TARGET_CHANNEL_STABLE:
+        case BOARD_TARGET_CHANNEL_BETA: {
+            const char *channel = target == BOARD_TARGET_CHANNEL_BETA ? "beta" : "stable";
+            if (persist_firmware_update_channel(channel) != ESP_OK) {
+                ESP_LOGW(TAG, "failed to persist %s firmware channel", channel);
+                return false;
+            }
+            ESP_LOGI(TAG, "firmware channel set to %s", channel);
+            return true;
+        }
+        case BOARD_TARGET_UPDATE_NOW:
+            start_firmware_update(device_config, session_state, true, display_sleeping);
+            return true;
+        case BOARD_TARGET_SETUP_MODE:
+            ESP_LOGI(TAG, "setup mode requested from settings");
+            ESP_ERROR_CHECK(session_store_clear_device_config(&s_session_store));
+            esp_restart();
+            return false;
+        case BOARD_TARGET_FORGET_CONFIRM:
+            ESP_LOGI(TAG, "reset device requested from settings");
+            ESP_ERROR_CHECK(session_store_clear_session(&s_session_store));
+            ESP_ERROR_CHECK(session_store_clear_device_config(&s_session_store));
+            ESP_ERROR_CHECK(session_store_clear_firmware_update_settings(&s_session_store));
+            esp_restart();
+            return false;
+        default:
+            return false;
+    }
+}
+
+// A tap on a call control. Holding the push-to-talk button is handled on press and release.
+static void handle_call_tap(board_target_t target, const wearable_voice_snapshot_t *voice, shell_view_t *view) {
+    if (target == BOARD_TARGET_OPEN_SETTINGS) {
+        view->tab = SHELL_TAB_SETTINGS;
+        view->page = BOARD_SETTINGS_ROOT;
+        return;
+    }
+    if (s_voice == NULL) {
+        return;
+    }
+    switch (target) {
+        case BOARD_TARGET_CALL:
+            wearable_voice_client_call_start(s_voice);
+            break;
+        case BOARD_TARGET_END_CALL:
+            wearable_voice_client_call_end(s_voice);
+            break;
+        case BOARD_TARGET_TALK:
+            if (voice->hands_free) {
+                if (voice->capturing) {
+                    wearable_voice_client_talk_stop(s_voice);
+                } else {
+                    wearable_voice_client_talk_start(s_voice);
+                }
+            }
+            break;
+        case BOARD_TARGET_MASCOT:
+            // The face is the big button: it stops a reply mid-sentence, or places a call.
+            if (voice->speaking) {
+                wearable_voice_client_stop_speaking(s_voice);
+            } else if (voice->call == WEARABLE_CALL_IDLE) {
+                wearable_voice_client_call_start(s_voice);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+static bool push_to_talk_ready(const wearable_voice_snapshot_t *voice) {
+    return s_voice != NULL && voice->call == WEARABLE_CALL_ACTIVE && !voice->hands_free;
+}
+
 static void run_assistant_shell(const neoagent_device_config_t *device_config, neoagent_session_state_t *session_state, const char *wearable_ws_url) {
     TickType_t last_chrome_refresh = 0;
-    TickType_t last_assistant_render = 0;
     board_touch_event_t touch_event = {0};
     board_button_event_t button_event = {0};
-    wearable_voice_snapshot_t voice_snapshot = {0};
-    shell_tab_t current_tab = SHELL_TAB_ASSISTANT;
-    settings_view_t settings_view = SETTINGS_VIEW_ROOT;
-    bool settings_show_reset = false;
-    bool boot_voice_hold_active = false;
+    wearable_voice_snapshot_t voice = {0};
+    shell_view_t view = {.tab = SHELL_TAB_CALL, .page = BOARD_SETTINGS_ROOT};
+    shell_view_t shown = {0};
+    bool shown_valid = false;
+    call_moment_t moment = {0};
+    mascot_stabilizer_t stabilizer;
+    board_target_t pressed_target = BOARD_TARGET_NONE;
+    bool touch_talking = false;
+    bool boot_talking = false;
     bool charging = false;
     bool display_sleeping = false;
     bool standby_wake_armed = false;
     bool suppress_power_until_release = false;
     bool suppress_boot_until_release = false;
-    bool orb_press_pending = false;
-    TickType_t orb_press_started = 0;
     TickType_t last_touch_action = 0;
     TickType_t last_activity = xTaskGetTickCount();
 #if CONFIG_NEOAGENT_AUTO_OTA
@@ -710,9 +804,10 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
     bool completed_initial_auto_update_check = false;
 #endif
 
+    mascot_stabilizer_init(&stabilizer);
     if (wearable_ws_url != NULL && wearable_ws_url[0] != '\0') {
         esp_err_t voice_err = wearable_voice_client_init(
-            &s_voice_client,
+            &s_voice,
             &s_board,
             wearable_ws_url,
             session_state->session_cookie,
@@ -720,21 +815,13 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         );
         if (voice_err != ESP_OK) {
             ESP_LOGW(TAG, "voice client init failed: %s", esp_err_to_name(voice_err));
-            if (voice_err == ESP_ERR_INVALID_STATE) {
-                ESP_LOGW(TAG, "saved wearable session was rejected; returning to pairing");
-                ESP_ERROR_CHECK(session_store_clear_session(&s_session_store));
-                vTaskDelay(pdMS_TO_TICKS(250));
-                esp_restart();
-            }
+            s_voice = NULL;
         }
     }
     ESP_ERROR_CHECK(screen_router_navigate(&s_router, NEOAGENT_SCREEN_ASSISTANT));
     update_power_chrome();
     const neoagent_status_chrome_t *initial_power_status = power_manager_get_status(&s_power_manager);
     charging = initial_power_status != NULL && initial_power_status->charging;
-    vTaskDelay(pdMS_TO_TICKS(1500));
-    wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
 
     while (true) {
         TickType_t now = xTaskGetTickCount();
@@ -749,64 +836,48 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 suppress_boot_until_release = button_event.boot_pressed;
                 if (wake_display_from_standby(&display_sleeping)) {
                     update_power_chrome();
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
+                    shown_valid = false;
                     last_chrome_refresh = 0;
                     last_activity = now;
                 }
             }
+            if (s_voice != NULL) {
+                wearable_voice_client_poll(s_voice);
+            }
             vTaskDelay(pdMS_TO_TICKS(30));
             continue;
         }
-        if (is_voice_available()) {
-            esp_err_t voice_poll_err = wearable_voice_client_poll(&s_voice_client);
-            if (voice_poll_err != ESP_OK && voice_poll_err != ESP_ERR_TIMEOUT) {
-                ESP_LOGW(TAG, "voice poll failed: %s", esp_err_to_name(voice_poll_err));
-            }
+
+        if (s_voice != NULL) {
+            wearable_voice_client_poll(s_voice);
         }
-        if (voice_snapshot.recording || voice_snapshot.assistant_speaking) {
+        read_voice(&voice);
+        if (voice.authentication_rejected) {
+            forget_session_and_restart();
+        }
+        track_moment(&moment, &voice);
+        mascot_stabilizer_update(&stabilizer, call_mood(&voice, &moment), moment.id, esp_timer_get_time() / 1000);
+
+        // A reply playing, a push-to-talk hold or a call being placed keeps the
+        // display on; an open hands-free call may go dark like a phone at the ear.
+        const bool voice_active = voice.speaking || voice.call == WEARABLE_CALL_CONNECTING || (voice.capturing && !voice.hands_free);
+        if (voice_active) {
             last_activity = now;
         }
-        if (!display_sleeping && !voice_snapshot.recording && !voice_snapshot.assistant_speaking &&
-            now - last_activity >= pdMS_TO_TICKS(CONFIG_NEOAGENT_DISPLAY_TIMEOUT_SECONDS * 1000)) {
+        if (now - last_activity >= pdMS_TO_TICKS(CONFIG_NEOAGENT_DISPLAY_TIMEOUT_SECONDS * 1000)) {
             if (enter_display_standby(&display_sleeping)) {
                 standby_wake_armed = false;
                 continue;
             }
             last_activity = now;
         }
-        // Keep network and voice alive while standby has turned only the AMOLED off.
-        if (!display_sleeping) {
-            if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
-                update_power_chrome();
-                const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
-                charging = power_status != NULL && power_status->charging;
-                static char last_time_label[8] = "--:--";
-                char next_time_label[8] = {0};
-                format_time_label(next_time_label, sizeof(next_time_label));
-                if (strcmp(last_time_label, next_time_label) != 0) {
-                    snprintf(last_time_label, sizeof(last_time_label), "%s", next_time_label);
-                }
-                log_ui_result(board_support_set_chrome(&s_board, power_status, next_time_label), "chrome");
-                last_chrome_refresh = now;
-            }
-            wearable_voice_snapshot_t previous_voice_snapshot = voice_snapshot;
-            wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-            if (current_tab == SHELL_TAB_ASSISTANT && voice_snapshot_changed(&previous_voice_snapshot, &voice_snapshot)) {
-                if (last_assistant_render == 0 ||
-                    now - last_assistant_render >= pdMS_TO_TICKS(NEOAGENT_ASSISTANT_RENDER_MIN_INTERVAL_MS)) {
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                    last_assistant_render = now;
-                }
-            }
-        } else {
-            // Still update voice snapshot while the display is sleeping.
-            wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-            if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
-                update_power_chrome();
-                const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
-                charging = power_status != NULL && power_status->charging;
-                last_chrome_refresh = now;
-            }
+
+        if (last_chrome_refresh == 0 || now - last_chrome_refresh >= pdMS_TO_TICKS(NEOAGENT_CHROME_REFRESH_INTERVAL_MS)) {
+            update_power_chrome();
+            const neoagent_status_chrome_t *power_status = power_manager_get_status(&s_power_manager);
+            charging = power_status != NULL && power_status->charging;
+            refresh_chrome(session_state);
+            last_chrome_refresh = now;
         }
 
 #if CONFIG_NEOAGENT_AUTO_OTA
@@ -824,173 +895,53 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         if (auto_update_elapsed >= auto_update_delay
             && provisioning_manager_is_connected(&s_provisioning)
             && auto_update_power_ready
-            && !voice_snapshot.recording
-            && !voice_snapshot.assistant_speaking) {
+            && voice.call == WEARABLE_CALL_IDLE) {
             completed_initial_auto_update_check = true;
             last_auto_update_check = now;
             ESP_LOGI(TAG, "checking GitHub release channel=%s", update_manager_channel(&s_updates));
             start_firmware_update(device_config, session_state, false, &display_sleeping);
+            shown_valid = false;
         }
 #endif
 
         if (board_support_poll_touch(&s_board, &touch_event) == ESP_OK &&
-            (touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down || touch_event.swipe_left || touch_event.swipe_right)) {
-            ESP_LOGI(
-                TAG,
-                "touch event x=%u y=%u pressed=%d released=%d tapped=%d swipe_up=%d swipe_down=%d swipe_left=%d swipe_right=%d",
-                touch_event.x,
-                touch_event.y,
-                touch_event.pressed,
-                touch_event.released,
-                touch_event.tapped,
-                touch_event.swipe_up,
-                touch_event.swipe_down,
-                touch_event.swipe_left,
-                touch_event.swipe_right
-            );
+            (touch_event.pressed || touch_event.released)) {
             last_activity = now;
-            if (display_sleeping) {
-                if (!wake_display_from_standby(&display_sleeping)) {
-                    continue;
+            if (touch_event.pressed) {
+                pressed_target = board_support_hit_test(&s_board, touch_event.x, touch_event.y);
+                if (view.tab == SHELL_TAB_CALL && pressed_target == BOARD_TARGET_TALK && push_to_talk_ready(&voice)) {
+                    wearable_voice_client_talk_start(s_voice);
+                    touch_talking = true;
                 }
-                update_power_chrome();
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                last_chrome_refresh = 0;
-                continue;
             }
-            const bool touch_action_allowed = last_touch_action == 0 ||
-                now - last_touch_action >= pdMS_TO_TICKS(NEOAGENT_TOUCH_ACTION_COOLDOWN_MS);
-            if (touch_action_allowed && touch_event.tapped && current_tab == SHELL_TAB_SETTINGS && settings_view != SETTINGS_VIEW_ROOT && !settings_show_reset &&
-                touch_event.x >= NEOAGENT_NAV_WIDTH &&
-                touch_event.y >= NEOAGENT_SETTINGS_BACK_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_BACK_BOTTOM_Y) {
-                settings_view = SETTINGS_VIEW_ROOT;
-                last_touch_action = now;
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                continue;
-            }
-
-            if (touch_action_allowed && touch_event.tapped && touch_event.x < NEOAGENT_NAV_WIDTH) {
-                shell_tab_t next_tab = SHELL_TAB_SETTINGS;
-                if (touch_event.y < NEOAGENT_NAV_ASSISTANT_MAX_Y) {
-                    next_tab = SHELL_TAB_ASSISTANT;
-                } else {
-                    settings_view = SETTINGS_VIEW_ROOT;
-                    settings_show_reset = false;
-                }
-                last_touch_action = now;
-                if (next_tab != current_tab) {
-                    current_tab = next_tab;
-                    ESP_LOGI(TAG, "nav -> tab=%d", (int)current_tab);
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                }
-                continue;
-            }
-
-            if (current_tab == SHELL_TAB_ASSISTANT) {
-                const int32_t dx = (int32_t)touch_event.x - NEOAGENT_ASSISTANT_ORB_CENTER_X;
-                const int32_t dy = (int32_t)touch_event.y - NEOAGENT_ASSISTANT_ORB_CENTER_Y;
-                const bool in_orb = ((dx * dx) + (dy * dy)) <= (NEOAGENT_ASSISTANT_ORB_RADIUS * NEOAGENT_ASSISTANT_ORB_RADIUS);
-                if (touch_event.pressed && in_orb && !voice_snapshot.recording && is_voice_available()) {
-                    orb_press_started = now;
-                    esp_err_t start_err = wearable_voice_client_start_ptt(&s_voice_client);
-                    if (start_err == ESP_OK) {
-                        orb_press_pending = true;
-                        wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-                        render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                    } else {
-                        orb_press_pending = false;
-                        ESP_LOGW(TAG, "orb voice start failed: %s", esp_err_to_name(start_err));
-                    }
-                } else if (touch_event.pressed && in_orb && !is_voice_available()) {
-                    ESP_LOGW(TAG, "voice transport unavailable on firmware");
-                } else if (touch_event.released) {
-                    if (voice_snapshot.recording) {
-                        const TickType_t press_duration = now - orb_press_started;
-                        if (orb_press_pending && press_duration < pdMS_TO_TICKS(NEOAGENT_PTT_HOLD_THRESHOLD_MS)) {
-                            ESP_LOGI(TAG, "discarding short orb press duration_ms=%u", (unsigned)pdTICKS_TO_MS(press_duration));
-                            wearable_voice_client_interrupt(&s_voice_client);
-                        } else {
-                            wearable_voice_client_stop_ptt(&s_voice_client);
-                        }
-                        wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-                        render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                    }
-                    orb_press_pending = false;
-                }
-            } else if (current_tab == SHELL_TAB_SETTINGS) {
-                const settings_view_t previous_settings_view = settings_view;
-                const bool previous_show_reset = settings_show_reset;
-                bool settings_action_changed = false;
-                if (touch_action_allowed && touch_event.swipe_up) {
-                    settings_show_reset = true;
-                } else if (touch_action_allowed && touch_event.swipe_down) {
-                    settings_show_reset = false;
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_ROOT && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_NETWORK_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_NETWORK_BOTTOM_Y) {
-                    settings_view = SETTINGS_VIEW_NETWORK;
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_ROOT && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_UPDATE_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_BOTTOM_Y) {
-                    settings_view = SETTINGS_VIEW_UPDATE;
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_ROOT && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_ABOUT_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_ABOUT_BOTTOM_Y) {
-                    settings_view = SETTINGS_VIEW_ABOUT;
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_UPDATE_STABLE_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_STABLE_BOTTOM_Y) {
-                    if (persist_firmware_update_channel("stable") == ESP_OK) {
-                        ESP_LOGI(TAG, "firmware channel set to stable");
-                        settings_action_changed = true;
-                    } else {
-                        ESP_LOGW(TAG, "failed to persist stable firmware channel");
-                    }
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_UPDATE_BETA_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_BETA_BOTTOM_Y) {
-                    if (persist_firmware_update_channel("beta") == ESP_OK) {
-                        ESP_LOGI(TAG, "firmware channel set to beta");
-                        settings_action_changed = true;
-                    } else {
-                        ESP_LOGW(TAG, "failed to persist beta firmware channel");
-                    }
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_UPDATE_ACTION_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_UPDATE_ACTION_BOTTOM_Y) {
+            if (touch_event.released) {
+                const bool tap_allowed = touch_event.tapped && (last_touch_action == 0 ||
+                    now - last_touch_action >= pdMS_TO_TICKS(NEOAGENT_TOUCH_ACTION_COOLDOWN_MS));
+                if (touch_talking) {
+                    // A hold ends however the finger leaves the glass.
+                    touch_talking = false;
+                    wearable_voice_client_talk_stop(s_voice);
+                } else if (touch_event.swipe_left && view.tab == SHELL_TAB_CALL) {
+                    view.tab = SHELL_TAB_SETTINGS;
+                    view.page = BOARD_SETTINGS_ROOT;
+                    shown_valid = false;
+                } else if (touch_event.swipe_right && view.tab == SHELL_TAB_SETTINGS) {
+                    handle_settings_target(BOARD_TARGET_BACK, &view, device_config, session_state, &display_sleeping);
+                    shown_valid = false;
+                } else if (tap_allowed && pressed_target != BOARD_TARGET_NONE) {
+                    ESP_LOGI(TAG, "tap target=%d tab=%d", (int)pressed_target, (int)view.tab);
                     last_touch_action = now;
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                    start_firmware_update(device_config, session_state, true, &display_sleeping);
-                    continue;
-                } else if (touch_action_allowed && !settings_show_reset && settings_view == SETTINGS_VIEW_UPDATE && touch_event.tapped &&
-                           touch_event.y >= NEOAGENT_SETTINGS_SETUP_ACTION_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_SETUP_ACTION_BOTTOM_Y) {
-                    ESP_LOGI(TAG, "setup mode requested from settings");
-                    ESP_ERROR_CHECK(session_store_clear_device_config(&s_session_store));
-                    esp_restart();
-                } else if (touch_action_allowed && settings_show_reset && touch_event.tapped && touch_event.y >= NEOAGENT_SETTINGS_RESET_TOP_Y && touch_event.y <= NEOAGENT_SETTINGS_RESET_BOTTOM_Y) {
-                    ESP_LOGI(TAG, "reset device requested from settings");
-                    ESP_ERROR_CHECK(session_store_clear_session(&s_session_store));
-                    ESP_ERROR_CHECK(session_store_clear_device_config(&s_session_store));
-                    ESP_ERROR_CHECK(session_store_clear_firmware_update_settings(&s_session_store));
-                    esp_restart();
+                    if (view.tab == SHELL_TAB_CALL) {
+                        handle_call_tap(pressed_target, &voice, &view);
+                    } else if (handle_settings_target(pressed_target, &view, device_config, session_state, &display_sleeping)) {
+                        shown_valid = false;
+                    }
                 }
-                if (settings_view != previous_settings_view || settings_show_reset != previous_show_reset || settings_action_changed) {
-                    last_touch_action = now;
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                }
+                pressed_target = BOARD_TARGET_NONE;
             }
         }
 
         if (board_support_poll_buttons(&s_board, &button_event) == ESP_OK) {
-            if (display_sleeping) {
-                if (button_event.power_pressed || button_event.power_long_press || button_event.power_short_press) {
-                    suppress_power_until_release = true;
-                }
-                if (button_event.boot_pressed || button_event.boot_long_press || button_event.boot_short_press) {
-                    suppress_boot_until_release = true;
-                }
-                if (!wake_display_from_standby(&display_sleeping)) {
-                    continue;
-                }
-                update_power_chrome();
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                last_chrome_refresh = 0;
-                continue;
-            }
             if (suppress_power_until_release) {
                 if (button_event.power_released) {
                     suppress_power_until_release = false;
@@ -1009,68 +960,67 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 button_event.boot_short_press = false;
                 button_event.boot_long_press = false;
             }
-            if (button_event.power_long_press) {
-                if (voice_snapshot.recording) {
-                    ESP_LOGI(TAG, "power long press ignored while voice capture is active");
-                    continue;
-                }
+            if (button_event.power_long_press && !boot_talking) {
                 ESP_LOGI(TAG, "power long press -> %s", charging ? "charging standby" : "deep sleep");
                 if (charging) {
-                    if (!display_sleeping) {
-                        enter_display_standby(&display_sleeping);
-                        continue;
-                    }
-                } else {
-                    enter_deep_sleep(&voice_snapshot);
-                }
-            } else if (button_event.power_short_press) {
-                last_activity = now;
-                current_tab = (shell_tab_t)((current_tab + 1) % 2);
-                ESP_LOGI(TAG, "power short press -> tab=%d", (int)current_tab);
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-            }
-
-            if (button_event.boot_pressed) {
-                if (is_voice_available() && !voice_snapshot.recording) {
-                    current_tab = SHELL_TAB_ASSISTANT;
-                    wearable_voice_client_start_ptt(&s_voice_client);
-                    boot_voice_hold_active = true;
-                    wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-                    render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                }
-            } else if (button_event.boot_released && boot_voice_hold_active) {
-                boot_voice_hold_active = false;
-                if (voice_snapshot.recording) {
-                    wearable_voice_client_stop_ptt(&s_voice_client);
-                }
-                ESP_LOGI(TAG, "boot release handled tab=%d", (int)current_tab);
-                wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-            } else if (button_event.boot_short_press) {
-                ESP_LOGI(TAG, "boot short press handled tab=%d", (int)current_tab);
-                wearable_voice_client_snapshot(&s_voice_client, &voice_snapshot);
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-            } else if (button_event.boot_long_press) {
-                ESP_LOGI(TAG, "boot long press tab=%d", (int)current_tab);
-            }
-        }
-
-        const bool touch_activity = touch_event.pressed || touch_event.released || touch_event.tapped || touch_event.swipe_up || touch_event.swipe_down || touch_event.swipe_left || touch_event.swipe_right;
-        const bool button_activity = button_event.power_pressed || button_event.power_released || button_event.power_short_press || button_event.power_long_press || button_event.boot_pressed || button_event.boot_released || button_event.boot_short_press || button_event.boot_long_press;
-
-        if (touch_activity || button_activity) {
-            last_activity = now;
-            if (display_sleeping) {
-                if (!wake_display_from_standby(&display_sleeping)) {
-                    vTaskDelay(pdMS_TO_TICKS(80));
+                    enter_display_standby(&display_sleeping);
+                    standby_wake_armed = false;
                     continue;
                 }
-                update_power_chrome();
-                render_current_tab(current_tab, device_config, session_state, settings_view, &voice_snapshot, settings_show_reset);
-                last_chrome_refresh = 0;
+                enter_deep_sleep();
+            } else if (button_event.power_short_press) {
+                view.tab = view.tab == SHELL_TAB_CALL ? SHELL_TAB_SETTINGS : SHELL_TAB_CALL;
+                view.page = BOARD_SETTINGS_ROOT;
+                shown_valid = false;
+            }
+
+            // BOOT is the call button: press to call, hold to talk on a
+            // push-to-talk call, press to mute a hands-free one, hold to hang up.
+            if (s_voice != NULL) {
+                if (button_event.boot_pressed && push_to_talk_ready(&voice)) {
+                    wearable_voice_client_talk_start(s_voice);
+                    boot_talking = true;
+                } else if (button_event.boot_released && boot_talking) {
+                    boot_talking = false;
+                    wearable_voice_client_talk_stop(s_voice);
+                } else if (button_event.boot_short_press && !boot_talking) {
+                    view.tab = SHELL_TAB_CALL;
+                    if (voice.call == WEARABLE_CALL_IDLE) {
+                        wearable_voice_client_call_start(s_voice);
+                    } else if (voice.speaking) {
+                        wearable_voice_client_stop_speaking(s_voice);
+                    } else if (voice.hands_free && voice.capturing) {
+                        wearable_voice_client_talk_stop(s_voice);
+                    } else if (voice.hands_free) {
+                        wearable_voice_client_talk_start(s_voice);
+                    }
+                } else if (button_event.boot_long_press && !boot_talking && voice.call != WEARABLE_CALL_IDLE) {
+                    wearable_voice_client_call_end(s_voice);
+                }
+            }
+            const bool button_activity = button_event.power_pressed || button_event.power_released || button_event.boot_pressed || button_event.boot_released;
+            if (button_activity) {
+                last_activity = now;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(display_sleeping ? 20 : 80));
+
+        read_voice(&voice);
+        if (view.tab == SHELL_TAB_CALL) {
+            build_call_view(&view, &voice, stabilizer.shown);
+        }
+        const bool changed = !shown_valid
+            || view.tab != shown.tab
+            || view.page != shown.page
+            || (view.tab == SHELL_TAB_CALL && call_view_changed(&shown, &view));
+        if (changed) {
+            render_shell(&view, device_config, session_state);
+            shown = view;
+            shown.call.status = shown.status;
+            shown.call.caption = shown.caption;
+            shown.call.task = view.call.task != NULL ? shown.task : NULL;
+            shown_valid = true;
+        }
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
 
@@ -1194,7 +1144,7 @@ static void wearable_runtime_task(void *arg) {
         provisioning_manager_set_pending_config(&s_provisioning, &device_config);
         ESP_ERROR_CHECK(screen_router_navigate(&s_router, NEOAGENT_SCREEN_PAIRING));
         ESP_ERROR_CHECK(ui_renderer_set_screen(&s_ui, screen_router_current(&s_router)));
-        ESP_ERROR_CHECK(board_support_show_message(&s_board, "Connecting Wi-Fi", device_config.wifi_ssid, "Waiting for network before QR pairing."));
+        ESP_ERROR_CHECK(board_support_show_message(&s_board, MASCOT_MOOD_THINKING, "Connecting Wi-Fi", device_config.wifi_ssid, "Waiting for network before QR pairing."));
         if (provisioning_manager_connect_station(&s_provisioning, &device_config, 20000) == ESP_OK) {
             esp_err_t time_sync_err = provisioning_manager_sync_time(&s_provisioning, device_config.server_url, 10000);
             if (time_sync_err != ESP_OK) {

@@ -1,5 +1,6 @@
 package com.neoagent.flutter_app.widgets
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -29,7 +30,8 @@ object HomeWidgets {
         CallWidgetProvider::class.java,
     )
 
-    fun registerChannel(messenger: BinaryMessenger, context: Context) {
+    fun registerChannel(messenger: BinaryMessenger, activity: Activity) {
+        val context = activity.applicationContext
         MethodChannel(messenger, "neoagent/home_widgets").setMethodCallHandler { call, result ->
             when (call.method) {
                 "publish" -> {
@@ -43,6 +45,10 @@ object HomeWidgets {
                         face = call.argument<ByteArray>("face"),
                     )
                     refreshAll(context)
+                    result.success(null)
+                }
+                "returnToHomeScreen" -> {
+                    activity.moveTaskToBack(true)
                     result.success(null)
                 }
                 else -> result.notImplemented()

@@ -72,6 +72,7 @@ part 'main_shared.dart';
 part 'main_mascot.dart';
 part 'main_home_widgets.dart';
 part 'main_voice_assistant.dart';
+part 'main_voice_call_phone.dart';
 part 'main_incoming_call.dart';
 part 'main_navigation.dart';
 part 'main_timeline.dart';

@@ -57,4 +57,15 @@ class HomeWidgetBridge {
       AppDiagnostics.log('home_widgets', 'publish.failed', error: error);
     }
   }
+
+  /// Sends the app to the background, back to the home screen the call
+  /// widget was tapped on. The app keeps running, so the next call is quick.
+  Future<void> returnToHomeScreen() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod<void>('returnToHomeScreen');
+    } catch (error) {
+      AppDiagnostics.log('home_widgets', 'return_home.failed', error: error);
+    }
+  }
 }

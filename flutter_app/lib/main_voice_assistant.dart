@@ -1,9 +1,16 @@
 part of 'main.dart';
 
 class VoiceAssistantPanel extends StatefulWidget {
-  const VoiceAssistantPanel({super.key, required this.controller});
+  const VoiceAssistantPanel({
+    super.key,
+    required this.controller,
+    this.phoneCall = false,
+  });
 
   final NeoAgentController controller;
+
+  /// Full-screen phone-call layout, for phones.
+  final bool phoneCall;
 
   @override
   State<VoiceAssistantPanel> createState() => _VoiceAssistantPanelState();
@@ -174,7 +181,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
   Future<void> _endSession(NeoAgentController controller) async {
     if (!controller.voiceAssistantLiveState.hasActiveTask) {
-      await controller.closeLiveVoiceSession();
+      await controller.hangUpVoiceCall();
       return;
     }
     final cancelTask = await showDialog<bool>(
@@ -201,7 +208,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       ),
     );
     if (cancelTask == null || !mounted) return;
-    await controller.closeLiveVoiceSession(cancelTask: cancelTask);
+    await controller.hangUpVoiceCall(cancelTask: cancelTask);
   }
 
   Widget _buildTimeline(VoiceAssistantLiveState liveState) {
@@ -349,6 +356,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.phoneCall) {
+      return _buildPhoneCall(context);
+    }
     final controller = widget.controller;
     final liveState = controller.voiceAssistantLiveState;
     final viewportSize = MediaQuery.sizeOf(context);

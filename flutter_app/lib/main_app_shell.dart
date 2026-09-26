@@ -89,8 +89,8 @@ class _AuthViewState extends State<AuthView> {
   Future<void> _refreshLocalRuntimeStatus() async {
     if (!_supportsDesktopShell) return;
     try {
-      final status =
-          await (widget.runtimeManager ?? LocalRuntimeManager()).inspect();
+      final status = await (widget.runtimeManager ?? LocalRuntimeManager())
+          .inspect();
       if (!mounted) return;
       setState(() => _localRuntimeStatus = status);
     } on Object {
@@ -1222,6 +1222,19 @@ class _HomeViewState extends State<HomeView> {
       );
     }
 
+    // On a phone the voice call takes the whole screen, like a phone call.
+    if (controller.selectedSection == AppSection.voiceAssistant &&
+        MediaQuery.sizeOf(context).shortestSide < 600) {
+      return _withIncomingCall(
+        _ControlSurfaceBackdrop(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: VoiceAssistantPanel(controller: controller, phoneCall: true),
+          ),
+        ),
+      );
+    }
+
     // Phones: a four-tab bottom bar over the same four sidebar groups, in
     // place of the app bar and hamburger drawer. Sections inside a group stay
     // one tap away via the chip row, so nothing the drawer reached is lost.
@@ -1779,7 +1792,9 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                     ? const EdgeInsets.fromLTRB(6, 5, 8, 5)
                     : const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(widget.compact ? 999 : 14),
+                  borderRadius: BorderRadius.circular(
+                    widget.compact ? 999 : 14,
+                  ),
                   color: _bgCard,
                   border: Border.all(
                     color: isMenuOpen
@@ -1814,48 +1829,48 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                     else
                       Expanded(
                         child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Flexible(
-                                child: Text(
-                                  selectedAgent.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.15,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Flexible(
+                                  child: Text(
+                                    selectedAgent.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.15,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              if (selectedAgent.isDefault) ...<Widget>[
-                                const SizedBox(width: 8),
-                                _AgentTag(
-                                  label: 'DEFAULT',
-                                  color: _accent,
-                                  foreground: _accentHover,
-                                ),
+                                if (selectedAgent.isDefault) ...<Widget>[
+                                  const SizedBox(width: 8),
+                                  _AgentTag(
+                                    label: 'DEFAULT',
+                                    color: _accent,
+                                    foreground: _accentHover,
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _agentSwitcherSubtitle(selectedAgent),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              _agentSwitcherSubtitle(selectedAgent),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     SizedBox(width: widget.compact ? 3 : 8),
                     AnimatedRotation(
                       turns: isMenuOpen ? 0.5 : 0,
@@ -2239,7 +2254,10 @@ class _MobileTopBar extends StatelessWidget {
             child: controller.agentProfiles.isNotEmpty
                 ? Align(
                     alignment: Alignment.centerLeft,
-                    child: _AgentSwitcher(controller: controller, compact: true),
+                    child: _AgentSwitcher(
+                      controller: controller,
+                      compact: true,
+                    ),
                   )
                 : Text(
                     'NeoAgent',

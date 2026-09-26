@@ -1,632 +1,487 @@
 #include "wearable_voice_client.h"
 
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
 #include "esp_app_desc.h"
-#include "esp_check.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_mac.h"
-#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_websocket_client.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include "freertos/ringbuf.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "mbedtls/base64.h"
+#include "pcm_resampler.h"
 
 static const char *TAG = "WearableVoice";
 
-#define VOICE_CAPTURE_CHUNK_BYTES 4096
-#define VOICE_CAPTURE_TIMEOUT_MS 250
-#define VOICE_CONNECT_TIMEOUT_MS 12000
-#define VOICE_SESSION_TIMEOUT_MS 12000
-#define VOICE_MESSAGE_TIMEOUT_TICKS pdMS_TO_TICKS(3000)
-#define VOICE_PLAYBACK_QUEUE_DEPTH 18
-#define VOICE_HELLO_STALE_TIMEOUT_US (90LL * 1000LL * 1000LL)
-#define VOICE_RECONNECT_BACKOFF_US (5LL * 1000LL * 1000LL)
+// Enough queued reply for a long answer: live models stream faster than real time.
+#define VOICE_PLAYBACK_BUFFER_SECONDS 20
+// Playback writes in short slices so an interruption silences it quickly.
+#define VOICE_PLAYBACK_SLICE_MS 20
+#define VOICE_CAPTURE_CHUNK_MS 60
+#define VOICE_CAPTURE_TIMEOUT_MS 200
+#define VOICE_SEND_TIMEOUT_TICKS pdMS_TO_TICKS(2000)
+// The speaker sits next to the microphone and the board has no echo
+// cancellation: while a reply is audible a hands-free call sends no audio, or
+// the live model would hear itself and cut its own reply off.
+#define VOICE_ECHO_GUARD_US (300LL * 1000LL)
+#define VOICE_CONNECT_TIMEOUT_US (20LL * 1000LL * 1000LL)
+#define VOICE_SESSION_ID_MAX 96
+#define VOICE_MAX_INPUT_RATE 48000
 
-typedef struct {
-    uint8_t *bytes;
-    size_t length;
-} playback_item_t;
+struct wearable_voice_client {
+    board_support_t *board;
+    esp_websocket_client_handle_t websocket;
+    SemaphoreHandle_t lock;
+    RingbufHandle_t playback;
+    size_t playback_capacity;
+    TaskHandle_t capture_task;
+    TaskHandle_t playback_task;
+    uint32_t codec_rate;
+    // Uplink buffers, touched only by the capture task.
+    int16_t *captured;
+    size_t captured_samples;
+    int16_t *converted;
+    char *uplink_message;
+    size_t uplink_message_capacity;
+    char device_id[16];
+    char device_label[NEOAGENT_DEVICE_LABEL_MAX];
+    char firmware_version[32];
 
-static esp_err_t wait_for_connected(wearable_voice_client_t *client, int timeout_ms, bool require_session);
-static esp_err_t ensure_session_ready(wearable_voice_client_t *client);
-static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
-static void wearable_voice_client_cleanup_resources(wearable_voice_client_t *client);
+    // Touched only by the websocket task.
+    char *message;
+    size_t message_length;
+    size_t message_capacity;
+    pcm_resampler_t downlink;
+    uint32_t downlink_rate;
 
-static void voice_client_lock(wearable_voice_client_t *client) {
-    if (client != NULL && client->state_lock != NULL) {
-        xSemaphoreTake((SemaphoreHandle_t)client->state_lock, portMAX_DELAY);
-    }
+    // Everything below is guarded by `lock`.
+    bool server_connected;
+    bool authentication_rejected;
+    wearable_call_state_t call;
+    int64_t call_requested_at_us;
+    int64_t call_started_at_us;
+    char session_id[VOICE_SESSION_ID_MAX];
+    bool session_requested;  // A session_open is out on this connection.
+    bool hands_free;
+    bool open_mic_when_ready;
+    bool talk_engaged;
+    bool streaming;
+    uint32_t input_rate;
+    uint32_t output_rate;
+    bool server_speaking;
+    bool reconnecting;
+    int64_t last_playback_at_us;
+    uint32_t playback_generation;
+    char caption[NEOAGENT_VOICE_TEXT_MAX];
+    bool caption_from_assistant;
+    char task_run_id[NEOAGENT_VOICE_RUN_ID_MAX];
+    char task_request[NEOAGENT_VOICE_TEXT_MAX];
+    uint32_t task_outcome_seq;
+    bool task_outcome_ok;
+    char last_error[NEOAGENT_VOICE_ERROR_TEXT_MAX];
+    uint32_t error_seq;
+};
+
+static void lock(wearable_voice_client_t *client) {
+    xSemaphoreTake(client->lock, portMAX_DELAY);
 }
 
-static void voice_client_unlock(wearable_voice_client_t *client) {
-    if (client != NULL && client->state_lock != NULL) {
-        xSemaphoreGive((SemaphoreHandle_t)client->state_lock);
-    }
+static void unlock(wearable_voice_client_t *client) {
+    xSemaphoreGive(client->lock);
 }
 
-static void copy_bounded(char *destination, size_t destination_size, const char *value) {
-    if (destination == NULL || destination_size == 0) {
-        return;
-    }
-    destination[0] = '\0';
-    if (value == NULL) {
-        return;
-    }
-    strlcpy(destination, value, destination_size);
+static void copy_text(char *destination, size_t size, const char *value) {
+    strlcpy(destination, value != NULL ? value : "", size);
 }
 
-static void set_last_error(wearable_voice_client_t *client, const char *message) {
-    voice_client_lock(client);
-    copy_bounded(client->last_error, sizeof(client->last_error), message);
-    copy_bounded(client->current_state, sizeof(client->current_state), "error");
-    voice_client_unlock(client);
+static void set_error_locked(wearable_voice_client_t *client, const char *message) {
+    copy_text(client->last_error, sizeof(client->last_error), message);
+    client->error_seq += 1;
 }
 
-static bool json_escape_append(char *destination, size_t destination_size, const char *source) {
-    size_t used = strlen(destination);
-    if (used >= destination_size) {
+static void set_error(wearable_voice_client_t *client, const char *message) {
+    lock(client);
+    set_error_locked(client, message);
+    unlock(client);
+}
+
+static const char *json_string(const cJSON *object, const char *key) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, key);
+    return cJSON_IsString(item) ? item->valuestring : NULL;
+}
+
+static bool json_true(const cJSON *object, const char *key) {
+    return cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(object, key));
+}
+
+static uint32_t json_rate(const cJSON *object, const char *key) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, key);
+    return cJSON_IsNumber(item) && item->valuedouble >= 8000 && item->valuedouble <= VOICE_MAX_INPUT_RATE
+        ? (uint32_t)item->valuedouble
+        : 24000;
+}
+
+// Session ids go back to the server inside hand-built JSON, so only plain
+// id characters are accepted.
+static bool is_plain_id(const char *value) {
+    if (value == NULL || value[0] == '\0' || strlen(value) >= VOICE_SESSION_ID_MAX) {
         return false;
     }
-    for (const char *cursor = source != NULL ? source : ""; *cursor != '\0'; ++cursor) {
-        const char *replacement = NULL;
-        char single[2] = {*cursor, '\0'};
-        switch (*cursor) {
-            case '"':
-                replacement = "\\\"";
-                break;
-            case '\\':
-                replacement = "\\\\";
-                break;
-            case '\n':
-                replacement = "\\n";
-                break;
-            case '\r':
-                replacement = "\\r";
-                break;
-            case '\t':
-                replacement = "\\t";
-                break;
-            default:
-                replacement = single;
-                break;
-        }
-        size_t replacement_len = strlen(replacement);
-        if (used + replacement_len + 1 >= destination_size) {
+    for (const char *cursor = value; *cursor != '\0'; ++cursor) {
+        const char c = *cursor;
+        const bool plain = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-' || c == '_';
+        if (!plain) {
             return false;
         }
-        memcpy(destination + used, replacement, replacement_len);
-        used += replacement_len;
-        destination[used] = '\0';
     }
     return true;
 }
 
-static esp_err_t ensure_message_capacity(wearable_voice_client_t *client, size_t needed) {
-    if (client->message_capacity >= needed) {
-        return ESP_OK;
-    }
-    size_t next_capacity = needed + 256;
-    char *next = realloc(client->message_buffer, next_capacity);
-    if (next == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    client->message_buffer = next;
-    client->message_capacity = next_capacity;
-    return ESP_OK;
-}
-
-static esp_err_t websocket_send_text(wearable_voice_client_t *client, const char *message) {
-    if (client == NULL || message == NULL || client->websocket == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!esp_websocket_client_is_connected((esp_websocket_client_handle_t)client->websocket)) {
+static esp_err_t send_text(wearable_voice_client_t *client, const char *text) {
+    if (!esp_websocket_client_is_connected(client->websocket)) {
         return ESP_ERR_INVALID_STATE;
     }
-    int sent = esp_websocket_client_send_text(
-        (esp_websocket_client_handle_t)client->websocket,
-        message,
-        (int)strlen(message),
-        VOICE_MESSAGE_TIMEOUT_TICKS
-    );
+    const int sent = esp_websocket_client_send_text(client->websocket, text, (int)strlen(text), VOICE_SEND_TIMEOUT_TICKS);
     return sent >= 0 ? ESP_OK : ESP_FAIL;
 }
 
-static void reset_connection_state(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return;
+static esp_err_t send_json(wearable_voice_client_t *client, cJSON *message) {
+    char *text = cJSON_PrintUnformatted(message);
+    cJSON_Delete(message);
+    if (text == NULL) {
+        return ESP_ERR_NO_MEM;
     }
-    voice_client_lock(client);
-    client->websocket_connected = false;
-    client->hello_complete = false;
-    client->session_ready = false;
-    client->recording = false;
-    client->assistant_speaking = false;
-    client->active_session_id[0] = '\0';
-    client->active_turn_id[0] = '\0';
-    copy_bounded(client->current_state, sizeof(client->current_state), "idle");
-    voice_client_unlock(client);
+    const esp_err_t err = send_text(client, text);
+    cJSON_free(text);
+    return err;
 }
 
-static esp_err_t restart_transport(wearable_voice_client_t *client) {
-    if (client == NULL || client->websocket == NULL) {
-        return ESP_ERR_INVALID_ARG;
+// {"type": type, "sessionId": session_id}, the shape of every call control.
+static esp_err_t send_control(wearable_voice_client_t *client, const char *type, const char *session_id) {
+    cJSON *message = cJSON_CreateObject();
+    if (message == NULL) {
+        return ESP_ERR_NO_MEM;
     }
-    esp_websocket_client_handle_t websocket = (esp_websocket_client_handle_t)client->websocket;
-    reset_connection_state(client);
-    esp_websocket_client_stop(websocket);
-    client->last_connect_attempt_at_us = esp_timer_get_time();
-    ESP_RETURN_ON_ERROR(esp_websocket_client_start(websocket), TAG, "websocket restart failed");
-    return wait_for_connected(client, VOICE_CONNECT_TIMEOUT_MS, false);
+    cJSON_AddStringToObject(message, "type", type);
+    if (session_id != NULL && session_id[0] != '\0') {
+        cJSON_AddStringToObject(message, "sessionId", session_id);
+    }
+    return send_json(client, message);
 }
 
 static esp_err_t send_hello(wearable_voice_client_t *client) {
-    char payload[512];
-    char escaped_label[128] = {0};
-    json_escape_append(escaped_label, sizeof(escaped_label), client->device_label);
-    snprintf(
-        payload,
-        sizeof(payload),
-        "{\"type\":\"wearable:hello\",\"device\":{\"deviceId\":\"%s\",\"platform\":\"esp32-s3-amoled\",\"firmwareVersion\":\"%s\",\"deviceLabel\":\"%s\"}}",
-        client->device_id,
-        client->firmware_version,
-        escaped_label
-    );
-    return websocket_send_text(client, payload);
-}
-
-static esp_err_t queue_playback(wearable_voice_client_t *client, playback_item_t *item) {
-    if (client == NULL || item == NULL || client->playback_queue == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (xQueueSend((QueueHandle_t)client->playback_queue, &item, pdMS_TO_TICKS(1000)) != pdTRUE) {
-        return ESP_ERR_TIMEOUT;
-    }
-    return ESP_OK;
-}
-
-static void playback_task(void *arg) {
-    wearable_voice_client_t *client = (wearable_voice_client_t *)arg;
-    QueueHandle_t queue = (QueueHandle_t)client->playback_queue;
-    playback_item_t *item = NULL;
-    while (true) {
-        if (xQueueReceive(queue, &item, portMAX_DELAY) != pdTRUE || item == NULL) {
-            continue;
-        }
-        voice_client_lock(client);
-        client->playback_active = true;
-        voice_client_unlock(client);
-        esp_err_t play_err = board_support_audio_play_wav(client->board, item->bytes, item->length, 3000);
-        if (play_err != ESP_OK) {
-            ESP_LOGW(TAG, "audio playback failed: %s", esp_err_to_name(play_err));
-            set_last_error(client, "Audio playback failed");
-        }
-        free(item->bytes);
-        free(item);
-        voice_client_lock(client);
-        client->playback_active = false;
-        voice_client_unlock(client);
-    }
-}
-
-static esp_err_t wait_for_connected(wearable_voice_client_t *client, int timeout_ms, bool require_session) {
-    const int64_t deadline = esp_timer_get_time() + ((int64_t)timeout_ms * 1000);
-    while (esp_timer_get_time() < deadline) {
-        bool ready = false;
-        bool authentication_rejected = false;
-        voice_client_lock(client);
-        ready = client->websocket_connected && client->hello_complete && (!require_session || client->session_ready);
-        authentication_rejected = client->authentication_rejected;
-        voice_client_unlock(client);
-        if (authentication_rejected) {
-            return ESP_ERR_INVALID_STATE;
-        }
-        if (ready) {
-            return ESP_OK;
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    return ESP_ERR_TIMEOUT;
-}
-
-static esp_err_t ensure_transport_ready(wearable_voice_client_t *client) {
-    if (client == NULL || client->websocket == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    bool connected = false;
-    bool hello_complete = false;
-    int64_t last_hello_at_us = 0;
-    voice_client_lock(client);
-    connected = client->websocket_connected;
-    hello_complete = client->hello_complete;
-    last_hello_at_us = client->last_hello_at_us;
-    const int64_t last_connect_attempt_at_us = client->last_connect_attempt_at_us;
-    voice_client_unlock(client);
-
-    const int64_t now_us = esp_timer_get_time();
-    const bool hello_stale = hello_complete && last_hello_at_us > 0 && (now_us - last_hello_at_us) > VOICE_HELLO_STALE_TIMEOUT_US;
-    if (connected && hello_complete && !hello_stale && esp_websocket_client_is_connected((esp_websocket_client_handle_t)client->websocket)) {
-        return ESP_OK;
-    }
-    if ((now_us - last_connect_attempt_at_us) < VOICE_RECONNECT_BACKOFF_US && connected) {
-        return wait_for_connected(client, VOICE_CONNECT_TIMEOUT_MS, false);
-    }
-    return restart_transport(client);
-}
-
-static esp_err_t ensure_session_ready(wearable_voice_client_t *client) {
-    ESP_RETURN_ON_ERROR(ensure_transport_ready(client), TAG, "transport not ready");
-
-    voice_client_lock(client);
-    bool already_ready = client->session_ready && client->active_session_id[0] != '\0';
-    voice_client_unlock(client);
-    if (already_ready) {
-        return ESP_OK;
-    }
-
-    ESP_RETURN_ON_ERROR(websocket_send_text(client, "{\"type\":\"voice:session_open\"}"), TAG, "session open failed");
-    return wait_for_connected(client, VOICE_SESSION_TIMEOUT_MS, true);
-}
-
-static esp_err_t send_input_start(wearable_voice_client_t *client, const char *turn_id) {
-    char payload[320];
-    snprintf(
-        payload,
-        sizeof(payload),
-        "{\"type\":\"voice:input_start\",\"sessionId\":\"%s\",\"turnId\":\"%s\",\"mimeType\":\"audio/pcm;rate=24000;channels=1\"}",
-        client->active_session_id,
-        turn_id
-    );
-    esp_err_t send_err = websocket_send_text(client, payload);
-    if (send_err != ESP_OK) {
-        ESP_RETURN_ON_ERROR(restart_transport(client), TAG, "transport restart after input_start failed");
-        ESP_RETURN_ON_ERROR(ensure_session_ready(client), TAG, "session recovery after input_start failed");
-        snprintf(
-            payload,
-            sizeof(payload),
-            "{\"type\":\"voice:input_start\",\"sessionId\":\"%s\",\"turnId\":\"%s\",\"mimeType\":\"audio/pcm;rate=24000;channels=1\"}",
-            client->active_session_id,
-            turn_id
-        );
-        return websocket_send_text(client, payload);
-    }
-    return ESP_OK;
-}
-
-static esp_err_t send_input_commit(wearable_voice_client_t *client, const char *turn_id, uint32_t final_sequence) {
-    char payload[320];
-    snprintf(
-        payload,
-        sizeof(payload),
-        "{\"type\":\"voice:input_commit\",\"sessionId\":\"%s\",\"turnId\":\"%s\",\"finalSequence\":%" PRIu32 "}",
-        client->active_session_id,
-        turn_id,
-        final_sequence
-    );
-    esp_err_t send_err = websocket_send_text(client, payload);
-    if (send_err != ESP_OK) {
-        ESP_RETURN_ON_ERROR(restart_transport(client), TAG, "transport restart after input_commit failed");
-        ESP_RETURN_ON_ERROR(ensure_session_ready(client), TAG, "session recovery after input_commit failed");
-        snprintf(
-            payload,
-            sizeof(payload),
-            "{\"type\":\"voice:input_commit\",\"sessionId\":\"%s\",\"turnId\":\"%s\",\"finalSequence\":%" PRIu32 "}",
-            client->active_session_id,
-            turn_id,
-            final_sequence
-        );
-        return websocket_send_text(client, payload);
-    }
-    return ESP_OK;
-}
-
-static esp_err_t send_interrupt(wearable_voice_client_t *client) {
-    char payload[256];
-    snprintf(payload, sizeof(payload), "{\"type\":\"voice:interrupt\",\"sessionId\":\"%s\"}", client->active_session_id);
-    esp_err_t send_err = websocket_send_text(client, payload);
-    if (send_err != ESP_OK) {
-        ESP_RETURN_ON_ERROR(restart_transport(client), TAG, "transport restart after interrupt failed");
-        ESP_RETURN_ON_ERROR(ensure_session_ready(client), TAG, "session recovery after interrupt failed");
-        snprintf(payload, sizeof(payload), "{\"type\":\"voice:interrupt\",\"sessionId\":\"%s\"}", client->active_session_id);
-        return websocket_send_text(client, payload);
-    }
-    return ESP_OK;
-}
-
-static void wearable_voice_client_cleanup_resources(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return;
-    }
-    if (client->capture_task != NULL) {
-        vTaskDelete((TaskHandle_t)client->capture_task);
-        client->capture_task = NULL;
-    }
-    if (client->playback_task != NULL) {
-        vTaskDelete((TaskHandle_t)client->playback_task);
-        client->playback_task = NULL;
-    }
-    if (client->websocket != NULL) {
-        esp_websocket_client_handle_t websocket = (esp_websocket_client_handle_t)client->websocket;
-        esp_websocket_unregister_events(websocket, WEBSOCKET_EVENT_ANY, websocket_event_handler);
-        esp_websocket_client_stop(websocket);
-        esp_websocket_client_destroy(websocket);
-        client->websocket = NULL;
-    }
-    if (client->playback_queue != NULL) {
-        playback_item_t *item = NULL;
-        while (xQueueReceive((QueueHandle_t)client->playback_queue, &item, 0) == pdTRUE) {
-            if (item != NULL) {
-                free(item->bytes);
-                free(item);
-            }
-        }
-        vQueueDelete((QueueHandle_t)client->playback_queue);
-        client->playback_queue = NULL;
-    }
-    free(client->message_buffer);
-    client->message_buffer = NULL;
-    client->message_length = 0;
-    client->message_capacity = 0;
-    client->pending_audio_head = NULL;
-    client->pending_audio_tail = NULL;
-    if (client->state_lock != NULL) {
-        vSemaphoreDelete((SemaphoreHandle_t)client->state_lock);
-        client->state_lock = NULL;
-    }
-}
-
-static esp_err_t send_audio_chunk(wearable_voice_client_t *client, const char *turn_id, const uint8_t *audio_bytes, size_t audio_length) {
-    size_t encoded_capacity = (4 * ((audio_length + 2) / 3)) + 4;
-    char *encoded = malloc(encoded_capacity);
-    if (encoded == NULL) {
+    cJSON *message = cJSON_CreateObject();
+    cJSON *device = cJSON_CreateObject();
+    if (message == NULL || device == NULL) {
+        cJSON_Delete(message);
+        cJSON_Delete(device);
         return ESP_ERR_NO_MEM;
     }
-    size_t encoded_length = 0;
-    int base64_err = mbedtls_base64_encode((unsigned char *)encoded, encoded_capacity, &encoded_length, audio_bytes, audio_length);
-    if (base64_err != 0) {
-        free(encoded);
-        return ESP_FAIL;
-    }
-
-    size_t payload_capacity = encoded_length + 384;
-    char *payload = malloc(payload_capacity);
-    if (payload == NULL) {
-        free(encoded);
-        return ESP_ERR_NO_MEM;
-    }
-    snprintf(
-        payload,
-        payload_capacity,
-        "{\"type\":\"voice:audio_chunk\",\"sessionId\":\"%s\",\"turnId\":\"%s\",\"sequence\":%" PRIu32 ",\"mimeType\":\"audio/pcm;rate=24000;channels=1\",\"audioBase64\":\"%s\"}",
-        client->active_session_id,
-        turn_id,
-        client->next_sequence,
-        encoded
-    );
-    esp_err_t send_err = websocket_send_text(client, payload);
-    if (send_err != ESP_OK) {
-        ESP_LOGW(TAG, "audio chunk write failed, restarting transport");
-        restart_transport(client);
-    }
-    free(payload);
-    free(encoded);
-    if (send_err == ESP_OK) {
-        client->next_sequence += 1;
-    }
-    return send_err;
+    cJSON_AddStringToObject(message, "type", "wearable:hello");
+    cJSON_AddStringToObject(device, "deviceId", client->device_id);
+    cJSON_AddStringToObject(device, "platform", "esp32-s3-amoled");
+    cJSON_AddStringToObject(device, "firmwareVersion", client->firmware_version);
+    cJSON_AddStringToObject(device, "deviceLabel", client->device_label);
+    cJSON_AddItemToObject(message, "device", device);
+    return send_json(client, message);
 }
 
-static void capture_task(void *arg) {
-    wearable_voice_client_t *client = (wearable_voice_client_t *)arg;
-    uint8_t *capture_buffer = malloc(VOICE_CAPTURE_CHUNK_BYTES);
-    if (capture_buffer == NULL) {
-        set_last_error(client, "Mic capture buffer alloc failed");
-        voice_client_lock(client);
-        client->recording = false;
-        client->capture_task = NULL;
-        voice_client_unlock(client);
-        vTaskDelete(NULL);
+// Asks for the call's session once per connection, reattaching to it when the
+// socket came back mid-call. A second open would start a second billed session.
+static void request_session(wearable_voice_client_t *client) {
+    char session_id[VOICE_SESSION_ID_MAX];
+    lock(client);
+    const bool wanted = client->call != WEARABLE_CALL_IDLE && client->server_connected && !client->session_requested;
+    client->session_requested = client->session_requested || wanted;
+    copy_text(session_id, sizeof(session_id), client->session_id);
+    unlock(client);
+    if (wanted && send_control(client, "voice:session_open", session_id) != ESP_OK) {
+        set_error(client, "Could not reach the voice service");
+    }
+}
+
+static bool playback_audible(wearable_voice_client_t *client, int64_t last_playback_at_us) {
+    const bool queued = xRingbufferGetCurFreeSize(client->playback) < client->playback_capacity;
+    return queued || (esp_timer_get_time() - last_playback_at_us) < VOICE_ECHO_GUARD_US;
+}
+
+// Drops every reply sample not yet played. The playback task drains the
+// buffer itself, since it is the buffer's only reader.
+static void flush_playback(wearable_voice_client_t *client) {
+    lock(client);
+    client->playback_generation += 1;
+    unlock(client);
+}
+
+static void end_call_locked(wearable_voice_client_t *client) {
+    client->call = WEARABLE_CALL_IDLE;
+    client->session_id[0] = '\0';
+    client->session_requested = false;
+    client->talk_engaged = false;
+    client->open_mic_when_ready = false;
+    client->server_speaking = false;
+    client->reconnecting = false;
+    client->call_started_at_us = 0;
+    client->task_run_id[0] = '\0';
+    client->task_request[0] = '\0';
+}
+
+static void queue_reply_audio(wearable_voice_client_t *client, const char *audio_base64, uint32_t output_rate) {
+    const size_t encoded_length = strlen(audio_base64);
+    const size_t decoded_capacity = (encoded_length / 4) * 3 + 3;
+    int16_t *pcm = malloc(decoded_capacity);
+    if (pcm == NULL) {
         return;
     }
-
-    while (true) {
-        voice_client_lock(client);
-        bool should_continue = client->recording;
-        char turn_id[NEOAGENT_VOICE_TURN_ID_MAX];
-        copy_bounded(turn_id, sizeof(turn_id), client->active_turn_id);
-        voice_client_unlock(client);
-        if (!should_continue) {
-            break;
-        }
-
-        size_t bytes_read = 0;
-        esp_err_t read_err = board_support_audio_read(client->board, capture_buffer, VOICE_CAPTURE_CHUNK_BYTES, &bytes_read, VOICE_CAPTURE_TIMEOUT_MS);
-        if (read_err == ESP_OK && bytes_read > 0) {
-            esp_err_t send_err = send_audio_chunk(client, turn_id, capture_buffer, bytes_read);
-            if (send_err != ESP_OK) {
-                ESP_LOGW(TAG, "audio chunk send failed: %s", esp_err_to_name(send_err));
-                set_last_error(client, "Voice uplink failed");
-            }
-        } else if (read_err != ESP_ERR_TIMEOUT && read_err != ESP_OK) {
-            ESP_LOGW(TAG, "audio capture failed: %s", esp_err_to_name(read_err));
-            set_last_error(client, "Mic capture failed");
-            vTaskDelay(pdMS_TO_TICKS(50));
-        }
+    size_t decoded_length = 0;
+    if (mbedtls_base64_decode((unsigned char *)pcm, decoded_capacity, &decoded_length, (const unsigned char *)audio_base64, encoded_length) != 0) {
+        free(pcm);
+        return;
     }
-
-    free(capture_buffer);
-    voice_client_lock(client);
-    client->capture_task = NULL;
-    voice_client_unlock(client);
-    vTaskDelete(NULL);
+    const size_t samples = decoded_length / sizeof(int16_t);
+    const int16_t *out = pcm;
+    size_t out_samples = samples;
+    int16_t *converted = NULL;
+    if (output_rate != client->codec_rate) {
+        if (client->downlink_rate != output_rate) {
+            pcm_resampler_init(&client->downlink, output_rate, client->codec_rate);
+            client->downlink_rate = output_rate;
+        }
+        converted = malloc(pcm_resampler_max_output(output_rate, client->codec_rate, samples) * sizeof(int16_t));
+        if (converted == NULL) {
+            free(pcm);
+            return;
+        }
+        out_samples = pcm_resampler_process(&client->downlink, pcm, samples, converted);
+        out = converted;
+    }
+    if (out_samples > 0 && xRingbufferSend(client->playback, out, out_samples * sizeof(int16_t), 0) != pdTRUE) {
+        ESP_LOGW(TAG, "reply buffer full; dropped %u samples", (unsigned)out_samples);
+    }
+    free(converted);
+    free(pcm);
 }
 
-static esp_err_t handle_incoming_json(wearable_voice_client_t *client, const char *message) {
-    cJSON *root = cJSON_Parse(message);
+// Events of an earlier call (its closing, its last audio) must not touch this one.
+static bool for_current_session(wearable_voice_client_t *client, const cJSON *root) {
+    const char *session_id = json_string(root, "sessionId");
+    lock(client);
+    const bool current = session_id != NULL && client->session_id[0] != '\0' && strcmp(session_id, client->session_id) == 0;
+    unlock(client);
+    return current;
+}
+
+static void handle_session_ready(wearable_voice_client_t *client, const cJSON *root) {
+    const char *session_id = json_string(root, "sessionId");
+    if (!is_plain_id(session_id)) {
+        return;
+    }
+    const char *input_mode = json_string(root, "inputMode");
+    const char *active_run_id = json_string(root, "activeRunId");
+    lock(client);
+    if (client->call == WEARABLE_CALL_IDLE) {
+        // The call was hung up while the session was opening.
+        unlock(client);
+        send_control(client, "voice:session_close", session_id);
+        return;
+    }
+    copy_text(client->session_id, sizeof(client->session_id), session_id);
+    client->session_requested = false;
+    client->call = WEARABLE_CALL_ACTIVE;
+    client->hands_free = input_mode == NULL || strcmp(input_mode, "ptt") != 0;
+    client->input_rate = json_rate(root, "inputSampleRate");
+    client->output_rate = json_rate(root, "outputSampleRate");
+    client->reconnecting = false;
+    if (client->call_started_at_us == 0) {
+        client->call_started_at_us = esp_timer_get_time();
+    }
+    // A hands-free call is a phone call: the microphone opens right away.
+    if (client->open_mic_when_ready && client->hands_free) {
+        client->talk_engaged = true;
+    }
+    client->open_mic_when_ready = false;
+    if (active_run_id != NULL && active_run_id[0] != '\0') {
+        copy_text(client->task_run_id, sizeof(client->task_run_id), active_run_id);
+    }
+    unlock(client);
+    xTaskNotifyGive(client->capture_task);
+}
+
+static void handle_state(wearable_voice_client_t *client, const cJSON *root) {
+    const char *state = json_string(root, "state");
+    if (state == NULL) {
+        return;
+    }
+    if (strcmp(state, "closed") == 0) {
+        lock(client);
+        end_call_locked(client);
+        unlock(client);
+        flush_playback(client);
+        return;
+    }
+    lock(client);
+    client->server_speaking = strcmp(state, "speaking") == 0;
+    client->reconnecting = strcmp(state, "reconnecting") == 0 || strcmp(state, "connecting") == 0;
+    unlock(client);
+}
+
+static void handle_task(wearable_voice_client_t *client, const cJSON *root) {
+    const char *run_id = json_string(root, "runId");
+    const char *status = json_string(root, "status");
+    if (run_id == NULL || status == NULL) {
+        return;
+    }
+    lock(client);
+    if (strcmp(status, "running") == 0) {
+        copy_text(client->task_run_id, sizeof(client->task_run_id), run_id);
+        copy_text(client->task_request, sizeof(client->task_request), json_string(root, "request"));
+    } else {
+        if (strcmp(client->task_run_id, run_id) == 0) {
+            client->task_run_id[0] = '\0';
+            client->task_request[0] = '\0';
+        }
+        client->task_outcome_seq += 1;
+        client->task_outcome_ok = strcmp(status, "completed") == 0;
+    }
+    unlock(client);
+}
+
+static void handle_message(wearable_voice_client_t *client, const char *text) {
+    cJSON *root = cJSON_Parse(text);
     if (root == NULL) {
-        return ESP_ERR_INVALID_RESPONSE;
+        return;
     }
-    cJSON *type = cJSON_GetObjectItemCaseSensitive(root, "type");
-    if (!cJSON_IsString(type)) {
+    const char *type = json_string(root, "type");
+    if (type == NULL) {
         cJSON_Delete(root);
-        return ESP_ERR_INVALID_RESPONSE;
+        return;
+    }
+    const bool session_event = strcmp(type, "voice:audio") == 0 || strcmp(type, "voice:transcript") == 0 ||
+        strcmp(type, "voice:state") == 0 || strcmp(type, "voice:interrupted") == 0 || strcmp(type, "voice:task") == 0;
+    if (session_event && !for_current_session(client, root)) {
+        cJSON_Delete(root);
+        return;
     }
 
-    const char *message_type = type->valuestring;
-    if (strcmp(message_type, "wearable:hello") == 0) {
-        voice_client_lock(client);
-        client->hello_complete = true;
-        client->transport_available = true;
-        client->last_hello_at_us = esp_timer_get_time();
-        client->last_message_at_us = client->last_hello_at_us;
-        copy_bounded(client->current_state, sizeof(client->current_state), "idle");
-        client->last_error[0] = '\0';
-        voice_client_unlock(client);
-    } else if (strcmp(message_type, "voice:session_ready") == 0) {
-        cJSON *session_id = cJSON_GetObjectItemCaseSensitive(root, "sessionId");
-        if (cJSON_IsString(session_id)) {
-            voice_client_lock(client);
-            copy_bounded(client->active_session_id, sizeof(client->active_session_id), session_id->valuestring);
-            client->session_ready = true;
-            client->last_message_at_us = esp_timer_get_time();
-            copy_bounded(client->current_state, sizeof(client->current_state), "idle");
-            client->last_error[0] = '\0';
-            voice_client_unlock(client);
+    if (strcmp(type, "voice:audio") == 0) {
+        const char *audio = json_string(root, "audioBase64");
+        lock(client);
+        const uint32_t output_rate = client->output_rate;
+        unlock(client);
+        if (audio != NULL && audio[0] != '\0') {
+            queue_reply_audio(client, audio, output_rate);
         }
-    } else if (strcmp(message_type, "voice:assistant_state") == 0) {
-        cJSON *state = cJSON_GetObjectItemCaseSensitive(root, "state");
-        if (cJSON_IsString(state)) {
-            voice_client_lock(client);
-            copy_bounded(client->current_state, sizeof(client->current_state), state->valuestring);
-            client->assistant_speaking = strcmp(state->valuestring, "speaking") == 0;
-            client->last_message_at_us = esp_timer_get_time();
-            if (strcmp(state->valuestring, "closed") == 0) {
-                client->session_ready = false;
-                client->active_session_id[0] = '\0';
-            }
-            voice_client_unlock(client);
+    } else if (strcmp(type, "voice:transcript") == 0) {
+        const char *content = json_string(root, "content");
+        const char *role = json_string(root, "role");
+        if (content != NULL && content[0] != '\0') {
+            lock(client);
+            copy_text(client->caption, sizeof(client->caption), content);
+            client->caption_from_assistant = role != NULL && strcmp(role, "assistant") == 0;
+            unlock(client);
         }
-    } else if (strcmp(message_type, "voice:transcript_partial") == 0 || strcmp(message_type, "voice:transcript_final") == 0) {
-        cJSON *content = cJSON_GetObjectItemCaseSensitive(root, "content");
-        if (cJSON_IsString(content)) {
-            voice_client_lock(client);
-            copy_bounded(client->latest_transcript, sizeof(client->latest_transcript), content->valuestring);
-            client->last_message_at_us = esp_timer_get_time();
-            voice_client_unlock(client);
+    } else if (strcmp(type, "voice:state") == 0) {
+        handle_state(client, root);
+    } else if (strcmp(type, "voice:interrupted") == 0) {
+        flush_playback(client);
+    } else if (strcmp(type, "voice:task") == 0) {
+        handle_task(client, root);
+    } else if (strcmp(type, "voice:session_ready") == 0) {
+        handle_session_ready(client, root);
+    } else if (strcmp(type, "voice:error") == 0) {
+        const char *error = json_string(root, "error");
+        const bool recoverable = json_true(root, "recoverable");
+        lock(client);
+        set_error_locked(client, error != NULL ? error : "Live voice failed");
+        const bool abandon = !recoverable && client->call == WEARABLE_CALL_CONNECTING;
+        if (abandon) {
+            end_call_locked(client);
         }
-    } else if (strcmp(message_type, "voice:assistant_text") == 0) {
-        cJSON *content = cJSON_GetObjectItemCaseSensitive(root, "content");
-        if (cJSON_IsString(content)) {
-            voice_client_lock(client);
-            copy_bounded(client->latest_assistant_text, sizeof(client->latest_assistant_text), content->valuestring);
-            client->last_message_at_us = esp_timer_get_time();
-            voice_client_unlock(client);
-        }
-    } else if (strcmp(message_type, "voice:audio_chunk") == 0) {
-        cJSON *audio_base64 = cJSON_GetObjectItemCaseSensitive(root, "audioBase64");
-        if (cJSON_IsString(audio_base64) && audio_base64->valuestring[0] != '\0') {
-            size_t decoded_capacity = strlen(audio_base64->valuestring) * 3 / 4 + 8;
-            uint8_t *decoded = malloc(decoded_capacity);
-            if (decoded != NULL) {
-                size_t decoded_length = 0;
-                int decode_err = mbedtls_base64_decode(decoded, decoded_capacity, &decoded_length, (const unsigned char *)audio_base64->valuestring, strlen(audio_base64->valuestring));
-                if (decode_err == 0 && decoded_length > 0) {
-                    playback_item_t *item = malloc(sizeof(*item));
-                    if (item != NULL) {
-                        item->bytes = decoded;
-                        item->length = decoded_length;
-                        if (queue_playback(client, item) != ESP_OK) {
-                            free(item->bytes);
-                            free(item);
-                        }
-                    } else {
-                        free(decoded);
-                    }
-                } else {
-                    free(decoded);
-                }
-            }
-        }
-    } else if (strcmp(message_type, "voice:error") == 0) {
-        cJSON *error = cJSON_GetObjectItemCaseSensitive(root, "error");
-        if (cJSON_IsString(error)) {
-            set_last_error(client, error->valuestring);
-        }
-        voice_client_lock(client);
-        client->last_message_at_us = esp_timer_get_time();
-        voice_client_unlock(client);
+        unlock(client);
+    } else if (strcmp(type, "wearable:hello") == 0) {
+        lock(client);
+        client->server_connected = true;
+        unlock(client);
+        request_session(client);
     }
-
     cJSON_Delete(root);
-    return ESP_OK;
+}
+
+static void on_socket_data(wearable_voice_client_t *client, const esp_websocket_event_data_t *data) {
+    if (data->op_code != 0x1 && data->op_code != 0x0) {
+        return;
+    }
+    if (data->payload_offset == 0) {
+        client->message_length = 0;
+    }
+    const size_t needed = client->message_length + (size_t)data->data_len + 1;
+    if (needed > client->message_capacity) {
+        char *grown = realloc(client->message, needed + 1024);
+        if (grown == NULL) {
+            client->message_length = 0;
+            return;
+        }
+        client->message = grown;
+        client->message_capacity = needed + 1024;
+    }
+    memcpy(client->message + client->message_length, data->data_ptr, (size_t)data->data_len);
+    client->message_length += (size_t)data->data_len;
+    client->message[client->message_length] = '\0';
+    if (data->payload_offset + data->data_len >= data->payload_len) {
+        handle_message(client, client->message);
+        client->message_length = 0;
+    }
 }
 
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
     (void)base;
     wearable_voice_client_t *client = (wearable_voice_client_t *)handler_args;
-    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
+    const esp_websocket_event_data_t *data = (const esp_websocket_event_data_t *)event_data;
 
     switch (event_id) {
         case WEBSOCKET_EVENT_CONNECTED:
-            voice_client_lock(client);
+            lock(client);
+            client->server_connected = false;
+            client->session_requested = false;
             client->authentication_rejected = false;
-            client->websocket_connected = true;
-            client->hello_complete = false;
-            client->session_ready = false;
-            client->active_session_id[0] = '\0';
-            client->last_connect_attempt_at_us = esp_timer_get_time();
-            voice_client_unlock(client);
+            unlock(client);
             if (send_hello(client) != ESP_OK) {
-                set_last_error(client, "Wearable hello failed");
+                set_error(client, "Could not greet the server");
             }
             break;
         case WEBSOCKET_EVENT_DISCONNECTED:
-            reset_connection_state(client);
+        case WEBSOCKET_EVENT_CLOSED:
+            // A call survives the socket dropping: the session is reopened
+            // under its id once the socket is back.
+            lock(client);
+            client->server_connected = false;
+            if (client->call == WEARABLE_CALL_ACTIVE) {
+                client->reconnecting = true;
+                client->server_speaking = false;
+            }
+            unlock(client);
+            flush_playback(client);
             break;
         case WEBSOCKET_EVENT_DATA:
-            if (data != NULL && data->op_code == 0x1 && data->data_ptr != NULL && data->data_len > 0) {
-                if (data->payload_offset == 0) {
-                    client->message_length = 0;
-                }
-                if (ensure_message_capacity(client, client->message_length + data->data_len + 1) == ESP_OK) {
-                    memcpy(client->message_buffer + client->message_length, data->data_ptr, data->data_len);
-                    client->message_length += data->data_len;
-                    client->message_buffer[client->message_length] = '\0';
-                    if (data->fin && (data->payload_offset + data->data_len) >= data->payload_len) {
-                        handle_incoming_json(client, client->message_buffer);
-                        client->message_length = 0;
-                    }
-                }
+            if (data != NULL && data->data_ptr != NULL && data->data_len > 0) {
+                on_socket_data(client, data);
             }
             break;
         case WEBSOCKET_EVENT_ERROR:
-            if (data != NULL) {
-                if (data->error_handle.esp_ws_handshake_status_code == 401 ||
-                    data->error_handle.esp_ws_handshake_status_code == 403) {
-                    voice_client_lock(client);
-                    client->authentication_rejected = true;
-                    voice_client_unlock(client);
-                    set_last_error(client, "Pairing expired; reconnect device");
-                    break;
-                }
-                char message[160];
-                snprintf(
-                    message,
-                    sizeof(message),
-                    "WebSocket error type=%d status=%d errno=%d",
-                    data->error_handle.error_type,
-                    data->error_handle.esp_ws_handshake_status_code,
-                    data->error_handle.esp_transport_sock_errno
-                );
-                set_last_error(client, message);
+            if (data != NULL &&
+                (data->error_handle.esp_ws_handshake_status_code == 401 ||
+                 data->error_handle.esp_ws_handshake_status_code == 403)) {
+                lock(client);
+                client->authentication_rejected = true;
+                unlock(client);
             }
             break;
         default:
@@ -634,245 +489,319 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
     }
 }
 
+static void playback_task(void *arg) {
+    wearable_voice_client_t *client = (wearable_voice_client_t *)arg;
+    const size_t slice_bytes = client->codec_rate * sizeof(int16_t) * VOICE_PLAYBACK_SLICE_MS / 1000;
+    uint32_t played_generation = 0;
+
+    while (true) {
+        lock(client);
+        const uint32_t generation = client->playback_generation;
+        unlock(client);
+        if (generation != played_generation) {
+            size_t length = 0;
+            void *stale = NULL;
+            while ((stale = xRingbufferReceiveUpTo(client->playback, &length, 0, client->playback_capacity)) != NULL) {
+                vRingbufferReturnItem(client->playback, stale);
+            }
+            played_generation = generation;
+        }
+
+        size_t length = 0;
+        void *slice = xRingbufferReceiveUpTo(client->playback, &length, pdMS_TO_TICKS(100), slice_bytes);
+        if (slice == NULL) {
+            continue;
+        }
+        const esp_err_t err = board_support_audio_write(client->board, slice, length, 200);
+        vRingbufferReturnItem(client->playback, slice);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "reply playback failed: %s", esp_err_to_name(err));
+            continue;
+        }
+        lock(client);
+        client->last_playback_at_us = esp_timer_get_time();
+        unlock(client);
+    }
+}
+
+// The capture task owns the uplink, so input_start, the audio and input_end
+// always reach the server in that order.
+static void capture_task(void *arg) {
+    wearable_voice_client_t *client = (wearable_voice_client_t *)arg;
+    int16_t *captured = client->captured;
+    int16_t *converted = client->converted;
+    char *message = client->uplink_message;
+    const size_t message_capacity = client->uplink_message_capacity;
+    pcm_resampler_t uplink = {0};
+    char session_id[VOICE_SESSION_ID_MAX] = {0};
+    bool streaming = false;
+
+    while (true) {
+        lock(client);
+        const bool want = client->call == WEARABLE_CALL_ACTIVE && client->talk_engaged &&
+            client->server_connected && client->session_id[0] != '\0';
+        const bool hands_free = client->hands_free;
+        const uint32_t input_rate = client->input_rate;
+        const int64_t last_playback_at_us = client->last_playback_at_us;
+        const bool session_changed = streaming && strcmp(session_id, client->session_id) != 0;
+        if (want && !streaming) {
+            copy_text(session_id, sizeof(session_id), client->session_id);
+        }
+        unlock(client);
+
+        if (streaming && (!want || session_changed)) {
+            if (!session_changed) {
+                send_control(client, "voice:input_end", session_id);
+            }
+            streaming = false;
+        }
+        if (want && !streaming) {
+            if (send_control(client, "voice:input_start", session_id) == ESP_OK) {
+                pcm_resampler_init(&uplink, client->codec_rate, input_rate);
+                streaming = true;
+            }
+        }
+        lock(client);
+        client->streaming = streaming;
+        unlock(client);
+        if (!streaming) {
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
+            continue;
+        }
+
+        size_t bytes_read = 0;
+        const esp_err_t read_err = board_support_audio_read(client->board, captured, client->captured_samples * sizeof(int16_t), &bytes_read, VOICE_CAPTURE_TIMEOUT_MS);
+        if (read_err != ESP_OK || bytes_read == 0) {
+            if (read_err != ESP_ERR_TIMEOUT) {
+                ESP_LOGW(TAG, "microphone read failed: %s", esp_err_to_name(read_err));
+                set_error(client, "Microphone capture failed");
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            continue;
+        }
+        if (hands_free && playback_audible(client, last_playback_at_us)) {
+            continue;
+        }
+
+        const size_t samples = pcm_resampler_process(&uplink, captured, bytes_read / sizeof(int16_t), converted);
+        const int prefix = snprintf(message, message_capacity, "{\"type\":\"voice:audio\",\"sessionId\":\"%s\",\"audioBase64\":\"", session_id);
+        size_t encoded_length = 0;
+        if (mbedtls_base64_encode((unsigned char *)message + prefix, message_capacity - (size_t)prefix - 3, &encoded_length, (const unsigned char *)converted, samples * sizeof(int16_t)) != 0) {
+            continue;
+        }
+        memcpy(message + prefix + encoded_length, "\"}", 3);
+        if (send_text(client, message) != ESP_OK) {
+            ESP_LOGW(TAG, "microphone audio not sent");
+        }
+    }
+}
+
+static void free_client(wearable_voice_client_t *client) {
+    if (client->websocket != NULL) {
+        esp_websocket_client_destroy(client->websocket);
+    }
+    if (client->playback != NULL) {
+        vRingbufferDeleteWithCaps(client->playback);
+    }
+    if (client->lock != NULL) {
+        vSemaphoreDelete(client->lock);
+    }
+    free(client->message);
+    free(client->captured);
+    free(client->converted);
+    free(client->uplink_message);
+    free(client);
+}
+
 esp_err_t wearable_voice_client_init(
-    wearable_voice_client_t *client,
+    wearable_voice_client_t **out,
     board_support_t *board,
     const char *websocket_url,
     const char *session_cookie,
     const char *device_label
 ) {
-    if (client == NULL || board == NULL || websocket_url == NULL || websocket_url[0] == '\0' || session_cookie == NULL || session_cookie[0] == '\0') {
+    if (out == NULL || board == NULL || websocket_url == NULL || websocket_url[0] == '\0' ||
+        session_cookie == NULL || session_cookie[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
+    const board_audio_format_t *format = board_support_audio_format(board);
+    if (format == NULL) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
 
-    memset(client, 0, sizeof(*client));
+    wearable_voice_client_t *client = calloc(1, sizeof(*client));
+    if (client == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
     client->board = board;
-    copy_bounded(client->websocket_url, sizeof(client->websocket_url), websocket_url);
-    copy_bounded(client->session_cookie, sizeof(client->session_cookie), session_cookie);
-    copy_bounded(client->device_label, sizeof(client->device_label), device_label != NULL ? device_label : "NeoAgent wearable");
-
-    const esp_app_desc_t *app_desc = esp_app_get_description();
-    copy_bounded(client->firmware_version, sizeof(client->firmware_version), app_desc != NULL ? app_desc->version : "unknown");
+    client->codec_rate = format->sample_rate_hz;
+    client->input_rate = client->codec_rate;
+    client->output_rate = client->codec_rate;
+    copy_text(client->device_label, sizeof(client->device_label), device_label != NULL && device_label[0] != '\0' ? device_label : "NeoAgent wearable");
+    const esp_app_desc_t *app = esp_app_get_description();
+    copy_text(client->firmware_version, sizeof(client->firmware_version), app != NULL ? app->version : "unknown");
     uint8_t mac[6] = {0};
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     snprintf(client->device_id, sizeof(client->device_id), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    client->state_lock = xSemaphoreCreateMutex();
-    if (client->state_lock == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    client->playback_queue = xQueueCreate(VOICE_PLAYBACK_QUEUE_DEPTH, sizeof(playback_item_t *));
-    if (client->playback_queue == NULL) {
-        wearable_voice_client_cleanup_resources(client);
+    client->lock = xSemaphoreCreateMutex();
+    client->playback_capacity = client->codec_rate * sizeof(int16_t) * VOICE_PLAYBACK_BUFFER_SECONDS;
+    client->playback = xRingbufferCreateWithCaps(client->playback_capacity, RINGBUF_TYPE_BYTEBUF, MALLOC_CAP_SPIRAM);
+    client->captured_samples = client->codec_rate * VOICE_CAPTURE_CHUNK_MS / 1000;
+    client->captured = malloc(client->captured_samples * sizeof(int16_t));
+    // Room for the largest live-model input rate the server may name.
+    const size_t converted_samples = pcm_resampler_max_output(client->codec_rate, VOICE_MAX_INPUT_RATE, client->captured_samples);
+    client->converted = malloc(converted_samples * sizeof(int16_t));
+    client->uplink_message_capacity = ((converted_samples * sizeof(int16_t) + 2) / 3) * 4 + 64 + VOICE_SESSION_ID_MAX;
+    client->uplink_message = malloc(client->uplink_message_capacity);
+    if (client->lock == NULL || client->playback == NULL || client->captured == NULL ||
+        client->converted == NULL || client->uplink_message == NULL) {
+        free_client(client);
         return ESP_ERR_NO_MEM;
     }
 
-    const esp_websocket_client_config_t websocket_cfg = {
-        .uri = client->websocket_url,
+    const esp_websocket_client_config_t websocket_config = {
+        .uri = websocket_url,
         .disable_auto_reconnect = false,
-        .enable_close_reconnect = true,
-        .buffer_size = 4096,
+        .buffer_size = 8192,
         .task_stack = 8192,
         .network_timeout_ms = 10000,
         .reconnect_timeout_ms = 3000,
-        .ping_interval_sec = 30,
+        .ping_interval_sec = 20,
         .pingpong_timeout_sec = 45,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .user_agent = "NeoAgentWearable/voice",
     };
-    esp_websocket_client_handle_t websocket = esp_websocket_client_init(&websocket_cfg);
-    if (websocket == NULL) {
-        wearable_voice_client_cleanup_resources(client);
+    client->websocket = esp_websocket_client_init(&websocket_config);
+    if (client->websocket == NULL ||
+        esp_websocket_client_append_header(client->websocket, "Cookie", session_cookie) != ESP_OK ||
+        esp_websocket_register_events(client->websocket, WEBSOCKET_EVENT_ANY, websocket_event_handler, client) != ESP_OK) {
+        free_client(client);
         return ESP_FAIL;
     }
-    esp_err_t err = esp_websocket_client_append_header(websocket, "Cookie", client->session_cookie);
-    if (err != ESP_OK) {
-        esp_websocket_client_destroy(websocket);
-        wearable_voice_client_cleanup_resources(client);
-        return err;
-    }
-    err = esp_websocket_register_events(websocket, WEBSOCKET_EVENT_ANY, websocket_event_handler, client);
-    if (err != ESP_OK) {
-        esp_websocket_client_destroy(websocket);
-        wearable_voice_client_cleanup_resources(client);
-        return err;
-    }
-    client->websocket = websocket;
 
-    TaskHandle_t playback_handle = NULL;
-    if (xTaskCreate(playback_task, "voice_playback", 8192, client, 4, &playback_handle) != pdPASS) {
-        wearable_voice_client_cleanup_resources(client);
+    if (xTaskCreate(playback_task, "voice_playback", 4096, client, 6, &client->playback_task) != pdPASS) {
+        free_client(client);
         return ESP_ERR_NO_MEM;
     }
-    client->playback_task = playback_handle;
-
-    client->transport_available = board_support_audio_is_ready(board);
-    if (!client->transport_available) {
-        set_last_error(client, "Audio hardware unavailable");
-        wearable_voice_client_cleanup_resources(client);
-        return ESP_ERR_NOT_SUPPORTED;
+    if (xTaskCreate(capture_task, "voice_capture", 6144, client, 5, &client->capture_task) != pdPASS) {
+        vTaskDelete(client->playback_task);
+        free_client(client);
+        return ESP_ERR_NO_MEM;
     }
-    esp_err_t ready_err = ensure_transport_ready(client);
-    if (ready_err == ESP_ERR_INVALID_STATE) {
-        wearable_voice_client_cleanup_resources(client);
+    const esp_err_t start_err = esp_websocket_client_start(client->websocket);
+    if (start_err != ESP_OK) {
+        // The capture and playback tasks stay parked; without a socket nothing wakes them.
+        ESP_LOGW(TAG, "voice socket did not start: %s", esp_err_to_name(start_err));
     }
-    return ready_err;
-}
-
-esp_err_t wearable_voice_client_deinit(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    wearable_voice_client_cleanup_resources(client);
-    memset(client, 0, sizeof(*client));
+    *out = client;
     return ESP_OK;
 }
 
-esp_err_t wearable_voice_client_start_ptt(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!client->transport_available) {
-        return ESP_ERR_NOT_SUPPORTED;
-    }
-    ESP_RETURN_ON_ERROR(ensure_session_ready(client), TAG, "voice session not ready");
-
-    int64_t now_us = esp_timer_get_time();
-    char turn_id[NEOAGENT_VOICE_TURN_ID_MAX];
-    snprintf(turn_id, sizeof(turn_id), "turn-%" PRIi64, now_us);
-
-    voice_client_lock(client);
-    copy_bounded(client->active_turn_id, sizeof(client->active_turn_id), turn_id);
-    client->next_sequence = 0;
-    client->recording = true;
-    copy_bounded(client->current_state, sizeof(client->current_state), "listening");
-    client->latest_transcript[0] = '\0';
-    client->latest_assistant_text[0] = '\0';
-    client->last_error[0] = '\0';
-    voice_client_unlock(client);
-
-    ESP_RETURN_ON_ERROR(send_input_start(client, turn_id), TAG, "input start failed");
-    voice_client_lock(client);
-    if (client->capture_task != NULL) {
-        voice_client_unlock(client);
+esp_err_t wearable_voice_client_call_start(wearable_voice_client_t *client) {
+    lock(client);
+    if (client->call != WEARABLE_CALL_IDLE) {
+        unlock(client);
         return ESP_OK;
     }
-    client->capture_task = (TaskHandle_t)1;
-    voice_client_unlock(client);
-
-    TaskHandle_t capture_handle = NULL;
-    if (xTaskCreate(capture_task, "voice_capture", 8192, client, 5, &capture_handle) != pdPASS) {
-        voice_client_lock(client);
-        client->capture_task = NULL;
-        client->recording = false;
-        voice_client_unlock(client);
-        return ESP_ERR_NO_MEM;
-    }
-    voice_client_lock(client);
-    client->capture_task = capture_handle;
-    voice_client_unlock(client);
+    end_call_locked(client);
+    client->call = WEARABLE_CALL_CONNECTING;
+    client->call_requested_at_us = esp_timer_get_time();
+    client->open_mic_when_ready = true;
+    client->caption[0] = '\0';
+    client->last_error[0] = '\0';
+    unlock(client);
+    request_session(client);
     return ESP_OK;
 }
 
-esp_err_t wearable_voice_client_poll(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return ESP_ERR_INVALID_ARG;
+esp_err_t wearable_voice_client_call_end(wearable_voice_client_t *client) {
+    char session_id[VOICE_SESSION_ID_MAX];
+    lock(client);
+    if (client->call == WEARABLE_CALL_IDLE) {
+        unlock(client);
+        return ESP_OK;
     }
-    if (!client->transport_available) {
-        return ESP_ERR_NOT_SUPPORTED;
-    }
-    if (client->websocket == NULL) {
+    copy_text(session_id, sizeof(session_id), client->session_id);
+    end_call_locked(client);
+    unlock(client);
+    xTaskNotifyGive(client->capture_task);
+    flush_playback(client);
+    // Running hand-offs keep going on the server; their result lands in chat.
+    return session_id[0] != '\0' ? send_control(client, "voice:session_close", session_id) : ESP_OK;
+}
+
+esp_err_t wearable_voice_client_talk_start(wearable_voice_client_t *client) {
+    lock(client);
+    if (client->call == WEARABLE_CALL_IDLE) {
+        unlock(client);
         return ESP_ERR_INVALID_STATE;
     }
-
-    const bool socket_connected = esp_websocket_client_is_connected((esp_websocket_client_handle_t)client->websocket);
-    voice_client_lock(client);
-    const bool hello_complete = client->hello_complete;
-    const int64_t last_hello_at_us = client->last_hello_at_us;
-    const int64_t last_connect_attempt_at_us = client->last_connect_attempt_at_us;
-    voice_client_unlock(client);
-
-    if (!socket_connected) {
-        return ESP_ERR_TIMEOUT;
+    client->talk_engaged = true;
+    const bool push_to_talk = client->call == WEARABLE_CALL_ACTIVE && !client->hands_free;
+    unlock(client);
+    if (push_to_talk) {
+        // Talking over the assistant stops it right away.
+        flush_playback(client);
     }
-
-    const int64_t now_us = esp_timer_get_time();
-    if (!hello_complete || last_hello_at_us == 0 || now_us - last_hello_at_us > VOICE_HELLO_STALE_TIMEOUT_US) {
-        if (now_us - last_connect_attempt_at_us < VOICE_RECONNECT_BACKOFF_US) {
-            return ESP_ERR_TIMEOUT;
-        }
-        voice_client_lock(client);
-        client->hello_complete = false;
-        client->last_connect_attempt_at_us = now_us;
-        voice_client_unlock(client);
-        esp_err_t hello_err = send_hello(client);
-        if (hello_err != ESP_OK) {
-            return hello_err;
-        }
-        return ESP_ERR_TIMEOUT;
-    }
+    xTaskNotifyGive(client->capture_task);
     return ESP_OK;
 }
 
-esp_err_t wearable_voice_client_stop_ptt(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    voice_client_lock(client);
-    bool was_recording = client->recording;
-    client->recording = false;
-    uint32_t final_sequence = client->next_sequence;
-    if (was_recording) {
-        copy_bounded(client->current_state, sizeof(client->current_state), "transcribing");
-    }
-    char turn_id[NEOAGENT_VOICE_TURN_ID_MAX];
-    copy_bounded(turn_id, sizeof(turn_id), client->active_turn_id);
-    voice_client_unlock(client);
-
-    if (!was_recording) {
-        return ESP_OK;
-    }
-    for (int attempt = 0; attempt < 20; ++attempt) {
-        if (client->capture_task == NULL) {
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(25));
-    }
-
-    if (final_sequence == 0) {
-        return send_interrupt(client);
-    }
-    return send_input_commit(client, turn_id, final_sequence - 1);
+esp_err_t wearable_voice_client_talk_stop(wearable_voice_client_t *client) {
+    lock(client);
+    client->talk_engaged = false;
+    client->open_mic_when_ready = false;
+    unlock(client);
+    xTaskNotifyGive(client->capture_task);
+    return ESP_OK;
 }
 
-esp_err_t wearable_voice_client_interrupt(wearable_voice_client_t *client) {
-    if (client == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    voice_client_lock(client);
-    client->recording = false;
-    copy_bounded(client->current_state, sizeof(client->current_state), "idle");
-    voice_client_unlock(client);
-    return client->active_session_id[0] != '\0' ? send_interrupt(client) : ESP_OK;
+esp_err_t wearable_voice_client_stop_speaking(wearable_voice_client_t *client) {
+    char session_id[VOICE_SESSION_ID_MAX];
+    lock(client);
+    copy_text(session_id, sizeof(session_id), client->session_id);
+    unlock(client);
+    flush_playback(client);
+    return session_id[0] != '\0' ? send_control(client, "voice:interrupt", session_id) : ESP_OK;
 }
 
-esp_err_t wearable_voice_client_snapshot(wearable_voice_client_t *client, wearable_voice_snapshot_t *snapshot) {
-    if (client == NULL || snapshot == NULL) {
-        return ESP_ERR_INVALID_ARG;
+void wearable_voice_client_poll(wearable_voice_client_t *client) {
+    char session_id[VOICE_SESSION_ID_MAX] = {0};
+    lock(client);
+    const bool expired = client->call == WEARABLE_CALL_CONNECTING &&
+        esp_timer_get_time() - client->call_requested_at_us > VOICE_CONNECT_TIMEOUT_US;
+    if (expired) {
+        copy_text(session_id, sizeof(session_id), client->session_id);
+        end_call_locked(client);
+        set_error_locked(client, client->server_connected ? "The live voice model did not answer" : "The server is not reachable");
     }
+    unlock(client);
+    if (expired && session_id[0] != '\0') {
+        send_control(client, "voice:session_close", session_id);
+    }
+}
+
+void wearable_voice_client_snapshot(wearable_voice_client_t *client, wearable_voice_snapshot_t *snapshot) {
     memset(snapshot, 0, sizeof(*snapshot));
-    voice_client_lock(client);
-    snapshot->transport_available = client->transport_available;
-    snapshot->websocket_connected = client->websocket_connected;
-    snapshot->session_ready = client->session_ready;
-    snapshot->recording = client->recording;
-    snapshot->assistant_speaking = client->assistant_speaking || client->playback_active;
-    copy_bounded(snapshot->session_id, sizeof(snapshot->session_id), client->active_session_id);
-    copy_bounded(snapshot->turn_id, sizeof(snapshot->turn_id), client->active_turn_id);
-    copy_bounded(snapshot->state, sizeof(snapshot->state), client->current_state);
-    copy_bounded(snapshot->transcript, sizeof(snapshot->transcript), client->latest_transcript);
-    copy_bounded(snapshot->assistant_text, sizeof(snapshot->assistant_text), client->latest_assistant_text);
-    copy_bounded(snapshot->last_error, sizeof(snapshot->last_error), client->last_error);
-    voice_client_unlock(client);
-    return ESP_OK;
+    lock(client);
+    snapshot->server_connected = client->server_connected;
+    snapshot->authentication_rejected = client->authentication_rejected;
+    snapshot->call = client->call;
+    snapshot->call_started_at_us = client->call_started_at_us;
+    snapshot->hands_free = client->hands_free;
+    snapshot->capturing = client->streaming;
+    snapshot->reconnecting = client->reconnecting || (client->call == WEARABLE_CALL_ACTIVE && !client->server_connected);
+    const bool server_speaking = client->server_speaking;
+    const int64_t last_playback_at_us = client->last_playback_at_us;
+    copy_text(snapshot->caption, sizeof(snapshot->caption), client->caption);
+    snapshot->caption_from_assistant = client->caption_from_assistant;
+    snapshot->task_running = client->task_run_id[0] != '\0';
+    copy_text(snapshot->task_request, sizeof(snapshot->task_request), client->task_request);
+    snapshot->task_outcome_seq = client->task_outcome_seq;
+    snapshot->task_outcome_ok = client->task_outcome_ok;
+    copy_text(snapshot->last_error, sizeof(snapshot->last_error), client->last_error);
+    snapshot->error_seq = client->error_seq;
+    unlock(client);
+    snapshot->speaking = server_speaking || playback_audible(client, last_playback_at_us);
 }

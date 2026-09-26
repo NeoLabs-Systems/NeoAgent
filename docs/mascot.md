@@ -12,6 +12,7 @@ also shows what the agent is doing right now.
 - **Chat and cowork replies**, as the assistant's avatar
 - **Typing bubble**, thinking while a reply is on its way
 - **Landing page**, in the nav and acting out the hero's run log
+- **Wearable**, as the face of the voice call on the home screen and on the status screens
 
 ## What each face means
 

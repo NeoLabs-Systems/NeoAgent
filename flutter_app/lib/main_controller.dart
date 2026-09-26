@@ -304,6 +304,8 @@ class NeoAgentController extends ChangeNotifier {
   bool _liveVoiceTelecomRouting = false;
   DateTime? _liveVoiceSessionStartedAt;
   bool _voiceCallRequested = false;
+  bool _returnHomeAfterCall = false;
+  final HomeWidgetBridge _homeWidgetBridge = HomeWidgetBridge();
   Timer? _incomingCallExpiryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
@@ -4828,6 +4830,7 @@ class NeoAgentController extends ChangeNotifier {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     _liveVoiceCaptureActive = false;
     _pendingLiveVoiceStop = false;
+    _returnHomeAfterCall = false;
     _liveVoiceSessionStartedAt = null;
     voiceAssistantLiveState = VoiceAssistantLiveState(error: error);
     notifyListeners();
@@ -6954,25 +6957,41 @@ class NeoAgentController extends ChangeNotifier {
   /// A call asked for from outside the app (the home-screen call widget).
   /// It starts the way the call button does, once signed in and connected:
   /// a cold start has neither yet, so the socket connecting picks it up.
+  /// Hanging up then returns to the home screen, as a phone call does.
   void requestVoiceCall() {
     openVoiceAssistantSurface();
     if (voiceAssistantLiveState.hasActiveSession) return;
     _voiceCallRequested = true;
+    _returnHomeAfterCall = true;
     _startRequestedVoiceCall();
   }
 
   void _startRequestedVoiceCall() {
     if (!_voiceCallRequested || !isAuthenticated || !socketConnected) return;
     _voiceCallRequested = false;
-    final start = voiceInputMode == 'hands_free'
-        ? startLiveVoiceCapture()
-        : ensureLiveVoiceSession();
     unawaited(
-      start.catchError((Object error) {
-        // The controller records the error on the live state.
+      startVoiceCall().catchError((Object error) {
+        // The controller records the error on the live state, which stays on
+        // screen rather than leaving the app.
+        _returnHomeAfterCall = false;
         AppDiagnostics.log('voice', 'requested_call.failed', error: error);
       }),
     );
+  }
+
+  /// Places a call the way the configured input mode expects: hands-free
+  /// opens the microphone at once, push-to-talk waits for the first hold.
+  Future<void> startVoiceCall() => voiceInputMode == 'hands_free'
+      ? startLiveVoiceCapture()
+      : ensureLiveVoiceSession();
+
+  /// The user hanging up.
+  Future<void> hangUpVoiceCall({bool cancelTask = false}) async {
+    final returnHome = _returnHomeAfterCall;
+    await closeLiveVoiceSession(cancelTask: cancelTask);
+    if (returnHome) {
+      await _homeWidgetBridge.returnToHomeScreen();
+    }
   }
 
   Future<void> toggleTask(TaskItem task) async {
