@@ -133,9 +133,8 @@ function createBehaviorPipeline(deps = {}) {
     const jevEnabled = Boolean(msg.isGroup) && isJevEnabled(userId, agentId);
     if (msg.isGroup && !jevEnabled) scheduleBackground(baseCtx);
 
-    const memoryHints = observeResult?.scopeId ? [`channel:${observeResult.scopeId}`] : [];
     const decision = isModuleEnabled(config, 'turn_taking')
-      ? (await registry.run('decide', { ...baseCtx, memoryHints, jevEnabled }))
+      ? (await registry.run('decide', { ...baseCtx, jevEnabled }))
         .find((item) => item.moduleId === 'turn_taking')?.value
       : {
         ...ruleDecision('speak', 'turn_taking_disabled'),

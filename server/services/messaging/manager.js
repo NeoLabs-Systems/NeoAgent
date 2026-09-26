@@ -249,6 +249,7 @@ class MessagingManager extends EventEmitter {
       roomId: msg.roomId || null,
       roleIds: Array.isArray(msg.roleIds) ? msg.roleIds.map(String) : [],
       replyToMessageId: msg.replyToMessageId || null,
+      replyTo: msg.replyTo || null,
       threadId: msg.threadId || msg.threadTs || null,
       eventType: msg.eventType || 'message',
       metadata: msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : null,

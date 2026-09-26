@@ -89,20 +89,27 @@ function buildDecisionPacket({
   config,
   threadState,
   roomMessages = [],
-  localMemoryHints = [],
   addressing = null,
 }) {
-  const recent = Array.isArray(msg.channelContext) && msg.channelContext.length
-    ? msg.channelContext.slice(-12).map((item) => ({
+  const history = Array.isArray(msg.channelContext) && msg.channelContext.length
+    ? msg.channelContext.map((item) => ({
+      id: item.id || null,
       // Platform labels like "[bot] Name#1234" don't tell the gate these
       // turns were the agent's own, so it reads follow-ups as meant for others.
       sender: item.mine ? 'assistant' : (item.author || item.sender || 'participant'),
       content: truncate(item.content, 280),
     }))
-    : roomMessages.slice(-12).map((item) => ({
-      sender: item.sender,
-      content: item.content,
-    }));
+    : roomMessages.map((item) => ({ id: null, sender: item.sender, content: item.content }));
+  // The platform history usually ends with the message being judged. It is
+  // taken out so the gate sees it once, under the same name the history uses.
+  const last = history[history.length - 1];
+  const latestInHistory = Boolean(last) && (
+    (last.id && msg.messageId ? String(last.id) === String(msg.messageId) : false)
+    || truncate(last.content, 280) === truncate(msg.content, 280)
+  );
+  const recent = (latestInHistory ? history.slice(0, -1) : history)
+    .slice(-12)
+    .map(({ sender, content }) => ({ sender, content }));
 
   const secondsSinceSpoke = threadState?.lastSpokeAt
     ? Math.max(0, Math.round((Date.now() - Date.parse(threadState.lastSpokeAt)) / 1000))
@@ -117,7 +124,8 @@ function buildDecisionPacket({
     },
     sender: {
       id: msg.sender || null,
-      name: msg.senderName || msg.senderDisplayName || msg.senderUsername || null,
+      name: (latestInHistory ? last.sender : null)
+        || msg.senderDisplayName || msg.senderName || msg.senderUsername || null,
       username: msg.senderUsername || null,
       tag: msg.senderTag || null,
     },
@@ -128,6 +136,9 @@ function buildDecisionPacket({
       wasMentioned: msg.wasMentioned === true,
       repliedToAgent: msg.repliedToAgent === true,
       addressedByName: addressing?.addressedByName === true,
+      replyTo: msg.replyTo?.content
+        ? { sender: msg.replyTo.sender || 'participant', content: truncate(msg.replyTo.content, 280) }
+        : null,
       timestamp: msg.timestamp || new Date().toISOString(),
     },
     room: {
@@ -141,7 +152,6 @@ function buildDecisionPacket({
       minimumNeedScore: Number(config.minimumNeedScore ?? 0.58),
       groupDefaultPosture: 'hold_side_chatter',
     },
-    roomHints: Array.isArray(localMemoryHints) ? localMemoryHints.slice(0, 4) : [],
   };
 }
 

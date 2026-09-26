@@ -236,6 +236,14 @@ class TelegramPlatform extends BasePlatform {
     const repliedToAgent = !isPrivate
       && msg.reply_to_message?.from?.id
       && String(msg.reply_to_message.from.id) === String(this._botUser?.id || '');
+    const replied = msg.reply_to_message;
+    const replyTo = !isPrivate && replied?.from && !repliedToAgent
+      ? {
+        sender: [replied.from.first_name, replied.from.last_name].filter(Boolean).join(' ')
+          || (replied.from.username ? `@${replied.from.username}` : String(replied.from.id)),
+        content: replied.text || replied.caption || (replied.photo ? '[photo]' : '[message]'),
+      }
+      : null;
 
     this.emit('message', {
       platform: 'telegram',
@@ -253,6 +261,7 @@ class TelegramPlatform extends BasePlatform {
       replyToMessageId: msg.reply_to_message?.message_id
         ? String(msg.reply_to_message.message_id)
         : null,
+      replyTo,
       groupId: isPrivate ? null : rawChatId,
       content,
       mediaType: null,

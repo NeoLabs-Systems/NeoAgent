@@ -42,10 +42,11 @@ function jevGateState(packet) {
       sender: packet.sender.name || packet.sender.username || 'participant',
       content: packet.event.content,
       has_media: packet.event.hasMedia,
+      // A reply to another person is the clearest sign the message is theirs.
+      ...(packet.event.replyTo ? { reply_to: packet.event.replyTo } : {}),
     },
     recent_messages: packet.room.recentMessages,
     seconds_since_agent_spoke: packet.room.secondsSinceAgentSpoke,
-    room_hints: packet.roomHints,
   };
 }
 

@@ -43,7 +43,7 @@ function applyNeedThreshold(decision, config, secondsSinceSpoke) {
 
 async function shouldEngage(ctx) {
   const startedAt = Date.now();
-  const { userId, agentId, msg, config, memoryHints = [], turnEpoch } = ctx;
+  const { userId, agentId, msg, config, turnEpoch } = ctx;
   const finish = (decision) => ({ ...decision, latencyMs: Date.now() - startedAt, turnEpoch });
 
   const bypass = bypassDecision(msg, config);
@@ -65,7 +65,6 @@ async function shouldEngage(ctx) {
       chatId: msg.chatId,
       limit: config.decisionContextMessageLimit,
     }),
-    localMemoryHints: memoryHints,
     addressing,
   });
 

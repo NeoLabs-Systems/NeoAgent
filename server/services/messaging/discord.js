@@ -148,24 +148,40 @@ class DiscordPlatform extends BasePlatform {
 
   // ── Channel context (last N messages) ─────────────────────────────────────
 
+  _contextEntry(m) {
+    const username = m.author.tag || m.author.username || m.author.id;
+    const displayName = m.member?.displayName || m.author.globalName || m.author.username || username;
+    const author = displayName && displayName !== username
+      ? `${displayName} (${username})`
+      : username;
+    return {
+      id: m.id,
+      author: m.author.bot ? `[bot] ${author}` : author,
+      content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
+      mine: m.author.id === this._botUser?.id,
+    };
+  }
+
   async _fetchContext(channel, limit = 20) {
     try {
       const fetched = await channel.messages.fetch({ limit });
       return [...fetched.values()]
         .reverse()  // oldest first
-        .map((m) => {
-          const username = m.author.tag || m.author.username || m.author.id;
-          const displayName = m.member?.displayName || m.author.globalName || m.author.username || username;
-          const author = displayName && displayName !== username
-            ? `${displayName} (${username})`
-            : username;
-          return {
-            author: m.author.bot ? `[bot] ${author}` : author,
-            content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
-            mine: m.author.id === this._botUser?.id,
-          };
-        });
+        .map((m) => this._contextEntry(m));
     } catch { return []; }
+  }
+
+  // The message a reply points at, from the fetched history when it is recent
+  // and from Discord otherwise.
+  async _replyTarget(message, channelContext) {
+    const referencedId = message.reference?.messageId;
+    const known = (channelContext || []).find((item) => item.id === referencedId);
+    if (known) return { sender: known.author, content: known.content };
+    try {
+      const referenced = await message.fetchReference();
+      const entry = this._contextEntry(referenced);
+      return { sender: entry.author, content: entry.content };
+    } catch { return null; }
   }
 
   // ── Reaction handler ───────────────────────────────────────────────────────
@@ -263,6 +279,9 @@ class DiscordPlatform extends BasePlatform {
     const repliedToAgent = !isDM
       && message.reference?.messageId
       && message.mentions?.repliedUser?.id === this._botUser?.id;
+    const replyTo = !isDM && message.reference?.messageId && !repliedToAgent
+      ? await this._replyTarget(message, channelContext)
+      : null;
 
     this.emit('message', {
       platform: 'discord',
@@ -286,6 +305,7 @@ class DiscordPlatform extends BasePlatform {
         || null,
       botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
+      replyTo,
       content,
       mediaType: audio ? 'audio' : null,
       localMediaPath: audio?.filePath || null,

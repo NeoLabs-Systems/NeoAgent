@@ -264,7 +264,28 @@ test('platform context turns by the agent reach the gate as the assistant', () =
     config: {},
     threadState: {},
   });
-  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['assistant', 'Neo (neo)']);
+  // The judged message leaves the history and keeps the history's name for its sender.
+  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['assistant']);
+  assert.equal(packet.sender.name, 'Neo (neo)');
+});
+
+test('a reply to another person reaches the Jev gate with what it replies to', () => {
+  const { buildDecisionPacket } = require('../../../server/services/behavior/signals');
+  const packet = buildDecisionPacket({
+    msg: groupMessage('did you finish them?', {
+      messageId: 'm3',
+      replyTo: { sender: 'Lisa (lisa)', content: "i'll finish the slides tonight" },
+      channelContext: [
+        { id: 'm1', author: 'Lisa (lisa)', content: "i'll finish the slides tonight", mine: false },
+        { id: 'm2', author: '[bot] NeoLabs', content: 'api is green again', mine: true },
+        { id: 'm3', author: 'Neo (neo)', content: 'did you finish them? <@123>', mine: false },
+      ],
+    }),
+    config: {},
+    threadState: {},
+  });
+  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['Lisa (lisa)', 'assistant']);
+  assert.deepEqual(packet.event.replyTo, { sender: 'Lisa (lisa)', content: "i'll finish the slides tonight" });
 });
 
 test('plain name address engages without a mention tag', async () => {
@@ -1246,6 +1267,24 @@ test('Jev decides the group gate without a model call', async () => {
   assert.equal(result.decision.urgency, 'medium');
   assert.ok(Math.abs(result.decision.needScore - 0.6864) < 1e-9);
   assert.equal(modelCalls, 0);
+});
+
+test('Jev sees who a reply is aimed at and no internal room ids', async () => {
+  let seen = null;
+  const engine = jevGateEngine(jevAnswers(0.2, 0.8));
+  engine.decide = async ({ state }) => {
+    seen = state;
+    return jevAnswers(0.2, 0.8);
+  };
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
+  const msg = groupMessage('what time does it start?', {
+    replyTo: { sender: 'Lisa', content: 'the meetup is on thursday' },
+  });
+
+  await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.deepEqual(seen.latest_message.reply_to, { sender: 'Lisa', content: 'the meetup is on thursday' });
+  assert.equal('room_hints' in seen, false);
 });
 
 test('Jev scores clear a slightly lower need threshold than model scores', async () => {

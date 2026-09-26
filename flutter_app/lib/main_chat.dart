@@ -3424,7 +3424,7 @@ class _GroupParticipationSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Join group conversations',
+                      'Social intelligence',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
@@ -3766,7 +3766,7 @@ class _SocialIntelligencePickerDialogState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Join group conversations',
+                                  'Social intelligence',
                                   style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
