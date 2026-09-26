@@ -1,4 +1,12 @@
+---
+title: Configuration reference
+sidebar_label: Configuration
+description: Every environment variable NeoAgent reads, grouped by purpose.
+---
+
 # Configuration reference
+
+*The full list of server variables, grouped by what they configure.*
 
 NeoAgent reads server configuration from `~/.neoagent/.env`. Set
 `NEOAGENT_HOME` before installation to use another runtime root.
@@ -16,10 +24,10 @@ Use `neoagent env set` or `neoagent env unset` with the variable named in the
 tables below. Restart NeoAgent after changing values that are only read during
 startup.
 
-## Core server
+## 🖧 Core server
 
 | Variable | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `PORT` | first available preferred port | HTTP port |
 | `PUBLIC_URL` | unset | Public HTTPS base URL for remote clients, OAuth, and webhooks |
 | `SESSION_SECRET` | required | Session-signing secret |
@@ -38,10 +46,10 @@ Generate a session secret before setting it:
 neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 ```
 
-## Model providers
+## 🧠 Model providers
 
 | Variable | Provider or feature |
-|---|---|
+| --- | --- |
 | `ANTHROPIC_API_KEY` | Anthropic |
 | `OPENAI_API_KEY` | OpenAI and supported embedding/transcription paths |
 | `OPENAI_COMPATIBLE_API_KEY` | Custom OpenAI-compatible provider token |
@@ -62,10 +70,10 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 
 Account-backed model providers use `neoagent login`, not these API-key fields.
 
-## Official integrations
+## 🔌 Official integrations
 
 | Variable prefix | Integration |
-|---|---|
+| --- | --- |
 | `GOOGLE_OAUTH_` | Google Workspace |
 | `MICROSOFT_OAUTH_` | Microsoft 365 |
 | `GITHUB_OAUTH_` | GitHub |
@@ -77,16 +85,16 @@ Account-backed model providers use `neoagent login`, not these API-key fields.
 
 OAuth providers generally use a client ID, client secret, and optional redirect
 URI. The default callback is
-`PUBLIC_URL/api/integrations/oauth/callback`. Home Assistant, Nextcloud, and personal
-Trello credentials are configured through the application.
+`PUBLIC_URL/api/integrations/oauth/callback`. Home Assistant, Nextcloud, and
+personal Trello credentials are configured through the application.
 
-## Service email
+## 📧 Service email
 
 SMTP is optional. When configured, it supports account confirmation, password
 reset, email changes, and security notifications.
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `NEOAGENT_EMAIL_FROM` | Sender address |
 | `NEOAGENT_EMAIL_SMTP_HOST` | SMTP host |
 | `NEOAGENT_EMAIL_SMTP_PORT` | SMTP port |
@@ -103,7 +111,7 @@ reset, email changes, and security notifications.
 | `NEOAGENT_EMAIL_PUBLIC_URL` | Base URL used in email links |
 | `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | Confirmation token lifetime |
 
-## Billing
+## 💳 Billing
 
 Billing is disabled by default. Use the interactive wizard to configure it:
 
@@ -118,17 +126,17 @@ See [Billing](billing.md) for the full setup guide, webhook configuration, and
 plan management.
 
 | Variable | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `NEOAGENT_BILLING_ENABLED` | `false` | Enable the Stripe billing system |
 | `STRIPE_SECRET_KEY` | unset | Stripe server-side API key |
 | `STRIPE_PUBLISHABLE_KEY` | unset | Stripe client-side key (returned to clients) |
 | `STRIPE_WEBHOOK_SECRET` | unset | Webhook signing secret |
 | `BILLING_TRIAL_DAYS` | `14` | Free trial length in days |
 
-## Isolated runtime
+## 🖥️ Isolated runtime
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `TERMINAL_ENV` | Where computers run: `qemu` (default), `docker`, or `host` |
 | `NEOAGENT_VM_BASE_IMAGE_URL` | Download source for the guest image |
 | `NEOAGENT_VM_BASE_IMAGE` | Existing local guest image |
@@ -155,17 +163,19 @@ tools are available; there is no browser or desktop. The server logs a warning
 naming the host on every start, and only grants accounts you would trust with a
 shell on that machine.
 
+:::danger Do not reuse example values
 The installer generates the guest token. Do not reuse the example values from
 documentation or issue reports.
+:::
 
-## Messaging
+## 💬 Messaging
 
 Messaging credentials are normally configured in **Settings > Messaging**.
 
-## Runtime paths
+## 📁 Runtime paths
 
 | Path | Contents |
-|---|---|
+| --- | --- |
 | `~/.neoagent/.env` | Configuration and secrets |
 | `~/.neoagent/data/` | Database, sessions, logs, update state |
 | `~/.neoagent/agent-data/` | Skills, memory files, daily data |

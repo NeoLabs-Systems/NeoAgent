@@ -1,25 +1,35 @@
+---
+title: Models and providers
+sidebar_label: Models
+description: Configure local, API-key, and account-backed model providers, and keep credentials on the server.
+---
+
 # Models and providers
+
+*Pick the models NeoAgent thinks with — local, API-key, or account-backed.*
 
 NeoAgent supports local models, API-key providers, and several account-backed
 providers. Provider credentials stay on the server.
 
-## Configure a model
+## ⚙️ Configure a model
 
 Open **Settings > Models** to choose chat and routing defaults. Add provider
 credentials under **Admin › Providers** in the app, with `neoagent env`, or
 during `neoagent setup`.
 
+:::note Desktop installs
 Installs made from the desktop app have no `neoagent` command on `PATH`: the
 runtime lives under `~/.neoagent` and is managed from **Settings > Server**. Use
 **Admin › Providers** for provider credentials there.
+:::
 
-### Local models
+### 🏠 Local models
 
 [Ollama](https://ollama.com/) does not require a hosted-model API key. Set its
 server URL with `OLLAMA_URL`, then select an available Ollama model in NeoAgent.
 The Ollama process may run on the NeoAgent host or another reachable machine.
 
-### API-key providers
+### 🔑 API-key providers
 
 NeoAgent includes providers for Anthropic, OpenAI, Google Gemini, xAI, MiniMax,
 NVIDIA NIM, OpenRouter, and OpenAI-compatible endpoints. Available models are
@@ -32,7 +42,7 @@ dashboard's **AI Providers** page. The endpoint must implement the OpenAI
 Chat Completions and model-listing APIs. Putting that same token in
 `OPENAI_API_KEY` does not enable official OpenAI (`api.openai.com`).
 
-### Account-backed providers
+### 🪪 Account-backed providers
 
 The CLI can authenticate supported developer subscriptions:
 
@@ -45,7 +55,7 @@ neoagent login grok-oauth
 
 These login flows are separate from ordinary API-key providers.
 
-## Model assignment
+## 🎯 Model assignment
 
 The default model is selected in settings. Individual agents and scheduled
 tasks can override it. A model used for tools must support the tool-calling
@@ -58,7 +68,7 @@ Some features use separate providers:
 - Voice transcription can use Deepgram when enabled.
 - Image generation and analysis depend on the selected provider and model.
 
-## Credential handling
+## 🔐 Credential handling
 
 API keys and account tokens are stored under the NeoAgent runtime directory on
 the server. Do not put credentials in task prompts, skills, screenshots, issue
@@ -73,3 +83,9 @@ neoagent env list
 `env list` masks secrets. The `env get`, `env set`, and `env unset` commands
 accept a variable name; `env get` prints the selected value, so avoid running it
 in recorded terminals or shared shells.
+
+## 🔗 Related
+
+- [Configuration reference](configuration.md) — every environment variable
+- [Memory](memory.md) — embedding providers for recall
+- [Security and permissions](security-boundaries.md) — how credentials are scoped

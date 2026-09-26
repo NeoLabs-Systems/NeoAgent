@@ -1,10 +1,18 @@
+---
+title: Automation and triggers
+sidebar_label: Automation
+description: Run the same agent loop unattended — on schedules, account events, weather thresholds, or authenticated webhooks.
+---
+
 # Automation and triggers
+
+*The same agent loop and tools as chat — started without you typing anything.*
 
 Automations run the same agent loop and tools used by chat. They can start on a
 schedule, from a supported account event, or through a webhook, and can deliver
 their result through a configured messaging channel.
 
-## Create a task
+## 📝 Create a task
 
 Open **Tasks**, choose the owning agent, select a trigger, and write a
 self-contained instruction. A task can use the agent's model or a task-specific
@@ -13,7 +21,7 @@ override.
 The currently implemented trigger families are:
 
 | Trigger | Behavior |
-|---|---|
+| --- | --- |
 | Schedule | Recurring cron expression or one-time timestamp |
 | Gmail | Run when a matching Gmail message is received |
 | Outlook | Run when a matching Outlook message is received |
@@ -27,7 +35,7 @@ The Android app can also forward device notifications to
 `/api/triggers/notification`. Notification runs are evaluated by the agent and
 are separate from saved tasks.
 
-## Schedules
+## ⏰ Schedules
 
 Recurring tasks use five-field cron:
 
@@ -38,7 +46,7 @@ minute hour day-of-month month day-of-week
 Examples:
 
 | Expression | Runs |
-|---|---|
+| --- | --- |
 | `0 9 * * *` | Every day at 09:00 |
 | `0 9 * * 1-5` | Weekdays at 09:00 |
 | `0 8 * * 1` | Mondays at 08:00 |
@@ -47,7 +55,7 @@ Examples:
 Schedules use the server's configured time context. Confirm the next-run value
 shown in the UI when the server and user are in different time zones.
 
-## Write unattended instructions
+## ✍️ Write unattended instructions
 
 A task prompt must contain enough context to run later without the current chat.
 State what to inspect, what counts as actionable, where to deliver the result,
@@ -62,7 +70,7 @@ when no reply is needed.
 Prefer official integrations or MCP tools over browser automation when both
 can perform the action. Structured tools are easier to restrict and diagnose.
 
-## Bot-protected pages
+## 🛡️ Bot-protected pages
 
 The isolated VM browser uses native anti-detection hardening inspired by
 Botasaurus' public anti-detect browser patterns: stable browser profiles,
@@ -79,13 +87,13 @@ challenge page as ordinary content.
 Browser automation still must comply with the target site's terms and applicable
 law. URL safety checks and the VM device-access restrictions remain in effect.
 
-## Runs and delivery
+## 📊 Runs and delivery
 
 Open **Runs** to inspect the trigger, tool calls, approvals, output, and error
 for each execution. Delivery requires a configured messaging destination; a
 completed run can still have a delivery error.
 
-## Pausing task loops
+## ⏸️ Pausing task loops
 
 Scheduled and event-triggered tasks have no per-day run or token hard limit.
 They continue to follow their configured trigger until the task is disabled or
@@ -101,7 +109,7 @@ Set `loopPaused` to `true` as a per-task kill switch. Existing tasks using
 `loopBudget.paused` remain compatible, but the old run/token limit fields are
 ignored.
 
-## Safety
+## 🔒 Safety
 
 - Start with read-only integration accounts.
 - Keep write, shell, Android, and desktop categories on approval unless the

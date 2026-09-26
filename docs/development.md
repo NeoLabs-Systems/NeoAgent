@@ -1,11 +1,19 @@
+---
+title: Development and testing
+sidebar_label: Development
+description: Set up a local checkout, follow the server conventions, and run the right test suite.
+---
+
 # Development and testing
+
+*Clone, run, test — and read the guidelines before changing code.*
 
 Read
 [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md)
 before changing code. It defines module boundaries, security requirements,
 naming, and project-specific constraints.
 
-## Setup
+## 🧰 Setup
 
 ```bash
 git clone https://github.com/NeoLabs-Systems/NeoAgent.git
@@ -23,10 +31,12 @@ Run the backend and Flutter web development client with:
 npm run dev:stack
 ```
 
+:::note Do not build the web client in development
 Do not run a Flutter web release build during normal development. The release
 pipeline and maintainer own that artifact.
+:::
 
-## Server conventions
+## 📐 Server conventions
 
 - Keep Express routes limited to request parsing and response handling.
 - Put business logic in domain services.
@@ -36,7 +46,7 @@ pipeline and maintainer own that artifact.
 - Use runtime path helpers and the shared logger.
 - Validate external and user-supplied data at system boundaries.
 
-## Tests
+## 🧪 Tests
 
 Run the smallest relevant suite while working:
 
@@ -74,7 +84,7 @@ npm run docs:dev
 The Docusaurus build treats broken routes as errors. Check both desktop and
 narrow layouts after changing navigation, tables, or images.
 
-## Contributions
+## 🤝 Contributions
 
 Contributor pull requests target `beta`. Keep changes focused, include tests
 for behavior changes, document new commands and settings, and never commit
