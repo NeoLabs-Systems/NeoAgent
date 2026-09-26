@@ -19,12 +19,11 @@ ESP-IDF firmware target for the Waveshare `ESP32-S3-Touch-AMOLED-1.8` wearable c
 
 ## Voice
 
-The home screen is a voice call with the agent, laid out like the app's phone call: the mascot inside its halo, the call state, live captions and the call controls. Calls run on the server's live voice system (`server/services/voice/live/`): microphone audio streams to the live speech-to-speech model, its reply streams back as PCM, and requests it hands off run as ordinary agent runs.
+The home screen is the mascot. Hold it (or BOOT) to talk to the agent and let go to send. Calls run on the server's live voice system (`server/services/voice/live/`): microphone audio streams to the live speech-to-speech model, its reply streams back as PCM, and requests it hands off run as ordinary agent runs.
 
-- Tap **Call**, the mascot, or press **BOOT** to place a call. Tap the mascot while the agent talks to stop it.
-- The input mode comes from the agent's voice settings. Hands-free calls open the microphone at once (**Mute** / BOOT press to mute); push-to-talk calls talk while **Hold to talk** or BOOT is held.
-- Hold BOOT or tap **End** to hang up. A task still running keeps going on the server and its result lands in chat.
-- The board has no echo cancellation, so a hands-free call sends no microphone audio while a reply is audible.
+- Wearable calls are always push-to-talk, whatever the agent's input-mode setting. The first hold places the call; what you say while it connects is buffered and sent once it is up.
+- A tap shorter than a quarter second sends nothing; while the agent talks it stops the reply.
+- There are no call buttons: after 60 seconds with nothing said, played or running, the wearable hangs up. A task still running keeps the call open, and one that outlives the call lands in chat.
 
 ## Build
 

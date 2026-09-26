@@ -6,6 +6,10 @@ const { fetchResponseText } = require('../network/http');
 const DEFAULT_GITHUB_REPOSITORY = 'NeoLabs-Systems/NeoAgent';
 const DEFAULT_ASSET_NAME = 'neoagent-wearable-firmware.bin';
 const MANIFEST_CACHE_TTL_MS = 5 * 60 * 1000;
+// Every platform build is a release asset, so one release entry runs to ~50 KB:
+// read the list a page at a time instead of one response over the size limit.
+const RELEASES_PAGE_SIZE = 10;
+const RELEASES_MAX_PAGES = 5;
 const FIRMWARE_HTTP_TIMEOUT_MS = 15000;
 const RELEASES_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const CHECKSUM_MAX_RESPONSE_BYTES = 64 * 1024;
@@ -193,19 +197,23 @@ function parseChecksumBody(body, assetName) {
 
 async function fetchGithubRelease(fetchImpl, repository, channel, token, assetName = null, signal = null) {
   const normalizedChannel = normalizeChannel(channel);
-  const releases = await fetchGithubJson(
-    fetchImpl,
-    `https://api.github.com/repos/${repository}/releases?per_page=100`,
-    token,
-    signal,
-  );
-  const release = selectGithubRelease(releases, normalizedChannel, assetName);
-  if (!release) {
-    const error = new Error(`No ${normalizedChannel} firmware release found for ${repository}`);
-    error.status = 404;
-    throw error;
+  let releaseWithoutAsset = null;
+  for (let page = 1; page <= RELEASES_MAX_PAGES; page += 1) {
+    const releases = await fetchGithubJson(
+      fetchImpl,
+      `https://api.github.com/repos/${repository}/releases?per_page=${RELEASES_PAGE_SIZE}&page=${page}`,
+      token,
+      signal,
+    );
+    const release = selectGithubRelease(releases, normalizedChannel, assetName);
+    if (release && releaseHasAsset(release, assetName)) return release;
+    releaseWithoutAsset = releaseWithoutAsset || release;
+    if (!Array.isArray(releases) || releases.length < RELEASES_PAGE_SIZE) break;
   }
-  return release;
+  if (releaseWithoutAsset) return releaseWithoutAsset;
+  const error = new Error(`No ${normalizedChannel} firmware release found for ${repository}`);
+  error.status = 404;
+  throw error;
 }
 
 function cacheKey({ repository, channel, assetName, downloadUrlOverride }) {

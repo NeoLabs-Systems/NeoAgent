@@ -26,12 +26,14 @@ static const char *TAG = "WearableVoice";
 // Playback writes in short slices so an interruption silences it quickly.
 #define VOICE_PLAYBACK_SLICE_MS 20
 #define VOICE_CAPTURE_CHUNK_MS 60
+// Speech held while the call is still connecting, sent once it is up.
+#define VOICE_PREBUFFER_SECONDS 15
+// A hold shorter than this is a tap, not a turn: nothing is sent.
+#define VOICE_MIN_TURN_MS 250
 #define VOICE_CAPTURE_TIMEOUT_MS 200
 #define VOICE_SEND_TIMEOUT_TICKS pdMS_TO_TICKS(2000)
-// The speaker sits next to the microphone and the board has no echo
-// cancellation: while a reply is audible a hands-free call sends no audio, or
-// the live model would hear itself and cut its own reply off.
-#define VOICE_ECHO_GUARD_US (300LL * 1000LL)
+// A reply counts as audible for this long after its last sample played.
+#define VOICE_PLAYBACK_TAIL_US (300LL * 1000LL)
 #define VOICE_CONNECT_TIMEOUT_US (20LL * 1000LL * 1000LL)
 #define VOICE_SESSION_ID_MAX 96
 #define VOICE_MAX_INPUT_RATE 48000
@@ -51,6 +53,8 @@ struct wearable_voice_client {
     int16_t *converted;
     char *uplink_message;
     size_t uplink_message_capacity;
+    int16_t *prebuffer;
+    size_t prebuffer_capacity;
     char device_id[16];
     char device_label[NEOAGENT_DEVICE_LABEL_MAX];
     char firmware_version[32];
@@ -70,10 +74,8 @@ struct wearable_voice_client {
     int64_t call_started_at_us;
     char session_id[VOICE_SESSION_ID_MAX];
     bool session_requested;  // A session_open is out on this connection.
-    bool hands_free;
-    bool open_mic_when_ready;
     bool talk_engaged;
-    bool streaming;
+    bool capturing;
     uint32_t input_rate;
     uint32_t output_rate;
     bool server_speaking;
@@ -210,7 +212,7 @@ static void request_session(wearable_voice_client_t *client) {
 
 static bool playback_audible(wearable_voice_client_t *client, int64_t last_playback_at_us) {
     const bool queued = xRingbufferGetCurFreeSize(client->playback) < client->playback_capacity;
-    return queued || (esp_timer_get_time() - last_playback_at_us) < VOICE_ECHO_GUARD_US;
+    return queued || (esp_timer_get_time() - last_playback_at_us) < VOICE_PLAYBACK_TAIL_US;
 }
 
 // Drops every reply sample not yet played. The playback task drains the
@@ -226,7 +228,6 @@ static void end_call_locked(wearable_voice_client_t *client) {
     client->session_id[0] = '\0';
     client->session_requested = false;
     client->talk_engaged = false;
-    client->open_mic_when_ready = false;
     client->server_speaking = false;
     client->reconnecting = false;
     client->call_started_at_us = 0;
@@ -284,8 +285,15 @@ static void handle_session_ready(wearable_voice_client_t *client, const cJSON *r
     if (!is_plain_id(session_id)) {
         return;
     }
-    const char *input_mode = json_string(root, "inputMode");
     const char *active_run_id = json_string(root, "activeRunId");
+    const char *input_mode = json_string(root, "inputMode");
+    ESP_LOGI(TAG, "call ready session=%s mode=%s in=%uHz out=%uHz", session_id, input_mode != NULL ? input_mode : "?",
+        (unsigned)json_rate(root, "inputSampleRate"), (unsigned)json_rate(root, "outputSampleRate"));
+    if (input_mode != NULL && strcmp(input_mode, "ptt") != 0) {
+        // The server predates forcing wearable calls to push-to-talk; its own
+        // speech detection may answer before the avatar is released.
+        ESP_LOGW(TAG, "server opened the call as %s; the wearable talks push-to-talk", input_mode);
+    }
     lock(client);
     if (client->call == WEARABLE_CALL_IDLE) {
         // The call was hung up while the session was opening.
@@ -296,18 +304,12 @@ static void handle_session_ready(wearable_voice_client_t *client, const cJSON *r
     copy_text(client->session_id, sizeof(client->session_id), session_id);
     client->session_requested = false;
     client->call = WEARABLE_CALL_ACTIVE;
-    client->hands_free = input_mode == NULL || strcmp(input_mode, "ptt") != 0;
     client->input_rate = json_rate(root, "inputSampleRate");
     client->output_rate = json_rate(root, "outputSampleRate");
     client->reconnecting = false;
     if (client->call_started_at_us == 0) {
         client->call_started_at_us = esp_timer_get_time();
     }
-    // A hands-free call is a phone call: the microphone opens right away.
-    if (client->open_mic_when_ready && client->hands_free) {
-        client->talk_engaged = true;
-    }
-    client->open_mic_when_ready = false;
     if (active_run_id != NULL && active_run_id[0] != '\0') {
         copy_text(client->task_run_id, sizeof(client->task_run_id), active_run_id);
     }
@@ -320,6 +322,7 @@ static void handle_state(wearable_voice_client_t *client, const cJSON *root) {
     if (state == NULL) {
         return;
     }
+    ESP_LOGI(TAG, "call state=%s", state);
     if (strcmp(state, "closed") == 0) {
         lock(client);
         end_call_locked(client);
@@ -399,6 +402,7 @@ static void handle_message(wearable_voice_client_t *client, const char *text) {
     } else if (strcmp(type, "voice:error") == 0) {
         const char *error = json_string(root, "error");
         const bool recoverable = json_true(root, "recoverable");
+        ESP_LOGW(TAG, "voice error recoverable=%d: %s", recoverable, error != NULL ? error : "?");
         lock(client);
         set_error_locked(client, error != NULL ? error : "Live voice failed");
         const bool abandon = !recoverable && client->call == WEARABLE_CALL_CONNECTING;
@@ -524,53 +528,81 @@ static void playback_task(void *arg) {
     }
 }
 
+static void send_audio(wearable_voice_client_t *client, pcm_resampler_t *uplink, const char *session_id, const int16_t *pcm, size_t samples) {
+    const size_t converted_samples = pcm_resampler_process(uplink, pcm, samples, client->converted);
+    char *message = client->uplink_message;
+    const int prefix = snprintf(message, client->uplink_message_capacity, "{\"type\":\"voice:audio\",\"sessionId\":\"%s\",\"audioBase64\":\"", session_id);
+    size_t encoded_length = 0;
+    if (mbedtls_base64_encode((unsigned char *)message + prefix, client->uplink_message_capacity - (size_t)prefix - 3, &encoded_length, (const unsigned char *)client->converted, converted_samples * sizeof(int16_t)) != 0) {
+        return;
+    }
+    memcpy(message + prefix + encoded_length, "\"}", 3);
+    if (send_text(client, message) != ESP_OK) {
+        ESP_LOGW(TAG, "microphone audio not sent");
+    }
+}
+
+// Opens a turn and sends what was said while the call was connecting.
+static bool open_turn(wearable_voice_client_t *client, pcm_resampler_t *uplink, const char *session_id, uint32_t input_rate, size_t *buffered) {
+    if (send_control(client, "voice:input_start", session_id) != ESP_OK) {
+        return false;
+    }
+    ESP_LOGI(TAG, "turn open at %uHz with %u ms held", (unsigned)input_rate, (unsigned)(*buffered * 1000 / client->codec_rate));
+    pcm_resampler_init(uplink, client->codec_rate, input_rate);
+    for (size_t offset = 0; offset < *buffered; offset += client->captured_samples) {
+        const size_t remaining = *buffered - offset;
+        send_audio(client, uplink, session_id, client->prebuffer + offset, remaining < client->captured_samples ? remaining : client->captured_samples);
+    }
+    *buffered = 0;
+    return true;
+}
+
 // The capture task owns the uplink, so input_start, the audio and input_end
-// always reach the server in that order.
+// always reach the server in that order. A hold records at once; the turn
+// opens once it is long enough to be speech and the call is up.
 static void capture_task(void *arg) {
     wearable_voice_client_t *client = (wearable_voice_client_t *)arg;
-    int16_t *captured = client->captured;
-    int16_t *converted = client->converted;
-    char *message = client->uplink_message;
-    const size_t message_capacity = client->uplink_message_capacity;
+    const size_t min_turn_samples = client->codec_rate * VOICE_MIN_TURN_MS / 1000;
     pcm_resampler_t uplink = {0};
     char session_id[VOICE_SESSION_ID_MAX] = {0};
     bool streaming = false;
+    size_t buffered = 0;
 
     while (true) {
         lock(client);
-        const bool want = client->call == WEARABLE_CALL_ACTIVE && client->talk_engaged &&
-            client->server_connected && client->session_id[0] != '\0';
-        const bool hands_free = client->hands_free;
-        const uint32_t input_rate = client->input_rate;
-        const int64_t last_playback_at_us = client->last_playback_at_us;
+        const bool in_call = client->call != WEARABLE_CALL_IDLE;
+        const bool engaged = client->talk_engaged;
+        const bool ready = client->call == WEARABLE_CALL_ACTIVE && client->server_connected && client->session_id[0] != '\0';
         const bool session_changed = streaming && strcmp(session_id, client->session_id) != 0;
-        if (want && !streaming) {
+        if (ready && !streaming) {
             copy_text(session_id, sizeof(session_id), client->session_id);
         }
+        const uint32_t input_rate = client->input_rate;
+        client->capturing = in_call && (engaged || streaming);
         unlock(client);
 
-        if (streaming && (!want || session_changed)) {
-            if (!session_changed) {
-                send_control(client, "voice:input_end", session_id);
-            }
+        if (!in_call || (streaming && (!ready || session_changed))) {
+            // The call ended or dropped mid-turn; what was said is gone.
             streaming = false;
+            buffered = 0;
         }
-        if (want && !streaming) {
-            if (send_control(client, "voice:input_start", session_id) == ESP_OK) {
-                pcm_resampler_init(&uplink, client->codec_rate, input_rate);
-                streaming = true;
+        if (streaming && !engaged) {
+            send_control(client, "voice:input_end", session_id);
+            streaming = false;
+            continue;
+        }
+        if (!streaming && !engaged) {
+            if (buffered >= min_turn_samples && ready && open_turn(client, &uplink, session_id, input_rate, &buffered)) {
+                send_control(client, "voice:input_end", session_id);
+            } else if (buffered < min_turn_samples || !in_call) {
+                buffered = 0;
             }
-        }
-        lock(client);
-        client->streaming = streaming;
-        unlock(client);
-        if (!streaming) {
             ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
             continue;
         }
 
         size_t bytes_read = 0;
-        const esp_err_t read_err = board_support_audio_read(client->board, captured, client->captured_samples * sizeof(int16_t), &bytes_read, VOICE_CAPTURE_TIMEOUT_MS);
+        const esp_err_t read_err = board_support_audio_read(client->board, client->captured, client->captured_samples * sizeof(int16_t), &bytes_read, VOICE_CAPTURE_TIMEOUT_MS);
         if (read_err != ESP_OK || bytes_read == 0) {
             if (read_err != ESP_ERR_TIMEOUT) {
                 ESP_LOGW(TAG, "microphone read failed: %s", esp_err_to_name(read_err));
@@ -579,19 +611,17 @@ static void capture_task(void *arg) {
             }
             continue;
         }
-        if (hands_free && playback_audible(client, last_playback_at_us)) {
+        const size_t samples = bytes_read / sizeof(int16_t);
+        if (streaming) {
+            send_audio(client, &uplink, session_id, client->captured, samples);
             continue;
         }
-
-        const size_t samples = pcm_resampler_process(&uplink, captured, bytes_read / sizeof(int16_t), converted);
-        const int prefix = snprintf(message, message_capacity, "{\"type\":\"voice:audio\",\"sessionId\":\"%s\",\"audioBase64\":\"", session_id);
-        size_t encoded_length = 0;
-        if (mbedtls_base64_encode((unsigned char *)message + prefix, message_capacity - (size_t)prefix - 3, &encoded_length, (const unsigned char *)converted, samples * sizeof(int16_t)) != 0) {
-            continue;
-        }
-        memcpy(message + prefix + encoded_length, "\"}", 3);
-        if (send_text(client, message) != ESP_OK) {
-            ESP_LOGW(TAG, "microphone audio not sent");
+        const size_t room = client->prebuffer_capacity - buffered;
+        const size_t kept = samples < room ? samples : room;
+        memcpy(client->prebuffer + buffered, client->captured, kept * sizeof(int16_t));
+        buffered += kept;
+        if (ready && buffered >= min_turn_samples) {
+            streaming = open_turn(client, &uplink, session_id, input_rate, &buffered);
         }
     }
 }
@@ -610,6 +640,7 @@ static void free_client(wearable_voice_client_t *client) {
     free(client->captured);
     free(client->converted);
     free(client->uplink_message);
+    heap_caps_free(client->prebuffer);
     free(client);
 }
 
@@ -654,8 +685,10 @@ esp_err_t wearable_voice_client_init(
     client->converted = malloc(converted_samples * sizeof(int16_t));
     client->uplink_message_capacity = ((converted_samples * sizeof(int16_t) + 2) / 3) * 4 + 64 + VOICE_SESSION_ID_MAX;
     client->uplink_message = malloc(client->uplink_message_capacity);
+    client->prebuffer_capacity = client->codec_rate * VOICE_PREBUFFER_SECONDS;
+    client->prebuffer = heap_caps_malloc(client->prebuffer_capacity * sizeof(int16_t), MALLOC_CAP_SPIRAM);
     if (client->lock == NULL || client->playback == NULL || client->captured == NULL ||
-        client->converted == NULL || client->uplink_message == NULL) {
+        client->converted == NULL || client->uplink_message == NULL || client->prebuffer == NULL) {
         free_client(client);
         return ESP_ERR_NO_MEM;
     }
@@ -707,7 +740,6 @@ esp_err_t wearable_voice_client_call_start(wearable_voice_client_t *client) {
     end_call_locked(client);
     client->call = WEARABLE_CALL_CONNECTING;
     client->call_requested_at_us = esp_timer_get_time();
-    client->open_mic_when_ready = true;
     client->caption[0] = '\0';
     client->last_error[0] = '\0';
     unlock(client);
@@ -732,18 +764,12 @@ esp_err_t wearable_voice_client_call_end(wearable_voice_client_t *client) {
 }
 
 esp_err_t wearable_voice_client_talk_start(wearable_voice_client_t *client) {
+    wearable_voice_client_call_start(client);
     lock(client);
-    if (client->call == WEARABLE_CALL_IDLE) {
-        unlock(client);
-        return ESP_ERR_INVALID_STATE;
-    }
     client->talk_engaged = true;
-    const bool push_to_talk = client->call == WEARABLE_CALL_ACTIVE && !client->hands_free;
     unlock(client);
-    if (push_to_talk) {
-        // Talking over the assistant stops it right away.
-        flush_playback(client);
-    }
+    // Talking over the assistant stops it right away.
+    flush_playback(client);
     xTaskNotifyGive(client->capture_task);
     return ESP_OK;
 }
@@ -751,7 +777,6 @@ esp_err_t wearable_voice_client_talk_start(wearable_voice_client_t *client) {
 esp_err_t wearable_voice_client_talk_stop(wearable_voice_client_t *client) {
     lock(client);
     client->talk_engaged = false;
-    client->open_mic_when_ready = false;
     unlock(client);
     xTaskNotifyGive(client->capture_task);
     return ESP_OK;
@@ -789,8 +814,7 @@ void wearable_voice_client_snapshot(wearable_voice_client_t *client, wearable_vo
     snapshot->authentication_rejected = client->authentication_rejected;
     snapshot->call = client->call;
     snapshot->call_started_at_us = client->call_started_at_us;
-    snapshot->hands_free = client->hands_free;
-    snapshot->capturing = client->streaming;
+    snapshot->capturing = client->capturing;
     snapshot->reconnecting = client->reconnecting || (client->call == WEARABLE_CALL_ACTIVE && !client->server_connected);
     const bool server_speaking = client->server_speaking;
     const int64_t last_playback_at_us = client->last_playback_at_us;

@@ -90,6 +90,32 @@ test('GitHub firmware manifest exposes the release binary and checksum', async (
   );
 });
 
+test('stable firmware lookup pages past a run of betas', async () => {
+  const betas = Array.from({ length: 10 }, (_, index) => release({
+    tag: `v4.1.0-beta.${9 - index}`,
+    prerelease: true,
+    publishedAt: `2026-04-${String(20 - index).padStart(2, '0')}T00:00:00Z`,
+  }));
+  const stable = release({ tag: 'v4.0.0', publishedAt: '2026-04-01T00:00:00Z' });
+  const requested = [];
+  const fetchImpl = async (url) => {
+    requested.push(String(url));
+    const page = Number(new URL(url).searchParams.get('page'));
+    return { ok: true, text: async () => JSON.stringify(page === 1 ? betas : [stable]) };
+  };
+
+  const manifest = await resolveFirmwareManifest({
+    channel: 'stable',
+    repositoryOverride: 'Example/NeoAgentFirmwarePagingTest',
+    fetchImpl,
+  });
+
+  assert.equal(manifest.configured, true);
+  assert.equal(manifest.currentVersion, 'v4.0.0');
+  assert.equal(requested.length, 2);
+  assert.match(requested[0], /per_page=10&page=1$/);
+});
+
 test('firmware release lookup preserves caller cancellation', async () => {
   const controller = new AbortController();
   const reason = new Error('manifest request stopped');

@@ -48,9 +48,6 @@ typedef struct {
 typedef enum {
     BOARD_TARGET_NONE = 0,
     BOARD_TARGET_MASCOT,
-    BOARD_TARGET_CALL,
-    BOARD_TARGET_END_CALL,
-    BOARD_TARGET_TALK,
     BOARD_TARGET_OPEN_SETTINGS,
     BOARD_TARGET_BACK,
     BOARD_TARGET_SETTINGS_NETWORK,
@@ -70,15 +67,13 @@ typedef enum {
     BOARD_CALL_ACTIVE,
 } board_call_phase_t;
 
-// The home screen, laid out like the app's phone call: the mascot and who you
-// are talking to, the call state, live captions and the call controls.
+// The home screen: the mascot in the middle, held to talk, with the call
+// state and live captions underneath.
 typedef struct {
     mascot_mood_t mood;
     board_call_phase_t phase;
-    bool hands_free;
     bool capturing;
     bool speaking;
-    const char *name;
     const char *status;
     const char *caption;
     bool caption_from_assistant;

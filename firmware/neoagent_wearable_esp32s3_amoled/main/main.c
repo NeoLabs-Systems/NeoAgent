@@ -30,6 +30,10 @@ static const char *TAG = "NeoAgentWearable";
 #define NEOAGENT_RUNTIME_TASK_STACK_SIZE 24576
 #define NEOAGENT_CHROME_REFRESH_INTERVAL_MS 5000
 #define NEOAGENT_TOUCH_ACTION_COOLDOWN_MS 300
+// Shorter than this, a hold is a tap: it stops a reply instead of talking.
+#define NEOAGENT_TALK_TAP_MS 250
+// With nothing said, played or running for this long the wearable hangs up.
+#define NEOAGENT_CALL_IDLE_HANGUP_MS 60000
 #define NEOAGENT_SLEEP_BOOT_GPIO GPIO_NUM_0
 #define NEOAGENT_SLEEP_POWER_GPIO GPIO_NUM_17
 #define NEOAGENT_SLEEP_WAKE_GPIO_MASK ((1ULL << NEOAGENT_SLEEP_BOOT_GPIO) | (1ULL << NEOAGENT_SLEEP_POWER_GPIO))
@@ -324,31 +328,19 @@ static mascot_mood_t call_mood(const wearable_voice_snapshot_t *voice, const cal
 }
 
 static void format_call_status(char *status, size_t size, const wearable_voice_snapshot_t *voice) {
-    if (voice->call == WEARABLE_CALL_CONNECTING) {
-        snprintf(status, size, "Calling...");
-        return;
-    }
-    if (voice->call == WEARABLE_CALL_IDLE) {
-        snprintf(status, size, voice->server_connected ? "Tap to call" : "Connecting...");
-        return;
-    }
-    const char *state = "Ready";
-    if (voice->reconnecting) {
-        state = "Reconnecting";
-    } else if (voice->speaking) {
-        state = "Speaking";
+    const char *text = "Hold to talk";
+    if (!voice->server_connected) {
+        text = "Connecting...";
     } else if (voice->capturing) {
-        state = "Listening";
-    } else if (voice->hands_free) {
-        state = "Muted";
+        text = voice->call == WEARABLE_CALL_ACTIVE ? "Release to send" : "Connecting...";
+    } else if (voice->call == WEARABLE_CALL_CONNECTING) {
+        text = "Connecting...";
+    } else if (voice->reconnecting) {
+        text = "Reconnecting";
+    } else if (voice->speaking) {
+        text = "Speaking";
     }
-    const int64_t elapsed_us = voice->call_started_at_us > 0 ? esp_timer_get_time() - voice->call_started_at_us : 0;
-    const unsigned seconds = (unsigned)(elapsed_us / 1000000);
-    if (seconds >= 3600) {
-        snprintf(status, size, "%02u:%02u:%02u - %s", seconds / 3600, (seconds / 60) % 60, seconds % 60, state);
-    } else {
-        snprintf(status, size, "%02u:%02u - %s", seconds / 60, seconds % 60, state);
-    }
+    snprintf(status, size, "%s", text);
 }
 
 static void build_call_view(shell_view_t *view, const wearable_voice_snapshot_t *voice, mascot_mood_t mood) {
@@ -357,10 +349,8 @@ static void build_call_view(shell_view_t *view, const wearable_voice_snapshot_t 
     call->phase = voice->call == WEARABLE_CALL_ACTIVE
         ? BOARD_CALL_ACTIVE
         : (voice->call == WEARABLE_CALL_CONNECTING ? BOARD_CALL_DIALING : BOARD_CALL_IDLE);
-    call->hands_free = voice->hands_free;
     call->capturing = voice->capturing;
     call->speaking = voice->speaking;
-    call->name = "NeoAgent";
     format_call_status(view->status, sizeof(view->status), voice);
     call->status = view->status;
     // A call that failed or dropped says why until the next one starts.
@@ -381,7 +371,6 @@ static bool call_view_changed(const shell_view_t *previous, const shell_view_t *
     const board_call_view_t *b = &current->call;
     return a->mood != b->mood
         || a->phase != b->phase
-        || a->hands_free != b->hands_free
         || a->capturing != b->capturing
         || a->speaking != b->speaking
         || (a->task == NULL) != (b->task == NULL)
@@ -736,46 +725,23 @@ static bool handle_settings_target(
 }
 
 // A tap on a call control. Holding the push-to-talk button is handled on press and release.
-static void handle_call_tap(board_target_t target, const wearable_voice_snapshot_t *voice, shell_view_t *view) {
-    if (target == BOARD_TARGET_OPEN_SETTINGS) {
-        view->tab = SHELL_TAB_SETTINGS;
-        view->page = BOARD_SETTINGS_ROOT;
-        return;
-    }
-    if (s_voice == NULL) {
-        return;
-    }
-    switch (target) {
-        case BOARD_TARGET_CALL:
-            wearable_voice_client_call_start(s_voice);
-            break;
-        case BOARD_TARGET_END_CALL:
-            wearable_voice_client_call_end(s_voice);
-            break;
-        case BOARD_TARGET_TALK:
-            if (voice->hands_free) {
-                if (voice->capturing) {
-                    wearable_voice_client_talk_stop(s_voice);
-                } else {
-                    wearable_voice_client_talk_start(s_voice);
-                }
-            }
-            break;
-        case BOARD_TARGET_MASCOT:
-            // The face is the big button: it stops a reply mid-sentence, or places a call.
-            if (voice->speaking) {
-                wearable_voice_client_stop_speaking(s_voice);
-            } else if (voice->call == WEARABLE_CALL_IDLE) {
-                wearable_voice_client_call_start(s_voice);
-            }
-            break;
-        default:
-            break;
+// Holding the avatar or BOOT talks; letting go sends. A tap stops a reply.
+static void talk_press(TickType_t now, TickType_t *talk_started) {
+    if (s_voice != NULL) {
+        wearable_voice_client_talk_start(s_voice);
+        *talk_started = now;
     }
 }
 
-static bool push_to_talk_ready(const wearable_voice_snapshot_t *voice) {
-    return s_voice != NULL && voice->call == WEARABLE_CALL_ACTIVE && !voice->hands_free;
+static void talk_release(TickType_t now, TickType_t *talk_started, const wearable_voice_snapshot_t *voice) {
+    if (s_voice == NULL || *talk_started == 0) {
+        return;
+    }
+    wearable_voice_client_talk_stop(s_voice);
+    if (now - *talk_started < pdMS_TO_TICKS(NEOAGENT_TALK_TAP_MS) && voice->speaking) {
+        wearable_voice_client_stop_speaking(s_voice);
+    }
+    *talk_started = 0;
 }
 
 static void run_assistant_shell(const neoagent_device_config_t *device_config, neoagent_session_state_t *session_state, const char *wearable_ws_url) {
@@ -789,8 +755,8 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
     call_moment_t moment = {0};
     mascot_stabilizer_t stabilizer;
     board_target_t pressed_target = BOARD_TARGET_NONE;
-    bool touch_talking = false;
-    bool boot_talking = false;
+    TickType_t talk_started = 0;
+    TickType_t last_call_activity = 0;
     bool charging = false;
     bool display_sleeping = false;
     bool standby_wake_armed = false;
@@ -858,11 +824,19 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         track_moment(&moment, &voice);
         mascot_stabilizer_update(&stabilizer, call_mood(&voice, &moment), moment.id, esp_timer_get_time() / 1000);
 
-        // A reply playing, a push-to-talk hold or a call being placed keeps the
-        // display on; an open hands-free call may go dark like a phone at the ear.
-        const bool voice_active = voice.speaking || voice.call == WEARABLE_CALL_CONNECTING || (voice.capturing && !voice.hands_free);
+        // Talking, a reply playing or a call being placed keeps the display on.
+        const bool voice_active = voice.speaking || voice.capturing || voice.call == WEARABLE_CALL_CONNECTING;
         if (voice_active) {
             last_activity = now;
+        }
+        // No hang-up button: an open call nobody uses ends by itself, which also
+        // ends the billed live-model session.
+        if (voice.call == WEARABLE_CALL_IDLE || voice_active || voice.capturing || voice.task_running) {
+            last_call_activity = now;
+        } else if (now - last_call_activity >= pdMS_TO_TICKS(NEOAGENT_CALL_IDLE_HANGUP_MS)) {
+            ESP_LOGI(TAG, "hanging up idle call");
+            wearable_voice_client_call_end(s_voice);
+            last_call_activity = now;
         }
         if (now - last_activity >= pdMS_TO_TICKS(CONFIG_NEOAGENT_DISPLAY_TIMEOUT_SECONDS * 1000)) {
             if (enter_display_standby(&display_sleeping)) {
@@ -909,19 +883,17 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             last_activity = now;
             if (touch_event.pressed) {
                 pressed_target = board_support_hit_test(&s_board, touch_event.x, touch_event.y);
-                if (view.tab == SHELL_TAB_CALL && pressed_target == BOARD_TARGET_TALK && push_to_talk_ready(&voice)) {
-                    wearable_voice_client_talk_start(s_voice);
-                    touch_talking = true;
+                if (view.tab == SHELL_TAB_CALL && pressed_target == BOARD_TARGET_MASCOT) {
+                    talk_press(now, &talk_started);
                 }
             }
-            if (touch_event.released) {
+            if (touch_event.released && talk_started != 0 && pressed_target == BOARD_TARGET_MASCOT) {
+                // A hold ends however the finger leaves the glass.
+                talk_release(now, &talk_started, &voice);
+            } else if (touch_event.released) {
                 const bool tap_allowed = touch_event.tapped && (last_touch_action == 0 ||
                     now - last_touch_action >= pdMS_TO_TICKS(NEOAGENT_TOUCH_ACTION_COOLDOWN_MS));
-                if (touch_talking) {
-                    // A hold ends however the finger leaves the glass.
-                    touch_talking = false;
-                    wearable_voice_client_talk_stop(s_voice);
-                } else if (touch_event.swipe_left && view.tab == SHELL_TAB_CALL) {
+                if (touch_event.swipe_left && view.tab == SHELL_TAB_CALL) {
                     view.tab = SHELL_TAB_SETTINGS;
                     view.page = BOARD_SETTINGS_ROOT;
                     shown_valid = false;
@@ -931,9 +903,10 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 } else if (tap_allowed && pressed_target != BOARD_TARGET_NONE) {
                     ESP_LOGI(TAG, "tap target=%d tab=%d", (int)pressed_target, (int)view.tab);
                     last_touch_action = now;
-                    if (view.tab == SHELL_TAB_CALL) {
-                        handle_call_tap(pressed_target, &voice, &view);
-                    } else if (handle_settings_target(pressed_target, &view, device_config, session_state, &display_sleeping)) {
+                    if (view.tab == SHELL_TAB_CALL && pressed_target == BOARD_TARGET_OPEN_SETTINGS) {
+                        view.tab = SHELL_TAB_SETTINGS;
+                        view.page = BOARD_SETTINGS_ROOT;
+                    } else if (view.tab == SHELL_TAB_SETTINGS && handle_settings_target(pressed_target, &view, device_config, session_state, &display_sleeping)) {
                         shown_valid = false;
                     }
                 }
@@ -960,7 +933,7 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 button_event.boot_short_press = false;
                 button_event.boot_long_press = false;
             }
-            if (button_event.power_long_press && !boot_talking) {
+            if (button_event.power_long_press) {
                 ESP_LOGI(TAG, "power long press -> %s", charging ? "charging standby" : "deep sleep");
                 if (charging) {
                     enter_display_standby(&display_sleeping);
@@ -974,29 +947,12 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
                 shown_valid = false;
             }
 
-            // BOOT is the call button: press to call, hold to talk on a
-            // push-to-talk call, press to mute a hands-free one, hold to hang up.
-            if (s_voice != NULL) {
-                if (button_event.boot_pressed && push_to_talk_ready(&voice)) {
-                    wearable_voice_client_talk_start(s_voice);
-                    boot_talking = true;
-                } else if (button_event.boot_released && boot_talking) {
-                    boot_talking = false;
-                    wearable_voice_client_talk_stop(s_voice);
-                } else if (button_event.boot_short_press && !boot_talking) {
-                    view.tab = SHELL_TAB_CALL;
-                    if (voice.call == WEARABLE_CALL_IDLE) {
-                        wearable_voice_client_call_start(s_voice);
-                    } else if (voice.speaking) {
-                        wearable_voice_client_stop_speaking(s_voice);
-                    } else if (voice.hands_free && voice.capturing) {
-                        wearable_voice_client_talk_stop(s_voice);
-                    } else if (voice.hands_free) {
-                        wearable_voice_client_talk_start(s_voice);
-                    }
-                } else if (button_event.boot_long_press && !boot_talking && voice.call != WEARABLE_CALL_IDLE) {
-                    wearable_voice_client_call_end(s_voice);
-                }
+            // BOOT works like the avatar: hold to talk.
+            if (button_event.boot_pressed) {
+                view.tab = SHELL_TAB_CALL;
+                talk_press(now, &talk_started);
+            } else if (button_event.boot_released) {
+                talk_release(now, &talk_started, &voice);
             }
             const bool button_activity = button_event.power_pressed || button_event.power_released || button_event.boot_pressed || button_event.boot_released;
             if (button_activity) {

@@ -26,17 +26,15 @@
 #define UI_ICON_BUTTON 36
 #define UI_ROW_HEIGHT 56
 #define UI_ROW_GAP 8
-#define UI_CAPTION_LINES 5
+#define UI_CAPTION_LINES 2
 
-// The call screen: the mascot inside its halo on the left, the call on the right.
-#define CALL_HALO_CX 140
-#define CALL_HALO_CY 206
-#define CALL_HALO_EXTENT 204
-#define CALL_HALO_RING 162
-#define CALL_MASCOT_TILE 112
-#define CALL_COLUMN_X 268
-#define CALL_COLUMN_W 160
-#define CALL_BUTTON 58
+// The home screen is the mascot inside its halo: hold it to talk.
+#define CALL_HALO_CX (BOARD_UI_WIDTH / 2)
+#define CALL_HALO_CY 172
+#define CALL_HALO_EXTENT 236
+#define CALL_HALO_RING 200
+#define CALL_MASCOT_TILE 152
+#define CALL_TEXT_W 384
 #define CALL_PULSE_MS 1800
 
 static struct {
@@ -51,15 +49,8 @@ static struct {
     lv_obj_t *ripples[2];
     lv_obj_t *ring;
     lv_obj_t *mascot;
-    lv_obj_t *name;
     lv_obj_t *status;
     lv_obj_t *caption;
-    lv_obj_t *task;
-    lv_obj_t *task_label;
-    lv_obj_t *controls;
-    board_call_phase_t phase;
-    bool hands_free;
-    bool capturing;
     uint32_t pulse_color;  // 0 while nobody talks.
 } s_call;
 
@@ -362,81 +353,6 @@ static void set_halo(uint32_t color) {
     lv_anim_start(&pulse);
 }
 
-// A microphone drawn from shapes; the built-in symbol font has none.
-static void mic_icon(lv_obj_t *parent, uint32_t color, bool muted) {
-    lv_obj_t *icon = plain(parent, 24, 30);
-    lv_obj_center(icon);
-    lv_obj_t *capsule = surface(icon, 10, 17, color, 5);
-    lv_obj_align(capsule, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_t *cradle = lv_arc_create(icon);
-    lv_obj_remove_style_all(cradle);
-    lv_obj_set_size(cradle, 20, 20);
-    lv_obj_align(cradle, LV_ALIGN_TOP_MID, 0, 3);
-    lv_arc_set_bg_angles(cradle, 0, 180);
-    lv_obj_set_style_arc_width(cradle, 2, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(cradle, lv_color_hex(color), LV_PART_MAIN);
-    lv_obj_set_style_arc_opa(cradle, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_arc_rounded(cradle, true, LV_PART_MAIN);
-    lv_obj_clear_flag(cradle, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_t *stem = surface(icon, 2, 6, color, 1);
-    lv_obj_align(stem, LV_ALIGN_BOTTOM_MID, 0, 0);
-    if (muted) {
-        static const lv_point_t slash[] = {{2, 2}, {22, 28}};
-        lv_obj_t *line = lv_line_create(icon);
-        lv_line_set_points(line, slash, 2);
-        lv_obj_set_style_line_width(line, 2, 0);
-        lv_obj_set_style_line_color(line, lv_color_hex(color), 0);
-        lv_obj_set_style_line_rounded(line, true, 0);
-    }
-}
-
-// A round call control with its label underneath, like the app's.
-static lv_obj_t *call_button(lv_obj_t *parent, uint32_t fill_color, bool outlined, const char *label, board_target_t target) {
-    lv_obj_t *item = plain(parent, CALL_COLUMN_W / 2, LV_SIZE_CONTENT);
-    lv_obj_add_flag(item, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    lv_obj_set_flex_flow(item, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(item, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_row(item, 6, 0);
-    lv_obj_t *circle = surface(item, CALL_BUTTON, CALL_BUTTON, fill_color, LV_RADIUS_CIRCLE);
-    if (outlined) {
-        hairline(circle, UI_HAIRLINE, UI_OPA_BORDER_LIGHT, 1);
-    }
-    text(item, &lv_font_montserrat_12, UI_TEXT_SECONDARY, label);
-    tag(item, target);
-    return circle;
-}
-
-static void build_controls(const board_call_view_t *view) {
-    lv_obj_clean(s_call.controls);
-    if (view->phase == BOARD_CALL_IDLE) {
-        lv_obj_t *call = call_button(s_call.controls, UI_SUCCESS, false, "Call", BOARD_TARGET_CALL);
-        lv_obj_center(text(call, &lv_font_montserrat_24, 0xFFFFFF, LV_SYMBOL_CALL));
-        return;
-    }
-    if (view->phase == BOARD_CALL_ACTIVE) {
-        const char *label = NULL;
-        uint32_t fill_color = UI_BG_TERTIARY;
-        uint32_t icon_color = UI_TEXT;
-        bool muted = false;
-        if (view->hands_free) {
-            muted = !view->capturing;
-            label = muted ? "Unmute" : "Mute";
-            if (muted) {
-                fill_color = UI_TEXT;
-                icon_color = UI_BG;
-            }
-        } else {
-            label = view->capturing ? "Release to send" : "Hold to talk";
-            fill_color = view->capturing ? UI_SUCCESS : UI_ACCENT;
-            icon_color = UI_BG;
-        }
-        lv_obj_t *talk = call_button(s_call.controls, fill_color, fill_color == UI_BG_TERTIARY, label, BOARD_TARGET_TALK);
-        mic_icon(talk, icon_color, muted);
-    }
-    lv_obj_t *end = call_button(s_call.controls, UI_DANGER, false, "End", BOARD_TARGET_END_CALL);
-    lv_obj_center(text(end, &lv_font_montserrat_24, 0xFFFFFF, LV_SYMBOL_CLOSE));
-}
-
 static void build_call_screen(void) {
     memset(&s_call, 0, sizeof(s_call));
     lv_obj_t *screen = new_screen();
@@ -457,27 +373,12 @@ static void build_call_screen(void) {
     s_call.mascot = mascot_view_create(s_call.halo, CALL_MASCOT_TILE, MASCOT_MOOD_IDLE);
     lv_obj_center(s_call.mascot);
 
-    s_call.name = text(screen, &lv_font_montserrat_24, UI_TEXT, "");
-    lv_obj_set_pos(s_call.name, CALL_COLUMN_X, 84);
-
     s_call.status = text(screen, &lv_font_montserrat_16, UI_TEXT_SECONDARY, "");
-    lv_obj_set_pos(s_call.status, CALL_COLUMN_X, 118);
+    lv_obj_align(s_call.status, LV_ALIGN_TOP_MID, 0, CALL_HALO_CY + (CALL_HALO_EXTENT / 2) + 2);
 
-    s_call.caption = wrapped_text(screen, &lv_font_montserrat_14, UI_TEXT, CALL_COLUMN_W, "");
-    lv_obj_set_pos(s_call.caption, CALL_COLUMN_X, 150);
-
-    s_call.task = surface(screen, CALL_COLUMN_W, 26, UI_ACCENT, 13);
-    lv_obj_set_style_bg_opa(s_call.task, 0x14, 0);
-    hairline(s_call.task, UI_ACCENT, 0x24, 1);
-    lv_obj_set_pos(s_call.task, CALL_COLUMN_X, 240);
-    s_call.task_label = text(s_call.task, &lv_font_montserrat_12, UI_TEXT, "");
-    lv_obj_align(s_call.task_label, LV_ALIGN_LEFT_MID, 12, 0);
-
-    s_call.controls = plain(screen, CALL_COLUMN_W, 88);
-    lv_obj_add_flag(s_call.controls, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    lv_obj_set_pos(s_call.controls, CALL_COLUMN_X, 276);
-    lv_obj_set_flex_flow(s_call.controls, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(s_call.controls, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    s_call.caption = wrapped_text(screen, &lv_font_montserrat_14, UI_TEXT, CALL_TEXT_W, "");
+    lv_obj_set_style_text_align(s_call.caption, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_call.caption, LV_ALIGN_TOP_MID, 0, CALL_HALO_CY + (CALL_HALO_EXTENT / 2) + 24);
 
     load_screen(screen);
 }
@@ -488,32 +389,22 @@ void board_ui_show_call(const board_call_view_t *view) {
         build_call_screen();
     }
     mascot_view_set_mood(s_call.mascot, view->mood);
-    set_single_line(s_call.name, view->name != NULL ? view->name : "NeoAgent", CALL_COLUMN_W);
-    set_single_line(s_call.status, view->status != NULL ? view->status : "", CALL_COLUMN_W);
-    set_caption(s_call.caption, view->caption != NULL ? view->caption : "", CALL_COLUMN_W);
+    char status[NEOAGENT_VOICE_CAPTION_MAX];
+    if (view->task != NULL) {
+        snprintf(status, sizeof(status), "Working: %s", view->task[0] != '\0' ? view->task : "in the background");
+    } else {
+        strlcpy(status, view->status != NULL ? view->status : "", sizeof(status));
+    }
+    set_single_line(s_call.status, status, CALL_TEXT_W);
+    lv_obj_set_style_text_color(s_call.status, lv_color_hex(view->task != NULL ? UI_ACCENT : UI_TEXT_SECONDARY), 0);
+    set_caption(s_call.caption, view->caption != NULL ? view->caption : "", CALL_TEXT_W);
     lv_obj_set_style_text_color(s_call.caption, lv_color_hex(view->caption_from_assistant ? UI_TEXT : UI_TEXT_SECONDARY), 0);
 
-    if (view->task != NULL) {
-        char task[NEOAGENT_VOICE_CAPTION_MAX];
-        snprintf(task, sizeof(task), "Working: %s", view->task[0] != '\0' ? view->task : "in the background");
-        set_single_line(s_call.task_label, task, CALL_COLUMN_W - 24);
-        lv_obj_clear_flag(s_call.task, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(s_call.task, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    if (fresh || view->phase != s_call.phase || view->hands_free != s_call.hands_free || view->capturing != s_call.capturing) {
-        s_call.phase = view->phase;
-        s_call.hands_free = view->hands_free;
-        s_call.capturing = view->capturing;
-        build_controls(view);
-    }
-
     uint32_t pulse = 0;
-    if (view->phase == BOARD_CALL_ACTIVE && view->speaking) {
-        pulse = UI_ACCENT;
-    } else if (view->phase == BOARD_CALL_ACTIVE && view->capturing) {
+    if (view->capturing) {
         pulse = UI_SUCCESS;
+    } else if (view->phase == BOARD_CALL_ACTIVE && view->speaking) {
+        pulse = UI_ACCENT;
     }
     set_halo(pulse);
 }

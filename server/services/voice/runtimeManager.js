@@ -55,6 +55,7 @@ class VoiceRuntimeManager {
     originRunId = null,
     originConversationId = null,
     agentInitiated = false,
+    inputMode = null,
   } = {}) {
     if (this.shuttingDown) throw runtimeStoppedError();
     const existing = this.getSession(sessionId);
@@ -64,7 +65,7 @@ class VoiceRuntimeManager {
       return existing;
     }
 
-    const settings = getVoiceRuntimeSettings(userId, agentId);
+    const settings = { ...getVoiceRuntimeSettings(userId, agentId), ...(inputMode ? { inputMode } : {}) };
     const provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
     const runtime = getProviderRuntimeConfig(userId, provider.runtimeProvider, agentId);
     const session = new LiveVoiceSession({
@@ -102,8 +103,10 @@ class VoiceRuntimeManager {
     return this.openSession({ ...options, platform: 'voice_live', sink: createSocketVoiceSink(socket) });
   }
 
+  // The wearable talks while its avatar is held, whatever the account's
+  // input mode: its calls are always push-to-talk.
   openWearableSession({ sink, ...options } = {}) {
-    return this.openSession({ ...options, platform: 'wearable_live', sink });
+    return this.openSession({ ...options, platform: 'wearable_live', sink, inputMode: 'ptt' });
   }
 
   hasActiveSessionForUser(userId) {

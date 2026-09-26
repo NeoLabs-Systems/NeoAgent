@@ -28,8 +28,7 @@ typedef struct {
     bool authentication_rejected;
     wearable_call_state_t call;
     int64_t call_started_at_us;
-    bool hands_free;            // Otherwise push-to-talk.
-    bool capturing;             // The microphone is streaming to the call.
+    bool capturing;             // The avatar or BOOT is held and the microphone records.
     bool speaking;              // The assistant is talking or its audio still plays.
     bool reconnecting;          // The server is re-establishing the live model.
     char caption[NEOAGENT_VOICE_TEXT_MAX];  // Latest turn of either speaker.
@@ -52,17 +51,13 @@ esp_err_t wearable_voice_client_init(
     const char *session_cookie,
     const char *device_label
 );
-void wearable_voice_client_deinit(wearable_voice_client_t *client);
 
-// Places a call. Hands-free calls open the microphone once the session is
-// ready; push-to-talk calls wait for talk_start.
+// The wearable is push-to-talk: holding the avatar or BOOT talks, placing the
+// call first when none is open. A hold too short to be speech sends nothing.
+esp_err_t wearable_voice_client_talk_start(wearable_voice_client_t *client);
+esp_err_t wearable_voice_client_talk_stop(wearable_voice_client_t *client);
 esp_err_t wearable_voice_client_call_start(wearable_voice_client_t *client);
 esp_err_t wearable_voice_client_call_end(wearable_voice_client_t *client);
-
-// Push-to-talk hold, or unmuting a hands-free call.
-esp_err_t wearable_voice_client_talk_start(wearable_voice_client_t *client);
-// Push-to-talk release, or muting a hands-free call.
-esp_err_t wearable_voice_client_talk_stop(wearable_voice_client_t *client);
 
 // Silences the assistant mid-sentence.
 esp_err_t wearable_voice_client_stop_speaking(wearable_voice_client_t *client);

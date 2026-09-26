@@ -314,6 +314,27 @@ test('a hand-off during a running task steers that run instead of starting anoth
   assert.equal(reply.agent_run_id, engine.runs[0].options.runId);
 });
 
+test('wearable calls are push-to-talk even when the agent is set to hands-free', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.OPENAI_API_KEY = 'test-openai-key';
+  process.env.OPENAI_BASE_URL = `${fake.url}/v1`;
+
+  const { user, manager } = await setupManager(ctx, createFakeEngine(), { voice_input_mode: 'hands_free' });
+  const sink = createSink();
+  const opening = manager.openWearableSession({ userId: user.userId, sink });
+  await fake.next((event) => event.type === 'session.start');
+  fake.send({ type: 'session.started', session: { id: 'sess_wearable' } });
+  const session = await opening;
+
+  assert.equal(sink.of('session_ready')[0].inputMode, 'ptt');
+  await manager.closeSession(session.id, 'test_done', user.userId);
+});
+
 test('Gemini Live session: run_task returns at once, outcome as a message, interruption, and resumption', async (t) => {
   const ctx = createTestRuntime();
   const fake = await startFakeLiveServer();
