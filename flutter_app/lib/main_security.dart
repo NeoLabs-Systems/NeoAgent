@@ -379,6 +379,10 @@ class MainSecurity extends StatefulWidget {
 
 class _MainSecurityState extends State<MainSecurity> {
   Map<String, String> _policies = const <String, String>{};
+
+  /// Categories a manager has turned off for this account, mapped to that
+  /// manager's name. The account's own setting can't override these.
+  Map<String, String> _lockedBy = const <String, String>{};
   String _mode = 'default';
   bool _loading = true;
   String? _error;
@@ -400,8 +404,17 @@ class _MainSecurityState extends State<MainSecurity> {
           raw.map((k, v) => MapEntry(k.toString(), v.toString())),
         );
       }
+      final locks = result['lockedByManager'];
       setState(() {
         _policies = loaded;
+        _lockedBy = locks is Map
+            ? locks.map(
+                (key, manager) => MapEntry(
+                  key.toString(),
+                  AccessPerson.tryParse(manager)?.label ?? 'your manager',
+                ),
+              )
+            : const <String, String>{};
         _mode = result['mode']?.toString() ?? 'default';
         _loading = false;
       });
@@ -486,9 +499,12 @@ class _MainSecurityState extends State<MainSecurity> {
                     icon: Icons.warning_amber_rounded,
                     color: colorScheme.errorContainer,
                     textColor: colorScheme.onErrorContainer,
-                    message:
-                        'All tools are allowed — the agent can use any capability without asking. '
-                        'Switch to "Default" or "Always ask" to re-enable approval checks.',
+                    message: _lockedBy.isEmpty
+                        ? 'All tools are allowed — the agent can use any capability without asking. '
+                              'Switch to "Default" or "Always ask" to re-enable approval checks.'
+                        : 'Every tool runs without asking, except the ones the person '
+                              'who manages this account turned off: '
+                              '${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
                   )
                 else ...<Widget>[
                   if (_mode == 'always_ask')
@@ -512,6 +528,7 @@ class _MainSecurityState extends State<MainSecurity> {
                         category: e.key,
                         policy: e.value,
                         dimmed: _mode == 'always_ask',
+                        lockedBy: _lockedBy[e.key],
                         onChanged: (p) => _setPolicy(e.key, p),
                       ),
                     ),
@@ -733,11 +750,15 @@ class _PolicyCard extends StatelessWidget {
     required this.category,
     required this.policy,
     required this.dimmed,
+    required this.lockedBy,
     required this.onChanged,
   });
   final String category;
   final String policy;
   final bool dimmed;
+
+  /// Name of the manager who turned this category off, if one did.
+  final String? lockedBy;
   final ValueChanged<String> onChanged;
 
   @override
@@ -745,9 +766,10 @@ class _PolicyCard extends StatelessWidget {
     final info = _categoryInfo(category);
     final colorScheme = Theme.of(context).colorScheme;
     final riskColor = _riskColor(info.riskLevel);
+    final locked = lockedBy != null;
 
     return Opacity(
-      opacity: dimmed ? 0.55 : 1.0,
+      opacity: dimmed || locked ? 0.55 : 1.0,
       child: Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -833,8 +855,10 @@ class _PolicyCard extends StatelessWidget {
                     icon: Icon(Icons.verified_rounded, size: 13),
                   ),
                 ],
-                selected: <String>{policy},
-                onSelectionChanged: dimmed ? null : (s) => onChanged(s.first),
+                selected: <String>{locked ? 'deny' : policy},
+                onSelectionChanged: dimmed || locked
+                    ? null
+                    : (s) => onChanged(s.first),
                 style: ButtonStyle(
                   visualDensity: VisualDensity.compact,
                   textStyle: WidgetStateProperty.all(
@@ -843,7 +867,22 @@ class _PolicyCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              _PolicyHint(policy: policy),
+              if (locked)
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.lock_outline, size: 12, color: _textSecondary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Turned off by $lockedBy, who manages this account. '
+                        'Only they can change it.',
+                        style: TextStyle(fontSize: 11, color: _textSecondary),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                _PolicyHint(policy: policy),
             ],
           ),
         ),

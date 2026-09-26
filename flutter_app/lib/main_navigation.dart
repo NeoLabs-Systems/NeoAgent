@@ -30,9 +30,11 @@ enum AppSection {
   health,
   server,
   billing,
+  team,
+  admin,
 }
 
-enum SidebarGroup { chat, timeline, automation, settings }
+enum SidebarGroup { chat, timeline, automation, team, settings, admin }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
@@ -45,6 +47,10 @@ extension SidebarGroupX on SidebarGroup {
         return 'Automation';
       case SidebarGroup.settings:
         return 'Settings';
+      case SidebarGroup.team:
+        return 'Team';
+      case SidebarGroup.admin:
+        return 'Admin';
     }
   }
 
@@ -58,6 +64,10 @@ extension SidebarGroupX on SidebarGroup {
         return Icons.auto_awesome_outlined;
       case SidebarGroup.settings:
         return Icons.tune;
+      case SidebarGroup.team:
+        return Icons.groups_2_outlined;
+      case SidebarGroup.admin:
+        return Icons.admin_panel_settings_outlined;
     }
   }
 }
@@ -99,6 +109,10 @@ extension AppSectionX on AppSection {
         return 'Server';
       case AppSection.billing:
         return 'Billing';
+      case AppSection.team:
+        return 'Team';
+      case AppSection.admin:
+        return 'Admin';
     }
   }
 
@@ -138,6 +152,10 @@ extension AppSectionX on AppSection {
         return Icons.dns_outlined;
       case AppSection.billing:
         return Icons.credit_card;
+      case AppSection.team:
+        return Icons.groups_2_outlined;
+      case AppSection.admin:
+        return Icons.admin_panel_settings_outlined;
     }
   }
 
@@ -164,6 +182,10 @@ extension AppSectionX on AppSection {
       case AppSection.server:
       case AppSection.billing:
         return SidebarGroup.settings;
+      case AppSection.team:
+        return SidebarGroup.team;
+      case AppSection.admin:
+        return SidebarGroup.admin;
     }
   }
 

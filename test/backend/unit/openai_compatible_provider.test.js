@@ -338,3 +338,44 @@ test('readStream does not flag a naturally finished response as truncated', asyn
 
   assert.equal(terminal.truncated, false);
 });
+
+function grokWithFakeClient(create) {
+  const grok = new GrokProvider({ apiKey: 'test' });
+  grok.client = { chat: { completions: { create } } };
+  return grok;
+}
+
+const grokReply = { choices: [{ message: { content: '{}' } }], usage: { total_tokens: 1 } };
+
+test('Grok runs structured helper calls at the engine reasoning effort and leaves agent turns alone', async () => {
+  const sent = [];
+  const grok = grokWithFakeClient(async (params) => {
+    sent.push(params);
+    return grokReply;
+  });
+
+  await grok.chat([{ role: 'user', content: 'x' }], [], { model: 'grok-effort-a', reasoningEffort: 'low', structured: true });
+  await grok.chat([{ role: 'user', content: 'x' }], [], { model: 'grok-effort-a', reasoningEffort: 'low' });
+
+  assert.equal(sent[0].reasoning_effort, 'low');
+  assert.equal('reasoning_effort' in sent[1], false);
+});
+
+test('Grok retries without reasoning_effort when a model rejects it, and stops sending it', async () => {
+  const sent = [];
+  const grok = grokWithFakeClient(async (params) => {
+    sent.push(params);
+    if (params.reasoning_effort) {
+      const error = new Error('400 Model does not support parameter reasoning_effort');
+      error.status = 400;
+      throw error;
+    }
+    return grokReply;
+  });
+  const options = { model: 'grok-effort-b', reasoningEffort: 'low', structured: true };
+
+  await grok.chat([{ role: 'user', content: 'x' }], [], options);
+  await grok.chat([{ role: 'user', content: 'x' }], [], options);
+
+  assert.deepEqual(sent.map((params) => 'reasoning_effort' in params), [true, false, false]);
+});

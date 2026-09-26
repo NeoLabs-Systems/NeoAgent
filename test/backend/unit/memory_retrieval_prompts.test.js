@@ -68,3 +68,10 @@ test('over-long candidate content is capped', () => {
   assert.match(prompt, /"content":"x{1200}"/);
   assert.doesNotMatch(prompt, /x{1201}/);
 });
+
+test('reranker asks for scored top candidates only, without written reasons', () => {
+  const prompt = buildRerankerPrompt('note?', {}, [candidate()]);
+
+  assert.match(prompt, /at most 8/);
+  assert.doesNotMatch(prompt, /"reason"/);
+});

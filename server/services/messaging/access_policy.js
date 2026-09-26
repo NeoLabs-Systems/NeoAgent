@@ -49,6 +49,16 @@ function capabilityTemplate(overrides = {}) {
     sharedSpaceRuleScopes: SHARED_SPACE_RULE_SCOPES,
     sharedActorRuleScopes: SHARED_ACTOR_RULE_SCOPES,
     manualEntryHint: 'Use a person, group, channel, room, server, or role.',
+    // Modes the owner may pick for shared spaces. Public platforms drop 'open'.
+    sharedModes: ACCESS_MODES,
+    // When true a shared-space rule only says where the agent listens; every
+    // sender still needs a person or member rule of their own, and role rules
+    // count only inside listed spaces.
+    requireSharedActor: false,
+    // When true the agent answers shared spaces only when addressed.
+    mentionOnly: false,
+    // What the owner calls a shared space on this platform, for prompts.
+    spaceNoun: null,
     ...overrides,
   });
 }
@@ -156,6 +166,22 @@ const PLATFORM_CAPABILITIES = Object.freeze({
     sharedSpaceRuleScopes: Object.freeze(['channel', 'chat']),
     sharedActorRuleScopes: Object.freeze(['user']),
   }),
+  // GitHub threads are public: anyone can comment, so a repository rule never
+  // admits commenters on its own and "anyone" is not offered.
+  github: capabilityTemplate({
+    supportsDirectPolicy: false,
+    supportsMentionGate: true,
+    supportsUntaggedGroupToggle: false,
+    supportsDiscovery: true,
+    directRuleScopes: Object.freeze([]),
+    sharedSpaceRuleScopes: Object.freeze(['group']),
+    sharedActorRuleScopes: Object.freeze(['user', 'role']),
+    sharedModes: Object.freeze(['allowlist', 'disabled']),
+    requireSharedActor: true,
+    mentionOnly: true,
+    spaceNoun: 'repository',
+    manualEntryHint: 'Use a repository (owner/repo), a GitHub user ID, or a role such as COLLABORATOR.',
+  }),
   meshtastic: capabilityTemplate({
     supportsDirectPolicy: false,
     supportsSharedPolicy: true,
@@ -220,7 +246,7 @@ function createDefaultAccessPolicy(platform) {
     schemaVersion: ACCESS_POLICY_SCHEMA_VERSION,
     directPolicy: 'allowlist',
     sharedPolicy: capabilities.supportsSharedPolicy ? 'allowlist' : 'disabled',
-    defaultAllowUntaggedInShared: !capabilities.supportsUntaggedGroupToggle,
+    defaultAllowUntaggedInShared: !capabilities.supportsUntaggedGroupToggle && !capabilities.mentionOnly,
     directRules: [],
     sharedSpaceRules: [],
     sharedActorRules: [],
@@ -327,10 +353,11 @@ function normalizeAccessPolicy(platform, value) {
     rawSharedActorRules = [];
   }
 
+  const sharedPolicy = normalizeMode(rawSharedPolicy, defaults.sharedPolicy);
   const normalized = {
     schemaVersion: ACCESS_POLICY_SCHEMA_VERSION,
     directPolicy: normalizeMode(raw.directPolicy, defaults.directPolicy),
-    sharedPolicy: normalizeMode(rawSharedPolicy, defaults.sharedPolicy),
+    sharedPolicy: capabilities.sharedModes.includes(sharedPolicy) ? sharedPolicy : 'allowlist',
     defaultAllowUntaggedInShared: capabilities.supportsUntaggedGroupToggle
       ? (isLegacyParticipationPolicy
         ? raw.requireMentionInShared !== true
@@ -358,6 +385,10 @@ function normalizeAccessPolicy(platform, value) {
     normalized.sharedSpaceRules = [];
     normalized.sharedActorRules = [];
     normalized.sharedMemberRules = [];
+    normalized.sharedParticipationRules = [];
+  }
+  if (capabilities.mentionOnly) {
+    normalized.defaultAllowUntaggedInShared = false;
     normalized.sharedParticipationRules = [];
   }
 
@@ -643,11 +674,19 @@ function evaluateAccessPolicy(policyInput, context, platform) {
     }
     if (policy.sharedPolicy === 'allowlist') {
       const sharedSpaceMatch = policy.sharedSpaceRules.some((rule) => contextMatchesRule(rule, context));
-      const sharedActorMatch = policy.sharedActorRules.some((rule) => contextMatchesRule(rule, context));
       const sharedMemberMatch = policy.sharedMemberRules.some(
         (rule) => contextMatchesSharedMemberRule(rule, context),
       );
-      if (!sharedSpaceMatch && !sharedActorMatch && !sharedMemberMatch) {
+      // Where anyone can post, a space rule alone admits no one. An approved
+      // person is trusted wherever they ask, but a role only inside a listed
+      // space: roles are relative to the space, and a stranger holds OWNER in
+      // their own repository.
+      const sharedActorMatch = policy.sharedActorRules.some((rule) => contextMatchesRule(rule, context)
+        && (!capabilities.requireSharedActor || rule.scope !== 'role' || sharedSpaceMatch));
+      const allowed = capabilities.requireSharedActor
+        ? sharedActorMatch || sharedMemberMatch
+        : sharedSpaceMatch || sharedActorMatch || sharedMemberMatch;
+      if (!allowed) {
         return { allowed: false, reason: 'shared_not_allowed', policy };
       }
     }
@@ -778,16 +817,19 @@ function buildBlockedSenderSuggestions(platform, context, options = {}) {
       options,
       capabilities.sharedSpaceRuleScopes,
     );
+    const spaceNoun = capabilities.spaceNoun || labelForScope(sharedSpace?.scope);
     if (actorValue && canUseSharedActor && sharedSpace) {
       suggestions.push(makeSuggestion({
         scope: actorScope,
         value: actorValue,
-        label: `Allow sender in this ${labelForScope(sharedSpace.scope)} only (${senderLabel || actorValue})`,
+        label: `Allow sender in this ${spaceNoun} only (${senderLabel || actorValue})`,
         bucket: 'sharedMemberRules',
         spaceScope: sharedSpace.scope,
         spaceValue: sharedSpace.value,
         spaceLabel: sharedSpace.label,
       }));
+    }
+    if (actorValue && canUseSharedActor && sharedSpace) {
       suggestions.push(makeSuggestion({
         scope: actorScope,
         value: actorValue,
@@ -795,7 +837,7 @@ function buildBlockedSenderSuggestions(platform, context, options = {}) {
         bucket: 'sharedActorRules',
       }));
     }
-    if (sharedSpace) {
+    if (sharedSpace && !capabilities.requireSharedActor) {
       suggestions.push(makeSuggestion({
         scope: sharedSpace.scope,
         value: sharedSpace.value,
@@ -847,12 +889,14 @@ function accessModeLabel(mode) {
 function summarizeAccessPolicy(platform, policyInput) {
   const capabilities = getPlatformAccessCapabilities(platform);
   const policy = normalizeAccessPolicy(platform, policyInput);
-  const parts = [
-    `Private chats: ${accessModeLabel(policy.directPolicy)}`,
-  ];
+  const parts = capabilities.supportsDirectPolicy
+    ? [`Private chats: ${accessModeLabel(policy.directPolicy)}`]
+    : [];
   if (capabilities.supportsSharedPolicy) {
     parts.push(`Groups: ${accessModeLabel(policy.sharedPolicy)}`);
-    if (capabilities.supportsUntaggedGroupToggle) {
+    if (capabilities.mentionOnly) {
+      parts.push('replies when tagged');
+    } else if (capabilities.supportsUntaggedGroupToggle) {
       const mentionOnlyCount = policy.sharedParticipationRules
         .filter((rule) => !rule.allowUntagged).length;
       if (!policy.defaultAllowUntaggedInShared) {
@@ -932,6 +976,18 @@ function classifyRecentTarget(platform, row) {
   ).trim();
   if (!chatId && !sender) return null;
 
+  if (platform === 'github') {
+    const repo = chatId.split('#')[0];
+    if (!repo) return null;
+    return {
+      source: 'recent',
+      bucket: 'sharedSpaceRules',
+      scope: 'group',
+      value: repo,
+      label: repo,
+      subtitle: 'Recent repository',
+    };
+  }
   const isDirect = isDirectRecentChat(chatId, sender, metadata);
   if (platform === 'whatsapp' && !isDirect && chatId) {
     return {

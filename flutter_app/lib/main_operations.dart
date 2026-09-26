@@ -1,5 +1,12 @@
 part of 'main.dart';
 
+void _showFormError(BuildContext context, String message) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+}
+
 class LogsPanel extends StatefulWidget {
   const LogsPanel({super.key, required this.controller, this.embedded = false});
 
@@ -171,9 +178,6 @@ class _LogsPanelState extends State<LogsPanel> {
         'deploymentMode':
             versionInfo?['deploymentMode'] ??
             controller.updateStatus.deploymentMode,
-        'deploymentProfile':
-            versionInfo?['deploymentProfile'] ??
-            controller.updateStatus.deploymentProfile,
         'allowSelfUpdate':
             versionInfo?['allowSelfUpdate'] ??
             controller.updateStatus.allowSelfUpdate,
@@ -230,7 +234,6 @@ class _LogsPanelState extends State<LogsPanel> {
         'state': controller.updateStatus.state,
         'progress': controller.updateStatus.progress,
         'message': controller.updateStatus.message,
-        'deploymentProfile': controller.updateStatus.deploymentProfile,
         'versionBefore': controller.updateStatus.versionBefore,
         'versionAfter': controller.updateStatus.versionAfter,
         'installedVersion': controller.updateStatus.installedVersion,
@@ -479,913 +482,329 @@ class _LogsPanelState extends State<LogsPanel> {
   }
 }
 
-class SkillsPanel extends StatefulWidget {
-  const SkillsPanel({
+/// Full controls for one installed skill, shown from the Tools page.
+class SkillDetailView extends StatelessWidget {
+  const SkillDetailView({
     super.key,
     required this.controller,
-    this.embedded = false,
+    required this.skillName,
   });
 
   final NeoAgentController controller;
-  final bool embedded;
-
-  @override
-  State<SkillsPanel> createState() => _SkillsPanelState();
-}
-
-class _SkillsPanelState extends State<SkillsPanel>
-    with SingleTickerProviderStateMixin {
-  late final TextEditingController _searchController;
-  late final TabController _tabController;
-  String _selectedCategory = 'all';
-
-  // Installed tab search & filter state
-  String _installedQuery = '';
-  String _installedStatusFilter =
-      'all'; // 'all' | 'active' | 'draft' | 'disabled'
-  String _installedSourceFilter =
-      'all'; // 'all' | 'built-in' | 'learned' | 'user' | 'store'
-  late final TextEditingController _installedSearchController;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-    _tabController = TabController(length: 2, vsync: this);
-    _installedSearchController = TextEditingController();
-    _installedSearchController.addListener(() {
-      setState(() {
-        _installedQuery = _installedSearchController.text.trim().toLowerCase();
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-    _installedSearchController.dispose();
-    super.dispose();
-  }
+  final String skillName;
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final query = _searchController.text.trim().toLowerCase();
-    final categories = <String>{
-      'all',
-      ...controller.storeSkills.map((item) => item.category),
-    }.toList();
-    final filteredStore =
-        controller.storeSkills.where((item) {
-          final matchesQuery =
-              query.isEmpty ||
-              item.name.toLowerCase().contains(query) ||
-              item.description.toLowerCase().contains(query) ||
-              item.category.toLowerCase().contains(query);
-          final matchesCategory =
-              _selectedCategory == 'all' || item.category == _selectedCategory;
-          return matchesQuery && matchesCategory;
-        }).toList()..sort((a, b) {
-          if (a.installed != b.installed) {
-            return a.installed ? -1 : 1;
-          }
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        });
-
-    final body = Column(
-      children: <Widget>[
-        if (!widget.embedded)
-          _PageTitle(
-            title: 'Skills',
-            subtitle:
-                'Manage installed skills and browse the store. Official integrations live in their own section.',
-            trailing: FilledButton.icon(
-              onPressed: () => _openCreateSkill(context),
-              icon: Icon(Icons.add),
-              label: Text('New Skill'),
-            ),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FilledButton.icon(
-                onPressed: () => _openCreateSkill(context),
-                icon: const Icon(Icons.add),
-                label: const Text('New Skill'),
-              ),
-            ),
-          ),
-        if (!widget.embedded) const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: _bgSecondary,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _border),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            dividerColor: Colors.transparent,
-            indicatorSize: TabBarIndicatorSize.tab,
-            labelStyle: TextStyle(fontWeight: FontWeight.w700),
-            tabs: <Widget>[
-              Tab(text: 'Installed Skills (${controller.skills.length})'),
-              Tab(text: 'Store (${filteredStore.length})'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: <Widget>[
-              _buildInstalledTab(controller),
-              _buildStoreTab(controller, categories, filteredStore),
-            ],
-          ),
-        ),
-      ],
-    );
-    if (widget.embedded) {
-      return body;
-    }
-    return Padding(padding: _pagePadding(context), child: body);
-  }
-
-  Widget _buildInstalledTab(NeoAgentController controller) {
-    if (controller.skills.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(
-                Icons.extension_off_outlined,
-                size: 34,
-                color: _textSecondary,
-              ),
-              SizedBox(height: 12),
-              Text(
-                'No current skills yet. Install from Store or create a new one.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _textSecondary),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final filteredSkills = controller.skills.where((skill) {
-      final q = _installedQuery;
-      if (q.isNotEmpty &&
-          !skill.name.toLowerCase().contains(q) &&
-          !skill.description.toLowerCase().contains(q)) {
-        return false;
-      }
-      if (_installedStatusFilter != 'all') {
-        if (_installedStatusFilter == 'active' &&
-            (!skill.enabled || skill.draft)) {
-          return false;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final skill = controller.skills
+            .where((item) => item.name == skillName)
+            .firstOrNull;
+        if (skill == null) {
+          return Text(
+            'This skill is no longer installed.',
+            style: TextStyle(color: _textSecondary),
+          );
         }
-        if (_installedStatusFilter == 'draft' && !skill.draft) {
-          return false;
-        }
-        if (_installedStatusFilter == 'disabled' && skill.enabled) {
-          return false;
-        }
-      }
-      if (_installedSourceFilter != 'all' &&
-          skill.source != _installedSourceFilter) {
-        return false;
-      }
-      return true;
-    }).toList();
-
-    final statusFilters = <String>['all', 'active', 'draft', 'disabled'];
-    final sourceFilters = <String>[
-      'all',
-      'built-in',
-      'learned',
-      'user',
-      'store',
-    ];
-
-    return Card(
-      child: Column(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                TextField(
-                  controller: _installedSearchController,
-                  decoration: InputDecoration(
-                    labelText: 'Search by name or description',
-                    prefixIcon: Icon(Icons.search),
-                    suffixIcon: _installedSearchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            onPressed: () {
-                              _installedSearchController.clear();
-                            },
-                            icon: Icon(Icons.close),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 38,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: statusFilters.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final filter = statusFilters[index];
-                      final selected = filter == _installedStatusFilter;
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(
-                          filter == 'all'
-                              ? 'All'
-                              : filter[0].toUpperCase() + filter.substring(1),
-                        ),
-                        selectedColor: _accentMuted,
-                        checkmarkColor: _accent,
-                        backgroundColor: _bgSecondary,
-                        side: BorderSide(color: _border),
-                        onSelected: (_) =>
-                            setState(() => _installedStatusFilter = filter),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 38,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: sourceFilters.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final filter = sourceFilters[index];
-                      final selected = filter == _installedSourceFilter;
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(filter == 'all' ? 'All' : filter),
-                        selectedColor: _accentMuted,
-                        checkmarkColor: _accent,
-                        backgroundColor: _bgSecondary,
-                        side: BorderSide(color: _border),
-                        onSelected: (_) =>
-                            setState(() => _installedSourceFilter = filter),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${filteredSkills.length} skill${filteredSkills.length == 1 ? '' : 's'}',
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 8),
-              ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              skill.description.ifEmpty('No description'),
+              style: TextStyle(color: _textSecondary, height: 1.45),
             ),
-          ),
-          if (filteredSkills.isEmpty)
-            Expanded(
-              child: Center(
-                child: Text(
-                  'No skills match your filters',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                itemCount: filteredSkills.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final skill = filteredSkills[index];
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 760;
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _bgSecondary,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: _border),
-                        ),
-                        child: compact
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(
-                                        child: Text(
-                                          skill.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      Switch(
-                                        value: skill.enabled,
-                                        onChanged: (value) => controller
-                                            .setSkillEnabled(skill.name, value),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    skill.description.ifEmpty('No description'),
-                                    style: TextStyle(color: _textSecondary),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: <Widget>[
-                                      _MetaPill(
-                                        label: skill.category,
-                                        icon: Icons.folder_outlined,
-                                      ),
-                                      _MetaPill(
-                                        label: skill.source,
-                                        icon: Icons.source_outlined,
-                                      ),
-                                      if (skill.draft)
-                                        const _MetaPill(
-                                          label: 'Draft',
-                                          icon: Icons.edit_note_outlined,
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: <Widget>[
-                                      const Spacer(),
-                                      OutlinedButton(
-                                        onPressed: () => _openSkillEditor(
-                                          context,
-                                          skill.name,
-                                        ),
-                                        child: Text('Open'),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      TextButton.icon(
-                                        onPressed: () => _confirmDeleteSkill(
-                                          context,
-                                          skill.name,
-                                        ),
-                                        icon: Icon(Icons.delete_outline),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: _danger,
-                                        ),
-                                        label: Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          skill.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          skill.description.ifEmpty(
-                                            'No description',
-                                          ),
-                                          style: TextStyle(
-                                            color: _textSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: <Widget>[
-                                            _MetaPill(
-                                              label: skill.category,
-                                              icon: Icons.folder_outlined,
-                                            ),
-                                            _MetaPill(
-                                              label: skill.source,
-                                              icon: Icons.source_outlined,
-                                            ),
-                                            if (skill.draft)
-                                              const _MetaPill(
-                                                label: 'Draft',
-                                                icon: Icons.edit_note_outlined,
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Column(
-                                    children: <Widget>[
-                                      Switch(
-                                        value: skill.enabled,
-                                        onChanged: (value) => controller
-                                            .setSkillEnabled(skill.name, value),
-                                      ),
-                                      OutlinedButton(
-                                        onPressed: () => _openSkillEditor(
-                                          context,
-                                          skill.name,
-                                        ),
-                                        child: Text('Open'),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      TextButton.icon(
-                                        onPressed: () => _confirmDeleteSkill(
-                                          context,
-                                          skill.name,
-                                        ),
-                                        icon: Icon(Icons.delete_outline),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: _danger,
-                                        ),
-                                        label: Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStoreTab(
-    NeoAgentController controller,
-    List<String> categories,
-    List<StoreSkillItem> filteredStore,
-  ) {
-    final featured = filteredStore.take(6).toList();
-    return Card(
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: <Color>[_bgSecondary, _accentMuted],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _borderLight),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Skill Store',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Discover, install, and manage skills in a compact catalog.',
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'Search skills',
-              prefixIcon: Icon(Icons.search),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {});
-                      },
-                      icon: Icon(Icons.close),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final selected = category == _selectedCategory;
-                return FilterChip(
-                  selected: selected,
-                  label: Text(category == 'all' ? 'All' : category),
-                  selectedColor: _accentMuted,
-                  checkmarkColor: _accent,
-                  backgroundColor: _bgSecondary,
-                  side: BorderSide(color: _border),
-                  onSelected: (_) =>
-                      setState(() => _selectedCategory = category),
-                );
-              },
-            ),
-          ),
-          if (featured.isNotEmpty) ...<Widget>[
             const SizedBox(height: 14),
-            const _SectionTitle('Featured'),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 170,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: featured.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final item = featured[index];
-                  return Container(
-                    width: 280,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _bgSecondary,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: item.installed ? _accentMuted : _border,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Text(item.icon, style: TextStyle(fontSize: 24)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                item.name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            item.installed
-                                ? _StatusPill(
-                                    label: 'Installed',
-                                    color: _success,
-                                  )
-                                : _StatusPill(label: 'Get', color: _info),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          item.description,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: _textSecondary, height: 1.35),
-                        ),
-                        const Spacer(),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: item.installed
-                              ? OutlinedButton(
-                                  onPressed: () =>
-                                      controller.uninstallStoreSkill(item.id),
-                                  child: Text('Uninstall'),
-                                )
-                              : FilledButton(
-                                  onPressed: () =>
-                                      controller.installStoreSkill(item.id),
-                                  child: Text('Install'),
-                                ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _MetaPill(label: skill.category, icon: Icons.folder_outlined),
+                _MetaPill(label: skill.source, icon: Icons.source_outlined),
+                if (skill.draft)
+                  const _MetaPill(
+                    label: 'Draft',
+                    icon: Icons.edit_note_outlined,
+                  ),
+              ],
             ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              const _SectionTitle('All Skills'),
-              const Spacer(),
-              Text(
-                '${filteredStore.length} results',
+            const SizedBox(height: 18),
+            SwitchListTile(
+              value: skill.enabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Available to the agent'),
+              subtitle: Text(
+                skill.enabled
+                    ? 'The agent can use this skill.'
+                    : 'The agent will ignore this skill.',
                 style: TextStyle(color: _textSecondary),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (filteredStore.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text(
-                'No store skills match the current filter.',
-                style: TextStyle(color: _textSecondary),
-              ),
-            )
-          else
-            ...filteredStore.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 740;
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Text(item.icon, style: TextStyle(fontSize: 22)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    item.name,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                _StatusPill(
-                                  label: item.installed ? 'Installed' : 'Get',
-                                  color: item.installed ? _success : _info,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              item.description,
-                              style: TextStyle(color: _textSecondary),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: <Widget>[
-                                _MetaPill(
-                                  label: item.category,
-                                  icon: Icons.grid_view_rounded,
-                                ),
-                                const Spacer(),
-                                item.installed
-                                    ? OutlinedButton(
-                                        onPressed: () => controller
-                                            .uninstallStoreSkill(item.id),
-                                        child: Text('Uninstall'),
-                                      )
-                                    : FilledButton(
-                                        onPressed: () => controller
-                                            .installStoreSkill(item.id),
-                                        child: Text('Install'),
-                                      ),
-                              ],
-                            ),
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: <Widget>[
-                          Text(item.icon, style: TextStyle(fontSize: 24)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  item.name,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: _textSecondary,
-                                    height: 1.35,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                _MetaPill(
-                                  label: item.category,
-                                  icon: Icons.grid_view_rounded,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          item.installed
-                              ? OutlinedButton(
-                                  onPressed: () =>
-                                      controller.uninstallStoreSkill(item.id),
-                                  child: Text('Uninstall'),
-                                )
-                              : FilledButton(
-                                  onPressed: () =>
-                                      controller.installStoreSkill(item.id),
-                                  child: Text('Install'),
-                                ),
-                        ],
-                      );
-                    },
-                  ),
+              onChanged: (value) =>
+                  controller.setSkillEnabled(skill.name, value),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: () =>
+                      _openSkillEditor(context, controller, skill.name),
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text('Edit instructions'),
                 ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _openSkillEditor(BuildContext context, String name) async {
-    final document = await widget.controller.fetchSkillDocument(name);
-    final contentController = TextEditingController(text: document.content);
-    if (!context.mounted) {
-      return;
-    }
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text(name),
-          content: SizedBox(
-            width: 720,
-            child: TextField(
-              controller: contentController,
-              minLines: 16,
-              maxLines: 24,
-              decoration: const InputDecoration(labelText: 'Skill Content'),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await widget.controller.saveSkillContent(
-                  name: name,
-                  content: contentController.text,
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text('Save'),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await _confirmDeleteSkill(context, controller, skill.name);
+                    if (context.mounted &&
+                        !controller.skills.any(
+                          (item) => item.name == skill.name,
+                        )) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  icon: Icon(Icons.delete_outline, color: _danger),
+                  label: Text('Delete', style: TextStyle(color: _danger)),
+                ),
+              ],
             ),
           ],
         );
       },
     );
   }
+}
 
-  Future<void> _openCreateSkill(BuildContext context) async {
-    final nameController = TextEditingController();
-    final contentController = TextEditingController(
-      text: '''---
+/// Store listing for a skill that can be installed or removed.
+class StoreSkillDetailView extends StatelessWidget {
+  const StoreSkillDetailView({
+    super.key,
+    required this.controller,
+    required this.skillId,
+  });
+
+  final NeoAgentController controller;
+  final String skillId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final item = controller.storeSkills
+            .where((skill) => skill.id == skillId)
+            .firstOrNull;
+        if (item == null) {
+          return Text(
+            'This skill is no longer in the store.',
+            style: TextStyle(color: _textSecondary),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              item.description,
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            _MetaPill(label: item.category, icon: Icons.grid_view_rounded),
+            const SizedBox(height: 18),
+            item.installed
+                ? OutlinedButton.icon(
+                    onPressed: () => controller.uninstallStoreSkill(item.id),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Remove'),
+                  )
+                : FilledButton.icon(
+                    onPressed: () => controller.installStoreSkill(item.id),
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('Install'),
+                  ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+Future<void> _openSkillEditor(
+  BuildContext context,
+  NeoAgentController controller,
+  String name,
+) async {
+  final document = await controller.fetchSkillDocument(name);
+  final contentController = TextEditingController(text: document.content);
+  if (!context.mounted) {
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text(name),
+        content: SizedBox(
+          width: 720,
+          child: TextField(
+            controller: contentController,
+            minLines: 16,
+            maxLines: 24,
+            decoration: const InputDecoration(labelText: 'Skill Content'),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await controller.saveSkillContent(
+                  name: name,
+                  content: contentController.text,
+                );
+              } catch (error) {
+                if (!context.mounted) return;
+                _showFormError(context, controller.friendlyErrorMessage(error));
+                return;
+              }
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _openCreateSkill(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  final nameController = TextEditingController();
+  final contentController = TextEditingController(
+    text: '''---
 name: New Skill
 description: Describe what this skill does
 ---
 Write the instructions for this skill here.
 ''',
-    );
+  );
 
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text('New Skill'),
-          content: SizedBox(
-            width: 720,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Filename'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: contentController,
-                    minLines: 16,
-                    maxLines: 24,
-                    decoration: const InputDecoration(labelText: 'Content'),
-                  ),
-                ],
-              ),
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text('New Skill'),
+        content: SizedBox(
+          width: 720,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Filename'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentController,
+                  minLines: 16,
+                  maxLines: 24,
+                  decoration: const InputDecoration(labelText: 'Content'),
+                ),
+              ],
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await widget.controller.createSkill(
-                  filename: nameController.text.trim(),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final filename = nameController.text.trim();
+              if (filename.isEmpty) {
+                _showFormError(context, 'Please enter a filename.');
+                return;
+              }
+              try {
+                await controller.createSkill(
+                  filename: filename,
                   content: contentController.text,
                 );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
+              } catch (error) {
+                if (!context.mounted) return;
+                _showFormError(context, controller.friendlyErrorMessage(error));
+                return;
+              }
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text('Create'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _confirmDeleteSkill(
+  BuildContext context,
+  NeoAgentController controller,
+  String name,
+) async {
+  final shouldDelete = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: _bgCard,
+        title: Text('Delete skill?'),
+        content: Text('"$name" will be removed permanently.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldDelete != true) {
+    return;
   }
 
-  Future<void> _confirmDeleteSkill(BuildContext context, String name) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _bgCard,
-          title: Text('Delete skill?'),
-          content: Text('"$name" will be removed permanently.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: _danger),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldDelete != true) {
+  try {
+    await controller.deleteSkill(name);
+    if (!context.mounted) {
       return;
     }
-
-    try {
-      await widget.controller.deleteSkill(name);
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Deleted "$name".')));
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete "$name": ${_formatCaughtError(error)}')),
-      );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Deleted "$name".')));
+  } catch (error) {
+    if (!context.mounted) {
+      return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to delete "$name": ${_formatCaughtError(error)}'),
+      ),
+    );
   }
 }
 
@@ -1440,7 +859,11 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate prompt: ${_formatCaughtError(error)}')),
+        SnackBar(
+          content: Text(
+            'Failed to generate prompt: ${_formatCaughtError(error)}',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _llmPromptLoading = false);
@@ -1513,9 +936,9 @@ class _MemoryPanelState extends State<MemoryPanel>
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')),
+      );
     } finally {
       if (mounted) setState(() => _llmImporting = false);
     }
@@ -2266,12 +1689,26 @@ class _MemoryPanelState extends State<MemoryPanel>
             ),
             FilledButton(
               onPressed: () async {
-                await controller.createMemory(
-                  content: contentController.text.trim(),
-                  category: category,
-                  importance:
-                      int.tryParse(importanceController.text.trim()) ?? 5,
-                );
+                final content = contentController.text.trim();
+                if (content.isEmpty) {
+                  _showFormError(context, 'Please enter the memory content.');
+                  return;
+                }
+                try {
+                  await controller.createMemory(
+                    content: content,
+                    category: category,
+                    importance:
+                        int.tryParse(importanceController.text.trim()) ?? 5,
+                  );
+                } catch (error) {
+                  if (!context.mounted) return;
+                  _showFormError(
+                    context,
+                    controller.friendlyErrorMessage(error),
+                  );
+                  return;
+                }
                 if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -2327,10 +1764,24 @@ class _MemoryPanelState extends State<MemoryPanel>
             ),
             FilledButton(
               onPressed: () async {
-                await controller.updateCoreMemory(
-                  keyController.text.trim(),
-                  valueController.text.trim(),
-                );
+                final key = keyController.text.trim();
+                if (key.isEmpty) {
+                  _showFormError(context, 'Please enter a key.');
+                  return;
+                }
+                try {
+                  await controller.updateCoreMemory(
+                    key,
+                    valueController.text.trim(),
+                  );
+                } catch (error) {
+                  if (!context.mounted) return;
+                  _showFormError(
+                    context,
+                    controller.friendlyErrorMessage(error),
+                  );
+                  return;
+                }
                 if (context.mounted) Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -3028,6 +2479,7 @@ class _TaskTriggerOption {
     required this.icon,
     this.providerKey,
     this.appKey,
+    this.requiresConnection = false,
   });
 
   final String type;
@@ -3046,6 +2498,10 @@ class _TaskTriggerOption {
   /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
   /// duplicate accounts.
   final String? appKey;
+
+  /// Hides the trigger from the picker until the integration has a connected
+  /// account.
+  final bool requiresConnection;
 }
 
 const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
@@ -3098,6 +2554,17 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     icon: Icons.groups_rounded,
     providerKey: 'microsoft_365',
     appKey: 'teams',
+  ),
+  _TaskTriggerOption(
+    type: 'github_issue_opened',
+    section: 'Developer',
+    label: 'GitHub Issue Opened',
+    description:
+        'Run when a new issue matching your filters is opened in a repository.',
+    icon: Icons.bug_report_rounded,
+    providerKey: 'github',
+    appKey: 'repos',
+    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'weather_event',
@@ -3309,6 +2776,26 @@ class _TaskScheduleDraft {
   }
 }
 
+/// Copies a recommendation's recurring schedule into the task form draft.
+void _applyTaskInspiration(
+  TaskRecommendation recommendation, {
+  required _TaskScheduleDraft scheduleDraft,
+  required TextEditingController customCronController,
+  required TextEditingController runAtController,
+}) {
+  final cron = recommendation.cronExpression;
+  final parsed = _parseCronExpression(cron);
+  scheduleDraft
+    ..mode = 'recurring'
+    ..presetId = parsed?.presetId ?? 'custom'
+    ..time = parsed?.time ?? scheduleDraft.time
+    ..weekdays = parsed?.weekdays ?? scheduleDraft.weekdays
+    ..monthDay = parsed?.monthDay ?? scheduleDraft.monthDay
+    ..customCronExpression = parsed?.customCronExpression ?? cron;
+  customCronController.text = scheduleDraft.customCronExpression;
+  runAtController.clear();
+}
+
 _TaskScheduleDraft? _parseCronExpression(String cron) {
   final fields = cron.trim().split(RegExp(r'\s+'));
   if (fields.length != 5) return null;
@@ -3436,10 +2923,16 @@ String _formatTaskWeekdays(Set<int> weekdays) {
 
 Future<String?> _pickTaskTriggerType(
   BuildContext context,
-  String selectedType,
-) {
+  String selectedType, {
+  required bool Function(_TaskTriggerOption option) isConnected,
+}) {
   final optionsBySection = <String, List<_TaskTriggerOption>>{};
   for (final option in _taskTriggerOptions) {
+    if (option.requiresConnection &&
+        option.type != selectedType &&
+        !isConnected(option)) {
+      continue;
+    }
     optionsBySection
         .putIfAbsent(option.section, () => <_TaskTriggerOption>[])
         .add(option);
@@ -3674,11 +3167,13 @@ List<_ModelPickerOption> _taskModelOverrideOptions({
   if (selectedModel != 'default' &&
       !options.any((option) => option.value == selectedModel)) {
     final saved = _modelForValue(selectedModel, models);
-    options.add(_ModelPickerOption(
-      value: selectedModel,
-      label: '${saved?.label ?? selectedModel} (unavailable saved override)',
-      icon: Icons.history_rounded,
-    ));
+    options.add(
+      _ModelPickerOption(
+        value: selectedModel,
+        label: '${saved?.label ?? selectedModel} (unavailable saved override)',
+        icon: Icons.history_rounded,
+      ),
+    );
   }
   return options;
 }
@@ -4066,6 +3561,127 @@ class _TaskDeliveryNotice extends StatelessWidget {
   }
 }
 
+class _TaskRecommendationsGallery extends StatelessWidget {
+  const _TaskRecommendationsGallery({
+    required this.controller,
+    required this.onCreateCustom,
+  });
+
+  final NeoAgentController controller;
+  final VoidCallback onCreateCustom;
+
+  Future<void> _add(
+    BuildContext context,
+    TaskRecommendation recommendation,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await controller.addRecommendedTask(recommendation);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${recommendation.title} added. Edit it any time to change the '
+            'prompt or schedule.',
+          ),
+        ),
+      );
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(controller.friendlyErrorMessage(error))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _EntranceMotion(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.auto_awesome_rounded, color: _accent),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Start with a recommended task',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Tasks run on their own and message you with the '
+                          'result. One click adds one; you can edit it later.',
+                          style: TextStyle(color: _textSecondary, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 12.0;
+                  final columns = (constraints.maxWidth / 300).floor().clamp(
+                    1,
+                    3,
+                  );
+                  final cardWidth =
+                      (constraints.maxWidth - spacing * (columns - 1)) /
+                      columns;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: taskRecommendations.map((recommendation) {
+                      return SizedBox(
+                        width: cardWidth,
+                        height: 178,
+                        child: TaskRecommendationCard(
+                          recommendation: recommendation,
+                          status: controller.taskRecommendationStatus(
+                            recommendation,
+                          ),
+                          onAdd: () => _add(context, recommendation),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: onCreateCustom,
+                  icon: const Icon(Icons.edit_note_rounded, size: 18),
+                  label: const Text('Or build your own task'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class TasksPanel extends StatefulWidget {
   const TasksPanel({super.key, required this.controller});
 
@@ -4243,9 +3859,12 @@ class _TasksPanelState extends State<TasksPanel> {
           const SizedBox(height: 14),
         ],
         if (controller.taskItems.isEmpty)
-          const _EmptyCard(
-            title: 'No tasks yet',
-            subtitle: 'Create a task with a trigger to automate regular work.',
+          _TaskRecommendationsGallery(
+            controller: controller,
+            onCreateCustom: () => _openTaskEditor(
+              context,
+              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
+            ),
           )
         else if (filteredTasks.isEmpty)
           _EmptyCard(
@@ -4374,6 +3993,7 @@ class _TasksPanelState extends State<TasksPanel> {
 
   List<OfficialIntegrationAccountItem> _connectedAccountsForTrigger(
     String triggerType,
+    List<OfficialIntegrationItem> integrations,
   ) {
     final option = _taskTriggerOptionForType(triggerType);
     final providerKey = option.providerKey;
@@ -4381,7 +4001,7 @@ class _TasksPanelState extends State<TasksPanel> {
     final appKey = option.appKey;
     final seen = <int>{};
     final result = <OfficialIntegrationAccountItem>[];
-    for (final integration in controller.officialIntegrations) {
+    for (final integration in integrations) {
       if (integration.id != providerKey) continue;
       for (final app in integration.apps) {
         if (appKey != null && app.id != appKey) continue;
@@ -4397,11 +4017,12 @@ class _TasksPanelState extends State<TasksPanel> {
 
   Widget _buildConnectionIdSelector({
     required String triggerType,
+    required List<OfficialIntegrationItem> integrations,
     required ValueNotifier<int?> selectedConnectionId,
     required TextEditingController fallbackController,
     required StateSetter setLocalState,
   }) {
-    final accounts = _connectedAccountsForTrigger(triggerType);
+    final accounts = _connectedAccountsForTrigger(triggerType, integrations);
     if (accounts.isEmpty) {
       return TextField(
         controller: fallbackController,
@@ -4511,6 +4132,18 @@ class _TasksPanelState extends State<TasksPanel> {
     final senderController = TextEditingController(
       text: task?.triggerConfig['sender']?.toString() ?? '',
     );
+    final repoController = TextEditingController(
+      text: task?.triggerConfig['repo']?.toString() ?? '',
+    );
+    final authorController = TextEditingController(
+      text: task?.triggerConfig['author']?.toString() ?? '',
+    );
+    final assigneeController = TextEditingController(
+      text: task?.triggerConfig['assignee']?.toString() ?? '',
+    );
+    final labelsController = TextEditingController(
+      text: task?.triggerConfig['labels']?.toString() ?? '',
+    );
     final promptController = TextEditingController(text: task?.prompt ?? '');
     var enabled = task?.enabled ?? true;
     var loopPaused = task?.loopPaused ?? false;
@@ -4539,6 +4172,24 @@ class _TasksPanelState extends State<TasksPanel> {
           ? null
           : controller.agentProfiles.first.id;
     }
+    // Integration accounts are per agent, so the account picker must list the
+    // assigned agent's connections rather than the app-wide selected agent's.
+    final agentIntegrations = ValueNotifier<List<OfficialIntegrationItem>>(
+      selectedAgentId == controller.selectedAgentId
+          ? controller.officialIntegrations
+          : const <OfficialIntegrationItem>[],
+    );
+    Future<void> loadAgentIntegrations(String? agentId) async {
+      List<OfficialIntegrationItem> items;
+      try {
+        items = await controller.fetchOfficialIntegrationsForAgent(agentId);
+      } catch (_) {
+        items = const <OfficialIntegrationItem>[];
+      }
+      if (agentId == selectedAgentId) agentIntegrations.value = items;
+    }
+
+    unawaited(loadAgentIntegrations(selectedAgentId));
 
     await showDialog<void>(
       context: context,
@@ -4571,6 +4222,11 @@ class _TasksPanelState extends State<TasksPanel> {
                               final nextType = await _pickTaskTriggerType(
                                 context,
                                 selectedTriggerType,
+                                isConnected: (option) =>
+                                    _connectedAccountsForTrigger(
+                                      option.type,
+                                      agentIntegrations.value,
+                                    ).isNotEmpty,
                               );
                               if (nextType != null) {
                                 triggerType.value = nextType;
@@ -4709,6 +4365,9 @@ class _TasksPanelState extends State<TasksPanel> {
                                   )
                                 else ...<Widget>[
                                   DropdownButtonFormField<String>(
+                                    key: ValueKey<String>(
+                                      scheduleDraft.presetId,
+                                    ),
                                     initialValue: scheduleDraft.presetId,
                                     isExpanded: true,
                                     decoration: const InputDecoration(
@@ -4925,11 +4584,20 @@ class _TasksPanelState extends State<TasksPanel> {
 
                           return Column(
                             children: <Widget>[
-                              _buildConnectionIdSelector(
-                                triggerType: selectedTriggerType,
-                                selectedConnectionId: selectedConnectionId,
-                                fallbackController: connectionIdController,
-                                setLocalState: setLocalState,
+                              ValueListenableBuilder<
+                                List<OfficialIntegrationItem>
+                              >(
+                                valueListenable: agentIntegrations,
+                                builder: (context, integrations, _) =>
+                                    _buildConnectionIdSelector(
+                                      triggerType: selectedTriggerType,
+                                      integrations: integrations,
+                                      selectedConnectionId:
+                                          selectedConnectionId,
+                                      fallbackController:
+                                          connectionIdController,
+                                      setLocalState: setLocalState,
+                                    ),
                               ),
                               const SizedBox(height: 12),
                               if (selectedTriggerType ==
@@ -5007,6 +4675,50 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               ],
                               if (selectedTriggerType ==
+                                  'github_issue_opened') ...<Widget>[
+                                TextField(
+                                  controller: repoController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Repository',
+                                    helperText: 'Required. Format: owner/repo',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: authorController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Author (optional)',
+                                    helperText:
+                                        'GitHub username that opened the issue',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: assigneeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Assignee (optional)',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: labelsController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Labels (optional)',
+                                    helperText:
+                                        'Comma separated. The issue must have all of them.',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: queryController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Contains Text (optional)',
+                                    helperText:
+                                        'Matched against title and body',
+                                  ),
+                                ),
+                              ],
+                              if (selectedTriggerType ==
                                   'whatsapp_personal_message_received') ...<
                                 Widget
                               >[
@@ -5024,6 +4736,27 @@ class _TasksPanelState extends State<TasksPanel> {
                         },
                       ),
                       const SizedBox(height: 12),
+                      if (task == null) ...<Widget>[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TaskInspirationButton(
+                            onPicked: (recommendation) => setLocalState(() {
+                              _applyTaskInspiration(
+                                recommendation,
+                                scheduleDraft: scheduleDraft,
+                                customCronController: customCronController,
+                                runAtController: runAtController,
+                              );
+                              nameController.text = recommendation.title;
+                              promptController.text = recommendation.prompt;
+                              triggerType.value = 'schedule';
+                              selectedConnectionId.value = null;
+                              connectionIdController.clear();
+                            }),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       TextField(
                         controller: promptController,
                         minLines: 5,
@@ -5198,10 +4931,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) => setLocalState(() {
-                            selectedAgentId = value;
-                            selectedDeliveryTarget.value = null;
-                          }),
+                          onChanged: (value) {
+                            setLocalState(() {
+                              selectedAgentId = value;
+                              selectedDeliveryTarget.value = null;
+                              selectedConnectionId.value = null;
+                              connectionIdController.clear();
+                            });
+                            unawaited(loadAgentIntegrations(value));
+                          },
                         ),
                       ],
                       const SizedBox(height: 12),
@@ -5223,6 +4961,16 @@ class _TasksPanelState extends State<TasksPanel> {
                 ),
                 FilledButton(
                   onPressed: () async {
+                    final name = nameController.text.trim();
+                    final prompt = promptController.text.trim();
+                    if (name.isEmpty) {
+                      _showFormError(context, 'Please enter a task name.');
+                      return;
+                    }
+                    if (prompt.isEmpty) {
+                      _showFormError(context, 'Please enter a prompt.');
+                      return;
+                    }
                     final selectedTriggerType = triggerType.value;
                     final triggerConfig = <String, dynamic>{};
                     if (selectedTriggerType == 'manual') {
@@ -5324,6 +5072,31 @@ class _TasksPanelState extends State<TasksPanel> {
                         triggerConfig['channel'] = channelController.text
                             .trim();
                       }
+                      if (selectedTriggerType == 'github_issue_opened') {
+                        final repo = repoController.text.trim();
+                        if (!RegExp(r'^[\w.-]+/[\w.-]+$').hasMatch(repo)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Repository must be in the format owner/repo.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        triggerConfig['repo'] = repo;
+                        final filters = <String, TextEditingController>{
+                          'author': authorController,
+                          'assignee': assigneeController,
+                          'labels': labelsController,
+                          'query': queryController,
+                        };
+                        filters.forEach((key, fieldController) {
+                          final value = fieldController.text.trim();
+                          if (value.isNotEmpty) triggerConfig[key] = value;
+                        });
+                      }
                       if (selectedTriggerType == 'teams_message_received' ||
                           selectedTriggerType ==
                               'whatsapp_personal_message_received') {
@@ -5351,17 +5124,28 @@ class _TasksPanelState extends State<TasksPanel> {
                       taskConfig['notifyPlatform'] = deliveryTarget.platform;
                       taskConfig['notifyTo'] = deliveryTarget.to;
                     }
-                    await controller.saveTask(
-                      id: task?.id,
-                      name: nameController.text.trim(),
-                      triggerType: selectedTriggerType,
-                      triggerConfig: triggerConfig,
-                      prompt: promptController.text.trim(),
-                      taskConfig: taskConfig,
-                      model: selectedModel == 'default' ? null : selectedModel,
-                      enabled: enabled,
-                      agentId: selectedAgentId,
-                    );
+                    try {
+                      await controller.saveTask(
+                        id: task?.id,
+                        name: name,
+                        triggerType: selectedTriggerType,
+                        triggerConfig: triggerConfig,
+                        prompt: prompt,
+                        taskConfig: taskConfig,
+                        model: selectedModel == 'default'
+                            ? null
+                            : selectedModel,
+                        enabled: enabled,
+                        agentId: selectedAgentId,
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      _showFormError(
+                        context,
+                        controller.friendlyErrorMessage(error),
+                      );
+                      return;
+                    }
                     if (context.mounted) {
                       Navigator.of(context).pop();
                     }

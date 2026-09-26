@@ -2,8 +2,9 @@
 
 const DEPLOYMENT_MODE_SELF_HOSTED = 'self_hosted';
 const DEPLOYMENT_MODE_MANAGED = 'managed';
-const DEPLOYMENT_PROFILE_PRIVATE = 'private';
-const DEPLOYMENT_PROFILE_PROD = 'prod';
+const TERMINAL_ENV_QEMU = 'qemu';
+const TERMINAL_ENV_DOCKER = 'docker';
+const TERMINAL_ENV_HOST = 'host';
 
 function parseDeploymentMode(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -28,30 +29,32 @@ function getDeploymentMode(env = process.env) {
   return parseDeploymentMode(env.NEOAGENT_DEPLOYMENT_MODE);
 }
 
-function parseDeploymentProfile(value) {
+// Where every user's computer runs: a QEMU micro-VM (default), a per-user Docker
+// container, or this server process itself. Only the first two isolate users
+// from the host and from each other.
+function parseTerminalEnv(value) {
   const normalized = String(value || '').trim().toLowerCase();
   switch (normalized) {
-    case 'prod':
-    case 'production':
-    case 'multi':
-    case 'multi-user':
-    case 'multi_user':
-      return DEPLOYMENT_PROFILE_PROD;
-    case 'private':
-    case 'personal':
-    case 'single':
-    case 'single-user':
-    case 'single_user':
-      return DEPLOYMENT_PROFILE_PRIVATE;
-    case '':
-      return DEPLOYMENT_PROFILE_PROD;
+    case 'docker':
+    case 'container':
+    case 'containers':
+      return TERMINAL_ENV_DOCKER;
+    case 'host':
+    case 'local':
+    case 'server':
+      return TERMINAL_ENV_HOST;
     default:
-      return DEPLOYMENT_PROFILE_PROD;
+      return TERMINAL_ENV_QEMU;
   }
 }
 
-function getDeploymentProfile(env = process.env) {
-  return parseDeploymentProfile(env.NEOAGENT_PROFILE);
+// True only where the agent genuinely runs on the server's own OS session.
+function isHostTerminalEnv(env = process.env) {
+  return getTerminalEnv(env) === TERMINAL_ENV_HOST;
+}
+
+function getTerminalEnv(env = process.env) {
+  return parseTerminalEnv(env.TERMINAL_ENV);
 }
 
 function getAllowSignup(env = process.env) {
@@ -61,22 +64,20 @@ function getAllowSignup(env = process.env) {
 }
 
 function getDeploymentPolicy(env = process.env) {
-  const profile = getDeploymentProfile(env);
   const mode = getDeploymentMode(env);
   return {
     mode,
-    profile,
     managed: mode === DEPLOYMENT_MODE_MANAGED,
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED,
     registrationOpen: getAllowSignup(env),
     runtimeDefaults: {
       runtime_profile: 'cloud-computer',
-      runtime_backend: 'qemu',
+      runtime_backend: getTerminalEnv(env),
       computer_backend: 'cloud',
       android_backend: 'host',
       mcp_backend: 'host-remote',
     },
-    allowHostRuntime: false,
+    allowHostRuntime: getTerminalEnv(env) === TERMINAL_ENV_HOST,
   };
 }
 
@@ -91,13 +92,15 @@ function getDeploymentInfo(env = process.env) {
 module.exports = {
   DEPLOYMENT_MODE_MANAGED,
   DEPLOYMENT_MODE_SELF_HOSTED,
-  DEPLOYMENT_PROFILE_PRIVATE,
-  DEPLOYMENT_PROFILE_PROD,
+  TERMINAL_ENV_DOCKER,
+  TERMINAL_ENV_HOST,
+  TERMINAL_ENV_QEMU,
   getDeploymentInfo,
   getDeploymentMode,
   getDeploymentPolicy,
-  getDeploymentProfile,
+  getTerminalEnv,
+  isHostTerminalEnv,
   isManagedDeployment,
   parseDeploymentMode,
-  parseDeploymentProfile,
+  parseTerminalEnv,
 };

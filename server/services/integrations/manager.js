@@ -35,6 +35,11 @@ function isLikelyExpiredConnectionError(error) {
   ].some((hint) => message.includes(hint));
 }
 
+function withAgentQuery(url, agentId) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}agentId=${encodeURIComponent(agentId)}`;
+}
+
 function assertDurableOAuthCredentials(provider, credentials) {
   const label = String(provider?.label || 'This integration').trim() || 'This integration';
   const normalizedCredentials =
@@ -302,9 +307,16 @@ class IntegrationManager {
         signal: options.signal || null,
       });
       const url = String(result?.url || '').trim();
+      // The connect page opens in a popup that carries no agent context of its
+      // own, so the scope has to travel in the URL. Without it the page falls
+      // back to the default agent and cannot find a session any other agent
+      // opened, which makes interactive providers unlinkable for those agents.
       const absoluteUrl = url.startsWith('http')
         ? url
-        : `${require('./env').resolvePublicBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+        : withAgentQuery(
+          `${require('./env').resolvePublicBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`,
+          agentId,
+        );
       return {
         provider: provider.key,
         appId: appKey,
@@ -460,15 +472,20 @@ class IntegrationManager {
 
     const connection = this.getConnectionById(userId, connectionId, agentId);
     if (!connection || connection.provider_key !== provider.key) {
-      return {
-        disconnected: true,
-        provider: provider.key,
-        connectionId,
-        existed: false,
-      };
+      // Reporting success here hid real failures: a connection id belonging to
+      // another agent deleted nothing while the client reported the account
+      // disconnected, so the account kept showing as connected after a refresh.
+      throw new Error(`That ${provider.label} account is not connected to this agent.`);
     }
 
-    if (typeof provider.disconnect === 'function') {
+    // Apps connected with the same account share one stored token (see
+    // persistSharedCredentials); revoking it would silently break the others.
+    const accountEmail = String(connection.account_email || '').trim().toLowerCase();
+    const tokenStillShared = this.listConnections(userId, provider.key, agentId).some(
+      (row) => row.id !== connection.id
+        && String(row.account_email || '').trim().toLowerCase() === accountEmail,
+    );
+    if (!tokenStillShared && typeof provider.disconnect === 'function') {
       await provider.disconnect(connection, {
         signal: options.signal || null,
       }).catch(() => {});
@@ -484,7 +501,6 @@ class IntegrationManager {
       provider: provider.key,
       appId: connection.app_key,
       connectionId: connection.id,
-      existed: true,
     };
   }
 
@@ -619,9 +635,19 @@ class IntegrationManager {
         ),
       );
       if (connectedAppIds.length === 0) continue;
-      definitions.push(...provider.getToolDefinitions({ connectedAppIds }));
+      definitions.push(...provider.getToolDefinitions({ connectedAppIds })
+        .map((definition) => ({ ...definition, integration: provider.key })));
     }
     return definitions;
+  }
+
+  // Every tool a provider offers, whatever the owner connected. Public runs
+  // narrow this to their own allowlist and run it on the platform connection.
+  getProviderToolDefinitions(providerKey) {
+    const provider = this.getProvider(providerKey);
+    if (!provider) return [];
+    return provider.getToolDefinitions({ connectedAppIds: provider.apps.map((app) => app.id) })
+      .map((definition) => ({ ...definition, integration: provider.key }));
   }
 
   getToolStatus(userId, providerKey, agentId = null) {
@@ -801,6 +827,23 @@ class IntegrationManager {
     };
   }
 
+  // A public run always acts as the account connected for its platform, never
+  // as whichever account the model names.
+  selectPublicToolConnection(provider, publicScope, userId, agentId = null) {
+    const { providerKey, appKey } = publicScope.integration;
+    if (provider.key !== providerKey) {
+      return { error: `${provider.label} tools are not available in this run.` };
+    }
+    const connection = this.listConnections(userId, provider.key, agentId).find(
+      (row) => row.status === 'connected' && String(row.app_key || '').trim() === appKey,
+    );
+    if (!connection) {
+      const appLabel = provider.getApp?.(appKey)?.label || appKey;
+      return { error: `${provider.label} ${appLabel} is not connected for this agent.` };
+    }
+    return { connection };
+  }
+
   connectionExecutionKey(connection) {
     return [
       connection.user_id,
@@ -853,7 +896,9 @@ class IntegrationManager {
         return { error: env.summary };
       }
 
-      const selection = this.selectToolConnection(provider, toolName, args, userId, agentId);
+      const selection = options.publicScope
+        ? this.selectPublicToolConnection(provider, options.publicScope, userId, agentId)
+        : this.selectToolConnection(provider, toolName, args, userId, agentId);
       if (selection.error) {
         return { error: selection.error };
       }
@@ -964,12 +1009,13 @@ class IntegrationManager {
     return { state: 'stopped', providerCount: providers.length };
   }
 
-  summarizeConnectedProviders(userId, agentId = null) {
+  connectedProviderSnapshots(userId, agentId = null, providerKeys = null) {
     const scopedAgentId = resolveAgentId(userId, agentId);
     const ingestionService = this.app?.locals?.memoryIngestionService || null;
-    const providers = this.registry.list().map((provider) => ({
-      provider,
-      snapshot: (() => {
+    const keys = providerKeys ? new Set(providerKeys) : null;
+    return this.registry.list()
+      .filter((provider) => !keys || keys.has(provider.key))
+      .map((provider) => {
         const snapshot = provider.buildSnapshot(
           this.listConnections(userId, provider.key, scopedAgentId),
           {
@@ -977,15 +1023,30 @@ class IntegrationManager {
             agentId: scopedAgentId,
           },
         );
-        return ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot;
-      })(),
-    })).filter(({ snapshot }) => snapshot?.connection?.connected);
+        return {
+          provider,
+          snapshot: ingestionService?.decorateProviderSnapshot?.(snapshot, userId, scopedAgentId) || snapshot,
+        };
+      })
+      .filter(({ snapshot }) => snapshot?.connection?.connected);
+  }
 
-    if (providers.length === 0) {
-      return '';
-    }
+  // One line naming what is connected. Per-provider usage notes are served
+  // with the tools themselves (see summarizeConnectedProviders).
+  listConnectedProviderLabels(userId, agentId = null) {
+    return this.connectedProviderSnapshots(userId, agentId)
+      .map(({ provider, snapshot }) => {
+        const apps = (snapshot.apps || [])
+          .filter((app) => app.connection?.connected)
+          .map((app) => app.label)
+          .filter((label) => label && label !== provider.label);
+        return apps.length ? `${provider.label} (${apps.join(', ')})` : provider.label;
+      })
+      .join(', ');
+  }
 
-    return providers
+  summarizeConnectedProviders(userId, agentId = null, providerKeys = null) {
+    return this.connectedProviderSnapshots(userId, agentId, providerKeys)
       .map(({ provider, snapshot }) => {
         const memoryCoverage = snapshot.memoryCoverage?.supported
           ? ` Memory ingestion: ${snapshot.memoryCoverage.status}; domains: ${(snapshot.memoryCoverage.dataDomains || []).join(', ') || 'none'}; documents: ${snapshot.memoryCoverage.documentCount || 0}.`

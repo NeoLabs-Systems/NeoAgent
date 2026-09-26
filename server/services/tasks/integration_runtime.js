@@ -4,6 +4,7 @@ const { resolveAgentId } = require('../agents/manager');
 const { normalizeJsonObject } = require('./utils');
 
 const POLLED_TRIGGER_TYPES = Object.freeze([
+  'github_issue_opened',
   'gmail_message_received',
   'outlook_email_received',
   'slack_message_received',
@@ -139,6 +140,45 @@ async function fetchTriggerRows({
             messageId: item.id,
             sender: item.from?.user?.id || null,
             content: item.body?.content || '',
+          },
+        },
+      }))
+      .sort(sortByTimestamp);
+  }
+
+  if (triggerType === 'github_issue_opened') {
+    // state=all keeps the checkpoint issue in the list after it is closed, so
+    // closing it never makes older issues look new.
+    const result = await integrationManager.executeTool(userId, 'github_list_issues', {
+      ...connectionArg,
+      owner_repo: config.repo,
+      state: 'all',
+      creator: config.author || undefined,
+      assignee: config.assignee || undefined,
+      labels: config.labels || undefined,
+      sort: 'created',
+      direction: 'desc',
+      max_results: 30,
+    }, scopedAgentId, { signal });
+    const issues = Array.isArray(result) ? result : [];
+    const query = String(config.query || '').toLowerCase();
+    return issues
+      // The issues endpoint also returns pull requests.
+      .filter((item) => item && !item.pull_request)
+      .filter((item) => !query || `${item.title || ''}\n${item.body || ''}`.toLowerCase().includes(query))
+      .map((item) => ({
+        fingerprint: `github_issue:${config.connectionId}:${config.repo}:${item.number}`,
+        timestamp: item.created_at || new Date().toISOString(),
+        context: {
+          triggerEvent: {
+            provider: 'github',
+            repo: config.repo,
+            issueNumber: item.number,
+            title: item.title || '',
+            body: item.body || '',
+            author: item.user?.login || null,
+            labels: Array.isArray(item.labels) ? item.labels.map((label) => label?.name).filter(Boolean) : [],
+            url: item.html_url || null,
           },
         },
       }))

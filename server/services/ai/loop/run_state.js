@@ -7,6 +7,7 @@ const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
 const { mergeGoalContracts } = require('./completion_judge');
 const { buildInitialProgressLedger } = require('./progress_monitor');
+const { getPublicRunScope } = require('../../messaging/public_audience');
 const {
   createDeliveryState,
   markInterimDelivered,
@@ -164,6 +165,22 @@ function getActiveTools(engine, runId) {
   return engine.getRunMeta(runId)?.activeTools || [];
 }
 
+// Usage notes for the integrations behind `tools`, each integration at most
+// once per run, so the notes arrive with the tools instead of every prompt.
+function describeIntegrationsForRun(engine, runId, tools = []) {
+  const runMeta = engine.getRunMeta(runId);
+  const integrationManager = engine.app?.locals?.integrationManager;
+  if (!runMeta || typeof integrationManager?.summarizeConnectedProviders !== 'function') return '';
+  // The owner's account summaries stay out of runs answering public threads.
+  if (getPublicRunScope(runId)) return '';
+  runMeta.describedIntegrations ||= new Set();
+  const keys = [...new Set(tools.map((tool) => tool?.integration).filter(Boolean))]
+    .filter((key) => !runMeta.describedIntegrations.has(key));
+  if (keys.length === 0) return '';
+  keys.forEach((key) => runMeta.describedIntegrations.add(key));
+  return integrationManager.summarizeConnectedProviders(runMeta.userId, runMeta.agentId, keys);
+}
+
 function searchToolsForRun(engine, runId, query, limit = 8) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) throw new Error('Run is not active.');
@@ -175,10 +192,17 @@ function searchToolsForRun(engine, runId, query, limit = 8) {
     query: String(query || '').slice(0, 300),
     resultNames: results.map((tool) => tool.name),
   }, { agentId: runMeta.agentId });
+  const resultNames = new Set(results.map((tool) => tool.name));
+  const integrationNotes = describeIntegrationsForRun(
+    engine,
+    runId,
+    runMeta.toolCatalog.filter((tool) => resultNames.has(tool?.name)),
+  );
   return {
     success: true,
     query: String(query || ''),
     results,
+    ...(integrationNotes ? { integration_notes: integrationNotes } : {}),
     instruction: results.length
       ? 'Activate the exact tools you need with activate_tools.'
       : 'No matching tool was found. Try a broader capability description.',
@@ -381,6 +405,7 @@ module.exports = {
   findSteerableRunForUser,
   getActiveTools,
   initializeToolRuntime,
+  describeIntegrationsForRun,
   searchToolsForRun,
   isRunStopped,
   markRunFinalDelivery,

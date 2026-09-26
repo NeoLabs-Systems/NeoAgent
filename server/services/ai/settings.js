@@ -1,5 +1,5 @@
 const db = require('../../db/database');
-const { decryptValue } = require('../integrations/secrets');
+const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const {
   normalizeInputMode,
@@ -35,7 +35,7 @@ function createDefaultAiSettings() {
   return {
     cost_mode: 'balanced_auto',
     chat_history_window: 20,
-    tool_replay_budget_chars: 6000,
+    tool_replay_budget_chars: 12000,
     tool_replay_budget_file_chars: null,
     tool_replay_budget_browser_chars: null,
     tool_replay_budget_command_chars: null,
@@ -97,7 +97,8 @@ function normalizeProviderConfigs(rawConfigs) {
       enabled: entry.enabled !== false && entry.enabled !== 'false' && entry.enabled !== 0,
       baseUrl: definition.supportsBaseUrl
         ? (baseUrl || defaults[definition.id].baseUrl)
-        : ''
+        : '',
+      label: typeof entry.label === 'string' ? entry.label.trim().slice(0, 80) : ''
     };
   }
 
@@ -135,8 +136,8 @@ function parseEncryptedJson(value, fallback = {}) {
 }
 
 function getProviderSecrets(userId, agentId = null) {
-  // Leftover per-account keys are a fallback only. New credentials belong in
-  // server env / the admin dashboard.
+  // Per-account BYOK keys, encrypted at rest and scoped to (userId, agentId).
+  // Set via setProviderSecret() through the self-service BYOK settings route.
   if (!userId) return {};
   const scopedAgentId = resolveAgentId(userId, agentId);
   if (!scopedAgentId) return {};
@@ -144,6 +145,62 @@ function getProviderSecrets(userId, agentId = null) {
     'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
   ).get(userId, scopedAgentId, 'ai_provider_api_keys');
   return parseEncryptedJson(row?.value, {});
+}
+
+const upsertAgentSetting = db.prepare(
+  'INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) '
+  + 'ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value'
+);
+
+// Stores (or clears, when apiKey is empty) a user's own BYOK key for a
+// provider. Always scoped to the caller's own userId/agentId -- callers must
+// pass the authenticated session's userId, never a value taken from the
+// request body -- and encrypted at rest so only that user's runs can use it.
+function setProviderSecret(userId, providerId, apiKey, agentId = null) {
+  if (!userId) throw new Error('setProviderSecret requires a userId');
+  if (!AI_PROVIDER_DEFINITIONS[providerId]) throw new Error(`Unknown provider: ${providerId}`);
+  const scopedAgentId = resolveAgentId(userId, agentId);
+  if (!scopedAgentId) throw new Error('Unable to resolve an agent for this account');
+
+  const trimmed = String(apiKey || '').trim();
+  const row = db.prepare(
+    'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?'
+  ).get(userId, scopedAgentId, 'ai_provider_api_keys');
+  const secrets = parseEncryptedJson(row?.value, {});
+
+  if (trimmed) {
+    secrets[providerId] = trimmed;
+  } else {
+    delete secrets[providerId];
+  }
+
+  upsertAgentSetting.run(userId, scopedAgentId, 'ai_provider_api_keys', encryptValue(JSON.stringify(secrets)));
+  return { configured: Boolean(trimmed) };
+}
+
+// Updates the non-secret side of a provider's BYOK config (custom base URL /
+// display label / enabled flag). Same per-user scoping guarantee as above.
+function setProviderConfig(userId, providerId, updates = {}, agentId = null) {
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition) throw new Error(`Unknown provider: ${providerId}`);
+  const scopedAgentId = resolveAgentId(userId, agentId);
+  if (!scopedAgentId) throw new Error('Unable to resolve an agent for this account');
+
+  const current = getProviderConfigs(userId, scopedAgentId);
+  const next = { ...current, [providerId]: { ...current[providerId] } };
+  if (updates.baseUrl !== undefined) {
+    next[providerId].baseUrl = definition.supportsBaseUrl ? String(updates.baseUrl || '').trim() : '';
+  }
+  if (updates.label !== undefined) {
+    next[providerId].label = String(updates.label || '').trim().slice(0, 80);
+  }
+  if (updates.enabled !== undefined) {
+    next[providerId].enabled = updates.enabled !== false;
+  }
+  const normalized = normalizeProviderConfigs(next);
+
+  upsertAgentSetting.run(userId, scopedAgentId, 'ai_provider_configs', JSON.stringify(normalized));
+  return normalized[providerId];
 }
 
 function ensureDefaultAiSettings(userId, agentId = null) {
@@ -205,7 +262,7 @@ function getAiSettings(userId, agentId = null) {
   }
 
   settings.chat_history_window = Math.max(6, Math.min(Number(settings.chat_history_window) || DEFAULT_AI_SETTINGS.chat_history_window, 40));
-  settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 12000));
+  settings.tool_replay_budget_chars = Math.max(1200, Math.min(Number(settings.tool_replay_budget_chars) || DEFAULT_AI_SETTINGS.tool_replay_budget_chars, 50000));
   settings.tool_replay_budget_file_chars = normalizeOptionalNumber(settings.tool_replay_budget_file_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_browser_chars = normalizeOptionalNumber(settings.tool_replay_budget_browser_chars, 500, 500_000, { integer: true });
   settings.tool_replay_budget_command_chars = normalizeOptionalNumber(settings.tool_replay_budget_command_chars, 500, 500_000, { integer: true });
@@ -255,4 +312,6 @@ module.exports = {
   getProviderConfigs,
   getProviderSecrets,
   normalizeProviderConfigs,
+  setProviderConfig,
+  setProviderSecret,
 };

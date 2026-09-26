@@ -1,5 +1,6 @@
 'use strict';
 
+const os = require('node:os');
 const { DesktopProvider } = require('../../desktop/provider');
 const {
   DESKTOP_COMMANDS,
@@ -133,12 +134,21 @@ class LocalComputerBrowserProvider {
 }
 
 class LocalComputerBackend {
+  // This backend fronts a machine that is already logged in, not a guest VM
+  // that has to have its Linux desktop session started and repaired.
+  providesGuestDesktop = false;
+
   constructor(options = {}) {
     this.registry = options.registry;
     this.artifactStore = options.artifactStore || null;
+    // TERMINAL_ENV=host supplies a registrar that makes this server process the
+    // companion for a user on first use. With the user's own desktop app the
+    // companion connects by itself and there is nothing to register.
+    this.companionRegistrar = options.companionRegistrar || null;
     this.vmManager = {
       instances: new Map(),
       getStatus: (userId) => this.getStatus(userId),
+      getReadiness: () => this.getReadiness(),
       hasVm: (userId) => this.isConnected(userId),
       hasTrackedVm: (userId) => this.isConnected(userId),
       killVm: (userId) => this.pause(userId, true),
@@ -149,6 +159,23 @@ class LocalComputerBackend {
 
   isConnected(userId) {
     return Boolean(this.registry?.isConnected(userId));
+  }
+
+  // There is nothing to install or download: the computer is a machine that is
+  // already running. `isolated` is what separates it from the VM and container
+  // runtimes, and the status surface reports it rather than implying otherwise.
+  getReadiness() {
+    return {
+      ready: true,
+      isolated: false,
+      host: os.hostname(),
+      managed: Boolean(this.companionRegistrar),
+      missing: [],
+    };
+  }
+
+  #ensureCompanion(userId) {
+    return this.companionRegistrar ? this.companionRegistrar.ensure(userId) : Promise.resolve();
   }
 
   getStatus(userId) {
@@ -171,11 +198,18 @@ class LocalComputerBackend {
       permissions: selected?.permissions || {},
       appApprovals,
       pendingPermission: selected?.metadata?.pendingPermission || null,
-      capabilities: ['desktop', 'browser', 'shell', 'files'],
+      isolated: false,
+      // The in-process host companion drives a server with no screen and no
+      // browser of its own, so it offers only the shell and the workspace. A
+      // real desktop app companion offers everything.
+      capabilities: this.companionRegistrar
+        ? ['shell', 'files']
+        : ['desktop', 'browser', 'shell', 'files'],
     };
   }
 
   async assertConnected(userId) {
+    await this.#ensureCompanion(userId);
     if (!this.isConnected(userId)) {
       const error = new DesktopCompanionUnavailableError(
         'The NeoAgent desktop app is reconnecting to this device.',
@@ -186,7 +220,8 @@ class LocalComputerBackend {
     return this.getStatus(userId);
   }
 
-  dispatch(userId, command, payload = {}, options = {}) {
+  async dispatch(userId, command, payload = {}, options = {}) {
+    await this.#ensureCompanion(userId);
     return this.registry.dispatch(userId, null, command, payload, options);
   }
 
@@ -253,7 +288,8 @@ class LocalComputerBackend {
     });
   }
 
-  executeCommand(userId, command, options = {}) {
+  async executeCommand(userId, command, options = {}) {
+    await this.#ensureCompanion(userId);
     return this.getDesktopProviderForUser(userId).executeCommand(command, {
       ...options,
       cwd: options.cwd === GUEST_WORKSPACE_DIR ? '__neoagent_workspace__' : options.cwd,
@@ -291,7 +327,7 @@ class LocalComputerBackend {
   touchActivity() {}
   async importWorkspaceArchive() { return { skipped: true, provider: 'local' }; }
   async isGuestAgentReadyForUser(userId) { return this.isConnected(userId); }
-  async shutdown() {}
+  async shutdown() { this.companionRegistrar?.shutdown(); }
 }
 
 module.exports = {

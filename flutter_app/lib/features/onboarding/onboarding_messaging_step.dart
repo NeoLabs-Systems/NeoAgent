@@ -33,7 +33,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
 
     return OnboardingScaffold(
       step: 1,
-      totalSteps: 3,
+      totalSteps: 5,
       eyebrow: 'COMMUNICATION',
       title: 'Connect a\nmessaging platform.',
       description: 'Choose one to get started now. You can add more later.',

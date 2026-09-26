@@ -1,6 +1,9 @@
 'use strict';
 
+const { utcOffsetMinutes } = require('../../utils/timezone');
+
 const MINUTE_MS = 60 * 1000;
+const QUARTER_HOUR_MS = 15 * MINUTE_MS;
 // A head start is capped so that a single pathological run (a task that once
 // took hours) cannot drag every future occurrence arbitrarily far forward.
 const MAX_LEAD_TIME_MS = 60 * 60 * 1000;
@@ -145,12 +148,29 @@ function parseCronExpression(expression) {
   };
 }
 
-function matchesCron(date, schedule) {
-  const minute = date.getMinutes();
-  const hour = date.getHours();
-  const dayOfMonth = date.getDate();
-  const month = date.getMonth() + 1;
-  const dayOfWeek = date.getDay();
+// Wall-clock fields of `date`, in `timeZone` when given, else the server zone.
+function wallClockFields(date, timeZone, offsetMinutes) {
+  if (!timeZone) {
+    return {
+      minute: date.getMinutes(),
+      hour: date.getHours(),
+      dayOfMonth: date.getDate(),
+      month: date.getMonth() + 1,
+      dayOfWeek: date.getDay(),
+    };
+  }
+  const shifted = new Date(date.getTime() + (offsetMinutes * MINUTE_MS));
+  return {
+    minute: shifted.getUTCMinutes(),
+    hour: shifted.getUTCHours(),
+    dayOfMonth: shifted.getUTCDate(),
+    month: shifted.getUTCMonth() + 1,
+    dayOfWeek: shifted.getUTCDay(),
+  };
+}
+
+function matchesCron(fields, schedule) {
+  const { minute, hour, dayOfMonth, month, dayOfWeek } = fields;
 
   if (!schedule.minute.values.has(minute)) return false;
   if (!schedule.hour.values.has(hour)) return false;
@@ -175,14 +195,25 @@ function floorToMinute(date) {
   return new Date(Math.floor(date.getTime() / MINUTE_MS) * MINUTE_MS);
 }
 
-function findNextRun(expression, fromDate = new Date(), maxLookaheadMinutes = 366 * 24 * 60) {
+function findNextRun(expression, fromDate = new Date(), timeZone = null, maxLookaheadMinutes = 366 * 24 * 60) {
   const schedule = parseCronExpression(expression);
   const cursor = floorToMinute(fromDate);
   cursor.setUTCSeconds(0, 0);
 
+  // Every UTC offset and DST transition falls on a quarter-hour boundary, so
+  // the offset only has to be looked up once per quarter hour scanned.
+  let offsetBlock = null;
+  let offsetMinutes = 0;
   for (let index = 1; index <= maxLookaheadMinutes; index += 1) {
     const candidate = new Date(cursor.getTime() + (index * MINUTE_MS));
-    if (matchesCron(candidate, schedule)) {
+    if (timeZone) {
+      const block = Math.floor(candidate.getTime() / QUARTER_HOUR_MS);
+      if (block !== offsetBlock) {
+        offsetBlock = block;
+        offsetMinutes = utcOffsetMinutes(timeZone, candidate);
+      }
+    }
+    if (matchesCron(wallClockFields(candidate, timeZone, offsetMinutes), schedule)) {
       return candidate;
     }
   }
@@ -202,7 +233,6 @@ module.exports = {
   MINUTE_MS,
   RUN_SAMPLE_SIZE,
   findNextRun,
-  matchesCron,
   parseCronExpression,
   resolveLeadTimeMs,
 };

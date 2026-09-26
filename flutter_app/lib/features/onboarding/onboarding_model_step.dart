@@ -80,7 +80,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
 
     return OnboardingScaffold(
       step: 2,
-      totalSteps: 3,
+      totalSteps: 5,
       eyebrow: 'INTELLIGENCE',
       title: 'Choose your\ndefault model.',
       description:
@@ -89,8 +89,8 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           OnboardingPrimaryButton(
-            label: 'Finish setup',
-            icon: Icons.check_rounded,
+            label: 'Continue',
+            icon: Icons.arrow_forward_rounded,
             onPressed: widget.onNext,
           ),
         ],
@@ -101,19 +101,13 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    'No available models yet.\nAdd a provider API key in the admin dashboard, then come back.',
+                    'No available models yet.\nCheck back once a provider is configured.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: paletteOf(context).textMuted,
                       fontSize: 16,
                       height: 1.5,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton.icon(
-                    onPressed: widget.controller.openAdminDashboard,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Open admin dashboard'),
                   ),
                 ],
               ),

@@ -81,6 +81,10 @@ function normalizeLeafConfig(raw = {}, base = cloneDefaults(), sparse = false) {
       : (base.decisionModelPurpose || DEFAULT_MODULE_CONFIG.decisionModelPurpose),
   );
   assign(
+    'voiceModelId',
+    normalizeOptionalString(input.voiceModelId, base.voiceModelId || null),
+  );
+  assign(
     'deliveryStyle',
     DELIVERY_STYLES.has(String(input.deliveryStyle || ''))
       ? String(input.deliveryStyle)

@@ -75,6 +75,7 @@ function createFakeTaskRuntime() {
     getTriggerCatalog() {
       return [{ type: 'manual', label: 'Manual' }];
     },
+    async rescheduleUserTasks() {},
     async createTask(userId, input = {}) {
       const task = {
         id: nextId++,

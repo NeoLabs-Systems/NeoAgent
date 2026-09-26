@@ -31,23 +31,9 @@ String _fmtPrice(int minorUnits, String currency, {String? interval}) {
   return '$str / $interval';
 }
 
-String _fmtDate(String? iso) {
-  if (iso == null) return '—';
-  try {
-    final d = DateTime.parse(iso).toLocal();
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  } catch (_) {
-    return iso.substring(0, 10);
-  }
-}
-
 String _fmtTs(int? ts) {
   if (ts == null) return '—';
-  return _fmtDate(DateTime.fromMillisecondsSinceEpoch(ts * 1000).toIso8601String());
+  return _formatDate(DateTime.fromMillisecondsSinceEpoch(ts * 1000));
 }
 
 Color _statusColor(String? status) {
@@ -451,7 +437,7 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
                   children: <Widget>[
                     Icon(Icons.refresh, size: 12, color: _textMuted),
                     const SizedBox(width: 5),
-                    Text('Resets ${_fmtDate(periodEnd)}',
+                    Text('Resets ${_formatIsoDate(periodEnd)}',
                         style: TextStyle(fontSize: 12, color: _textMuted)),
                   ],
                 ),
@@ -513,11 +499,11 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
         const SizedBox(height: 6),
         Text(
           isTrialing
-              ? 'Trial ends ${_fmtDate(trialEnds)}'
+              ? 'Trial ends ${_formatIsoDate(trialEnds)}'
               : cancelAtEnd
-                  ? 'Cancels at end of period · ${_fmtDate(periodEnd)}'
+                  ? 'Cancels at end of period · ${_formatIsoDate(periodEnd)}'
                   : periodEnd != null
-                      ? 'Renews ${_fmtDate(periodEnd)}'
+                      ? 'Renews ${_formatIsoDate(periodEnd)}'
                       : status,
           style: TextStyle(fontSize: 13, color: _textMuted),
         ),

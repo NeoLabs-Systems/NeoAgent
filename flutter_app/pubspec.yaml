@@ -1,5 +1,5 @@
 name: neoagent_flutter
-description: NeoAgent client for Flutter web, Android, Windows, macOS, and Linux.
+description: NeoAgent client — self-hosted AI agent for web, Android, Windows, macOS, and Linux.
 publish_to: none
 version: 1.0.0+1
 
@@ -42,6 +42,7 @@ dependencies:
   video_player: ^2.9.2
   flutter_animate: ^4.5.2
   flutter_local_notifications: ^18.0.0
+  flutter_timezone: ^5.1.0
 
 dependency_overrides:
   flutter_secure_storage_linux:
@@ -64,4 +65,5 @@ flutter:
     - assets/branding/app_icon_light_1024.png
     - assets/branding/tray_icon_template.png
     - assets/branding/tray_icon_light_template.png
+    - assets/branding/tray_icon_windows.ico
     - assets/branding/onboarding_intro.mp4

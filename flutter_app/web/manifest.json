@@ -5,7 +5,7 @@
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "NeoAgent Flutter client for web and Android.",
+    "description": "Self-hosted AI agent with browser, terminal, and Android control — runs on your own server and keeps working after the chat ends.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

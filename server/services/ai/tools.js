@@ -1,4 +1,5 @@
 const { analyzeImageForUser } = require('./imageAnalysis');
+const { transcribeFile } = require('../voice/voice_note');
 const { resolveUserFileReference } = require('../files/user_file_access');
 const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
 const { isAbortError } = require('../../utils/abort');
@@ -24,6 +25,8 @@ const { runFileDiagnostics } = require('./file_diagnostics');
 const { coerceWritableText } = require('../workspace/text_edits');
 const { normalizeStoredString } = require('../../utils/text');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
+const { buildGuestGitEnv } = require('../integrations/github/git_proxy');
+const { checkPublicToolCall, getPublicRunScope } = require('../messaging/public_audience');
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1273,7 +1276,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'search_tools',
-            description: 'Search the complete tool registry by capability. Use this when the needed tool is not active; the result returns exact names and descriptions for activate_tools.',
+            description: 'Search the complete tool registry by capability. Use this only when no tool in the listed catalog fits; the result returns exact names and descriptions for activate_tools.',
             access: 'read',
             parameters: {
                 type: 'object',
@@ -1286,14 +1289,14 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'activate_tools',
-            description: 'Activate tools by exact name returned from search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.',
+            description: 'Activate tools by exact name from the tool catalog or search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.',
             parameters: {
                 type: 'object',
                 properties: {
                     names: {
                         type: 'array',
                         items: { type: 'string' },
-                        description: 'Exact tool names returned by search_tools.'
+                        description: 'Exact tool names from the tool catalog or search_tools.'
                     }
                 },
                 required: ['names']
@@ -1375,8 +1378,8 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, weather_event, whatsapp_personal_message_received, or android_notification_received.' },
-                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. 5-field cron only (seconds unsupported).' },
+                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, github_issue_opened, weather_event, whatsapp_personal_message_received, or android_notification_received.' },
+                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. Cron fields and runAt values without an offset are read in the user\'s timezone. 5-field cron only (seconds unsupported). For github_issue_opened use { connectionId, repo: "owner/repo", author?, assignee?, labels?: "bug,urgent" (all must match), query?: text in title/body }.' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
                     model: { type: 'string', description: 'Optional model override.' }
@@ -1410,7 +1413,7 @@ function getAvailableTools(app, options = {}) {
                     name: { type: 'string', description: 'New name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Use { type, config } to update trigger in one section.' },
                     trigger_type: { type: 'string', description: 'Updated trigger type, e.g. manual, schedule, or integration trigger type.' },
-                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time).' },
+                    trigger_config: { type: 'object', description: 'Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time), both read in the user\'s timezone unless runAt carries an offset.' },
                     prompt: { type: 'string', description: 'Updated task prompt.' },
                     enabled: { type: 'boolean', description: 'Enable or disable the task.' },
                     model: { type: 'string', description: 'Specific AI model ID for this task. Set to empty string to clear the override.' }
@@ -1494,6 +1497,17 @@ function getAvailableTools(app, options = {}) {
                     question: { type: 'string', description: 'What to answer or describe about the image (default: describe the image in detail)' }
                 },
                 required: ['image_path']
+            }
+        },
+        {
+            name: 'transcribe_audio',
+            description: 'Transcribe speech in an audio file (for example a voice note or recording the user shared) with the configured speech-to-text provider.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    audio_path: { type: 'string', description: 'Absolute path to the audio file' }
+                },
+                required: ['audio_path']
             }
         },
         {
@@ -1689,7 +1703,12 @@ function getAvailableTools(app, options = {}) {
     }
 
     const integrationManager = app?.locals?.integrationManager;
-    if (integrationManager && options.userId != null) {
+    const publicScope = options.publicScope || null;
+    if (integrationManager && publicScope) {
+        // A public run uses the platform's own connection, so its integration
+        // tools do not depend on which apps the owner connected for chat.
+        tools.push(...integrationManager.getProviderToolDefinitions(publicScope.integration.providerKey));
+    } else if (integrationManager && options.userId != null) {
         const integrationTools = integrationManager.getToolDefinitions(options.userId, options.agentId || null) || [];
         tools.push(...integrationTools);
     }
@@ -1713,6 +1732,9 @@ function getAvailableTools(app, options = {}) {
     const compacted = visibleTools
         .map((tool) => compactToolDefinition(tool, options))
         .filter(Boolean);
+    if (publicScope) {
+        return compacted.filter((tool) => publicScope.toolNames.has(tool.name));
+    }
     if (options.names && Array.isArray(options.names)) {
         const allow = new Set(options.names);
         return compacted.filter((tool) => allow.has(tool.name));
@@ -1763,6 +1785,11 @@ async function executeTool(toolName, args, context, engine) {
         deviceTarget = null,
         workspaceRoot = null,
     } = context;
+    const publicScope = getPublicRunScope(runId);
+    if (publicScope) {
+        const refusal = checkPublicToolCall(publicScope, toolName, args);
+        if (refusal) return { error: refusal };
+    }
     const runtime = () => app?.locals?.runtimeManager || engine.runtimeManager || null;
     const bc = async () => {
         const manager = runtime();
@@ -1853,6 +1880,7 @@ async function executeTool(toolName, args, context, engine) {
                 triggerSource,
                 taskId,
                 scheduledAt,
+                publicScope,
             },
         );
         if (
@@ -1901,9 +1929,15 @@ async function executeTool(toolName, args, context, engine) {
             if (!runtimeManager) {
                 return { error: 'Command execution is unavailable. No runtime manager found.' };
             }
+            const timeout = args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000);
+            const guestHost = runtimeManager.getGuestHostAddress(userId, { deviceTarget });
+            const integrationManager = integrations();
             const execOptions = {
                 cwd: args.cwd,
-                timeout: args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000),
+                timeout,
+                env: guestHost && integrationManager
+                    ? buildGuestGitEnv({ integrationManager, userId, agentId, runId, guestHost, ttlMs: timeout })
+                    : null,
                 stdinInput: args.stdin_input,
                 pty: args.pty === true,
                 inputs: Array.isArray(args.inputs) ? args.inputs : [],
@@ -2895,12 +2929,16 @@ async function executeTool(toolName, args, context, engine) {
                 };
 
                 addCandidate(taskTarget);
-                addCandidate(fallbackTarget);
-                for (const row of recentTargets) {
-                    addCandidate({
-                        platform: row.platform,
-                        to: row.platform_chat_id
-                    });
+                // A task's configured destination is authoritative; only tasks
+                // without one fall back to the default or recent chats.
+                if (candidateTargets.length === 0) {
+                    addCandidate(fallbackTarget);
+                    for (const row of recentTargets) {
+                        addCandidate({
+                            platform: row.platform,
+                            to: row.platform_chat_id
+                        });
+                    }
                 }
 
                 if (candidateTargets.length === 0) {
@@ -2924,13 +2962,6 @@ async function executeTool(toolName, args, context, engine) {
                             persistConversation: true,
                             signal,
                         });
-                        if (taskId && taskConfig && (taskConfig.notifyPlatform !== target.platform || taskConfig.notifyTo !== target.to)) {
-                            taskConfig.notifyPlatform = target.platform;
-                            taskConfig.notifyTo = target.to;
-                            db.prepare('UPDATE scheduled_tasks SET task_config = ? WHERE id = ? AND user_id = ?')
-                                .run(JSON.stringify(taskConfig), taskId, userId);
-                        }
-
                         markProactiveMessageSent({ runState, deliveryState, content: message });
                         return {
                             sent: true,
@@ -3148,6 +3179,22 @@ async function executeTool(toolName, args, context, engine) {
                     question: args.question || 'Describe this image in detail.',
                 });
                 return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        }
+
+        case 'transcribe_audio': {
+            try {
+                const audioPath = resolveUserFileReference({
+                    userId,
+                    reference: args.audio_path,
+                    artifactStore,
+                    workspaceManager: wc(),
+                    label: 'Audio',
+                });
+                const transcript = await transcribeFile(audioPath, { userId, agentId, signal });
+                return { transcript };
             } catch (err) {
                 return { error: err.message };
             }

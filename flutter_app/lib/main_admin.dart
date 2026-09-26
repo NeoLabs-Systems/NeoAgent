@@ -216,6 +216,9 @@ class AgentsPanel extends StatelessWidget {
                         maxLines: 8,
                         decoration: const InputDecoration(
                           labelText: 'Instructions',
+                          helperText:
+                              'Optional. The agent already has its own personality. Anything you add about tone is layered on top of it, so you never have to define one.',
+                          helperMaxLines: 3,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -334,8 +337,14 @@ class AgentsPanel extends StatelessWidget {
                           ? delegateTargets.toList(growable: false)
                           : const <String>[],
                     );
-                    if (saved && context.mounted) {
+                    if (!context.mounted) return;
+                    if (saved) {
                       Navigator.of(context).pop();
+                    } else {
+                      _showFormError(
+                        context,
+                        controller.errorMessage ?? 'Could not save agent.',
+                      );
                     }
                   },
                   child: Text('Save'),
@@ -369,371 +378,336 @@ class AgentsPanel extends StatelessWidget {
   }
 }
 
-class McpPanel extends StatelessWidget {
-  const McpPanel({super.key, required this.controller, this.embedded = false});
+/// Full MCP server controls, shown from the Tools page when a server row is
+/// opened. Listens to the controller so status and errors stay live while the
+/// detail sheet is on screen.
+class McpServerDetailView extends StatelessWidget {
+  const McpServerDetailView({
+    super.key,
+    required this.controller,
+    required this.serverId,
+  });
 
   final NeoAgentController controller;
-  final bool embedded;
+  final int serverId;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: embedded ? EdgeInsets.zero : _pagePadding(context),
-      children: <Widget>[
-        if (!embedded)
-          _PageTitle(
-            title: 'MCP',
-            subtitle: 'Configured MCP servers and live server status.',
-            trailing: FilledButton.icon(
-              onPressed: () => _openMcpEditor(context),
-              icon: Icon(Icons.add),
-              label: Text('Add Server'),
-            ),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FilledButton.icon(
-                onPressed: () => _openMcpEditor(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Server'),
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final server = controller.mcpServers
+            .where((item) => item.id == serverId)
+            .firstOrNull;
+        if (server == null) {
+          return Text(
+            'This MCP server is no longer configured.',
+            style: TextStyle(color: _textSecondary),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SelectableText(
+              server.command,
+              style: TextStyle(
+                fontFamily: GoogleFonts.geistMono().fontFamily,
+                color: _textSecondary,
               ),
             ),
-          ),
-        if (controller.mcpServers.isEmpty)
-          const _EmptyCard(
-            title: 'No MCP servers configured',
-            subtitle: 'Add an MCP server URL and choose an auth method.',
-          )
-        else
-          ...controller.mcpServers.map(
-            (server) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              server.name,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          _StatusPill(
-                            label: server.status,
-                            color: server.status == 'running'
-                                ? _success
-                                : server.hasError
-                                ? _danger
-                                : _textSecondary,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        server.command,
-                        style: TextStyle(
-                          fontFamily: GoogleFonts.geistMono().fontFamily,
-                          color: _textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          _MetaPill(
-                            label: server.enabled ? 'Enabled' : 'Disabled',
-                            icon: Icons.toggle_on_outlined,
-                          ),
-                          _MetaPill(
-                            label: '${server.toolCount} tools',
-                            icon: Icons.build_outlined,
-                          ),
-                          _MetaPill(
-                            label: server.authMethodLabel,
-                            icon: Icons.lock_outline,
-                          ),
-                          _MetaPill(
-                            label:
-                                'Agent: ${controller.agentLabelFor(server.agentId)}',
-                            icon: Icons.smart_toy_outlined,
-                          ),
-                        ],
-                      ),
-                      if (server.hasError) ...<Widget>[
-                        const SizedBox(height: 12),
-                        _InlineError(message: server.error!),
-                        if (server.retryLabel.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 8),
-                          Text(
-                            server.retryLabel,
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                        ],
-                      ],
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          OutlinedButton(
-                            onPressed: () =>
-                                _openMcpEditor(context, server: server),
-                            child: Text('Edit'),
-                          ),
-                          if (server.status == 'running')
-                            FilledButton(
-                              onPressed: () =>
-                                  controller.stopMcpServer(server.id),
-                              child: Text('Stop'),
-                            )
-                          else
-                            FilledButton(
-                              onPressed: () =>
-                                  controller.startMcpServer(server.id),
-                              child: Text('Start'),
-                            ),
-                          OutlinedButton(
-                            onPressed: () => _confirmDelete(
-                              context,
-                              title: 'Delete MCP server?',
-                              message:
-                                  'This will remove "${server.name}" from the server list.',
-                              onConfirm: () =>
-                                  controller.deleteMcpServer(server.id),
-                            ),
-                            child: Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _StatusPill(
+                  label: server.status,
+                  color: server.status == 'running'
+                      ? _success
+                      : server.hasError
+                      ? _danger
+                      : _textSecondary,
                 ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _openMcpEditor(
-    BuildContext context, {
-    McpServerItem? server,
-  }) async {
-    final nameController = TextEditingController(text: server?.name ?? '');
-    final urlController = TextEditingController(text: server?.command ?? '');
-    final auth = _jsonMap(server?.config['auth']);
-    String authType = auth['type']?.toString().ifEmpty('none') ?? 'none';
-    final tokenController = TextEditingController(
-      text: auth['token']?.toString() ?? '',
-    );
-    final clientIdController = TextEditingController(
-      text: auth['clientId']?.toString() ?? '',
-    );
-    final authServerUrlController = TextEditingController(
-      text: auth['authServerUrl']?.toString() ?? '',
-    );
-    var enabled = server?.enabled ?? true;
-    var selectedAgentId = server?.agentId ?? controller.selectedAgentId;
-    if (selectedAgentId != null &&
-        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
-      selectedAgentId = controller.selectedAgentId;
-    }
-    if (selectedAgentId != null &&
-        !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
-      selectedAgentId = controller.agentProfiles.isEmpty
-          ? null
-          : controller.agentProfiles.first.id;
-    }
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setLocalState) {
-            return AlertDialog(
-              backgroundColor: _bgCard,
-              title: Text(
-                server == null ? 'Add MCP Server' : 'Edit MCP Server',
-              ),
-              content: SizedBox(
-                width: 720,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(labelText: 'Name'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: urlController,
-                        decoration: const InputDecoration(
-                          labelText: 'MCP Server URL',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: authType,
-                        decoration: const InputDecoration(
-                          labelText: 'Auth Method',
-                        ),
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem(value: 'none', child: Text('None')),
-                          DropdownMenuItem(
-                            value: 'bearer',
-                            child: Text('Bearer Token'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'oauth',
-                            child: Text('OAuth'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setLocalState(() => authType = value);
-                          }
-                        },
-                      ),
-                      if (authType == 'bearer') ...<Widget>[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: tokenController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Bearer Token',
-                          ),
-                        ),
-                      ],
-                      if (authType == 'oauth') ...<Widget>[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: clientIdController,
-                          decoration: const InputDecoration(
-                            labelText: 'OAuth Client ID',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: authServerUrlController,
-                          decoration: const InputDecoration(
-                            labelText: 'Auth Server URL',
-                          ),
-                        ),
-                      ],
-                      if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedAgentId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Assigned Agent',
-                          ),
-                          items: controller.agentProfiles
-                              .map(
-                                (agent) => DropdownMenuItem<String>(
-                                  value: agent.id,
-                                  child: Text(agent.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) =>
-                              setLocalState(() => selectedAgentId = value),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Matches the old NeoAgent MCP flow: URL plus auth method.',
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        value: enabled,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Enabled'),
-                        onChanged: (value) =>
-                            setLocalState(() => enabled = value),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Start the server later from the list once the config is saved.',
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
+                _MetaPill(
+                  label: server.enabled ? 'Enabled' : 'Disabled',
+                  icon: Icons.toggle_on_outlined,
                 ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
+                _MetaPill(
+                  label: '${server.toolCount} tools',
+                  icon: Icons.build_outlined,
                 ),
-                FilledButton(
-                  onPressed: () async {
-                    final config = <String, dynamic>{
-                      'auth': <String, dynamic>{
-                        'type': authType,
-                        if (authType == 'bearer' &&
-                            tokenController.text.trim().isNotEmpty)
-                          'token': tokenController.text.trim(),
-                        if (authType == 'oauth' &&
-                            clientIdController.text.trim().isNotEmpty)
-                          'clientId': clientIdController.text.trim(),
-                        if (authType == 'oauth' &&
-                            authServerUrlController.text.trim().isNotEmpty)
-                          'authServerUrl': authServerUrlController.text.trim(),
-                      },
-                    };
-                    final saved = await controller.saveMcpServer(
-                      id: server?.id,
-                      name: nameController.text.trim(),
-                      command: urlController.text.trim(),
-                      config: config,
-                      enabled: enabled,
-                      agentId: selectedAgentId,
-                    );
-                    if (!context.mounted) {
-                      return;
-                    }
-                    if (saved) {
-                      Navigator.of(context).pop();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            controller.errorMessage ??
-                                'Failed to save MCP server.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text('Save'),
+                _MetaPill(
+                  label: server.authMethodLabel,
+                  icon: Icons.lock_outline,
+                ),
+                _MetaPill(
+                  label: 'Agent: ${controller.agentLabelFor(server.agentId)}',
+                  icon: Icons.smart_toy_outlined,
                 ),
               ],
-            );
-          },
+            ),
+            if (server.hasError) ...<Widget>[
+              const SizedBox(height: 14),
+              _InlineError(message: server.error!),
+              if (server.retryLabel.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  server.retryLabel,
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ],
+            ],
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                if (server.status == 'running')
+                  FilledButton.icon(
+                    onPressed: () => controller.stopMcpServer(server.id),
+                    icon: const Icon(Icons.stop_rounded),
+                    label: const Text('Stop'),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () => controller.startMcpServer(server.id),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Start'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      _openMcpEditor(context, controller, server: server),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(
+                    context,
+                    title: 'Delete MCP server?',
+                    message:
+                        'This will remove "${server.name}" from the server list.',
+                    onConfirm: () async {
+                      await controller.deleteMcpServer(server.id);
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                  icon: Icon(Icons.delete_outline, color: _danger),
+                  label: Text('Delete', style: TextStyle(color: _danger)),
+                ),
+              ],
+            ),
+          ],
         );
       },
     );
   }
+}
+
+Future<void> _openMcpEditor(
+  BuildContext context,
+  NeoAgentController controller, {
+  McpServerItem? server,
+}) async {
+  final nameController = TextEditingController(text: server?.name ?? '');
+  final urlController = TextEditingController(text: server?.command ?? '');
+  final auth = _jsonMap(server?.config['auth']);
+  String authType = auth['type']?.toString().ifEmpty('none') ?? 'none';
+  final tokenController = TextEditingController(
+    text: auth['token']?.toString() ?? '',
+  );
+  final clientIdController = TextEditingController(
+    text: auth['clientId']?.toString() ?? '',
+  );
+  final authServerUrlController = TextEditingController(
+    text: auth['authServerUrl']?.toString() ?? '',
+  );
+  var enabled = server?.enabled ?? true;
+  var selectedAgentId = server?.agentId ?? controller.selectedAgentId;
+  if (selectedAgentId != null &&
+      !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+    selectedAgentId = controller.selectedAgentId;
+  }
+  if (selectedAgentId != null &&
+      !controller.agentProfiles.any((agent) => agent.id == selectedAgentId)) {
+    selectedAgentId = controller.agentProfiles.isEmpty
+        ? null
+        : controller.agentProfiles.first.id;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setLocalState) {
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            title: Text(server == null ? 'Add MCP Server' : 'Edit MCP Server'),
+            content: SizedBox(
+              width: 720,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'MCP Server URL',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: authType,
+                      decoration: const InputDecoration(
+                        labelText: 'Auth Method',
+                      ),
+                      items: const <DropdownMenuItem<String>>[
+                        DropdownMenuItem(value: 'none', child: Text('None')),
+                        DropdownMenuItem(
+                          value: 'bearer',
+                          child: Text('Bearer Token'),
+                        ),
+                        DropdownMenuItem(value: 'oauth', child: Text('OAuth')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setLocalState(() => authType = value);
+                        }
+                      },
+                    ),
+                    if (authType == 'bearer') ...<Widget>[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: tokenController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Bearer Token',
+                        ),
+                      ),
+                    ],
+                    if (authType == 'oauth') ...<Widget>[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: clientIdController,
+                        decoration: const InputDecoration(
+                          labelText: 'OAuth Client ID',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: authServerUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Auth Server URL',
+                        ),
+                      ),
+                    ],
+                    if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedAgentId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Assigned Agent',
+                        ),
+                        items: controller.agentProfiles
+                            .map(
+                              (agent) => DropdownMenuItem<String>(
+                                value: agent.id,
+                                child: Text(agent.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) =>
+                            setLocalState(() => selectedAgentId = value),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Matches the old NeoAgent MCP flow: URL plus auth method.',
+                        style: TextStyle(color: _textSecondary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      value: enabled,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('Enabled'),
+                      onChanged: (value) =>
+                          setLocalState(() => enabled = value),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Start the server later from the list once the config is saved.',
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final config = <String, dynamic>{
+                    'auth': <String, dynamic>{
+                      'type': authType,
+                      if (authType == 'bearer' &&
+                          tokenController.text.trim().isNotEmpty)
+                        'token': tokenController.text.trim(),
+                      if (authType == 'oauth' &&
+                          clientIdController.text.trim().isNotEmpty)
+                        'clientId': clientIdController.text.trim(),
+                      if (authType == 'oauth' &&
+                          authServerUrlController.text.trim().isNotEmpty)
+                        'authServerUrl': authServerUrlController.text.trim(),
+                    },
+                  };
+                  final saved = await controller.saveMcpServer(
+                    id: server?.id,
+                    name: nameController.text.trim(),
+                    command: urlController.text.trim(),
+                    config: config,
+                    enabled: enabled,
+                    agentId: selectedAgentId,
+                  );
+                  if (!context.mounted) {
+                    return;
+                  }
+                  if (saved) {
+                    Navigator.of(context).pop();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          controller.errorMessage ??
+                              'Failed to save MCP server.',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 class HealthPanel extends StatelessWidget {

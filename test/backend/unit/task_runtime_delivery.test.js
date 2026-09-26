@@ -313,6 +313,72 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'Wetter in Braunschweig: sonnig. Keine neue Mail.');
   });
 
+  test('staged replies go to the configured target, not the chat the model picked', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createScheduledTask({
+      async runWithModel(_userId, _prompt, options) {
+        options.deliveryState.proactiveMessageStaged = true;
+        options.deliveryState.stagedProactiveMessage = {
+          platform: 'telegram',
+          to: 'owner-dm',
+          content: 'Summary ready.',
+          purpose: 'final_result',
+          mediaPath: null,
+        };
+        return { content: 'Summary ready.' };
+      },
+    }, messagingManager);
+
+    const result = await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: false,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].platform, 'whatsapp');
+    assert.equal(messagingManager.sent[0].to, 'recipient');
+    const stored = runtime.taskRepository.getTaskById(task.id, user.userId);
+    assert.equal(JSON.parse(stored.task_config).notifyTo, 'recipient');
+  });
+
+  test('keeps a numeric channel id instead of replacing it with the default DM', async () => {
+    const messagingManager = createMessagingManager();
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        return { content: 'Summary ready.' };
+      },
+    }, { locals: { messagingManager } });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Weekly summary',
+      triggerType: 'schedule',
+      triggerConfig: { mode: 'recurring', cronExpression: '0 6 * * 1' },
+      taskConfig: {
+        prompt: 'Summarize the week.',
+        notifyPlatform: 'discord',
+        notifyTo: '1549742688482623558',
+      },
+    });
+    for (const [key, value] of [['last_platform', '"discord"'], ['last_chat_id', '"dm_701163110303531089"']]) {
+      ctx.db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?)')
+        .run(user.userId, task.agentId, key, value);
+    }
+
+    await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].to, '1549742688482623558');
+    const stored = runtime.taskRepository.getTaskById(task.id, user.userId);
+    assert.equal(JSON.parse(stored.task_config).notifyTo, '1549742688482623558');
+  });
+
   test('delivers a failure notice when every attempt returns empty', async () => {
     const messagingManager = createMessagingManager();
     let callCount = 0;

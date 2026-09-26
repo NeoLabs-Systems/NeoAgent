@@ -15,6 +15,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -40,6 +41,8 @@ import 'src/incoming_call_alert.dart';
 import 'src/live_voice_capture.dart';
 import 'src/local_backend_installer.dart';
 import 'src/local_runtime_manager.dart';
+import 'src/mascot/mascot_mood.dart';
+import 'src/mascot/neo_mascot.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/security/password_strength.dart';
@@ -53,6 +56,7 @@ import 'src/workspace_recents.dart';
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
+import 'features/tasks/task_recommendations.dart';
 import 'features/memory/views/retrieval_inspector_view.dart';
 
 part 'main_spacing.dart';
@@ -64,6 +68,7 @@ part 'main_launcher.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
+part 'main_mascot.dart';
 part 'main_voice_assistant.dart';
 part 'main_incoming_call.dart';
 part 'main_navigation.dart';
@@ -72,6 +77,7 @@ part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
 part 'main_chat.dart';
+part 'main_runs.dart';
 part 'main_cowork.dart';
 part 'main_cowork_sessions.dart';
 part 'main_cowork_thread.dart';
@@ -79,10 +85,15 @@ part 'main_cowork_composer.dart';
 part 'main_cowork_workbench.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
+part 'main_byok_settings.dart';
 part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';
 part 'main_admin.dart';
+part 'main_admin_console.dart';
+part 'main_delegation.dart';
+part 'main_admin_server.dart';
+part 'main_admin_config.dart';
 part 'main_billing.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
@@ -107,14 +118,17 @@ const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';
+const String _desktopTrayWindowsIconAsset =
+    'assets/branding/tray_icon_windows.ico';
 const String _sessionCookiePrefsKey = 'auth.sessionCookie';
 const String _sessionCookieBackendPrefsKey = 'auth.sessionCookieBackend';
 const String _sessionCookieSecureStorageKey = 'auth.sessionCookie.secure';
 
-String get _desktopTrayIconAsset =>
-    defaultTargetPlatform == TargetPlatform.macOS
-    ? _desktopTrayTemplateIconAsset
-    : _desktopWindowIconAsset;
+String get _desktopTrayIconAsset => switch (defaultTargetPlatform) {
+  TargetPlatform.macOS => _desktopTrayTemplateIconAsset,
+  TargetPlatform.windows => _desktopTrayWindowsIconAsset,
+  _ => _desktopWindowIconAsset,
+};
 
 bool get _supportsDesktopShell =>
     !kIsWeb &&

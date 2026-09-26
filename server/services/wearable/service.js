@@ -1,6 +1,7 @@
 'use strict';
 
 const { getVersionInfo } = require('../../utils/version');
+const { publicBaseUrlForRequest } = require('../../utils/public_url');
 const { clientIpFromRequest, lookupIpLocation } = require('../account/geoip');
 const { WEARABLE_WS_PATH } = require('./protocol');
 const {
@@ -22,16 +23,6 @@ function parseOptionalJson(value, fallback = null) {
   } catch {
     return fallback;
   }
-}
-
-function publicBaseUrlForRequest(req) {
-  const configured = req.app?.locals?.httpRuntimeConfig?.publicUrl || process.env.PUBLIC_URL || '';
-  if (configured) {
-    return String(configured).replace(/\/+$/, '');
-  }
-  const forwardedProto = String(req.get?.('x-forwarded-proto') || '').trim();
-  const protocol = forwardedProto || req.protocol || 'http';
-  return `${protocol}://${req.get('host')}`;
 }
 
 function websocketUrlForBase(baseUrl) {
@@ -227,6 +218,5 @@ class WearableService {
 module.exports = {
   WEARABLE_WS_PATH,
   WearableService,
-  publicBaseUrlForRequest,
   websocketUrlForBase,
 };

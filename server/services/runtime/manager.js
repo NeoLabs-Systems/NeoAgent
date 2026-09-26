@@ -4,13 +4,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { LocalVmExecutionBackend } = require('./backends/local-vm');
-const { QemuVMManager } = require('./qemu_vm_manager');
+const { createComputerBackend } = require('./backend_factory');
 const { ComputerDesktopProvider } = require('./computer_desktop_provider');
 const db = require('../../db/database');
 const { AndroidController } = require('../android/controller');
 const { createServiceLogger } = require('../../utils/logger');
 const { guestDesktopRepairCommand, summarizeDesktopRepairOutput } = require('./guest_desktop');
+const { getRuntimeSettings } = require('./settings');
 
 const logger = createServiceLogger('Computer');
 const DISPLAY_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -56,12 +56,11 @@ class RuntimeManager {
     this.io = options.io || null;
     this.providerModes = new Map();
 
-    const vmManager = options.computerVmManager
-      || (options.computerBackend ? null : new QemuVMManager());
-    this.computerBackend = options.computerBackend || new LocalVmExecutionBackend({
-      runtimeProfile: 'browser_cli',
-      vmManager,
+    this.computerBackend = options.computerBackend || createComputerBackend({
+      vmManager: options.computerVmManager,
       artifactStore: this.artifactStore,
+      workspaceManager: this.workspaceManager,
+      desktopCompanionRegistry: options.desktopCompanionRegistry,
     });
     this.computerBackend.isIdleProtected = (userId) => Boolean(this.getControlLease(userId, { provider: 'cloud' }));
     // A viewer whose computer stopped is watching an address that no longer answers, so
@@ -79,8 +78,7 @@ class RuntimeManager {
 
   getSettings() {
     return {
-      runtime_profile: 'cloud-computer',
-      runtime_backend: 'qemu',
+      ...getRuntimeSettings(),
       computer_backend: 'unified',
       android_backend: 'host',
       mcp_backend: 'host-remote',
@@ -300,9 +298,11 @@ class RuntimeManager {
     this._emitStatus(userId);
     try {
       const backend = this._computerBackendForUser(userId, options.deviceTarget);
-      if (backend === this.localComputerBackend) await backend.pause(userId, false);
+      if (typeof backend.pause === 'function') await backend.pause(userId, false);
       await backend.getClientForUser(userId, options);
-      if (backend === this.computerBackend) {
+      // Only a guest VM has a Linux desktop session to bring up; the host
+      // runtime is already sitting in one and must not be "repaired".
+      if (backend === this.computerBackend && backend.providesGuestDesktop !== false) {
         const session = backend.vmManager.instances.get(String(userId || '').trim());
         let ensured = null;
         try {
@@ -419,6 +419,13 @@ class RuntimeManager {
       .killCommand(userId, pid, reason);
   }
 
+  // The address a guest computer uses to reach this server, or null when
+  // commands run on a user's own machine instead of a guest.
+  getGuestHostAddress(userId, options = {}) {
+    if (this.resolveComputerProvider(userId, options.deviceTarget) === 'local') return null;
+    return this._computerBackendForUser(userId, options.deviceTarget).vmManager?.guestHostAddress || null;
+  }
+
   getCommandExecutorForUser(userId, options = {}) {
     return this._computerBackendForUser(userId, options.deviceTarget)
       .getCommandExecutorForUser(userId);
@@ -437,7 +444,7 @@ class RuntimeManager {
 
   getDesktopProviderForUser(userId, options = {}) {
     const backend = this._computerBackendForUser(userId, options.deviceTarget);
-    if (backend === this.localComputerBackend) {
+    if (typeof backend.getDesktopProviderForUser === 'function') {
       return backend.getDesktopProviderForUser(userId);
     }
     return new ComputerDesktopProvider({

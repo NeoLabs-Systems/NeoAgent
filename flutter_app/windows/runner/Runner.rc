@@ -90,10 +90,10 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "NeoAgent Inc." "\0"
-            VALUE "FileDescription", "NeoAgent" "\0"
+            VALUE "FileDescription", "NeoAgent — self-hosted AI agent client" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "NeoAgent" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.neoagent. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 NeoAgent Inc. All rights reserved." "\0"
             VALUE "OriginalFilename", "NeoAgent.exe" "\0"
             VALUE "ProductName", "NeoAgent" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

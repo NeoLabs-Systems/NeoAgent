@@ -2,7 +2,7 @@
 
 const TOOL_CATEGORIES = {
   shell: ['execute_command'],
-  file_write: ['write_file', 'edit_file'],
+  file_write: ['write_file', 'edit_file', 'replace_file_range'],
   android_privileged: [
     'android_shell',
     'android_install_apk',
@@ -149,6 +149,7 @@ const BUILT_IN_TOOLS = new Set([
   'generate_table',
   'generate_graph',
   'analyze_image',
+  'transcribe_audio',
   'ocr_extract',
   'read_health_data',
   'social_video_extract',
@@ -187,7 +188,9 @@ for (const [category, tools] of Object.entries(TOOL_CATEGORIES)) {
  */
 function getCategoryForTool(toolName, toolArgs = {}) {
   if (toolName === 'http_request') {
-    const method = (toolArgs.method || 'GET').toUpperCase();
+    // Model-supplied args can be any shape; a non-string method must never
+    // throw here, or every security hook after this would fail open.
+    const method = String(toolArgs?.method ?? 'GET').trim().toUpperCase() || 'GET';
     return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? null : 'network_write';
   }
   if (_toolToCategory[toolName]) {

@@ -4,11 +4,23 @@ const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
+const { fileExtensionForMimeType } = require('../voice/liveAudio');
 
 const log = createServiceLogger('WhatsApp');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const SENT_MESSAGE_MEMORY = 200;
+
+// Baileys reports this as a number, a numeric string, or a protobuf Long,
+// depending on how the message reached the socket.
+function messageTimestampSeconds(msg) {
+  const raw = msg?.messageTimestamp;
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return Number(raw) || 0;
+  if (typeof raw?.toNumber === 'function') return raw.toNumber();
+  if (typeof raw?.low === 'number') return raw.low;
+  return 0;
+}
 
 class WhatsAppPlatform extends BasePlatform {
   constructor(config = {}) {
@@ -26,6 +38,9 @@ class WhatsAppPlatform extends BasePlatform {
     this._manualDisconnect = false;
     this._reconnectTimer = null;
     this._sentMessageIds = new Set();
+    // Until a connection reports open there is no point from which a message
+    // counts as new, so replayed history stays out.
+    this._connectedAt = Infinity;
   }
 
   _ownIds() {
@@ -77,12 +92,11 @@ class WhatsAppPlatform extends BasePlatform {
     }
   }
 
-  // Two independent signals separate what the user wrote from what this agent
-  // wrote: Baileys emits the socket's own sends as an 'append' upsert (never
-  // 'notify'), and every send records its message id here. Self-chat mode needs
-  // both, because there the user's own notes also arrive with fromMe set.
+  // Every send records its message id here, which is what keeps this agent from
+  // reading its own replies back. Self-chat mode relies on it entirely, because
+  // there the user's own notes also arrive with fromMe set.
   _shouldProcessInbound(msg, upsertType) {
-    if (upsertType !== 'notify') return false;
+    if (!this._isLiveUpsert(msg, upsertType)) return false;
     if (this._sentMessageIds.has(msg?.key?.id)) return false;
     if (!this.selfChatMode) return msg?.key?.fromMe !== true;
     if (this._isSelfChat(msg?.key?.remoteJid)) return true;
@@ -95,13 +109,20 @@ class WhatsAppPlatform extends BasePlatform {
     return false;
   }
 
-  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
-    // Self-chat mode only ever reaches this point for notes the account owner
-    // wrote in their own chat, so the allowlist has nothing left to decide.
-    if (this.selfChatMode) return { allowed: true };
+  // A note typed on the phone reaches this linked device as an 'append' upsert
+  // rather than 'notify', so self-chat mode has to accept those or it answers
+  // nothing at all. WhatsApp also replays existing chats as appends right after
+  // linking, and working through that backlog would bury the user in replies,
+  // so appends from before this connection are left alone.
+  _isLiveUpsert(msg, upsertType) {
+    if (upsertType === 'notify') return true;
+    if (upsertType !== 'append' || !this.selfChatMode) return false;
+    return messageTimestampSeconds(msg) >= this._connectedAt;
+  }
 
+  _accessContext(msg, { chatId, isGroup, sender }) {
     const senderId = normalizeWhatsAppId(sender);
-    return this._checkInboundAccess({
+    return {
       platform: 'whatsapp',
       senderId,
       chatId,
@@ -110,10 +131,41 @@ class WhatsAppPlatform extends BasePlatform {
       groupId: isGroup ? chatId : '',
       phoneNumber: senderId,
       wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
-    }, {
-      senderName: pushName || senderId,
+    };
+  }
+
+  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+    // Self-chat mode only ever reaches this point for notes the account owner
+    // wrote in their own chat, so the allowlist has nothing left to decide.
+    if (this.selfChatMode) return { allowed: true };
+
+    const context = this._accessContext(msg, { chatId, isGroup, sender });
+    return this._checkInboundAccess(context, {
+      senderName: pushName || context.senderId,
       meta: isGroup ? `Group: ${chatId}` : '',
       groupLabel: chatId,
+    });
+  }
+
+  // A reaction is feedback on an earlier message, not a request: it is recorded
+  // for context and never starts a run. Access is checked quietly, since a
+  // stranger's reaction is no reason to suggest allowlisting them.
+  _emitReaction(msg, { chatId, sender, pushName }) {
+    const reaction = msg.message.reactionMessage;
+    const emoji = String(reaction.text || '').trim();
+    // Empty text means the reaction was removed.
+    if (!emoji || !reaction.key?.id) return;
+    if (!this.selfChatMode && !this.evaluateAccess(this._accessContext(msg, { chatId, isGroup: false, sender })).allowed) {
+      return;
+    }
+    this.emit('reaction', {
+      platform: 'whatsapp',
+      chatId,
+      sender,
+      senderName: pushName,
+      targetMessageId: reaction.key.id,
+      emoji,
+      timestamp: msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000).toISOString() : new Date().toISOString(),
     });
   }
 
@@ -219,6 +271,7 @@ class WhatsAppPlatform extends BasePlatform {
 
       if (connection === 'open') {
         log.info('Connection open; inbound messages will be processed.');
+        this._connectedAt = Math.floor(Date.now() / 1000);
         this.status = 'connected';
         this.qrCode = null;
         this.reconnectAttempts = 0;
@@ -236,8 +289,15 @@ class WhatsAppPlatform extends BasePlatform {
         const pushName = msg.pushName || '';
         const wasMentioned = isGroup && this._isGroupAddressedToBot(msg.message || {});
 
+        if (msg.message?.reactionMessage) {
+          if (!isGroup) this._emitReaction(msg, { chatId, sender, pushName });
+          continue;
+        }
+
         let content = '';
         let mediaType = null;
+        let voiceNote = null;
+        const documentMimeType = String(msg.message?.documentMessage?.mimetype || '');
 
         if (msg.message?.conversation) {
           content = msg.message.conversation;
@@ -250,8 +310,17 @@ class WhatsAppPlatform extends BasePlatform {
           content = msg.message.videoMessage.caption || '[Video]';
           mediaType = 'video';
         } else if (msg.message?.audioMessage) {
-          content = '[Voice Note]';
+          const audio = msg.message.audioMessage;
           mediaType = 'audio';
+          voiceNote = {
+            source: audio.ptt ? 'whatsapp_ptt' : 'whatsapp_audio',
+            durationSec: Number(audio.seconds) || null,
+            forwarded: audio.contextInfo?.isForwarded === true,
+          };
+        } else if (documentMimeType.startsWith('audio/')) {
+          content = msg.message.documentMessage.caption || '';
+          mediaType = 'audio';
+          voiceNote = { source: 'whatsapp_audio', durationSec: null };
         } else if (msg.message?.documentMessage) {
           content = msg.message.documentMessage.fileName || '[Document]';
           mediaType = 'document';
@@ -283,8 +352,11 @@ class WhatsAppPlatform extends BasePlatform {
               logger: this._logger,
               reuploadRequest: this.sock.updateMediaMessage
             });
-            const extMap = { image: 'jpg', video: 'mp4', document: 'bin', audio: 'ogg' };
-            const ext = extMap[mediaType] || 'bin';
+            const extMap = { image: 'jpg', video: 'mp4', document: 'bin' };
+            const audioMimeType = mediaType === 'audio'
+              ? String(msg.message.audioMessage?.mimetype || documentMimeType || 'audio/ogg').split(';')[0]
+              : null;
+            const ext = audioMimeType ? fileExtensionForMimeType(audioMimeType) : (extMap[mediaType] || 'bin');
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
             if (!this.artifactStore || !this.userId) {
               throw new Error('Per-user artifact storage is unavailable.');
@@ -293,10 +365,9 @@ class WhatsAppPlatform extends BasePlatform {
               kind: 'messaging-inbound-media',
               filenameBase: `${Date.now()}_${safeId}`,
               extension: ext,
-              contentType: {
+              contentType: audioMimeType || {
                 image: 'image/jpeg',
                 video: 'video/mp4',
-                audio: 'audio/ogg',
               }[mediaType] || 'application/octet-stream',
               content: buffer,
               metadata: {
@@ -306,24 +377,6 @@ class WhatsAppPlatform extends BasePlatform {
               },
             });
             localMediaPath = artifact.filePath;
-
-            // Transcribe WhatsApp voice notes using OpenAI Whisper
-            if (mediaType === 'audio' && process.env.OPENAI_API_KEY) {
-              try {
-                const OpenAI = require('openai');
-                const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-                const transcription = await openai.audio.transcriptions.create({
-                  file: fs.createReadStream(localMediaPath),
-                  model: 'whisper-1',
-                  response_format: 'text'
-                });
-                content = (typeof transcription === 'string' ? transcription : transcription?.text || '').trim() || '[Voice Note - empty audio]';
-                log.info(`Voice note transcribed (${content.length} chars)`);
-              } catch (transcribeErr) {
-                log.error('Audio transcription failed:', transcribeErr.message);
-                content = '[Voice Note - transcription failed]';
-              }
-            }
           } catch (dlErr) {
             log.error('Media download failed:', dlErr.message);
           }
@@ -357,6 +410,7 @@ class WhatsAppPlatform extends BasePlatform {
           content,
           mediaType,
           localMediaPath,
+          voiceNote: localMediaPath ? voiceNote : null,
           isGroup,
           messageId: msg.key.id,
           metadata: this.selfChatMode ? { selfChat: true } : null,
@@ -451,7 +505,22 @@ class WhatsAppPlatform extends BasePlatform {
 
     const sent = await this.sock.sendMessage(jid, this._outboundPayload(content, options));
     this._rememberSentMessage(sent?.key?.id);
-    return sent;
+    return { success: true, messageId: sent?.key?.id || null };
+  }
+
+  async sendReaction(chatId, messageId, emoji) {
+    if (!this.sock || this.status !== 'connected') {
+      throw new Error('WhatsApp not connected');
+    }
+    const jid = toWhatsAppJid(chatId);
+    if (!jid) throw new Error('Invalid WhatsApp chat');
+    const sent = await this.sock.sendMessage(jid, {
+      react: { text: emoji, key: { remoteJid: jid, id: messageId, fromMe: false } },
+    });
+    // Self-chat echoes our own reaction back; remembering it keeps it from
+    // being read as the user's reaction.
+    this._rememberSentMessage(sent?.key?.id);
+    return { success: true };
   }
 
   async markRead(chatId, messageId) {

@@ -125,3 +125,73 @@ test('exportUserData returns the user data with secrets redacted', async () => {
   // The bcrypt password hash must never be echoed back.
   assert.equal(dump.data.account.password, '[redacted]');
 });
+
+test('killUserRuntime stops the computer and removes its persisted state', async () => {
+  ctx = createTestRuntime();
+  const { killUserRuntime } = require('../../../server/services/account/erasure');
+
+  const calls = [];
+  const runtimeManager = {
+    computerBackend: {
+      vmManager: {
+        killVm: async (userId) => { calls.push(['killVm', userId]); },
+        removeUserData: (userId) => { calls.push(['removeUserData', userId]); },
+      },
+    },
+  };
+
+  await killUserRuntime(42, runtimeManager);
+  // Disks are only removed once the guest has released them.
+  assert.deepEqual(calls, [['killVm', '42'], ['removeUserData', '42']]);
+});
+
+test('killUserRuntime tolerates a backend with no persisted state', async () => {
+  ctx = createTestRuntime();
+  const { killUserRuntime } = require('../../../server/services/account/erasure');
+
+  let killed = null;
+  await killUserRuntime(7, {
+    computerBackend: { vmManager: { killVm: (userId) => { killed = userId; } } },
+  });
+  assert.equal(killed, '7');
+
+  // No runtime manager at all is a no-op rather than a throw.
+  await killUserRuntime(7, undefined);
+  await killUserRuntime(7, { computerBackend: {} });
+});
+
+test('QemuVMManager.removeUserData deletes only the target user instance dir', async () => {
+  ctx = createTestRuntime();
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const {
+    INSTANCE_ROOT,
+    QemuVMManager,
+    userDirectoryKey,
+  } = require('../../../server/services/runtime/qemu_vm_manager');
+
+  const victimDir = path.join(INSTANCE_ROOT, userDirectoryKey('42'));
+  const bystanderDir = path.join(INSTANCE_ROOT, userDirectoryKey('43'));
+  for (const dir of [victimDir, bystanderDir]) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'data.qcow2'), 'disk');
+  }
+
+  try {
+    new QemuVMManager({ qemuBinary: null, qemuImgBinary: null }).removeUserData('42');
+    assert.equal(fs.existsSync(victimDir), false);
+    assert.equal(fs.existsSync(bystanderDir), true);
+  } finally {
+    fs.rmSync(bystanderDir, { recursive: true, force: true });
+  }
+});
+
+test('QemuVMManager.removeUserData ignores a blank user id', async () => {
+  ctx = createTestRuntime();
+  const fs = require('node:fs');
+  const { INSTANCE_ROOT, QemuVMManager } = require('../../../server/services/runtime/qemu_vm_manager');
+
+  new QemuVMManager({ qemuBinary: null, qemuImgBinary: null }).removeUserData('   ');
+  // Nothing under the instance root was touched.
+  assert.equal(fs.existsSync(INSTANCE_ROOT) ? fs.readdirSync(INSTANCE_ROOT).length : 0, 0);
+});

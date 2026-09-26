@@ -35,7 +35,7 @@ startup.
 | `SECURE_COOKIES` | inferred | Require secure session cookies |
 | `TRUST_PROXY` | inferred | Trust proxy headers from the deployment proxy |
 | `ALLOWED_ORIGINS` | unset | Additional comma-separated CORS origins |
-| `NEOAGENT_PROFILE` | `prod` | Deployment/runtime policy profile |
+| `NEOAGENT_ADMIN_USERS` | unset | Comma-separated usernames granted admin on every start (never revoked by removal) |
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | Update channel |
 | `NEOAGENT_SETUP_PROFILE` | `quick` | Last selected setup profile |
 | `NEOAGENT_SETUP_COMPLETED_SECTIONS` | `core` | Non-secret setup completion state |
@@ -137,11 +137,31 @@ plan management.
 
 | Variable | Purpose |
 | --- | --- |
+| `TERMINAL_ENV` | Where computers run: `qemu` (default), `docker`, or `host` |
 | `NEOAGENT_VM_BASE_IMAGE_URL` | Download source for the guest image |
 | `NEOAGENT_VM_BASE_IMAGE` | Existing local guest image |
 | `NEOAGENT_VM_GUEST_TOKEN` | Server-to-runtime authentication token |
 | `NEOAGENT_VM_MEMORY_MB` | Guest memory allocation |
 | `NEOAGENT_VM_CPUS` | Guest CPU allocation |
+| `NEOAGENT_GUEST_BASE_IMAGE` | Base image for the Docker guest build |
+
+`TERMINAL_ENV=docker` gives every user a Docker container instead of a QEMU
+micro-VM. The container runs the same guest agent from the same payload, so
+shell, browser, and file tools behave identically; it starts in seconds and
+needs no guest image download, but it shares the host kernel and offers no
+desktop view. `neoagent repair` builds the guest image for whichever backend is
+selected. The memory and CPU allocation settings apply to both.
+
+`TERMINAL_ENV=host` runs the agent on the server itself, through the same
+desktop-companion path the desktop app uses: the server registers itself as
+every account's companion, and shell commands run in that account's workspace
+directory. There is no guest to prepare and nothing to download, so a computer
+is ready immediately — but there is **no isolation**: every account's agent runs
+as the server's own OS user with that user's full access to the machine, and
+accounts are not separated from each other. Only the shell and workspace file
+tools are available; there is no browser or desktop. The server logs a warning
+naming the host on every start, and only grants accounts you would trust with a
+shell on that machine.
 
 :::danger Do not reuse example values
 The installer generates the guest token. Do not reuse the example values from

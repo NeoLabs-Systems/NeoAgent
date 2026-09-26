@@ -13,7 +13,7 @@ class OnboardingWelcomeStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return OnboardingScaffold(
       step: 0,
-      totalSteps: 3,
+      totalSteps: 5,
       eyebrow: 'WELCOME',
       title: 'Welcome to\nNeoAgent',
       description: 'Your assistant layer for capture, context, and action.',

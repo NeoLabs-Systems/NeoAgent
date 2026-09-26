@@ -14,6 +14,9 @@ const { GUEST_HOME } = require('./guest_paths');
 const VM_ROOT = path.join(DATA_DIR, 'runtime-vms');
 const GUEST_BOOTSTRAP_ROOT = path.join(VM_ROOT, 'guest-bootstrap');
 const REPO_ROOT = path.resolve(__dirname, '../../..');
+// The guest's Node is also the agent's toolchain for user projects, so it tracks
+// the current LTS instead of the host's runtime; older guests upgrade on boot.
+const GUEST_NODE_MAJOR = 24;
 const GUEST_PAYLOAD_PROFILES = Object.freeze({
   browser: [
     { source: 'server/guest-agent.browser.package.json', target: 'package.json' },
@@ -200,8 +203,7 @@ function createCloudInitScript({
   const bootstrapMarker = '/var/lib/neoagent/bootstrap-complete';
   const browserReadyMarker = '/var/lib/neoagent/browser-runtime-ready';
   const browserDepsMarker = '/var/lib/neoagent/browser-deps-installed';
-  const nodeMajor = Number.parseInt(String(process.versions.node).split('.')[0], 10) || 20;
-  const nodeSourceSetupUrl = `https://deb.nodesource.com/setup_${nodeMajor}.x`;
+  const nodeSourceSetupUrl = `https://deb.nodesource.com/setup_${GUEST_NODE_MAJOR}.x`;
 
   return [
     '#!/usr/bin/env bash',
@@ -251,7 +253,7 @@ function createCloudInitScript({
     'mkdir -p "$APP_DIR"',
     'tar -xzf "$GUEST_PAYLOAD_PATH" -C "$APP_DIR" || { echo "Error: Failed to extract guest runtime payload." >&2; exit 1; }',
     '',
-    'if ! command -v node >/dev/null 2>&1 || ! node -e "process.exit(Number(process.versions.node.split(\'.\')[0]) >= 20 ? 0 : 1)"; then',
+    `if ! command -v node >/dev/null 2>&1 || ! node -e "process.exit(Number(process.versions.node.split(\'.\')[0]) >= ${GUEST_NODE_MAJOR} ? 0 : 1)"; then`,
     '  echo "Installing Node.js..."',
     '  curl -fsSL ' + JSON.stringify(nodeSourceSetupUrl) + ' | bash - || true',
     '  retry_cmd apt-get install -y --no-install-recommends nodejs || { echo "Error: Failed to install Node.js" >&2; exit 1; }',

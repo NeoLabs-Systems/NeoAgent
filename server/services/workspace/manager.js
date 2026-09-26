@@ -30,8 +30,18 @@ function globToRegExp(pattern) {
 }
 
 class WorkspaceManager {
+  /**
+   * @param {object} [options]
+   * @param {string} [options.rootDir] Directory the workspaces live under.
+   * @param {boolean} [options.pinned] Treat `rootDir` as the workspace itself
+   *   rather than a parent holding one directory per user. Used when the caller
+   *   already owns the directory the agent must work in -- a checkout, a
+   *   benchmark task dir -- so there is nothing to partition. Path containment
+   *   is unchanged: everything still resolves inside `rootDir`.
+   */
   constructor(options = {}) {
     this.rootDir = path.resolve(options.rootDir || path.join(AGENT_DATA_DIR, 'workspaces'));
+    this.pinned = options.pinned === true;
     try {
       fs.mkdirSync(this.rootDir, { recursive: true });
     } catch (err) {
@@ -40,6 +50,7 @@ class WorkspaceManager {
   }
 
   _ensureWorkspaceRootSync(userId) {
+    if (this.pinned) return this.rootDir;
     const key = sanitizeWorkspaceKey(userId);
     const root = path.join(this.rootDir, key);
     try {
@@ -51,6 +62,7 @@ class WorkspaceManager {
   }
 
   async getWorkspaceRoot(userId) {
+    if (this.pinned) return this.rootDir;
     const key = sanitizeWorkspaceKey(userId);
     const root = path.join(this.rootDir, key);
     try {

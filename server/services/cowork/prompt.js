@@ -73,16 +73,7 @@ function buildCoworkOperatingContract(context = {}) {
   ].join('\n');
 }
 
-function buildCoworkExecutionGuidance(context = {}) {
-  if (context.triggerSource !== 'cowork') return [];
-  return [
-    'Work from the attached workspace. In Agent mode, make the requested edits now; in Plan mode, inspect without mutation.',
-    'Verify changed state from disk before claiming completion and lead the final reply with the outcome, not tool narration.',
-  ];
-}
-
 module.exports = {
-  buildCoworkExecutionGuidance,
   buildCoworkOperatingContract,
   buildCoworkWorkspaceFacts,
   workspaceFolderName,

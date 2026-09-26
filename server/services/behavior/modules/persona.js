@@ -1,9 +1,9 @@
 'use strict';
 
 const { isModuleEnabled } = require('../config');
-const { requestStructuredJson } = require('../model_client');
-const { truncate } = require('../signals');
+const { getPublicProfile } = require('../../messaging/public_audience');
 const { BASELINE_PERSONA_PROMPT } = require('./persona_prompt');
+const { writeReply } = require('./interaction_writer');
 const {
   collectStyleNotes,
   formatStyleNotesForPrompt,
@@ -17,19 +17,6 @@ const INTERACTION_VOICE_RULES = `Mandatory interaction-voice editing rules:
 - Casual lowercase is fine when it fits; never force it.
 - At most a light touch of wit; never on serious topics.
 - In groups: one brief contribution.`;
-
-const INTERACTION_EDITOR_PROMPT = `You are a light voice editor for a personal messaging agent.
-Return JSON with keys:
-action ("send" or "revise"),
-revisedContent (string; empty when action is send),
-reasonCodes (array of short strings),
-rationale (one short sentence).
-
-Make the smallest edit that removes botty habits. Do not rewrite a good draft into your own voice. Do not invent facts.
-
-${INTERACTION_VOICE_RULES}
-
-If the draft is already fine, action "send".`;
 
 function readAiPersonality(ctx) {
   if (!ctx.memoryManager || ctx.userId == null || typeof ctx.memoryManager.getCoreMemory !== 'function') {
@@ -119,8 +106,6 @@ function buildSystemPromptContribution(ctx) {
 
 async function refineDraft(ctx) {
   const {
-    userId,
-    agentId,
     msg,
     config,
     draft,
@@ -140,6 +125,16 @@ async function refineDraft(ctx) {
     };
   }
 
+  // The writer voices one-to-one chats. Groups keep the combined room review,
+  // and public surfaces such as GitHub comments are documents, not chat.
+  if (msg.isGroup || getPublicProfile(msg.platform)) {
+    return {
+      action: 'send',
+      content,
+      reasonCodes: ['persona_writer_direct_only'],
+    };
+  }
+
   if (content.length > 2800) {
     return {
       action: 'send',
@@ -151,53 +146,29 @@ async function refineDraft(ctx) {
   const runModelId = runId
     ? ctx.agentEngine?.getRunMeta?.(runId)?.modelSelectionId || null
     : null;
-  const bundle = resolveStyleBundle(ctx);
 
   try {
-    const result = await requestStructuredJson({
-      agentEngine: ctx.agentEngine,
-      userId,
-      agentId,
-      modelId: config.decisionModelId || runModelId,
-      purpose: runModelId ? 'general' : config.decisionModelPurpose,
-      system: INTERACTION_EDITOR_PROMPT,
-      prompt: JSON.stringify({
-        channel: {
-          platform: msg.platform,
-          audience: msg.isGroup ? 'shared' : 'direct',
-        },
-        inbound: truncate(msg.content, 900),
-        draft: content,
-        styleNotes: bundle.notes.slice(0, 8),
-      }),
-      signal,
-      maxTokens: 1200,
+    const written = await writeReply(ctx, {
+      draft: content,
+      modelId: config.voiceModelId || runModelId,
+      styleNotes: resolveStyleBundle(ctx).notes,
     });
-    const parsed = result.parsed || {};
-    if (
-      parsed.action === 'revise'
-      && String(parsed.revisedContent || '').trim()
-    ) {
+    const meta = { model: written.model, usage: written.usage };
+    if (!written.message && !written.reaction) {
       return {
-        action: 'revise',
-        content: String(parsed.revisedContent).trim(),
-        reasonCodes: Array.isArray(parsed.reasonCodes)
-          ? parsed.reasonCodes
-          : ['persona_revise'],
-        rationale: String(parsed.rationale || '').trim(),
-        model: result.modelSelectionId || result.model || null,
-        usage: result.usage || 0,
+        action: 'send',
+        content,
+        reasonCodes: ['persona_writer_empty'],
+        ...meta,
       };
     }
+    const message = written.message || '[NO RESPONSE]';
     return {
-      action: 'send',
-      content,
-      reasonCodes: Array.isArray(parsed.reasonCodes)
-        ? parsed.reasonCodes
-        : ['persona_send'],
-      rationale: String(parsed.rationale || '').trim(),
-      model: result.modelSelectionId || result.model || null,
-      usage: result.usage || 0,
+      action: message === content ? 'send' : 'revise',
+      content: message,
+      reaction: written.reaction || null,
+      reasonCodes: ['persona_writer'],
+      ...meta,
     };
   } catch (error) {
     if (signal?.aborted) throw error;

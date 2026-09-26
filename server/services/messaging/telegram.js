@@ -40,6 +40,7 @@ class TelegramPlatform extends BasePlatform {
         console.error('[Telegram] Message handler error:', err.message);
       });
     });
+    this._bot.on('message_reaction', (ctx) => this._handleReaction(ctx));
     this._bot.catch((err) => {
       console.error('[Telegram] Polling error:', err.message);
       if (err.response?.error_code === 401 || err.code === 401) {
@@ -71,7 +72,8 @@ class TelegramPlatform extends BasePlatform {
       this.status = 'connected';
       console.log(`[Telegram] Logged in as @${me.username} (${me.id})`);
       this.emit('connected');
-      this._bot.launch({ dropPendingUpdates: false }).catch((err) => {
+      // Telegram leaves reactions out of the default update set.
+      this._bot.launch({ dropPendingUpdates: false, allowedUpdates: ['message', 'message_reaction'] }).catch((err) => {
         this.status = 'error';
         this.emit('error', {
           message: err.message || 'Telegram polling failed',
@@ -263,13 +265,56 @@ class TelegramPlatform extends BasePlatform {
     });
   }
 
+  // A reaction is feedback on an earlier message, not a request: it is recorded
+  // for context and never starts a run. Bots only receive reactions in private
+  // chats, and access is checked quietly so a stranger's reaction raises nothing.
+  _handleReaction(ctx) {
+    const update = ctx.update?.message_reaction;
+    if (!update?.user || update.chat?.type !== 'private') return;
+    const emoji = (update.new_reaction || []).find((item) => item.type === 'emoji')?.emoji;
+    // No emoji left means the reaction was removed.
+    if (!emoji) return;
+    const userId = String(update.user.id);
+    const access = this.evaluateAccess({
+      platform: 'telegram',
+      senderId: userId,
+      chatId: `dm_${userId}`,
+      isDirect: true,
+      isShared: false,
+      groupId: '',
+      channelId: '',
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: false,
+    });
+    if (!access.allowed) return;
+    this.emit('reaction', {
+      platform: 'telegram',
+      chatId: `dm_${userId}`,
+      sender: userId,
+      senderName: [update.user.first_name, update.user.last_name].filter(Boolean).join(' ') || userId,
+      targetMessageId: String(update.message_id),
+      emoji,
+      timestamp: new Date(update.date * 1000).toISOString(),
+    });
+  }
+
+  async sendReaction(chatId, messageId, emoji) {
+    if (!this._bot || this.status !== 'connected') throw new Error('Telegram not connected');
+    const telegramChatId = chatId.startsWith('dm_') ? chatId.slice(3) : chatId;
+    await this._bot.telegram.setMessageReaction(telegramChatId, Number(messageId), [{ type: 'emoji', emoji }]);
+    return { success: true };
+  }
+
   async sendMessage(to, content, _options = {}) {
     if (!this._bot || this.status === 'disconnected' || this.status === 'error') {
       throw new Error('Telegram not connected');
     }
 
     const telegramChatId = to.startsWith('dm_') ? to.slice(3) : to;
-    await this._bot.telegram.sendMessage(telegramChatId, content);
+    const sent = await this._bot.telegram.sendMessage(telegramChatId, content);
 
     if (this._botUser) {
       this._addToContext(telegramChatId, {
@@ -279,7 +324,7 @@ class TelegramPlatform extends BasePlatform {
       });
     }
 
-    return { success: true };
+    return { success: true, messageId: sent?.message_id ? String(sent.message_id) : null };
   }
 
   async sendTyping(chatId, isTyping) {

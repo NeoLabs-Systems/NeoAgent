@@ -44,9 +44,6 @@ function registerStaticRoutes(app) {
     });
   });
 
-  const adminRouter = require('../routes/admin');
-  app.use('/admin', adminRouter);
-
   // Flutter app at /app
   app.use(
     '/app',

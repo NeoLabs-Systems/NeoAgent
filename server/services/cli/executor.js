@@ -311,7 +311,7 @@ class CLIExecutor {
           cols: 120,
           rows: 30,
           cwd: cwd || process.cwd(),
-          env: { ...this._buildEnv(), TERM: 'xterm-256color' }
+          env: { ...this._buildEnv(options.env), TERM: 'xterm-256color' }
         });
       } catch (error) {
         output.discard();

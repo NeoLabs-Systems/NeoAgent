@@ -12,6 +12,7 @@ const MAX_ALLOWED_ITERATIONS = EMERGENCY_MAX_ITERATIONS;
 const MAX_ALLOWED_READ_ONLY_ITERATIONS = 25;
 const MAX_ALLOWED_TOOL_FAILURES = 50;
 const MAX_ALLOWED_BUDGET_CHARS = 500_000;
+const DEFAULT_TOOL_RESULT_BUDGET_CHARS = 12_000;
 
 function optionalNumber(value) {
   if (value == null || value === '') return Number.NaN;
@@ -42,11 +43,13 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
   );
 
   // ── Tool result size budget ───────────────────────────────────────────────
-  // Must be a finite positive integer; bad values fall back to 2400.
+  // Must be a finite positive integer; bad values fall back to the default.
+  // Results cut below what the model needs are re-fetched in slices, and each
+  // slice is a full model turn, so the budget errs on the side of complete.
   const requestedDefaultBudget = optionalNumber(aiSettings.tool_replay_budget_chars);
   const defaultBudget = Number.isFinite(requestedDefaultBudget) && requestedDefaultBudget > 0
-    ? clampFinite(Math.floor(requestedDefaultBudget), 500, MAX_ALLOWED_BUDGET_CHARS, 2400)
-    : 2400;
+    ? clampFinite(Math.floor(requestedDefaultBudget), 500, MAX_ALLOWED_BUDGET_CHARS, DEFAULT_TOOL_RESULT_BUDGET_CHARS)
+    : DEFAULT_TOOL_RESULT_BUDGET_CHARS;
 
   // ── Scalar policy fields ─────────────────────────────────────────────────
   const maxConsecutiveToolFailures = clampFinite(
@@ -90,14 +93,14 @@ function buildLoopPolicy(aiSettings = {}, triggerType = 'chat', analysisMode = '
     // Per-category tool result size budgets (chars)
     toolResultBudget: {
       default: defaultBudget,
-      file:    clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_file_chars)),    500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 6000)),
-      browser: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_browser_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
-      command: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_command_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 4000)),
+      file:    clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_file_chars)),    500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 24000)),
+      browser: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_browser_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 16000)),
+      command: clampFinite(Math.floor(optionalNumber(aiSettings.tool_replay_budget_command_chars)), 500, MAX_ALLOWED_BUDGET_CHARS, Math.max(defaultBudget, 16000)),
     },
 
     // Hard ceiling is always 2× soft, capped at a reasonable absolute max
     hardLimitMultiplier: 2,
-    absoluteHardLimit: 12000,
+    absoluteHardLimit: 48000,
   };
 }
 

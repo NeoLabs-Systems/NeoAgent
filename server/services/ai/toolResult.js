@@ -10,16 +10,8 @@ function lineExcerpt(text, maxLines = 12, maxChars = 700) {
   return clampText(str.split('\n').slice(0, maxLines).join('\n'), maxChars);
 }
 
-function lineExcerptWasTruncated(text, maxLines, maxChars) {
-  const str = String(text || '').trim();
-  if (!str) return false;
-  const lines = str.split('\n');
-  if (lines.length > maxLines) return true;
-  return lines.join('\n').length > maxChars;
-}
-
 function toJsonText(value, maxChars) {
-  const raw = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const raw = typeof value === 'string' ? value : JSON.stringify(value);
   return clampText(raw, maxChars);
 }
 
@@ -60,8 +52,10 @@ function buildSimpleStatusEnvelope(toolName, toolResult, softLimit) {
 }
 
 function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
-  const softLimit = Math.max(500, Math.min(Number(options.softLimit) || 1800, 3000));
-  const hardLimit = Math.max(softLimit, Math.min(Number(options.hardLimit) || 3200, 4500));
+  // The caller's loop policy owns the budget. A result cut short here is
+  // re-fetched in slices by the model, which costs far more than the chars.
+  const softLimit = Math.max(500, Number(options.softLimit) || 1800);
+  const hardLimit = Math.max(softLimit, Number(options.hardLimit) || 3200);
 
   let envelope;
 
@@ -89,8 +83,8 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
             : (toolResult?.exitCode !== undefined && toolResult?.exitCode !== 0)
               ? 'Command exited non-zero. Output may be partial; later segments of a chained shell command may not have run.'
               : '',
-        stdout: lineExcerpt(toolResult?.stdout, 12, Math.floor(softLimit * 0.45)),
-        stderr: lineExcerpt(toolResult?.stderr, 10, Math.floor(softLimit * 0.35))
+        stdout: clampText(String(toolResult?.stdout || '').trim(), Math.floor(softLimit * 0.6)),
+        stderr: clampText(String(toolResult?.stderr || '').trim(), Math.floor(softLimit * 0.25))
       });
       break;
 
@@ -104,7 +98,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         rangeShown: toolResult?.rangeShown,
         totalLines: toolResult?.totalLines,
         truncated: toolResult?.truncated === true,
-        content: lineExcerpt(toolResult?.content || '', 30, Math.floor(softLimit * 0.72)),
+        content: clampText(String(toolResult?.content || '').trim(), Math.floor(softLimit * 0.8)),
         error: toolResult?.error,
       });
       break;
@@ -112,10 +106,10 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'read_file':
       {
         const content = String(toolResult?.content || toolResult || '');
-        const contentLimit = Math.floor(softLimit * 0.7);
+        const contentLimit = Math.floor(softLimit * 0.85);
         const truncated = toolResult?.truncated === true
           || content.includes('...[truncated')
-          || lineExcerptWasTruncated(content, 20, contentLimit);
+          || content.trim().length > contentLimit;
         envelope = trimObject({
           tool: toolName,
           path: toolArgs.path,
@@ -127,7 +121,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           note: truncated
             ? 'Only part of the file was returned. Read a narrower line range to recover the omitted content.'
             : undefined,
-          content: lineExcerpt(content, 20, contentLimit)
+          content: clampText(content.trim(), contentLimit)
         });
         break;
       }
@@ -135,11 +129,10 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'read_files':
       {
         const sourceResults = toolResult?.results || [];
-        const contentLimit = Math.floor(softLimit * 0.22);
+        const contentLimit = Math.floor((softLimit * 0.85) / Math.max(1, sourceResults.length));
         const itemWasTruncated = (item) => item?.truncated === true
-          || lineExcerptWasTruncated(item?.content || '', 10, contentLimit);
+          || String(item?.content || '').trim().length > contentLimit;
         const truncated = toolResult?.truncated === true
-          || sourceResults.length > 6
           || sourceResults.some(itemWasTruncated);
         envelope = trimObject({
           tool: toolName,
@@ -148,13 +141,13 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           note: truncated
             ? 'Only part of the requested file set was returned. Split the request or read individual files and narrower line ranges.'
             : undefined,
-          results: sourceResults.slice(0, 6).map((item) => trimObject({
+          results: sourceResults.map((item) => trimObject({
             path: item.path || item.requestedPath,
             requestedPath: item.requestedPath,
             rangeShown: item.rangeShown,
             truncated: itemWasTruncated(item),
             error: item.error,
-            content: lineExcerpt(item.content || '', 10, contentLimit)
+            content: clampText(String(item.content || '').trim(), contentLimit)
           }))
         });
         break;
@@ -178,7 +171,8 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       {
         const matches = toolResult?.matches || [];
         const count = toolResult?.count || matches.length;
-        const truncated = toolResult?.truncated === true || count > 6 || matches.length > 6;
+        const maxMatches = Math.max(6, Math.floor(softLimit / 200));
+        const truncated = toolResult?.truncated === true || count > maxMatches || matches.length > maxMatches;
         envelope = trimObject({
           tool: toolName,
           count,
@@ -186,7 +180,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           note: truncated
             ? 'Only the first matches are shown. Narrow the path or search pattern, or read the matched files around the relevant lines.'
             : undefined,
-          matches: matches.slice(0, 6).map((match) => trimObject({
+          matches: matches.slice(0, maxMatches).map((match) => trimObject({
             file: match.file,
             line: match.line,
             content: clampText(match.content, 160)
@@ -200,7 +194,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         tool: toolName,
         selector: toolArgs.selector || 'body',
         attribute: toolArgs.attribute || 'innerText',
-        excerpt: lineExcerpt(toolResult?.result || toolResult?.content || toolResult, 18, Math.floor(softLimit * 0.7))
+        excerpt: toJsonText(toolResult?.result || toolResult?.content || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
@@ -251,7 +245,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         serial: toolResult?.serial,
         command: toolArgs.command,
         screenshotPath: toolResult?.screenshotPath,
-        excerpt: lineExcerpt(toolResult?.stdout || toolResult?.result || toolResult, 18, Math.floor(softLimit * 0.65))
+        excerpt: toJsonText(toolResult?.stdout || toolResult?.result || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
@@ -263,7 +257,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           contentType: toolResult?.headers?.['content-type'] || toolResult?.headers?.['Content-Type'],
           contentLength: toolResult?.headers?.['content-length'] || toolResult?.headers?.['Content-Length']
         }),
-        excerpt: lineExcerpt(toolResult?.body || toolResult, 18, Math.floor(softLimit * 0.65))
+        excerpt: toJsonText(toolResult?.body || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
@@ -437,7 +431,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     default:
       envelope = trimObject({
         tool: toolName,
-        summary: toJsonText(toolResult, Math.floor(softLimit * 0.75))
+        summary: toJsonText(toolResult, Math.floor(softLimit * 0.9))
       });
       break;
   }

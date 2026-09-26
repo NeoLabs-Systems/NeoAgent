@@ -16,6 +16,7 @@ const db = require('../../db/database');
 const sessionsDb = require('../../db/sessions_db');
 const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { sanitizeWorkspaceKey } = require('../workspace/manager');
+const { retireManager } = require('../access/delegations');
 
 // Tables that carry a `user_id` column but are global/shared configuration and
 // must never be deleted as part of erasing one user.
@@ -32,7 +33,7 @@ function userScopedTables() {
     .all();
   const tables = [];
   for (const { name } of rows) {
-    if (name === 'users' || GLOBAL_TABLES.has(name) || name.startsWith('admin_')) {
+    if (name === 'users' || GLOBAL_TABLES.has(name)) {
       continue;
     }
     if (name.startsWith('sqlite_')) {
@@ -133,16 +134,22 @@ function purgeSessionStore(uid) {
   }
 }
 
+// Stops the user's cloud computer and deletes the state it persisted. Returns
+// the teardown promise so callers can await it; eraseUserData deliberately does
+// not, since guest shutdown must not block the HTTP response.
 function killUserRuntime(uid, runtimeManager) {
-  try {
-    const vmManager = runtimeManager?.browserBackend?.vmManager;
-    if (vmManager && typeof vmManager.killVm === 'function') {
-      // Fire-and-forget: container teardown should not block the HTTP response.
-      Promise.resolve(vmManager.killVm(String(uid))).catch(() => {});
-    }
-  } catch {
-    /* best effort */
-  }
+  const vmManager = runtimeManager?.computerBackend?.vmManager;
+  if (!vmManager || typeof vmManager.killVm !== 'function') return Promise.resolve();
+  const key = String(uid);
+  return Promise.resolve(vmManager.killVm(key))
+    .then(() => {
+      // Local-device backends keep no server-side state to erase.
+      if (typeof vmManager.removeUserData === 'function') {
+        return vmManager.removeUserData(key);
+      }
+      return undefined;
+    })
+    .catch(() => {});
 }
 
 /**
@@ -150,8 +157,8 @@ function killUserRuntime(uid, runtimeManager) {
  *
  * @param {number|string} userId
  * @param {object} [opts]
- * @param {object} [opts.runtimeManager] live RuntimeManager so the user's
- *   sandbox container can be torn down as part of erasure.
+ * @param {object} [opts.runtimeManager] live RuntimeManager so the user's cloud
+ *   computer is stopped and its persisted disks removed as part of erasure.
  * @returns {{ ok: true, tablesCleared: number }}
  */
 function eraseUserData(userId, opts = {}) {
@@ -172,6 +179,10 @@ function eraseUserData(userId, opts = {}) {
   const tables = userScopedTables();
 
   const erase = db.transaction(() => {
+    // Accounts this user manages move up to this user's own manager rather
+    // than silently dropping out of the chain; the rest of the delegation rows
+    // go with the user row via ON DELETE CASCADE.
+    retireManager(uid, { reason: 'account_deleted' });
     deleteChildRows(uid);
     for (const table of tables) {
       // `table` comes from sqlite_master introspection, never from user input.
@@ -254,6 +265,7 @@ function exportUserData(userId) {
 
 module.exports = {
   eraseUserData,
+  killUserRuntime,
   exportUserData,
   userScopedTables,
 };

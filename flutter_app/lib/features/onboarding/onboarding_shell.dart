@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../src/theme/palette.dart';
+import 'onboarding_computer_step.dart';
+import 'onboarding_tasks_step.dart';
 import 'onboarding_video_step.dart';
 import 'onboarding_welcome_step.dart';
 import 'onboarding_messaging_step.dart';
@@ -50,7 +52,9 @@ class _OnboardingShellState extends State<OnboardingShell> {
             onNext: _nextStep,
             controller: widget.controller,
           ),
-          OnboardingModelStep(onNext: _finish, controller: widget.controller),
+          OnboardingModelStep(onNext: _nextStep, controller: widget.controller),
+          OnboardingComputerStep(onNext: _nextStep),
+          OnboardingTasksStep(onNext: _finish, controller: widget.controller),
         ],
       ),
     );

@@ -6,7 +6,14 @@ const {
   GatewayIntentBits,
   Partials,
   ChannelType,
+  MessageFlags,
 } = require('discord.js');
+const { fetchResponseBuffer } = require('../network/http');
+const { fileExtensionForMimeType } = require('../voice/liveAudio');
+const { createServiceLogger } = require('../../utils/logger');
+
+const log = createServiceLogger('Discord');
+const MAX_AUDIO_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 const FATAL_DISCORD_CLOSE_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
 
@@ -28,6 +35,8 @@ class DiscordPlatform extends BasePlatform {
     this.supportsMedia = false;
 
     this.token = config.token || '';
+    this.artifactStore = config.artifactStore || null;
+    this.userId = config.userId;
     if (Array.isArray(config.allowedIds)) {
       this.setAllowedEntries(config.allowedIds);
     }
@@ -51,8 +60,9 @@ class DiscordPlatform extends BasePlatform {
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,  // Privileged — enable in Dev Portal
         GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.DirectMessageReactions,
       ],
-      partials: [Partials.Channel, Partials.Message],
+      partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
     });
 
     return new Promise((resolve, reject) => {
@@ -102,6 +112,11 @@ class DiscordPlatform extends BasePlatform {
         this.emit('logged_out');
       });
       this._client.on('messageCreate', (msg) => this._handleMessage(msg));
+      this._client.on('messageReactionAdd', (reaction, user) => {
+        this._handleReaction(reaction, user).catch((err) => {
+          console.error('[Discord] Reaction handler error:', err.message);
+        });
+      });
 
       this._client.login(this.token).catch((err) => { clearTimeout(timeout); reject(err); });
     });
@@ -153,6 +168,41 @@ class DiscordPlatform extends BasePlatform {
     } catch { return []; }
   }
 
+  // ── Reaction handler ───────────────────────────────────────────────────────
+
+  // A reaction is feedback on an earlier message, not a request: it is recorded
+  // for context and never starts a run. Direct messages only, and access is
+  // checked quietly so a stranger's reaction raises nothing.
+  async _handleReaction(reaction, user) {
+    if (user.bot) return;
+    const full = reaction.partial ? await reaction.fetch() : reaction;
+    if (full.message.channel?.type !== ChannelType.DM) return;
+    const access = this.evaluateAccess({
+      platform: 'discord',
+      senderId: user.id,
+      chatId: `dm_${user.id}`,
+      isDirect: true,
+      isShared: false,
+      groupId: '',
+      channelId: '',
+      serverId: '',
+      roomId: '',
+      roleIds: [],
+      phoneNumber: '',
+      wasMentioned: false,
+    });
+    if (!access.allowed) return;
+    this.emit('reaction', {
+      platform: 'discord',
+      chatId: `dm_${user.id}`,
+      sender: user.id,
+      senderName: user.globalName || user.username || user.id,
+      targetMessageId: full.message.id,
+      emoji: full.emoji.toString(),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   // ── Message handler ────────────────────────────────────────────────────────
 
   async _handleMessage(message) {
@@ -188,11 +238,16 @@ class DiscordPlatform extends BasePlatform {
     }
 
     let content = (!isDM && this._isMentioned(message)) ? this._stripMention(message.content) : (message.content || '');
-    if (message.attachments.size > 0) {
-      const urls = [...message.attachments.values()].map(a => a.url).join(', ');
-      content += (content ? '\n' : '') + `[Attachment: ${urls}]`;
+    const attachments = [...message.attachments.values()];
+    const audioAttachment = attachments.find((a) => String(a.contentType || '').startsWith('audio/'));
+    const audio = audioAttachment ? await this._storeAudioAttachment(message, audioAttachment) : null;
+    const otherUrls = attachments
+      .filter((a) => !audio || a !== audioAttachment)
+      .map((a) => a.url);
+    if (otherUrls.length) {
+      content += (content ? '\n' : '') + `[Attachment: ${otherUrls.join(', ')}]`;
     }
-    if (!content) return;
+    if (!content && !audio) return;
 
     const senderUsername = message.author.username || null;
     const senderTag = message.author.tag || senderUsername || userId;
@@ -232,7 +287,9 @@ class DiscordPlatform extends BasePlatform {
       botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
       content,
-      mediaType: null,
+      mediaType: audio ? 'audio' : null,
+      localMediaPath: audio?.filePath || null,
+      voiceNote: audio?.voiceNote || null,
       isGroup: !isDM,
       messageId: message.id,
       timestamp: message.createdAt.toISOString(),
@@ -240,6 +297,39 @@ class DiscordPlatform extends BasePlatform {
       channelName: isDM ? null : (message.channel.name || channelId),
       guildName: message.guild?.name || null,
     });
+  }
+
+  // Voice messages and uploaded audio files feed the shared voice-note flow,
+  // so the clip is downloaded once and kept as inbound media.
+  async _storeAudioAttachment(message, attachment) {
+    if (!this.artifactStore || !this.userId) return null;
+    try {
+      const { response, body } = await fetchResponseBuffer(attachment.url, {
+        serviceName: 'Discord attachment',
+        maxResponseBytes: MAX_AUDIO_ATTACHMENT_BYTES,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const mimeType = String(attachment.contentType).split(';')[0];
+      const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+        kind: 'messaging-inbound-media',
+        filenameBase: `${Date.now()}_${attachment.id}`,
+        extension: fileExtensionForMimeType(mimeType),
+        contentType: mimeType,
+        content: body,
+        metadata: { platform: 'discord', mediaType: 'audio', messageId: message.id },
+      });
+      const isVoiceMessage = message.flags?.has(MessageFlags.IsVoiceMessage) === true;
+      return {
+        filePath: artifact.filePath,
+        voiceNote: {
+          source: isVoiceMessage ? 'discord_voice_message' : 'discord_audio_file',
+          durationSec: Number(attachment.duration) || null,
+        },
+      };
+    } catch (error) {
+      log.error('Audio attachment download failed:', error.message);
+      return null;
+    }
   }
 
   // ── Send ───────────────────────────────────────────────────────────────────
@@ -250,16 +340,27 @@ class DiscordPlatform extends BasePlatform {
   async sendMessage(to, content, _options = {}) {
     if (!this._client || this.status !== 'connected') throw new Error('Discord not connected');
 
-    if (to.startsWith('dm_')) {
-      const user = await this._client.users.fetch(to.slice(3));
-      const dm = await user.createDM();
-      await dm.send({ content });
-    } else {
-      const channel = await this._client.channels.fetch(to);
-      if (!channel?.isTextBased()) throw new Error(`Channel ${to} is not text-based`);
-      await channel.send({ content });
-    }
+    const channel = await this._textChannel(to);
+    const sent = await channel.send({ content });
+    return { success: true, messageId: sent?.id || null };
+  }
+
+  async sendReaction(chatId, messageId, emoji) {
+    if (!this._client || this.status !== 'connected') throw new Error('Discord not connected');
+    const channel = await this._textChannel(chatId);
+    const message = await channel.messages.fetch(messageId);
+    await message.react(emoji);
     return { success: true };
+  }
+
+  async _textChannel(chatId) {
+    if (chatId.startsWith('dm_')) {
+      const user = await this._client.users.fetch(chatId.slice(3));
+      return user.createDM();
+    }
+    const channel = await this._client.channels.fetch(chatId);
+    if (!channel?.isTextBased()) throw new Error(`Channel ${chatId} is not text-based`);
+    return channel;
   }
 
   async sendTyping(chatId, isTyping) {

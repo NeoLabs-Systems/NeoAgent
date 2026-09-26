@@ -10,6 +10,19 @@ const SECURITY_MODE_SETTING_KEY = 'tool_security_mode';
 
 class ToolPolicyService {
   /**
+   * @param {object} [options]
+   * @param {'default'|'allow_all'|'always_ask'|null} [options.securityModeOverride]
+   *   Forces a mode for this process only, ignoring the stored setting. Used by
+   *   headless runs, where no one is present to answer an approval prompt.
+   *   Never written back, so it cannot change the account's stored posture.
+   */
+  constructor({ securityModeOverride = null } = {}) {
+    this.securityModeOverride = VALID_MODES.has(securityModeOverride)
+      ? securityModeOverride
+      : null;
+  }
+
+  /**
    * Returns the user's global security mode.
    * 'default'    — respect individual category policies (standard)
    * 'allow_all'  — bypass all policy and approval checks
@@ -18,6 +31,7 @@ class ToolPolicyService {
    * @returns {'default'|'allow_all'|'always_ask'}
    */
   getSecurityMode(userId) {
+    if (this.securityModeOverride) return this.securityModeOverride;
     const row = db.prepare(
       'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
     ).get(userId, SECURITY_MODE_SETTING_KEY);

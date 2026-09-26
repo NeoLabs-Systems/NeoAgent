@@ -91,6 +91,10 @@ const githubToolDefinitions = [
           type: 'string',
           description: 'Filter by assignee username (use @me for self).',
         },
+        creator: {
+          type: 'string',
+          description: 'Filter by the username of the issue author.',
+        },
         sort: {
           type: 'string',
           enum: SORT_OPTIONS,
@@ -491,6 +495,29 @@ const githubToolDefinitions = [
     },
   },
   {
+    name: 'github_get_content',
+    access: 'read',
+    description: 'Read a file (decoded as UTF-8 text) or list a directory in a repository.',
+    parameters: {
+      type: 'object',
+      properties: {
+        owner_repo: {
+          type: 'string',
+          description: 'Repository in format "owner/repo".',
+        },
+        path: {
+          type: 'string',
+          description: 'File or directory path in the repository. Empty for the repository root.',
+        },
+        ref: {
+          type: 'string',
+          description: 'Branch, tag, or commit SHA to read from (default: the default branch).',
+        },
+      },
+      required: ['owner_repo'],
+    },
+  },
+  {
     name: 'github_create_or_update_file',
     access: 'write',
     description: 'Create or update a single file in a repository.',
@@ -835,6 +862,7 @@ async function executeGithubTool(toolName, args, auth) {
       if (args.state) query.state = args.state;
       if (args.labels) query.labels = args.labels;
       if (args.assignee) query.assignee = args.assignee;
+      if (args.creator) query.creator = args.creator;
       if (args.sort) query.sort = args.sort;
       if (args.direction) query.direction = args.direction;
       return await githubApiRequest(auth, {

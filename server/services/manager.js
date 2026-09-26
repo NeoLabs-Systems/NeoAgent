@@ -186,6 +186,7 @@ function createRuntimeManager(app) {
       shellWorkerPool,
       workspaceManager: app.locals.workspaceManager,
       localComputerBackend,
+      desktopCompanionRegistry: localComputerRegistry,
     }),
   );
   localComputerRegistry.onConnectionChange = (userId) => {
@@ -279,6 +280,7 @@ function createMessagingManager(app, io, agentEngine) {
     new MessagingManager(io, {
       artifactStore: app.locals.artifactStore,
       workspaceManager: app.locals.workspaceManager,
+      integrationManager: app.locals.integrationManager,
     }),
   );
   agentEngine.messagingManager = messagingManager;
@@ -411,6 +413,9 @@ async function startServices(app, io) {
     if (!runtimeValidation.ready) {
       console.warn('[Services] Runtime validation is degraded:', runtimeValidation.issues.join(' '));
     }
+    for (const warning of runtimeValidation.warnings) {
+      console.warn(`[Services] ${warning}`);
+    }
     const skillRunner = await createSkillRunner(app, runtimeManager);
     const agentEngine = createAgentEngine(app, io, {
       memoryManager,
@@ -437,7 +442,9 @@ async function startServices(app, io) {
       mcpClient,
       skillRunner,
     }));
-    const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService());
+    const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService({
+      securityModeOverride: process.env.NEOAGENT_TOOL_SECURITY_MODE || null,
+    }));
     const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
     registerToolSecurityHooks(toolPolicyService, approvalGateService);
     logServiceReady('Tool security hooks registered');

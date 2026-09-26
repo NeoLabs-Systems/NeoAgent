@@ -10,6 +10,7 @@ const sidebars = {
         'getting-started',
         'models',
         'agents-and-users',
+        'mascot',
         'automation',
         'memory',
         'integrations',

@@ -276,6 +276,16 @@ app.get('/system/boot-assets', async (_req, res) => {
   });
 });
 
+// Extra environment for one command, e.g. the host's per-agent git routing.
+function readCommandEnv(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const env = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (/^[A-Z_][A-Z0-9_]*$/.test(key) && typeof entry === 'string') env[key] = entry;
+  }
+  return env;
+}
+
 app.post('/exec', async (req, res) => {
   await handleRequest(req, res, async (signal) => {
     assertDiskSafety();
@@ -284,10 +294,12 @@ app.post('/exec', async (req, res) => {
     if (!command) {
       return { error: 'command is required' };
     }
+    const env = readCommandEnv(req.body?.env);
     if (req.body?.pty) {
       return executor.executeInteractive(command, req.body?.inputs || [], {
         cwd: req.body?.cwd,
         timeout: req.body?.timeout,
+        env,
         signal,
       });
     }
@@ -295,6 +307,7 @@ app.post('/exec', async (req, res) => {
       cwd: req.body?.cwd,
       timeout: req.body?.timeout,
       stdinInput: req.body?.stdin_input,
+      env,
       signal,
     });
   });

@@ -4,12 +4,14 @@ const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { getDeploymentPolicy } = require('../utils/deployment');
+const { publicBaseUrlForRequest } = require('../utils/public_url');
 const { requireValidEmail } = require('../services/account/email');
 const {
   evaluatePasswordStrength,
   passwordStrengthError,
 } = require('../services/account/password_policy');
 const { getTwoFactorStatus, verifyLoginCode } = require('../services/account/two_factor');
+const { isAdminUser, isReservedAdminUsername } = require('../services/access/admin');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
 const {
   consumeEmailToken,
@@ -92,11 +94,11 @@ function toUserPayload(user) {
     lastLogin: user.last_login || null,
     hasPassword: Number(user.password_login_enabled || 0) === 1,
     hasCompletedOnboarding: Number(user.has_completed_onboarding || 0) === 1,
+    isAdmin: isAdminUser(user.id),
   };
 }
 
 function establishSession(req, res, user, options = {}) {
-  const preserveAdminAccess = req.session?.isAdmin === true;
   req.session.regenerate((regenerateError) => {
     if (regenerateError) {
       console.error('Auth session regenerate error:', regenerateError);
@@ -105,9 +107,6 @@ function establishSession(req, res, user, options = {}) {
 
     req.session.userId = user.id;
     req.session.username = user.username;
-    if (preserveAdminAccess) {
-      req.session.isAdmin = true;
-    }
     if (Number.isFinite(options.maxAgeMs) && options.maxAgeMs > 0) {
       req.session.cookie.maxAge = options.maxAgeMs;
     }
@@ -130,12 +129,6 @@ function establishSession(req, res, user, options = {}) {
       }
     });
   });
-}
-
-function baseUrlFor(req) {
-  const configured = req.app?.locals?.httpRuntimeConfig?.publicUrl || process.env.PUBLIC_URL || '';
-  if (configured) return String(configured).replace(/\/+$/, '');
-  return `${req.protocol}://${req.get('host')}`;
 }
 
 function readAuthenticatedUser(req) {
@@ -247,10 +240,11 @@ function establishPendingTwoFactorSession(req, res, user) {
         return res.status(500).json({ error: 'Session save error' });
       }
 
+      // Only the name: nothing else about the account before the second factor.
       return res.json({
         success: false,
         requiresTwoFactor: true,
-        user: toUserPayload(user),
+        user: { username: user.username },
       });
     });
   });
@@ -283,7 +277,6 @@ router.get('/api/auth/status', (req, res) => {
     return res.json({
       hasUser: count.count > 0,
       registrationOpen: policy.registrationOpen || count.count === 0,
-      deploymentProfile: policy.profile,
       authenticated: false,
       user: null,
       email: {
@@ -297,7 +290,6 @@ router.get('/api/auth/status', (req, res) => {
   res.json({
     hasUser: count.count > 0,
     registrationOpen: policy.registrationOpen || count.count === 0,
-    deploymentProfile: policy.profile,
     authenticated: Boolean(currentUser),
     user: currentUser ? toUserPayload(currentUser) : null,
     email: {
@@ -388,6 +380,9 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
     }
     if (username.length < 3 || password.length < 8) {
       return res.status(400).json({ error: 'Username min 3 chars, password min 8' });
+    }
+    if (isReservedAdminUsername(username)) {
+      return res.status(409).json({ error: 'Username is already taken' });
     }
 
     const passwordStrength = evaluatePasswordStrength(password, { username, email });
@@ -689,7 +684,7 @@ router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
     });
     const payload = new URL('neoagent://qr-login');
     payload.searchParams.set('v', '1');
-    payload.searchParams.set('backend', baseUrlFor(req));
+    payload.searchParams.set('backend', publicBaseUrlForRequest(req));
     payload.searchParams.set('challenge', challenge.challengeId);
     payload.searchParams.set('secret', challenge.approveSecret);
     res.json({
@@ -698,7 +693,7 @@ router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
       expiresAt: challenge.expiresAt,
       status: challenge.status,
       qrPayload: payload.toString(),
-      backendUrl: baseUrlFor(req),
+      backendUrl: publicBaseUrlForRequest(req),
     });
   } catch (error) {
     res.status(Number(error?.statusCode || 500)).json({
@@ -808,15 +803,6 @@ router.post('/api/auth/password/reset', passwordResetLimiter, async (req, res) =
 });
 
 router.post('/api/auth/logout', (req, res) => {
-  if (req.session?.isAdmin === true) {
-    delete req.session.userId;
-    delete req.session.username;
-    return req.session.save((err) => {
-      if (err) return res.status(500).json({ error: 'Logout failed' });
-      res.json({ success: true });
-    });
-  }
-
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: 'Logout failed' });
     const secureCookies = req.app?.locals?.httpRuntimeConfig?.secureCookies === true;

@@ -7,6 +7,7 @@ const {
   getAndroidHealth,
   getBrowserHealth,
   getFileHealth,
+  summarizeCapabilityHealth,
 } = require('../../../server/services/ai/capabilityHealth');
 
 test('browser capability health never starts or resolves a browser runtime', async () => {
@@ -110,4 +111,41 @@ test('browser capability health surfaces the computer lastError when the VM is d
   assert.equal(health.healthy, false);
   assert.match(health.summary, /QEMU exited \(1\)/);
   assert.match(health.summary, /host forwarding/);
+});
+
+test('capability summary lists only capabilities that need attention', () => {
+  const summary = summarizeCapabilityHealth({
+    providers: [{ id: 'openai', healthy: true, configured: true }],
+    capabilities: {
+      command: { configured: true, healthy: true, summary: 'Shell command execution is available.' },
+      search: { configured: false, healthy: false, summary: 'Brave Search API key is not configured.' },
+      integrations: { configured: true, healthy: false, summary: 'Google: not connected on this server' },
+      browser: { configured: true, healthy: false, summary: 'VM failed to boot.' },
+      android: { configured: true, healthy: true, degraded: true, summary: 'adb missing.' },
+    },
+  });
+  assert.equal(summary, 'browser: unhealthy - VM failed to boot.\nandroid: degraded - adb missing.');
+});
+
+test('integration notes are served once per run with the tools that need them', () => {
+  const { describeIntegrationsForRun } = require('../../../server/services/ai/loop/run_state');
+  const requested = [];
+  const runMeta = { userId: 1, agentId: 'main' };
+  const engine = {
+    getRunMeta: () => runMeta,
+    app: {
+      locals: {
+        integrationManager: {
+          summarizeConnectedProviders: (userId, agentId, keys) => {
+            requested.push(keys);
+            return keys.map((key) => `${key} notes`).join('\n');
+          },
+        },
+      },
+    },
+  };
+  const tools = [{ name: 'read_file' }, { name: 'weather_now', integration: 'weather' }];
+  assert.equal(describeIntegrationsForRun(engine, 'run-1', tools), 'weather notes');
+  assert.equal(describeIntegrationsForRun(engine, 'run-1', tools), '');
+  assert.deepEqual(requested, [['weather']]);
 });

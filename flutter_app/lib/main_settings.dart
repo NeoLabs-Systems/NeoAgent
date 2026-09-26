@@ -39,6 +39,13 @@ const _overviewSettingsSection = _SettingsSection(
   <String>['overview', 'summary', 'onboarding', 'platform', 'providers'],
 );
 
+const _timeZoneSettingsSection = _SettingsSection(
+  'time zone',
+  'Time zone',
+  Icons.schedule_outlined,
+  <String>['time zone', 'timezone', 'clock', 'region', 'schedule', 'dst'],
+);
+
 const _workspaceSettingsSection = _SettingsSection(
   'workspace',
   'Workspace',
@@ -82,6 +89,21 @@ const _modelsSettingsSection =
       'subagent',
       'smart selector',
     ]);
+
+const _advancedSettingsSection = _SettingsSection(
+  'advanced',
+  'Advanced',
+  Icons.vpn_key_outlined,
+  <String>[
+    'advanced',
+    'byok',
+    'bring your own key',
+    'api key',
+    'custom endpoint',
+    'openai compatible',
+    'own model',
+  ],
+);
 
 const _socialReachSettingsSection = _SettingsSection(
   'social reach',
@@ -144,6 +166,7 @@ const _securitySettingsSection = _SettingsSection(
 
 const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
+  _timeZoneSettingsSection,
   _modelsSettingsSection,
   _workspaceSettingsSection,
   _behaviorSettingsSection,
@@ -152,6 +175,7 @@ const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _desktopSettingsSection,
   _securitySettingsSection,
   _diagnosticsSettingsSection,
+  _advancedSettingsSection,
 ];
 
 class _SettingsPanelState extends State<SettingsPanel> {
@@ -175,6 +199,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late double _behaviorMinimumNeedScore;
   late double _behaviorBatchWindowMs;
   late String _behaviorDecisionModelId;
+  late String _behaviorVoiceModelId;
   late String _behaviorDeliveryStyle;
   late bool _behaviorTheoryOfMindEnabled;
   late bool _behaviorSocialMemoryEnabled;
@@ -298,6 +323,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             .toDouble();
     _behaviorDecisionModelId =
         behavior['decisionModelId']?.toString().trim() ?? '';
+    _behaviorVoiceModelId = behavior['voiceModelId']?.toString().trim() ?? '';
     _behaviorDeliveryStyle = behavior['deliveryStyle'] == 'single'
         ? 'single'
         : 'natural_bubbles';
@@ -422,6 +448,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ],
           if (_showsSettingsSection(
             searchQuery,
+            _timeZoneSettingsSection,
+          )) ...<Widget>[
+            _TimeZoneSettingsCard(controller: controller),
+            const SizedBox(height: 16),
+          ],
+          if (_showsSettingsSection(
+            searchQuery,
             _behaviorSettingsSection,
           )) ...<Widget>[
             _buildBehaviorSection(controller, routingModels),
@@ -453,6 +486,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
               availableModels: availableModels,
               enabledSmartModels: enabledSmartModels,
             ),
+            const SizedBox(height: 16),
+          ],
+          if (_showsSettingsSection(
+            searchQuery,
+            _advancedSettingsSection,
+          )) ...<Widget>[
+            _ByokSettingsCard(controller: controller),
             const SizedBox(height: 16),
           ],
           if (_showsSettingsSection(
@@ -627,6 +667,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
       'decisionModelId': _behaviorDecisionModelId.isEmpty
           ? null
           : _behaviorDecisionModelId,
+      'voiceModelId': _behaviorVoiceModelId.isEmpty
+          ? null
+          : _behaviorVoiceModelId,
       'deliveryStyle': _behaviorDeliveryStyle,
       'modules': existingModules,
     });
@@ -697,65 +740,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
               const SizedBox(height: 14),
               const _InlineError(
                 message:
-                    'No AI provider is configured, so chat and messaging cannot '
-                    'run yet. Add a provider API key in the admin dashboard.',
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: controller.openAdminDashboard,
-                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                  label: const Text('Open admin dashboard'),
-                ),
-              ),
-            ],
-            if (!controller.setupComplete &&
-                controller.setupOpenSections.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _accent.withValues(alpha: 0.35)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'Complete setup',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'NeoAgent is ready. Add these optional capabilities whenever you want:',
-                      style: TextStyle(color: _textSecondary, height: 1.4),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        for (final section in controller.setupOpenSections)
-                          Chip(
-                            avatar: const Icon(Icons.circle_outlined, size: 15),
-                            label: Text(
-                              section
-                                  .replaceAll('-', ' ')
-                                  .split(' ')
-                                  .where((word) => word.isNotEmpty)
-                                  .map(
-                                    (word) =>
-                                        '${word[0].toUpperCase()}${word.substring(1)}',
-                                  )
-                                  .join(' '),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+                    'No AI provider is configured, so chat and messaging '
+                    'cannot run yet.',
               ),
             ],
             const SizedBox(height: 14),
@@ -817,6 +803,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   ) {
     final modelIds = <String>{
       if (_behaviorDecisionModelId.isNotEmpty) _behaviorDecisionModelId,
+      if (_behaviorVoiceModelId.isNotEmpty) _behaviorVoiceModelId,
       ...routingModels.map((model) => model.id),
     }.toList();
     return Card(
@@ -942,6 +929,33 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       if (value == null) return;
                       setState(() {
                         _behaviorDecisionModelId = value;
+                        _hasUnsavedChanges = true;
+                      });
+                    },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _behaviorVoiceModelId,
+              decoration: const InputDecoration(
+                labelText: 'Voice model',
+                helperText:
+                    'Writes the final text in direct chats. A strong model here makes replies sound far more natural; the work itself still runs on the chat model.',
+              ),
+              items: <DropdownMenuItem<String>>[
+                const DropdownMenuItem(
+                  value: '',
+                  child: Text('Same as the chat model'),
+                ),
+                ...modelIds.map(
+                  (id) => DropdownMenuItem(value: id, child: Text(id)),
+                ),
+              ],
+              onChanged: !_behaviorEnabled
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _behaviorVoiceModelId = value;
                         _hasUnsavedChanges = true;
                       });
                     },
@@ -1431,17 +1445,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 12),
             Text(
-              'AI provider keys and endpoints are server configuration. Add them in the admin dashboard, then choose models here.',
+              'Shared provider keys are configured on the server. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.',
               style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: widget.controller.openAdminDashboard,
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: const Text('Open admin dashboard'),
-              ),
             ),
             const SizedBox(height: 8),
             const Divider(height: 32),
@@ -2043,6 +2048,141 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TimeZoneSettingsCard extends StatefulWidget {
+  const _TimeZoneSettingsCard({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_TimeZoneSettingsCard> createState() => _TimeZoneSettingsCardState();
+}
+
+class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
+  List<String> _zones = const <String>[];
+  String? _deviceZone;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    final deviceZone = await widget.controller.deviceTimeZone();
+    List<String> zones = const <String>[];
+    try {
+      zones = (await FlutterTimezone.getAvailableTimezones())
+          .map((zone) => zone.identifier)
+          .toSet()
+          .toList()
+        ..sort();
+    } catch (error) {
+      debugPrint('[TimeZone] Could not list time zones: $error');
+    }
+    if (!mounted) return;
+    setState(() {
+      _deviceZone = deviceZone;
+      _zones = zones;
+    });
+  }
+
+  Future<void> _save(Map<String, dynamic> payload) async {
+    setState(() => _saving = true);
+    try {
+      await widget.controller.saveSettingsPayload(payload);
+    } catch (_) {
+      // saveSettingsPayload shows the error inline.
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _setFollowsDevice(bool follow) {
+    final deviceZone = _deviceZone;
+    _save(<String, dynamic>{
+      'timezone_auto': follow,
+      if (follow && deviceZone != null) 'timezone': deviceZone,
+    });
+  }
+
+  void _chooseZone(String zone) {
+    if (zone == widget.controller.timeZone) return;
+    _save(<String, dynamic>{'timezone_auto': false, 'timezone': zone});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final followsDevice = controller.timeZoneFollowsDevice;
+    final current = controller.timeZone;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle('Time zone'),
+            const SizedBox(height: 10),
+            Text(
+              'The agent reads times you mention, and runs scheduled tasks, in this time zone.',
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _MetaPill(
+                  icon: Icons.public,
+                  label: current.isEmpty ? 'Not set' : current,
+                ),
+                if (_deviceZone != null)
+                  _MetaPill(
+                    icon: Icons.devices_outlined,
+                    label: 'This device: $_deviceZone',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _SettingToggle(
+              title: 'Match this device',
+              subtitle:
+                  'Update the time zone automatically from the device you are using.',
+              value: followsDevice,
+              onChanged: _setFollowsDevice,
+            ),
+            const SizedBox(height: 8),
+            if (_zones.isNotEmpty)
+              DropdownMenu<String>(
+                key: ValueKey<String>('timezone-$current-$followsDevice'),
+                enabled: !followsDevice && !_saving,
+                initialSelection: _zones.contains(current) ? current : null,
+                expandedInsets: EdgeInsets.zero,
+                enableFilter: true,
+                requestFocusOnTap: true,
+                menuHeight: 320,
+                label: const Text('Time zone'),
+                leadingIcon: const Icon(Icons.search),
+                dropdownMenuEntries: _zones
+                    .map(
+                      (zone) => DropdownMenuEntry<String>(
+                        value: zone,
+                        label: zone,
+                      ),
+                    )
+                    .toList(),
+                onSelected: (zone) {
+                  if (zone != null) _chooseZone(zone);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2658,6 +2798,10 @@ class _SmartPoolRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (model.isByok) ...<Widget>[
+                  const _ByokChip(),
+                  const SizedBox(width: 6),
+                ],
                 if (model.priceTier != null)
                   _PriceTierChip(tier: model.priceTier!),
                 const SizedBox(width: 2),

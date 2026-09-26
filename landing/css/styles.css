@@ -41,7 +41,7 @@
   --glow-b: rgba(94, 107, 76, 0.14);
   --grain: 0.45;
 
-  /* the app's dark surface — used for the always-dark UI replicas */
+  /* the app's dark surface — the terminal, and the product replica in dark mode */
   --app-bg: #0e1511;
   --app-card: #171f1a;
   --app-well: #1c261f;
@@ -318,15 +318,31 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   letter-spacing: -0.03em;
 }
 
-.brand-mark {
-  width: 34px; height: 34px;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255,255,255,0.2);
-  flex: 0 0 auto;
-}
+.brand-mark { width: 34px; height: 34px; }
 
-.brand-mark svg { width: 100%; height: 100%; display: block; }
+/* ---------- mascot (js/mascot.js) ---------- */
+.mascot { display: inline-block; flex: 0 0 auto; }
+.mascot-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mascot .m-lip { fill: #070b09; }
+.mascot .m-edge { fill: none; stroke: rgba(236, 239, 229, 0.14); stroke-width: 1.1; }
+.mascot .m-rim {
+  fill: none;
+  stroke: #e1b052;
+  stroke-width: 2.1;
+  opacity: 0;
+  transition: opacity var(--m-fade, 120ms) ease-out, stroke 0.2s ease;
+}
+.mascot .m-screen { fill: #030504; }
+.mascot .m-off { fill: #17201a; }
+.mascot .m-lit { fill: #e1b052; transition: fill 0.2s ease; }
+.mascot .m-lit circle { transition: fill-opacity var(--m-fade, 120ms) ease-out; }
+.mascot .m-body {
+  transform-box: view-box;
+  transform-origin: 47.5px 47.5px;
+  transition: transform var(--m-fade, 120ms) ease-out;
+}
+.mascot.is-alert .m-lit { fill: #de8a78; }
+.mascot.is-alert .m-rim { stroke: #de8a78; }
 
 .nav-links {
   position: absolute;
@@ -458,11 +474,19 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
 
 .hrun-log-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: clamp(20px, 2.2vw, 28px);
 }
+
+.hrun-who {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hrun-mascot { width: 60px; height: 60px; }
 
 .hrun-status {
   flex: 0 0 auto;
@@ -678,6 +702,24 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   transition: transform .5s var(--ease);
 }
 
+/* The product replica follows the page theme, like the app does; the
+   terminal below keeps the dark tokens. */
+@media (prefers-color-scheme: light) {
+  .story-stage {
+    --app-bg: #f1ede1;
+    --app-card: #fdfcf8;
+    --app-well: #ede9dc;
+    --app-ink: #1c2117;
+    --app-ink-2: #49503f;
+    --app-ink-3: #7e8470;
+    --app-line: rgba(28, 33, 23, 0.1);
+    --app-line-2: rgba(28, 33, 23, 0.16);
+    --app-gold: #b07d2b;
+    --app-sage: #5e6b4c;
+    --app-success: #527c4f;
+  }
+}
+
 .story-panel {
   position: absolute;
   inset: 0;
@@ -822,7 +864,7 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
 .mem-graph { width: 100%; height: auto; flex: 1; min-height: 0; }
 
 .mem-links line {
-  stroke: rgba(224, 240, 224, 0.14);
+  stroke: var(--app-line-2);
   stroke-width: 1;
   transition: stroke .25s ease, stroke-width .25s ease;
 }
@@ -1398,6 +1440,7 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
 
   /* space-between crushes the eyebrow to one word per line at this width */
   .hrun-log-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .hrun-mascot { width: 48px; height: 48px; }
   .hrun-status { justify-items: start; }
 
   .story-stage-wrap { top: 70px; }

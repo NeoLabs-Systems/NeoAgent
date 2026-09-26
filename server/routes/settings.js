@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
 const { APP_DIR } = require('../../runtime/paths');
@@ -17,9 +17,12 @@ const {
   getReleaseChannelBranchPolicy,
 } = require('../../runtime/release_channel');
 const {
+  AI_PROVIDER_DEFINITIONS,
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
+  setProviderConfig,
+  setProviderSecret,
 } = require('../services/ai/settings');
 const {
   readMeshtasticEnabled,
@@ -33,7 +36,9 @@ const {
 } = require('../services/runtime/settings');
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
-const { getProviderHealthCatalog, getSupportedModels } = require('../services/ai/models');
+const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
+const { validateCloudUrlWithDns } = require('../utils/cloud-security');
+const { normalizeTimeZone } = require('../utils/timezone');
 
 const AGENT_SETTING_KEYS = new Set([
   'cost_mode',
@@ -105,6 +110,17 @@ const RETIRED_SETTING_KEYS = new Set([
   'subagent_max_iterations',
 ]);
 
+// The prompt clock and recurring task schedules both follow the user's time zone.
+function applyTimeZoneChange(req, userId, agentId) {
+  const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
+  invalidateSystemPromptCache(userId, agentId);
+  const taskRuntime = req.app?.locals?.taskRuntime;
+  if (!taskRuntime) return;
+  taskRuntime.rescheduleUserTasks(userId).catch((error) => {
+    console.error('[Settings] Rescheduling tasks after time zone change failed:', error.message);
+  });
+}
+
 function isProtectedSecretSettingKey(key) {
   return /^social_reach_cookies_/i.test(String(key || ''));
 }
@@ -132,7 +148,6 @@ router.get('/update/status', requireAuth, (req, res) => {
       releaseChannel: status.releaseChannel || version.releaseChannel,
       targetBranch: status.targetBranch || version.targetBranch,
       deploymentMode: version.deploymentMode,
-      deploymentProfile: version.deploymentProfile,
       managedDeployment: version.managedDeployment,
       allowSelfUpdate: version.allowSelfUpdate,
       runtimeDefaults: version.runtimeDefaults,
@@ -219,6 +234,198 @@ router.get('/meta/ai-providers', async (req, res) => {
   });
 });
 
+// ── Bring-your-own-key (BYOK) provider credentials ──────────────────────
+// Every route below is scoped strictly to req.session.userId (and the agent
+// it resolves to, which is itself owned by that user) -- a user can only
+// ever read the status of, set, clear, or test their own keys. Raw key
+// values are never echoed back once saved.
+const BYOK_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const byokWriteLimiter = rateLimit({
+  windowMs: BYOK_RATE_LIMIT_WINDOW_MS,
+  max: 20,
+  message: { success: false, error: 'Too many requests, try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function isValidByokBaseUrl(value) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && Boolean(url.hostname)
+      && !url.username
+      && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+// A BYOK base URL is user-controlled input pointed at from the server, so it
+// must never be allowed to resolve to the server's own loopback/LAN network
+// (SSRF into internal services, cloud metadata, etc.). Checks both the
+// literal host and, for a hostname, what it actually resolves to.
+async function assertSafeByokBaseUrl(baseUrl, res, signal) {
+  if (!isValidByokBaseUrl(baseUrl)) {
+    res.status(400).json({ success: false, ok: false, error: 'Base URL must be a valid http(s) URL.' });
+    return false;
+  }
+  const result = await validateCloudUrlWithDns(baseUrl, { signal });
+  if (!result.allowed) {
+    res.status(400).json({
+      success: false,
+      ok: false,
+      error: 'That base URL points at a local or private network address, which isn\'t allowed.',
+    });
+    return false;
+  }
+  return true;
+}
+
+// Providers a user can't actually self-serve through a pasted key: OAuth
+// login flows (`neoagent login <provider>`) and MiniMax's account-bound
+// coding-plan subscription. They have no place in a self-service BYOK UI.
+const BYOK_EXCLUDED_PROVIDER_IDS = new Set(['minimax']);
+function isByokEligible(definition) {
+  return definition.authentication !== 'oauth' && !BYOK_EXCLUDED_PROVIDER_IDS.has(definition.id);
+}
+
+router.get('/byok', async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providers = await getProviderHealthCatalog(userId, agentId, { signal: req.signal });
+  res.json({
+    providers: providers
+      .filter((provider) => (provider.supportsApiKey || provider.supportsBaseUrl) && isByokEligible(provider))
+      .map((provider) => ({
+        id: provider.id,
+        label: provider.label,
+        description: provider.description,
+        supportsApiKey: provider.supportsApiKey,
+        supportsBaseUrl: provider.supportsBaseUrl,
+        requiresBaseUrl: provider.requiresBaseUrl,
+        defaultBaseUrl: provider.defaultBaseUrl,
+        isCustomEndpoint: provider.id === 'openai-compatible',
+        configured: provider.isByok,
+        baseUrl: provider.isByok ? provider.baseUrl : '',
+        customLabel: provider.isByok ? (provider.customLabel || '') : '',
+      })),
+  });
+});
+
+router.put('/byok/:providerId', byokWriteLimiter, async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition || (!definition.supportsApiKey && !definition.supportsBaseUrl) || !isByokEligible(definition)) {
+    return res.status(404).json({ success: false, error: 'Unknown or unsupported provider.' });
+  }
+
+  const apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  const baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : undefined;
+  const label = typeof req.body?.label === 'string' ? req.body.label.trim() : undefined;
+
+  if (definition.supportsApiKey && !apiKey) {
+    return res.status(400).json({ success: false, error: 'An API key is required.' });
+  }
+  // A provider with no API key concept (e.g. Ollama) is only ever "yours"
+  // by pointing it at your own custom address, so that address is mandatory.
+  const baseUrlRequired = definition.requiresBaseUrl || !definition.supportsApiKey;
+  if (baseUrlRequired && !baseUrl) {
+    return res.status(400).json({ success: false, error: 'A base URL is required for this provider.' });
+  }
+  if (baseUrl && !(await assertSafeByokBaseUrl(baseUrl, res, req.signal))) return;
+
+  try {
+    if (definition.supportsApiKey) {
+      setProviderSecret(userId, providerId, apiKey, agentId);
+    }
+    if (definition.supportsBaseUrl && (baseUrl !== undefined || label !== undefined)) {
+      setProviderConfig(userId, providerId, { baseUrl, label }, agentId);
+    }
+    res.json({ success: true, configured: true });
+  } catch (error) {
+    console.error('[Settings][BYOK] Failed to save provider credential:', error.message);
+    res.status(500).json({ success: false, error: 'Could not save this credential.' });
+  }
+});
+
+router.delete('/byok/:providerId', byokWriteLimiter, (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  if (!definition || !isByokEligible(definition)) {
+    return res.status(404).json({ success: false, error: 'Unknown provider.' });
+  }
+  try {
+    if (definition.supportsApiKey) {
+      setProviderSecret(userId, providerId, '', agentId);
+    }
+    if (!definition.supportsApiKey && definition.supportsBaseUrl) {
+      setProviderConfig(userId, providerId, { baseUrl: '', label: '' }, agentId);
+    }
+    res.json({ success: true, configured: false });
+  } catch (error) {
+    console.error('[Settings][BYOK] Failed to clear provider credential:', error.message);
+    res.status(500).json({ success: false, error: 'Could not clear this credential.' });
+  }
+});
+
+// Tests a key/endpoint the user is about to save (or has already saved, when
+// no body is sent) without persisting anything from this call.
+router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  const providerId = String(req.params.providerId || '').trim();
+  const definition = AI_PROVIDER_DEFINITIONS[providerId];
+  const factory = PROVIDER_FACTORIES[providerId];
+  if (!definition || !factory || !isByokEligible(definition)) {
+    return res.status(404).json({ success: false, error: 'Unknown provider.' });
+  }
+
+  let apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  let baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
+  if (!apiKey) {
+    const { getProviderRuntimeConfig } = require('../services/ai/models');
+    const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
+    apiKey = runtime.apiKey;
+    baseUrl = baseUrl || runtime.baseUrl;
+  }
+  if (definition.supportsApiKey && !apiKey) {
+    return res.status(400).json({ success: false, ok: false, error: 'No API key to test.' });
+  }
+  const baseUrlRequired = definition.requiresBaseUrl || !definition.supportsApiKey;
+  if (baseUrlRequired && !baseUrl) {
+    return res.status(400).json({ success: false, ok: false, error: 'A base URL is required.' });
+  }
+  if (baseUrl && !(await assertSafeByokBaseUrl(baseUrl, res, req.signal))) return;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const config = {};
+    if (factory.apiKey) config.apiKey = apiKey;
+    if (factory.baseUrl) config.baseUrl = baseUrl;
+    const provider = new factory.Provider(config);
+    if (typeof provider.listModels !== 'function') {
+      return res.json({ success: true, ok: true, message: 'Credential saved format looks valid; this provider does not support a live connection test.' });
+    }
+    const models = await provider.listModels(controller.signal);
+    res.json({
+      success: true,
+      ok: true,
+      message: Array.isArray(models) && models.length
+        ? `Connected — found ${models.length} model(s).`
+        : 'Connected, but no models were returned.',
+    });
+  } catch (error) {
+    res.json({ success: true, ok: false, error: error?.message || 'Connection failed.' });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // Get all settings
 router.get('/', (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
@@ -269,6 +476,14 @@ router.put('/', async (req, res) => {
 
   for (const key of RETIRED_SETTING_KEYS) delete normalizedBody[key];
   for (const key of SERVER_MANAGED_SETTING_KEYS) delete normalizedBody[key];
+
+  if ('timezone' in normalizedBody) {
+    const timeZone = normalizeTimeZone(normalizedBody.timezone);
+    if (!timeZone) {
+      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
+    normalizedBody.timezone = timeZone;
+  }
 
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
@@ -334,6 +549,9 @@ router.put('/', async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(normalizedBody, 'assistant_behavior_notes')) {
     const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
     invalidateSystemPromptCache(userId, agentId);
+  }
+  if ('timezone' in normalizedBody) {
+    applyTimeZoneChange(req, userId, agentId);
   }
 
   res.json({ success: true });
@@ -530,6 +748,11 @@ router.put('/:key', async (req, res) => {
       }
     }
     value = normalizeWhatsAppWhitelist(value);
+  } else if (req.params.key === 'timezone') {
+    value = normalizeTimeZone(value);
+    if (!value) {
+      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
   } else if (
     ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
       .includes(req.params.key)
@@ -559,6 +782,9 @@ router.put('/:key', async (req, res) => {
   } else {
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
       .run(userId, req.params.key, v);
+  }
+  if (req.params.key === 'timezone') {
+    applyTimeZoneChange(req, userId, agentId);
   }
 
   res.json({ success: true });
@@ -601,19 +827,14 @@ router.delete('/:key', (req, res) => {
   } else {
     db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(userId, req.params.key);
   }
+  if (req.params.key === 'timezone') {
+    applyTimeZoneChange(req, userId, agentId);
+  }
   res.json({ success: true });
 });
 
-function requireAdminSession(req, res, next) {
-  if (req.session?.isAdmin === true) return next();
-  return res.status(403).json({
-    success: false,
-    error: 'Server updates are only available from the admin dashboard.',
-  });
-}
-
 // Trigger auto-update script
-router.post('/update', requireAuth, requireAdminSession, updateTriggerLimiter, (req, res) => {
+router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, (req, res) => {
   if (isManagedDeployment()) {
     return res.status(403).json({
       success: false,
@@ -661,7 +882,7 @@ router.post('/update', requireAuth, requireAdminSession, updateTriggerLimiter, (
   res.json({ success: true, message: 'Update triggered', pid: child.pid });
 });
 
-router.put('/update/channel', requireAuth, requireAdminSession, (req, res) => {
+router.put('/update/channel', requireAuth, requireAdmin, (req, res) => {
   if (isManagedDeployment()) {
     return res.status(403).json({
       success: false,

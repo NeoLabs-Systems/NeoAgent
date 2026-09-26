@@ -4,6 +4,7 @@ const { describeEnvStatus, resolveGithubOAuthConfig } = require('../env');
 const { decryptValue } = require('../secrets');
 const { githubToolDefinitions, executeGithubTool } = require('./repos');
 const { githubApiRequest } = require('./common');
+const { preparePublicGithubCall } = require('./public_scope');
 const { base64UrlSha256 } = require('../../../utils/security');
 const { fetchJson } = require('../oauth_provider');
 const { fetchResponseText } = require('../http');
@@ -33,6 +34,13 @@ const GITHUB_APPS = [
     scopes: GITHUB_DEFAULT_SCOPES,
     toolDefinitions: githubToolDefinitions,
     executor: executeGithubTool,
+  },
+  {
+    id: 'mentions',
+    label: 'Mentions',
+    description: 'Lets approved people @mention this account on issues and pull requests to ask the agent for help. Set who and where under Messaging.',
+    scopes: GITHUB_DEFAULT_SCOPES,
+    toolDefinitions: [],
   },
 ];
 
@@ -96,7 +104,13 @@ async function executeGithubRepoTool(toolName, args, connection, executionOption
   if (!app) {
     throw new Error(`Unknown tool: ${toolName}`);
   }
-  const result = await app.executor(toolName, args, auth);
+  let toolArgs = args;
+  if (executionOptions.publicScope) {
+    const prepared = await preparePublicGithubCall(toolName, args, executionOptions.publicScope, auth);
+    toolArgs = prepared.args;
+    auth.requestGuard = prepared.requestGuard;
+  }
+  const result = await app.executor(toolName, toolArgs, auth);
   if (result === null) {
     throw new Error(`Unknown tool: ${toolName}`);
   }
@@ -114,7 +128,9 @@ function buildModelStatusLines(appSnapshots) {
   return appSnapshots.map((appSnapshot) => {
     if (appSnapshot.connection.connected) {
       const toolNames = getAppToolNames(appSnapshot.id).join(', ');
-      return `- ${appSnapshot.label}: ${formatAccountSummary(appSnapshot)}. Use built-in tools: ${toolNames}`;
+      return toolNames
+        ? `- ${appSnapshot.label}: ${formatAccountSummary(appSnapshot)}. Use built-in tools: ${toolNames}`
+        : `- ${appSnapshot.label}: ${formatAccountSummary(appSnapshot)}.`;
     }
 
     if (appSnapshot.connection.status === 'authorizing') {

@@ -133,8 +133,6 @@ write_test_env() {
   cat > "$home_dir/.env" <<EOF
 PORT=$TEST_PORT
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-ADMIN_USERNAME=testadmin
-ADMIN_PASSWORD=TestPass123!
 NODE_ENV=test
 NEOAGENT_RELEASE_CHANNEL=beta
 EOF
@@ -182,13 +180,13 @@ verify_server() {
     record "FAIL" "$label: /api/auth/status did not return expected JSON (got: $status_resp)"
   fi
 
-  # Admin panel should exist (200 or redirect)
+  # The admin API exists and refuses requests without a signed-in admin account
   local admin_code
-  admin_code=$(curl -sf -o /dev/null -w "%{http_code}" "$base/admin" 2>/dev/null || echo "000")
-  if [[ "$admin_code" == "200" || "$admin_code" == "301" || "$admin_code" == "302" ]]; then
-    record "PASS" "$label: /admin responded HTTP $admin_code"
+  admin_code=$(curl -s -o /dev/null -w "%{http_code}" "$base/api/admin/users" 2>/dev/null || echo "000")
+  if [[ "$admin_code" == "401" ]]; then
+    record "PASS" "$label: /api/admin requires sign-in (HTTP $admin_code)"
   else
-    record "FAIL" "$label: /admin responded HTTP $admin_code (expected 200/301/302)"
+    record "FAIL" "$label: /api/admin responded HTTP $admin_code (expected 401)"
   fi
 }
 

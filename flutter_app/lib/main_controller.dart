@@ -1,5 +1,23 @@
 part of 'main.dart';
 
+/// Run socket events that change a run's status or recorded steps.
+const Set<String> _runActivityEvents = <String>{
+  'run:start',
+  'run:analysis',
+  'run:plan',
+  'run:tool_start',
+  'run:tool_end',
+  'run:subagent',
+  'run:verification',
+  'run:input_required',
+  'run:paused',
+  'run:resumed',
+  'run:complete',
+  'run:stopped',
+  'run:interrupted',
+  'run:error',
+};
+
 class NeoAgentController extends ChangeNotifier {
   NeoAgentController({
     this.appMode = NeoAgentAppMode.standard,
@@ -72,6 +90,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
+  final Set<String> _addingTaskRecommendations = <String>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
@@ -111,6 +130,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isOpeningAppUpdate = false;
   bool isLoadingBilling = false;
   bool showBillingSection = false;
+  bool isLoadingAccess = false;
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
@@ -126,7 +146,6 @@ class NeoAgentController extends ChangeNotifier {
   bool hasUser = true;
   bool registrationOpen = false;
   bool serviceEmailConfigured = false;
-  String deploymentProfile = 'private';
   String backendUrl = _defaultBackendUrl;
   String username = '';
   String email = '';
@@ -153,6 +172,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
   AccountUsageAndLimits? usageAndLimits;
+  AccessSummary? accessSummary;
   List<AuthProviderCatalogItem> authProviders =
       const <AuthProviderCatalogItem>[];
   List<LinkedAuthProviderItem> linkedAuthProviders =
@@ -178,7 +198,15 @@ class NeoAgentController extends ChangeNotifier {
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
+  List<Map<String, dynamic>> byokProviders = const <Map<String, dynamic>>[];
+  bool isLoadingByokProviders = false;
   List<RunSummary> recentRuns = const <RunSummary>[];
+  DateTime? runsRefreshedAt;
+
+  /// Fires on every run lifecycle socket event so open run views can refresh
+  /// themselves without the whole app polling.
+  final ValueNotifier<({int seq, String runId})> runActivity =
+      ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
   List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
   Map<String, dynamic>? billingSubscription;
@@ -257,6 +285,9 @@ class NeoAgentController extends ChangeNotifier {
       _coworkThreads[conversationId] ?? const CoworkThreadState();
 
   ActiveRunState? activeRun;
+  // The foreground run that last ended in an error, cleared when the next one
+  // starts. The mascot plays its blocked face once for it.
+  String? _failedForegroundRunId;
   List<ToolEventItem> toolEvents = const <ToolEventItem>[];
   String streamingAssistant = '';
   // Which model turn the live bubble belongs to, so a new turn replaces it
@@ -421,6 +452,7 @@ class NeoAgentController extends ChangeNotifier {
     _liveVoiceRecoveryTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
     _socket?.dispose();
+    runActivity.dispose();
     _diagnosticLogSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _appReleaseUpdater.dispose();
@@ -761,7 +793,6 @@ class NeoAgentController extends ChangeNotifier {
       serviceEmailConfigured =
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
-      deploymentProfile = status['deploymentProfile']?.toString() ?? 'private';
       final rawAuthProviders = status['providers'];
       final authProviderRows = rawAuthProviders is List
           ? rawAuthProviders
@@ -1592,6 +1623,7 @@ class NeoAgentController extends ChangeNotifier {
     accountTwoFactor = const <String, dynamic>{};
     accountSessions = const <AccountSessionItem>[];
     usageAndLimits = null;
+    accessSummary = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     accountSecurityKeys = const <SecurityKeyItem>[];
     settings = const <String, dynamic>{};
@@ -2223,6 +2255,10 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> stopCoworkRun() async {
     final runId = selectedCoworkThread.activeRunId;
     if (runId == null) return;
+    await stopRun(runId);
+  }
+
+  Future<void> stopRun(String runId) async {
     try {
       await _backendClient.abortAgentRun(backendUrl, runId);
     } catch (error) {
@@ -3105,18 +3141,19 @@ class NeoAgentController extends ChangeNotifier {
       } catch (_) {
         healthResponse = null;
       }
-      if (!_isCurrentAuthCycle(authCycle)) {
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
 
-      officialIntegrations = _decodeModelList(
-        'official_integrations',
-        await officialIntegrationsFuture,
-        OfficialIntegrationItem.fromJson,
-      );
-      if (!_isCurrentAuthCycle(authCycle)) {
+      final officialIntegrationsResponse = await officialIntegrationsFuture;
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
+      officialIntegrations = _decodeModelList(
+        'official_integrations',
+        officialIntegrationsResponse,
+        OfficialIntegrationItem.fromJson,
+      );
 
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
@@ -3143,7 +3180,7 @@ class NeoAgentController extends ChangeNotifier {
       final socialReachResponse = await socialReachFuture;
       final androidResponse = await androidFuture;
       final teachResponse = await teachFuture;
-      if (!_isCurrentAuthCycle(authCycle)) {
+      if (!_isCurrentRefreshScope(authCycle, agentId)) {
         return;
       }
 
@@ -3245,6 +3282,7 @@ class NeoAgentController extends ChangeNotifier {
       await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) return;
       unawaited(ensureLocalDeviceConnected());
+      unawaited(_syncDeviceTimeZone());
       _ensureSocketConnected();
       _ensureUpdatePolling();
     } catch (error) {
@@ -3259,6 +3297,13 @@ class NeoAgentController extends ChangeNotifier {
 
   bool _isCurrentAuthCycle(int authCycle) =>
       isAuthenticated && _authCycle == authCycle;
+
+  /// A refresh loads everything for the agent selected when it started. Startup
+  /// restores the persisted agent while an earlier refresh is still in flight,
+  /// so without this the older response can land last and show the selected
+  /// agent another agent's integrations, chats and memory.
+  bool _isCurrentRefreshScope(int authCycle, String? agentId) =>
+      _isCurrentAuthCycle(authCycle) && agentId == _scopedAgentId;
 
   Future<T> _softRefreshLoad<T>(
     String label,
@@ -3328,6 +3373,7 @@ class NeoAgentController extends ChangeNotifier {
         fallbackToMapValues: true,
       );
       _runDetailsCache.clear();
+      runsRefreshedAt = DateTime.now();
       tokenUsage = TokenUsageSnapshot.fromJson(
         await _backendClient.fetchTokenUsageSummary(
           backendUrl,
@@ -3533,7 +3579,20 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
+  Future<List<OfficialIntegrationItem>> fetchOfficialIntegrationsForAgent(
+    String? agentId,
+  ) async {
+    return _decodeModelList(
+      'official_integrations',
+      await _backendClient.fetchOfficialIntegrations(
+        backendUrl,
+        agentId: agentId ?? _scopedAgentId,
+      ),
+      OfficialIntegrationItem.fromJson,
+    );
+  }
+
+    Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
     String? query,
     String? platform,
     String? agentId,
@@ -4425,24 +4484,6 @@ class NeoAgentController extends ChangeNotifier {
     );
     if (!result.launched) {
       errorMessage = result.error ?? 'Could not open workspace file download.';
-      notifyListeners();
-    }
-  }
-
-  /// AI provider credentials are server configuration, so the admin dashboard
-  /// is the only place to add them. Desktop installs have no `neoagent` CLI on
-  /// PATH, which makes this the one reachable route for them.
-  Future<void> openAdminDashboard() async {
-    final base = _normalizeBackendUrl(backendUrl);
-    if (base.isEmpty) {
-      return;
-    }
-    final result = await _oauthLauncher.openExternal(
-      url: '$base/admin',
-      label: 'neoagent_admin_dashboard',
-    );
-    if (!result.launched) {
-      errorMessage = result.error ?? 'Could not open the admin dashboard.';
       notifyListeners();
     }
   }
@@ -5408,6 +5449,111 @@ class NeoAgentController extends ChangeNotifier {
       );
       notifyListeners();
     } catch (_) {}
+  }
+
+  // ── Delegated access (managed / managing accounts) ───────────────────────
+
+  Future<void> refreshAccess() async {
+    if (!isAuthenticated) return;
+    isLoadingAccess = true;
+    notifyListeners();
+    try {
+      _applyAccessSummary(await _backendClient.fetchDelegation(backendUrl));
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      isLoadingAccess = false;
+      notifyListeners();
+    }
+  }
+
+  void _applyAccessSummary(Map<String, dynamic> json) {
+    final summary = AccessSummary.fromJson(json);
+    accessSummary = summary;
+    // Admin is granted and revoked from the operator side; keep the Admin tab
+    // in step with what the server just said.
+    final current = user;
+    if (current != null && (current['isAdmin'] == true) != summary.isAdmin) {
+      user = <String, dynamic>{...current, 'isAdmin': summary.isAdmin};
+    }
+  }
+
+  Future<bool> _changeAccess(
+    Future<Map<String, dynamic>> Function() request,
+  ) async {
+    errorMessage = null;
+    try {
+      _applyAccessSummary(await request());
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// Throws [BackendException] carrying the server's reason (expired, revoked,
+  /// already used, ...) so the confirmation dialog can show it.
+  Future<DelegationInvitePreview> previewDelegationInvite(String link) async {
+    return DelegationInvitePreview.fromJson(
+      await _backendClient.previewDelegationInvite(backendUrl, link),
+    );
+  }
+
+  /// Throws like [previewDelegationInvite]: the link can change between the
+  /// preview and the confirmation.
+  Future<void> redeemDelegationInvite(String link) async {
+    _applyAccessSummary(
+      await _backendClient.redeemDelegationInvite(backendUrl, link),
+    );
+    notifyListeners();
+  }
+
+  Future<bool> leaveManager() {
+    return _changeAccess(() => _backendClient.leaveDelegation(backendUrl));
+  }
+
+  /// Returns the shareable link. Throws on failure so the dialog stays open
+  /// with the reason.
+  Future<String> createDelegationInvite({
+    required String label,
+    required List<String> permissions,
+    required int? expiresInHours,
+    required bool singleUse,
+  }) async {
+    final response = await _backendClient.createDelegationInvite(
+      backendUrl,
+      label: label,
+      permissions: permissions,
+      expiresInHours: expiresInHours,
+      singleUse: singleUse,
+    );
+    unawaited(refreshAccess());
+    return response['link']?.toString() ?? '';
+  }
+
+  Future<bool> revokeDelegationInvite(String inviteId) {
+    return _changeAccess(
+      () => _backendClient.revokeDelegationInvite(backendUrl, inviteId),
+    );
+  }
+
+  Future<bool> releaseManagedAccount(int userId) {
+    return _changeAccess(
+      () => _backendClient.releaseManagedAccount(backendUrl, userId),
+    );
+  }
+
+  Future<bool> setManagedPermission(int userId, String key, bool allowed) {
+    return _changeAccess(
+      () => _backendClient.setManagedPermission(
+        backendUrl,
+        userId: userId,
+        permission: key,
+        allowed: allowed,
+      ),
+    );
   }
 
   // ── Billing ──────────────────────────────────────────────────────────────
@@ -6408,6 +6554,28 @@ class NeoAgentController extends ChangeNotifier {
     await refreshMessaging();
   }
 
+  /// Connects a messaging platform that signs in through an official
+  /// integration. The integration's own OAuth flow runs first when this
+  /// agent has not connected that app yet; the platform then starts on it.
+  Future<void> connectIntegrationMessagingPlatform(
+    MessagingPlatformDescriptor platform,
+  ) async {
+    final providerId = platform.integrationProvider!;
+    final appId = platform.integrationApp!;
+    await refreshSkills();
+    if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
+      await connectOfficialIntegration(providerId, appId: appId);
+      final failure = errorMessage;
+      if (failure != null) throw Exception(failure);
+      if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
+        throw Exception(
+          'Finish signing in to ${platform.label} in your browser, then connect again.',
+        );
+      }
+    }
+    await connectMessagingPlatform(platform: platform.id);
+  }
+
   Future<void> saveSettingsPayload(Map<String, dynamic> payload) async {
     final agentId = _scopedAgentId;
     final previousSettings = settings;
@@ -6440,6 +6608,35 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> deviceTimeZone() async {
+    try {
+      final zone = (await FlutterTimezone.getLocalTimezone()).identifier.trim();
+      return zone.isEmpty ? null : zone;
+    } catch (error) {
+      debugPrint('[TimeZone] Could not read the device time zone: $error');
+      return null;
+    }
+  }
+
+  // Adopts the device zone when the user has none yet, or while they follow
+  // whichever device they are using. Runs in the background, so a failure is
+  // logged instead of shown.
+  Future<void> _syncDeviceTimeZone() async {
+    if (!timeZoneFollowsDevice && timeZone.isNotEmpty) return;
+    final zone = await deviceTimeZone();
+    if (zone == null || zone == timeZone) return;
+    final agentId = _scopedAgentId;
+    try {
+      await _queueSettingsWrite(<String, dynamic>{
+        'timezone': zone,
+      }, agentId: agentId);
+      settings = <String, dynamic>{...settings, 'timezone': zone};
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[TimeZone] Could not save the device time zone: $error');
+    }
+  }
+
   Future<Map<String, dynamic>> _queueSettingsWrite(
     Map<String, dynamic> payload, {
     required String? agentId,
@@ -6461,6 +6658,70 @@ class NeoAgentController extends ChangeNotifier {
       onError: (Object _, StackTrace __) {},
     );
     return write;
+  }
+
+  Future<void> refreshByokProviders() async {
+    isLoadingByokProviders = true;
+    notifyListeners();
+    try {
+      final response = await _backendClient.fetchByokProviders(
+        backendUrl,
+        agentId: _scopedAgentId,
+      );
+      final raw = response['providers'];
+      byokProviders = raw is List
+          ? raw.whereType<Map>().map(Map<String, dynamic>.from).toList()
+          : const <Map<String, dynamic>>[];
+    } catch (_) {
+      // Keep whatever list is already in memory.
+    } finally {
+      isLoadingByokProviders = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveByokProvider(
+    String providerId, {
+    required String apiKey,
+    String? baseUrl,
+    String? label,
+  }) async {
+    final response = await _backendClient.saveByokProvider(
+      backendUrl,
+      providerId,
+      apiKey: apiKey,
+      baseUrlOverride: baseUrl,
+      label: label,
+      agentId: _scopedAgentId,
+    );
+    await refreshByokProviders();
+    await refreshAiCatalog();
+    return response;
+  }
+
+  Future<Map<String, dynamic>> clearByokProvider(String providerId) async {
+    final response = await _backendClient.clearByokProvider(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    await refreshByokProviders();
+    await refreshAiCatalog();
+    return response;
+  }
+
+  Future<Map<String, dynamic>> testByokProvider(
+    String providerId, {
+    String? apiKey,
+    String? baseUrl,
+  }) async {
+    return _backendClient.testByokProvider(
+      backendUrl,
+      providerId,
+      apiKey: apiKey,
+      baseUrlOverride: baseUrl,
+      agentId: _scopedAgentId,
+    );
   }
 
   Future<Map<String, dynamic>> refreshSocialReachStatus() async {
@@ -6703,6 +6964,38 @@ class NeoAgentController extends ChangeNotifier {
       agentId: agentId ?? _scopedAgentId,
     );
     await refreshTasks();
+  }
+
+  TaskRecommendationStatus taskRecommendationStatus(
+    TaskRecommendation recommendation,
+  ) {
+    if (_addingTaskRecommendations.contains(recommendation.title)) {
+      return TaskRecommendationStatus.adding;
+    }
+    final exists = taskItems.any((task) => task.name == recommendation.title);
+    return exists
+        ? TaskRecommendationStatus.added
+        : TaskRecommendationStatus.idle;
+  }
+
+  Future<void> addRecommendedTask(TaskRecommendation recommendation) async {
+    if (!_addingTaskRecommendations.add(recommendation.title)) return;
+    notifyListeners();
+    try {
+      await saveTask(
+        name: recommendation.title,
+        triggerType: 'schedule',
+        triggerConfig: <String, dynamic>{
+          'mode': 'recurring',
+          'cronExpression': recommendation.cronExpression,
+          'finishOnTime': false,
+        },
+        prompt: recommendation.prompt,
+      );
+    } finally {
+      _addingTaskRecommendations.remove(recommendation.title);
+      notifyListeners();
+    }
   }
 
   String _manualRunCooldownKey(String scope, String id) => '$scope:$id';
@@ -7196,6 +7489,10 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
+  String get timeZone => settings['timezone']?.toString().trim() ?? '';
+
+  bool get timeZoneFollowsDevice => settings['timezone_auto'] != false;
+
   List<String> get enabledModelIds {
     final raw = settings['enabled_models'];
     if (raw is List) {
@@ -7268,6 +7565,10 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
 
   DateTime? get liveVoiceCaptureStartedAt => _liveVoiceCaptureStartedAt;
+
+  /// Mirrors the server's per-request admin flag; only decides what the UI
+  /// shows. Every admin endpoint re-checks it server-side.
+  bool get isAdmin => user?['isAdmin'] == true;
 
   String get accountLabel {
     final displayName = user?['display_name']?.toString().trim() ?? '';
@@ -7386,6 +7687,15 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     final socket = io.io(origin, options);
+    socket.onAny((event, data) {
+      if (!_runActivityEvents.contains(event)) {
+        return;
+      }
+      runActivity.value = (
+        seq: runActivity.value.seq + 1,
+        runId: _jsonMap(data)['runId']?.toString() ?? '',
+      );
+    });
     socket.onConnect((_) {
       socketConnected = true;
       unawaited(_AppNotificationService.requestIncomingCallPermission());
@@ -7819,12 +8129,14 @@ class NeoAgentController extends ChangeNotifier {
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
       if (_isBackgroundRun(triggerSource)) {
         _backgroundRunIds.add(runId);
+        unawaited(refreshRunsOnly());
         return;
       }
       if (!_matchesSelectedAgent(agentId)) {
         _backgroundRunIds.add(runId);
         return;
       }
+      _failedForegroundRunId = null;
       activeRun = ActiveRunState(
         runId: runId,
         title:
@@ -8439,8 +8751,11 @@ class NeoAgentController extends ChangeNotifier {
         }
       }
       streamingAssistant = '';
+      _failedForegroundRunId =
+          runId ?? DateTime.now().microsecondsSinceEpoch.toString();
       activeRun = null;
       isSendingMessage = false;
+      unawaited(refreshRunsOnly());
       final message =
           payload['error']?.toString().trim() ??
           'I could not complete that request right now. Please try again in a moment.';

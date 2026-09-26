@@ -380,6 +380,16 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       ),
     ],
   ),
+  MessagingPlatformDescriptor(
+    id: 'github',
+    label: 'GitHub',
+    subtitle: 'Answers @mentions on issues and pull requests',
+    accent: Color(0xFF8B949E),
+    connectMethod: MessagingConnectMethod.integration,
+    icon: Icons.code_rounded,
+    integrationProvider: 'github',
+    integrationApp: 'mentions',
+  ),
   ...longTailMessagingPlatforms,
 ];
 
@@ -517,9 +527,11 @@ const List<MessagingConfigField> genericWebhookConfigFields =
         hint: 'Only needed if you want to reshape the outgoing payload.',
         kind: MessagingConfigFieldKind.multiline,
       ),
-    ];
+];
 
-enum MessagingConnectMethod { qr, config }
+/// `integration` platforms sign in through an official integration's OAuth
+/// flow instead of asking for tokens in a form.
+enum MessagingConnectMethod { qr, config, integration }
 
 enum MessagingConfigFieldKind { text, password, multiline, boolean }
 
@@ -557,6 +569,8 @@ class MessagingPlatformDescriptor {
     required this.icon,
     this.configFields = const <MessagingConfigField>[],
     this.accessCapabilities,
+    this.integrationProvider,
+    this.integrationApp,
   });
 
   final String id;
@@ -567,6 +581,11 @@ class MessagingPlatformDescriptor {
   final IconData icon;
   final List<MessagingConfigField> configFields;
   final MessagingAccessCapabilities? accessCapabilities;
+
+  /// Official integration provider and app whose connection this platform uses
+  /// when [connectMethod] is [MessagingConnectMethod.integration].
+  final String? integrationProvider;
+  final String? integrationApp;
 
   String get settingsKey => '${id}_config';
 }
@@ -1114,6 +1133,9 @@ class MessagingAccessCapabilities {
     this.sharedSpaceRuleScopes = const <String>[],
     this.sharedActorRuleScopes = const <String>[],
     this.manualEntryHint = '',
+    this.sharedModes = const <String>['allowlist', 'open', 'disabled'],
+    this.requireSharedActor = false,
+    this.mentionOnly = false,
   });
 
   factory MessagingAccessCapabilities.fromJson(Map<String, dynamic> json) {
@@ -1135,6 +1157,11 @@ class MessagingAccessCapabilities {
       sharedSpaceRuleScopes: stringList(json['sharedSpaceRuleScopes']),
       sharedActorRuleScopes: stringList(json['sharedActorRuleScopes']),
       manualEntryHint: json['manualEntryHint']?.toString() ?? '',
+      sharedModes: json['sharedModes'] is List
+          ? stringList(json['sharedModes'])
+          : const <String>['allowlist', 'open', 'disabled'],
+      requireSharedActor: json['requireSharedActor'] == true,
+      mentionOnly: json['mentionOnly'] == true,
     );
   }
 
@@ -1148,6 +1175,14 @@ class MessagingAccessCapabilities {
   final List<String> sharedActorRuleScopes;
   final String manualEntryHint;
 
+  /// Modes the owner may choose for groups; public platforms leave out 'open'.
+  final List<String> sharedModes;
+
+  /// When true, a group rule only says where the agent listens and every
+  /// sender still needs their own approval.
+  final bool requireSharedActor;
+  final bool mentionOnly;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'supportsDirectPolicy': supportsDirectPolicy,
     'supportsSharedPolicy': supportsSharedPolicy,
@@ -1158,6 +1193,9 @@ class MessagingAccessCapabilities {
     'sharedSpaceRuleScopes': sharedSpaceRuleScopes,
     'sharedActorRuleScopes': sharedActorRuleScopes,
     'manualEntryHint': manualEntryHint,
+    'sharedModes': sharedModes,
+    'requireSharedActor': requireSharedActor,
+    'mentionOnly': mentionOnly,
   };
 }
 
@@ -2149,7 +2187,7 @@ class RunStepItem {
       case 'failed':
         return _danger;
       case 'running':
-        return _warning;
+        return _info;
       default:
         return _textSecondary;
     }
@@ -2395,6 +2433,8 @@ class ModelMeta {
     this.providerStatus = '',
     this.providerStatusLabel = '',
     this.priceTier,
+    this.isByok = false,
+    this.byokLabel = '',
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2408,6 +2448,8 @@ class ModelMeta {
       providerStatus: json['providerStatus']?.toString() ?? '',
       providerStatusLabel: json['providerStatusLabel']?.toString() ?? '',
       priceTier: json['priceTier']?.toString(),
+      isByok: json['isByok'] == true,
+      byokLabel: json['byokLabel']?.toString() ?? '',
     );
   }
 
@@ -2422,6 +2464,11 @@ class ModelMeta {
 
   /// Pricing tier: 'free' | 'cheap' | 'medium' | 'expensive' | null (unknown)
   final String? priceTier;
+
+  /// True when this model runs on the current user's own (bring-your-own-key)
+  /// provider credentials rather than the server's shared ones.
+  final bool isByok;
+  final String byokLabel;
 }
 
 class AiProviderMeta {
@@ -2443,6 +2490,7 @@ class AiProviderMeta {
     required this.availableModelCount,
     this.authentication = 'api_key',
     this.requiresBaseUrl = false,
+    this.isByok = false,
   });
 
   factory AiProviderMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2464,6 +2512,7 @@ class AiProviderMeta {
       availableModelCount: _asInt(json['availableModelCount']),
       authentication: json['authentication']?.toString() ?? 'api_key',
       requiresBaseUrl: json['requiresBaseUrl'] == true,
+      isByok: json['isByok'] == true,
     );
   }
 
@@ -2484,6 +2533,7 @@ class AiProviderMeta {
   final int availableModelCount;
   final String authentication;
   final bool requiresBaseUrl;
+  final bool isByok;
 
   bool get usesApiKey => authentication == 'api_key' && supportsApiKey;
   bool get isLocal => authentication == 'local';
@@ -2605,6 +2655,10 @@ class RunSummary {
 
   bool get isFailure => status == 'failed' || status == 'error';
 
+  /// Still executing: counts toward the live section and ticks its elapsed time.
+  bool get isActive =>
+      status == 'running' || status == 'paused' || status == 'waiting_input';
+
   String get createdAtLabel => _formatTimestamp(createdAt);
 
   String get totalTokensLabel => _formatNumber(totalTokens);
@@ -2628,6 +2682,9 @@ class RunSummary {
       case 'error':
         return _danger;
       case 'running':
+        return _info;
+      case 'paused':
+      case 'waiting_input':
         return _warning;
       default:
         return _textSecondary;
@@ -2769,7 +2826,6 @@ class UpdateStatusSnapshot {
     this.releaseChannel = 'stable',
     this.allowSelfUpdate = true,
     this.deploymentMode = 'self_hosted',
-    this.deploymentProfile = 'private',
     this.targetBranch,
     this.versionBefore,
     this.versionAfter,
@@ -2790,7 +2846,6 @@ class UpdateStatusSnapshot {
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
       allowSelfUpdate: json['allowSelfUpdate'] != false,
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
-      deploymentProfile: json['deploymentProfile']?.toString() ?? 'private',
       targetBranch: json['targetBranch']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
@@ -2818,7 +2873,6 @@ class UpdateStatusSnapshot {
   final String releaseChannel;
   final bool allowSelfUpdate;
   final String deploymentMode;
-  final String deploymentProfile;
   final String? targetBranch;
   final String? versionBefore;
   final String? versionAfter;
@@ -2859,13 +2913,6 @@ class UpdateStatusSnapshot {
   String get releaseChannelLabel =>
       releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
 
-  String get deploymentProfileLabel =>
-      deploymentProfile.toLowerCase() == 'prod' ? 'Production' : 'Private';
-
-  String get runtimeModeLabel => deploymentProfile.toLowerCase() == 'prod'
-      ? 'Cloud runtime'
-      : 'Trusted host runtime';
-
   String get runtimeValidationLabel =>
       runtimeValidationReady ? 'Runtime ready' : 'Runtime setup required';
 
@@ -2883,7 +2930,7 @@ class UpdateStatusSnapshot {
         ? ''
         : ' | Installed: $installedVersion';
     final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Profile: $deploymentProfileLabel | Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
+    return 'Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
   }
 
   String get logsText =>
@@ -4870,4 +4917,239 @@ class CoworkThreadState {
       sending: sending ?? this.sending,
     );
   }
+}
+
+// ── Delegated access (who manages whom) ─────────────────────────────────────
+
+/// The only account fields the server shares across a delegation.
+class AccessPerson {
+  const AccessPerson({
+    required this.id,
+    required this.username,
+    required this.displayName,
+  });
+
+  static AccessPerson? tryParse(Object? json) {
+    if (json is! Map) return null;
+    return AccessPerson(
+      id: _asInt(json['id']),
+      username: json['username']?.toString() ?? '',
+      displayName: json['displayName']?.toString() ?? '',
+    );
+  }
+
+  final int id;
+  final String username;
+  final String displayName;
+
+  String get label => displayName.isNotEmpty ? displayName : username;
+}
+
+class AccessPermission {
+  const AccessPermission({
+    required this.key,
+    required this.allowed,
+    required this.editable,
+    required this.setBy,
+  });
+
+  factory AccessPermission.fromJson(Map<dynamic, dynamic> json) {
+    return AccessPermission(
+      key: json['key']?.toString() ?? '',
+      allowed: json['allowed'] == true,
+      editable: json['editable'] == true,
+      setBy: AccessPerson.tryParse(json['setBy']),
+    );
+  }
+
+  final String key;
+  final bool allowed;
+
+  /// Only present on the manager's view of an account they manage: false when
+  /// an upstream manager took this permission away from the manager.
+  final bool editable;
+
+  /// The manager whose decision is in force, or null when nobody manages the
+  /// account.
+  final AccessPerson? setBy;
+}
+
+List<AccessPermission> _parseAccessPermissions(Object? raw) {
+  if (raw is! List) return const <AccessPermission>[];
+  return raw
+      .whereType<Map<dynamic, dynamic>>()
+      .map(AccessPermission.fromJson)
+      .toList(growable: false);
+}
+
+class ManagedBy {
+  const ManagedBy({
+    required this.manager,
+    required this.since,
+    required this.chain,
+  });
+
+  static ManagedBy? tryParse(Object? json) {
+    if (json is! Map) return null;
+    final manager = AccessPerson.tryParse(json['manager']);
+    if (manager == null) return null;
+    final chain = json['chain'];
+    return ManagedBy(
+      manager: manager,
+      since: _parseOptionalTimestamp(json['since']?.toString()),
+      chain: chain is List
+          ? chain
+                .map(AccessPerson.tryParse)
+                .whereType<AccessPerson>()
+                .toList(growable: false)
+          : <AccessPerson>[manager],
+    );
+  }
+
+  final AccessPerson manager;
+  final DateTime? since;
+
+  /// Direct manager first, then theirs, up to the top of the chain.
+  final List<AccessPerson> chain;
+}
+
+class ManagedAccount {
+  const ManagedAccount({
+    required this.person,
+    required this.since,
+    required this.permissions,
+  });
+
+  static ManagedAccount? tryParse(Object? json) {
+    if (json is! Map) return null;
+    final person = AccessPerson.tryParse(json['user']);
+    if (person == null) return null;
+    return ManagedAccount(
+      person: person,
+      since: _parseOptionalTimestamp(json['since']?.toString()),
+      permissions: _parseAccessPermissions(json['permissions']),
+    );
+  }
+
+  final AccessPerson person;
+  final DateTime? since;
+  final List<AccessPermission> permissions;
+}
+
+class DelegationInvite {
+  const DelegationInvite({
+    required this.id,
+    required this.label,
+    required this.permissions,
+    required this.singleUse,
+    required this.useCount,
+    required this.expiresAt,
+    required this.createdAt,
+    required this.status,
+  });
+
+  factory DelegationInvite.fromJson(Map<dynamic, dynamic> json) {
+    final permissions = json['permissions'];
+    return DelegationInvite(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      permissions: permissions is List
+          ? permissions.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      singleUse: json['maxUses'] == 1,
+      useCount: _asInt(json['useCount']),
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+      createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
+      status: json['status']?.toString() ?? 'active',
+    );
+  }
+
+  final String id;
+  final String label;
+  final List<String> permissions;
+  final bool singleUse;
+  final int useCount;
+  final DateTime? expiresAt;
+  final DateTime? createdAt;
+
+  /// `active`, `expired`, `revoked` or `used`.
+  final String status;
+
+  bool get isActive => status == 'active';
+}
+
+class AccessSummary {
+  const AccessSummary({
+    required this.isAdmin,
+    required this.catalog,
+    required this.maxDepth,
+    required this.permissions,
+    required this.managedBy,
+    required this.managing,
+    required this.invites,
+  });
+
+  factory AccessSummary.fromJson(Map<dynamic, dynamic> json) {
+    final catalog = json['catalog'];
+    final managing = json['managing'];
+    final invites = json['invites'];
+    return AccessSummary(
+      isAdmin: json['isAdmin'] == true,
+      catalog: catalog is List
+          ? catalog.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      maxDepth: _asInt(json['maxDepth']),
+      permissions: _parseAccessPermissions(json['permissions']),
+      managedBy: ManagedBy.tryParse(json['managedBy']),
+      managing: managing is List
+          ? managing
+                .map(ManagedAccount.tryParse)
+                .whereType<ManagedAccount>()
+                .toList(growable: false)
+          : const <ManagedAccount>[],
+      invites: invites is List
+          ? invites
+                .whereType<Map<dynamic, dynamic>>()
+                .map(DelegationInvite.fromJson)
+                .toList(growable: false)
+          : const <DelegationInvite>[],
+    );
+  }
+
+  final bool isAdmin;
+  final List<String> catalog;
+  final int maxDepth;
+  final List<AccessPermission> permissions;
+  final ManagedBy? managedBy;
+  final List<ManagedAccount> managing;
+  final List<DelegationInvite> invites;
+}
+
+/// What a pasted invite link would do, shown before the user confirms.
+class DelegationInvitePreview {
+  const DelegationInvitePreview({
+    required this.issuer,
+    required this.permissions,
+    required this.expiresAt,
+    required this.singleUse,
+  });
+
+  factory DelegationInvitePreview.fromJson(Map<dynamic, dynamic> json) {
+    final permissions = json['permissions'];
+    return DelegationInvitePreview(
+      issuer:
+          AccessPerson.tryParse(json['issuer']) ??
+          const AccessPerson(id: 0, username: '', displayName: ''),
+      permissions: permissions is List
+          ? permissions.map((key) => key.toString()).toList(growable: false)
+          : const <String>[],
+      expiresAt: _parseOptionalTimestamp(json['expiresAt']?.toString()),
+      singleUse: json['singleUse'] == true,
+    );
+  }
+
+  final AccessPerson issuer;
+  final List<String> permissions;
+  final DateTime? expiresAt;
+  final bool singleUse;
 }

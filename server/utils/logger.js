@@ -16,7 +16,7 @@ function redactSecrets(input) {
 
     text = text
         .replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, '$1[redacted]')
-        .replace(/([?&](?:token|access_token|refresh_token|api[_-]?key|secret|password|authorization|cookie|session|sid)=)([^&#\s]+)/gi, '$1[redacted]')
+        .replace(/([?&](?:token|access_token|refresh_token|api[_-]?key|secret|password|authorization|cookie|session|sid|invite)=)([^&#\s]+)/gi, '$1[redacted]')
         .replace(/\b(token|access_token|refresh_token|authorization|api[_-]?key|secret|password|cookie|session(?:id)?|sid)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^,\s;]+)/gi, '$1=[redacted]');
 
     return text;

@@ -44,6 +44,7 @@ const {
   applyQueuedSystemSteering: applyQueuedSystemSteeringImpl,
   attachProcessToRun: attachProcessToRunImpl,
   buildProgressLedgerSnapshot: buildProgressLedgerSnapshotImpl,
+  describeIntegrationsForRun: describeIntegrationsForRunImpl,
   detachProcessFromRun: detachProcessFromRunImpl,
   enqueueSteering: enqueueSteeringImpl,
   enqueueSystemSteering: enqueueSystemSteeringImpl,
@@ -124,6 +125,10 @@ function estimateTokenValue(value) {
   if (typeof value === 'string') return Math.ceil(value.length / 4);
   return Math.ceil(JSON.stringify(value).length / 4);
 }
+
+// Enhanced recall sits on the path to the first reply. A slow or stuck helper
+// model falls back to the direct retrieval results instead of holding the run.
+const MEMORY_ENHANCEMENT_BUDGET_MS = 15_000;
 
 const FILE_TOOL_NAMES = new Set([
   'read_file',
@@ -354,51 +359,57 @@ class AgentEngine {
     let merged = initial;
     let reranked = initial;
     try {
-      const planned = await this.requestStructuredJson({
-        provider,
-        providerName,
-        model,
-        messages: [],
-        prompt: buildPlannerPrompt(query, initial, new Date().toISOString()),
-        maxTokens: 650,
-        normalize: (raw) => normalizeRetrievalPlan(raw, query),
-        fallback: normalizeRetrievalPlan({}, query),
-        reasoningEffort: this.getReasoningEffort(providerName, options),
-        telemetry: { runId, stepId, userId, agentId, signal },
-        phase: 'memory_retrieval_plan',
-      });
-      plan = planned.value;
-      const resultSets = [initial];
-      for (const variant of plan.queryVariants) {
-        if (variant === query && initial.length) continue;
-        resultSets.push(await memoryManager.recallMemory(userId, variant, 20, {
-          agentId,
-          validAt: plan.validAt,
-          includeHistory: plan.temporalMode === 'historical',
-          signal,
-        }));
-      }
-      merged = mergeRetrievalResults(resultSets, 30);
-      if (merged.length > 1) {
+      ({ plan, merged, reranked } = await runWithAbortTimeout(async (budgetSignal) => {
+        const planned = await this.requestStructuredJson({
+          provider,
+          providerName,
+          model,
+          messages: [],
+          prompt: buildPlannerPrompt(query, initial, new Date().toISOString()),
+          maxTokens: 650,
+          normalize: (raw) => normalizeRetrievalPlan(raw, query),
+          fallback: normalizeRetrievalPlan({}, query),
+          reasoningEffort: this.getReasoningEffort(providerName, options),
+          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
+          phase: 'memory_retrieval_plan',
+        });
+        const resultSets = [initial];
+        for (const variant of planned.value.queryVariants) {
+          if (variant === query && initial.length) continue;
+          resultSets.push(await memoryManager.recallMemory(userId, variant, 20, {
+            agentId,
+            validAt: planned.value.validAt,
+            includeHistory: planned.value.temporalMode === 'historical',
+            signal: budgetSignal,
+          }));
+        }
+        const mergedResults = mergeRetrievalResults(resultSets, 30);
+        if (mergedResults.length <= 1) {
+          return { plan: planned.value, merged: mergedResults, reranked: mergedResults };
+        }
         const rerankResponse = await this.requestStructuredJson({
           provider,
           providerName,
           model,
           messages: [],
-          prompt: buildRerankerPrompt(query, plan, merged.slice(0, 24)),
+          prompt: buildRerankerPrompt(query, planned.value, mergedResults.slice(0, 24)),
           maxTokens: 1200,
-          normalize: (raw) => normalizeRerankResult(raw, merged),
-          fallback: merged,
+          normalize: (raw) => normalizeRerankResult(raw, mergedResults),
+          fallback: mergedResults,
           reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId, signal },
+          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
           phase: 'memory_retrieval_rerank',
         });
-        reranked = rerankResponse.value;
-      } else {
-        reranked = merged;
-      }
+        return { plan: planned.value, merged: mergedResults, reranked: rerankResponse.value };
+      }, {
+        signal,
+        timeoutMs: MEMORY_ENHANCEMENT_BUDGET_MS,
+        label: 'Memory retrieval enhancement',
+        timeoutCode: 'MEMORY_ENHANCEMENT_TIMEOUT',
+      }));
     } catch (error) {
-      if (isAbortError(error, signal)) throw error;
+      // Only a cancelled run stops here; a budget timeout keeps the direct results.
+      if (signal?.aborted) throw error;
       console.warn('[Memory] Retrieval enhancement failed:', error.message);
       plan = null;
       merged = initial;
@@ -723,7 +734,6 @@ class AgentEngine {
     model,
     messages,
     analysis,
-    capabilitySummary,
     options,
   }) {
     const response = await this.requestStructuredJson({
@@ -731,7 +741,7 @@ class AgentEngine {
       providerName,
       model,
       messages,
-      prompt: buildPlanPrompt(analysis, capabilitySummary),
+      prompt: buildPlanPrompt(analysis),
       maxTokens: 1400,
       normalize: normalizeExecutionPlan,
       fallback: {
@@ -1142,6 +1152,10 @@ class AgentEngine {
 
   getActiveTools(runId) {
     return getActiveToolsImpl(this, runId);
+  }
+
+  describeIntegrationsForRun(runId, tools = []) {
+    return describeIntegrationsForRunImpl(this, runId, tools);
   }
 
   searchToolsForRun(runId, query, limit = 8) {
