@@ -26,15 +26,12 @@ extension _MascotReading on NeoAgentController {
         .toList(growable: false);
     if ((foregroundLive &&
             toolEvents.any((event) => event.status == 'running')) ||
-        voice == 'working' ||
+        voiceAssistantLiveState.hasActiveTask ||
         coworkRunning.any((thread) => thread.phase.startsWith('Running')) ||
         _hasUnwatchedLiveRun) {
       return (MascotMood.working, null);
     }
-    if (foregroundLive ||
-        coworkRunning.isNotEmpty ||
-        voice == 'transcribing' ||
-        voice == 'triaging') {
+    if (foregroundLive || coworkRunning.isNotEmpty) {
       return (MascotMood.thinking, null);
     }
 

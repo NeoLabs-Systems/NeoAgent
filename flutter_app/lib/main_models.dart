@@ -527,7 +527,7 @@ const List<MessagingConfigField> genericWebhookConfigFields =
         hint: 'Only needed if you want to reshape the outgoing payload.',
         kind: MessagingConfigFieldKind.multiline,
       ),
-];
+    ];
 
 /// `integration` platforms sign in through an official integration's OAuth
 /// flow instead of asking for tokens in a form.
@@ -1652,58 +1652,25 @@ class MemoryTransferImportResult {
   final List<String> warnings;
 }
 
-class LiveVoiceBufferedChunk {
-  LiveVoiceBufferedChunk({
-    required this.sequence,
-    required Uint8List bytes,
-    this.sent = false,
-  }) : bytes = Uint8List.fromList(bytes);
-
-  final int sequence;
-  final Uint8List bytes;
-  bool sent;
-}
-
 class VoiceTimelineItem {
   const VoiceTimelineItem({
     required this.id,
-    required this.sessionId,
-    required this.turnId,
     required this.role,
-    required this.kind,
     required this.content,
     required this.isFinal,
     required this.createdAt,
-    this.runId = '',
-    this.messageId = '',
   });
 
   final String id;
-  final String sessionId;
-  final String turnId;
-  final String runId;
-  final String messageId;
   final String role;
-  final String kind;
   final String content;
   final bool isFinal;
   final DateTime createdAt;
 
-  VoiceTimelineItem copyWith({
-    String? runId,
-    String? messageId,
-    String? kind,
-    String? content,
-    bool? isFinal,
-  }) {
+  VoiceTimelineItem copyWith({String? content, bool? isFinal}) {
     return VoiceTimelineItem(
       id: id,
-      sessionId: sessionId,
-      turnId: turnId,
-      runId: runId ?? this.runId,
-      messageId: messageId ?? this.messageId,
       role: role,
-      kind: kind ?? this.kind,
       content: content ?? this.content,
       isFinal: isFinal ?? this.isFinal,
       createdAt: createdAt,
@@ -1714,54 +1681,44 @@ class VoiceTimelineItem {
 class VoiceAssistantLiveState {
   VoiceAssistantLiveState({
     this.sessionId = '',
-    this.mediaMode = 'composed',
-    this.inputMode = 'ptt',
+    this.inputMode = 'hands_free',
     this.inputSampleRate = 24000,
+    this.outputSampleRate = 24000,
     this.provider = '',
     this.model = '',
     this.voice = '',
     this.activeRunId = '',
+    this.activeTaskRequest = '',
     this.transportState = 'connected',
     this.state = 'idle',
     List<VoiceTimelineItem>? timeline,
-    this.audioMimeType = 'audio/mpeg',
-    List<Uint8List>? audioQueue,
-    this.audioStreamDone = false,
-    this.recoverableUntil,
     this.error,
-  }) : timeline = timeline ?? const <VoiceTimelineItem>[],
-       audioQueue = audioQueue ?? const <Uint8List>[];
+  }) : timeline = timeline ?? const <VoiceTimelineItem>[];
 
   final String sessionId;
-  final String mediaMode;
   final String inputMode;
   final int inputSampleRate;
+  final int outputSampleRate;
   final String provider;
   final String model;
   final String voice;
+
+  /// The background task the live model handed off, while it runs.
   final String activeRunId;
+  final String activeTaskRequest;
   final String transportState;
+
+  /// Server-reported conversation state: connecting, listening, speaking,
+  /// reconnecting, closed, or idle before a session exists.
   final String state;
   final List<VoiceTimelineItem> timeline;
-  final String audioMimeType;
-  final List<Uint8List> audioQueue;
-  final bool audioStreamDone;
-  final DateTime? recoverableUntil;
   final String? error;
 
   bool get hasActiveSession => sessionId.trim().isNotEmpty;
-  bool get isLive => mediaMode == 'duplex';
-  bool get isListening => state == 'listening';
-  bool get isBusy => <String>{
-    'transcribing',
-    'triaging',
-    'working',
-    'waiting',
-    'blocked',
-    'speaking',
-  }.contains(state);
-  bool get isRecoverable =>
-      recoverableUntil != null && recoverableUntil!.isAfter(DateTime.now());
+  bool get isHandsFree => inputMode == 'hands_free';
+  bool get isSpeaking => state == 'speaking';
+  bool get isConnecting => state == 'connecting' || state == 'reconnecting';
+  bool get hasActiveTask => activeRunId.trim().isNotEmpty;
 
   String _latest(String role, {bool? finalOnly}) {
     for (final item in timeline.reversed) {
@@ -1774,59 +1731,37 @@ class VoiceAssistantLiveState {
 
   String get partialTranscript => _latest('user');
   String get finalTranscript => _latest('user', finalOnly: true);
-  String get interimAssistantText => timeline.reversed
-      .where((item) => item.role == 'assistant' && !item.isFinal)
-      .map((item) => item.content)
-      .firstWhere((content) => content.trim().isNotEmpty, orElse: () => '');
-  String get finalAssistantText => _latest('assistant', finalOnly: true);
   String get assistantText => _latest('assistant');
 
   VoiceAssistantLiveState copyWith({
     String? sessionId,
-    String? mediaMode,
     String? inputMode,
     int? inputSampleRate,
+    int? outputSampleRate,
     String? provider,
     String? model,
     String? voice,
     String? activeRunId,
+    String? activeTaskRequest,
     String? transportState,
     String? state,
     List<VoiceTimelineItem>? timeline,
-    String? audioMimeType,
-    List<Uint8List>? audioQueue,
-    bool? audioStreamDone,
-    DateTime? recoverableUntil,
     String? error,
     bool clearError = false,
-    bool clearAudio = false,
-    bool clearTimeline = false,
-    bool clearRecoverableUntil = false,
   }) {
     return VoiceAssistantLiveState(
       sessionId: sessionId ?? this.sessionId,
-      mediaMode: mediaMode ?? this.mediaMode,
       inputMode: inputMode ?? this.inputMode,
       inputSampleRate: inputSampleRate ?? this.inputSampleRate,
+      outputSampleRate: outputSampleRate ?? this.outputSampleRate,
       provider: provider ?? this.provider,
       model: model ?? this.model,
       voice: voice ?? this.voice,
       activeRunId: activeRunId ?? this.activeRunId,
+      activeTaskRequest: activeTaskRequest ?? this.activeTaskRequest,
       transportState: transportState ?? this.transportState,
       state: state ?? this.state,
-      timeline: clearTimeline
-          ? const <VoiceTimelineItem>[]
-          : (timeline ?? this.timeline),
-      audioMimeType: audioMimeType ?? this.audioMimeType,
-      audioQueue: clearAudio
-          ? const <Uint8List>[]
-          : (audioQueue ?? this.audioQueue),
-      audioStreamDone: clearAudio
-          ? false
-          : (audioStreamDone ?? this.audioStreamDone),
-      recoverableUntil: clearRecoverableUntil
-          ? null
-          : (recoverableUntil ?? this.recoverableUntil),
+      timeline: timeline ?? this.timeline,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -1953,9 +1888,9 @@ class RunPromptSnapshot {
   factory RunPromptSnapshot.fromJson(Map<dynamic, dynamic> json) {
     return RunPromptSnapshot(
       requestId: json['requestId']?.toString() ?? '',
-      sections: _jsonMapList(json['sections'])
-          .map(RunPromptSection.fromJson)
-          .toList(),
+      sections: _jsonMapList(
+        json['sections'],
+      ).map(RunPromptSection.fromJson).toList(),
       toolNames: _jsonMapList(json['tools'])
           .map((tool) => tool['name']?.toString() ?? '')
           .where((name) => name.isNotEmpty)
@@ -1971,7 +1906,9 @@ class RunPromptSnapshot {
       sections.fold(0, (total, section) => total + section.characters);
 
   String get plainText => sections
-      .map((section) => '### ${section.label} (${section.role})\n${section.text}')
+      .map(
+        (section) => '### ${section.label} (${section.role})\n${section.text}',
+      )
       .join('\n\n');
 }
 

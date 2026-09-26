@@ -2,10 +2,8 @@ const express = require('express');
 
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
-const { transcribeVoiceInput } = require('../services/voice/providers');
 const { writeTempAudioFile, removeTempFile } = require('../services/voice/liveAudio');
-const { getVoiceRuntimeSettings } = require('../services/voice/liveSettings');
-const { getProviderRuntimeConfig } = require('../services/ai/models');
+const { transcribeForUser } = require('../services/voice/transcription');
 
 const router = express.Router();
 
@@ -34,32 +32,20 @@ router.post('/transcribe', async (req, res) => {
     }
 
     const audioBytes = Buffer.from(audioBase64, 'base64');
-    const agentId = req.body?.agentId || null;
-    const voiceSettings = getVoiceRuntimeSettings(req.session.userId, agentId);
-    const runtimeProvider = voiceSettings.sttProvider === 'gemini'
-      ? 'google'
-      : voiceSettings.sttProvider;
-    const providerRuntime = runtimeProvider === 'deepgram'
-      ? { apiKey: '', baseUrl: '' }
-      : getProviderRuntimeConfig(req.session.userId, runtimeProvider, agentId);
     const { filePath, mimeType: fileMimeType } = await writeTempAudioFile(audioBytes, mimeType);
     let transcript = '';
     try {
-      transcript = await transcribeVoiceInput(filePath, {
-        provider: voiceSettings.sttProvider,
-        model: voiceSettings.sttModel,
-        mimeType: fileMimeType,
+      transcript = await transcribeForUser(filePath, {
         userId: req.session.userId,
-        agentId,
-        apiKey: providerRuntime.apiKey,
-        baseUrl: providerRuntime.baseUrl,
+        agentId: req.body?.agentId || null,
+        mimeType: fileMimeType,
         timeoutMs: 30000,
       });
     } finally {
       await removeTempFile(filePath);
     }
 
-    return res.json({ transcript: String(transcript || '').trim() });
+    return res.json({ transcript });
   } catch (err) {
     const message = sanitizeError(err);
     return res.status(500).json({ error: message });

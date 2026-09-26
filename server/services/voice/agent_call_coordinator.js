@@ -1,9 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
-const db = require('../../db/database');
 const { resolveAgent } = require('../agents/manager');
-const { createLinkedAbortController, isAbortError } = require('../../utils/abort');
 const { createServiceLogger } = require('../../utils/logger');
 
 const DEFAULT_RING_TIMEOUT_MS = 30_000;
@@ -58,7 +56,6 @@ class AgentCallCoordinator {
         abortHandler: null,
         timer: null,
         settled: false,
-        openingSpeech: null,
       };
       invitation.timer = setTimeout(() => this.#finish(invitation, 'missed'), this.ringTimeoutMs);
       invitation.timer.unref?.();
@@ -68,7 +65,6 @@ class AgentCallCoordinator {
       }
       this.pendingById.set(callId, invitation);
       this.pendingByUser.set(String(userId), callId);
-      invitation.openingSpeech = this.#beginOpeningSpeech(invitation);
       this.io.to(`user:${userId}`).emit('voice:incoming_call', {
         callId,
         agentId: invitation.agentId,
@@ -119,15 +115,8 @@ class AgentCallCoordinator {
       });
       if (!socket.data.voiceSessionIds) socket.data.voiceSessionIds = new Set();
       socket.data.voiceSessionIds.add(session.id);
-      this.#recordOpening(invitation);
-      const prepared = await this.#takeOpeningSpeech(invitation);
-      await this.voiceRuntimeManager.deliveryPresenter.present(session, {
-        content: invitation.openingMessage,
-        kind: 'opening',
-        messageId: randomUUID(),
-        runId: invitation.runId,
-        audioChunks: prepared?.chunks,
-      });
+      // The live model opens the call in its own voice from the run's message.
+      session.say(invitation.openingMessage);
       invitation.resolve({ status: 'accepted', callId: invitation.callId, sessionId: session.id });
       return { accepted: true, status: 'accepted', sessionId: session.id };
     } catch (error) {
@@ -184,79 +173,9 @@ class AgentCallCoordinator {
     return invitation;
   }
 
-  #beginOpeningSpeech(invitation) {
-    const prepare = this.voiceRuntimeManager.prepareComposedSpeech;
-    if (typeof prepare !== 'function') {
-      return { promise: Promise.resolve(null) };
-    }
-    const linked = createLinkedAbortController([invitation.signal]);
-    const promise = prepare.call(this.voiceRuntimeManager, {
-      userId: invitation.userId,
-      agentId: invitation.agentId,
-      text: invitation.openingMessage,
-      signal: linked.signal,
-    }).catch((error) => {
-      if (!isAbortError(error, linked.signal)) {
-        logger.warn('Failed to pre-generate opening speech', error?.message || error);
-      }
-      return null;
-    });
-    return {
-      promise,
-      controller: linked.controller,
-      cleanup: linked.cleanup,
-    };
-  }
-
-  async #takeOpeningSpeech(invitation) {
-    const openingSpeech = invitation.openingSpeech;
-    if (!openingSpeech) return null;
-    try {
-      return await openingSpeech.promise;
-    } finally {
-      openingSpeech.cleanup?.();
-    }
-  }
-
-  #abortOpeningSpeech(invitation) {
-    const openingSpeech = invitation?.openingSpeech;
-    if (!openingSpeech) return;
-    if (!openingSpeech.controller?.signal?.aborted) {
-      openingSpeech.controller?.abort();
-    }
-    openingSpeech.cleanup?.();
-  }
-
-  #recordOpening(invitation) {
-    const metadata = JSON.stringify({
-      platform: 'voice_live',
-      callId: invitation.callId,
-      kind: 'opening',
-      agentInitiated: true,
-    });
-    db.prepare(
-      `INSERT INTO conversation_history
-        (user_id, agent_id, agent_run_id, role, content, metadata)
-       VALUES (?, ?, ?, 'assistant', ?, ?)`,
-    ).run(
-      invitation.userId,
-      invitation.agentId,
-      invitation.runId,
-      invitation.openingMessage,
-      metadata,
-    );
-    if (invitation.conversationId) {
-      db.prepare(
-        `INSERT INTO conversation_messages (conversation_id, role, content)
-         VALUES (?, 'assistant', ?)`,
-      ).run(invitation.conversationId, invitation.openingMessage);
-    }
-  }
-
   #finish(invitation, status) {
     if (!invitation || invitation.settled) return;
     invitation.settled = true;
-    this.#abortOpeningSpeech(invitation);
     this.#remove(invitation);
     this.io.to(`user:${invitation.userId}`).emit('voice:call_ended', {
       callId: invitation.callId,

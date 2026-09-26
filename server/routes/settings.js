@@ -62,23 +62,12 @@ const AGENT_SETTING_KEYS = new Set([
   'enabled_models',
   'voice_stt_provider',
   'voice_stt_model',
-  'voice_tts_provider',
-  'voice_tts_model',
-  'voice_tts_voice',
-  'voice_media_mode',
+  'voice_live_provider',
+  'voice_live_model',
+  'voice_live_voice',
   'voice_input_mode',
   'last_platform',
   'last_chat_id',
-]);
-
-const VOICE_SETTING_KEYS = new Set([
-  'voice_stt_provider',
-  'voice_stt_model',
-  'voice_tts_provider',
-  'voice_tts_model',
-  'voice_tts_voice',
-  'voice_media_mode',
-  'voice_input_mode',
 ]);
 
 const ENV_BACKED_SETTING_KEYS = new Set([
@@ -101,6 +90,10 @@ const HIDDEN_SETTING_KEYS = new Set([
 ]);
 
 const RETIRED_SETTING_KEYS = new Set([
+  'voice_tts_provider',
+  'voice_tts_model',
+  'voice_tts_voice',
+  'voice_media_mode',
   'browser_backend',
   'browser_extension_token_id',
   'selected_browser_extension_token_id',

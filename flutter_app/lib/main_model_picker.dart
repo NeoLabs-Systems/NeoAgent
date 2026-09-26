@@ -134,12 +134,6 @@ List<_ModelPickerOption> _modelPickerOptions(
   ];
 }
 
-List<_ModelPickerOption> _simplePickerOptions(List<String> values) {
-  return values
-      .map((String v) => _ModelPickerOption(value: v, label: v))
-      .toList();
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Model Picker Button — drop-in trigger that opens the dialog
 // ─────────────────────────────────────────────────────────────────────────────

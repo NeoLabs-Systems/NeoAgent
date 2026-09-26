@@ -58,9 +58,9 @@ const List<String> setupResumeValueKeys = <String>[
   'SLACK_OAUTH_REDIRECT_URI',
   'FIGMA_OAUTH_REDIRECT_URI',
   'GITHUB_OAUTH_REDIRECT_URI',
-  'DEEPGRAM_BASE_URL',
-  'DEEPGRAM_MODEL',
-  'DEEPGRAM_LANGUAGE',
+  'VOICE_LIVE_PROVIDER',
+  'VOICE_LIVE_MODEL',
+  'VOICE_LIVE_VOICE',
 ];
 
 const Map<String, List<String>> setupRuntimeTargets = <String, List<String>>{

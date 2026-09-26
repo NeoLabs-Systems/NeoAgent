@@ -2,6 +2,7 @@
 
 const { WebSocketServer } = require('ws');
 const { sanitizeError } = require('../../utils/security');
+const { createVoiceSink } = require('../voice/voice_transport');
 const { asObject, toOptionalString } = require('../../utils/text');
 const {
   createUpgradeLimiter,
@@ -20,92 +21,6 @@ const HELLO_TIMEOUT_MS = 5000;
 function sendJson(ws, payload) {
   if (!ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify(payload));
-}
-
-function toBoundedInt(value, fallback, min, max) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, Math.floor(parsed)));
-}
-
-function createWearableVoiceSink(ws) {
-  return {
-    publishReady: async (session, extra = {}) => {
-      sendJson(ws, {
-        type: 'voice:session_ready',
-        sessionId: session.id,
-        ...extra,
-      });
-    },
-    setState: async (session, state, extra = {}) => {
-      sendJson(ws, {
-        type: 'voice:assistant_state',
-        sessionId: session.id,
-        state,
-        ...extra,
-      });
-    },
-    publishTranscriptPartial: async (session, content) => {
-      sendJson(ws, {
-        type: 'voice:transcript_partial',
-        sessionId: session.id,
-        content,
-      });
-    },
-    publishTranscriptFinal: async (session, content) => {
-      sendJson(ws, {
-        type: 'voice:transcript_final',
-        sessionId: session.id,
-        content,
-      });
-    },
-    publishAssistantOutput: async (session, content, options = {}) => {
-      sendJson(ws, {
-        type: 'voice:assistant_text',
-        sessionId: session.id,
-        content,
-        ...options,
-      });
-    },
-    publishAudioChunk: async (session, audioBytes, options = {}) => {
-      sendJson(ws, {
-        type: 'voice:audio_chunk',
-        sessionId: session.id,
-        ...options,
-        audioBase64: Buffer.from(audioBytes).toString('base64'),
-      });
-    },
-    publishAudioDone: async (session, options = {}) => {
-      sendJson(ws, {
-        type: 'voice:audio_done',
-        sessionId: session.id,
-        ...options,
-      });
-    },
-    interruptOutput: async (session) => {
-      sendJson(ws, {
-        type: 'voice:assistant_state',
-        sessionId: session.id,
-        state: 'interrupted',
-      });
-    },
-    publishError: async (session, message, extra = {}) => {
-      sendJson(ws, {
-        type: 'voice:error',
-        sessionId: session.id,
-        error: message,
-        ...extra,
-      });
-    },
-    close: async (session, reason = 'closed') => {
-      sendJson(ws, {
-        type: 'voice:assistant_state',
-        sessionId: session.id,
-        state: 'closed',
-        reason,
-      });
-    },
-  };
 }
 
 function bindWearableGateway(httpServer, app, sessionMiddleware) {
@@ -215,58 +130,29 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
 
             switch (message.type) {
               case 'voice:session_open': {
-                const resolvedSessionId = sessionId || null;
                 const session = await voiceRuntimeManager.openWearableSession({
                   userId: req.session.userId,
                   agentId: payload.agentId || payload.agent_id || null,
-                  sessionId: resolvedSessionId,
-                  sink: createWearableVoiceSink(ws),
+                  sessionId: sessionId || null,
+                  sink: createVoiceSink((event, data) => sendJson(ws, { type: event, ...data })),
                 });
                 activeSessionIds.add(session.id);
                 break;
               }
-              case 'voice:input_start':
-                if (!sessionId) throw new Error('sessionId is required');
-                await voiceRuntimeManager.beginInput(sessionId, {
-                  mimeType: toOptionalString(payload.mimeType, 128),
-                  turnId: toOptionalString(payload.turnId, 128),
-                }, req.session.userId);
-                break;
-              case 'voice:audio_chunk': {
+              case 'voice:audio': {
                 if (!sessionId) throw new Error('sessionId is required');
                 const audioBase64 = toOptionalString(payload.audioBase64, 800000);
                 if (!audioBase64) throw new Error('audioBase64 is required');
-                const sequence = toBoundedInt(payload.sequence, -1, -1, 1000000);
-                if (sequence < 0) throw new Error('sequence is required');
-                const turnId = toOptionalString(payload.turnId, 128);
-                if (!turnId) throw new Error('turnId is required');
-                const audioBytes = Buffer.from(audioBase64, 'base64');
-                const appendResult = await voiceRuntimeManager.appendInputAudio(sessionId, audioBytes, {
-                  mimeType: toOptionalString(payload.mimeType, 128),
-                  turnId,
-                  sequence,
-                }, req.session.userId);
-                sendJson(ws, {
-                  type: 'voice:chunk_ack',
-                  sessionId,
-                  turnId,
-                  sequence,
-                  receivedThrough: appendResult?.receivedThrough ?? sequence,
-                });
+                voiceRuntimeManager.appendAudio(sessionId, Buffer.from(audioBase64, 'base64'), req.session.userId);
                 break;
               }
-              case 'voice:input_commit': {
+              case 'voice:input_end':
                 if (!sessionId) throw new Error('sessionId is required');
-                await voiceRuntimeManager.commitInput(sessionId, {
-                  turnId: toOptionalString(payload.turnId, 128),
-                  finalSequence: toBoundedInt(payload.finalSequence, -1, -1, 1000000),
-                  promptHint: toOptionalString(payload.promptHint, 2000),
-                }, req.session.userId);
+                voiceRuntimeManager.endInput(sessionId, req.session.userId);
                 break;
-              }
               case 'voice:interrupt':
                 if (!sessionId) throw new Error('sessionId is required');
-                await voiceRuntimeManager.interruptSession(sessionId, req.session.userId);
+                voiceRuntimeManager.interruptOutput(sessionId, req.session.userId);
                 break;
               case 'voice:session_close':
                 if (!sessionId) throw new Error('sessionId is required');

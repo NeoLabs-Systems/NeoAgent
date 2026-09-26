@@ -2,21 +2,15 @@ const db = require('../../db/database');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const {
-  normalizeInputMode,
-  normalizeMediaMode,
-} = require('../voice/voice_config');
-const {
   normalizeSttProvider,
-  normalizeTtsProvider,
   resolveSttModel,
-  resolveTtsModel,
-  resolveTtsVoice,
-  DEFAULT_STT_PROVIDER,
-  DEFAULT_TTS_PROVIDER,
-  DEFAULT_STT_MODELS,
-  DEFAULT_TTS_MODELS,
-  DEFAULT_TTS_VOICES,
+  AUTO_STT_PROVIDER,
 } = require('../voice/providers');
+const {
+  DEFAULT_INPUT_MODE,
+  LIVE_VOICE_PROVIDERS,
+  normalizeInputMode,
+} = require('../voice/live/catalog');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 
 function createDefaultProviderConfigs() {
@@ -51,13 +45,13 @@ function createDefaultAiSettings() {
     default_subagent_model: 'auto',
     default_speech_model: 'auto',
     ai_provider_configs: createDefaultProviderConfigs(),
-    voice_stt_provider: DEFAULT_STT_PROVIDER,
-    voice_stt_model: DEFAULT_STT_MODELS.openai,
-    voice_tts_provider: DEFAULT_TTS_PROVIDER,
-    voice_tts_model: DEFAULT_TTS_MODELS.openai,
-    voice_tts_voice: DEFAULT_TTS_VOICES.openai,
-    voice_media_mode: 'auto',
-    voice_input_mode: 'ptt',
+    voice_stt_provider: AUTO_STT_PROVIDER,
+    voice_stt_model: '',
+    // Empty live voice values follow the server defaults (VOICE_LIVE_*).
+    voice_live_provider: '',
+    voice_live_model: '',
+    voice_live_voice: '',
+    voice_input_mode: DEFAULT_INPUT_MODE,
   };
 }
 
@@ -295,10 +289,11 @@ function getAiSettings(userId, agentId = null) {
     : DEFAULT_AI_SETTINGS.default_speech_model;
   settings.voice_stt_provider = normalizeSttProvider(settings.voice_stt_provider);
   settings.voice_stt_model = resolveSttModel(settings.voice_stt_provider, settings.voice_stt_model);
-  settings.voice_tts_provider = normalizeTtsProvider(settings.voice_tts_provider);
-  settings.voice_tts_model = resolveTtsModel(settings.voice_tts_provider, settings.voice_tts_model);
-  settings.voice_tts_voice = resolveTtsVoice(settings.voice_tts_provider, settings.voice_tts_voice);
-  settings.voice_media_mode = normalizeMediaMode(settings.voice_media_mode);
+  settings.voice_live_provider = LIVE_VOICE_PROVIDERS[settings.voice_live_provider]
+    ? settings.voice_live_provider
+    : '';
+  settings.voice_live_model = String(settings.voice_live_model || '').trim();
+  settings.voice_live_voice = String(settings.voice_live_voice || '').trim();
   settings.voice_input_mode = normalizeInputMode(settings.voice_input_mode);
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
 

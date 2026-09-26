@@ -288,12 +288,11 @@ function createMessagingManager(app, io, agentEngine) {
   return messagingManager;
 }
 
-function createVoiceRuntimeManager(app, io, { agentEngine, memoryManager }) {
+function createVoiceRuntimeManager(app, { agentEngine, memoryManager }) {
   const voiceRuntimeManager = registerLocal(
     app,
     'voiceRuntimeManager',
     new VoiceRuntimeManager({
-      io,
       agentEngine,
       memoryManager,
     }),
@@ -450,7 +449,7 @@ async function startServices(app, io) {
     logServiceReady('Tool security hooks registered');
     createMultiStep(app, agentEngine, io);
     createCommandRouter(app);
-    const voiceRuntimeManager = createVoiceRuntimeManager(app, io, {
+    const voiceRuntimeManager = createVoiceRuntimeManager(app, {
       agentEngine,
       memoryManager,
     });

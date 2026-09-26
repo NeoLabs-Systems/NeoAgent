@@ -102,7 +102,7 @@ function runHealthChecks(runtimeManager) {
     },
   ];
   if (process.env.DEEPGRAM_API_KEY) {
-    results.push({ id: 'deepgram', label: 'Deepgram (voice)', passed: true, detail: 'API key configured' });
+    results.push({ id: 'deepgram', label: 'Deepgram (transcription)', passed: true, detail: 'API key configured' });
   }
 
   return { passed: results.every((result) => result.passed), results };

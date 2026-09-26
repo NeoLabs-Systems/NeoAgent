@@ -20,10 +20,10 @@ const Map<String, String> _adminCfgFieldHints = <String, String>{
   'tenantId': 'Blank uses "common"',
 };
 
-const List<String> _adminCfgDeepgramFields = <String>[
-  'baseUrl',
+const List<String> _adminCfgLiveVoiceFields = <String>[
+  'provider',
   'model',
-  'language',
+  'voice',
 ];
 
 /// Null when [text] is blank or an http(s) address with a host, otherwise
@@ -1064,8 +1064,10 @@ class _AdminIntegrationsTab extends StatefulWidget {
 class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     with _LoadSaveState<_AdminIntegrationsTab> {
   List<_AdminCfgIntegration> _integrations = const <_AdminCfgIntegration>[];
+  List<Map<String, dynamic>> _liveVoiceProviders =
+      const <Map<String, dynamic>>[];
 
-  /// Inputs keyed by `integration.field` and `deepgram.field`. They
+  /// Inputs keyed by `integration.field` and `liveVoice.field`. They
   /// survive reloads so a field never loses its controller mid-frame.
   final Map<String, TextEditingController> _inputs =
       <String, TextEditingController>{};
@@ -1096,15 +1098,18 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
         .map(_AdminCfgIntegration.fromJson)
         .where((integration) => integration.key.isNotEmpty)
         .toList();
-    final deepgram = _jsonMap(data['deepgram']);
+    final liveVoice = _jsonMap(data['liveVoice']);
     for (final integration in integrations) {
       for (final field in integration.fields) {
         _track('${integration.key}.${field.name}', field.value);
       }
     }
-    for (final name in _adminCfgDeepgramFields) {
-      _track('deepgram.$name', deepgram[name]?.toString() ?? '');
+    for (final name in _adminCfgLiveVoiceFields) {
+      _track('liveVoice.$name', liveVoice[name]?.toString() ?? '');
     }
+    _liveVoiceProviders = _jsonMapList(
+      _jsonMap(liveVoice['catalog'])['providers'],
+    );
     _integrations = integrations;
   }
 
@@ -1128,7 +1133,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     });
   }
 
-  /// Only what changed. Deepgram goes whole because the server rewrites all
+  /// Only what changed. Live voice goes whole because the server rewrites all
   /// three of its values together.
   Map<String, dynamic> _changes() {
     final integrations = <String, Map<String, String>>{};
@@ -1143,15 +1148,15 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
         values[field.name] = _input(key).text.trim();
       }
     }
-    final deepgramChanged = _adminCfgDeepgramFields.any(
-      (name) => _changed('deepgram.$name'),
+    final liveVoiceChanged = _adminCfgLiveVoiceFields.any(
+      (name) => _changed('liveVoice.$name'),
     );
     return <String, dynamic>{
       if (integrations.isNotEmpty) 'integrations': integrations,
-      if (deepgramChanged)
-        'deepgram': <String, String>{
-          for (final name in _adminCfgDeepgramFields)
-            name: _input('deepgram.$name').text.trim(),
+      if (liveVoiceChanged)
+        'liveVoice': <String, String>{
+          for (final name in _adminCfgLiveVoiceFields)
+            name: _input('liveVoice.$name').text.trim(),
         },
     };
   }
@@ -1166,10 +1171,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
       );
       if (problem != null) return problem;
     }
-    return _adminCfgUrlProblem(
-      _input('deepgram.baseUrl').text,
-      'Deepgram base URL',
-    );
+    return null;
   }
 
   Future<void> _save() async {
@@ -1223,7 +1225,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
           ),
         ),
         for (final integration in _integrations) _integrationCard(integration),
-        _deepgramCard(),
+        _liveVoiceCard(),
         if (dirty)
           _PanelSurface(padding: const EdgeInsets.all(16), child: saveBar),
       ],
@@ -1266,33 +1268,53 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     );
   }
 
-  Widget _deepgramCard() {
+  Widget _liveVoiceCard() {
+    final providerInput = _input('liveVoice.provider');
+    final selected = providerInput.text.trim();
+    final provider = _liveVoiceProviders.firstWhere(
+      (item) =>
+          item['id']?.toString() == (selected.isEmpty ? 'openai' : selected),
+      orElse: () => const <String, dynamic>{},
+    );
     return _SectionCard(
-      title: 'Deepgram voice',
+      title: 'Live voice',
       description:
-          'Speech-to-text defaults for voice features. The Deepgram API key '
-          'itself is under Providers.',
+          'Server defaults for in-app voice calls. Calls run on a live '
+          'speech-to-speech model using the OpenAI or Google key under '
+          'Providers; each account can still pick its own model in Settings. '
+          'Blank values use the provider defaults.',
       child: _FieldGrid(
         children: <Widget>[
-          _WideField(
-            _FormTextField(
-              controller: _input('deepgram.baseUrl'),
-              label: 'Base URL',
-              hint: 'https://api.deepgram.com',
-              keyboardType: TextInputType.url,
-              onChanged: (_) => _edited(),
-            ),
+          DropdownButtonFormField<String>(
+            key: ValueKey<String>('live-voice-provider:$selected'),
+            initialValue: selected,
+            decoration: const InputDecoration(labelText: 'Provider'),
+            items: <DropdownMenuItem<String>>[
+              const DropdownMenuItem(
+                value: '',
+                child: Text('Default (OpenAI)'),
+              ),
+              for (final item in _liveVoiceProviders)
+                DropdownMenuItem(
+                  value: item['id']?.toString() ?? '',
+                  child: Text(item['label']?.toString() ?? ''),
+                ),
+            ],
+            onChanged: (value) {
+              providerInput.text = value ?? '';
+              _edited();
+            },
           ),
           _FormTextField(
-            controller: _input('deepgram.model'),
+            controller: _input('liveVoice.model'),
             label: 'Model',
-            hint: 'nova-3',
+            hint: provider['defaultModel']?.toString(),
             onChanged: (_) => _edited(),
           ),
           _FormTextField(
-            controller: _input('deepgram.language'),
-            label: 'Language',
-            hint: 'multi',
+            controller: _input('liveVoice.voice'),
+            label: 'Voice',
+            hint: provider['defaultVoice']?.toString(),
             onChanged: (_) => _edited(),
           ),
         ],

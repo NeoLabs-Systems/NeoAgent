@@ -27,6 +27,7 @@ import android.os.Bundle
 import android.telecom.DisconnectCause
 import android.content.Context
 import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
+import com.neoagent.flutter_app.voice.VoicePcmPlayer
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import kotlinx.coroutines.launch
@@ -42,6 +43,12 @@ class MainActivity : FlutterFragmentActivity() {
     private var launcherButtonSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
     private var pendingSharePayload: Map<String, Any?>? = null
+    private val voicePlayer = VoicePcmPlayer()
+
+    override fun onDestroy() {
+        voicePlayer.stop()
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -119,6 +126,31 @@ class MainActivity : FlutterFragmentActivity() {
                         it.destroy()
                     }
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "neoagent/voice_audio",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    voicePlayer.start(call.argument<Int>("sampleRate") ?: 24000)
+                    result.success(null)
+                }
+                "write" -> {
+                    call.argument<ByteArray>("pcm")?.let(voicePlayer::write)
+                    result.success(null)
+                }
+                "flush" -> {
+                    voicePlayer.flush()
+                    result.success(null)
+                }
+                "stop" -> {
+                    voicePlayer.stop()
+                    result.success(null)
                 }
                 else -> result.notImplemented()
             }

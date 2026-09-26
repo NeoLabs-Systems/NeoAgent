@@ -2,14 +2,13 @@
 
 const db = require('../../db/database');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { normalizeSttProvider, resolveSttModel } = require('./providers');
 const {
-  normalizeSttProvider,
-  normalizeTtsProvider,
-  resolveSttModel,
-  resolveTtsModel,
-  resolveTtsVoice,
-} = require('./providers');
-const { normalizeInputMode, normalizeMediaMode } = require('./voice_config');
+  normalizeInputMode,
+  normalizeLiveProvider,
+  resolveLiveModel,
+  resolveLiveVoice,
+} = require('./live/catalog');
 
 function parseSettingValue(value, fallback = '') {
   if (value == null) return fallback;
@@ -33,35 +32,20 @@ function readScopedSetting(userId, agentId, key) {
   return parseSettingValue(userRow?.value, '');
 }
 
+// Transcription (voice notes, dictation) and the live voice model are separate
+// concerns that share one per-agent settings scope.
 function getVoiceRuntimeSettings(userId, agentId = null) {
   const scopedAgentId = resolveAgentId(userId, agentId);
-  const sttProvider = normalizeSttProvider(
-    readScopedSetting(userId, scopedAgentId, 'voice_stt_provider'),
-  );
-  const ttsProvider = normalizeTtsProvider(
-    readScopedSetting(userId, scopedAgentId, 'voice_tts_provider'),
-  );
+  const read = (key) => readScopedSetting(userId, scopedAgentId, key);
+  const sttProvider = normalizeSttProvider(read('voice_stt_provider'));
+  const liveProvider = normalizeLiveProvider(read('voice_live_provider'));
   return {
-    mediaMode: normalizeMediaMode(
-      readScopedSetting(userId, scopedAgentId, 'voice_media_mode'),
-    ),
-    inputMode: normalizeInputMode(
-      readScopedSetting(userId, scopedAgentId, 'voice_input_mode'),
-    ),
     sttProvider,
-    sttModel: resolveSttModel(
-      sttProvider,
-      readScopedSetting(userId, scopedAgentId, 'voice_stt_model'),
-    ),
-    ttsProvider,
-    ttsModel: resolveTtsModel(
-      ttsProvider,
-      readScopedSetting(userId, scopedAgentId, 'voice_tts_model'),
-    ),
-    ttsVoice: resolveTtsVoice(
-      ttsProvider,
-      readScopedSetting(userId, scopedAgentId, 'voice_tts_voice'),
-    ),
+    sttModel: resolveSttModel(sttProvider, read('voice_stt_model')),
+    liveProvider,
+    liveModel: resolveLiveModel(liveProvider, read('voice_live_model')),
+    liveVoice: resolveLiveVoice(liveProvider, read('voice_live_voice')),
+    inputMode: normalizeInputMode(read('voice_input_mode')),
   };
 }
 

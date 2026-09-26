@@ -5,7 +5,6 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const db = require('../../db/database');
 const { DATA_DIR } = require('../../../runtime/paths');
 const { CLIExecutor } = require('../cli/executor');
 const { executeSafeHttpRequest } = require('../network/safe_request');
@@ -20,8 +19,7 @@ const { inferImageContentType, pickDeterministicFrameSecond } = require('./frame
 const { extractPublicMetadataFromHtml } = require('./metadata');
 const { shapeSocialVideoResult } = require('./result');
 const { normalizeAndDetectPlatform } = require('./url');
-const { isMainAgent } = require('../agents/manager');
-const { resolveSttModel, transcribeVoiceInput } = require('../voice/providers');
+const { transcribeForUser } = require('../voice/transcription');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 
 const SOCIAL_VIDEO_TMP_DIR = path.join(DATA_DIR, 'social-video-temp');
@@ -135,52 +133,6 @@ function unwrapBrowserExtractValue(payload) {
   if (typeof payload === 'string') return payload;
   if (typeof payload?.result === 'string') return payload.result;
   return '';
-}
-
-function parseStoredSettingValue(value) {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function readStoredSetting(userId, agentId, key) {
-  if (!userId) {
-    return null;
-  }
-
-  if (agentId) {
-    const agentRow = db.prepare(
-      'SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?',
-    ).get(userId, agentId, key);
-    if (agentRow) {
-      return parseStoredSettingValue(agentRow.value);
-    }
-  }
-
-  if (!agentId || isMainAgent(userId, agentId)) {
-    const userRow = db.prepare(
-      'SELECT value FROM user_settings WHERE user_id = ? AND key = ?',
-    ).get(userId, key);
-    if (userRow) {
-      return parseStoredSettingValue(userRow.value);
-    }
-  }
-
-  return null;
-}
-
-function resolveVoiceSttConfigFromSettings(settings = {}) {
-  const provider = String(settings.voice_stt_provider || '').trim().toLowerCase() || 'openai';
-  const model = String(settings.voice_stt_model || '').trim();
-  return {
-    provider,
-    model: resolveSttModel(provider, model),
-  };
 }
 
 function serializeCookiesForNetscapeJar(cookies = []) {
@@ -306,8 +258,7 @@ class SocialVideoService {
     this.runtimeManager = options.runtimeManager || null;
     this.cliExecutor = options.cliExecutor || new CLIExecutor();
     this.publicResourceFetcher = options.publicResourceFetcher || fetchPublicResource;
-    this.voiceTranscriber = options.voiceTranscriber || transcribeVoiceInput;
-    this.voiceSettingsResolver = options.voiceSettingsResolver || ((userId, agentId) => this.#resolveVoiceSttConfig(userId, agentId));
+    this.voiceTranscriber = options.voiceTranscriber || transcribeForUser;
     this.ytDlpBin = String(process.env.YT_DLP_BIN || 'yt-dlp').trim() || 'yt-dlp';
     this.ffmpegBin = String(process.env.FFMPEG_BIN || 'ffmpeg').trim() || 'ffmpeg';
     this._healthCache = {
@@ -760,14 +711,10 @@ class SocialVideoService {
   async #transcribeViaStt(context) {
     const audioPath = await this.#downloadAudioForStt(context);
     const preparedPath = await this.#prepareAudioForStt(audioPath, context);
-
-    const sttConfig = await Promise.resolve(
-      this.voiceSettingsResolver(context.userId, context.agentId),
-    );
     throwIfAborted(context.signal, 'Social video transcription aborted.');
     return this.voiceTranscriber(preparedPath, {
-      provider: sttConfig?.provider || 'openai',
-      model: sttConfig?.model || '',
+      userId: context.userId,
+      agentId: context.agentId,
       mimeType: detectMimeFromFile(preparedPath),
       signal: context.signal,
     });
@@ -831,13 +778,6 @@ class SocialVideoService {
       throw new Error('ffmpeg did not produce a normalized audio file for transcription.');
     }
     return normalizedPath;
-  }
-
-  async #resolveVoiceSttConfig(userId, agentId) {
-    return resolveVoiceSttConfigFromSettings({
-      voice_stt_provider: readStoredSetting(userId, agentId, 'voice_stt_provider'),
-      voice_stt_model: readStoredSetting(userId, agentId, 'voice_stt_model'),
-    });
   }
 
   async #resolveCookieFile(context) {
@@ -1022,6 +962,5 @@ module.exports = {
   pickDownloadedCaptionFile,
   pickBestThumbnail,
   classifyExtractionError,
-  resolveVoiceSttConfigFromSettings,
   shellEscape,
 };

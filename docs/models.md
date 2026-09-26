@@ -65,7 +65,11 @@ Some features use separate providers:
 
 - Embeddings for memory search use a configured supported embedding provider
   and fall back to lexical retrieval when embeddings are unavailable.
-- Voice transcription can use Deepgram when enabled.
+- Voice calls run on a live speech-to-speech model (OpenAI GPT-Live or
+  Gemini Live) that shares the chat's system prompt, memory and history. It
+  answers conversation directly and hands anything that needs tools to a
+  normal agent run in the background, then speaks the result.
+- Voice-note and dictation transcription uses OpenAI, Gemini or Deepgram.
 - Image generation and analysis depend on the selected provider and model.
 
 ## ⚡ Jev decisions

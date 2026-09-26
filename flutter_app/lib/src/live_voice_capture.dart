@@ -43,11 +43,19 @@ class LiveVoiceCapture {
       },
     );
 
+    // Voice processing keeps the assistant's own playback out of the
+    // microphone, which a full-duplex live call depends on.
     final stream = await _recorder.startStream(
       RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: channels,
+        echoCancel: true,
+        noiseSuppress: true,
+        autoGain: true,
+        androidConfig: const AndroidRecordConfig(
+          audioSource: AndroidAudioSource.voiceCommunication,
+        ),
       ),
     );
 

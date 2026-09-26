@@ -5,10 +5,7 @@ const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
 const cowork = require('./cowork/service');
 
-const MAX_VOICE_SCREENSHOT_BYTES = 3 * 1024 * 1024;
-const MAX_VOICE_SCREENSHOT_BASE64_CHARS =
-  Math.ceil((MAX_VOICE_SCREENSHOT_BYTES * 4) / 3) + 8;
-const MAX_VOICE_AUDIO_CHUNK_BYTES = 512 * 1024;
+const MAX_VOICE_AUDIO_CHUNK_BYTES = 256 * 1024;
 const MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS =
   Math.ceil((MAX_VOICE_AUDIO_CHUNK_BYTES * 4) / 3) + 8;
 const MAX_AGENT_TASK_CHARS = 50000;
@@ -32,10 +29,9 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'messaging:send': { windowMs: 10 * 1000, max: 20 },
   'messaging:status': { windowMs: 10 * 1000, max: 40 },
   'voice:session_open': { windowMs: 10 * 1000, max: 10 },
-  'voice:input_start': { windowMs: 10 * 1000, max: 20 },
+  'voice:audio': { windowMs: 1000, max: 80 },
+  'voice:input_end': { windowMs: 10 * 1000, max: 40 },
   'voice:cancel_task': { windowMs: 10 * 1000, max: 10 },
-  'voice:audio_chunk': { windowMs: 1000, max: 40 },
-  'voice:input_commit': { windowMs: 10 * 1000, max: 10 },
   'voice:interrupt': { windowMs: 10 * 1000, max: 20 },
   'voice:session_close': { windowMs: 10 * 1000, max: 20 },
   'voice:call_accept': { windowMs: 10 * 1000, max: 10 },
@@ -692,232 +688,58 @@ function setupWebSocket(io, services) {
         }
         socket.data.voiceSessionIds.add(session.id);
       } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
+        socket.emit('voice:error', { error: sanitizeError(err), recoverable: false });
       }
     });
 
-    socket.on('voice:input_start', async (raw) => {
-      const limit = allowEvent('voice:input_start');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:input_start', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:input_start. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.beginInput(sessionId, {
-          mimeType: toOptionalString(data?.mimeType, 128),
-          turnId: toOptionalString(data?.turnId, 128),
-        }, userId);
-      } catch (err) {
-        console.error(`[WS] voice:input_start failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
-    });
-
-    socket.on('voice:audio_chunk', async (raw) => {
-      const limit = allowEvent('voice:audio_chunk');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:audio_chunk', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:audio_chunk. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        const audioBase64 = toOptionalString(data?.audioBase64, MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS + 16);
-        if (!audioBase64 || audioBase64.length > MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS) {
+    // Session-scoped voice events share validation: rate limit, a sessionId, and
+    // ownership checked by the runtime.
+    const onVoiceSessionEvent = (eventName, handler) => {
+      socket.on(eventName, async (raw) => {
+        const limit = allowEvent(eventName);
+        if (!limit.allowed) {
+          recordRateLimitHit(rateLimitObserver, userId, socket.id, eventName, limit.retryAfterMs);
           return socket.emit('voice:error', {
-            sessionId,
-            error: `audio chunk is too large (max ${MAX_VOICE_AUDIO_CHUNK_BYTES} bytes)`,
+            error: `Rate limit exceeded for ${eventName}. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+            recoverable: true,
           });
         }
-        const audioBytes = Buffer.from(audioBase64, 'base64');
-        if (!audioBytes.length || audioBytes.length > MAX_VOICE_AUDIO_CHUNK_BYTES) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: `audio chunk is too large (max ${MAX_VOICE_AUDIO_CHUNK_BYTES} bytes)`,
-          });
-        }
-        const turnId = toOptionalString(data?.turnId, 128);
-        const sequence = toBoundedInt(data?.sequence, -1, -1, 1_000_000);
-        if (!turnId) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: 'turnId is required',
-          });
-        }
-        if (sequence < 0) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: 'sequence is required',
-          });
-        }
-        const appendResult = await voiceRuntimeManager.appendInputAudio(sessionId, audioBytes, {
-          mimeType: toOptionalString(data?.mimeType, 128),
-          turnId,
-          sequence,
-        }, userId);
-        socket.emit('voice:chunk_ack', {
-          sessionId,
-          turnId,
-          sequence,
-          receivedThrough: appendResult?.receivedThrough ?? sequence,
-        });
-      } catch (err) {
-        console.error(`[WS] voice:audio_chunk failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
-    });
-
-    socket.on('voice:input_commit', async (raw) => {
-      const limit = allowEvent('voice:input_commit');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:input_commit', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:input_commit. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
         const data = asObject(raw);
         const sessionId = toOptionalString(data?.sessionId, 128);
         if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
+          return socket.emit('voice:error', { error: 'sessionId is required', recoverable: true });
         }
-        const metadata = {};
-        const screenshotBase64 = typeof data?.screenshotBase64 === 'string'
-          ? data.screenshotBase64.trim()
-          : '';
-        if (screenshotBase64) {
-          if (screenshotBase64.length > MAX_VOICE_SCREENSHOT_BASE64_CHARS) {
-            console.warn(
-              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: base64 length ${screenshotBase64.length}`
-            );
-            socket.emit('voice:error', {
-                sessionId,
-              error: 'Attached screenshot is too large (max 3 MB).',
-            });
-            return;
-          }
-
-          const screenshotBytes = Buffer.from(screenshotBase64, 'base64');
-          if (!screenshotBytes.length || screenshotBytes.length > MAX_VOICE_SCREENSHOT_BYTES) {
-            console.warn(
-              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: decoded bytes ${screenshotBytes.length}`
-            );
-            socket.emit('voice:error', {
-                sessionId,
-              error: 'Attached screenshot is too large (max 3 MB).',
-            });
-            return;
-          }
-
-          metadata.screenshotBase64 = screenshotBase64;
-          const screenshotMimeType = typeof data?.screenshotMimeType === 'string'
-            ? data.screenshotMimeType.trim()
-            : '';
-          if (screenshotMimeType) {
-            metadata.screenshotMimeType = screenshotMimeType;
-          }
+        try {
+          await handler(sessionId, data);
+        } catch (err) {
+          socket.emit('voice:error', { sessionId, error: sanitizeError(err), recoverable: true });
         }
+      });
+    };
 
-        await voiceRuntimeManager.commitInput(sessionId, {
-          turnId: toOptionalString(data?.turnId, 128),
-          finalSequence: toBoundedInt(data?.finalSequence, -1, -1, 1_000_000),
-          promptHint: toOptionalString(data?.promptHint, 2000),
-          metadata,
-        }, userId);
-      } catch (err) {
-        console.error(`[WS] voice:input_commit failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:audio', (sessionId, data) => {
+      const audioBase64 = toOptionalString(data?.audioBase64, MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS);
+      if (!audioBase64) throw new Error('audioBase64 is required');
+      voiceRuntimeManager.appendAudio(sessionId, Buffer.from(audioBase64, 'base64'), userId);
     });
 
-    socket.on('voice:interrupt', async (raw) => {
-      const limit = allowEvent('voice:interrupt');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:interrupt', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:interrupt. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.interruptSession(sessionId, userId);
-      } catch (err) {
-        console.error(`[WS] voice:interrupt failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:input_end', (sessionId) => {
+      voiceRuntimeManager.endInput(sessionId, userId);
     });
 
-    socket.on('voice:cancel_task', async (raw) => {
-      const limit = allowEvent('voice:cancel_task');
-      if (!limit.allowed) {
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:cancel_task. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) return socket.emit('voice:error', { error: 'sessionId is required' });
-        const result = await voiceRuntimeManager.cancelTask(sessionId, userId);
-        socket.emit('voice:task_cancelled', { sessionId, ...result });
-      } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
-      }
+    onVoiceSessionEvent('voice:interrupt', (sessionId) => {
+      voiceRuntimeManager.interruptOutput(sessionId, userId);
     });
 
-    socket.on('voice:session_close', async (raw) => {
-      const limit = allowEvent('voice:session_close');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:session_close', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:session_close. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId, {
-          cancelTask: data?.cancelTask === true,
-        });
-        socket.data.voiceSessionIds?.delete(sessionId);
-      } catch (err) {
-        console.error(`[WS] voice:session_close failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:cancel_task', (sessionId) => {
+      voiceRuntimeManager.cancelTask(sessionId, userId);
+    });
+
+    onVoiceSessionEvent('voice:session_close', async (sessionId, data) => {
+      await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId, {
+        cancelTask: data?.cancelTask === true,
+      });
+      socket.data.voiceSessionIds?.delete(sessionId);
     });
 
     // ── MCP ──

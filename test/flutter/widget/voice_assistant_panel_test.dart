@@ -6,7 +6,7 @@ import 'package:neoagent_flutter/src/health_bridge.dart';
 
 void main() {
   testWidgets(
-    'voice panel renders ordered chat timeline and separate controls',
+    'voice panel shows the live call, its background task, and the transcript',
     (tester) async {
       tester.view.physicalSize = const Size(1200, 1800);
       tester.view.devicePixelRatio = 1;
@@ -20,34 +20,27 @@ void main() {
       addTearDown(controller.dispose);
       controller.voiceAssistantLiveState = VoiceAssistantLiveState(
         sessionId: 'session-1',
-        mediaMode: 'duplex',
-        inputMode: 'ptt',
+        inputMode: 'hands_free',
         provider: 'openai',
-        model: 'backend-advertised-model',
+        model: 'gpt-live-1',
+        voice: 'marin',
         activeRunId: 'run-1',
-        state: 'working',
+        activeTaskRequest: 'Inspect the deployment',
+        state: 'speaking',
         timeline: <VoiceTimelineItem>[
           VoiceTimelineItem(
-            id: 'turn-1-user',
-            sessionId: 'session-1',
-            turnId: 'turn-1',
+            id: 'user-1',
             role: 'user',
-            kind: 'transcript_final',
             content: 'Inspect the deployment.',
             isFinal: true,
-            createdAt: DateTime.utc(2026, 8, 9),
+            createdAt: DateTime.utc(2026, 9, 26),
           ),
           VoiceTimelineItem(
-            id: 'progress-1',
-            sessionId: 'session-1',
-            turnId: 'turn-1',
-            runId: 'run-1',
-            messageId: 'progress-1',
+            id: 'assistant-1',
             role: 'assistant',
-            kind: 'progress',
-            content: 'The health check is running.',
+            content: 'I am on it and will tell you what I find.',
             isFinal: false,
-            createdAt: DateTime.utc(2026, 8, 9, 0, 0, 15),
+            createdAt: DateTime.utc(2026, 9, 26, 0, 0, 1),
           ),
         ],
       );
@@ -61,17 +54,24 @@ void main() {
 
       expect(find.text('Conversation'), findsOneWidget);
       expect(find.text('Inspect the deployment.'), findsOneWidget);
-      expect(find.text('The health check is running.'), findsOneWidget);
-      expect(find.text('Mute'), findsOneWidget);
-      expect(find.text('Stop speaking'), findsAtLeastNWidgets(1));
-      expect(find.text('Cancel task'), findsOneWidget);
-      expect(find.text('End session'), findsOneWidget);
-      expect(find.text('Working'), findsAtLeastNWidgets(1));
+      expect(
+        find.text('I am on it and will tell you what I find.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Working in the background: Inspect the deployment'),
+        findsOneWidget,
+      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Stop speaking'), findsOneWidget);
+      expect(find.text('End call'), findsOneWidget);
+      expect(find.text('Speaking'), findsOneWidget);
+      expect(find.text('gpt-live-1'), findsOneWidget);
+      expect(find.text('HANDS-FREE'), findsOneWidget);
 
-      const voiceError = 'Gemini could not synthesize this reply.';
-      controller.errorMessage = voiceError;
+      const voiceError = 'The live voice connection ended.';
       controller.voiceAssistantLiveState = controller.voiceAssistantLiveState
-          .copyWith(error: voiceError, state: 'degraded');
+          .copyWith(error: voiceError);
       controller.notifyListeners();
       await tester.pump();
 

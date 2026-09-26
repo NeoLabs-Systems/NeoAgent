@@ -10,195 +10,90 @@ class VoiceAssistantPanel extends StatefulWidget {
 }
 
 class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
-  late final AudioPlayer _assistantPlayer;
   Timer? _elapsedTimer;
   bool _elapsedTickerActive = false;
   bool _pttPressed = false;
-  bool _isAssistantPlaying = false;
-  bool _isMuted = false;
-  String? _voiceError;
-  String? _assistantAudioMimeType;
-  String? _lastLiveError;
-  final List<Uint8List> _audioQueue = <Uint8List>[];
-  bool _isDraining = false;
-  bool _audioInterrupted = false;
-  int _audioQueueConsumedCount = 0;
 
-  String _liveStateLabel(VoiceAssistantLiveState state) {
-    switch (state.state.trim().toLowerCase()) {
-      case 'listening':
-        return 'Listening';
-      case 'transcribing':
-        return 'Transcribing';
-      case 'triaging':
-        return 'Triaging';
-      case 'working':
-        return 'Working';
-      case 'waiting':
-        return 'Waiting';
-      case 'blocked':
-        return 'Blocked';
-      case 'speaking':
-        return 'Speaking';
-      case 'interrupted':
-        return 'Interrupted';
+  String _liveStateLabel(
+    NeoAgentController controller,
+    VoiceAssistantLiveState state,
+  ) {
+    if (!state.hasActiveSession) {
+      return state.isConnecting ? 'Connecting' : 'Ready';
+    }
+    if (state.transportState != 'connected') return 'Reconnecting';
+    switch (state.state) {
+      case 'connecting':
+        return 'Connecting';
       case 'reconnecting':
         return 'Reconnecting';
-      case 'connected':
-        return 'Connected';
-      case 'error':
-        return 'Error';
+      case 'speaking':
+        return 'Speaking';
       default:
-        return 'Ready';
+        if (state.isHandsFree && !controller.isLiveVoiceCaptureActive) {
+          return 'Muted';
+        }
+        return 'Listening';
     }
   }
 
-  String _heroHintForState(
-    VoiceAssistantLiveState liveState,
-    bool liveCaptureStarting,
-    bool liveCaptureEngaged,
-    bool useDesktopToggleCapture,
+  String _heroHint(
+    NeoAgentController controller,
+    VoiceAssistantLiveState state,
+    bool useToggleCapture,
   ) {
-    if (liveCaptureEngaged) {
-      return useDesktopToggleCapture
-          ? 'Tap again to finish.'
-          : 'Release to finish.';
+    if (controller.isLiveVoiceCaptureStarting || state.isConnecting) {
+      return 'Connecting to the live voice model...';
     }
-    if (liveCaptureStarting) {
-      return 'Starting voice capture...';
+    if (!state.hasActiveSession) {
+      return useToggleCapture ? 'Tap to start talking.' : 'Hold to talk.';
     }
-    switch (liveState.state.trim().toLowerCase()) {
-      case 'transcribing':
-        return 'Transcribing your speech...';
-      case 'triaging':
-        return 'Choosing the quickest safe path...';
-      case 'working':
-        return 'NeoAgent is working on your request...';
-      case 'waiting':
-        return 'Waiting for the current operation...';
-      case 'blocked':
-        return 'NeoAgent needs approval or input to continue.';
-      case 'speaking':
-        return 'Playing the reply...';
-      case 'reconnecting':
-        return 'Reconnecting without stopping the task...';
-      case 'interrupted':
-        return 'Reply interrupted.';
-      case 'error':
-        return 'Voice capture hit an error.';
-      default:
-        return useDesktopToggleCapture ? 'Tap to talk.' : 'Hold to talk.';
+    if (state.isHandsFree) {
+      return controller.isLiveVoiceCaptureActive
+          ? 'Just talk. You can interrupt at any time. Tap to mute.'
+          : 'Microphone muted. Tap to unmute.';
     }
+    return controller.isLiveVoiceCaptureActive
+        ? (useToggleCapture
+              ? 'Tap again when you are done.'
+              : 'Release when you are done.')
+        : (useToggleCapture ? 'Tap to talk.' : 'Hold to talk.');
   }
 
   @override
   void initState() {
     super.initState();
-    _assistantPlayer = AudioPlayer();
-    _applyAndroidCallAudioContext();
     widget.controller.addListener(_handleControllerChanged);
-    _assistantPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isAssistantPlaying = false;
-      });
-    });
     _syncElapsedTicker();
-  }
-
-  /// Android routes voice sessions through a self-managed Telecom connection, which
-  /// puts the device in communication mode. Replies played with the default media
-  /// usage are ducked or sent to the earpiece there, so the assistant sounds silent.
-  void _applyAndroidCallAudioContext() {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    unawaited(
-      _assistantPlayer.setAudioContext(
-        AudioContext(
-          android: const AudioContextAndroid(
-            isSpeakerphoneOn: true,
-            audioMode: AndroidAudioMode.inCommunication,
-            contentType: AndroidContentType.speech,
-            usageType: AndroidUsageType.voiceCommunication,
-            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
-          ),
-        ),
-      ),
-    );
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
     _elapsedTimer?.cancel();
-    unawaited(_assistantPlayer.dispose());
     super.dispose();
   }
 
   void _handleControllerChanged() {
     if (!mounted) return;
     _syncElapsedTicker();
-    _syncLiveVoiceState();
     setState(() {});
   }
 
   void _syncElapsedTicker() {
     final shouldRun =
-        widget.controller.isLiveVoiceCaptureActive ||
-        widget.controller.isLiveVoiceCaptureStarting;
+        widget.controller.voiceAssistantLiveState.hasActiveSession;
     if (shouldRun == _elapsedTickerActive) {
       return;
     }
-
     _elapsedTickerActive = shouldRun;
     _elapsedTimer?.cancel();
     if (!shouldRun) {
       return;
     }
-
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
+      if (mounted) setState(() {});
     });
-  }
-
-  void _syncLiveVoiceState() {
-    final liveState = widget.controller.voiceAssistantLiveState;
-    _assistantAudioMimeType = liveState.audioMimeType;
-    _voiceError = liveState.error;
-
-    final currentError = liveState.error?.trim();
-    if ((currentError?.isNotEmpty ?? false) && currentError != _lastLiveError) {
-      _lastLiveError = currentError;
-      _audioInterrupted = true;
-      _audioQueue.clear();
-      _audioQueueConsumedCount = 0;
-      unawaited(_stopAssistantAudio());
-    } else if (currentError == null || currentError.isEmpty) {
-      _lastLiveError = null;
-    }
-
-    // If the state queue was cleared (e.g. on interrupt), reset cursor.
-    final incoming = liveState.audioQueue;
-    if (_audioQueueConsumedCount > incoming.length) {
-      _audioQueueConsumedCount = 0;
-    }
-
-    // Only enqueue chunks we haven't seen yet.
-    if (incoming.length > _audioQueueConsumedCount) {
-      _audioInterrupted = false;
-      final newChunks = incoming.sublist(_audioQueueConsumedCount);
-      _audioQueueConsumedCount = incoming.length;
-      for (final chunk in newChunks) {
-        if (chunk.isNotEmpty) _audioQueue.add(chunk);
-      }
-      unawaited(_drainAudioQueue());
-    }
   }
 
   bool _hasActivePttCapture() {
@@ -215,17 +110,17 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     if (_hasActivePttCapture()) {
       return;
     }
-    unawaited(_startPttCapture());
+    unawaited(_startCapture());
   }
 
   void _handlePrimaryPointerUp(PointerEvent event) {
     if (!_hasActivePttCapture() && !_pttPressed) {
       return;
     }
-    unawaited(_stopPttCapture());
+    unawaited(widget.controller.stopLiveVoiceCapture());
   }
 
-  Future<void> _startPttCapture() async {
+  Future<void> _startCapture() async {
     AppDiagnostics.log(
       'voice.assistant.ui',
       'capture_start.request',
@@ -234,130 +129,58 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
             widget.controller.voiceAssistantLiveState.hasActiveSession,
       },
     );
-    setState(() {
-      _pttPressed = true;
-      _voiceError = null;
-    });
-
+    setState(() => _pttPressed = true);
     try {
       await widget.controller.startLiveVoiceCapture();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceError = widget.controller._friendlyErrorMessage(error);
-      });
+    } catch (_) {
+      // The controller records the error on the live state.
     } finally {
-      if (mounted) {
-        setState(() {
-          _pttPressed = false;
-        });
-      }
+      if (mounted) setState(() => _pttPressed = false);
     }
   }
 
-  Future<void> _stopPttCapture() async {
-    AppDiagnostics.log('voice.assistant.ui', 'capture_stop.request');
-    await widget.controller.stopLiveVoiceCapture();
-  }
-
-  Future<void> _drainAudioQueue() async {
-    if (_isDraining) return;
-    _isDraining = true;
+  Future<void> _toggleCapture() async {
     try {
-      while (_audioQueue.isNotEmpty && !_audioInterrupted) {
-        final chunk = _audioQueue.removeAt(0);
-        if (chunk.isEmpty) continue;
-        final mimeType = (_assistantAudioMimeType?.trim().isNotEmpty ?? false)
-            ? _assistantAudioMimeType!.trim()
-            : null;
-        // Wait for the previous clip to finish before starting the next.
-        final completer = Completer<void>();
-        late StreamSubscription<void> sub;
-        sub = _assistantPlayer.onPlayerComplete.listen((_) {
-          sub.cancel();
-          completer.complete();
-        });
-        await _assistantPlayer.setVolume(_isMuted ? 0 : 1);
-        await _assistantPlayer.play(BytesSource(chunk, mimeType: mimeType));
-        if (!mounted || _audioInterrupted) {
-          sub.cancel();
-          break;
-        }
-        if (mounted) setState(() => _isAssistantPlaying = true);
-        await completer.future;
-        if (mounted) {
-          setState(() => _isAssistantPlaying = _audioQueue.isNotEmpty);
-        }
-      }
-    } finally {
-      _isDraining = false;
-      if (mounted && !_isAssistantPlaying) {
-        setState(() => _isAssistantPlaying = false);
-      }
+      await widget.controller.toggleLiveVoiceCapture();
+    } catch (_) {
+      // The controller records the error on the live state.
     }
   }
 
-  Future<void> _stopAssistantAudio() async {
-    _audioInterrupted = true;
-    _audioQueue.clear();
-    await _assistantPlayer.stop();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isAssistantPlaying = false;
-    });
-  }
-
-  String _activeCallElapsedLabel(NeoAgentController controller) {
-    final startedAt = controller.liveVoiceCaptureStartedAt;
+  String _callElapsedLabel(NeoAgentController controller) {
+    final startedAt = controller.liveVoiceSessionStartedAt;
     if (startedAt == null) {
       return '00:00';
     }
-    final elapsed = DateTime.now().difference(startedAt);
-    final totalSeconds = math.max(0, elapsed.inSeconds);
+    final totalSeconds = math.max(
+      0,
+      DateTime.now().difference(startedAt).inSeconds,
+    );
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _toggleMute() async {
-    final muted = !_isMuted;
-    await _assistantPlayer.setVolume(muted ? 0 : 1);
-    if (!mounted) return;
-    setState(() => _isMuted = muted);
-  }
-
-  Future<void> _stopSpeaking(NeoAgentController controller) async {
-    await _stopAssistantAudio();
-    await controller.stopLiveVoicePlayback();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return hours > 0
+        ? '${two(hours)}:${two(minutes)}:${two(seconds)}'
+        : '${two(minutes)}:${two(seconds)}';
   }
 
   Future<void> _endSession(NeoAgentController controller) async {
-    final hasActiveTask = controller.voiceAssistantLiveState.activeRunId
-        .trim()
-        .isNotEmpty;
-    if (!hasActiveTask) {
+    if (!controller.voiceAssistantLiveState.hasActiveTask) {
       await controller.closeLiveVoiceSession();
       return;
     }
     final cancelTask = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End voice session?'),
+        title: const Text('End voice call?'),
         content: const Text(
-          'NeoAgent is still working. You can end the voice session and keep the chat task running, or cancel the task too.',
+          'NeoAgent is still working on a task. End the call and get the result in chat, or cancel the task too.',
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Continue session'),
+            child: const Text('Stay on the call'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -374,23 +197,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     await controller.closeLiveVoiceSession(cancelTask: cancelTask);
   }
 
-  String _timelineKindLabel(VoiceTimelineItem item) {
-    switch (item.kind) {
-      case 'acknowledgement':
-        return 'Acknowledgement';
-      case 'progress':
-        return 'Progress';
-      case 'status':
-        return 'Status';
-      case 'error':
-        return 'Error';
-      case 'transcript_partial':
-        return 'Listening';
-      default:
-        return item.role == 'user' ? 'You' : 'NeoAgent';
-    }
-  }
-
   Widget _buildTimeline(VoiceAssistantLiveState liveState) {
     if (liveState.timeline.isEmpty) {
       return Container(
@@ -403,7 +209,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           border: Border.all(color: _border),
         ),
         child: Text(
-          'Transcripts, grounded progress, and NeoAgent replies appear here in order.',
+          'What you and NeoAgent say appears here and in the chat.',
           style: TextStyle(color: _textMuted, height: 1.45),
         ),
       );
@@ -438,7 +244,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                       ),
                       const SizedBox(width: 7),
                       Text(
-                        _timelineKindLabel(item),
+                        assistant ? 'NeoAgent' : 'You',
                         style: TextStyle(
                           color: assistant ? _accent : _textSecondary,
                           fontSize: 12,
@@ -467,110 +273,67 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     );
   }
 
-  Widget _buildLiveSessionCard(NeoAgentController controller) {
+  Widget _buildTaskBanner(NeoAgentController controller) {
     final liveState = controller.voiceAssistantLiveState;
-    final statusLabel = controller.isLiveVoiceCaptureStarting
-        ? 'Starting'
-        : liveState.hasActiveSession
-        ? liveState.state.isNotEmpty
-              ? liveState.state
-              : 'Ready'
-        : liveState.isRecoverable
-        ? 'Reconnecting'
-        : 'Idle';
-    final helperText = liveState.hasActiveSession
-        ? '${liveState.mediaMode.toUpperCase()} • ${liveState.provider.toUpperCase()} • ${liveState.model}'
-        : liveState.isRecoverable
-        ? 'Reconnecting the live turn.'
-        : 'Open a push-to-talk session to start.';
+    final request = liveState.activeTaskRequest.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _accentMuted),
+      ),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              request.isEmpty
+                  ? 'Working on a task in the background.'
+                  : 'Working in the background: $request',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: _textPrimary, height: 1.35),
+            ),
+          ),
+          TextButton(
+            onPressed: controller.cancelLiveVoiceTask,
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionCard(VoiceAssistantLiveState liveState) {
     return _VoiceAssistantSectionCard(
       icon: Icons.graphic_eq_outlined,
-      title: 'Live Session',
-      subtitle: helperText,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      title: 'Live model',
+      subtitle: liveState.hasActiveSession
+          ? 'Speech-to-speech with the same memory, tools and chat history as NeoAgent.'
+          : 'Choose the live model and voice in Settings.',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
         children: <Widget>[
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              _StatusPill(
-                label: statusLabel,
-                color: controller.isLiveVoiceCaptureStarting
-                    ? _warning
-                    : liveState.isBusy
-                    ? _accent
-                    : _success,
-              ),
-              _StatusPill(
-                label: _activeCallElapsedLabel(controller),
-                color: controller.isLiveVoiceCaptureActive ? _warning : _accent,
-              ),
-              if (liveState.hasActiveSession)
-                _StatusPill(
-                  label: liveState.transportState,
-                  color: _textSecondary,
-                ),
-            ],
-          ),
-          if (liveState.hasActiveSession) ...<Widget>[
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _StatusPill(
-                  label: liveState.provider.toUpperCase(),
-                  color: _accent,
-                ),
-                _StatusPill(label: liveState.model, color: _textSecondary),
-                _StatusPill(
-                  label: liveState.inputMode == 'hands_free'
-                      ? 'HANDS-FREE'
-                      : 'PUSH-TO-TALK',
-                  color: _textSecondary,
-                ),
-              ],
+          if (liveState.provider.isNotEmpty)
+            _StatusPill(
+              label: liveState.provider.toUpperCase(),
+              color: _accent,
             ),
-            const SizedBox(height: 14),
-          ],
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              OutlinedButton.icon(
-                onPressed: controller.voiceAssistantLiveState.hasActiveSession
-                    ? () => _stopSpeaking(controller)
-                    : controller.ensureLiveVoiceSession,
-                icon: Icon(
-                  controller.voiceAssistantLiveState.hasActiveSession
-                      ? Icons.stop_circle_outlined
-                      : Icons.power_settings_new_outlined,
-                  size: 18,
-                ),
-                label: Text(
-                  controller.voiceAssistantLiveState.hasActiveSession
-                      ? 'Stop speaking'
-                      : 'Open live session',
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed:
-                    controller.voiceAssistantLiveState.activeRunId
-                        .trim()
-                        .isNotEmpty
-                    ? controller.cancelLiveVoiceTask
-                    : null,
-                icon: const Icon(Icons.cancel_outlined, size: 18),
-                label: const Text('Cancel task'),
-              ),
-              OutlinedButton.icon(
-                onPressed: controller.voiceAssistantLiveState.hasActiveSession
-                    ? () => _endSession(controller)
-                    : null,
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text('End session'),
-              ),
-            ],
+          if (liveState.model.isNotEmpty)
+            _StatusPill(label: liveState.model, color: _textSecondary),
+          if (liveState.voice.isNotEmpty)
+            _StatusPill(label: liveState.voice, color: _textSecondary),
+          _StatusPill(
+            label: liveState.isHandsFree ? 'HANDS-FREE' : 'PUSH-TO-TALK',
+            color: _textSecondary,
           ),
         ],
       ),
@@ -581,7 +344,6 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final liveState = controller.voiceAssistantLiveState;
-    final liveCaptureStarting = controller.isLiveVoiceCaptureStarting;
     final viewportSize = MediaQuery.sizeOf(context);
     final heroHeight = math
         .min(760, math.max(360, viewportSize.height * 0.72))
@@ -590,50 +352,32 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       controller,
     );
     final globalError = controller.errorMessage?.trim();
-    final voiceError = _voiceError?.trim();
-    final liveCaptureEngaged = assistantUi.isCapturing;
-    final isBusy = _pttPressed || liveCaptureEngaged;
-    final canStart = !isBusy;
-    final canStop = liveCaptureEngaged;
-    final hasAssistantAudio = _isAssistantPlaying || _audioQueue.isNotEmpty;
-    final useDesktopToggleCapture =
-        liveState.inputMode == 'hands_free' || assistantUi.useToggleCapture;
-    final heroHint = _heroHintForState(
-      liveState,
-      liveCaptureStarting,
-      liveCaptureEngaged,
-      useDesktopToggleCapture,
-    );
-    final heroButton = useDesktopToggleCapture
+    final voiceError = liveState.error?.trim();
+    final captureEngaged = assistantUi.isCapturing;
+    final useToggleCapture =
+        liveState.isHandsFree || assistantUi.useToggleCapture;
+    final heroActive = captureEngaged || _pttPressed;
+    final heroColor = heroActive ? _warning : assistantUi.primaryColor;
+    final heroButton = useToggleCapture
         ? _VoiceAssistantHeroButton(
-            icon: liveCaptureEngaged ? Icons.stop_rounded : Icons.mic,
-            color: (liveCaptureEngaged || _pttPressed)
-                ? _warning
-                : assistantUi.primaryColor,
-            active: liveCaptureEngaged || _pttPressed,
-            onTap: canStart || canStop
-                ? controller.toggleLiveVoiceCapture
-                : null,
+            icon: heroActive ? Icons.mic : Icons.mic_off_outlined,
+            color: heroColor,
+            active: heroActive,
+            onTap: _toggleCapture,
           )
         : Semantics(
             button: true,
-            label: liveCaptureEngaged ? 'Release to send' : 'Hold to talk',
+            label: captureEngaged ? 'Release to finish' : 'Hold to talk',
             child: Listener(
               behavior: HitTestBehavior.opaque,
-              onPointerDown: canStart ? _handlePrimaryPointerDown : null,
-              onPointerUp: (canStop || canStart)
-                  ? _handlePrimaryPointerUp
-                  : null,
-              onPointerCancel: (canStop || canStart)
-                  ? _handlePrimaryPointerUp
-                  : null,
+              onPointerDown: _handlePrimaryPointerDown,
+              onPointerUp: _handlePrimaryPointerUp,
+              onPointerCancel: _handlePrimaryPointerUp,
               child: _VoiceAssistantHeroButton(
-                icon: liveCaptureEngaged ? Icons.hearing : Icons.mic,
-                color: (liveCaptureEngaged || _pttPressed)
-                    ? _warning
-                    : assistantUi.primaryColor,
-                active: liveCaptureEngaged || _pttPressed,
-                enabled: canStart || canStop || liveCaptureEngaged,
+                icon: captureEngaged ? Icons.hearing : Icons.mic,
+                color: heroColor,
+                active: heroActive,
+                enabled: true,
                 onTap: null,
               ),
             ),
@@ -682,13 +426,18 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                             alignment: WrapAlignment.center,
                             children: <Widget>[
                               _DotStatus(
-                                label: _liveStateLabel(liveState),
-                                color: liveState.isBusy ? _danger : _success,
+                                label: _liveStateLabel(controller, liveState),
+                                color: liveState.isSpeaking
+                                    ? _accent
+                                    : liveState.hasActiveSession
+                                    ? _success
+                                    : _textMuted,
                               ),
-                              _StatusPill(
-                                label: _activeCallElapsedLabel(controller),
-                                color: liveCaptureEngaged ? _warning : _accent,
-                              ),
+                              if (liveState.hasActiveSession)
+                                _StatusPill(
+                                  label: _callElapsedLabel(controller),
+                                  color: _accent,
+                                ),
                             ],
                           ),
                         ),
@@ -699,24 +448,17 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                               heroButton,
                               const SizedBox(height: 18),
                               Text(
-                                heroHint,
+                                _heroHint(
+                                  controller,
+                                  liveState,
+                                  useToggleCapture,
+                                ),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: _textSecondary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              if (liveCaptureStarting) ...<Widget>[
-                                const SizedBox(height: 10),
-                                Text(
-                                  'The app is preparing the microphone and session.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: _textMuted,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
                               if ((globalError?.isNotEmpty ?? false) &&
                                   globalError != voiceError) ...<Widget>[
                                 const SizedBox(height: 16),
@@ -732,15 +474,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                             ],
                           ),
                         ),
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Text(
-                            liveState.state.trim().toLowerCase() == 'idle'
-                                ? 'Transcript and reply update below.'
-                                : '${_liveStateLabel(liveState)} in progress.',
-                            style: TextStyle(color: _textMuted, height: 1.4),
-                          ),
-                        ),
+                        if (liveState.hasActiveTask)
+                          _buildTaskBanner(controller),
                       ],
                     ),
                   ),
@@ -752,32 +487,28 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   alignment: WrapAlignment.center,
                   children: <Widget>[
                     _VoiceAssistantActionButton(
-                      icon: _isMuted ? Icons.volume_off : Icons.volume_up,
-                      label: _isMuted ? 'Unmute' : 'Mute',
-                      onTap: liveState.hasActiveSession ? _toggleMute : null,
-                    ),
-                    _VoiceAssistantActionButton(
                       icon: Icons.stop_circle_outlined,
                       label: 'Stop speaking',
-                      onTap: hasAssistantAudio
-                          ? () => _stopSpeaking(controller)
+                      onTap: liveState.isSpeaking
+                          ? controller.stopLiveVoicePlayback
                           : null,
                     ),
                     _VoiceAssistantActionButton(
-                      icon: Icons.refresh,
-                      label: 'Refresh',
-                      onTap: controller.ensureLiveVoiceSession,
+                      icon: Icons.call_end,
+                      label: 'End call',
+                      onTap: liveState.hasActiveSession
+                          ? () => _endSession(controller)
+                          : null,
                     ),
                   ],
                 ),
                 const SizedBox(height: 18),
-                _buildLiveSessionCard(controller),
+                _buildSessionCard(liveState),
                 const SizedBox(height: 18),
                 _VoiceAssistantSectionCard(
                   icon: Icons.forum_outlined,
                   title: 'Conversation',
-                  subtitle:
-                      'One ordered timeline shared with the NeoAgent chat task.',
+                  subtitle: 'Shared with the NeoAgent chat and its memory.',
                   child: _buildTimeline(liveState),
                 ),
               ],

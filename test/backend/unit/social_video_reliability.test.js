@@ -115,10 +115,6 @@ test('social video downloads audio and uses configured voice STT when keyless ca
       headers: {},
       status: 200,
     }),
-    voiceSettingsResolver: async () => ({
-      provider: 'deepgram',
-      model: 'nova-3',
-    }),
     voiceTranscriber: async (filePath, options) => {
       transcriberCalls.push({ filePath, options });
       return 'Speech to text transcript';
@@ -161,8 +157,7 @@ test('social video downloads audio and uses configured voice STT when keyless ca
   assert.equal(result.transcript, 'Speech to text transcript');
   assert.equal(result.transcriptSource, 'stt');
   assert.equal(transcriberCalls.length, 1);
-  assert.equal(transcriberCalls[0].options.provider, 'deepgram');
-  assert.equal(transcriberCalls[0].options.model, 'nova-3');
+  assert.equal(transcriberCalls[0].options.userId, 1);
   assert.equal(transcriberCalls[0].options.mimeType, 'audio/mpeg');
   assert.ok(commands.some((command) => command.includes('bestaudio/best')));
 });

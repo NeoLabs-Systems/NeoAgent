@@ -3144,7 +3144,7 @@ class _DesktopAssistantControlState {
         : liveState.partialTranscript.trim();
     return _DesktopAssistantControlState(
       isCapturing: isCapturing,
-      isBusy: liveState.isBusy,
+      isBusy: liveState.isSpeaking || liveState.hasActiveTask,
       useToggleCapture: useToggleCapture,
       statusLabel: isCapturing
           ? _desktopAssistantPrimaryLabel(true)

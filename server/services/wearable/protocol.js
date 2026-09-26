@@ -5,9 +5,8 @@ const WEARABLE_WS_PATH = '/api/wearable/ws';
 const CLIENT_MESSAGE_TYPES = new Set([
   'wearable:hello',
   'voice:session_open',
-  'voice:input_start',
-  'voice:audio_chunk',
-  'voice:input_commit',
+  'voice:audio',
+  'voice:input_end',
   'voice:interrupt',
   'voice:session_close',
 ]);

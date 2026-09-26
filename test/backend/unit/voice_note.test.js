@@ -94,7 +94,7 @@ describe('voice note intent', () => {
 describe('voice note preparation', () => {
   let ctx;
   let tempDir;
-  let providers;
+  let transcription;
   let voiceNote;
   let userId;
 
@@ -102,7 +102,7 @@ describe('voice note preparation', () => {
     ctx = createTestRuntime();
     ({ userId } = await createTestUser(ctx.db));
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-voice-note-'));
-    providers = require('../../../server/services/voice/providers');
+    transcription = require('../../../server/services/voice/transcription');
     voiceNote = require('../../../server/services/voice/voice_note');
   });
 
@@ -130,7 +130,7 @@ describe('voice note preparation', () => {
   }
 
   test('speech goes to STT and the transcript becomes the message', { skip: !HAS_FFMPEG }, async () => {
-    const stt = mock.method(providers, 'transcribeVoiceInput', async () => "what's on my calendar");
+    const stt = mock.method(transcription, 'transcribeForUser', async () => "what's on my calendar");
     const msg = await voiceNote.prepareVoiceNote(
       inbound(writeWav('speech.wav', speechLike), 'whatsapp_ptt'),
       { userId },
@@ -142,7 +142,7 @@ describe('voice note preparation', () => {
   });
 
   test('non-speech audio skips STT and stays as context', { skip: !HAS_FFMPEG }, async () => {
-    const stt = mock.method(providers, 'transcribeVoiceInput', async () => 'should not run');
+    const stt = mock.method(transcription, 'transcribeForUser', async () => 'should not run');
     const msg = await voiceNote.prepareVoiceNote(
       inbound(writeWav('music.wav', steadyChord), 'discord_audio_file'),
       { userId },
@@ -153,7 +153,7 @@ describe('voice note preparation', () => {
   });
 
   test('a caption on a clip is the request and STT is skipped', { skip: !HAS_FFMPEG }, async () => {
-    const stt = mock.method(providers, 'transcribeVoiceInput', async () => 'should not run');
+    const stt = mock.method(transcription, 'transcribeForUser', async () => 'should not run');
     const msg = await voiceNote.prepareVoiceNote(
       inbound(writeWav('clip.wav', speechLike), 'whatsapp_audio', 'what is this'),
       { userId },
@@ -164,7 +164,7 @@ describe('voice note preparation', () => {
   });
 
   test('an STT failure keeps the dictation intent and records the error', { skip: !HAS_FFMPEG }, async () => {
-    mock.method(providers, 'transcribeVoiceInput', async () => {
+    mock.method(transcription, 'transcribeForUser', async () => {
       throw new Error('openai STT timed out after 20000ms.');
     });
     const msg = await voiceNote.prepareVoiceNote(
@@ -180,7 +180,7 @@ describe('voice note preparation', () => {
     const previous = process.env.FFMPEG_BIN;
     process.env.FFMPEG_BIN = path.join(tempDir, 'missing-ffmpeg');
     try {
-      mock.method(providers, 'transcribeVoiceInput', async () => 'call mom');
+      mock.method(transcription, 'transcribeForUser', async () => 'call mom');
       const msg = await voiceNote.prepareVoiceNote(
         inbound(path.join(tempDir, 'note.ogg'), 'whatsapp_ptt'),
         { userId },

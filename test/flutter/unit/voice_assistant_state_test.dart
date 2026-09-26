@@ -1,95 +1,70 @@
-import 'dart:typed_data';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 
 void main() {
-  test('voice state defaults to push-to-talk composed transport', () {
+  test('voice state defaults to a hands-free live call', () {
     final state = VoiceAssistantLiveState();
 
-    expect(state.inputMode, 'ptt');
-    expect(state.mediaMode, 'composed');
+    expect(state.inputMode, 'hands_free');
+    expect(state.isHandsFree, isTrue);
     expect(state.inputSampleRate, 24000);
+    expect(state.outputSampleRate, 24000);
+    expect(state.hasActiveSession, isFalse);
+    expect(state.hasActiveTask, isFalse);
     expect(state.timeline, isEmpty);
   });
 
-  test('voice timeline remains chronological and derives latest turn text', () {
-    final started = DateTime.utc(2026, 8, 9, 12);
-    final timeline = <VoiceTimelineItem>[
-      VoiceTimelineItem(
-        id: 'turn-1-user',
-        sessionId: 'session-1',
-        turnId: 'turn-1',
-        role: 'user',
-        kind: 'transcript_final',
-        content: 'Check the deployment.',
-        isFinal: true,
-        createdAt: started,
-      ),
-      VoiceTimelineItem(
-        id: 'delivery-progress',
-        sessionId: 'session-1',
-        turnId: 'turn-1',
-        runId: 'run-1',
-        messageId: 'delivery-progress',
-        role: 'assistant',
-        kind: 'progress',
-        content: 'The service health check passed.',
-        isFinal: false,
-        createdAt: started.add(const Duration(seconds: 15)),
-      ),
-      VoiceTimelineItem(
-        id: 'delivery-final',
-        sessionId: 'session-1',
-        turnId: 'turn-1',
-        runId: 'run-1',
-        messageId: 'delivery-final',
-        role: 'assistant',
-        kind: 'final',
-        content: 'Deployment is healthy.',
-        isFinal: true,
-        createdAt: started.add(const Duration(seconds: 30)),
-      ),
-    ];
+  test('voice timeline stays chronological and derives the latest turns', () {
+    final started = DateTime.utc(2026, 9, 26, 12);
     final state = VoiceAssistantLiveState(
       sessionId: 'session-1',
       activeRunId: 'run-1',
-      state: 'working',
-      timeline: timeline,
-      audioQueue: <Uint8List>[
-        Uint8List.fromList(<int>[1, 2]),
+      activeTaskRequest: 'Check the deployment',
+      state: 'speaking',
+      timeline: <VoiceTimelineItem>[
+        VoiceTimelineItem(
+          id: 'user-1',
+          role: 'user',
+          content: 'Check the deployment.',
+          isFinal: true,
+          createdAt: started,
+        ),
+        VoiceTimelineItem(
+          id: 'assistant-1',
+          role: 'assistant',
+          content: 'On it, checking now.',
+          isFinal: false,
+          createdAt: started.add(const Duration(seconds: 1)),
+        ),
       ],
     );
 
     expect(state.finalTranscript, 'Check the deployment.');
-    expect(state.interimAssistantText, 'The service health check passed.');
-    expect(state.finalAssistantText, 'Deployment is healthy.');
-    expect(state.isBusy, isTrue);
+    expect(state.assistantText, 'On it, checking now.');
+    expect(state.isSpeaking, isTrue);
+    expect(state.hasActiveTask, isTrue);
 
-    final interrupted = state.copyWith(clearAudio: true, state: 'interrupted');
-    expect(interrupted.audioQueue, isEmpty);
-    expect(interrupted.timeline.map((item) => item.id), <String>[
-      'turn-1-user',
-      'delivery-progress',
-      'delivery-final',
+    final settled = state.copyWith(
+      state: 'listening',
+      activeRunId: '',
+      activeTaskRequest: '',
+      timeline: <VoiceTimelineItem>[
+        state.timeline.first,
+        state.timeline.last.copyWith(isFinal: true),
+      ],
+    );
+    expect(settled.isSpeaking, isFalse);
+    expect(settled.hasActiveTask, isFalse);
+    expect(settled.timeline.map((item) => item.id), <String>[
+      'user-1',
+      'assistant-1',
     ]);
-    expect(interrupted.activeRunId, 'run-1');
+    expect(settled.timeline.last.isFinal, isTrue);
   });
 
-  test(
-    'voice busy state covers durable run and reconnect presentation states',
-    () {
-      for (final state in <String>[
-        'transcribing',
-        'triaging',
-        'working',
-        'waiting',
-        'blocked',
-        'speaking',
-      ]) {
-        expect(VoiceAssistantLiveState(state: state).isBusy, isTrue);
-      }
-      expect(VoiceAssistantLiveState(state: 'listening').isBusy, isFalse);
-    },
-  );
+  test('connecting states are reported while the live model starts', () {
+    expect(VoiceAssistantLiveState(state: 'connecting').isConnecting, isTrue);
+    expect(VoiceAssistantLiveState(state: 'reconnecting').isConnecting, isTrue);
+    expect(VoiceAssistantLiveState(state: 'listening').isConnecting, isFalse);
+  });
 }

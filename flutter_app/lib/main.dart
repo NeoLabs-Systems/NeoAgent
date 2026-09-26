@@ -22,7 +22,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'package:audioplayers/audioplayers.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -39,6 +38,7 @@ import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
 import 'src/incoming_call_alert.dart';
 import 'src/live_voice_capture.dart';
+import 'src/live_voice_player.dart';
 import 'src/local_backend_installer.dart';
 import 'src/local_runtime_manager.dart';
 import 'src/mascot/mascot_mood.dart';

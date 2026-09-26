@@ -66,6 +66,7 @@ function logStartupConfig() {
     OPENAI_COMPATIBLE_API_KEY: Boolean(process.env.OPENAI_COMPATIBLE_API_KEY),
     OPENAI_COMPATIBLE_BASE_URL: Boolean(process.env.OPENAI_COMPATIBLE_BASE_URL),
     DEEPGRAM_API_KEY: Boolean(process.env.DEEPGRAM_API_KEY),
+    VOICE_LIVE_PROVIDER: Boolean(process.env.VOICE_LIVE_PROVIDER),
     NEOAGENT_JEV: Boolean(process.env.NEOAGENT_JEV),
     GOOGLE_OAUTH_CLIENT_ID: Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID),
     GOOGLE_OAUTH_CLIENT_SECRET: Boolean(process.env.GOOGLE_OAUTH_CLIENT_SECRET),

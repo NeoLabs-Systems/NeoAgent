@@ -1,6 +1,7 @@
 'use strict';
 
 const { cleanLine, persistEnv } = require('./env_config');
+const { LIVE_VOICE_PROVIDERS, describeLiveVoiceCatalog } = require('../voice/live/catalog');
 
 // Server-wide OAuth app credentials that let accounts connect each integration.
 const OAUTH_INTEGRATIONS = [
@@ -87,16 +88,19 @@ function getIntegrationSettings() {
       ? { name, secret: true, configured: Boolean(process.env[env]) }
       : { name, secret: false, value: process.env[env] || '' })),
   }));
-  const deepgram = {
-    baseUrl: process.env.DEEPGRAM_BASE_URL || '',
-    model: process.env.DEEPGRAM_MODEL || '',
-    language: process.env.DEEPGRAM_LANGUAGE || '',
+  // Server defaults for live voice; accounts that pick their own model in the
+  // app keep it. Blank values fall back to the catalog defaults.
+  const liveVoice = {
+    provider: process.env.VOICE_LIVE_PROVIDER || '',
+    model: process.env.VOICE_LIVE_MODEL || '',
+    voice: process.env.VOICE_LIVE_VOICE || '',
+    catalog: describeLiveVoiceCatalog(),
   };
-  return { integrations, deepgram };
+  return { integrations, liveVoice };
 }
 
 /**
- * Applies `{ integrations: { <key>: { <field>: value } }, deepgram }`. Unknown
+ * Applies `{ integrations: { <key>: { <field>: value } }, liveVoice }`. Unknown
  * integrations and fields are ignored; a blank secret keeps the stored one.
  */
 function updateIntegrationSettings(body = {}) {
@@ -112,10 +116,14 @@ function updateIntegrationSettings(body = {}) {
     }
   }
 
-  if (body.deepgram) {
-    persistEnv('DEEPGRAM_BASE_URL', cleanLine(body.deepgram.baseUrl));
-    persistEnv('DEEPGRAM_MODEL', cleanLine(body.deepgram.model));
-    persistEnv('DEEPGRAM_LANGUAGE', cleanLine(body.deepgram.language));
+  if (body.liveVoice) {
+    const provider = cleanLine(body.liveVoice.provider).toLowerCase();
+    if (provider && !LIVE_VOICE_PROVIDERS[provider]) {
+      throw new Error(`Unknown live voice provider: ${provider}`);
+    }
+    persistEnv('VOICE_LIVE_PROVIDER', provider);
+    persistEnv('VOICE_LIVE_MODEL', cleanLine(body.liveVoice.model));
+    persistEnv('VOICE_LIVE_VOICE', cleanLine(body.liveVoice.voice));
   }
   return { ok: true };
 }

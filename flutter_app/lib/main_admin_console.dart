@@ -190,7 +190,7 @@ const List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
   _AdminSearchEntry(
     'Deepgram key',
     _AdminTab.providers,
-    'voice speech transcription api key',
+    'voice note speech transcription api key',
     card: 'Server provider credentials',
   ),
   _AdminSearchEntry(
@@ -230,10 +230,10 @@ const List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: 'Integration apps',
   ),
   _AdminSearchEntry(
-    'Deepgram voice settings',
+    'Live voice defaults',
     _AdminTab.integrations,
-    'base url model language speech',
-    card: 'Deepgram voice',
+    'voice call gpt-live gemini live model speech realtime',
+    card: 'Live voice',
   ),
   _AdminSearchEntry(
     'Sign-ups',

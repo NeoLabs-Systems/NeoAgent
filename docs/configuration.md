@@ -64,10 +64,10 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible base URL override |
 | `OLLAMA_URL` | Ollama server URL |
 | `BRAVE_SEARCH_API_KEY` | Web search |
-| `DEEPGRAM_API_KEY` | Voice transcription |
-| `DEEPGRAM_BASE_URL` | Deepgram-compatible base URL override |
-| `DEEPGRAM_MODEL` | Speech model |
-| `DEEPGRAM_LANGUAGE` | Speech language mode |
+| `DEEPGRAM_API_KEY` | Voice-note and dictation transcription |
+| `VOICE_LIVE_PROVIDER` | Default live voice model provider: `openai` (GPT-Live, default) or `google` (Gemini Live) |
+| `VOICE_LIVE_MODEL` | Default live voice model; blank uses `gpt-live-1` or `gemini-3.8-live` |
+| `VOICE_LIVE_VOICE` | Default live voice; blank uses the provider's default voice |
 
 Account-backed model providers use `neoagent login`, not these API-key fields.
 
