@@ -19,12 +19,19 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
         ? controller.activeAgentLabel
         : 'NeoAgent';
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _leavePhoneCall();
-      },
-      child: DecoratedBox(
+    final embedded = widget.embedded;
+    Widget halo(double mascotSize) => _CallHalo(
+      mascotSize: mascotSize,
+      pulseColor: !inCall
+          ? null
+          : liveState.isSpeaking
+          ? _accent
+          : capturing
+          ? _success
+          : null,
+      child: _LiveMascot(controller: controller, size: mascotSize),
+    );
+    final screen = DecoratedBox(
         decoration: BoxDecoration(
           gradient: RadialGradient(
             center: const Alignment(0, -0.42),
@@ -40,43 +47,50 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
             child: Column(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    IconButton(
-                      tooltip: 'Back to chat',
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                      iconSize: 30,
-                      color: _textSecondary,
-                      onPressed: _leavePhoneCall,
-                    ),
-                    Expanded(
-                      child: Text(
-                        'VOICE CALL',
-                        textAlign: TextAlign.center,
-                        style: _sectionEyebrowStyle(),
+                if (!embedded)
+                  Row(
+                    children: <Widget>[
+                      IconButton(
+                        tooltip: 'Back to chat',
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        iconSize: 30,
+                        color: _textSecondary,
+                        onPressed: _leavePhoneCall,
+                      ),
+                      Expanded(
+                        child: Text(
+                          'VOICE CALL',
+                          textAlign: TextAlign.center,
+                          style: _sectionEyebrowStyle(),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                if (embedded)
+                  // The avatar takes every bit of height the rest leaves.
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) => Center(
+                        child: halo(
+                          (math.min(box.maxWidth, box.maxHeight) /
+                                  _CallHaloState.extentPerMascot)
+                              .clamp(72.0, 200.0),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-                const Spacer(flex: 2),
-                _CallHalo(
-                  pulseColor: !inCall
-                      ? null
-                      : liveState.isSpeaking
-                      ? _accent
-                      : capturing
-                      ? _success
-                      : null,
-                  child: _LiveMascot(controller: controller, size: 128),
-                ),
-                const SizedBox(height: 28),
+                  )
+                else ...<Widget>[
+                  const Spacer(flex: 2),
+                  halo(128),
+                ],
+                SizedBox(height: embedded ? 16 : 28),
                 Text(
                   name,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _heroTitleStyle(34),
+                  style: _heroTitleStyle(embedded ? 28 : 34),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -90,11 +104,11 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
+                SizedBox(height: embedded ? 16 : 28),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(
-                    height: 72,
+                    height: embedded ? 48 : 72,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
                       child: caption == null
@@ -103,7 +117,7 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                               caption.content.trim(),
                               key: ValueKey<String>(caption.id),
                               textAlign: TextAlign.center,
-                              maxLines: 3,
+                              maxLines: embedded ? 2 : 3,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: caption.role == 'assistant'
@@ -116,7 +130,10 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                     ),
                   ),
                 ),
-                const Spacer(flex: 3),
+                if (embedded)
+                  const SizedBox(height: 12)
+                else
+                  const Spacer(flex: 3),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Column(
@@ -140,39 +157,55 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                     ],
                   ),
                 ),
-                if (inCall) ...<Widget>[
-                  _buildPhoneCallControls(controller, capturing: capturing),
-                  const SizedBox(height: 28),
-                ],
-                if (inCall || dialing)
-                  _CallRoundButton(
-                    icon: Icons.call_end_rounded,
-                    label: 'End',
-                    size: 76,
-                    color: _danger,
-                    foreground: Colors.white,
-                    onTap: inCall ? () => _endSession(controller) : null,
+                if (embedded)
+                  // One row of the same height before and during a call, so
+                  // the avatar keeps its size when a call starts.
+                  SizedBox(
+                    height: _embeddedCallRowHeight,
+                    child: Center(
+                      child: inCall
+                          ? _buildPhoneCallControls(
+                              controller,
+                              capturing: capturing,
+                              endButton: true,
+                            )
+                          : dialing
+                          ? _endCallButton(controller)
+                          : _placeCallButton(),
+                    ),
                   )
-                else
-                  _CallRoundButton(
-                    icon: Icons.call_rounded,
-                    label: 'Call',
-                    size: 76,
-                    color: _success,
-                    foreground: Colors.white,
-                    onTap: _placePhoneCall,
-                  ),
+                else ...<Widget>[
+                  if (inCall) ...<Widget>[
+                    _buildPhoneCallControls(controller, capturing: capturing),
+                    const SizedBox(height: 28),
+                  ],
+                  if (inCall || dialing)
+                    _endCallButton(controller)
+                  else
+                    _placeCallButton(),
+                ],
               ],
             ),
           ),
         ),
-      ),
+      );
+
+    if (embedded) return screen;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leavePhoneCall();
+      },
+      child: screen,
     );
   }
 
+  /// With [endButton] the call's End sits in this row instead of the
+  /// transcript, so the whole call fits one row (launcher mode).
   Widget _buildPhoneCallControls(
     NeoAgentController controller, {
     required bool capturing,
+    bool endButton = false,
   }) {
     final liveState = controller.voiceAssistantLiveState;
     final Widget talk;
@@ -203,20 +236,43 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _CallRoundButton(
-          icon: Icons.subject_rounded,
-          label: 'Transcript',
-          onTap: () => _showPhoneCallTranscript(controller),
-        ),
+        if (!endButton)
+          _CallRoundButton(
+            icon: Icons.subject_rounded,
+            label: 'Transcript',
+            onTap: () => _showPhoneCallTranscript(controller),
+          ),
         talk,
         _CallRoundButton(
           icon: Icons.voice_over_off_rounded,
           label: 'Stop speaking',
           onTap: liveState.isSpeaking ? controller.stopLiveVoicePlayback : null,
         ),
+        if (endButton) _endCallButton(controller, size: 64),
       ],
     );
   }
+
+  Widget _endCallButton(NeoAgentController controller, {double size = 76}) {
+    final inCall = controller.voiceAssistantLiveState.hasActiveSession;
+    return _CallRoundButton(
+      icon: Icons.call_end_rounded,
+      label: 'End',
+      size: size,
+      color: _danger,
+      foreground: Colors.white,
+      onTap: inCall ? () => _endSession(controller) : null,
+    );
+  }
+
+  Widget _placeCallButton() => _CallRoundButton(
+    icon: Icons.call_rounded,
+    label: 'Call',
+    size: 76,
+    color: _success,
+    foreground: Colors.white,
+    onTap: _placePhoneCall,
+  );
 
   String _phoneCallStatus(
     NeoAgentController controller,
@@ -381,12 +437,23 @@ class _CallRoundButton extends StatelessWidget {
   }
 }
 
+/// Room for the launcher's single row of call buttons: a 76-point button and
+/// its label.
+const double _embeddedCallRowHeight = 108;
+
 /// A ring around the caller's face that ripples outward in [pulseColor]
 /// while someone is talking, and rests as a hairline otherwise.
 class _CallHalo extends StatefulWidget {
-  const _CallHalo({required this.child, this.pulseColor});
+  const _CallHalo({
+    required this.child,
+    required this.mascotSize,
+    this.pulseColor,
+  });
 
   final Widget child;
+
+  /// Size of the face inside; the ring and ripples scale with it.
+  final double mascotSize;
   final Color? pulseColor;
 
   @override
@@ -395,8 +462,11 @@ class _CallHalo extends StatefulWidget {
 
 class _CallHaloState extends State<_CallHalo>
     with SingleTickerProviderStateMixin {
-  static const double _extent = 216;
-  static const double _ring = 166;
+  static const double extentPerMascot = 216 / 128;
+  static const double _ringPerMascot = 166 / 128;
+
+  double get _extent => widget.mascotSize * extentPerMascot;
+  double get _ring => widget.mascotSize * _ringPerMascot;
 
   late final AnimationController _pulse = AnimationController(
     vsync: this,

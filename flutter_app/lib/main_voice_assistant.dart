@@ -5,12 +5,18 @@ class VoiceAssistantPanel extends StatefulWidget {
     super.key,
     required this.controller,
     this.phoneCall = false,
+    this.embedded = false,
   });
 
   final NeoAgentController controller;
 
   /// Full-screen phone-call layout, for phones.
   final bool phoneCall;
+
+  /// The phone-call layout inside a screen that owns the chrome and the back
+  /// gesture (launcher mode): no back control, and the avatar grows with the
+  /// room it gets.
+  final bool embedded;
 
   @override
   State<VoiceAssistantPanel> createState() => _VoiceAssistantPanelState();

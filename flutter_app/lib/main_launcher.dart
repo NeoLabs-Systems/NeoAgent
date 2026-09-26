@@ -256,8 +256,13 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     }
   }
 
+  // The launcher's home is the voice call, with the avatar as its centre.
   Widget _buildAssistantPage() {
-    return VoiceAssistantPanel(controller: widget.controller);
+    return VoiceAssistantPanel(
+      controller: widget.controller,
+      phoneCall: true,
+      embedded: true,
+    );
   }
 
   Widget _buildSettingsPage() {
@@ -625,46 +630,36 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
           child: Column(
             children: <Widget>[
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _bgCard.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _border),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.xs,
+                  AppSpacing.lg,
+                  0,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Text(
+                      timeLabel,
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const <FontFeature>[
+                          FontFeature.tabularFigures(),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: <Widget>[
-                        Icon(batteryIcon, size: 18, color: _textSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          batteryLabel,
-                          style: TextStyle(
-                            color: _textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: _textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          timeLabel,
-                          style: TextStyle(
-                            color: _textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    const Spacer(),
+                    Icon(batteryIcon, size: 18, color: _textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      batteryLabel,
+                      style: TextStyle(
+                        color: _textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
               Expanded(
