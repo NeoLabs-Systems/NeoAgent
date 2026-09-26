@@ -45,6 +45,7 @@ function createDefaultAiSettings() {
     assistant_behavior_notes: '',
     auto_skill_learning: true,
     smarter_model_selector: true,
+    jev_enabled: false,
     enabled_models: [],
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
@@ -281,6 +282,7 @@ function getAiSettings(userId, agentId = null) {
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
+  settings.jev_enabled = settings.jev_enabled === true || settings.jev_enabled === 'true';
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;
   settings.default_chat_model = typeof settings.default_chat_model === 'string' && settings.default_chat_model.trim()
     ? settings.default_chat_model

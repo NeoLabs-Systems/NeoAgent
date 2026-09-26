@@ -5282,6 +5282,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> saveSettings({
     required bool smarterSelector,
+    required bool jevEnabled,
     required List<String> enabledModels,
     required String defaultChatModel,
     required String defaultSubagentModel,
@@ -5301,6 +5302,7 @@ class NeoAgentController extends ChangeNotifier {
       'runtime_profile': 'cloud-computer',
       'runtime_backend': 'qemu',
       'smarter_model_selector': smarterSelector,
+      'jev_enabled': jevEnabled,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
@@ -7488,6 +7490,23 @@ class NeoAgentController extends ChangeNotifier {
   bool get headlessBrowser => true;
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
+
+  /// This agent's own Jev choice; the server policy can override it.
+  bool get jevEnabled => settings['jev_enabled'] == true;
+
+  /// Server-wide Jev policy: `agent` (each agent decides), `on`, or `off`.
+  String get jevPolicy {
+    final policy = settings['jev_policy'];
+    return policy == 'on' || policy == 'off' ? policy as String : 'agent';
+  }
+
+  /// Jev runs through OpenRouter, so it is offered only with an OpenRouter
+  /// key (the server's or this agent's own) and when the server allows it.
+  bool get jevAvailable =>
+      jevPolicy != 'off' &&
+      aiProviders.any(
+        (provider) => provider.id == 'openrouter' && provider.available,
+      );
 
   String get timeZone => settings['timezone']?.toString().trim() ?? '';
 

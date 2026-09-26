@@ -57,6 +57,12 @@ class BaseProvider {
   async analyzeImage(_options = {}) {
     throw new Error(`Provider '${this.name}' does not support image analysis`);
   }
+
+  // Decision models (Jev) answer typed questions about a state with
+  // probabilities instead of generating text.
+  async decide(_request = {}) {
+    throw new Error(`Provider '${this.name}' does not serve decision models`);
+  }
 }
 
 module.exports = { BaseProvider };

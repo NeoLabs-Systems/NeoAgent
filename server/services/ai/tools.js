@@ -17,6 +17,8 @@ const {
     getIntegratedToolDefinitions,
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
+const { runBrowserAct } = require('./integrated_tools/browser_act');
+const { isJevEnabled } = require('./jev');
 const {
     executeAndroidTool,
     executeDesktopTool,
@@ -528,6 +530,19 @@ function getAvailableTools(app, options = {}) {
                     pressEnter: { type: 'boolean', description: 'Press Enter after typing' }
                 },
                 required: ['selector', 'text']
+            }
+        },
+        {
+            name: 'browser_act',
+            family: 'browser_page',
+            description: 'Fast, accurate control of the web page for multi-step interaction: search boxes, forms, filters, menus, dropdowns, and date pickers. Give the goal for the page, with every value to enter, and optionally a URL to open first. Jev picks each click, field, and option from the visible controls in a fraction of a second. Prefer it over browser_click and browser_type for interactive steps. Returns the actions taken and the final page; confirm the result there before reporting it.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    goal: { type: 'string', description: 'What to accomplish on the page, including every value to enter, e.g. "Search one-way flights from Zurich to London on 20 September for 1 adult"' },
+                    url: { type: 'string', description: 'URL to open before starting (optional; defaults to the current page)' }
+                },
+                required: ['goal']
             }
         },
         {
@@ -1713,7 +1728,10 @@ function getAvailableTools(app, options = {}) {
         tools.push(...integrationTools);
     }
 
-    let visibleTools = tools;
+    // browser_act runs on Jev, so it is only offered while Jev is on.
+    let visibleTools = isJevEnabled(options.userId, options.agentId || null)
+        ? tools
+        : tools.filter((tool) => tool.name !== 'browser_act');
     if (options.userId != null) {
         try {
             const { getDelegationTargets, resolveAgentId } = require('../agents/manager');
@@ -1997,6 +2015,37 @@ async function executeTool(toolName, args, context, engine) {
                 pressEnter: args.pressEnter,
                 signal,
             }), backend };
+        }
+
+        case 'browser_act': {
+            const goal = typeof args.goal === 'string' ? args.goal.trim() : '';
+            if (!goal) return { error: 'browser_act requires a "goal" argument' };
+            if (!isJevEnabled(userId, agentId)) {
+                return { error: 'browser_act needs Jev, which is switched off for this agent. Use browser_click and browser_type instead.' };
+            }
+            if (args.url) {
+                const urlCheck = await validateCloudUrlWithDns(args.url, { signal });
+                if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
+            }
+            const { provider, backend } = await bc();
+            if (!provider) return { error: 'Browser controller not available' };
+            if (backend === 'local-computer') {
+                return { error: 'browser_act needs the cloud computer browser. Use browser_navigate and the desktop tools on this computer.', backend };
+            }
+            return {
+                ...await runBrowserAct({
+                    provider,
+                    engine,
+                    goal,
+                    url: args.url || null,
+                    userId,
+                    agentId,
+                    runId,
+                    stepId,
+                    signal,
+                }),
+                backend,
+            };
         }
 
         case 'browser_extract': {

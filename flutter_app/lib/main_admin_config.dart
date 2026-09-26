@@ -692,6 +692,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
 
     return _SectionStack(
       children: <Widget>[
+        _AdminJevCard(controller: widget.controller),
         _SectionCard(
           title: 'Model availability',
           description:
@@ -745,6 +746,127 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     );
   }
 }
+
+/// Server-wide Jev policy: each agent decides, on for everyone, or off.
+class _AdminJevCard extends StatefulWidget {
+  const _AdminJevCard({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_AdminJevCard> createState() => _AdminJevCardState();
+}
+
+class _AdminJevCardState extends State<_AdminJevCard>
+    with _LoadSaveState<_AdminJevCard> {
+  String _policy = 'agent';
+  bool _serverKey = false;
+
+  @override
+  NeoAgentController get _controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _runLoad(_fetch);
+  }
+
+  Future<void> _fetch() async {
+    final data = await _client.fetchAdminJev(_baseUrl);
+    _policy = _jevPolicyFrom(data['policy']);
+    _serverKey = data['serverOpenRouterKey'] == true;
+  }
+
+  Future<void> _setPolicy(String policy) async {
+    if (_saving || policy == _policy) return;
+    final previous = _policy;
+    setState(() => _policy = policy);
+    final saved = await _runSave(
+      () async {
+        final data = await _client.setAdminJevPolicy(_baseUrl, policy);
+        _policy = _jevPolicyFrom(data['policy']);
+      },
+      switch (policy) {
+        'on' => 'Jev is on for every agent.',
+        'off' => 'Jev is off on this server.',
+        _ => 'Each agent now decides in its own settings.',
+      },
+    );
+    if (!saved && mounted) setState(() => _policy = previous);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Jev decisions',
+      description:
+          'Jev is a decision model that makes the behind-the-scenes calls in '
+          'a fraction of a second: routing, tool and skill choice, memory '
+          'ranking, group-chat turn-taking, research sources, answer checks, '
+          'and browser steps. '
+          'It cuts waiting and model cost; every reply is still written by '
+          'the agent\'s chat model. Jev runs through OpenRouter.',
+      trailing: _StatusPill(label: 'Highly recommended', color: _accent),
+      child:
+          _loadGate(_fetch) ??
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(
+                    value: 'agent',
+                    label: Text('Each agent decides'),
+                    icon: Icon(Icons.tune),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'on',
+                    label: Text('On for everyone'),
+                    icon: Icon(Icons.bolt),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'off',
+                    label: Text('Off'),
+                    icon: Icon(Icons.block_outlined),
+                  ),
+                ],
+                selected: <String>{_policy},
+                showSelectedIcon: false,
+                onSelectionChanged: _saving
+                    ? null
+                    : (selection) => _setPolicy(selection.first),
+              ),
+              const SizedBox(height: 12),
+              Text(switch (_policy) {
+                'on' =>
+                  'Every agent uses Jev. Agents can no longer switch it off '
+                      'in their settings.',
+                'off' =>
+                  'Jev is off for every agent, and its switch is hidden in '
+                      'their settings.',
+                _ =>
+                  'Each agent switches Jev on under Settings › Models. It '
+                      'starts off.',
+              }, style: TextStyle(color: _textSecondary, height: 1.45)),
+              if (!_serverKey && _policy != 'off') ...<Widget>[
+                const SizedBox(height: 12),
+                _InfoChip(
+                  icon: Icons.key_outlined,
+                  label:
+                      'No server OpenRouter key yet. Add one under Providers, '
+                      'or agents can use their own key under Advanced › Bring '
+                      'your own key.',
+                ),
+              ],
+              _saveFeedback(),
+            ],
+          ),
+    );
+  }
+}
+
+String _jevPolicyFrom(Object? value) =>
+    value == 'on' || value == 'off' ? value as String : 'agent';
 
 class _AdminCfgModelGroup extends StatelessWidget {
   const _AdminCfgModelGroup({

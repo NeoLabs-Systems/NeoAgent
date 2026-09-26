@@ -117,7 +117,7 @@ function classifyToolExecution(
   const stateChanged = directStateChange
     || (name.startsWith('github_') && isProgressToolCall(name, toolArgs))
     || (name === 'http_request' && isProgressToolCall(name, toolArgs))
-    || ['browser_click', 'browser_evaluate', 'browser_navigate', 'browser_type'].includes(name);
+    || ['browser_act', 'browser_click', 'browser_evaluate', 'browser_navigate', 'browser_type'].includes(name);
 
   let normalizedError = String(errorMessage || result?.error || '').trim();
   if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {

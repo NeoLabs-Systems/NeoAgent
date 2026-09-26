@@ -30,6 +30,9 @@ const {
   buildVerifierPrompt,
   normalizeVerificationResult,
 } = require('../taskAnalysis');
+const { buildSkillHint, buildTriageDecision, interpretTriageDecision } = require('../jev_triage');
+const { buildVerificationDecision, isClearlySupported } = require('../jev_verification');
+const { applyResearchRating, buildResearchDecision } = require('../jev_research');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilityHealth');
 const {
   classifyToolExecution,
@@ -771,6 +774,8 @@ class DurableRunRuntime {
         complexity: requestedPlan ? 'complex' : 'standard',
       };
       startupTiming.contextMs = Date.now() - startupTiming.acceptedAt - startupTiming.providerMs;
+      let jevRouting = null;
+      let relevantSkill = null;
       if (leanStartup) {
         const skippedAnalysis = {
           ...analysisFallback,
@@ -780,40 +785,83 @@ class DurableRunRuntime {
         };
         analysis = normalizeTaskAnalysis(skippedAnalysis, skippedAnalysis);
       } else {
-        try {
-          const analysisResponse = await this.engine.requestStructuredJson({
-            provider,
-            providerName,
-            model,
-            messages,
-            prompt: buildAnalysisPrompt({
-              tools: allTools,
-              forceMode: options.forceMode || null,
-            }),
-            // Reasoning models count their reasoning tokens against this cap;
-            // at 1400 a sizeable share of analyses were cut off mid-JSON.
-            maxTokens: 4000,
-            normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
-            fallback: analysisFallback,
-            telemetry: {
+        // With Jev on, Jev routes the request and picks its tools and skill.
+        // Broad or long work still gets the model's triage below for the goal,
+        // plan, and opening line; Jev's answers fill whatever it leaves out.
+        const skills = (this.engine.skillRunner?.getAll?.(userId) || [])
+          .filter((skill) => skill?.metadata?.enabled !== false);
+        const triageDecision = await this.engine.decide({
+          userId,
+          agentId,
+          runId,
+          phase: 'jev_triage',
+          signal: abortController.signal,
+          ...buildTriageDecision({ userMessage, messages, tools: allTools, skills }),
+        });
+        jevRouting = triageDecision ? interpretTriageDecision(triageDecision) : null;
+        relevantSkill = jevRouting?.skill
+          ? skills.find((skill) => skill.name === jevRouting.skill) || null
+          : null;
+        const routedFallback = jevRouting
+          ? { ...analysisFallback, ...jevRouting.analysis }
+          : analysisFallback;
+        if (jevRouting && !jevRouting.escalate && !options.forceMode) {
+          // A request Jev routes as a direct answer is answered by the chat
+          // model in one plain turn and delivered through the fast path.
+          const draftReply = jevRouting.analysis.mode === 'direct_answer'
+            ? await this.#writeDirectReply({
+              provider,
+              providerName,
+              model,
+              messages,
+              options,
+              signal: abortController.signal,
               runId,
               userId,
               agentId,
-              signal: abortController.signal,
-            },
-            phase: 'task_analysis',
-          });
-          totalTokens += Number(analysisResponse.usage || 0);
-          analysis = analysisResponse.value || normalizeTaskAnalysis(analysisFallback, analysisFallback);
-          if (analysisResponse.parsed === false) {
-            console.warn('[Runtime] Task analysis reply held no parseable JSON; using default routing.');
-            this.engine.recordRunEvent?.(userId, runId, 'task_analysis_unparsed', {
-              rawChars: String(analysisResponse.raw || '').length,
-            }, { agentId });
+            })
+            : '';
+          analysis = normalizeTaskAnalysis(
+            draftReply ? { ...routedFallback, draft_reply: draftReply, draft_status: 'final' } : routedFallback,
+            analysisFallback,
+          );
+        } else {
+          try {
+            const analysisResponse = await this.engine.requestStructuredJson({
+              provider,
+              providerName,
+              model,
+              messages,
+              prompt: buildAnalysisPrompt({
+                tools: allTools,
+                forceMode: options.forceMode || null,
+              }),
+              // Reasoning models count their reasoning tokens against this cap;
+              // at 1400 a sizeable share of analyses were cut off mid-JSON.
+              maxTokens: 4000,
+              normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
+              fallback: routedFallback,
+              telemetry: {
+                runId,
+                userId,
+                agentId,
+                signal: abortController.signal,
+              },
+              phase: 'task_analysis',
+            });
+            totalTokens += Number(analysisResponse.usage || 0);
+            analysis = analysisResponse.value || normalizeTaskAnalysis(routedFallback, routedFallback);
+            if (analysisResponse.parsed === false) {
+              console.warn('[Runtime] Task analysis reply held no parseable JSON; using default routing.');
+              this.engine.recordRunEvent?.(userId, runId, 'task_analysis_unparsed', {
+                rawChars: String(analysisResponse.raw || '').length,
+              }, { agentId });
+            }
+          } catch (error) {
+            console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
+            analysis = normalizeTaskAnalysis(routedFallback, routedFallback);
           }
-        } catch (error) {
-          console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
-          analysis = normalizeTaskAnalysis(analysisFallback, analysisFallback);
+          if (jevRouting) analysis.suggested_tools = jevRouting.analysis.suggested_tools;
         }
       }
 
@@ -830,7 +878,8 @@ class DurableRunRuntime {
         triggerType,
         includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
       };
-      const initialMatches = (analysis.suggested_tools || []).length
+      // Jev judged every tool, so "none needed" from Jev is an answer too.
+      const initialMatches = (analysis.suggested_tools || []).length || jevRouting
         ? []
         : searchTools(allTools, userMessage, { limit: 8, excludeNames: ALWAYS_INCLUDE_BUILT_INS });
       // When NeoRecall is connected, keep day/search tools active so personal
@@ -870,9 +919,15 @@ class DurableRunRuntime {
           this.engine.describeIntegrationsForRun?.(runId, tools) || '',
         ].filter(Boolean).join('\n'),
       });
+      if (relevantSkill) {
+        messages.push({ role: 'system', content: buildSkillHint(relevantSkill) });
+      }
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
         activeToolNames: tools.map((tool) => tool.name),
         matchedToolNames: initialMatches.map((tool) => tool.name),
+        // jev: Jev routed alone; model+jev: the model triaged, Jev chose tools.
+        triage: jevRouting ? (jevRouting.escalate || options.forceMode ? 'model+jev' : 'jev') : 'model',
+        relevantSkill: relevantSkill?.name || null,
         catalogSize: allTools.length,
       }, { agentId });
 
@@ -2171,6 +2226,34 @@ class DurableRunRuntime {
             const elapsed = Date.now() - started;
             budget.recordToolRuntime(elapsed);
 
+            // In research runs, Jev rates each read against the task, so the
+            // model opens promising results first and drops pages that lack
+            // what it needs.
+            if (success && (analysis.research_depth || 'none') !== 'none') {
+              const researchTargets = contract?.research_targets || [];
+              const rating = buildResearchDecision({
+                task: contract?.goal || userMessage,
+                targets: researchTargets,
+                toolName: call.name,
+                args: call.arguments,
+                result,
+              });
+              const answers = rating
+                ? await this.engine.decide({
+                  userId,
+                  agentId,
+                  runId,
+                  stepId,
+                  phase: 'jev_research_rating',
+                  signal: getActiveSignal(),
+                  ...rating,
+                })
+                : null;
+              if (answers) {
+                result = applyResearchRating({ toolName: call.name, result, answers, targets: researchTargets });
+              }
+            }
+
             // Tools report most failures in the result rather than by throwing.
             // Those must count as failures, or the consecutive-failure guard never
             // sees a run that keeps retrying a broken integration.
@@ -2988,6 +3071,52 @@ class DurableRunRuntime {
     return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).join(' ').slice(0, 400);
   }
 
+  // The reply for a request Jev routed as a direct answer: the chat model's
+  // own words, without tools. An empty result sends the run down the normal
+  // execution path instead.
+  async #writeDirectReply({
+    provider,
+    providerName,
+    model,
+    messages,
+    options,
+    signal,
+    runId,
+    userId,
+    agentId,
+  }) {
+    try {
+      const reply = await this.engine.requestModelResponse({
+        provider,
+        providerName,
+        model,
+        messages: sanitizeConversationMessages([
+          ...messages,
+          {
+            role: 'system',
+            content: 'Reply to the latest user message now with your complete answer. Write only the reply itself; do not describe steps or promise to check anything.',
+          },
+        ]),
+        tools: [],
+        options: {
+          ...options,
+          signal,
+          runId,
+          userId,
+          agentId,
+          phase: 'direct_reply',
+        },
+        runId,
+        iteration: 0,
+      });
+      return String(reply?.response?.content || reply?.streamContent || '').trim();
+    } catch (error) {
+      if (isAbortError(error, signal)) throw error;
+      console.warn('[Runtime] Direct reply failed; continuing with execution:', error?.message || error);
+      return '';
+    }
+  }
+
   async #semanticVerify({
     provider,
     providerName,
@@ -2998,6 +3127,24 @@ class DurableRunRuntime {
     finalContent,
     options,
   }) {
+    // A reply Jev finds clearly backed by the run's own tool results skips
+    // the verifier model. Anything less goes to the model, which can rewrite it.
+    const decision = await this.engine.decide({
+      userId: options.userId,
+      agentId: options.agentId,
+      runId: options.runId,
+      phase: 'jev_verification',
+      signal: options.signal,
+      ...buildVerificationDecision({
+        request: analysis.goal,
+        messages,
+        draftReply: finalContent,
+      }),
+    });
+    if (decision && isClearlySupported(decision)) {
+      return { status: 'verified', final_reply: finalContent };
+    }
+
     const toolExecutionSummary = messages
       .filter((m) => m.role === 'tool')
       .slice(-12)

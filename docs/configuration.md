@@ -59,6 +59,7 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 | `MINIMAX_API_KEY` | MiniMax |
 | `NVIDIA_API_KEY` | NVIDIA NIM |
 | `OPENROUTER_API_KEY` | OpenRouter |
+| `NEOAGENT_JEV` | Jev decision model policy: `agent` (default, each agent decides), `on`, or `off`. See [Jev decisions](models.md#-jev-decisions) |
 | `OPENAI_BASE_URL` | OpenAI-compatible base URL override |
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible base URL override |
 | `OLLAMA_URL` | Ollama server URL |

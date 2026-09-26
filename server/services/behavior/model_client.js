@@ -30,6 +30,14 @@ async function requestStructuredJson({
   });
 }
 
+// A Jev decision, or null when Jev is off or unavailable and the caller
+// should use its model path.
+async function requestDecision({ agentEngine, ...request }) {
+  if (typeof agentEngine?.decide !== 'function') return null;
+  return agentEngine.decide(request);
+}
+
 module.exports = {
+  requestDecision,
   requestStructuredJson,
 };

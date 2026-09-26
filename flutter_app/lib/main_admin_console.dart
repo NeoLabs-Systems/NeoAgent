@@ -200,6 +200,12 @@ const List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: 'Server provider credentials',
   ),
   _AdminSearchEntry(
+    'Jev decisions',
+    _AdminTab.models,
+    'jev typesafe decision model openrouter routing fast cheaper recommended',
+    card: 'Jev decisions',
+  ),
+  _AdminSearchEntry(
     'Enable or disable models',
     _AdminTab.models,
     'model visibility hide show list',

@@ -4,6 +4,14 @@ const { fetchResponseText } = require('../../network/http');
 const { wrapProviderError } = require('./provider_error');
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const ATTRIBUTION_HEADERS = Object.freeze({
+  'HTTP-Referer': 'https://github.com/NeoLabs-Systems/NeoAgent',
+  'X-Title': 'NeoAgent',
+});
+// Jev, TypeSafe's decision model, is served through OpenRouter's System One
+// API, which takes TypeSafe's own request shape. The version is pinned because
+// the decision thresholds in NeoAgent were calibrated against it.
+const JEV_MODEL = 'typesafe/jev-1.13';
 
 // Context windows fetched from the API are cached here so getContextWindow
 // can serve them without a network call at inference time.
@@ -34,10 +42,7 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
       baseURL: this.baseURL,
       timeout: 90_000,  // 90 s — free models can queue; avoids hanging forever
       maxRetries: 0,    // engine handles retries; avoid SDK silently re-queuing slow models
-      defaultHeaders: {
-        'HTTP-Referer': 'https://github.com/NeoLabs-Systems/NeoAgent',
-        'X-Title': 'NeoAgent',
-      },
+      defaultHeaders: ATTRIBUTION_HEADERS,
     });
   }
 
@@ -84,6 +89,11 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
 
     const effort = catalogReasoningEffort(model, options.reasoningEffort);
     if (effort) params.reasoning = { effort };
+
+    // Routers such as typesafe/jev-router keep a working model for a session
+    // and only switch when the gain outweighs the lost prompt cache. Without a
+    // session id every turn is routed from scratch and can change model mid-run.
+    if (options.sessionId) params.session_id = String(options.sessionId);
 
     if (tools && tools.length > 0) {
       params.tools = this.formatTools(tools);
@@ -147,6 +157,41 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
         signal: options.signal,
       });
     }
+  }
+
+  async decide({ state, questions, signal = null, timeoutMs } = {}) {
+    const { response, text } = await fetchResponseText(`${this.baseURL}/systemone`, {
+      method: 'POST',
+      headers: {
+        ...ATTRIBUTION_HEADERS,
+        Authorization: `Bearer ${this.client.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: JEV_MODEL, state, questions }),
+      maxResponseBytes: 1024 * 1024,
+      serviceName: 'Jev decision',
+      signal,
+      timeoutMs,
+    });
+    let payload = null;
+    try {
+      payload = JSON.parse(text || '{}');
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) {
+      const error = new Error(`Jev returned HTTP ${response.status}${payload?.error?.message ? `: ${payload.error.message}` : ''}`);
+      error.status = response.status;
+      throw error;
+    }
+    if (!payload?.answers || typeof payload.answers !== 'object') {
+      throw new Error('Jev returned no answers.');
+    }
+    return {
+      model: payload.model || JEV_MODEL,
+      answers: payload.answers,
+      usage: payload.usage || {},
+    };
   }
 }
 

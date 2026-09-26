@@ -91,12 +91,15 @@ const {
 } = require('../../memory/consolidation');
 const {
   buildPlannerPrompt,
+  buildRerankDecision,
   buildRerankerPrompt,
   mergeRetrievalResults,
   normalizeRerankResult,
   normalizeRetrievalPlan,
+  rerankFromDecision,
   shouldEnhanceRetrieval,
 } = require('../../memory/retrieval_reasoning');
+const jev = require('../jev');
 const {
   createAbortError,
   createLinkedAbortController,
@@ -386,6 +389,23 @@ class AgentEngine {
         const mergedResults = mergeRetrievalResults(resultSets, 30);
         if (mergedResults.length <= 1) {
           return { plan: planned.value, merged: mergedResults, reranked: mergedResults };
+        }
+        const judged = mergedResults.slice(0, 24);
+        const decision = await this.decide({
+          userId,
+          agentId,
+          runId,
+          stepId,
+          phase: 'jev_memory_rerank',
+          signal: budgetSignal,
+          ...buildRerankDecision(query, judged),
+        });
+        if (decision) {
+          return {
+            plan: planned.value,
+            merged: mergedResults,
+            reranked: rerankFromDecision(decision, mergedResults, judged),
+          };
         }
         const rerankResponse = await this.requestStructuredJson({
           provider,
@@ -704,6 +724,12 @@ class AgentEngine {
       modelSelectionId: selected.modelSelectionId,
       providerName: selected.providerName,
     };
+  }
+
+  // A Jev decision for a behind-the-scenes choice. Null means Jev is off or
+  // did not answer, and the caller takes its model path.
+  decide(request) {
+    return jev.decide(request);
   }
 
   async requestModelResponse({

@@ -190,6 +190,8 @@ async function requestModelResponse(engine, {
       model: durableRequest.header.model,
       maxTokens: durableRequest.header.maxTokens,
       reasoningEffort: durableRequest.header.reasoningEffort,
+      // Routing models (typesafe/jev-router) keep their pick per session.
+      sessionId: options.conversationId || options.runId || runId || null,
       signal: modelAbortController.signal,
     };
     let response = null;

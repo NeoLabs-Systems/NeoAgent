@@ -68,6 +68,46 @@ Some features use separate providers:
 - Voice transcription can use Deepgram when enabled.
 - Image generation and analysis depend on the selected provider and model.
 
+## ⚡ Jev decisions
+
+Jev is TypeSafe's decision model. It answers typed questions (yes or no,
+pick one, score) in a few hundred milliseconds instead of writing text, and
+NeoAgent uses it for the decisions it makes behind the scenes:
+
+- routing a request and choosing the tools and skill it needs
+- ranking recalled memories
+- during research, rating each search result and fetched page for whether it
+  holds what the task needs, so the model opens the right sources first and
+  skips pages without the information
+- deciding whether to speak in group chats
+- checking a reply against the run's tool results, so the verifier model only
+  runs when Jev is not sure the reply is backed
+- driving web pages with the `browser_act` tool, one click, field, or option
+  per step
+
+Everything a person reads is still written by the chat model, and every
+decision falls back to the model path when Jev does not answer. Broad or long
+requests still get the chat model's own planning.
+
+Jev runs through OpenRouter, so it needs an OpenRouter key: the server's or an
+agent's own under **Advanced › Bring your own key**. With one configured, turn
+Jev on under **Settings > Models**, below the model selectors. Requests Jev
+decides on are sent to TypeSafe through OpenRouter.
+
+Server admins set the policy under **Admin › Models** or with the CLI:
+
+```bash
+neoagent jev          # show the policy and key status
+neoagent jev on       # Jev on for every agent
+neoagent jev agent    # each agent decides in Settings (default)
+neoagent jev off      # Jev off on this server
+```
+
+The CLI commands restart NeoAgent to apply the change; the admin console
+applies it at once. Jev Router (`typesafe/jev-router`) is a separate choice:
+it is an OpenRouter chat model that picks a model per request and can be
+selected like any other model.
+
 ## 🔐 Credential handling
 
 API keys and account tokens are stored under the NeoAgent runtime directory on

@@ -692,6 +692,19 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/models');
   }
 
+  Future<Map<String, dynamic>> fetchAdminJev(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/jev');
+  }
+
+  Future<Map<String, dynamic>> setAdminJevPolicy(
+    String baseUrl,
+    String policy,
+  ) async {
+    return putMap(baseUrl, '/api/admin/jev', <String, dynamic>{
+      'policy': policy,
+    });
+  }
+
   Future<Map<String, dynamic>> saveAdminDisabledModels(
     String baseUrl,
     List<String> disabledModels,

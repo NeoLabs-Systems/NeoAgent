@@ -73,6 +73,7 @@ const BUILT_IN_TOOLS = new Set([
   'browser_navigate',
   'browser_click',
   'browser_type',
+  'browser_act',
   'browser_extract',
   'browser_screenshot',
   'browser_evaluate',

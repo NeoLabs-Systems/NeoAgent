@@ -160,6 +160,33 @@ function buildPlannerPrompt(query, candidates, nowIso) {
   ].join('\n\n');
 }
 
+// Jev judges every candidate on its own, one yes/no question each, all in a
+// single request. The probabilities replace the reranker model's relevance.
+function buildRerankDecision(query, candidates) {
+  return {
+    state: {
+      query,
+      candidates: candidates.map(summarizeCandidateForPrompt),
+    },
+    questions: Object.fromEntries(candidates.map((_, index) => [
+      `candidate_${index}`,
+      {
+        type: 'noul',
+        instructions: `\`candidates[${index}].content\` directly helps answer \`query\`.`,
+      },
+    ])),
+  };
+}
+
+function rerankFromDecision(answers, candidates, judged) {
+  return normalizeRerankResult({
+    rankings: judged.map((candidate, index) => {
+      const relevance = answers[`candidate_${index}`].noul;
+      return { id: candidate.id, relevance, answerability: relevance };
+    }),
+  }, candidates);
+}
+
 function buildRerankerPrompt(query, plan, candidates) {
   return [
     'Return JSON only. Rerank memory candidates for the query.',
@@ -181,8 +208,10 @@ function buildRerankerPrompt(query, plan, candidates) {
 
 module.exports = {
   buildPlannerPrompt,
+  buildRerankDecision,
   buildRerankerPrompt,
   mergeRetrievalResults,
+  rerankFromDecision,
   normalizeRerankResult,
   normalizeRetrievalPlan,
   shouldEnhanceRetrieval,

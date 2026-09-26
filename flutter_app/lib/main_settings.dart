@@ -88,6 +88,8 @@ const _modelsSettingsSection =
       'sub-agent',
       'subagent',
       'smart selector',
+      'jev',
+      'decisions',
     ]);
 
 const _advancedSettingsSection = _SettingsSection(
@@ -182,6 +184,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   _SettingsSection _selectedSettingsSection = _overviewSettingsSection;
   late bool _smarterSelector;
+  late bool _jevEnabled;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
@@ -279,6 +282,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _smarterSelector = controller.smarterSelector;
+    _jevEnabled = controller.jevEnabled;
     // Saved selections are user-owned. Catalog availability may affect whether
     // a run can use a model, but it must never rewrite the saved routing pool.
     _enabledModels = controller.enabledModelIds.toSet();
@@ -630,6 +634,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final controller = widget.controller;
     await controller.saveSettings(
       smarterSelector: _smarterSelector,
+      jevEnabled: _jevEnabled,
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
       defaultSubagentModel: _defaultSubagentModel,
@@ -909,10 +914,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _behaviorDecisionModelId,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Turn-taking model',
                 helperText:
-                    'Automatic selects a fast model through the normal model catalog.',
+                    controller.jevAvailable &&
+                        (controller.jevPolicy == 'on' || _jevEnabled)
+                    ? 'Jev decides when to speak while it is on; this model is the fallback.'
+                    : 'Automatic selects a fast model through the normal model catalog.',
               ),
               items: <DropdownMenuItem<String>>[
                 const DropdownMenuItem(
@@ -1517,6 +1525,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   );
                 },
               ),
+            if (controller.jevAvailable) ...<Widget>[
+              const SizedBox(height: 16),
+              _JevSettingCard(
+                enabled: _jevEnabled,
+                lockedOn: controller.jevPolicy == 'on',
+                onChanged: (value) => setState(() {
+                  _jevEnabled = value;
+                  _hasUnsavedChanges = true;
+                }),
+              ),
+            ],
             const Divider(height: 32),
             Text(
               'Smart Selector Pool',
@@ -2180,6 +2199,116 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
                   if (zone != null) _chooseZone(zone);
                 },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The per-agent Jev switch, shown under the model selectors when OpenRouter
+/// is configured. With the server policy on, it stays on and cannot be changed.
+class _JevSettingCard extends StatelessWidget {
+  const _JevSettingCard({
+    required this.enabled,
+    required this.lockedOn,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final bool lockedOn;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = enabled || lockedOn;
+    return MergeSemantics(
+      child: _PanelSurface(
+        padding: const EdgeInsets.all(18),
+        fillColor: Color.alphaBlend(
+          _accent.withValues(alpha: active ? 0.10 : 0.05),
+          _bgCard,
+        ),
+        borderColor: _accent.withValues(alpha: active ? 0.45 : 0.22),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.bolt_rounded, color: _accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        'Jev decisions',
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      _StatusPill(label: 'Highly recommended', color: _accent),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Makes the behind-the-scenes calls in a fraction of a '
+                    'second: routing, tool and skill choice, memory ranking, '
+                    'group-chat turn-taking, research sources, answer checks, '
+                    'and browser steps. Your chat model still writes every '
+                    'reply.',
+                    style: TextStyle(color: _textSecondary, height: 1.45),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      _MetaPill(
+                        icon: Icons.speed_rounded,
+                        label: 'Faster replies',
+                        color: _accent,
+                      ),
+                      _MetaPill(
+                        icon: Icons.savings_outlined,
+                        label: 'Fewer model calls',
+                        color: _accent,
+                      ),
+                      _MetaPill(
+                        icon: Icons.ads_click_rounded,
+                        label: 'Sharper tool choice',
+                        color: _accent,
+                      ),
+                    ],
+                  ),
+                  if (lockedOn) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Turned on for every agent by your server admin.',
+                      style: TextStyle(color: _textMuted, fontSize: 12.5),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Switch.adaptive(
+              value: active,
+              onChanged: lockedOn ? null : onChanged,
+            ),
           ],
         ),
       ),

@@ -1168,3 +1168,86 @@ test('system prompt caching keeps room-scoped behavior overrides isolated', asyn
   assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /MESSAGING VOICE/);
   assert.match(`${normal.stable}\n${normal.dynamic}`, /MESSAGING VOICE/);
 });
+
+function jevGateEngine(answers, onModelCall = () => {}) {
+  return {
+    async decide({ phase, questions }) {
+      assert.equal(phase, 'jev_turn_taking');
+      assert.deepEqual(Object.keys(questions), ['speak', 'for_someone_else', 'urgency']);
+      return answers;
+    },
+    async inferStructured() {
+      onModelCall();
+      return { parsed: { decision: 'stay_silent', needScore: 0 } };
+    },
+    trackBackgroundTask() {
+      return Promise.resolve();
+    },
+  };
+}
+
+function jevAnswers(speak, forSomeoneElse, urgency = 1) {
+  return {
+    speak: { type: 'noul', noul: speak },
+    for_someone_else: { type: 'noul', noul: forSomeoneElse },
+    urgency: { type: 'score', score: urgency, confidence: 0.9, probabilities: {}, legend: {} },
+  };
+}
+
+test('Jev decides the group gate without a model call', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: jevGateEngine(jevAnswers(0.78, 0.12, 1.03), () => { modelCalls += 1; }),
+  });
+  const msg = groupMessage('Does anyone know if the 11:40 train from Bern still runs on Sundays?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(result.engage, true);
+  assert.equal(result.decision.tokenPath, 'jev_gate');
+  assert.equal(result.decision.urgency, 'medium');
+  assert.ok(Math.abs(result.decision.needScore - 0.6864) < 1e-9);
+  assert.equal(modelCalls, 0);
+});
+
+test('Jev scores clear a slightly lower need threshold than model scores', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: jevGateEngine(jevAnswers(0.8, 0.35)),
+  });
+  const msg = groupMessage('What was that movie with the time loop again?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  // 0.8 * (1 - 0.35) = 0.52: under the 0.58 room default, over Jev's 0.50.
+  assert.equal(result.engage, true);
+});
+
+test('messages meant for someone else stay quiet under Jev', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: jevGateEngine(jevAnswers(0.59, 0.41)),
+  });
+  const msg = groupMessage('Around 9pm, can you pick me up?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(result.engage, false);
+  assert.ok(result.decision.reasonCodes.includes('below_need_threshold'));
+});
+
+test('the model gate still decides when Jev has no answer', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: jevGateEngine(null, () => { modelCalls += 1; }),
+  });
+  const msg = groupMessage();
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(modelCalls, 1);
+  assert.equal(result.engage, false);
+  assert.notEqual(result.decision.tokenPath, 'jev_gate');
+});

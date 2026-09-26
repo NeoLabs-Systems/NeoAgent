@@ -31,6 +31,8 @@ const {
   updateBillingSetup,
   getAccessSettings,
   setSignupEnabled,
+  getJevSettings,
+  setJevPolicy,
 } = require('../services/admin/server_config');
 const { getIntegrationSettings, updateIntegrationSettings } = require('../services/admin/integrations');
 const { httpError } = require('../utils/http_error');
@@ -117,6 +119,10 @@ router.put('/models/config', jsonHandler((req) => {
   if (!Array.isArray(disabledModels)) throw httpError(400, 'disabledModels must be an array');
   return { ok: true, disabledModels: setDisabledModelIds(disabledModels) };
 }));
+
+router.get('/jev', jsonHandler(() => getJevSettings()));
+
+router.put('/jev', settingsLimiter, jsonHandler((req) => setJevPolicy(req.body?.policy)));
 
 // --- Server configuration ---
 

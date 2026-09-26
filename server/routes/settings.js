@@ -37,6 +37,7 @@ const {
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
+const { getJevPolicy } = require('../services/ai/jev');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 const { normalizeTimeZone } = require('../utils/timezone');
 
@@ -53,6 +54,7 @@ const AGENT_SETTING_KEYS = new Set([
   'assistant_behavior_notes',
   'auto_skill_learning',
   'smarter_model_selector',
+  'jev_enabled',
   'ai_provider_configs',
   'default_chat_model',
   'default_subagent_model',
@@ -81,10 +83,12 @@ const VOICE_SETTING_KEYS = new Set([
 
 const ENV_BACKED_SETTING_KEYS = new Set([
   'meshtastic_enabled',
+  'jev_policy',
 ]);
 
 const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
+  'jev_policy',
 ]);
 
 const SERVER_MANAGED_SETTING_KEYS = new Set([
@@ -176,6 +180,8 @@ function readEnvBackedSettingValue(key) {
   switch (key) {
     case 'meshtastic_enabled':
       return readMeshtasticEnabled();
+    case 'jev_policy':
+      return getJevPolicy();
     default:
       return null;
   }
@@ -455,6 +461,7 @@ router.get('/', (req, res) => {
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
   settings.meshtastic_enabled = readMeshtasticEnabled();
+  settings.jev_policy = getJevPolicy();
   settings.voice_capabilities = req.app?.locals?.voiceRuntimeManager?.getCapabilities?.() || null;
   
   // Normalize runtime settings for consistency across deployments
