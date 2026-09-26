@@ -28,6 +28,7 @@ import android.telecom.DisconnectCause
 import android.content.Context
 import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 import com.neoagent.flutter_app.voice.VoicePcmPlayer
+import com.neoagent.flutter_app.widgets.HomeWidgets
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import kotlinx.coroutines.launch
@@ -42,7 +43,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var launcherButtonSink: EventChannel.EventSink? = null
     private var appLaunchEventSink: EventChannel.EventSink? = null
-    private var pendingSharePayload: Map<String, Any?>? = null
+    private var pendingLaunchPayload: Map<String, Any?>? = null
     private val voicePlayer = VoicePcmPlayer()
 
     override fun onDestroy() {
@@ -506,13 +507,15 @@ class MainActivity : FlutterFragmentActivity() {
             },
         )
 
-        captureShareIntent(intent)
+        HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
+
+        captureLaunchIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        captureShareIntent(intent)
+        captureLaunchIntent(intent)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -599,18 +602,29 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun emitPendingAppLaunchIntent() {
         val sink = appLaunchEventSink ?: return
-        val sharePayload = pendingSharePayload
-        if (sharePayload != null) {
-            pendingSharePayload = null
-            sink.success(sharePayload)
-            return
-        }
+        val payload = pendingLaunchPayload ?: return
+        pendingLaunchPayload = null
+        sink.success(payload)
     }
 
-    private fun captureShareIntent(intent: Intent?) {
+    private fun captureLaunchIntent(intent: Intent?) {
         if (intent == null) {
             return
         }
+        // Reopening from recents redelivers the intent that started the task;
+        // it must not place the call a second time.
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) {
+            return
+        }
+        if (intent.action == HomeWidgets.ACTION_START_CALL) {
+            pendingLaunchPayload = mapOf("action" to "start_call")
+            emitPendingAppLaunchIntent()
+            return
+        }
+        captureShareIntent(intent)
+    }
+
+    private fun captureShareIntent(intent: Intent) {
         if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) {
             return
         }
@@ -645,7 +659,7 @@ class MainActivity : FlutterFragmentActivity() {
             files.add(buildSharedFileDescriptor(uri))
         }
 
-        pendingSharePayload = mapOf(
+        pendingLaunchPayload = mapOf(
             "action" to "share_to_chat",
             "text" to sharedText,
             "subject" to subject,

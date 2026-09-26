@@ -12,10 +12,8 @@ extension _MascotReading on NeoAgentController {
       return (MascotMood.waiting, null);
     }
 
-    final voice = voiceAssistantLiveState.state;
-    if (isLiveVoiceCaptureEngaged ||
-        voice == 'listening' ||
-        voice == 'speaking') {
+    // An open call that is just waiting is not a conversation.
+    if (isLiveVoiceCaptureEngaged || voiceAssistantLiveState.isSpeaking) {
       return (MascotMood.listening, null);
     }
 

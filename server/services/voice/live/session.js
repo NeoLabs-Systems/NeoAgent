@@ -16,6 +16,9 @@ const SPEAKING_IDLE_MS = 700;
 // arrived; waiting briefly lets the request carry the whole utterance.
 const DELEGATION_SETTLE_MS = 500;
 const MAX_RECONNECT_ATTEMPTS = 3;
+// A call nobody has spoken on for this long, with no task running, was left
+// open by accident; hanging up ends the billed provider session.
+const IDLE_HANGUP_MS = 3 * 60 * 1000;
 
 // Transcript fragments arrive with or without their leading space depending on
 // the provider; join them so words neither merge nor double-space.
@@ -68,6 +71,7 @@ class LiveVoiceSession {
     this.pendingOnReady = [];
     this.state = 'connecting';
     this.speakingTimer = null;
+    this.idleTimer = null;
     this.reconnectAttempts = 0;
   }
 
@@ -106,6 +110,7 @@ class LiveVoiceSession {
     }
     this.ready = true;
     this.reconnectAttempts = 0;
+    this.#noteActivity();
     for (const chunk of this.pendingAudio) adapter.appendAudio(chunk);
     this.pendingAudio = [];
     this.pendingAudioBytes = 0;
@@ -184,6 +189,7 @@ class LiveVoiceSession {
   }
 
   publishTask({ runId, status, request }) {
+    this.#noteActivity();
     this.#emit('task', { runId, status, ...(request ? { request } : {}) });
   }
 
@@ -219,9 +225,24 @@ class LiveVoiceSession {
     else this.pendingOnReady.push(deliver);
   }
 
+  #noteActivity() {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      if (this.closed || !this.attached) return;
+      if (this.tasks.hasRunningWork) {
+        this.#noteActivity();
+        return;
+      }
+      logger.info('Hanging up idle live voice call', { sessionId: this.id });
+      this.onIdle(this, 'idle_timeout');
+    }, IDLE_HANGUP_MS);
+    this.idleTimer.unref?.();
+  }
+
   async #closeAdapter() {
     this.ready = false;
     clearTimeout(this.speakingTimer);
+    clearTimeout(this.idleTimer);
     const adapter = this.adapter;
     this.adapter = null;
     await adapter?.close().catch(() => {});
@@ -261,6 +282,7 @@ class LiveVoiceSession {
 
   #handleAudio(pcm) {
     if (this.outputSuppressed) return;
+    this.#noteActivity();
     this.#emit('audio', { audioBase64: pcm.toString('base64') });
     this.#setState('speaking');
     clearTimeout(this.speakingTimer);
@@ -270,6 +292,7 @@ class LiveVoiceSession {
 
   #handleInputTranscript(text) {
     if (!text) return;
+    this.#noteActivity();
     this.outputSuppressed = false;
     this.#flushAssistantTurn();
     this.userTurn = appendFragment(this.userTurn, text);

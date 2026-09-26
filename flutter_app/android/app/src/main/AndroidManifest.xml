@@ -120,6 +120,29 @@
             </intent-filter>
         </service>
         
+        <receiver
+            android:name=".widgets.StatusWidgetProvider"
+            android:exported="false"
+            android:label="@string/neoagent_widget_status_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/neoagent_widget_status_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.CallWidgetProvider"
+            android:exported="false"
+            android:label="@string/neoagent_widget_call_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/neoagent_widget_call_info" />
+        </receiver>
+
         <service
             android:name=".auto.NeoAgentCarAppService"
             android:exported="true"

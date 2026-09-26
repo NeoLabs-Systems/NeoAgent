@@ -84,7 +84,7 @@ class VoiceRuntimeManager {
       },
       originRunId,
       agentInitiated,
-      onIdle: (idle) => this.#forget(idle),
+      onIdle: (idle, reason) => this.#forget(idle, reason),
     });
     this.sessions.set(session.id, session);
     try {
@@ -187,10 +187,11 @@ class VoiceRuntimeManager {
     return this.shutdownPromise;
   }
 
-  #forget(session) {
+  #forget(session, reason = 'released') {
     if (this.sessions.get(session.id) !== session) return;
     this.sessions.delete(session.id);
-    void session.close('released');
+    void session.close(reason);
+    this.agentCallCoordinator?.notifySessionClosed(session, reason);
   }
 
   #requireSession(sessionId, userId) {

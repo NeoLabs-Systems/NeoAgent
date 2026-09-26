@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -175,6 +176,26 @@ class _NeoMascotState extends State<NeoMascot>
   }
 }
 
+/// The mood's key frame as a square PNG of [size] pixels, painted exactly as
+/// [NeoMascot] paints it, for surfaces Flutter does not draw (Android
+/// home-screen widgets).
+Future<Uint8List> renderMascotPng(MascotMood mood, {required int size}) async {
+  final picture = _MascotPicture()..retarget(MascotClips.keyFrame(mood), 1);
+  final recorder = ui.PictureRecorder();
+  _MascotPainter(
+    picture: picture,
+    mix: const AlwaysStoppedAnimation<double>(1),
+  ).paint(Canvas(recorder), Size.square(size.toDouble()));
+  final image = await recorder.endRecording().toImage(size, size);
+  try {
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  } finally {
+    image.dispose();
+    picture.dispose();
+  }
+}
+
 /// What the painter blends between: the picture on screen when the current
 /// fade began, and the frame it is heading to.
 class _MascotPicture extends ChangeNotifier {
@@ -249,7 +270,11 @@ class _MascotPainter extends CustomPainter {
     final screen = tile.deflate(tileSide * 0.06);
     final pitch = screen.width * 10 / 102;
     final firstDot = screen.width * 11 / 102;
-    final lit = Color.lerp(_gold, _alert, lerpDouble(p.fromAlert, p.toAlert, t)!)!;
+    final lit = Color.lerp(
+      _gold,
+      _alert,
+      lerpDouble(p.fromAlert, p.toAlert, t)!,
+    )!;
     final rim = lerpDouble(p.fromRim, p.toRim, t)!;
     final scale = lerpDouble(p.fromScale, p.toScale, t)!;
     final shift = lerpDouble(p.fromShift, p.toShift, t)! * pitch;

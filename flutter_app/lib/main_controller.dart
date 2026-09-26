@@ -303,6 +303,7 @@ class NeoAgentController extends ChangeNotifier {
   bool _pendingLiveVoiceStop = false;
   bool _liveVoiceTelecomRouting = false;
   DateTime? _liveVoiceSessionStartedAt;
+  bool _voiceCallRequested = false;
   Timer? _incomingCallExpiryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
@@ -4817,22 +4818,28 @@ class NeoAgentController extends ChangeNotifier {
     });
   }
 
-  Future<void> closeLiveVoiceSession({bool cancelTask = false}) async {
+  /// The state resets before the async teardown, so an error that arrives
+  /// meanwhile (a failed connect reports closed, then why) is not wiped.
+  /// [error] keeps the reason a server-ended call stopped on screen.
+  Future<void> closeLiveVoiceSession({
+    bool cancelTask = false,
+    String? error,
+  }) async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     _liveVoiceCaptureActive = false;
     _pendingLiveVoiceStop = false;
-    await _liveVoiceCapture.stop();
-    await _liveVoicePlayer.stop();
-    await _stopLiveVoiceTelecomRouting();
+    _liveVoiceSessionStartedAt = null;
+    voiceAssistantLiveState = VoiceAssistantLiveState(error: error);
+    notifyListeners();
     if (sessionId.isNotEmpty) {
       _socket?.emit('voice:session_close', <String, dynamic>{
         'sessionId': sessionId,
         'cancelTask': cancelTask,
       });
     }
-    _liveVoiceSessionStartedAt = null;
-    voiceAssistantLiveState = VoiceAssistantLiveState();
-    notifyListeners();
+    await _liveVoiceCapture.stop();
+    await _liveVoicePlayer.stop();
+    await _stopLiveVoiceTelecomRouting();
   }
 
   bool _matchesLiveVoiceSessionPayload(Map<String, dynamic> payload) {
@@ -6944,6 +6951,30 @@ class NeoAgentController extends ChangeNotifier {
     setSelectedSection(AppSection.voiceAssistant);
   }
 
+  /// A call asked for from outside the app (the home-screen call widget).
+  /// It starts the way the call button does, once signed in and connected:
+  /// a cold start has neither yet, so the socket connecting picks it up.
+  void requestVoiceCall() {
+    openVoiceAssistantSurface();
+    if (voiceAssistantLiveState.hasActiveSession) return;
+    _voiceCallRequested = true;
+    _startRequestedVoiceCall();
+  }
+
+  void _startRequestedVoiceCall() {
+    if (!_voiceCallRequested || !isAuthenticated || !socketConnected) return;
+    _voiceCallRequested = false;
+    final start = voiceInputMode == 'hands_free'
+        ? startLiveVoiceCapture()
+        : ensureLiveVoiceSession();
+    unawaited(
+      start.catchError((Object error) {
+        // The controller records the error on the live state.
+        AppDiagnostics.log('voice', 'requested_call.failed', error: error);
+      }),
+    );
+  }
+
   Future<void> toggleTask(TaskItem task) async {
     await _backendClient.updateTask(backendUrl, task.id, <String, dynamic>{
       'enabled': !task.enabled,
@@ -7528,6 +7559,7 @@ class NeoAgentController extends ChangeNotifier {
         unawaited(refresh());
       }
       _socketHasConnectedOnce = true;
+      _startRequestedVoiceCall();
       // A live call survives a socket drop: reopening the same session id
       // reattaches it on the server.
       if (voiceAssistantLiveState.hasActiveSession) {
@@ -7772,7 +7804,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!_matchesLiveVoiceSessionPayload(payload)) return;
       final state = payload['state']?.toString() ?? 'idle';
       if (state == 'closed') {
-        unawaited(closeLiveVoiceSession());
+        unawaited(closeLiveVoiceSession(error: voiceAssistantLiveState.error));
         return;
       }
       if (state == 'listening' && voiceAssistantLiveState.isSpeaking) {

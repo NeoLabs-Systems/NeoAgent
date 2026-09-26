@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
-const { test } = require('node:test');
+const { mock, test } = require('node:test');
 const { WebSocketServer } = require('ws');
 
 const {
@@ -406,6 +406,40 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(sink.of('session_ready').at(-1).reconnected, true);
   await session.close('test_done');
+});
+
+test('a call left open without speech or tasks hangs up after three minutes', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    mock.timers.reset();
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.OPENAI_API_KEY = 'test-openai-key';
+  process.env.OPENAI_BASE_URL = `${fake.url}/v1`;
+  const { user, manager } = await setupManager(ctx, createFakeEngine());
+  const sink = createSink();
+  mock.timers.enable({ apis: ['setTimeout'] });
+  const opening = manager.openSession({ userId: user.userId, sink });
+  await fake.next((event) => event.type === 'session.start');
+  fake.send({ type: 'session.started', session: { id: 'sess_idle' } });
+  const session = await opening;
+
+  mock.timers.tick(2 * 60 * 1000);
+  fake.send({ type: 'session.input_transcript.delta', delta: 'Bist du noch da?' });
+  // setTimeout is mocked, so wait on the event loop for the socket message.
+  for (let i = 0; i < 5000 && !sink.of('transcript').length; i += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(sink.of('transcript').length, 1);
+  mock.timers.tick(2 * 60 * 1000);
+  assert.equal(manager.getSession(session.id), session);
+
+  mock.timers.tick(60 * 1000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(manager.getSession(session.id), null);
+  assert.ok(sink.of('state').some((event) => event.state === 'closed' && event.reason === 'idle_timeout'));
 });
 
 test('a voice delivery whose call has ended is shown in chat instead', async () => {

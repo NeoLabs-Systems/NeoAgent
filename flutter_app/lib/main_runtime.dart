@@ -15,6 +15,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
   StreamSubscription<AppLaunchRequest>? _appLaunchSubscription;
+  _HomeWidgetSync? _homeWidgetSync;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
   Menu? _trayMenu;
@@ -49,6 +50,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
       _handleAppLaunchRequest,
     );
+    if (HomeWidgetBridge.isSupported) {
+      _homeWidgetSync = _HomeWidgetSync(_controller);
+    }
     if (_supportsDesktopShell) {
       unawaited(_initializeDesktopShell());
     }
@@ -57,6 +61,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   @override
   void dispose() {
     _appLaunchSubscription?.cancel();
+    _homeWidgetSync?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
@@ -89,8 +94,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
 
   void _handleAppLaunchRequest(AppLaunchRequest request) {
     final action = request.action;
-    if (action == AppLaunchBridge.voiceAssistantAction) {
-      _controller.openVoiceAssistantSurface();
+    if (action == AppLaunchBridge.startCallAction) {
+      _controller.requestVoiceCall();
       return;
     }
     if (action == AppLaunchBridge.shareToChatAction) {

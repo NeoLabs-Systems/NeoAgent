@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget colors, taken from darkPalette in lib/src/theme/palette.dart. -->
+<resources>
+    <color name="neoagent_widget_surface_top">#FF1C261F</color>
+    <color name="neoagent_widget_surface_bottom">#FF0E1511</color>
+    <color name="neoagent_widget_glow">#29E1B052</color>
+    <color name="neoagent_widget_border">#24E0F0E0</color>
+    <color name="neoagent_widget_text_primary">#FFECEFE5</color>
+    <color name="neoagent_widget_text_secondary">#FFAEB7A6</color>
+    <color name="neoagent_widget_text_muted">#FF7E8877</color>
+    <color name="neoagent_widget_eyebrow">#FFEAC272</color>
+    <color name="neoagent_widget_accent">#FFE1B052</color>
+    <color name="neoagent_widget_accent_hover">#FFEAC272</color>
+    <color name="neoagent_widget_on_accent">#FF0E1511</color>
+    <color name="neoagent_widget_success">#FF74C07C</color>
+    <color name="neoagent_widget_alert">#FFDE8A78</color>
+</resources>

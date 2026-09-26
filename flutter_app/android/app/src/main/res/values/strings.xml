@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NeoAgent</string>
+    <string name="neoagent_widget_status_name">NeoAgent status</string>
+    <string name="neoagent_widget_call_name">Call NeoAgent</string>
+    <string name="neoagent_widget_status_description">What NeoAgent is doing right now.</string>
+    <string name="neoagent_widget_call_description">Start a voice call with one tap.</string>
+    <string name="neoagent_widget_eyebrow">NEOAGENT</string>
+    <string name="neoagent_widget_live">Live</string>
+    <string name="neoagent_widget_seen">Seen %1$s</string>
+    <string name="neoagent_widget_ready">Ready</string>
+    <string name="neoagent_widget_not_connected">Not connected</string>
+    <string name="neoagent_widget_open_to_connect">Open NeoAgent to sign in</string>
+    <string name="neoagent_widget_talk">Talk to NeoAgent</string>
+    <string name="neoagent_widget_on_call">On a call</string>
+    <string name="neoagent_widget_call">Call</string>
+    <string name="neoagent_widget_return_to_call">Return to call</string>
 </resources>
