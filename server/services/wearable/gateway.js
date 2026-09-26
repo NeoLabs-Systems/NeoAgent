@@ -146,6 +146,10 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                 voiceRuntimeManager.appendAudio(sessionId, Buffer.from(audioBase64, 'base64'), req.session.userId);
                 break;
               }
+              case 'voice:input_start':
+                if (!sessionId) throw new Error('sessionId is required');
+                voiceRuntimeManager.startInput(sessionId, req.session.userId);
+                break;
               case 'voice:input_end':
                 if (!sessionId) throw new Error('sessionId is required');
                 voiceRuntimeManager.endInput(sessionId, req.session.userId);

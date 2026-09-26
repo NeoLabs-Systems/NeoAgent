@@ -14,6 +14,15 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   bool _elapsedTickerActive = false;
   bool _pttPressed = false;
 
+  /// Before a call exists the live state has no input mode yet, so the
+  /// configured one decides how the button behaves.
+  bool _handsFree(NeoAgentController controller) {
+    final state = controller.voiceAssistantLiveState;
+    return state.hasActiveSession
+        ? state.isHandsFree
+        : controller.voiceInputMode == 'hands_free';
+  }
+
   String _liveStateLabel(
     NeoAgentController controller,
     VoiceAssistantLiveState state,
@@ -30,10 +39,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       case 'speaking':
         return 'Speaking';
       default:
-        if (state.isHandsFree && !controller.isLiveVoiceCaptureActive) {
-          return 'Muted';
-        }
-        return 'Listening';
+        if (controller.isLiveVoiceCaptureActive) return 'Listening';
+        return state.isHandsFree ? 'Muted' : 'Ready';
     }
   }
 
@@ -48,7 +55,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     if (!state.hasActiveSession) {
       return useToggleCapture ? 'Tap to start talking.' : 'Hold to talk.';
     }
-    if (state.isHandsFree) {
+    if (_handsFree(controller)) {
       return controller.isLiveVoiceCaptureActive
           ? 'Just talk. You can interrupt at any time. Tap to mute.'
           : 'Microphone muted. Tap to unmute.';
@@ -355,12 +362,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final voiceError = liveState.error?.trim();
     final captureEngaged = assistantUi.isCapturing;
     final useToggleCapture =
-        liveState.isHandsFree || assistantUi.useToggleCapture;
+        _handsFree(controller) || assistantUi.useToggleCapture;
     final heroActive = captureEngaged || _pttPressed;
     final heroColor = heroActive ? _warning : assistantUi.primaryColor;
     final heroButton = useToggleCapture
         ? _VoiceAssistantHeroButton(
-            icon: heroActive ? Icons.mic : Icons.mic_off_outlined,
+            icon: heroActive || !liveState.hasActiveSession
+                ? Icons.mic
+                : Icons.mic_off_outlined,
             color: heroColor,
             active: heroActive,
             onTap: _toggleCapture,

@@ -27,7 +27,7 @@ const RUN_TASK_DECLARATION = Object.freeze({
     required: ['request'],
   },
 });
-const TASK_STARTED = 'The task is now running in the background. Nothing is done yet: tell the owner you are on it, not that it is done. Its outcome will arrive as a separate message.';
+const TASK_STARTED = 'The task is now running in the background. Nothing is done, saved, or sent yet. If you have not told the owner you are on it, do that briefly; otherwise say nothing more about it. Its outcome arrives later as a separate message; only then say what happened.';
 
 function liveSocketUrl(baseUrl, apiKey) {
   const origin = new URL(baseUrl || DEFAULT_ORIGIN).origin.replace(/^http/i, 'ws');
@@ -43,9 +43,12 @@ function withHistory(instructions, history = []) {
 }
 
 class GeminiLiveAdapter {
-  constructor({ apiKey, baseUrl, model, voice, handlers }) {
+  constructor({ apiKey, baseUrl, model, voice, inputMode, handlers }) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
+    // Push-to-talk marks each turn explicitly; Gemini's own speech detection
+    // needs trailing silence a released button never sends.
+    this.manualTurns = inputMode === 'ptt';
     this.model = model;
     this.voice = voice;
     this.handlers = handlers;
@@ -99,6 +102,9 @@ class GeminiLiveAdapter {
           tools: [{ functionDeclarations: [RUN_TASK_DECLARATION] }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          ...(this.manualTurns
+            ? { realtimeInputConfig: { automaticActivityDetection: { disabled: true } } }
+            : {}),
           sessionResumption: resumeHandle ? { handle: resumeHandle } : {},
           contextWindowCompression: { slidingWindow: {} },
         },
@@ -113,8 +119,12 @@ class GeminiLiveAdapter {
     });
   }
 
+  startInput() {
+    if (this.manualTurns) this.#send({ realtimeInput: { activityStart: {} } });
+  }
+
   endInput() {
-    this.#send({ realtimeInput: { audioStreamEnd: true } });
+    this.#send({ realtimeInput: this.manualTurns ? { activityEnd: {} } : { audioStreamEnd: true } });
   }
 
   say(text) {

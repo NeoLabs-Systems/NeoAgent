@@ -74,6 +74,7 @@ class VoiceRuntimeManager {
       platform,
       sink,
       agentEngine: this.agentEngine,
+      memoryManager: this.memoryManager,
       conversationId: originConversationId
         || this.memoryManager.getDefaultWebConversationId(userId, { agentId }),
       settings,
@@ -113,6 +114,10 @@ class VoiceRuntimeManager {
 
   appendAudio(sessionId, pcm, userId) {
     this.#requireSession(sessionId, userId).appendAudio(pcm);
+  }
+
+  startInput(sessionId, userId) {
+    this.#requireSession(sessionId, userId).startInput();
   }
 
   endInput(sessionId, userId) {

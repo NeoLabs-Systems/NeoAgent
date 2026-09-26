@@ -34,6 +34,7 @@ class LiveVoiceSession {
     platform,
     sink,
     agentEngine,
+    memoryManager,
     conversationId,
     settings,
     credentials,
@@ -47,6 +48,7 @@ class LiveVoiceSession {
     this.platform = platform;
     this.sink = sink;
     this.agentEngine = agentEngine;
+    this.memoryManager = memoryManager;
     this.conversationId = conversationId;
     this.settings = settings;
     this.credentials = credentials;
@@ -82,7 +84,7 @@ class LiveVoiceSession {
     this.adapter = null;
     await previous?.close().catch(() => {});
     const prompt = await buildLivePrompt({
-      agentEngine: this.agentEngine,
+      memoryManager: this.memoryManager,
       userId: this.userId,
       agentId: this.agentId,
       conversationId: this.conversationId,
@@ -93,6 +95,7 @@ class LiveVoiceSession {
       baseUrl: this.credentials.baseUrl,
       model: this.settings.liveModel,
       voice: this.settings.liveVoice,
+      inputMode: this.settings.inputMode,
       handlers: this.#handlersFor(() => this.adapter === adapter),
     });
     this.adapter = adapter;
@@ -131,6 +134,13 @@ class LiveVoiceSession {
     while (this.pendingAudioBytes > MAX_PENDING_AUDIO_BYTES) {
       this.pendingAudioBytes -= this.pendingAudio.shift().length;
     }
+  }
+
+  // Pressing push-to-talk talks over the assistant, like picking up mid-sentence.
+  startInput() {
+    if (!this.ready) return;
+    if (this.settings.inputMode === 'ptt') this.interruptOutput();
+    this.adapter.startInput();
   }
 
   endInput() {

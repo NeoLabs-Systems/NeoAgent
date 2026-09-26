@@ -113,7 +113,7 @@ class LiveTaskBridge {
       chatId: session.id,
       voiceSessionId: session.id,
       latencyPriority: 'interactive',
-      context: { rawUserMessage: request, liveVoiceRole: 'task' },
+      context: { rawUserMessage: request },
     }).then((result) => {
       this.#settle(runId, result?.status || 'completed', result?.content, null);
     }).catch((error) => {

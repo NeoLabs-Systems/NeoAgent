@@ -185,5 +185,6 @@ module.exports = {
   id: 'persona',
   composeSystemPrompt: buildSystemPromptContribution,
   refineDraft,
+  resolveStyleBundle,
   INTERACTION_VOICE_RULES,
 };

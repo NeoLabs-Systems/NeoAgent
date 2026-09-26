@@ -70,9 +70,6 @@ function createFakeEngine(overrides = {}) {
     steering: [],
     aborted: [],
     running: new Set(),
-    async buildSystemPrompt(_userId, context) {
-      return { stable: `SYSTEM PROMPT role=${context.liveVoiceRole}`, dynamic: 'DYNAMIC' };
-    },
     getRunMeta(runId) {
       return this.running.has(runId) ? { status: 'running', aborted: false } : null;
     },
@@ -133,28 +130,36 @@ test('live voice catalog resolves per-provider defaults and the server default',
   }
 });
 
-test('the live front and delegated tasks share the chat system prompt with their own voice section', async (t) => {
+test('the live model speaks with the shared persona; delegated tasks keep the agent prompt', async (t) => {
   const ctx = createTestRuntime();
   t.after(() => teardownTestRuntime(ctx));
   const user = await createTestUser(ctx.db);
   const { buildSystemPromptSections } = require('../../../server/services/ai/systemPrompt');
-  const memoryManager = { buildContext: async () => 'CORE MEMORY: owner likes short answers' };
+  const { buildLivePrompt } = require('../../../server/services/voice/live/prompt');
+  const { buildInteractionWriterPrompt } = require('../../../server/services/behavior/modules/persona_prompt');
+  const memoryManager = {
+    buildContext: async () => '',
+    getCoreMemory: () => ({ hometown: 'Berlin' }),
+    getUserProfile: () => ({ static: ['Favourite colour is petrol blue'], dynamic: [] }),
+    getAssistantBehaviorNotes: () => 'Keep jokes dry.',
+    getAssistantSelfState: () => ({ identity: {}, focus: {} }),
+  };
 
-  const front = await buildSystemPromptSections(user.userId, {
-    triggerSource: 'voice_live',
-    liveVoiceRole: 'front',
-  }, memoryManager);
-  const task = await buildSystemPromptSections(user.userId, {
-    triggerSource: 'voice_live',
-    liveVoiceRole: 'task',
-  }, memoryManager);
+  const front = await buildLivePrompt({ memoryManager, userId: user.userId, agentId: null, conversationId: null });
+  assert.match(front.instructions, /you're on a live voice call with/);
+  assert.match(front.instructions, /how you talk:/);
+  assert.doesNotMatch(front.instructions, /\[NO RESPONSE\]|separate texts/);
+  assert.match(front.instructions, /hometown: Berlin/);
+  assert.match(front.instructions, /Favourite colour is petrol blue/);
+  assert.match(front.instructions, /Keep jokes dry\./);
+  assert.match(front.instructions, /^## rules for this call/);
+  assert.doesNotMatch(front.instructions, /CRITICAL EXECUTION RULES/);
+  // The messaging writer keeps its texting voice.
+  assert.match(buildInteractionWriterPrompt('Neo'), /you're texting with Neo\./);
 
-  assert.match(front.stable, /CRITICAL EXECUTION RULES/);
-  assert.match(front.stable, /LIVE VOICE SESSION/);
-  assert.doesNotMatch(front.stable, /LIVE VOICE TASK/);
-  assert.match(front.dynamic, /CORE MEMORY: owner likes short answers/);
+  const task = await buildSystemPromptSections(user.userId, { triggerSource: 'voice_live' }, memoryManager);
+  assert.match(task.stable, /CRITICAL EXECUTION RULES/);
   assert.match(task.stable, /LIVE VOICE TASK/);
-  assert.doesNotMatch(task.stable, /LIVE VOICE SESSION/);
 });
 
 test('appendFragment joins provider transcript fragments without merging words', () => {
@@ -205,7 +210,7 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   assert.equal(start.session.model, 'gpt-live-1');
   assert.equal(start.session.audio.output.voice, 'marin');
   assert.deepEqual(start.session.delegation, { type: 'client' });
-  assert.match(start.session.instructions, /SYSTEM PROMPT role=front/);
+  assert.match(start.session.instructions, /you're on a live voice call with/);
   assert.equal(start.session.input[0].content[0].text, 'Earlier typed question');
   fake.send({ type: 'session.started', session: { id: 'sess_1' } });
   const session = await opening;
@@ -237,7 +242,6 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   assert.equal(run.options.triggerSource, 'voice_live');
   assert.equal(run.options.voiceSessionId, session.id);
   assert.equal(run.options.conversationId, conversationId);
-  assert.equal(run.options.context.liveVoiceRole, 'task');
   assert.ok(sink.of('audio').some((event) => event.audioBase64 === Buffer.from([9, 9]).toString('base64')));
   assert.deepEqual(sink.of('task').map((event) => event.status), ['running', 'completed']);
 
@@ -359,17 +363,21 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   );
   const declaration = setupMessage.setup.tools[0].functionDeclarations[0];
   assert.equal(declaration.name, 'run_task');
-  assert.match(setupMessage.setup.systemInstruction.parts[0].text, /SYSTEM PROMPT role=front/);
+  assert.match(setupMessage.setup.systemInstruction.parts[0].text, /## rules for this call/);
+  // Push-to-talk turns are marked explicitly instead of detected from silence.
+  assert.deepEqual(setupMessage.setup.realtimeInputConfig, { automaticActivityDetection: { disabled: true } });
   fake.send({ setupComplete: {} });
   await connecting;
   assert.equal(sink.of('session_ready')[0].inputSampleRate, 16000);
   assert.equal(sink.of('session_ready')[0].inputMode, 'ptt');
 
+  session.startInput();
+  await fake.next((event) => event.realtimeInput?.activityStart);
   session.appendAudio(Buffer.from([5, 6]));
   const audio = await fake.next((event) => event.realtimeInput?.audio);
   assert.equal(audio.realtimeInput.audio.mimeType, 'audio/pcm;rate=16000');
   session.endInput();
-  await fake.next((event) => event.realtimeInput?.audioStreamEnd === true);
+  await fake.next((event) => event.realtimeInput?.activityEnd);
 
   fake.send({ serverContent: { inputTranscription: { text: 'Wie warm ist es?' } } });
   fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request: 'Aktuelle Temperatur in Berlin' } }] } });
@@ -378,16 +386,17 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   const response = await fake.next((event) => event.toolResponse);
   const started = response.toolResponse.functionResponses[0];
   assert.equal(started.id, 'call-1');
-  assert.match(started.response.result, /Nothing is done yet/);
+  assert.match(started.response.result, /Nothing is done, saved, or sent yet/);
   const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
   assert.match(outcome.clientContent.turns[0].parts[0].text, /Task "Aktuelle Temperatur in Berlin": The task finished\. Its outcome:\nEs sind 21 Grad\./);
   assert.equal(engine.runs[0].request, 'Aktuelle Temperatur in Berlin');
 
   fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAE=' } }] } } });
+  const interruptionsBefore = sink.of('interrupted').length;
   fake.send({ serverContent: { interrupted: true } });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(sink.of('audio')[0].audioBase64, 'AAE=');
-  assert.equal(sink.of('interrupted').length, 1);
+  assert.equal(sink.of('interrupted').length, interruptionsBefore + 1);
 
   fake.send({ sessionResumptionUpdate: { newHandle: 'resume-1', resumable: true } });
   fake.send({ goAway: { timeLeft: '5s' } });

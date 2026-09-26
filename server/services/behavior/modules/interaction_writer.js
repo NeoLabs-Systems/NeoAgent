@@ -33,7 +33,7 @@ function localNow(userId) {
 // What a friend would know: core facts, the maintained profile, and the
 // memories that relate to what was just said. That last part is what makes a
 // callback or a tease specific instead of generic.
-async function loadMemoryFacts({ memoryManager, userId, agentId, msg, signal }) {
+async function loadMemoryFacts({ memoryManager, userId, agentId, query, signal }) {
   if (!memoryManager) return [];
   const lines = [];
   const add = (text) => {
@@ -52,8 +52,9 @@ async function loadMemoryFacts({ memoryManager, userId, agentId, msg, signal }) 
   } catch {
     // Missing profile data only makes the reply less specific.
   }
+  if (!query) return lines.slice(0, MAX_MEMORY_LINES);
   try {
-    const recalled = await memoryManager.recallMemory?.(userId, String(msg.content || ''), 5, { agentId, signal });
+    const recalled = await memoryManager.recallMemory?.(userId, query, 5, { agentId, signal });
     for (const memory of recalled || []) add(memory.content);
   } catch (error) {
     if (signal?.aborted) throw error;
@@ -61,21 +62,49 @@ async function loadMemoryFacts({ memoryManager, userId, agentId, msg, signal }) 
   return lines.slice(0, MAX_MEMORY_LINES);
 }
 
-async function buildSystem(ctx, name, canReact, styleNotes) {
-  const { userId, agentId, msg, memoryManager, signal } = ctx;
-  const sections = [buildInteractionWriterPrompt(name, { canReact })];
+// Who NeoAgent is to this person: the persona, the owner's additions, and what
+// it knows about them. Chat replies and live voice calls share it; [query]
+// pulls in memories related to what was just said.
+async function buildPersonaSections({
+  userId,
+  agentId,
+  memoryManager,
+  name,
+  medium = 'text',
+  canReact = false,
+  styleNotes = [],
+  query = '',
+  signal = null,
+}) {
+  const sections = [buildInteractionWriterPrompt(name, { canReact, medium })];
   const agent = loadAgentProfile(userId, agentId);
   const additions = [
     agent?.instructions ? truncate(agent.instructions, 1600) : '',
     ...styleNotes.slice(0, 8),
   ].filter(Boolean);
   if (additions.length) {
-    sections.push(["## from the owner (adds to how you text; it doesn't replace it)", ...additions].join('\n'));
+    const how = medium === 'voice' ? 'talk' : 'text';
+    sections.push([`## from the owner (adds to how you ${how}; it doesn't replace it)`, ...additions].join('\n'));
   }
-  const facts = await loadMemoryFacts({ memoryManager, userId, agentId, msg, signal });
+  const facts = await loadMemoryFacts({ memoryManager, userId, agentId, query, signal });
   if (facts.length) {
     sections.push(['## what you know about them', ...facts.map((fact) => `- ${fact}`)].join('\n'));
   }
+  return sections;
+}
+
+async function buildSystem(ctx, name, canReact, styleNotes) {
+  const { userId, agentId, msg, memoryManager, signal } = ctx;
+  const sections = await buildPersonaSections({
+    userId,
+    agentId,
+    memoryManager,
+    name,
+    canReact,
+    styleNotes,
+    query: String(msg.content || ''),
+    signal,
+  });
   const texts = loadRecentSenderTexts({
     userId,
     agentId,
@@ -164,5 +193,7 @@ async function writeReply(ctx, { draft, modelId, styleNotes = [] }) {
 }
 
 module.exports = {
+  buildPersonaSections,
+  localNow,
   writeReply,
 };

@@ -30,6 +30,7 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'messaging:status': { windowMs: 10 * 1000, max: 40 },
   'voice:session_open': { windowMs: 10 * 1000, max: 10 },
   'voice:audio': { windowMs: 1000, max: 80 },
+  'voice:input_start': { windowMs: 10 * 1000, max: 40 },
   'voice:input_end': { windowMs: 10 * 1000, max: 40 },
   'voice:cancel_task': { windowMs: 10 * 1000, max: 10 },
   'voice:interrupt': { windowMs: 10 * 1000, max: 20 },
@@ -721,6 +722,10 @@ function setupWebSocket(io, services) {
       const audioBase64 = toOptionalString(data?.audioBase64, MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS);
       if (!audioBase64) throw new Error('audioBase64 is required');
       voiceRuntimeManager.appendAudio(sessionId, Buffer.from(audioBase64, 'base64'), userId);
+    });
+
+    onVoiceSessionEvent('voice:input_start', (sessionId) => {
+      voiceRuntimeManager.startInput(sessionId, userId);
     });
 
     onVoiceSessionEvent('voice:input_end', (sessionId) => {

@@ -114,6 +114,10 @@ class OpenAiLiveAdapter {
     this.#send({ type: 'session.input_audio.append', audio: pcm.toString('base64') });
   }
 
+  startInput() {
+    this.inputEnded = false;
+  }
+
   endInput() {
     this.inputEnded = true;
   }

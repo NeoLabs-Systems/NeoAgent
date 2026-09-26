@@ -4681,8 +4681,24 @@ class NeoAgentController extends ChangeNotifier {
       },
     );
     notifyListeners();
+    // Browsers only let audio start from a user gesture, so the player comes
+    // up with the press, before the session answers. Both live providers
+    // speak 24 kHz PCM.
+    unawaited(
+      _liveVoicePlayer.start(sampleRate: 24000).catchError((Object error) {
+        AppDiagnostics.log('voice', 'playback.start_failed', error: error);
+      }),
+    );
     try {
       await ensureLiveVoiceSession();
+      final sessionId = voiceAssistantLiveState.sessionId.trim();
+      if (!voiceAssistantLiveState.isHandsFree) {
+        // Talking over the assistant stops it right away.
+        await _liveVoicePlayer.flush();
+      }
+      _socket?.emit('voice:input_start', <String, dynamic>{
+        'sessionId': sessionId,
+      });
       await _liveVoiceCapture.start(
         sampleRate: voiceAssistantLiveState.inputSampleRate,
         onChunk: _sendLiveVoiceAudio,
@@ -4711,6 +4727,12 @@ class NeoAgentController extends ChangeNotifier {
         _pendingLiveVoiceStop = false;
         await stopLiveVoiceCapture();
       }
+    } catch (error) {
+      // A denied or missing microphone must be visible, not look like mute.
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        error: _friendlyErrorMessage(error),
+      );
+      rethrow;
     } finally {
       _isStartingLiveVoice = false;
       notifyListeners();
