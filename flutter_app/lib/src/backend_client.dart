@@ -968,6 +968,20 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/behavior', agentId));
   }
 
+  Future<Map<String, dynamic>> fetchBehaviorDecisions(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/behavior/decisions?platform=${Uri.encodeQueryComponent(platform)}',
+        agentId,
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> saveBehaviorConfig(
     String baseUrl,
     Map<String, dynamic> config, {

@@ -772,7 +772,7 @@ class AndroidController {
         throw new Error('Android intent URI is too long.');
       }
       const validation = await validateAndroidIntentUrl(String(resolvedDataUri), { signal });
-      if (!validation.allowed) throw new Error('This Android intent URI is not permitted.');
+      if (!validation.allowed) throw new Error(validation.reason);
       cmd += ` -d '${shellEscape(resolvedDataUri)}'`;
     }
     if (packageName) {

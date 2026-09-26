@@ -105,6 +105,11 @@ class NeoAgentController extends ChangeNotifier {
   bool isAuthenticating = false;
   bool isAwaitingTwoFactor = false;
   bool isRefreshing = false;
+
+  /// True from a bot switch until that bot's data has loaded. The switch
+  /// clears the previous bot's lists, so pages would otherwise flash their
+  /// empty states ("No runs yet") before the new data arrives.
+  bool isSwitchingAgent = false;
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
@@ -1612,6 +1617,7 @@ class NeoAgentController extends ChangeNotifier {
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    isSwitchingAgent = false;
     showOnboarding = false;
     _onboardingManuallyReopened = false;
     _busyMessagingPlatformKeys.clear();
@@ -2642,6 +2648,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     selectedAgentId = id;
     unawaited(_persistSelectedAgentId(id));
+    isSwitchingAgent = true;
     chatMessages = const <ChatEntry>[];
     _resetChatHistoryPagination();
     recentRuns = const <RunSummary>[];
@@ -2656,6 +2663,11 @@ class NeoAgentController extends ChangeNotifier {
     _runDetailsCache.clear();
     notifyListeners();
     await refresh();
+    // A later switch owns the flag until its own refresh lands.
+    if (selectedAgentId == id && isSwitchingAgent) {
+      isSwitchingAgent = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> saveAgentProfile({
@@ -2864,6 +2876,26 @@ class NeoAgentController extends ChangeNotifier {
     };
     notifyListeners();
     return catalog;
+  }
+
+  Future<List<BehaviorDecisionEntry>> loadBehaviorDecisions(
+    String platform,
+  ) async {
+    final data = await _backendClient.fetchBehaviorDecisions(
+      backendUrl,
+      platform: platform,
+      agentId: _scopedAgentId,
+    );
+    final items = data['decisions'] is List
+        ? data['decisions'] as List
+        : const <dynamic>[];
+    return items
+        .whereType<Map>()
+        .map(
+          (item) =>
+              BehaviorDecisionEntry.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList(growable: false);
   }
 
   Future<void> allowMessagingSuggestion(
@@ -3361,11 +3393,14 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshRunsOnly() async {
+    final agentId = _scopedAgentId;
     try {
       final runsResponse = await _backendClient.fetchRuns(
         backendUrl,
-        agentId: _scopedAgentId,
+        agentId: agentId,
       );
+      // A poll started before a bot switch must not land the old bot's runs.
+      if (agentId != _scopedAgentId) return;
       recentRuns = _decodeModelList(
         'runs',
         runsResponse['runs'],
@@ -3374,12 +3409,12 @@ class NeoAgentController extends ChangeNotifier {
       );
       _runDetailsCache.clear();
       runsRefreshedAt = DateTime.now();
-      tokenUsage = TokenUsageSnapshot.fromJson(
-        await _backendClient.fetchTokenUsageSummary(
-          backendUrl,
-          agentId: _scopedAgentId,
-        ),
+      final usage = await _backendClient.fetchTokenUsageSummary(
+        backendUrl,
+        agentId: agentId,
       );
+      if (agentId != _scopedAgentId) return;
+      tokenUsage = TokenUsageSnapshot.fromJson(usage);
       notifyListeners();
     } catch (_) {}
   }

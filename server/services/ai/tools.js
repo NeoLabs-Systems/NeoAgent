@@ -494,7 +494,7 @@ function getAvailableTools(app, options = {}) {
             parameters: {
                 type: 'object',
                 properties: {
-                    url: { type: 'string', description: 'URL to navigate to' },
+                    url: { type: 'string', description: 'Full URL to navigate to, including the scheme (https://...)' },
                     screenshot: { type: 'boolean', description: 'Take a screenshot (default true)' },
                     waitFor: { type: 'string', description: 'CSS selector to wait for' },
                     fullPage: { type: 'boolean', description: 'Full page screenshot (default false)' },
@@ -1988,7 +1988,7 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'browser_navigate': {
             const urlCheck = await validateCloudUrlWithDns(args.url, { signal });
-            if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
+            if (!urlCheck.allowed) return { error: urlCheck.reason, url: args.url };
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };
             return { ...await provider.navigate(args.url, {
@@ -2025,7 +2025,7 @@ async function executeTool(toolName, args, context, engine) {
             }
             if (args.url) {
                 const urlCheck = await validateCloudUrlWithDns(args.url, { signal });
-                if (!urlCheck.allowed) return { error: 'URL is not allowed: blocked scheme or private/internal network address.' };
+                if (!urlCheck.allowed) return { error: urlCheck.reason, url: args.url };
             }
             const { provider, backend } = await bc();
             if (!provider) return { error: 'Browser controller not available' };

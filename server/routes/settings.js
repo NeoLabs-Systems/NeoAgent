@@ -280,7 +280,7 @@ async function assertSafeByokBaseUrl(baseUrl, res, signal) {
     res.status(400).json({
       success: false,
       ok: false,
-      error: 'That base URL points at a local or private network address, which isn\'t allowed.',
+      error: result.reason,
     });
     return false;
   }

@@ -7,9 +7,12 @@ const {
   isTurnCurrent,
   markSpoke,
 } = require('./state');
+const { recordDecision, listDecisions } = require('./gate/decision_log');
 const { createBehaviorRegistry } = require('./registry');
 const { BEHAVIOR_MODULES } = require('./modules');
 const { createServiceLogger } = require('../../utils/logger');
+const { isJevEnabled } = require('../ai/jev');
+const { ruleDecision } = require('./gate/decisions');
 
 const logger = createServiceLogger('Behavior');
 
@@ -63,53 +66,62 @@ function createBehaviorPipeline(deps = {}) {
     });
   }
 
-  async function handleInbound({ userId, agentId, msg, signal = null }) {
+  function emitDecision(userId, agentId, msg, decision) {
+    if (!io || !userId) return;
+    io.to(`user:${userId}`).emit('behavior:decision', {
+      platform: msg.platform,
+      chatId: msg.chatId,
+      agentId,
+      isGroup: Boolean(msg.isGroup),
+      decision: decision.decision,
+      confidence: decision.confidence,
+      needScore: decision.needScore,
+      reasonCodes: decision.reasonCodes || [],
+      urgency: decision.urgency,
+      rationale: decision.rationale || '',
+      tokenPath: decision.tokenPath || 'gate_only',
+      turnEpoch: decision.turnEpoch,
+      model: decision.model || null,
+      at: new Date().toISOString(),
+    });
+  }
+
+  async function decideInbound({ userId, agentId, msg, signal = null }) {
     const config = effectiveConfig(userId, agentId, msg);
     const turnEpoch = Number(msg.behaviorTurnEpoch)
       || noteInbound({ userId, agentId, msg });
+    const skipped = (engage, decision) => ({
+      engage,
+      decision: { ...decision, latencyMs: 0 },
+      config,
+      promptBlocks: [],
+      observeResult: null,
+    });
+
     if (
       msg.isGroup
       && msg.accessPolicyAllowUntagged === false
       && !msg.wasMentioned
       && !msg.repliedToAgent
     ) {
-      return {
-        engage: false,
-        decision: {
-          decision: 'stay_silent',
-          needScore: 0,
-          confidence: 1,
-          reasonCodes: ['untagged_disabled_for_shared_space'],
-          urgency: 'low',
-          rationale: 'Untagged responses are disabled for this shared space.',
-          tokenPath: 'gate_skip',
-          latencyMs: 0,
-          turnEpoch,
-        },
-        config,
-        promptBlocks: [],
-        observeResult: null,
-      };
+      return skipped(false, {
+        ...ruleDecision(
+          'stay_silent',
+          'untagged_disabled_for_shared_space',
+          'Untagged responses are disabled for this shared space.',
+        ),
+        turnEpoch,
+      });
     }
     if (config.enabled === false) {
-      const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
-      return {
-        engage: true,
-        decision: {
-          decision: 'speak',
-          needScore: 1,
-          confidence: 1,
-          reasonCodes: ['behavior_disabled'],
-          urgency: 'medium',
-          rationale: 'Behavior modules are disabled; using the standard response path.',
-          tokenPath: 'gate_skip',
-          latencyMs: 0,
-          turnEpoch: speakTurnEpoch,
-        },
-        config,
-        promptBlocks: [],
-        observeResult: null,
-      };
+      return skipped(true, {
+        ...ruleDecision(
+          'speak',
+          'behavior_disabled',
+          'Behavior modules are disabled; using the standard response path.',
+        ),
+        turnEpoch: claimSpeakTurn({ userId, agentId, msg }),
+      });
     }
 
     const baseCtx = {
@@ -126,52 +138,27 @@ function createBehaviorPipeline(deps = {}) {
 
     const observations = await registry.run('observe', baseCtx);
     const observeResult = observations.find((item) => item.moduleId === 'social_memory')?.value || null;
-    if (msg.isGroup) scheduleBackground(baseCtx);
+    // With Jev on, no model runs for a group message until Jev says speak.
+    const jevEnabled = Boolean(msg.isGroup) && isJevEnabled(userId, agentId);
+    if (msg.isGroup && !jevEnabled) scheduleBackground(baseCtx);
 
-    const memoryHints = [];
-    if (observeResult?.scopeId) memoryHints.push(`channel:${observeResult.scopeId}`);
-
-    let decision;
-    if (!isModuleEnabled(config, 'turn_taking')) {
-      decision = {
-        decision: 'speak',
-        needScore: 1,
-        confidence: 1,
-        reasonCodes: ['turn_taking_disabled'],
-        urgency: 'medium',
-        rationale: 'Turn-taking is disabled; using the standard response path.',
-        tokenPath: 'gate_skip',
+    const memoryHints = observeResult?.scopeId ? [`channel:${observeResult.scopeId}`] : [];
+    const decision = isModuleEnabled(config, 'turn_taking')
+      ? (await registry.run('decide', { ...baseCtx, memoryHints, jevEnabled }))
+        .find((item) => item.moduleId === 'turn_taking')?.value
+      : {
+        ...ruleDecision(
+          'speak',
+          'turn_taking_disabled',
+          'Turn-taking is disabled; using the standard response path.',
+        ),
         latencyMs: 0,
         turnEpoch,
       };
-    } else {
-      decision = (await registry.run('decide', {
-        ...baseCtx,
-        memoryHints,
-      })).find((item) => item.moduleId === 'turn_taking')?.value;
-    }
     if (!decision) {
       throw new Error('The turn-taking module did not return a decision.');
     }
-
-    if (io && userId) {
-      io.to(`user:${userId}`).emit('behavior:decision', {
-        platform: msg.platform,
-        chatId: msg.chatId,
-        agentId,
-        isGroup: Boolean(msg.isGroup),
-        decision: decision.decision,
-        confidence: decision.confidence,
-        needScore: decision.needScore,
-        reasonCodes: decision.reasonCodes || [],
-        urgency: decision.urgency,
-        rationale: decision.rationale || '',
-        tokenPath: decision.tokenPath || 'gate_only',
-        turnEpoch: decision.turnEpoch,
-        model: decision.model || null,
-        at: new Date().toISOString(),
-      });
-    }
+    emitDecision(userId, agentId, msg, decision);
 
     if (decision.decision !== 'speak') {
       return {
@@ -186,6 +173,7 @@ function createBehaviorPipeline(deps = {}) {
     // Claim the speak turn only after engagement is confirmed.
     const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
     decision.turnEpoch = speakTurnEpoch;
+    if (jevEnabled) scheduleBackground(baseCtx);
 
     const promptBlocks = await registry.composeContext({
       ...baseCtx,
@@ -199,6 +187,12 @@ function createBehaviorPipeline(deps = {}) {
       promptBlocks,
       observeResult,
     };
+  }
+
+  async function handleInbound(input) {
+    const result = await decideInbound(input);
+    if (input.msg.isGroup) recordDecision(input.userId, input.agentId, input.msg, result.decision);
+    return result;
   }
 
   async function refineAndMaybeDeliver({
@@ -370,6 +364,7 @@ function createBehaviorPipeline(deps = {}) {
     handleInbound,
     refineAndMaybeDeliver,
     getDiagnostics,
+    listDecisions,
   };
 }
 

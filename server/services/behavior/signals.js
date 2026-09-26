@@ -94,7 +94,9 @@ function buildDecisionPacket({
 }) {
   const recent = Array.isArray(msg.channelContext) && msg.channelContext.length
     ? msg.channelContext.slice(-12).map((item) => ({
-      sender: item.author || item.sender || 'participant',
+      // Platform labels like "[bot] Name#1234" don't tell the gate these
+      // turns were the agent's own, so it reads follow-ups as meant for others.
+      sender: item.mine ? 'assistant' : (item.author || item.sender || 'participant'),
       content: truncate(item.content, 280),
     }))
     : roomMessages.slice(-12).map((item) => ({

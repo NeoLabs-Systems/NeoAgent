@@ -76,3 +76,40 @@ test('DNS validation stops promptly when cancelled', async () => {
 
   await assert.rejects(validation, (error) => error.name === 'AbortError');
 });
+
+test('private host checks do not match public hostnames that look like address prefixes', () => {
+  for (const hostname of ['ffmpeg.org', 'ff14.net', '0.gravatar.com', '10.example.com', '127.example.com', 'fd.io']) {
+    assert.equal(isPrivateHost(hostname), false, hostname);
+    assert.equal(validateCloudUrl(`https://${hostname}/`).allowed, true, hostname);
+  }
+  assert.equal(isPrivateHost('::ffff:127.0.0.1'), true);
+  assert.equal(isPrivateHost('::ffff:7f00:1'), true);
+});
+
+test('blocked URLs carry a reason the agent can act on', async () => {
+  assert.match(validateCloudUrl('example.com').reason, /no scheme.*https:\/\/example\.com/);
+  assert.match(validateCloudUrl('ftp://example.com/file').reason, /ftp: scheme is not allowed/);
+  assert.match(validateCloudUrl('http://localhost:3000').reason, /local or private network/);
+
+  const notFound = await validateCloudUrlWithDns('https://typo.example', {
+    lookup: async () => {
+      const error = new Error('getaddrinfo ENOTFOUND typo.example');
+      error.code = 'ENOTFOUND';
+      throw error;
+    },
+  });
+  assert.equal(notFound.allowed, false);
+  assert.match(notFound.reason, /Could not resolve typo\.example \(ENOTFOUND\)/);
+
+  const slow = await validateCloudUrlWithDns('https://slow.example', {
+    lookup: () => new Promise(() => {}),
+    timeoutMs: 100,
+  });
+  assert.match(slow.reason, /timed out/);
+
+  const privateResult = await validateCloudUrlWithDns('https://public-name.example', {
+    lookup: async () => [{ address: '10.0.0.8', family: 4 }],
+  });
+  assert.match(privateResult.reason, /public-name\.example resolves to a local or private network address/);
+  assert.doesNotMatch(privateResult.reason, /10\.0\.0\.8/);
+});

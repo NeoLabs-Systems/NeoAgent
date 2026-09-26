@@ -2477,6 +2477,23 @@ class _SectionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final page = _buildPage();
+    if (!controller.selectedSection.isAgentScoped) {
+      return page;
+    }
+    // While a bot switch loads, keep the page mounted (drafts, scroll and
+    // filters survive) but hidden, so its emptied lists don't read as "none".
+    final switching = controller.isSwitchingAgent;
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Visibility(visible: !switching, maintainState: true, child: page),
+        if (switching) const _LoadingPlaceholder(),
+      ],
+    );
+  }
+
+  Widget _buildPage() {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);

@@ -102,12 +102,9 @@ router.post('/open-intent', async (req, res) => {
   try {
     const body = req.body || {};
     const intentUrl = body.data || body.url || body.uri;
-    if (
-      intentUrl
-      && typeof intentUrl === 'string'
-      && !(await validateAndroidIntentUrl(intentUrl, { signal: req.signal })).allowed
-    ) {
-      return res.status(403).json({ error: 'This URL is not permitted.' });
+    if (intentUrl && typeof intentUrl === 'string') {
+      const validation = await validateAndroidIntentUrl(intentUrl, { signal: req.signal });
+      if (!validation.allowed) return res.status(403).json({ error: validation.reason });
     }
     const controller = await getAndroidController(req);
     const result = await controller.openIntent({ ...body, signal: req.signal });

@@ -844,6 +844,70 @@ class MessagingQrState {
   }
 }
 
+class BehaviorDecisionEntry {
+  const BehaviorDecisionEntry({
+    required this.at,
+    required this.chatId,
+    required this.decision,
+    required this.reasonCodes,
+    required this.rationale,
+    required this.needScore,
+    required this.tokenPath,
+    required this.preview,
+    required this.wasMentioned,
+    required this.repliedToAgent,
+    this.chatName,
+    this.serverName,
+    this.senderName,
+    this.model,
+  });
+
+  factory BehaviorDecisionEntry.fromJson(Map<String, dynamic> json) {
+    return BehaviorDecisionEntry(
+      at:
+          DateTime.tryParse(json['at']?.toString() ?? '')?.toLocal() ??
+          DateTime.now(),
+      chatId: json['chatId']?.toString() ?? '',
+      chatName: json['chatName']?.toString(),
+      serverName: json['serverName']?.toString(),
+      senderName: json['senderName']?.toString(),
+      preview: json['preview']?.toString() ?? '',
+      wasMentioned: json['wasMentioned'] == true,
+      repliedToAgent: json['repliedToAgent'] == true,
+      decision: json['decision']?.toString() ?? 'stay_silent',
+      reasonCodes: json['reasonCodes'] is List
+          ? (json['reasonCodes'] as List)
+                .map((item) => item.toString())
+                .toList(growable: false)
+          : const <String>[],
+      rationale: json['rationale']?.toString() ?? '',
+      needScore: (json['needScore'] as num?)?.toDouble() ?? 0,
+      tokenPath: json['tokenPath']?.toString() ?? '',
+      model: json['model']?.toString(),
+    );
+  }
+
+  final DateTime at;
+  final String chatId;
+  final String? chatName;
+  final String? serverName;
+  final String? senderName;
+  final String preview;
+  final bool wasMentioned;
+  final bool repliedToAgent;
+  final String decision;
+  final List<String> reasonCodes;
+  final String rationale;
+  final double needScore;
+  final String tokenPath;
+  final String? model;
+
+  bool get spoke => decision == 'speak';
+
+  // The AI gate ran only when no rule settled the turn first.
+  bool get askedModel => tokenPath == 'jev_gate' || tokenPath == 'gate_only';
+}
+
 class MessagingAccessRule {
   const MessagingAccessRule({
     required this.scope,

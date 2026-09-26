@@ -177,7 +177,8 @@ class _RunsPanelState extends State<RunsPanel> {
               .where((id) => !shownIds.contains(id))
               .toSet()
         : const <String>{};
-    _adoptedOnce = true;
+    // A bot switch replaces the whole list; that is not a burst of new runs.
+    _adoptedOnce = !_controller.isSwitchingAgent;
     _runs = next;
     _heldRunIds = held;
   }

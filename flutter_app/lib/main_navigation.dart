@@ -189,6 +189,25 @@ extension AppSectionX on AppSection {
     }
   }
 
+  /// Whether the section shows data that belongs to the selected bot, so it
+  /// has nothing meaningful to show while a bot switch is loading.
+  bool get isAgentScoped {
+    switch (this) {
+      case AppSection.chat:
+      case AppSection.messaging:
+      case AppSection.runs:
+      case AppSection.settings:
+      case AppSection.skills:
+      case AppSection.integrations:
+      case AppSection.memory:
+      case AppSection.tasks:
+      case AppSection.mcp:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   AppSection get canonicalSection {
     switch (this) {
       case AppSection.skills:

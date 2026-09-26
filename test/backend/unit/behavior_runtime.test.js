@@ -47,6 +47,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   require('../../../server/services/behavior/state').clearThreadStates();
+  require('../../../server/services/behavior/gate/decision_log').clearDecisionLogs();
   teardownTestRuntime(ctx);
 });
 
@@ -224,6 +225,48 @@ test('mention-only rooms make zero model calls', async () => {
   assert.equal(mentioned.engage, true);
   assert.equal(mentioned.decision.tokenPath, 'gate_skip');
   assert.equal(inferenceCalls, 0);
+});
+
+test('group decisions are logged newest first per platform', async () => {
+  behavior.setBehaviorConfig(user.userId, agentId, {
+    participationMode: 'mention_only',
+  });
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+
+  await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('humans talking') });
+  await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: groupMessage('direct question', { wasMentioned: true }),
+  });
+
+  const entries = pipeline.listDecisions(user.userId, agentId, 'telegram');
+  assert.deepEqual(entries.map((entry) => entry.decision), ['speak', 'stay_silent']);
+  assert.equal(entries[0].preview, 'direct question');
+  assert.equal(entries[0].wasMentioned, true);
+  assert.deepEqual(entries[1].reasonCodes, ['mention_only']);
+  assert.deepEqual(pipeline.listDecisions(user.userId, agentId, 'discord'), []);
+});
+
+test('platform context turns by the agent reach the gate as the assistant', () => {
+  const { buildDecisionPacket } = require('../../../server/services/behavior/signals');
+  const packet = buildDecisionPacket({
+    msg: groupMessage('what do you think of it', {
+      channelContext: [
+        { author: '[bot] NeoLabs (NeoLabs#4821)', content: 'posted the changelog', mine: true },
+        { author: 'Neo (neo)', content: 'what do you think of it', mine: false },
+      ],
+    }),
+    config: {},
+    threadState: {},
+  });
+  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['assistant', 'Neo (neo)']);
 });
 
 test('plain name address engages without a mention tag', async () => {
@@ -1250,4 +1293,59 @@ test('the model gate still decides when Jev has no answer', async () => {
   assert.equal(modelCalls, 1);
   assert.equal(result.engage, false);
   assert.notEqual(result.decision.tokenPath, 'jev_gate');
+});
+
+async function withJevOn(run) {
+  const saved = { policy: process.env.NEOAGENT_JEV, key: process.env.OPENROUTER_API_KEY };
+  process.env.NEOAGENT_JEV = 'on';
+  process.env.OPENROUTER_API_KEY = 'sk-or-test';
+  try {
+    await run();
+  } finally {
+    for (const [name, value] of [['NEOAGENT_JEV', saved.policy], ['OPENROUTER_API_KEY', saved.key]]) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+}
+
+test('with Jev on, a Jev outage holds back instead of asking the model', async () => {
+  await withJevOn(async () => {
+    let modelCalls = 0;
+    const pipeline = behavior.createBehaviorPipeline({
+      agentEngine: jevGateEngine(null, () => { modelCalls += 1; }),
+    });
+    const msg = groupMessage();
+    pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+    const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+    assert.equal(modelCalls, 0);
+    assert.equal(result.engage, false);
+    assert.equal(result.decision.failureCode, 'jev_unavailable');
+    assert.deepEqual(result.decision.reasonCodes, ['prefer_hold_back', 'jev_unavailable']);
+  });
+});
+
+test('with Jev on, background analysis waits for Jev to say speak', async () => {
+  await withJevOn(async () => {
+    let answers = jevAnswers(0.1, 0.1);
+    let backgroundTasks = 0;
+    const engine = jevGateEngine(null);
+    engine.decide = async () => answers;
+    engine.trackBackgroundTask = () => {
+      backgroundTasks += 1;
+      return Promise.resolve();
+    };
+    const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
+
+    const quiet = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('side chatter') });
+    assert.equal(quiet.engage, false);
+    assert.equal(backgroundTasks, 0);
+
+    answers = jevAnswers(0.9, 0.05);
+    const spoke = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('can you check this?') });
+    assert.equal(spoke.engage, true);
+    assert.equal(backgroundTasks, 1);
+  });
 });

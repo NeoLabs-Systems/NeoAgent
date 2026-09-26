@@ -2795,6 +2795,7 @@ class _MessagingCard extends StatelessWidget {
           controller.loadMessagingAccessCatalog(platform.id, force: true),
       onSave: (policy) =>
           controller.saveMessagingAccessPolicy(platform.id, policy),
+      onLoadDecisions: () => controller.loadBehaviorDecisions(platform.id),
     );
   }
 }
@@ -2813,6 +2814,7 @@ Future<void> _showMessagingAccessPolicyDialog(
   required MessagingAccessCatalog initialCatalog,
   required Future<MessagingAccessCatalog> Function() onRefreshCatalog,
   required Future<void> Function(MessagingAccessPolicy policy) onSave,
+  required Future<List<BehaviorDecisionEntry>> Function() onLoadDecisions,
 }) async {
   var catalog = initialCatalog;
   var policy = initialCatalog.policy;
@@ -3093,6 +3095,12 @@ Future<void> _showMessagingAccessPolicyDialog(
                         defaultAllowUntagged:
                             policy.defaultAllowUntaggedInShared,
                         allowsUntagged: allowsUntagged,
+                        onShowDecisions: () => _showGroupDecisionsDialog(
+                          context,
+                          platform: platform,
+                          agentName: agentName,
+                          onLoad: onLoadDecisions,
+                        ),
                         onEdit: () async {
                           final selection = await _showSocialIntelligencePicker(
                             context,
@@ -3371,6 +3379,7 @@ class _GroupParticipationSection extends StatelessWidget {
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
     required this.onEdit,
+    required this.onShowDecisions,
   });
 
   final List<MessagingAccessRule> spaces;
@@ -3380,6 +3389,7 @@ class _GroupParticipationSection extends StatelessWidget {
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
   final VoidCallback onEdit;
+  final VoidCallback onShowDecisions;
 
   @override
   Widget build(BuildContext context) {
@@ -3448,10 +3458,21 @@ class _GroupParticipationSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onEdit,
-              icon: Icon(Icons.tune_rounded),
-              label: Text('Default for new groups'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: Icon(Icons.tune_rounded),
+                  label: Text('Default for new groups'),
+                ),
+                TextButton.icon(
+                  onPressed: onShowDecisions,
+                  icon: Icon(Icons.history_rounded),
+                  label: Text('Recent decisions'),
+                ),
+              ],
             ),
           ] else ...<Widget>[
             Container(
@@ -3508,10 +3529,21 @@ class _GroupParticipationSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onEdit,
-              icon: Icon(Icons.tune_rounded),
-              label: Text('Choose groups'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: onEdit,
+                  icon: Icon(Icons.tune_rounded),
+                  label: Text('Choose groups'),
+                ),
+                TextButton.icon(
+                  onPressed: onShowDecisions,
+                  icon: Icon(Icons.history_rounded),
+                  label: Text('Recent decisions'),
+                ),
+              ],
             ),
           ],
         ],
