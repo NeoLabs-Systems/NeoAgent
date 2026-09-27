@@ -15,7 +15,7 @@ class StatusWidgetProvider : HomeWidgetProvider() {
     private fun compact(context: Context, status: HomeWidgetStatus?) =
         RemoteViews(context.packageName, R.layout.neoagent_widget_status_compact).apply {
             setOnClickPendingIntent(android.R.id.background, openAppIntent(context))
-            bindFace(R.id.neoagent_widget_face, status)
+            bindFace(context, R.id.neoagent_widget_face, status)
             bindLabel(context, R.id.neoagent_widget_label, status)
             bindFreshness(context, R.id.neoagent_widget_dot, R.id.neoagent_widget_freshness, status)
             bindText(R.id.neoagent_widget_detail, detail(context, status))
@@ -25,7 +25,7 @@ class StatusWidgetProvider : HomeWidgetProvider() {
         RemoteViews(context.packageName, R.layout.neoagent_widget_status).apply {
             setOnClickPendingIntent(android.R.id.background, openAppIntent(context))
             setOnClickPendingIntent(R.id.neoagent_widget_call_button, startCallIntent(context))
-            bindFace(R.id.neoagent_widget_face, status)
+            bindFace(context, R.id.neoagent_widget_face, status)
             bindLabel(context, R.id.neoagent_widget_label, status)
             bindFreshness(context, R.id.neoagent_widget_dot, R.id.neoagent_widget_freshness, status)
             bindText(R.id.neoagent_widget_detail, detail(context, status))

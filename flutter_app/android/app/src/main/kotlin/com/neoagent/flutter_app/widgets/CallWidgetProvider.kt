@@ -49,6 +49,6 @@ class CallWidgetProvider : HomeWidgetProvider() {
     private fun base(context: Context, status: HomeWidgetStatus?, layout: Int) =
         RemoteViews(context.packageName, layout).apply {
             setOnClickPendingIntent(android.R.id.background, startCallIntent(context))
-            bindFace(R.id.neoagent_widget_face, status)
+            bindFace(context, R.id.neoagent_widget_face, status)
         }
 }

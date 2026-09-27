@@ -176,11 +176,14 @@ class _NeoMascotState extends State<NeoMascot>
   }
 }
 
-/// The mood's key frame as a square PNG of [size] pixels, painted exactly as
-/// [NeoMascot] paints it, for surfaces Flutter does not draw (Android
-/// home-screen widgets).
-Future<Uint8List> renderMascotPng(MascotMood mood, {required int size}) async {
-  final picture = _MascotPicture()..retarget(MascotClips.keyFrame(mood), 1);
+/// [frame] as a square PNG of [size] pixels, painted exactly as [NeoMascot]
+/// paints it, for surfaces Flutter does not draw (Android home-screen
+/// widgets, via `tool/render_widget_faces.dart`).
+Future<Uint8List> renderMascotFramePng(
+  MascotFrame frame, {
+  required int size,
+}) async {
+  final picture = _MascotPicture()..retarget(frame, 1);
   final recorder = ui.PictureRecorder();
   _MascotPainter(
     picture: picture,

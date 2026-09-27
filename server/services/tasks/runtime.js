@@ -334,27 +334,35 @@ class TaskRuntime {
     });
   }
 
-  async _runDueOneTimeTasks() {
-    const due = this.taskRepository.listDueOneTimeTasks();
-
-    for (const task of due) {
+  // Due tasks are launched, not awaited: the poll must finish every tick, or one
+  // hung run would hold it open and no later one-time task would ever fire.
+  // Returns the launched runs so callers that need to can wait for them.
+  _runDueOneTimeTasks() {
+    const launched = [];
+    for (const task of this.taskRepository.listDueOneTimeTasks()) {
       if (this.abortController.signal.aborted) break;
+      if (this.runningTaskExecutions.has(`${task.user_id}:${task.id}`)) continue;
       this.scheduleJobs.delete(task.id);
-      try {
-        const result = await this._executeTask(task.id, task.user_id, {
-          scheduledAt: task.run_at || new Date().toISOString(),
-          oneTime: true,
-          triggerType: 'schedule',
-          triggerSource: 'schedule',
-        });
-        if (result?.skipped) {
-          continue;
-        }
-        this.taskRepository.deleteTask(task.id, task.user_id);
-        this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
-      } catch (err) {
-        console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
-      }
+      launched.push(this._runOneTimeTask(task));
+    }
+    return launched;
+  }
+
+  async _runOneTimeTask(task) {
+    try {
+      const result = await this._executeTask(task.id, task.user_id, {
+        scheduledAt: task.run_at || new Date().toISOString(),
+        oneTime: true,
+        triggerType: 'schedule',
+        triggerSource: 'schedule',
+      });
+      // A skipped run never started, so the task stays and the next poll retries it.
+      if (result?.skipped) return;
+      // Completed or failed, the run happened: a one-time task is done either way.
+      this.taskRepository.deleteTask(task.id, task.user_id);
+      this.io.to(`user:${task.user_id}`).emit('tasks:task_deleted', { taskId: task.id });
+    } catch (err) {
+      console.error(`[Tasks] One-time task ${task.id} error:`, err.message);
     }
   }
 

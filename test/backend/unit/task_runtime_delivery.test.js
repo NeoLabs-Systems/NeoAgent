@@ -1041,7 +1041,7 @@ describe('scheduled task result delivery', () => {
       },
     });
 
-    await runtime._runDueOneTimeTasks();
+    await Promise.all(runtime._runDueOneTimeTasks());
 
     assert.equal(runtime.taskRepository.getTaskById(task.id, user.userId), undefined);
     assert.ok(io.events.some((event) =>
@@ -1068,9 +1068,57 @@ describe('scheduled task result delivery', () => {
     });
     runtime.runningTaskExecutions.add(`${user.userId}:${task.id}`);
 
-    await runtime._runDueOneTimeTasks();
+    await Promise.all(runtime._runDueOneTimeTasks());
 
     assert.ok(runtime.taskRepository.getTaskById(task.id, user.userId));
+  });
+
+  test('a hung one-time run does not block later one-time tasks', async () => {
+    const releaseHung = deferred();
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel(_userId, prompt) {
+        if (String(prompt).includes('Hang')) await releaseHung.promise;
+        return { content: 'Done.' };
+      },
+    });
+    const createOneTime = (name, prompt) => runtime.createTask(user.userId, {
+      name,
+      triggerType: 'schedule',
+      triggerConfig: { mode: 'one_time', runAt: new Date(Date.now() - 60_000).toISOString() },
+      taskConfig: { prompt },
+    });
+    const hung = await createOneTime('Hung check', 'Hang forever.');
+    const firstPoll = runtime._runDueOneTimeTasks();
+    assert.equal(firstPoll.length, 1);
+
+    const later = await createOneTime('Later check', 'Run the later check.');
+    const secondPoll = runtime._runDueOneTimeTasks();
+    assert.equal(secondPoll.length, 1);
+    await Promise.all(secondPoll);
+    assert.equal(runtime.taskRepository.getTaskById(later.id, user.userId), undefined);
+    assert.ok(runtime.taskRepository.getTaskById(hung.id, user.userId));
+
+    releaseHung.resolve();
+    await Promise.all(firstPoll);
+    assert.equal(runtime.taskRepository.getTaskById(hung.id, user.userId), undefined);
+  });
+
+  test('deletes a one-time task whose run failed', async () => {
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        throw new Error('model exploded');
+      },
+    });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Failing one-time check',
+      triggerType: 'schedule',
+      triggerConfig: { mode: 'one_time', runAt: new Date(Date.now() - 60_000).toISOString() },
+      taskConfig: { prompt: 'Run the failing check.' },
+    });
+
+    await Promise.all(runtime._runDueOneTimeTasks());
+
+    assert.equal(runtime.taskRepository.getTaskById(task.id, user.userId), undefined);
   });
 
   test('checkpoints integration events only after successful execution', async () => {

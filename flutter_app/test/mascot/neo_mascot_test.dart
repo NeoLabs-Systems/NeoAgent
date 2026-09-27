@@ -85,7 +85,10 @@ void main() {
   test('renders each mood as a distinct PNG for home-screen widgets', () async {
     final pngs = <String>{};
     for (final mood in MascotMood.values) {
-      final png = await renderMascotPng(mood, size: 64);
+      final png = await renderMascotFramePng(
+        MascotClips.keyFrame(mood),
+        size: 64,
+      );
       expect(png.sublist(1, 4), 'PNG'.codeUnits);
       pngs.add(String.fromCharCodes(png));
     }

@@ -9,6 +9,13 @@
     <string name="neoagent_widget_live">Live</string>
     <string name="neoagent_widget_seen">Seen %1$s</string>
     <string name="neoagent_widget_ready">Ready</string>
+    <string name="neoagent_widget_listening">Listening</string>
+    <string name="neoagent_widget_thinking">Thinking</string>
+    <string name="neoagent_widget_working">Working</string>
+    <string name="neoagent_widget_waiting">Needs you</string>
+    <string name="neoagent_widget_blocked">Blocked</string>
+    <string name="neoagent_widget_done">Done</string>
+    <string name="neoagent_widget_offline">Offline</string>
     <string name="neoagent_widget_not_connected">Not connected</string>
     <string name="neoagent_widget_open_to_connect">Open NeoAgent to sign in</string>
     <string name="neoagent_widget_talk">Talk to NeoAgent</string>

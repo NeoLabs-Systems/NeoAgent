@@ -35,16 +35,27 @@ object HomeWidgets {
         MethodChannel(messenger, "neoagent/home_widgets").setMethodCallHandler { call, result ->
             when (call.method) {
                 "publish" -> {
-                    HomeWidgetStatus.write(
+                    val mood = HomeWidgetMood.of(call.argument<String>("mood"))
+                    val live = call.argument<Boolean>("live") == true
+                    HomeWidgetRefresh.saveSession(
                         context,
-                        mood = call.argument<String>("mood").orEmpty(),
-                        label = call.argument<String>("label").orEmpty(),
+                        backendUrl = call.argument<String>("backendUrl").orEmpty(),
+                        cookie = call.argument<String>("sessionCookie").orEmpty(),
+                        agentId = call.argument<String>("agentId").orEmpty(),
+                    )
+                    HomeWidgetStatus.publish(
+                        context,
+                        mood = mood,
                         detail = call.argument<String>("detail").orEmpty(),
-                        live = call.argument<Boolean>("live") == true,
+                        live = live,
                         callStartedAtMs = call.argument<Number>("callStartedAtMs")?.toLong(),
-                        face = call.argument<ByteArray>("face"),
                     )
                     refreshAll(context)
+                    // Leaving the app mid-run: keep following it from the server.
+                    HomeWidgetRefresh.sync(
+                        context,
+                        refreshInSeconds = HomeWidgetRefresh.UNDER_WAY_SECONDS.takeIf { !live && mood.changesSoon },
+                    )
                     result.success(null)
                 }
                 "returnToHomeScreen" -> {
@@ -56,7 +67,12 @@ object HomeWidgets {
         }
     }
 
-    private fun refreshAll(context: Context) {
+    fun hasWidgets(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context)
+        return providers.any { manager.getAppWidgetIds(ComponentName(context, it)).isNotEmpty() }
+    }
+
+    fun refreshAll(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         for (provider in providers) {
             val ids = manager.getAppWidgetIds(ComponentName(context, provider))
@@ -77,6 +93,14 @@ abstract class HomeWidgetProvider : AppWidgetProvider() {
         for (id in ids) {
             manager.updateAppWidget(id, layouts(context, status).pick(manager, id))
         }
+    }
+
+    override fun onEnabled(context: Context) {
+        HomeWidgetRefresh.sync(context, refreshInSeconds = 0)
+    }
+
+    override fun onDisabled(context: Context) {
+        HomeWidgetRefresh.sync(context)
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -127,13 +151,24 @@ private fun activityIntent(context: Context, requestCode: Int, action: String): 
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-internal fun RemoteViews.bindFace(viewId: Int, status: HomeWidgetStatus?) {
-    status?.face?.let { setImageViewBitmap(viewId, it) }
+/** The mood's animated face; the launcher plays it without the app. */
+internal fun RemoteViews.bindFace(context: Context, viewId: Int, status: HomeWidgetStatus?) {
+    removeAllViews(viewId)
+    addView(viewId, RemoteViews(context.packageName, (status?.mood ?: HomeWidgetMood.ASLEEP).face))
 }
 
 internal fun RemoteViews.bindLabel(context: Context, viewId: Int, status: HomeWidgetStatus?) {
-    setTextViewText(viewId, status?.label ?: context.getString(R.string.neoagent_widget_not_connected))
-    val color = if (status?.isAlert == true) R.color.neoagent_widget_alert else R.color.neoagent_widget_text_primary
+    val label = when {
+        status == null -> R.string.neoagent_widget_not_connected
+        status.mood == HomeWidgetMood.IDLE && status.callStartedAtMs != null -> R.string.neoagent_widget_on_call
+        else -> status.mood.label
+    }
+    setTextViewText(viewId, context.getString(label))
+    val color = if (status?.mood == HomeWidgetMood.BLOCKED) {
+        R.color.neoagent_widget_alert
+    } else {
+        R.color.neoagent_widget_text_primary
+    }
     setTextColor(viewId, context.getColor(color))
 }
 

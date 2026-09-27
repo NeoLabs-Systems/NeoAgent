@@ -4,27 +4,25 @@ import 'package:flutter/services.dart';
 import 'diagnostics_logger.dart';
 
 /// What the Android home-screen widgets show. The app publishes one whenever
-/// the agent's state changes; the widgets keep the last one while the app is
-/// away.
+/// the agent's state changes. Faces and labels live in the Android
+/// resources, so the widgets animate and can refresh from the server while
+/// the app is closed.
 class HomeWidgetStatus {
   const HomeWidgetStatus({
     required this.mood,
-    required this.label,
     required this.detail,
-    required this.face,
     required this.live,
+    required this.backendUrl,
+    required this.sessionCookie,
+    required this.agentId,
     this.callStartedAt,
   });
 
-  /// `MascotMood.name`; the widgets tint alert moods.
+  /// `MascotMood.name`.
   final String mood;
-  final String label;
 
   /// The work the agent is on, or empty.
   final String detail;
-
-  /// The mascot's face for [mood] as PNG bytes.
-  final Uint8List face;
 
   /// The app is in the foreground and following the agent right now.
   final bool live;
@@ -32,8 +30,14 @@ class HomeWidgetStatus {
   /// When the open voice call connected, or null without a call.
   final DateTime? callStartedAt;
 
-  /// Identity of what is on screen; [face] follows [mood].
-  Object get signature => (mood, label, detail, live, callStartedAt);
+  /// The sign-in the widgets refresh with while the app is closed; the
+  /// cookie is empty when signed out.
+  final String backendUrl;
+  final String sessionCookie;
+  final String agentId;
+
+  Object get signature =>
+      (mood, detail, live, callStartedAt, backendUrl, sessionCookie, agentId);
 }
 
 class HomeWidgetBridge {
@@ -47,11 +51,12 @@ class HomeWidgetBridge {
     try {
       await _channel.invokeMethod<void>('publish', <String, Object?>{
         'mood': status.mood,
-        'label': status.label,
         'detail': status.detail,
-        'face': status.face,
         'live': status.live,
         'callStartedAtMs': status.callStartedAt?.millisecondsSinceEpoch,
+        'backendUrl': status.backendUrl,
+        'sessionCookie': status.sessionCookie,
+        'agentId': status.agentId,
       });
     } catch (error) {
       AppDiagnostics.log('home_widgets', 'publish.failed', error: error);
