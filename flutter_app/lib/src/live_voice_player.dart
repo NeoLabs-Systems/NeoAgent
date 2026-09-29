@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
@@ -21,10 +23,11 @@ class LiveVoicePlayer {
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   AudioSource? _source;
   SoundHandle? _handle;
-  AudioSource? _clickSource;
-  SoundHandle? _clickHandle;
+  final List<Uint8List> _clickPcm = <Uint8List>[];
+  final List<AudioSource> _clickSounds = <AudioSource>[];
   int _sampleRate = 24000;
   int _clickEpoch = 0;
+  bool _clickQueued = false;
   bool _androidStarted = false;
   Future<void>? _starting;
   Future<void>? _preparingClicks;
@@ -56,6 +59,12 @@ class LiveVoicePlayer {
     if (pcm16.isEmpty) return;
     if (_useAndroidTrack) {
       if (_androidStarted) {
+        // A key still sitting in the call track would play before this
+        // speech. Drop it, then let the voice through.
+        if (_clickQueued) {
+          _clickQueued = false;
+          _androidChannel.invokeMethod<void>('flush');
+        }
         _androidChannel.invokeMethod<void>('write', <String, Object>{
           'pcm': pcm16,
         });
@@ -66,23 +75,26 @@ class LiveVoicePlayer {
     if (source != null) SoLoud.instance.addAudioDataStream(source, pcm16);
   }
 
-  /// A separate, quiet stream of keyboard clicks. Speech keeps the jitter
-  /// cushion, which would bunch short clicks into bursts, so clicks use their
-  /// own buffer. Android writes them on the call track; a click is only a few
-  /// milliseconds, so speech that arrives behind one is not held up.
-  Future<void> prepareWorkClicks() {
+  /// Loads the key strikes. Each one is played whole, as its own sound, so a
+  /// gap between keys is silence instead of a stream underrun. Android writes
+  /// the same samples on the call track.
+  Future<void> prepareWorkClicks(List<Uint8List> clicks) {
     final pending = _preparingClicks;
     if (pending != null) return pending;
-    final opening = _prepareWorkClicks();
+    final opening = _prepareWorkClicks(clicks);
     _preparingClicks = opening;
     return opening.whenComplete(() {
       if (identical(_preparingClicks, opening)) _preparingClicks = null;
     });
   }
 
-  Future<void> _prepareWorkClicks() async {
-    if (_useAndroidTrack || _clickSource != null) return;
+  Future<void> _prepareWorkClicks(List<Uint8List> clicks) async {
+    if (clicks.isEmpty || _clickPcm.isNotEmpty) return;
     final epoch = _clickEpoch;
+    if (_useAndroidTrack) {
+      _clickPcm.addAll(clicks);
+      return;
+    }
     final starting = _starting;
     if (starting != null) {
       try {
@@ -91,53 +103,70 @@ class LiveVoicePlayer {
         return;
       }
     }
-    if (epoch != _clickEpoch || _clickSource != null) return;
+    if (epoch != _clickEpoch || _clickPcm.isNotEmpty) return;
     final soloud = SoLoud.instance;
     if (!soloud.isInitialized) {
       await soloud.init(bufferSize: 1024);
     }
-    if (epoch != _clickEpoch || _clickSource != null) return;
-    final source = soloud.setBufferStream(
-      bufferingType: BufferingType.released,
-      bufferingTimeNeeds: 0.005,
-      sampleRate: _sampleRate,
-      channels: Channels.mono,
-      format: BufferType.s16le,
-      maxBufferSizeDuration: const Duration(milliseconds: 400),
-    );
-    final handle = await soloud.play(source);
-    if (epoch != _clickEpoch) {
-      await soloud.stop(handle);
-      await soloud.disposeSource(source);
+    final loaded = <AudioSource>[];
+    for (var index = 0; index < clicks.length; index++) {
+      if (epoch != _clickEpoch) break;
+      final source = await soloud.loadMem(
+        'neoagent-key-click-$epoch-$index',
+        _wavPcm16(clicks[index], _sampleRate),
+      );
+      if (epoch != _clickEpoch) {
+        loaded.add(source);
+        break;
+      }
+      loaded.add(source);
+    }
+    if (epoch != _clickEpoch || loaded.length != clicks.length) {
+      for (final source in loaded) {
+        await soloud.disposeSource(source);
+      }
       return;
     }
-    _clickSource = source;
-    _clickHandle = handle;
+    _clickPcm.addAll(clicks);
+    _clickSounds.addAll(loaded);
   }
 
   void addWorkClick(Uint8List pcm16) {
     if (pcm16.isEmpty) return;
     if (_useAndroidTrack) {
       if (_androidStarted) {
+        _clickQueued = true;
         _androidChannel.invokeMethod<void>('write', <String, Object>{
           'pcm': pcm16,
         });
       }
       return;
     }
-    final source = _clickSource;
-    if (source != null) SoLoud.instance.addAudioDataStream(source, pcm16);
+    final index = _clickPcm.indexWhere((click) => identical(click, pcm16));
+    if (index < 0 || index >= _clickSounds.length) return;
+    unawaited(SoLoud.instance.play(_clickSounds[index]));
   }
 
+  /// Stops keys that are still ringing. The loaded strikes stay available.
   Future<void> stopWorkClicks() async {
     _clickEpoch++;
-    final source = _clickSource;
-    final handle = _clickHandle;
-    _clickSource = null;
-    _clickHandle = null;
-    if (_useAndroidTrack || source == null) return;
-    if (handle != null) await SoLoud.instance.stop(handle);
-    await SoLoud.instance.disposeSource(source);
+    if (_useAndroidTrack || _clickSounds.isEmpty) return;
+    for (final source in _clickSounds) {
+      for (final handle in source.handles.toList()) {
+        await SoLoud.instance.stop(handle);
+      }
+    }
+  }
+
+  Future<void> _releaseWorkClicks() async {
+    await stopWorkClicks();
+    final sounds = List<AudioSource>.of(_clickSounds);
+    _clickPcm.clear();
+    _clickSounds.clear();
+    _clickQueued = false;
+    for (final source in sounds) {
+      await SoLoud.instance.disposeSource(source);
+    }
   }
 
   /// Plays out a tail shorter than the jitter cushion once the model has
@@ -159,7 +188,7 @@ class LiveVoicePlayer {
   }
 
   Future<void> stop() async {
-    await stopWorkClicks();
+    await _releaseWorkClicks();
     if (_useAndroidTrack) {
       if (!_androidStarted) return;
       _androidStarted = false;
@@ -188,5 +217,32 @@ class LiveVoicePlayer {
     _handle = null;
     if (handle != null) await SoLoud.instance.stop(handle);
     if (source != null) await SoLoud.instance.disposeSource(source);
+  }
+}
+
+/// A minimal WAV wrapper so a raw strike can be loaded as its own sound.
+Uint8List _wavPcm16(Uint8List pcm, int sampleRate) {
+  final bytes = Uint8List(44 + pcm.length);
+  final data = ByteData.sublistView(bytes);
+  _writeAscii(bytes, 0, 'RIFF');
+  data.setUint32(4, 36 + pcm.length, Endian.little);
+  _writeAscii(bytes, 8, 'WAVE');
+  _writeAscii(bytes, 12, 'fmt ');
+  data.setUint32(16, 16, Endian.little);
+  data.setUint16(20, 1, Endian.little);
+  data.setUint16(22, 1, Endian.little);
+  data.setUint32(24, sampleRate, Endian.little);
+  data.setUint32(28, sampleRate * 2, Endian.little);
+  data.setUint16(32, 2, Endian.little);
+  data.setUint16(34, 16, Endian.little);
+  _writeAscii(bytes, 36, 'data');
+  data.setUint32(40, pcm.length, Endian.little);
+  bytes.setAll(44, pcm);
+  return bytes;
+}
+
+void _writeAscii(Uint8List bytes, int offset, String value) {
+  for (var index = 0; index < value.length; index++) {
+    bytes[offset + index] = value.codeUnitAt(index);
   }
 }

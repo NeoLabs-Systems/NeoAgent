@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -6,43 +7,62 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/src/voice_work_clicks.dart';
 
 void main() {
-  test('clicks stay quiet and fall away like a key tick', () {
+  test('bundled key strikes are real presses, not a short blip', () {
+    final clicks = voiceKeyClicksFromWav(
+      File('assets/sounds/voice_key_clicks.wav').readAsBytesSync(),
+    );
+
+    expect(clicks, hasLength(5));
+    final peaks = <int>{};
+    for (final click in clicks) {
+      final seconds = click.length / 2 / 24000;
+      expect(seconds, closeTo(0.14, 0.001));
+      final peak = _peak(click);
+      expect(peak, inInclusiveRange(6000, 8000));
+      peaks.add(peak);
+      expect(_energy(click, 0, click.length ~/ 5), greaterThan(0));
+    }
+    expect(clicks.map((pcm) => pcm.join(',')).toSet(), hasLength(5));
+    expect(peaks, isNotEmpty);
+  });
+
+  test('typing plays one strike at a time and then stops', () {
     fakeAsync((async) {
-      final clicks = VoiceWorkClicks(sampleRate: 24000, random: math.Random(2));
+      final clicks = voiceKeyClicksFromWav(
+        File('assets/sounds/voice_key_clicks.wav').readAsBytesSync(),
+      );
+      final player = VoiceWorkClicks(
+        sampleRate: 24000,
+        clicks: clicks,
+        random: math.Random(2),
+      );
       final heard = <Uint8List>[];
-      clicks.start(heard.add);
+      player.start(heard.add);
       async.elapse(const Duration(milliseconds: 1));
       expect(heard, hasLength(1));
+      expect(clicks, contains(heard.single));
 
-      final click = heard.single;
-      expect(click.length / 2 / 24000, lessThan(0.03));
-      expect(_peak(click), inInclusiveRange(1800, 4500));
-      final early = _energy(click, 0, click.length ~/ 3);
-      final late = _energy(click, click.length * 2 ~/ 3, click.length);
-      expect(early, greaterThan(late));
-
-      async.elapse(const Duration(milliseconds: 700));
+      async.elapse(const Duration(milliseconds: 900));
       expect(heard.length, greaterThan(2));
-      expect(heard.map((pcm) => pcm.join(',')).toSet().length, greaterThan(1));
 
       final stoppedAt = heard.length;
-      clicks.stop();
+      player.stop();
       async.elapse(const Duration(seconds: 2));
       expect(heard, hasLength(stoppedAt));
-      clicks.dispose();
+      player.dispose();
     });
   });
 
-  test('typing gaps mix quick clicks with pauses', () {
+  test('typing gaps leave room for a whole key strike', () {
     final random = math.Random(4);
     final gaps = List<int>.generate(
       40,
       (index) => voiceWorkClickGapMs(random, endOfBurst: index % 8 == 7),
     );
 
-    expect(gaps.every((gap) => gap >= 36 && gap < 700), isTrue);
-    expect(gaps.where((gap) => gap < 180), isNotEmpty);
-    expect(gaps.where((gap) => gap >= 280), isNotEmpty);
+    expect(gaps.every((gap) => gap >= 160 && gap < 900), isTrue);
+    expect(gaps.where((gap) => gap < 280), isNotEmpty);
+    expect(gaps.where((gap) => gap >= 420), isNotEmpty);
   });
 }
 

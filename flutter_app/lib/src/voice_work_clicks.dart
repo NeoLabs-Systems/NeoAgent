@@ -2,31 +2,32 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// How long to wait before the next key click.
+/// How long to wait before the next key.
 ///
-/// A burst is quick and slightly uneven, like someone typing. The pause at
-/// the end of a burst is the breath between phrases, so the sound stays
-/// quiet instead of becoming a metronome.
+/// Each strike is a real key recording about 140 ms long, so the gap stays
+/// at least that long. Shorter gaps pile the strikes up and sound like a
+/// glitch. A burst is a short run of typing; the pause is the breath
+/// between phrases.
 int voiceWorkClickGapMs(math.Random random, {required bool endOfBurst}) {
-  if (endOfBurst) return 280 + random.nextInt(420);
-  if (random.nextInt(6) == 0) return 36 + random.nextInt(16);
-  return 70 + random.nextInt(90);
+  if (endOfBurst) return 420 + random.nextInt(480);
+  return 160 + random.nextInt(120);
 }
 
-/// Soft keyboard clicks played while a voice call is working and nobody is
-/// speaking. The samples are synthesized so the client ships no audio asset.
+/// Real key strikes played while a voice call is working and nobody is
+/// speaking.
+///
+/// The samples are five Mac key presses from "Single Key Press Sounds" by
+/// eklee and qubodup (CC BY 3.0). See assets/sounds/voice_key_clicks.license.txt.
 class VoiceWorkClicks {
-  VoiceWorkClicks({required this.sampleRate, math.Random? random})
-    : _random = random ?? math.Random(),
-      _variants = List<Uint8List>.generate(
-        _clickVariants,
-        (variant) =>
-            _synthesizeKeyClick(sampleRate: sampleRate, variant: variant),
-      );
+  VoiceWorkClicks({
+    required this.sampleRate,
+    required List<Uint8List> clicks,
+    math.Random? random,
+  }) : _random = random ?? math.Random(),
+       _variants = List<Uint8List>.unmodifiable(clicks);
 
-  static const int _clickVariants = 6;
   static const int _burstMin = 4;
-  static const int _burstSpan = 7;
+  static const int _burstSpan = 6;
 
   final int sampleRate;
   final math.Random _random;
@@ -37,7 +38,7 @@ class VoiceWorkClicks {
   bool get isPlaying => _timer != null;
 
   void start(void Function(Uint8List pcm) emit) {
-    if (_timer != null) return;
+    if (_timer != null || _variants.isEmpty) return;
     _arm(emit, Duration.zero);
   }
 
@@ -69,47 +70,54 @@ class VoiceWorkClicks {
   }
 }
 
-/// A short mechanical tick: a bright noise transient over a soft body tone,
-/// scaled so the loudest sample stays well under speech level.
-Uint8List _synthesizeKeyClick({required int sampleRate, required int variant}) {
-  const bodies = <double>[180, 220, 150, 260, 190, 240];
-  const ticks = <double>[2500, 3200, 2800, 3600, 2100, 3000];
-  const peaks = <double>[0.11, 0.08, 0.12, 0.07, 0.10, 0.09];
-  final bodyHz = bodies[variant % bodies.length];
-  final tickHz = ticks[variant % ticks.length];
-  final peak = peaks[variant % peaks.length];
-  final count = (sampleRate * 0.018).round();
-  final raw = List<double>.filled(count, 0);
-  var noise = 0x12345678 + variant * 0x9E3779B9;
-  var loudest = 0.0;
-  for (var i = 0; i < count; i++) {
-    noise = (noise ^ (noise << 13)) & 0x7fffffff;
-    noise ^= noise >> 17;
-    noise ^= noise << 5;
-    final unit = ((noise & 0xFFFF) / 32768.0) - 1.0;
-    final t = i / sampleRate;
-    final tickEnv = math.exp(-t * 460);
-    final bodyEnv = math.exp(-t * 170);
-    final attack = (i / (sampleRate * 0.0007)).clamp(0.0, 1.0);
-    final sample =
-        attack *
-        (0.7 * unit * tickEnv +
-            0.35 * math.sin(2 * math.pi * tickHz * t) * tickEnv +
-            0.5 * math.sin(2 * math.pi * bodyHz * t) * bodyEnv);
-    raw[i] = sample;
-    final magnitude = sample.abs();
-    if (magnitude > loudest) loudest = magnitude;
+/// Splits the bundled key recording into equal strikes.
+///
+/// The file is 24 kHz mono 16-bit PCM, five strikes back to back.
+List<Uint8List> voiceKeyClicksFromWav(Uint8List bytes) {
+  final pcm = _wavPcm16Mono(bytes, sampleRate: 24000);
+  const strikes = 5;
+  if (pcm.length % strikes != 0) {
+    throw FormatException('Key click recording is not 5 equal strikes.');
   }
-  final scale = loudest == 0 ? 0.0 : peak / loudest;
-  final bytes = Uint8List(count * 2);
+  final each = pcm.length ~/ strikes;
+  return <Uint8List>[
+    for (var index = 0; index < strikes; index++)
+      Uint8List.sublistView(pcm, index * each, (index + 1) * each),
+  ];
+}
+
+Uint8List _wavPcm16Mono(Uint8List bytes, {required int sampleRate}) {
+  if (bytes.length < 44 ||
+      _chunkId(bytes, 0) != 'RIFF' ||
+      _chunkId(bytes, 8) != 'WAVE') {
+    throw FormatException('Key clicks are not a WAV file.');
+  }
   final data = ByteData.sublistView(bytes);
-  for (var i = 0; i < count; i++) {
-    final faded = i == count - 1 ? 0.0 : raw[i] * scale;
-    data.setInt16(
-      i * 2,
-      (faded.clamp(-1.0, 1.0) * 32767).round(),
-      Endian.little,
-    );
+  var offset = 12;
+  int? rate;
+  int? channels;
+  int? bits;
+  Uint8List? pcm;
+  while (offset + 8 <= bytes.length) {
+    final id = _chunkId(bytes, offset);
+    final size = data.getUint32(offset + 4, Endian.little);
+    final start = offset + 8;
+    if (start + size > bytes.length) break;
+    if (id == 'fmt ') {
+      channels = data.getUint16(start + 2, Endian.little);
+      rate = data.getUint32(start + 4, Endian.little);
+      bits = data.getUint16(start + 14, Endian.little);
+    } else if (id == 'data') {
+      pcm = Uint8List.sublistView(bytes, start, start + size);
+    }
+    offset = start + size + (size.isOdd ? 1 : 0);
   }
-  return bytes;
+  if (pcm == null || channels != 1 || bits != 16 || rate != sampleRate) {
+    throw FormatException('Key clicks must be 24 kHz mono 16-bit PCM.');
+  }
+  return pcm;
+}
+
+String _chunkId(Uint8List bytes, int offset) {
+  return String.fromCharCodes(bytes.sublist(offset, offset + 4));
 }

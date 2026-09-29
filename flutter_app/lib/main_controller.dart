@@ -312,6 +312,7 @@ class NeoAgentController extends ChangeNotifier {
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
   VoiceWorkClicks? _voiceWorkClicks;
+  List<Uint8List>? _voiceKeyClickPcm;
   Timer? _voiceWorkClickArm;
   int _voiceWorkClickGeneration = 0;
   bool _liveVoiceHearingSpeech = false;
@@ -2497,7 +2498,9 @@ class NeoAgentController extends ChangeNotifier {
                   payload['result']?.toString() ??
                   appStrings.subagentUpdate)
             : event == 'steer_queued'
-            ? appStrings.queuedSteeringArg1(payload['content']?.toString() ?? '')
+            ? appStrings.queuedSteeringArg1(
+                payload['content']?.toString() ?? '',
+              )
             : appStrings.appliedArg1SteeringUpdateS(_asInt(payload['count']));
         final item = CoworkActivityItem(
           id: '$kind-${payload['handle']?.toString() ?? DateTime.now().microsecondsSinceEpoch}',
@@ -4926,8 +4929,21 @@ class NeoAgentController extends ChangeNotifier {
     if (_liveVoiceHearingSpeech || !voiceAssistantLiveState.isWorkingSilently) {
       return;
     }
+    final List<Uint8List> clicks;
     try {
-      await _liveVoicePlayer.prepareWorkClicks();
+      final cached = _voiceKeyClickPcm;
+      if (cached != null) {
+        clicks = cached;
+      } else {
+        final data = await rootBundle.load(
+          'assets/sounds/voice_key_clicks.wav',
+        );
+        clicks = voiceKeyClicksFromWav(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        );
+        _voiceKeyClickPcm = clicks;
+      }
+      await _liveVoicePlayer.prepareWorkClicks(clicks);
     } catch (error, stackTrace) {
       AppDiagnostics.log(
         'voice',
@@ -4946,7 +4962,10 @@ class NeoAgentController extends ChangeNotifier {
     final existing = _voiceWorkClicks;
     if (existing == null || existing.sampleRate != sampleRate) {
       existing?.dispose();
-      _voiceWorkClicks = VoiceWorkClicks(sampleRate: sampleRate);
+      _voiceWorkClicks = VoiceWorkClicks(
+        sampleRate: sampleRate,
+        clicks: clicks,
+      );
     }
     _voiceWorkClicks!.start(_liveVoicePlayer.addWorkClick);
   }
@@ -7342,8 +7361,7 @@ class NeoAgentController extends ChangeNotifier {
     if (lower.contains('password is too weak')) {
       return text;
     }
-    if (lower.contains('invalid 2fa') ||
-        lower.contains('two-factor code')) {
+    if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
       return appStrings.theTwoFactorCodeIsNot;
     }
     if (lower.contains('two-factor challenge expired')) {
@@ -7376,7 +7394,9 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('already linked to another account')) {
       return appStrings.thatGoogleAccountIsAlreadyLinked;
     }
-    if (lower.contains('create a password or link another provider before removing this sign-in method')) {
+    if (lower.contains(
+      'create a password or link another provider before removing this sign-in method',
+    )) {
       return appStrings.addAnotherSignInMethodBefore;
     }
     if (lower.contains('unable to locate a java runtime') ||
