@@ -1,9 +1,7 @@
 'use strict';
 
-const db = require('../../../db/database');
 const { getConversationContext } = require('../../ai/history');
-const { buildPersonaSections, localNow } = require('../../behavior/modules/interaction_writer');
-const { resolveStyleBundle } = require('../../behavior/modules/persona');
+const { buildVoicePersonaSections, localNow } = require('../../behavior/modules/persona');
 
 const HISTORY_MESSAGES = 24;
 const MAX_HISTORY_MESSAGE_CHARS = 700;
@@ -23,11 +21,6 @@ function clampText(text, maxChars) {
   return value.length > maxChars ? `${value.slice(0, maxChars)}…` : value;
 }
 
-function ownerName(userId) {
-  const row = db.prepare('SELECT display_name, username FROM users WHERE id = ?').get(userId);
-  return String(row?.display_name || row?.username || '').trim() || 'them';
-}
-
 function recentSpokenHistory(conversationId) {
   if (!conversationId) return { summary: '', messages: [] };
   const context = getConversationContext(conversationId, HISTORY_MESSAGES);
@@ -43,18 +36,11 @@ function recentSpokenHistory(conversationId) {
   return { summary: String(context.summary || '').trim(), messages };
 }
 
-// The live model is the voice of the agent, like the messaging writer is: the
-// same persona, owner instructions, style notes, and memory about the owner.
-// Delegated runs keep the normal agent prompt and do the work.
+// The live model speaks with the same persona the agent runs write with,
+// plus owner instructions, style notes, and memory about the owner. Delegated
+// runs keep the normal agent prompt and do the work.
 async function buildLivePrompt({ memoryManager, userId, agentId, conversationId }) {
-  const persona = await buildPersonaSections({
-    userId,
-    agentId,
-    memoryManager,
-    name: ownerName(userId),
-    medium: 'voice',
-    styleNotes: resolveStyleBundle({ memoryManager, userId, agentId, audience: 'owner' }).notes,
-  });
+  const persona = await buildVoicePersonaSections({ userId, agentId, memoryManager });
   const history = recentSpokenHistory(conversationId);
   const instructions = [
     CALL_RULES,

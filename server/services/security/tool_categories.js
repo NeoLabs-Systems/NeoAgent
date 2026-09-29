@@ -32,7 +32,6 @@ const TOOL_CATEGORIES = {
 // Tools that bypass all policy checks — read-only or always safe
 const SAFE_TOOLS = new Set([
   'think',
-  'task_complete',
   'send_interim_update',
   'activate_tools',
   'notify_user',
@@ -60,6 +59,7 @@ const SAFE_TOOLS = new Set([
   'get_weather',
   'get_date_time',
   'send_message',
+  'react_to_message',
   'create_task',
   'update_task',
   'get_task',
@@ -116,6 +116,7 @@ const BUILT_IN_TOOLS = new Set([
   'memory_write',
   'memory_read',
   'send_message',
+  'react_to_message',
   'call_user',
   'read_file',
   'read_files',
@@ -155,7 +156,6 @@ const BUILT_IN_TOOLS = new Set([
   'ocr_extract',
   'read_health_data',
   'social_video_extract',
-  'task_complete',
   'send_interim_update',
 ]);
 

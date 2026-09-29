@@ -181,112 +181,35 @@ function createBehaviorPipeline(deps = {}) {
     return result;
   }
 
-  async function refineAndMaybeDeliver({
+  // Delivers the reply the agent wrote, exactly as written. The only checks
+  // are about the room, not the text: a group reply is dropped when newer room
+  // traffic made the turn stale, and [NO RESPONSE] sends nothing.
+  async function deliverReply({
     userId,
     agentId,
     msg,
     config,
-    draft,
+    content,
     messagingManager,
     runId = null,
     signal = null,
     mediaPath = null,
-    deliver = false,
     turnEpoch = null,
   }) {
+    const text = String(content || '').trim();
     const expectedEpoch = Number(turnEpoch || msg.behaviorTurnEpoch || 0);
-    if (msg.isGroup && !isTurnCurrent(
+    const turnIsCurrent = () => !msg.isGroup || isTurnCurrent(
       userId,
       agentId,
       msg.platform,
       msg.chatId,
       expectedEpoch,
-    )) {
-      return {
-        action: 'suppress',
-        content: '[NO RESPONSE]',
-        delivered: false,
-        suppressed: true,
-        reasonCodes: ['stale_turn'],
-      };
+    );
+    if (!turnIsCurrent()) {
+      return { delivered: false, suppressed: true, content: text, reason: 'stale_turn' };
     }
-    const combinedGroupReview = msg.isGroup
-      && isModuleEnabled(config, 'persona')
-      && isModuleEnabled(config, 'theory_of_mind');
-    const persona = combinedGroupReview
-      ? {
-        action: 'send',
-        content: draft,
-        reasonCodes: ['persona_refine_combined_with_tom'],
-      }
-      : await registry.get('persona').refineDraft({
-        userId,
-        agentId,
-        msg,
-        config,
-        draft,
-        signal,
-        agentEngine,
-        memoryManager,
-        messagingManager,
-        runId,
-      });
-    const tom = await registry.get('theory_of_mind').refineDraft({
-      userId,
-      agentId,
-      msg,
-      config,
-      draft: persona.content,
-      signal,
-      agentEngine,
-      runId,
-    });
-
-    let content = tom.content;
-    const reasonCodes = [
-      ...(persona.reasonCodes || []),
-      ...(tom.reasonCodes || []),
-    ];
-    if (!deliver || !messagingManager) {
-      return {
-        ...tom,
-        delivered: false,
-        content,
-        reasonCodes,
-        personaAction: persona.action,
-      };
-    }
-
-    // A reaction lands before any text, the way people tap one and then reply.
-    let reacted = false;
-    if (persona.reaction && msg.messageId) {
-      try {
-        await messagingManager.sendReaction(userId, msg.platform, msg.chatId, msg.messageId, persona.reaction, {
-          agentId,
-          runId,
-          signal,
-        });
-        reacted = true;
-      } catch (error) {
-        if (signal?.aborted) throw error;
-        logger.warn('reaction delivery failed:', error?.message || error);
-      }
-      // A reaction that did not land cannot stand in for the reply.
-      if (!reacted && String(content || '').trim().toUpperCase() === '[NO RESPONSE]') {
-        content = String(draft || '').trim();
-      }
-    }
-
-    if (!content || content.toUpperCase() === '[NO RESPONSE]') {
-      return {
-        ...tom,
-        delivered: false,
-        suppressed: true,
-        reacted,
-        content,
-        reasonCodes,
-        personaAction: persona.action,
-      };
+    if (!text || text.toUpperCase() === '[NO RESPONSE]') {
+      return { delivered: false, suppressed: true, content: text, reason: 'no_response' };
     }
 
     const deliveryConfig = isModuleEnabled(config, 'delivery')
@@ -298,37 +221,25 @@ function createBehaviorPipeline(deps = {}) {
       agentId,
       platform: msg.platform,
       chatId: msg.chatId,
-      content,
+      content: text,
       config: deliveryConfig,
       runId,
       signal,
       mediaPath,
       turnEpoch: expectedEpoch,
-      beforeBubble: () => !msg.isGroup || isTurnCurrent(
-        userId,
-        agentId,
-        msg.platform,
-        msg.chatId,
-        expectedEpoch,
-      ),
+      beforeBubble: turnIsCurrent,
     });
 
-    if (
-      (delivery?.success !== false && delivery?.suppressed !== true)
-      || Number(delivery?.deliveredBubbles || 0) > 0
-    ) {
+    const delivered = delivery?.success !== false && delivery?.suppressed !== true;
+    if (delivered || Number(delivery?.deliveredBubbles || 0) > 0) {
       markSpoke(userId, agentId, msg.platform, msg.chatId);
     }
-
     return {
-      ...tom,
-      delivered: delivery?.success !== false && delivery?.suppressed !== true,
+      delivered,
       suppressed: delivery?.suppressed === true,
-      reacted,
       delivery,
-      content,
-      reasonCodes,
-      personaAction: persona.action,
+      content: text,
+      reason: delivered ? null : (delivery?.reason || delivery?.error || null),
     };
   }
 
@@ -352,7 +263,7 @@ function createBehaviorPipeline(deps = {}) {
     registry,
     noteInbound,
     handleInbound,
-    refineAndMaybeDeliver,
+    deliverReply,
     getDiagnostics,
     listDecisions,
   };

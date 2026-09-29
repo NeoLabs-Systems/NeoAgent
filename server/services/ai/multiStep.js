@@ -34,8 +34,6 @@ class MultiStepOrchestrator {
         app,
         triggerType: options.triggerType || 'user',
         triggerSource: options.triggerSource || 'web',
-        forceMode: options.forceMode || 'plan_execute',
-        requestedSteps,
         context: options.context,
         stream: options.stream
       });

@@ -17,29 +17,9 @@ const {
   selectInitialTools,
   selectToolsForTask,
 } = require('../toolSelector');
-const { resolveToolResultLimits } = require('../loopPolicy');
-const { compactToolResult } = require('../toolResult');
 const { sanitizeModelOutput } = require('../outputSanitizer');
-const {
-  buildAnalysisPrompt,
-  buildExecutionGuidance,
-  buildInteractiveExecutionGuidance,
-  isDirectAnswerEligibleAnalysis,
-  normalizeTaskAnalysis,
-  shouldRunVerifier,
-  buildVerifierPrompt,
-  normalizeVerificationResult,
-} = require('../taskAnalysis');
-const { buildSkillHint, buildTriageDecision, interpretTriageDecision } = require('../jev_triage');
-const { buildVerificationDecision, isClearlySupported } = require('../jev_verification');
-const { applyResearchRating, buildResearchDecision } = require('../jev_research');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilityHealth');
-const {
-  classifyToolExecution,
-  gatheredNewEvidence,
-  inferToolFailureMessage,
-  summarizeProgressToolExecutions,
-} = require('../toolEvidence');
+const { summarizeProgressToolExecutions } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
 const { getPublicRunScope } = require('../../messaging/public_audience');
 const { parseModelSelectionId } = require('../model_identity');
@@ -51,81 +31,38 @@ const {
   isBackgroundEligible,
   listBackgroundRuns,
 } = require('../loop/background_runs');
-const { shortenRunId, summarizeForLog } = require('../logFormat');
-const {
-  recordModelFailure,
-  recordModelSuccess,
-  shouldSwitchModel,
-} = require('../model_failure_cache');
+const { shortenRunId } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
 const {
   buildDeterministicMessagingFallback,
-  buildMaxIterationWrapupPrompt,
   buildProgressUpdatePrompt,
+  buildWrapUpPrompt,
   normalizeOutgoingMessage,
 } = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
-const {
-  isAbortError,
-  throwIfAborted,
-} = require('../../../utils/abort');
+const { isAbortError, throwIfAborted } = require('../../../utils/abort');
 const { createServiceLogger } = require('../../../utils/logger');
 
-const { MESSAGE_KINDS, NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
+const { NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 const stateMachine = require('./run_state_machine');
 const leases = require('./leases');
-const {
-  contractFromAnalysis,
-  evaluateFastPathEligibility,
-  evaluateOpenObligations,
-  saveContract,
-  loadLatestContract,
-} = require('./task_contract');
-const workGraph = require('./work_graph');
-const { createBudgetManager } = require('./budget_manager');
-const {
-  decisionFromModelResponse,
-  protocolRepairDecision,
-  DECISION_KINDS,
-} = require('./decision_engine');
-const { verifyRun } = require('./verification_service');
-const { planRecovery, classifyError } = require('./recovery_manager');
 const { saveCheckpoint } = require('./checkpoint_service');
 const { createProgressBroker } = require('./delivery/progress_broker');
-const {
-  requestFinalDelivery,
-  requestProgressDelivery,
-} = require('./delivery/delivery_worker');
+const { requestFinalDelivery } = require('./delivery/delivery_worker');
 const {
   resolveDeliveryChannel,
   resolveDeliveryRecipient,
 } = require('./delivery/delivery_channel');
-const { buildContextView } = require('./context/context_view_builder');
-const {
-  createContextPressureController,
-  isContextOverflowError,
-} = require('./context/context_pressure');
-const {
-  buildEvidencePacket,
-  appendToolEvidence,
-} = require('./context/evidence_packet_builder');
-const { createWorkingMemory } = require('./memory/working_memory');
-const { getFailureFallbackModelId } = require('./model_fallback');
-const { buildBlankOutputGuidance } = require('../loop/blank_recovery');
-const { scheduleToolCalls } = require('../loop/tool_scheduler');
+const { createContextPressureController } = require('./context/context_pressure');
+const { createRunGuards } = require('./run_guards');
+const { runAgentLoop, setSteeringIntake } = require('./agent_loop');
 
-const FILE_MUTATION_TOOLS = new Set(['write_file', 'edit_file', 'replace_file_range']);
-
-const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
-  'search_tools',
-  'activate_tools',
-  'request_user_input',
-  'send_interim_update',
-  'task_complete',
-]);
 const logger = createServiceLogger('Runtime');
+
+// The last messages a wrap-up turn sees next to the system prompt.
+const WRAP_UP_HISTORY_MESSAGES = 24;
 
 function isoNow() {
   return new Date().toISOString();
@@ -135,27 +72,6 @@ function generateTitle(message) {
   const text = String(message || '').replace(/\s+/g, ' ').trim();
   if (!text) return 'Agent run';
   return text.length > 80 ? `${text.slice(0, 77)}...` : text;
-}
-
-function usageTokens(usage) {
-  usage = usage || {};
-  return {
-    input: Number(usage.input_tokens || usage.prompt_tokens || usage.inputTokens || 0) || 0,
-    output: Number(usage.output_tokens || usage.completion_tokens || usage.outputTokens || 0) || 0,
-    total: Number(usage.total_tokens || usage.totalTokens || 0) || 0,
-  };
-}
-
-// Follow-up messages are steered into a run only while it will still read
-// them. Intake closes where the run commits to its final answer; a follow-up
-// sent after that is refused and starts a run of its own.
-function setSteeringIntake(engine, runId, open) {
-  const runMeta = engine.getRunMeta(runId);
-  if (runMeta) runMeta.steeringClosed = !open;
-}
-
-function hasPendingSteering(engine, runId) {
-  return Boolean(engine.getRunMeta(runId)?.steeringQueue?.length);
 }
 
 /**
@@ -173,6 +89,16 @@ function applyTransition(args) {
   return result;
 }
 
+function collectProgressDelta(toolExecutions = []) {
+  return { evidence: summarizeProgressToolExecutions(toolExecutions, 5) };
+}
+
+/**
+ * One agent run, the same on every surface: accept the request, assemble the
+ * context (system prompt with the agent's persona, memory, history, tools),
+ * let the agent loop work until the model answers, and deliver that answer
+ * through the run's channel exactly as the model wrote it.
+ */
 class DurableRunRuntime {
   constructor(engine) {
     this.engine = engine;
@@ -197,80 +123,94 @@ class DurableRunRuntime {
       : null;
     const app = options.app || this.engine.app;
     const triggerSource = options.triggerSource || 'web';
-    const deliveryChannel = resolveDeliveryChannel(triggerSource);
-    const deliveryRecipient = resolveDeliveryRecipient(triggerSource, options);
     const workerId = `worker_${randomUUID()}`;
     const runTitle = generateTitle(userMessage);
-    let totalTokens = 0;
-    let iterations = 0;
-    let stepIndex = 0;
-    let detachExternalAbort = null;
-    let provider = null;
-    let model = null;
-    let modelSelectionId = null;
-    let providerName = null;
-    const failedModelIds = new Set();
-    let messages = [];
-    let tools = [];
-    let systemPrompt = '';
-    let analysis = null;
-    // Canonical tool-execution records (shared shape with the evidence helpers)
-    // used for progress narration and the no-progress guard.
-    const toolExecutions = [];
-    let contract = null;
-    let finalContent = '';
-    let path = 'durable';
-    const workingMemory = createWorkingMemory();
-    let evidencePacket = buildEvidencePacket({ queryIntent: 'current_task' });
     const startedAtMs = Date.now();
-    let budget = null;
-    let progressBroker = null;
-    let contextPressure = null;
+
+    // Everything the agent loop and the tool turns read and update.
+    const session = {
+      engine: this.engine,
+      eventBus: this.eventBus,
+      runId,
+      userId,
+      agentId,
+      workerId,
+      options,
+      app,
+      triggerType,
+      triggerSource,
+      conversationId,
+      interactionMode,
+      deviceTarget,
+      workspaceRoot,
+      userMessage,
+      model: null,
+      messages: [],
+      tools: [],
+      systemPrompt: '',
+      toolExecutions: [],
+      stepIndex: 0,
+      iterations: 0,
+      totalTokens: 0,
+      failedModelIds: new Set(),
+      guards: createRunGuards({ aiSettings, options }),
+      progressBroker: null,
+      contextPressure: null,
+      providerStatusConfig: null,
+      collectProgressDelta: () => collectProgressDelta(session.toolExecutions),
+      getActiveSignal: null,
+      emitPhase: (phase, label) => {
+        this.engine.emit(userId, 'run:phase', {
+          runId,
+          conversationId: conversationId || null,
+          phase,
+          label,
+        });
+      },
+      stopForIterationHook: async (iteration) => {
+        const iterationHook = await globalHooks.run('on_loop_iteration', {
+          userId,
+          runId,
+          agentId,
+          iteration,
+          triggerType,
+          triggerSource,
+          totalTokens: session.totalTokens,
+        });
+        if (iterationHook?.stop !== true) return null;
+
+        const reason = String(iterationHook.reason || 'Stopped by policy hook.');
+        const meta = this.engine.getRunMeta(runId);
+        if (meta) meta.aborted = true;
+        db.prepare(
+          `UPDATE agent_runs
+           SET status = 'stopped',
+               runtime_state = ?,
+               error = ?,
+               completed_at = COALESCE(completed_at, datetime('now')),
+               updated_at = datetime('now')
+           WHERE id = ?`,
+        ).run(RUNTIME_STATES.CANCELLED, reason, runId);
+        this.eventBus.publish({
+          runId,
+          userId,
+          agentId,
+          eventType: EVENT_TYPES.RUN_CANCELLED,
+          payload: { reason, source: 'on_loop_iteration' },
+          visibility: VISIBILITY.USER,
+        });
+        return {
+          runId,
+          content: '',
+          totalTokens: session.totalTokens,
+          iterations: session.iterations,
+          status: 'stopped',
+        };
+      },
+    };
+    let detachExternalAbort = null;
     let runRecordCreated = false;
     let runSignal = null;
-    let initialIterationHookPassed = false;
-
-    const stopForIterationHook = async (iteration) => {
-      const iterationHook = await globalHooks.run('on_loop_iteration', {
-        userId,
-        runId,
-        agentId,
-        iteration,
-        triggerType,
-        triggerSource,
-        totalTokens,
-      });
-      if (iterationHook?.stop !== true) return null;
-
-      const reason = String(iterationHook.reason || 'Stopped by policy hook.');
-      const meta = this.engine.getRunMeta(runId);
-      if (meta) meta.aborted = true;
-      db.prepare(
-        `UPDATE agent_runs
-         SET status = 'stopped',
-             runtime_state = ?,
-             error = ?,
-             completed_at = COALESCE(completed_at, datetime('now')),
-             updated_at = datetime('now')
-         WHERE id = ?`,
-      ).run(RUNTIME_STATES.CANCELLED, reason, runId);
-      this.eventBus.publish({
-        runId,
-        userId,
-        agentId,
-        eventType: EVENT_TYPES.RUN_CANCELLED,
-        payload: { reason, source: 'on_loop_iteration' },
-        visibility: VISIBILITY.USER,
-      });
-      return {
-        runId,
-        content: '',
-        totalTokens,
-        iterations,
-        status: 'stopped',
-        path,
-      };
-    };
 
     // Server usage limits don't apply when the run's explicitly selected
     // model resolves to a provider the user configured with their own (BYOK)
@@ -342,6 +282,9 @@ class DurableRunRuntime {
 
       const abortController = new AbortController();
       runSignal = abortController.signal;
+      session.getActiveSignal = () => (
+        this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
+      );
       // Prefer the caller-owned deliveryState (background tasks share it with the
       // task runtime for staged send_message + final delivery bookkeeping).
       const deliveryState = options.deliveryState && typeof options.deliveryState === 'object'
@@ -415,20 +358,20 @@ class DurableRunRuntime {
         detachExternalAbort = () => options.signal.removeEventListener('abort', abortFromExternal);
       }
 
-      progressBroker = createProgressBroker({
+      session.progressBroker = createProgressBroker({
         engine: this.engine,
         runId,
         userId,
         agentId,
         eventBus: this.eventBus,
-        channel: deliveryChannel,
-        recipient: deliveryRecipient,
+        channel: resolveDeliveryChannel(triggerSource),
+        recipient: resolveDeliveryRecipient(triggerSource, options),
         deliveryMetadata: options.sessionBinding || null,
         maxSilenceSeconds: Number(options.maxSilenceSeconds)
           || (options.latencyPriority === 'interactive' ? 45 : 90),
         firstUpdateSeconds: options.latencyPriority === 'interactive' ? 15 : 25,
         repeatUpdateSeconds: options.latencyPriority === 'interactive' ? 45 : 90,
-        collectDelta: () => this.#collectProgressDelta(runId, toolExecutions),
+        collectDelta: session.collectProgressDelta,
         // A run that already delivered, was cancelled, or decided to stay silent
         // must never emit another visible update.
         isSuppressed: () => {
@@ -446,29 +389,12 @@ class DurableRunRuntime {
         // A model turn that is still streaming has produced nothing to report;
         // narrating it can only tell the user that nothing has happened.
         narrator: async ({ delta, liveness }) => (
-          liveness?.phase === 'model_started'
-          && !Number(liveness?.runningTools)
-          && !delta?.evidence?.length
-          && !delta?.completed_since_last_update?.length
-          && !delta?.blockers?.length
+          liveness?.phase === 'model_started' && !Number(liveness?.runningTools) && !delta?.evidence
             ? ''
-            : this.#narrateProgress({
-          provider,
-          providerName,
-          model,
-          systemPrompt,
-          delta,
-          liveness,
-          userMessage,
-          options,
-          runId,
-          userId,
-          agentId,
-          signal: abortController.signal,
-        })
+            : this.#narrateProgress(session, { delta, liveness, signal: abortController.signal })
         ),
       });
-      progressBroker.markAccepted();
+      session.progressBroker.markAccepted();
 
       this.eventBus.publish({
         runId,
@@ -496,57 +422,7 @@ class DurableRunRuntime {
         deviceTarget,
         runtimeKernel: 'v2',
       });
-      // Coarse startup phases so a client can show what the run is doing
-      // before the first tool call instead of a static "starting" label.
-      const emitPhase = (phase, label) => {
-        this.engine.emit(userId, 'run:phase', {
-          runId,
-          conversationId: conversationId || null,
-          phase,
-          label,
-        });
-      };
-      emitPhase('model', 'Choosing a model');
-
-      // Opening line for work that will keep the user waiting. The runtime only
-      // decides whether to speak; the model writes the line from the real
-      // conversation and may decline. Background automation reports through its
-      // own delivery target and never gets one.
-      // Cowork sessions carry their operating contract in the system prompt and
-      // the client shows live phases and tool activity, so the pre-turn model
-      // calls (memory query planning, structured triage, a spoken opening line)
-      // only delay the first real turn.
-      const leanStartup = options.skipTaskAnalysis === true || triggerSource === 'cowork';
-      const startupTiming = { acceptedAt: Date.now() };
-
-      const maybeAck = async (force = false, analysisAck = '') => {
-        if (!force) return;
-        // Background schedule/task automation delivers via send_message only.
-        if (triggerSource === 'schedule' || triggerSource === 'tasks') return;
-        if (triggerType === 'subagent' || triggerSource === 'cowork') return;
-
-        // Task analysis already read the conversation and decided whether an
-        // opening line is worth saying; an empty one means the model had
-        // nothing worth saying yet, and the progress heartbeat still covers a
-        // run that then goes long.
-        const ackText = String(analysisAck || '').trim();
-        if (!normalizeOutgoingMessage(ackText, options.source || null)) return;
-
-        await requestProgressDelivery({
-          engine: this.engine,
-          runId,
-          content: ackText,
-          channel: deliveryChannel,
-          recipient: deliveryRecipient,
-          messageKind: MESSAGE_KINDS.ACK,
-          metadata: {
-            platform: options.source || null,
-            chatId: options.chatId || null,
-            ...(options.sessionBinding || {}),
-            idempotencyKey: `${runId}:ack:1`,
-          },
-        });
-      };
+      session.emitPhase('model', 'Choosing a model');
 
       // Independent startup work runs concurrently with provider selection.
       // A rejected branch is still surfaced by its await below; the no-op
@@ -571,13 +447,14 @@ class DurableRunRuntime {
         agentId,
         triggerSource,
         memoryAudience: options.memoryAudience || 'owner',
+        latencyProfile: options.latencyProfile || null,
         interactionMode,
         deviceTarget,
         workspaceRoot,
       }));
 
       // ── Provider selection ─────────────────────────────────────────────
-      const providerStatusConfig = {
+      session.providerStatusConfig = {
         agentId,
         onStatus: (status) => {
           if (!status?.message) return;
@@ -588,31 +465,33 @@ class DurableRunRuntime {
           });
         },
       };
-
       const selectedProvider = await getProviderForUser(
         userId,
         userMessage,
         triggerType === 'subagent',
         modelOverride,
-        { ...providerStatusConfig, signal: abortController.signal },
+        { ...session.providerStatusConfig, signal: abortController.signal },
       );
-      provider = selectedProvider.provider;
-      model = selectedProvider.model;
-      modelSelectionId = selectedProvider.modelSelectionId;
-      providerName = selectedProvider.providerName;
+      session.model = {
+        provider: selectedProvider.provider,
+        providerName: selectedProvider.providerName,
+        model: selectedProvider.model,
+        modelSelectionId: selectedProvider.modelSelectionId,
+      };
       db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run(modelSelectionId, runId);
+        .run(session.model.modelSelectionId, runId);
       Object.assign(this.engine.getRunMeta(runId) || {}, {
-        model,
-        modelSelectionId,
-        providerName,
+        model: session.model.model,
+        modelSelectionId: session.model.modelSelectionId,
+        providerName: session.model.providerName,
       });
-      contextPressure = createContextPressureController({
+      const providerMs = Date.now() - startedAtMs;
+      session.contextPressure = createContextPressureController({
         summarize: async (summaryMessages) => {
           const result = await this.engine.requestModelResponse({
-            provider,
-            providerName,
-            model,
+            provider: session.model.provider,
+            providerName: session.model.providerName,
+            model: session.model.model,
             messages: summaryMessages,
             tools: [],
             options: {
@@ -620,38 +499,29 @@ class DurableRunRuntime {
               stream: false,
               maxTokens: 1600,
               phase: 'context_compaction',
-              signal: this.engine.getRunMeta(runId)?.abortController?.signal
-                || abortController.signal,
+              signal: session.getActiveSignal(),
               runId,
               userId,
               agentId,
             },
             runId,
-            iteration: Math.max(1, iterations),
+            iteration: Math.max(1, session.iterations),
           });
-          const summary = String(
-            result?.response?.content || result?.streamContent || '',
-          ).trim();
+          const summary = String(result?.response?.content || result?.streamContent || '').trim();
           if (!summary) throw new Error('Context compaction returned an empty summary.');
           return summary;
         },
         onEvent: (kind, payload) => {
-          const eventType = kind === 'compacted'
-            ? EVENT_TYPES.CONTEXT_COMPACTED
-            : EVENT_TYPES.CONTEXT_PRESSURE;
           if (kind === 'pressure') {
             saveCheckpoint(runId, 'pre_compaction', {
-              workingMemory: workingMemory.snapshot(),
-              contractVersion: contract?.version || 0,
-              iterations,
-              finalContent,
+              iterations: session.iterations,
             }, { eventBus: this.eventBus, userId, agentId });
           }
           this.eventBus.publish({
             runId,
             userId,
             agentId,
-            eventType,
+            eventType: kind === 'compacted' ? EVENT_TYPES.CONTEXT_COMPACTED : EVENT_TYPES.CONTEXT_PRESSURE,
             payload,
             visibility: VISIBILITY.OPERATOR,
           });
@@ -659,8 +529,7 @@ class DurableRunRuntime {
       });
 
       // ── Context assembly ───────────────────────────────────────────────
-      startupTiming.providerMs = Date.now() - startupTiming.acceptedAt;
-      emitPhase('context', 'Gathering context');
+      session.emitPhase('context', 'Gathering context');
       const historyWindow = Math.max(
         1,
         Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
@@ -674,13 +543,15 @@ class DurableRunRuntime {
           userId,
           agentId,
           query: options.context?.rawUserMessage || userMessage,
-          provider,
-          providerName,
-          model,
+          provider: session.model.provider,
+          providerName: session.model.providerName,
+          model: session.model.model,
           runId,
-          options: { ...options, enhanceRecall: !leanStartup },
+          // Cowork carries its operating contract in the system prompt and
+          // works from the open folder; recall planning only delays it.
+          options: { ...options, enhanceRecall: triggerSource !== 'cowork' },
         }));
-      systemPrompt = await systemPromptPromise;
+      session.systemPrompt = await systemPromptPromise;
 
       const publicScope = getPublicRunScope(runId);
       const builtInTools = this.engine.getAvailableTools(app, {
@@ -716,7 +587,12 @@ class DurableRunRuntime {
         historyMessages = (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
       }
 
-      messages = this.engine.buildContextMessages(systemPrompt, summaryMessage, historyMessages, recallMsg);
+      const messages = this.engine.buildContextMessages(
+        session.systemPrompt,
+        summaryMessage,
+        historyMessages,
+        recallMsg,
+      );
       const capabilityHealth = await capabilityHealthPromise;
       // A public run must not learn what the owner has connected.
       const capabilitySummary = publicScope ? '' : summarizeCapabilityHealth(capabilityHealth);
@@ -741,179 +617,19 @@ class DurableRunRuntime {
       if (backgroundRuns.length > 0) {
         messages.push({ role: 'system', content: buildBackgroundRunsNote(backgroundRuns) });
       }
-      messages.push(this.engine.buildUserMessage(userMessage, options));
-      messages = sanitizeConversationMessages(messages);
 
-      if (conversationId) {
-        const sharedAttachments = triggerSource === 'cowork'
-          && Array.isArray(options.coworkSharedAttachments)
-          ? options.coworkSharedAttachments
-          : [];
-        const socialMessage = options.context?.socialIntelligence?.message || null;
-        db.prepare(
-          `INSERT INTO conversation_messages (
-            conversation_id, run_id, agent_id, role, content, metadata_json
-          ) VALUES (?, ?, ?, 'user', ?, ?)`,
-        ).run(
-          conversationId,
-          runId,
-          agentId,
-          buildStoredUserContent({
-            userMessage,
-            rawUserMessage: triggerSource === 'messaging'
-              ? options.context?.rawUserMessage
-              : null,
-            platform: options.source || null,
-            speaker: socialMessage?.senderName || socialMessage?.sender || null,
-            isGroup: Boolean(socialMessage?.isGroup),
-          }),
-          JSON.stringify({
-            interactionMode,
-            deviceTarget,
-            ...(triggerSource === 'cowork' && options.coworkDisplayContent
-              ? { displayContent: String(options.coworkDisplayContent) }
-              : {}),
-            ...(sharedAttachments.length > 0 ? { sharedAttachments } : {}),
-          }),
-        );
-      }
-
-      // ── Triage ─────────────────────────────────────────────────────────
-      emitPhase('analysis', 'Reading the request');
-      applyTransition({
-        runId,
-        toState: RUNTIME_STATES.TRIAGING,
-        reason: 'worker_started',
-        workerId,
-        eventBus: this.eventBus,
-      });
-      leases.heartbeat(runId, workerId);
-      progressBroker.noteActivity('triaging');
-
-      // The first reliability gate covers both triage and the first execution
-      // turn. It must run before structured analysis so a policy stop cannot
-      // leak one otherwise avoidable model call.
-      const preflightStop = await stopForIterationHook(iterations + 1);
-      if (preflightStop) return preflightStop;
-      initialIterationHookPassed = true;
-
-      const requestedPlan = options.forceMode === 'plan_execute';
-      const analysisFallback = {
-        mode: options.forceMode || 'execute',
-        goal: String(userMessage || '').trim().slice(0, 500),
-        draft_reply: '',
-        draft_status: 'needs_execution',
-        complexity: requestedPlan ? 'complex' : 'standard',
-      };
-      startupTiming.contextMs = Date.now() - startupTiming.acceptedAt - startupTiming.providerMs;
-      let jevRouting = null;
-      let relevantSkill = null;
-      if (leanStartup) {
-        const skippedAnalysis = {
-          ...analysisFallback,
-          needs_verification: requestedPlan,
-          autonomy_level: triggerSource === 'cowork' || requestedPlan ? 'high' : 'normal',
-          progress_update_policy: requestedPlan ? 'required' : 'optional',
-        };
-        analysis = normalizeTaskAnalysis(skippedAnalysis, skippedAnalysis);
-      } else {
-        // With Jev on, Jev routes the request and picks its tools and skill.
-        // Broad or long work still gets the model's triage below for the goal,
-        // plan, and opening line; Jev's answers fill whatever it leaves out.
-        const skills = (this.engine.skillRunner?.getAll?.(userId) || [])
-          .filter((skill) => skill?.metadata?.enabled !== false);
-        const triageDecision = await this.engine.decide({
-          userId,
-          agentId,
-          runId,
-          phase: 'jev_triage',
-          signal: abortController.signal,
-          ...buildTriageDecision({ userMessage, messages, tools: allTools, skills }),
-        });
-        jevRouting = triageDecision ? interpretTriageDecision(triageDecision) : null;
-        relevantSkill = jevRouting?.skill
-          ? skills.find((skill) => skill.name === jevRouting.skill) || null
-          : null;
-        const routedFallback = jevRouting
-          ? { ...analysisFallback, ...jevRouting.analysis }
-          : analysisFallback;
-        if (jevRouting && !jevRouting.escalate && !options.forceMode) {
-          // A request Jev routes as a direct answer is answered by the chat
-          // model in one plain turn and delivered through the fast path.
-          const draftReply = jevRouting.analysis.mode === 'direct_answer'
-            ? await this.#writeDirectReply({
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: abortController.signal,
-              runId,
-              userId,
-              agentId,
-            })
-            : '';
-          analysis = normalizeTaskAnalysis(
-            draftReply ? { ...routedFallback, draft_reply: draftReply, draft_status: 'final' } : routedFallback,
-            analysisFallback,
-          );
-        } else {
-          try {
-            const analysisResponse = await this.engine.requestStructuredJson({
-              provider,
-              providerName,
-              model,
-              messages,
-              prompt: buildAnalysisPrompt({
-                tools: allTools,
-                forceMode: options.forceMode || null,
-              }),
-              // Reasoning models count their reasoning tokens against this cap;
-              // at 1400 a sizeable share of analyses were cut off mid-JSON.
-              maxTokens: 4000,
-              normalize: (value, fallback) => normalizeTaskAnalysis(value, fallback),
-              fallback: routedFallback,
-              telemetry: {
-                runId,
-                userId,
-                agentId,
-                signal: abortController.signal,
-              },
-              phase: 'task_analysis',
-            });
-            totalTokens += Number(analysisResponse.usage || 0);
-            analysis = analysisResponse.value || normalizeTaskAnalysis(routedFallback, routedFallback);
-            if (analysisResponse.parsed === false) {
-              console.warn('[Runtime] Task analysis reply held no parseable JSON; using default routing.');
-              this.engine.recordRunEvent?.(userId, runId, 'task_analysis_unparsed', {
-                rawChars: String(analysisResponse.raw || '').length,
-              }, { agentId });
-            }
-          } catch (error) {
-            console.warn('[Runtime] Task analysis failed; defaulting to execution:', error?.message || error);
-            analysis = normalizeTaskAnalysis(routedFallback, routedFallback);
-          }
-          if (jevRouting) analysis.suggested_tools = jevRouting.analysis.suggested_tools;
-        }
-      }
-
-      startupTiming.analysisMs = Date.now() - startupTiming.acceptedAt
-        - startupTiming.providerMs - startupTiming.contextMs;
-      // Start with the model's exact suggestions. Lexical matches on the user
-      // text only fill in when the analysis suggested nothing: alongside real
-      // suggestions they add schemas the model never uses, and every extra
+      // The tools that match the request start active; the rest of the catalog
+      // stays reachable through search_tools / activate_tools. Every extra
       // schema in the active set costs reliability with small models.
-      // Always-active control tools are excluded from the matcher because
-      // selecting them again would crowd out actual capabilities.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: triggerSource === 'cowork' || requestedPlan,
+        includeCoreFileTools: triggerSource === 'cowork',
       };
-      // Jev judged every tool, so "none needed" from Jev is an answer too.
-      const initialMatches = (analysis.suggested_tools || []).length || jevRouting
-        ? []
-        : searchTools(allTools, userMessage, { limit: 8, excludeNames: ALWAYS_INCLUDE_BUILT_INS });
+      const matchedToolNames = searchTools(allTools, userMessage, {
+        limit: 8,
+        excludeNames: ALWAYS_INCLUDE_BUILT_INS,
+      }).map((tool) => tool.name);
       // When NeoRecall is connected, keep day/search tools active so personal
       // recall questions do not depend on lexical discovery under the tool cap.
       const preferredNeoRecallTools = [
@@ -921,1774 +637,108 @@ class DurableRunRuntime {
         'neorecall_search',
         'neorecall_list_conversations',
       ].filter((name) => allTools.some((tool) => tool?.name === name));
-      // Code work needs a shell to run what it writes. Only that one tool is
-      // added: every extra schema in the active set measurably raises the rate
-      // of malformed tool calls from small models, so the rest of the file
-      // group stays discoverable through search_tools.
-      // Judged on the analysis and lexical matches together: when the analysis
-      // suggested nothing, the lexical matches are the only file-work signal.
-      const matchedToolNames = [
-        ...(analysis.suggested_tools || []),
-        ...initialMatches.map((tool) => tool.name),
-      ];
-      const suggestedToolNames = [...new Set([
+      session.tools = selectInitialTools(allTools, [...new Set([
         ...matchedToolNames,
+        // Code work needs a shell to run what it writes.
         ...(suggestsCoreFileWork(matchedToolNames) ? ['execute_command'] : []),
         ...preferredNeoRecallTools,
         ...(backgroundRuns.length > 0 ? ['background_task'] : []),
-      ])];
-      tools = selectInitialTools(
-        allTools,
-        suggestedToolNames,
-        toolSelectionOptions,
-      );
-      this.engine.initializeToolRuntime?.(runId, allTools, tools, toolSelectionOptions);
+      ])], toolSelectionOptions);
+      this.engine.initializeToolRuntime?.(runId, allTools, session.tools, toolSelectionOptions);
       messages.push({
         role: 'system',
         content: [
           '[Tool discovery]',
-          buildToolDiscoverySummary(allTools, tools),
+          buildToolDiscoverySummary(allTools, session.tools),
+          'Your shell (execute_command) starts in your workspace, and the file tools operate on that same workspace. Keep checkouts and generated files there; clone a repo once and reuse it.',
           'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
-          this.engine.describeIntegrationsForRun?.(runId, tools) || '',
+          this.engine.describeIntegrationsForRun?.(runId, session.tools) || '',
         ].filter(Boolean).join('\n'),
       });
-      if (relevantSkill) {
-        messages.push({ role: 'system', content: buildSkillHint(relevantSkill) });
-      }
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
-        activeToolNames: tools.map((tool) => tool.name),
-        matchedToolNames: initialMatches.map((tool) => tool.name),
-        // jev: Jev routed alone; model+jev: the model triaged, Jev chose tools.
-        triage: jevRouting ? (jevRouting.escalate || options.forceMode ? 'model+jev' : 'jev') : 'model',
-        relevantSkill: relevantSkill?.name || null,
+        activeToolNames: session.tools.map((tool) => tool.name),
+        matchedToolNames,
         catalogSize: allTools.length,
       }, { agentId });
 
-      contract = contractFromAnalysis(analysis, userMessage);
-      const savedContract = saveContract(runId, contract, {
-        eventBus: this.eventBus,
-        userId,
-        agentId,
-      });
-      contract = savedContract.contract;
-      workingMemory.setContractVersion(savedContract.version);
-
-      budget = createBudgetManager({
-        aiSettings,
-        triggerType,
-        analysisMode: analysis.mode || 'execute',
-        options: { ...options, autonomyPolicy: analysis },
-        startedAtMs,
-      });
-
-      const draftReply = String(analysis.draft_reply || '').trim();
-      const fastGate = evaluateFastPathEligibility(contract, { draftReply, analysis });
-      const directEligible = isDirectAnswerEligibleAnalysis(analysis)
-        && Boolean(normalizeOutgoingMessage(draftReply));
-      const attemptedFastPath = fastGate.eligible
-        && directEligible
-        && !hasPendingSteering(this.engine, runId);
-
-      if (attemptedFastPath) {
-        path = 'fast';
-        setSteeringIntake(this.engine, runId, false);
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.RESPONDING,
-          reason: 'direct_answer_ready',
-          workerId,
-          eventBus: this.eventBus,
-        });
-        finalContent = sanitizeModelOutput(draftReply, { model });
-        messages.push({ role: 'assistant', content: finalContent });
-        workingMemory.setDraftResponse(finalContent);
-        iterations = 1;
-
-        const gate = await verifyRun({
-          runId,
-          contract,
-          claim: { summary: finalContent, confidence: contract.classification_confidence },
-          finalContent,
-          path: 'fast',
-          eventBus: this.eventBus,
-          userId,
-          agentId,
-        });
-        if (gate.status === 'verified') {
-          const delivery = await this.#deliverFinal({
-            runId,
-            userId,
-            agentId,
-            workerId,
-            content: gate.final_reply || finalContent,
-            options,
-            triggerSource,
-            totalTokens,
-          });
-          await this.#finalizeSuccess({
-            runId,
-            userId,
-            agentId,
-            conversationId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            memoryManager,
-            messages,
-            provider,
-            providerName,
-            model,
-            analysis,
-            verification: gate,
-            historyWindow,
-            options,
-            task: userMessage,
-            taskId: options.taskId || null,
-            triggerType,
-            triggerSource,
-          });
-          return {
-            runId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            status: 'completed',
-            path,
-          };
-        }
-        path = 'durable';
-        setSteeringIntake(this.engine, runId, true);
-      }
-
-      await maybeAck(
-        analysis.progress_update_policy === 'required'
-          || analysis.complexity === 'complex'
-          || analysis.autonomy_level === 'high',
-        analysis.acknowledgement,
-      );
-      applyTransition({
-        runId,
-        toState: RUNTIME_STATES.PLANNING,
-        reason: attemptedFastPath ? 'fast_path_rejected' : 'durable_work_required',
-        workerId,
-        eventBus: this.eventBus,
-        patch: { metadata: { fastPathRejected: fastGate.reasons } },
-      });
-
-      // ── Planning / work graph ──────────────────────────────────────────
-      const graphNodes = workGraph.graphFromContract(contract);
-      workGraph.createGraph(runId, graphNodes, {
-        eventBus: this.eventBus,
-        userId,
-        agentId,
-      });
-      saveCheckpoint(runId, 'plan_ready', {
-        contractVersion: contract.version,
-        graphNodeCount: graphNodes.length,
-        workingSummary: `Plan ready for: ${contract.goal}`,
-      }, { eventBus: this.eventBus, userId, agentId });
-
-      messages.push({
-        role: 'system',
-        content: buildExecutionGuidance({
-          analysis,
-          plan: {
-            steps: graphNodes.map((node) => ({
-              title: node.id,
-              objective: node.objective,
-              success_criteria: node.success_criteria,
-            })),
-            success_criteria: contract.success_criteria,
-          },
-        }),
-      });
-      if (options.latencyPriority === 'interactive') {
-        messages.push({
-          role: 'system',
-          content: buildInteractiveExecutionGuidance(),
-        });
-      }
+      messages.push(this.engine.buildUserMessage(userMessage, options));
+      session.messages = sanitizeConversationMessages(messages);
+      if (conversationId) this.#storeUserMessage(session);
 
       applyTransition({
         runId,
         toState: RUNTIME_STATES.EXECUTING,
-        reason: 'work_graph_ready',
+        reason: 'context_ready',
         workerId,
         eventBus: this.eventBus,
       });
-
       this.engine.recordRunEvent?.(userId, runId, 'startup_timing', {
-        providerMs: startupTiming.providerMs,
-        contextMs: startupTiming.contextMs,
-        analysisMs: startupTiming.analysisMs,
-        totalMs: Date.now() - startupTiming.acceptedAt,
-        leanStartup,
+        providerMs,
+        totalMs: Date.now() - startedAtMs,
       }, { agentId });
 
-      // ── Execution loop ─────────────────────────────────────────────────
-      // The heartbeat runs only while the run is executing: it keeps a run that
-      // sits inside a long tool or model call from going silent, and must never
-      // race verification or final delivery. Background automation reports
-      // through its own delivery target, so it stays off there.
-      const heartbeatWanted = triggerSource !== 'schedule'
-        && triggerSource !== 'tasks'
-        && triggerType !== 'subagent';
-      let consecutiveProtocolRepairs = 0;
-      let consecutiveTruncations = 0;
-      const maxProtocolRepairs = 3;
-      const maxTruncationRetries = 2;
-      let verificationRepairs = 0;
-      let lastSemanticVerificationFailure = null;
-      const maxVerificationRepairs = 3;
-      let blankOutputRecoveries = 0;
-      const maxBlankOutputRecoveries = 2;
-      // Consecutive writes to one file with nothing read or run in between.
-      const blindWrites = { path: null, count: 0 };
-      const warnedSoftDimensions = new Set();
-      const getActiveSignal = () => (
-        this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
-      );
+      // ── Agent loop ─────────────────────────────────────────────────────
+      // The heartbeat keeps a run that sits inside a long tool or model call
+      // from going silent. Background automation reports through its own
+      // delivery target, so it stays off there.
+      if (triggerSource !== 'schedule' && triggerSource !== 'tasks' && triggerType !== 'subagent') {
+        session.progressBroker.start();
+      }
+      const outcome = await runAgentLoop(session);
+      session.progressBroker.stop();
 
-      while (true) {
-        const activeSignal = getActiveSignal();
-        if (this.engine.getRunMeta(runId)?.aborted) {
-          return this.#cancelledResult(runId, totalTokens, iterations);
-        }
-        if (activeSignal.aborted) {
-          const boundary = await this.engine.checkpointLifecycle?.(runId, 'signal_boundary', {
-            iteration: iterations,
-          });
-          if (boundary?.action === 'stop' || boundary?.action === 'interrupt') {
-            return this.#cancelledResult(runId, totalTokens, iterations);
-          }
-          if (this.engine.getRunMeta(runId)?.status === 'paused') {
-            // Still waiting to resume inside checkpointLifecycle normally.
-            continue;
-          }
-        }
-
-        leases.heartbeat(runId, workerId);
-        progressBroker.noteActivity('loop_tick');
-
-        const run = stateMachine.loadRun(runId);
-        if (!run || stateMachine.isTerminal(run)) {
-          return {
-            runId,
-            content: finalContent,
-            totalTokens,
-            iterations,
-            status: run?.status || 'completed',
-            path,
-          };
-        }
-
-        if (heartbeatWanted && run.runtimeState === RUNTIME_STATES.EXECUTING) {
-          progressBroker.start();
-        } else {
-          progressBroker.stop();
-        }
-
-        // Handle pause / stop controls through the engine lifecycle fence so
-        // resume can continue the same in-memory run.
-        const control = db.prepare(
-          `SELECT action, reason FROM agent_run_controls
-           WHERE run_id = ? AND consumed_at IS NULL`,
-        ).get(runId);
-        if (control?.action === 'pause') {
-          const boundary = await this.engine.checkpointLifecycle?.(runId, 'loop_boundary', {
-            iteration: iterations,
-          });
-          if (boundary?.action === 'stop' || boundary?.action === 'interrupt') {
-            return this.#cancelledResult(runId, totalTokens, iterations);
-          }
-          // Resumed — refresh local controller reference and continue.
-          continue;
-        }
-        if (control?.action === 'stop' || control?.action === 'interrupt') {
-          this.engine.interruptRun?.(runId, control.reason || control.action);
-          return this.#cancelledResult(runId, totalTokens, iterations);
-        }
-
-        // The preflight hook already gates the first execution turn. Starting
-        // with turn two, run it here before every subsequent model request.
-        if (initialIterationHookPassed && iterations === 0) {
-          initialIterationHookPassed = false;
-        } else {
-          const iterationStop = await stopForIterationHook(iterations + 1);
-          if (iterationStop) return iterationStop;
-        }
-
-        if (run.runtimeState === RUNTIME_STATES.VERIFYING) {
-          // Follow-ups that arrived during the last turn or verification are
-          // answered before anything is delivered: the run goes back to work
-          // through the same repair path verification uses. Otherwise intake
-          // closes here, so a later follow-up starts a run of its own and never
-          // works alongside this one.
-          const resumeForSteering = () => {
-            if (!hasPendingSteering(this.engine, runId)) {
-              setSteeringIntake(this.engine, runId, false);
-              return false;
-            }
-            workGraph.reopenNodes(runId, ['execute', 'verify']);
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.REPAIRING,
-              reason: 'steering_pending',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            return true;
-          };
-
-          // When callers explicitly skip verification (tests / trusted short runs),
-          // accept the final response if content exists.
-          if (options.skipVerifier === true && String(finalContent || '').trim()) {
-            if (resumeForSteering()) continue;
-            for (const node of workGraph.requiredOpenNodes(runId)) {
-              workGraph.completeNode(node.id, {
-                evidence: [{ summary: 'Accepted with skipVerifier', kind: 'response' }],
-              });
-            }
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.DELIVERING,
-              reason: 'skip_verifier',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-
-          const verification = await verifyRun({
-            runId,
-            contract: loadLatestContract(runId)?.contract || contract,
-            contractVersion: workingMemory.snapshot().contractVersion,
-            claim: {
-              summary: finalContent,
-              confidence: 0.75,
-              completed_node_ids: workGraph.listNodes(runId)
-                .filter((n) => n.status === 'completed')
-                .map((n) => n.nodeKey),
-            },
-            evidence: workingMemory.snapshot().evidence,
-            artifacts: workingMemory.snapshot().artifacts,
-            finalContent,
-            finalDeliveryId: run.finalDeliveryId,
-            sideEffects: workingMemory.snapshot().sideEffects,
-            path: 'durable',
-            semanticVerifier: shouldRunVerifier({
-              analysis,
-              toolExecutions: workingMemory.snapshot().evidence,
-              sideEffects: workingMemory.snapshot().sideEffects,
-              finalReply: finalContent,
-            })
-              ? async ({ finalContent: reply }) => this.#semanticVerify({
-                provider,
-                providerName,
-                model,
-                messages,
-                tools,
-                analysis,
-                finalContent: reply,
-                options: { ...options, signal: getActiveSignal(), runId, userId, agentId },
-              })
-              : null,
-            previousSemanticFailure: lastSemanticVerificationFailure,
-            eventBus: this.eventBus,
-            userId,
-            agentId,
-          });
-
-          if (verification.status === 'repair_required') {
-            if (verification.semanticFailure) {
-              lastSemanticVerificationFailure = verification.semanticFailure;
-            }
-            verificationRepairs += 1;
-            // Repair is bounded per run: a defect the model cannot close would
-            // otherwise reopen the same nodes until the whole budget is spent,
-            // and the user would still get a partial answer at the end.
-            if (verificationRepairs > maxVerificationRepairs) {
-              this.eventBus.publish({
-                runId,
-                userId,
-                agentId,
-                eventType: EVENT_TYPES.VERIFICATION_FAILED,
-                payload: {
-                  reason: 'repair_budget_exhausted',
-                  attempts: verificationRepairs,
-                  defects: verification.defects || [],
-                },
-                visibility: VISIBILITY.OPERATOR,
-              });
-              finalContent = await this.#partialDeliveryText({
-                runId,
-                contract,
-                workingMemory,
-                reason: 'verification_repair_budget_exhausted',
-                provider,
-                providerName,
-                model,
-                messages,
-                options,
-                signal: getActiveSignal(),
-                userId,
-                agentId,
-              });
-              applyTransition({
-                runId,
-                toState: RUNTIME_STATES.DELIVERING,
-                reason: 'repair_budget_exhausted',
-                workerId,
-                eventBus: this.eventBus,
-              });
-              continue;
-            }
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.REPAIRING,
-              reason: 'verification_defects',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            workingMemory.clearDefects();
-            for (const defect of verification.defects || []) {
-              workingMemory.addDefect(defect);
-            }
-            messages.push({
-              role: 'system',
-              content: [
-                'Verification found defects. Repair the reopened work nodes.',
-                `Defects: ${JSON.stringify(verification.defects || []).slice(0, 3000)}`,
-                verification.unchanged
-                  ? 'The verification fingerprint is unchanged. Change the final response, evidence, artifact set, work-node state, or side-effect status before requesting verification again.'
-                  : '',
-                'Do not claim completion until defects are resolved with evidence.',
-              ].filter(Boolean).join('\n'),
-            });
-            if (verification.final_reply) {
-              finalContent = verification.final_reply;
-              workingMemory.setDraftResponse(finalContent);
-            }
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.EXECUTING,
-              reason: 'repair_nodes_ready',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-
-          lastSemanticVerificationFailure = null;
-
-          if (verification.status === 'blocked') {
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.BLOCKED,
-              reason: 'verification_blocked',
-              workerId,
-              eventBus: this.eventBus,
-              patch: { error: 'Verification blocked without safe repair path' },
-            });
-            finalContent = await this.#partialDeliveryText({
-              runId,
-              contract,
-              workingMemory,
-              reason: 'Verification could not be completed safely',
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: getActiveSignal(),
-              userId,
-              agentId,
-            });
-            await this.#deliverFinal({
-              runId,
-              userId,
-              agentId,
-              workerId,
-              content: finalContent,
-              options,
-              triggerSource,
-              totalTokens,
-              asError: true,
-            });
-            return {
-              runId,
-              content: finalContent,
-              totalTokens,
-              iterations,
-              status: 'failed',
-              path,
-            };
-          }
-
-          if (resumeForSteering()) continue;
-          finalContent = verification.final_reply || finalContent;
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.DELIVERING,
-            reason: 'completion_verified',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          const delivery = await this.#deliverFinal({
-            runId,
-            userId,
-            agentId,
-            workerId,
-            content: finalContent,
-            options,
-            triggerSource,
-            totalTokens,
-          });
-          await this.#finalizeSuccess({
-            runId,
-            userId,
-            agentId,
-            conversationId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            memoryManager,
-            messages,
-            provider,
-            providerName,
-            model,
-            analysis,
-            verification,
-            historyWindow,
-            options,
-            task: userMessage,
-            taskId: options.taskId || null,
-            triggerType,
-            triggerSource,
-          });
-          return {
-            runId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            status: 'completed',
-            path,
-          };
-        }
-
-        if (run.runtimeState === RUNTIME_STATES.REPAIRING) {
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.EXECUTING,
-            reason: 'repair_nodes_ready',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          continue;
-        }
-
-        if (run.runtimeState === RUNTIME_STATES.DELIVERING) {
-          const delivery = await this.#deliverFinal({
-            runId,
-            userId,
-            agentId,
-            workerId,
-            content: finalContent,
-            options,
-            triggerSource,
-            totalTokens,
-          });
-          await this.#finalizeSuccess({
-            runId,
-            userId,
-            agentId,
-            conversationId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            memoryManager,
-            messages,
-            provider,
-            providerName,
-            model,
-            analysis,
-            historyWindow,
-            options,
-            task: userMessage,
-            taskId: options.taskId || null,
-            triggerType,
-            triggerSource,
-          });
-          return {
-            runId,
-            content: delivery.content || finalContent,
-            totalTokens,
-            iterations,
-            status: 'completed',
-            path,
-          };
-        }
-
-        if (run.runtimeState !== RUNTIME_STATES.EXECUTING) {
-          // waiting/blocked handling
-          if (run.runtimeState === RUNTIME_STATES.BLOCKED) {
-            finalContent = await this.#partialDeliveryText({
-              runId,
-              contract,
-              workingMemory,
-              reason: run.error || 'Run blocked',
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: getActiveSignal(),
-              userId,
-              agentId,
-            });
-            await this.#deliverFinal({
-              runId,
-              userId,
-              agentId,
-              workerId,
-              content: finalContent,
-              options,
-              triggerSource,
-              totalTokens,
-            });
-            return {
-              runId,
-              content: finalContent,
-              totalTokens,
-              iterations,
-              status: 'completed',
-              path,
-            };
-          }
-          break;
-        }
-
-        // Budget gate
-        const openNodes = workGraph.requiredOpenNodes(runId);
-        const nextNodes = workGraph.nextActionableNodes(runId);
-        const obligations = evaluateOpenObligations(
-          loadLatestContract(runId)?.contract || contract,
-          {
-            completedNodeKeys: workGraph.listNodes(runId)
-              .filter((n) => n.status === 'completed')
-              .map((n) => n.nodeKey),
-            evidence: workingMemory.snapshot().evidence,
-            artifacts: workingMemory.snapshot().artifacts,
-            finalContent,
-          },
-        );
-        const continuation = budget.shouldContinue({
-          openObligations: obligations.open.length ? obligations.open : openNodes,
-          hasNextAction: nextNodes.length > 0 || obligations.open.length > 0,
-        });
-        if (!continuation.continue) {
-          if (continuation.reason === 'hard_budget' || continuation.reason === 'no_progress_delta') {
-            finalContent = await this.#partialDeliveryText({
-              runId,
-              contract,
-              workingMemory,
-              reason: continuation.reason,
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: getActiveSignal(),
-              userId,
-              agentId,
-            });
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.DELIVERING,
-              reason: continuation.reason,
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-          if (continuation.reason === 'no_open_obligations' || nextNodes.length === 0) {
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.VERIFYING,
-              reason: 'no_ready_nodes',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-        }
-        if (continuation.softWarning) {
-          const newDimensions = continuation.snapshot.softDimensions
-            .filter((dimension) => !warnedSoftDimensions.has(dimension));
-          if (newDimensions.length > 0) {
-            for (const dimension of newDimensions) warnedSoftDimensions.add(dimension);
-            this.eventBus.publish({
-              runId,
-              userId,
-              agentId,
-              eventType: EVENT_TYPES.BUDGET_SOFT_LIMIT,
-              payload: { dimensions: newDimensions },
-              visibility: VISIBILITY.OPERATOR,
-            });
-            messages.push({
-              role: 'system',
-              content: [
-                `Run budget is nearing its limit (${newDimensions.join(', ')}).`,
-                'Stop optional exploration now. Use the evidence already gathered to finish the required deliverable, or return an honest partial result naming the concrete missing requirement.',
-                'Do not start a new research branch unless it is the only way to close a required obligation.',
-              ].join(' '),
-            });
-          }
-        }
-
-        // Steering
-        setSteeringIntake(this.engine, runId, true);
-        const steered = this.engine.applyQueuedSteering?.(runId, messages, {
-          userId,
-          conversationId,
-        });
-        if (steered?.messages) messages = steered.messages;
-        const systemSteered = this.engine.applyQueuedSystemSteering?.(runId, messages);
-        if (systemSteered?.messages) messages = systemSteered.messages;
-
-        const activeNode = nextNodes[0] || null;
-        if (activeNode && activeNode.status !== 'running') {
-          workGraph.updateNode(activeNode.id, { status: 'running', assignedWorker: workerId });
-          this.eventBus.publish({
-            runId,
-            userId,
-            agentId,
-            eventType: EVENT_TYPES.NODE_STARTED,
-            payload: { node_id: activeNode.id, node_key: activeNode.nodeKey },
-            visibility: VISIBILITY.OPERATOR,
-          });
-        }
-
-        // Durable-state notes are rebuilt every turn and appended to the live
-        // transcript. They must never replace it: `messages` carries the agent
-        // system prompt, memory recall, tool catalog, and tool-call/result pairs.
-        const contextView = buildContextView({
+      if (outcome.type === 'cancelled') return this.#cancelledResult(session);
+      if (outcome.type === 'stopped') return outcome.result;
+      if (outcome.type === 'ended') {
+        return {
           runId,
-          systemPrompt: '',
-          messages: [],
-          evidencePacket,
-          activeNodeIds: activeNode ? [activeNode.id] : [],
-          budgetSnapshot: budget.snapshot(),
-        });
-        try {
-          const pressure = await contextPressure.prepare({
-            provider,
-            model,
-            messages,
-            fixedMessages: contextView.messages,
-            tools,
-            maxOutputTokens: options.maxTokens,
-          });
-          if (pressure.changed) messages = pressure.messages;
-        } catch (error) {
-          if (isAbortError(error, getActiveSignal())) throw error;
-          console.warn('[Runtime] Proactive context compaction failed:', error?.message || error);
-        }
-        let turnMessages = sanitizeConversationMessages([
-          ...messages,
-          ...contextView.messages,
-        ]);
-
-        iterations += 1;
-        emitPhase('thinking', 'Thinking');
-        progressBroker.noteActivity('model_started', { iteration: iterations });
-        this.eventBus.publish({
+          content: '',
+          totalTokens: session.totalTokens,
+          iterations: session.iterations,
+          status: outcome.status,
+        };
+      }
+      if (outcome.type === 'waiting') {
+        applyTransition({
           runId,
-          userId,
-          agentId,
-          eventType: EVENT_TYPES.MODEL_STARTED,
-          payload: { iteration: iterations, model: modelSelectionId },
-          visibility: VISIBILITY.OPERATOR,
+          toState: RUNTIME_STATES.WAITING,
+          reason: 'structured_input_required',
+          workerId,
+          eventBus: this.eventBus,
+          patch: { metadata: { awaitingInputRequestId: outcome.inputRequest.id } },
         });
-
-        let modelTurn;
-        try {
-          const signal = getActiveSignal();
-          let overflowRetried = false;
-          while (true) {
-            try {
-              modelTurn = await this.engine.requestModelResponse({
-                provider,
-                providerName,
-                model,
-                messages: turnMessages.length ? turnMessages : messages,
-                tools,
-                options: {
-                  ...options,
-                  signal,
-                  runId,
-                  userId,
-                  agentId,
-                },
-                runId,
-                iteration: iterations,
-              });
-              break;
-            } catch (error) {
-              const canRecover = isContextOverflowError(error)
-                && !overflowRetried
-                && contextPressure.claimOverflowRecovery();
-              if (!canRecover) {
-                if (isContextOverflowError(error)) error.contextPressureExhausted = true;
-                throw error;
-              }
-
-              let recovered;
-              try {
-                recovered = await contextPressure.prepare({
-                  provider,
-                  model,
-                  messages,
-                  fixedMessages: contextView.messages,
-                  tools,
-                  maxOutputTokens: options.maxTokens,
-                  force: true,
-                  reason: 'provider_overflow',
-                });
-              } catch (compactionError) {
-                if (isAbortError(compactionError, signal)) throw compactionError;
-                error.contextPressureExhausted = true;
-                error.compactionError = compactionError?.message || String(compactionError);
-                throw error;
-              }
-              if (!recovered.changed) {
-                error.contextPressureExhausted = true;
-                error.compactionError = recovered.reason || 'irreducible_context';
-                throw error;
-              }
-              messages = recovered.messages;
-              turnMessages = sanitizeConversationMessages([
-                ...messages,
-                ...contextView.messages,
-              ]);
-              overflowRetried = true;
-              this.eventBus.publish({
-                runId,
-                userId,
-                agentId,
-                eventType: EVENT_TYPES.CONTEXT_OVERFLOW_RECOVERED,
-                payload: {
-                  recovery_count: contextPressure.overflowRecoveries,
-                  before_tokens: recovered.beforeTokens,
-                  after_tokens: recovered.afterTokens,
-                },
-                visibility: VISIBILITY.OPERATOR,
-              });
-            }
-          }
-          recordModelSuccess(userId, agentId, modelSelectionId);
-        } catch (error) {
-          if (isAbortError(error, getActiveSignal())) {
-            if (this.engine.getRunMeta(runId)?.aborted) {
-              return this.#cancelledResult(runId, totalTokens, iterations);
-            }
-            const boundary = await this.engine.checkpointLifecycle?.(runId, 'model_boundary', {
-              iteration: iterations,
-            });
-            if (boundary?.action === 'stop' || boundary?.action === 'interrupt') {
-              return this.#cancelledResult(runId, totalTokens, iterations);
-            }
-            // Pause completed and run resumed — retry the model turn.
-            continue;
-          }
-          if (error.contextPressureExhausted === true) {
-            budget.recordToolFailure(true, 'context_overflow');
-            this.eventBus.publish({
-              runId,
-              userId,
-              agentId,
-              eventType: EVENT_TYPES.CONTEXT_OVERFLOW_EXHAUSTED,
-              payload: {
-                recovery_count: contextPressure.overflowRecoveries,
-                reason: error.compactionError || error.message,
-              },
-              visibility: VISIBILITY.OPERATOR,
-            });
-            finalContent = await this.#partialDeliveryText({
-              runId,
-              contract,
-              workingMemory,
-              reason: 'context_overflow',
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: getActiveSignal(),
-              userId,
-              agentId,
-            });
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.DELIVERING,
-              reason: 'context_overflow_exhausted',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-          const recovery = planRecovery(error, {
-            attemptsForClass: budget.usage.failuresByClass[classifyError(error)] || 0,
-          });
-          budget.recordToolFailure(true, recovery.errorClass);
-          recordModelFailure(userId, agentId, modelSelectionId, error);
-          failedModelIds.add(modelSelectionId);
-
-          if (shouldSwitchModel(error)) {
-            const fallbackId = await getFailureFallbackModelId(
-              userId,
-              agentId,
-              modelSelectionId,
-              error,
-              getActiveSignal(),
-              failedModelIds,
-            );
-            if (fallbackId) {
-              const fallback = await getProviderForUser(
-                userId,
-                userMessage,
-                triggerType === 'subagent',
-                fallbackId,
-                { ...providerStatusConfig, signal: getActiveSignal() },
-              );
-              provider = fallback.provider;
-              model = fallback.model;
-              modelSelectionId = fallback.modelSelectionId;
-              providerName = fallback.providerName;
-              db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
-                .run(modelSelectionId, runId);
-              continue;
-            }
-          }
-          throw error;
-        }
-
-        const modelResponse = modelTurn?.response || {};
-        const tokenParts = usageTokens(modelResponse.usage);
-        totalTokens += tokenParts.total || (tokenParts.input + tokenParts.output);
-        budget.recordModelTurn({
-          inputTokens: tokenParts.input,
-          outputTokens: tokenParts.output,
-        });
-        progressBroker.noteActivity('model_completed', { iteration: iterations });
-
-        let decisionResult = decisionFromModelResponse({
-          content: modelResponse.content || modelTurn?.streamContent || '',
-          tool_calls: modelResponse.toolCalls || modelResponse.tool_calls || [],
-          toolCalls: modelResponse.toolCalls || modelResponse.tool_calls || [],
-        }, {
-          nodeId: activeNode?.id || null,
-          // Like DeepSeek's loop, a normal assistant response without tool calls
-          // ends the turn. The completion gate still checks durable obligations.
-          expectTerminalResponse: true,
-        });
-        if (!decisionResult.ok) {
-          consecutiveProtocolRepairs += 1;
-          decisionResult = protocolRepairDecision(decisionResult.error, modelResponse);
-          if (consecutiveProtocolRepairs > maxProtocolRepairs) {
-            messages.push({
-              role: 'system',
-              content: 'Repeated invalid model protocol. Provide a final partial answer with evidence only.',
-            });
-            finalContent = await this.#partialDeliveryText({
-              runId,
-              contract,
-              workingMemory,
-              reason: 'model_protocol_error',
-              provider,
-              providerName,
-              model,
-              messages,
-              options,
-              signal: getActiveSignal(),
-              userId,
-              agentId,
-            });
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.DELIVERING,
-              reason: 'protocol_repair_exhausted',
-              workerId,
-              eventBus: this.eventBus,
-            });
-            continue;
-          }
-          messages.push({
-            role: 'system',
-            content: decisionResult.decision.repairHint,
-          });
-          continue;
-        }
-        consecutiveProtocolRepairs = 0;
-        const decision = decisionResult.decision;
-        workingMemory.addDecision(decision);
-        this.eventBus.publish({
+        db.prepare(
+          `UPDATE agent_runs SET status = 'waiting_input', updated_at = datetime('now') WHERE id = ?`,
+        ).run(runId);
+        return {
           runId,
-          userId,
-          agentId,
-          eventType: EVENT_TYPES.DECISION_PERSISTED,
-          payload: { kind: decision.kind, nodeId: decision.nodeId },
-          visibility: VISIBILITY.INTERNAL,
-        });
-
-        if (decision.kind === DECISION_KINDS.RESPOND) {
-          // A generation cut off at the token limit is an unfinished thought,
-          // not an answer. Reasoning models can spend the whole budget thinking
-          // and emit no tool call, and adopting that text as the draft response
-          // ends the run mid-sentence with the work untouched. Ask for a real
-          // continuation instead — but only a couple of times, so a model that
-          // truncates every turn still terminates.
-          if (modelResponse.truncated && !decision.toolCalls?.length) {
-            consecutiveTruncations += 1;
-            if (consecutiveTruncations <= maxTruncationRetries) {
-              messages.push({
-                role: 'system',
-                content: [
-                  'Your previous output stopped at the token limit and was cut off mid-thought,',
-                  'so it was discarded rather than treated as an answer.',
-                  'Keep reasoning brief and call the concrete tools needed next,',
-                  'or give a complete final answer that fits within the limit.',
-                ].join(' '),
-              });
-              continue;
-            }
-          } else {
-            consecutiveTruncations = 0;
-          }
-          const content = sanitizeModelOutput(decision.content, { model });
-          if (content) {
-            finalContent = content;
-            workingMemory.setDraftResponse(content);
-            messages.push({ role: 'assistant', content });
-          }
-          // Text is not auto-complete unless obligations are satisfied, no work
-          // nodes remain, or no tools are available to act further.
-          const canOnlyRespond = !tools.length
-            || decision.terminal === true
-            || options.skipVerifier === true;
-          if (obligations.satisfied || openNodes.length === 0 || canOnlyRespond) {
-            // Mark remaining ready nodes complete when the model can only respond.
-            if (canOnlyRespond && openNodes.length > 0) {
-              for (const node of openNodes) {
-                workGraph.completeNode(node.id, {
-                  evidence: [{ summary: 'Completed via final response', kind: 'response' }],
-                });
-              }
-            }
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.VERIFYING,
-              reason: canOnlyRespond
-                ? 'respond_without_further_tools'
-                : 'respond_with_satisfied_obligations',
-              workerId,
-              eventBus: this.eventBus,
-            });
-          } else {
-            messages.push({
-              role: 'system',
-              content: [
-                'A draft response was produced but required obligations remain open.',
-                `Open: ${obligations.open.map((o) => o.id || o.type).join(', ')}`,
-                'Continue working or call tools. Do not treat the draft as final yet.',
-              ].join('\n'),
-            });
-          }
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.COMPLETE) {
-          finalContent = sanitizeModelOutput(
-            decision.completionClaim?.summary || decision.content || finalContent,
-            { model },
-          );
-          workingMemory.setDraftResponse(finalContent);
-          messages.push({ role: 'assistant', content: finalContent });
-          // A completion claim asserts remaining required work is done; mark
-          // non-verification nodes complete so the gate can evaluate evidence.
-          for (const node of workGraph.requiredOpenNodes(runId)) {
-            if (node.kind === 'verification') continue;
-            workGraph.completeNode(node.id, {
-              evidence: [{
-                summary: finalContent.slice(0, 300) || 'Completed via task_complete claim',
-                kind: 'completion_claim',
-              }],
-            });
-          }
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.VERIFYING,
-            reason: 'completion_claim',
-            workerId,
-            eventBus: this.eventBus,
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.BLOCK) {
-          // A blank turn is a provider hiccup, not a blocker. Terminating on it
-          // would end healthy runs on one empty Gemini/OpenAI response, so it is
-          // recovered like any other protocol fault: nudge, then switch model.
-          if (decision.blocker?.code === 'blank_model_output') {
-            blankOutputRecoveries += 1;
-            if (blankOutputRecoveries <= maxBlankOutputRecoveries) {
-              const blankOutputError = new Error('Model returned no content and no tool calls');
-              blankOutputError.code = 'MODEL_EMPTY_RESPONSE';
-              recordModelFailure(userId, agentId, modelSelectionId, blankOutputError);
-              failedModelIds.add(modelSelectionId);
-              const fallbackId = await getFailureFallbackModelId(
-                userId,
-                agentId,
-                modelSelectionId,
-                blankOutputError,
-                getActiveSignal(),
-                failedModelIds,
-              );
-              if (fallbackId) {
-                const fallback = await getProviderForUser(
-                  userId,
-                  userMessage,
-                  triggerType === 'subagent',
-                  fallbackId,
-                  { ...providerStatusConfig, signal: getActiveSignal() },
-                );
-                provider = fallback.provider;
-                model = fallback.model;
-                modelSelectionId = fallback.modelSelectionId;
-                providerName = fallback.providerName;
-                db.prepare('UPDATE agent_runs SET model = ?, updated_at = datetime(\'now\') WHERE id = ?')
-                  .run(modelSelectionId, runId);
-              }
-              messages.push({
-                role: 'system',
-                content: buildBlankOutputGuidance(toolExecutions),
-              });
-              continue;
-            }
-          }
-          applyTransition({
-            runId,
-            toState: RUNTIME_STATES.BLOCKED,
-            reason: decision.blocker?.code || 'blocked',
-            workerId,
-            eventBus: this.eventBus,
-            patch: { error: decision.blocker?.message || 'Blocked' },
-          });
-          continue;
-        }
-
-        if (decision.kind === DECISION_KINDS.ACT) {
-          // Continuation intent without tools ("I'll do X") is not completion
-          // and must not spin forever without a real action.
-          if (!decision.toolCalls.length) {
-            if (decision.content) {
-              messages.push({
-                role: 'assistant',
-                content: sanitizeModelOutput(decision.content, { model }),
-              });
-            }
-            messages.push({
-              role: 'system',
-              content: [
-                decision.protocolNote
-                  ? `Protocol note: ${decision.protocolNote}.`
-                  : 'An act decision was produced without tool calls.',
-                'Call the concrete tools needed next, or provide a final answer only if all required work is already evidenced.',
-                'Do not claim future work as completed.',
-              ].join(' '),
-            });
-            continue;
-          }
-
-          // Always store OpenAI wire-format tool_calls so every provider can
-          // convert history on subsequent turns (never rely on raw alone).
-          const wireToolCalls = decision.toolCalls.map((call) => (
-            call.raw?.function?.name
-              ? call.raw
-              : {
-                id: call.id,
-                type: 'function',
-                function: {
-                  name: call.name,
-                  arguments: JSON.stringify(call.arguments || {}),
-                },
-              }
-          ));
-          messages.push({
-            role: 'assistant',
-            content: decision.content
-              ? sanitizeModelOutput(decision.content, { model })
-              : '',
-            tool_calls: wireToolCalls,
-          });
-
-          // Classify once. Read-only calls may overlap only while they are
-          // contiguous in model order; a mutation is a barrier. Moving every
-          // read ahead of every mutation changes the program the model asked
-          // us to execute (for example read -> edit -> verify-read).
-          const plannedCalls = decision.toolCalls.map((call) => {
-            const definition = tools.find((tool) => tool?.name === call.name) || null;
-            const callShape = call.raw?.function?.name
-              ? call.raw
-              : {
-                id: call.id,
-                type: 'function',
-                function: {
-                  name: call.name,
-                  arguments: JSON.stringify(call.arguments || {}),
-                },
-              };
-            return {
-              call,
-              definition,
-              isReadOnly: Boolean(this.engine.isReadOnlyToolCall?.(callShape, definition)),
-            };
-          });
-          const turnArtifactIds = [];
-
-          const executeOne = async ({ call, definition, isReadOnly }) => {
-            const stepId = randomUUID();
-            const started = Date.now();
-            stepIndex += 1;
-            const currentStepIndex = stepIndex;
-            const stepType = this.engine.getStepType?.(call.name) || 'tool';
-            db.prepare(
-              `INSERT INTO agent_steps (
-                id, run_id, step_index, type, description, status, tool_name, tool_input, started_at
-              ) VALUES (?, ?, ?, ?, ?, 'running', ?, ?, datetime('now'))`,
-            ).run(
-              stepId,
-              runId,
-              currentStepIndex,
-              stepType,
-              `${call.name}: ${JSON.stringify(call.arguments || {}).slice(0, 200)}`,
-              call.name,
-              JSON.stringify(call.arguments || {}),
-            );
-            this.eventBus.publish({
-              runId,
-              userId,
-              agentId,
-              eventType: EVENT_TYPES.TOOL_STARTED,
-              stepId,
-              payload: { tool: call.name, node_id: activeNode?.id || null },
-              visibility: VISIBILITY.OPERATOR,
-            });
-            this.engine.recordRunEvent?.(userId, runId, 'tool_started', {
-              stepIndex: currentStepIndex,
-              toolName: call.name,
-              toolArgs: call.arguments || {},
-              type: stepType,
-            }, { agentId, stepId });
-            this.engine.emit(userId, 'run:tool_start', {
-              runId,
-              stepId,
-              stepIndex: currentStepIndex,
-              toolName: call.name,
-              toolArgs: call.arguments || {},
-              type: stepType,
-            });
-            progressBroker.noteToolStarted(call.name);
-
-            let result;
-            let success = true;
-            let errorMessage = null;
-            let repetitionBlocked = false;
-            const repetitionGuard = this.engine.getRunMeta(runId)?.repetitionGuard;
-            try {
-              if (
-                interactionMode === 'plan'
-                && !isReadOnly
-                && !PLAN_MODE_SAFE_CONTROL_TOOLS.has(call.name)
-              ) {
-                success = false;
-                errorMessage = 'Plan mode blocks tools that can mutate state.';
-                result = {
-                  error: errorMessage,
-                  blocked: true,
-                  blockedBy: 'cowork_plan_mode',
-                };
-              } else {
-                const hookResult = await globalHooks.run('before_tool_call', {
-                  runId,
-                  toolName: call.name,
-                  toolArgs: call.arguments,
-                  userId,
-                  agentId,
-                });
-                if (hookResult?.block === true) {
-                  success = false;
-                  errorMessage = hookResult.reason || 'Blocked by policy hook';
-                  result = { error: errorMessage, blocked: true };
-                } else if (repetitionGuard?.shouldBlock(call.name, call.arguments, { readOnly: isReadOnly })) {
-                  const priorFailure = repetitionGuard.lastFailure(call.name, call.arguments);
-                  repetitionBlocked = true;
-                  success = false;
-                  errorMessage = priorFailure
-                    ? `This exact call already failed twice with: ${priorFailure}`
-                    : 'The same read-only call already returned an unchanged result twice.';
-                  result = { status: 'blocked', reason: errorMessage };
-                } else {
-                  // Flatten run options the same way the legacy loop did so
-                  // background staging, messaging origin, and delivery bookkeeping work.
-                  result = await this.engine.executeTool(call.name, call.arguments, {
-                    userId,
-                    agentId,
-                    runId,
-                    stepId,
-                    app,
-                    triggerType,
-                    triggerSource,
-                    conversationId,
-                    deviceTarget,
-                    workspaceRoot,
-                    interactionMode,
-                    source: options.source || null,
-                    chatId: options.chatId || null,
-                    isGroup: options.context?.socialIntelligence?.isGroup === true,
-                    senderId: options.context?.socialIntelligence?.message?.sender || null,
-                    inboundMessage: options.context?.socialIntelligence?.message || null,
-                    taskId: options.taskId || null,
-                    scheduledAt: options.scheduledAt || null,
-                    deliveryState: options.deliveryState || this.engine.getRunMeta(runId)?.deliveryState || null,
-                    stageProactiveMessages: options.stageProactiveMessages === true,
-                    allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
-                      || options.allow_multiple_messages === true,
-                    allowExternalSideEffects: options.allowExternalSideEffects === true,
-                    signal: getActiveSignal(),
-                  });
-                }
-              }
-            } catch (error) {
-              success = false;
-              errorMessage = error?.message || String(error);
-              result = { error: errorMessage };
-              const recovery = planRecovery(error);
-              budget.recordToolFailure(true, recovery.errorClass);
-              if (recovery.response?.blindRetryForbidden) {
-                workingMemory.addSideEffect({
-                  id: stepId,
-                  tool_name: call.name,
-                  status: 'unknown',
-                });
-              }
-            }
-
-            const elapsed = Date.now() - started;
-            budget.recordToolRuntime(elapsed);
-
-            // In research runs, Jev rates each read against the task, so the
-            // model opens promising results first and drops pages that lack
-            // what it needs.
-            if (success && (analysis.research_depth || 'none') !== 'none') {
-              const researchTargets = contract?.research_targets || [];
-              const rating = buildResearchDecision({
-                task: contract?.goal || userMessage,
-                targets: researchTargets,
-                toolName: call.name,
-                args: call.arguments,
-                result,
-              });
-              const answers = rating
-                ? await this.engine.decide({
-                  userId,
-                  agentId,
-                  runId,
-                  stepId,
-                  phase: 'jev_research_rating',
-                  signal: getActiveSignal(),
-                  ...rating,
-                })
-                : null;
-              if (answers) {
-                result = applyResearchRating({ toolName: call.name, result, answers, targets: researchTargets });
-              }
-            }
-
-            // Tools report most failures in the result rather than by throwing.
-            // Those must count as failures, or the consecutive-failure guard never
-            // sees a run that keeps retrying a broken integration.
-            const reportedFailure = success ? inferToolFailureMessage(call.name, result) : '';
-            if (reportedFailure) {
-              success = false;
-              errorMessage = reportedFailure;
-              budget.recordToolFailure(true, 'tool_error');
-            }
-
-            const execution = classifyToolExecution(
-              call.name,
-              call.arguments || {},
-              result,
-              errorMessage,
-              definition,
-            );
-            // A blocked call never ran; observing it would reset the streak and
-            // let the next identical call through.
-            const observed = repetitionBlocked
-              ? null
-              : repetitionGuard?.observe(call.name, call.arguments, result, reportedFailure);
-            // "No progress" means the turn changed no state and surfaced no new
-            // evidence. Reads that pull in new information are progress, so a long
-            // research run is never mistaken for churn. A mutation repeated with
-            // identical arguments and an identical result is churn too: the first
-            // call already made that change.
-            const repeatedMutation = execution.stateChanged && Number(observed?.unchangedCount) >= 2;
-            // So is rewriting one file again and again without looking at the
-            // result: the writes may differ by a few bytes, but none of them is
-            // informed by anything the previous one produced.
-            const mutatedPath = FILE_MUTATION_TOOLS.has(call.name) && success
-              ? String(call.arguments?.path || call.arguments?.file_path || '')
-              : '';
-            if (mutatedPath && mutatedPath === blindWrites.path) blindWrites.count += 1;
-            else if (mutatedPath) Object.assign(blindWrites, { path: mutatedPath, count: 1 });
-            else Object.assign(blindWrites, { path: null, count: 0 });
-            const blindRewrite = blindWrites.count >= 3;
-            const addedEvidence = gatheredNewEvidence(execution, observed);
-            budget.recordNoProgressTurn(
-              (!execution.stateChanged && !addedEvidence) || repeatedMutation || blindRewrite,
-            );
-            if (addedEvidence) budget.recordEvidence(1);
-            // Only a substantive success clears the failure streak; a tool search
-            // or a think between two identical failures is not a recovery.
-            if (success && execution.evidenceRelevant) budget.recordToolFailure(false);
-
-            let churnNote = null;
-            if (repeatedMutation) {
-              churnNote = 'Identical to your previous call: same arguments, same result, nothing changed. Do something different.';
-            } else if (blindRewrite) {
-              churnNote = `Write ${blindWrites.count} to ${mutatedPath} with nothing read or run in between. Run or read the file before writing it again.`;
-            }
-            // Signature: compactToolResult(toolName, toolArgs, toolResult, options)
-            const compacted = compactToolResult(
-              call.name,
-              call.arguments || {},
-              churnNote ? { ...result, repeated_call: churnNote } : result,
-              resolveToolResultLimits(call.name, budget.loopPolicy),
-            );
-            const commandArtifact = result?.outputArtifact;
-            if (commandArtifact?.artifactId) {
-              turnArtifactIds.push(commandArtifact.artifactId);
-              workingMemory.addArtifact({
-                ...commandArtifact,
-                kind: 'command-output',
-                stepId,
-                runId,
-              });
-              this.eventBus.publish({
-                runId,
-                userId,
-                agentId,
-                eventType: EVENT_TYPES.ARTIFACT_CREATED,
-                stepId,
-                payload: {
-                  artifact_id: commandArtifact.artifactId,
-                  kind: 'command-output',
-                  byte_size: commandArtifact.byteSize,
-                  complete: commandArtifact.complete !== false,
-                },
-                visibility: VISIBILITY.OPERATOR,
-              });
-            }
-            evidencePacket = appendToolEvidence(evidencePacket, call.name, compacted, { success });
-            workingMemory.addEvidence({
-              id: stepId,
-              tool: call.name,
-              summary: execution.summary,
-              success,
-              artifactIds: commandArtifact?.artifactId ? [commandArtifact.artifactId] : [],
-            });
-            if (execution.stateChanged) {
-              budget.recordSideEffect(1);
-              workingMemory.addSideEffect({
-                id: stepId,
-                tool_name: call.name,
-                status: success ? 'confirmed' : 'failed',
-              });
-            }
-
-            db.prepare(
-              `UPDATE agent_steps
-               SET status = ?, result = ?, error = ?, screenshot_path = ?, completed_at = datetime('now')
-               WHERE id = ?`,
-            ).run(
-              success ? 'completed' : 'failed',
-              JSON.stringify(call.name === 'execute_command' ? compacted : (result ?? null)).slice(0, 20000),
-              errorMessage,
-              result?.screenshotPath || null,
-              stepId,
-            );
-            this.eventBus.publish({
-              runId,
-              userId,
-              agentId,
-              eventType: success ? EVENT_TYPES.TOOL_COMPLETED : EVENT_TYPES.TOOL_FAILED,
-              stepId,
-              payload: {
-                tool: call.name,
-                success,
-                error: errorMessage,
-                elapsed_ms: elapsed,
-              },
-              visibility: VISIBILITY.OPERATOR,
-            });
-            this.engine.recordRunEvent?.(userId, runId, success ? 'tool_completed' : 'tool_failed', {
-              toolName: call.name,
-              status: success ? 'completed' : 'failed',
-              durationMs: elapsed,
-              error: errorMessage,
-              resultPreview: summarizeForLog(compacted),
-            }, { agentId, stepId });
-            this.engine.emit(userId, 'run:tool_end', {
-              runId,
-              stepId,
-              toolName: call.name,
-              result: compacted,
-              status: success ? 'completed' : 'failed',
-              error: errorMessage,
-            });
-            progressBroker.noteToolFinished(call.name);
-
-            const toolMessage = {
-              role: 'tool',
-              name: call.name,
-              tool_call_id: call.id,
-              content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
-            };
-
-            // Newly activated schemas only reach the model if the active set is
-            // re-read; otherwise activate_tools silently does nothing.
-            if (call.name === 'activate_tools' && success) {
-              const activeTools = this.engine.getActiveTools?.(runId);
-              if (Array.isArray(activeTools) && activeTools.length) tools = activeTools;
-            }
-
-            // task_complete / send_message special handling
-            if (call.name === 'task_complete' && success) {
-              finalContent = String(
-                call.arguments?.message
-                || call.arguments?.summary
-                || call.arguments?.result
-                || result?.message
-                || finalContent
-                || '',
-              ).trim();
-              workingMemory.setDraftResponse(finalContent);
-            }
-            if (call.name === 'send_message' && success) {
-              // Tool schema uses `content`; models also emit message/text aliases.
-              // Staged proactive replies return content on the tool result.
-              const sent = String(
-                call.arguments?.content
-                || call.arguments?.message
-                || call.arguments?.text
-                || result?.content
-                || '',
-              ).trim();
-              const noResponse = sent === '[NO RESPONSE]'
-                || result?.reason === 'no_response'
-                || call.arguments?.purpose === 'no_response';
-              if (noResponse) {
-                const runMeta = this.engine.getRunMeta(runId);
-                if (runMeta) runMeta.noResponse = true;
-                if (runMeta?.deliveryState) runMeta.deliveryState.noResponse = true;
-              } else if (sent) {
-                // Visible interim/final channel messages still require outbox final authority.
-                // Treat tool-sent messages as interim unless completion gate accepts.
-                finalContent = sent;
-                workingMemory.setDraftResponse(sent);
-                const runMeta = this.engine.getRunMeta(runId);
-                if (runMeta) {
-                  runMeta.lastSentMessage = sent;
-                  runMeta.messagingSent = true;
-                  if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
-                  runMeta.sentMessages.push(sent);
-                  // Staged schedule messages count as proactive progress for the task runtime.
-                  if (result?.staged === true) {
-                    runMeta.proactiveMessageStaged = true;
-                    runMeta.stagedProactiveMessage = runMeta.deliveryState?.stagedProactiveMessage
-                      || {
-                        platform: call.arguments?.platform,
-                        to: call.arguments?.to,
-                        content: sent,
-                        purpose: call.arguments?.purpose,
-                      };
-                  }
-                }
-              }
-            }
-
-            return { success, result: compacted, errorMessage, execution, toolMessage };
-          };
-
-          await scheduleToolCalls(plannedCalls, {
-            isParallelSafe: (planned) => planned.isReadOnly,
-            execute: executeOne,
-            maxParallel: options.maxParallelToolCalls,
-            commit: async (outcome) => {
-              toolExecutions.push(outcome.execution);
-              messages.push(outcome.toolMessage);
-            },
-          });
-
-          const inputRequest = this.engine.getRunMeta(runId)?.awaitingInput;
-          if (inputRequest) {
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.WAITING,
-              reason: 'structured_input_required',
-              workerId,
-              eventBus: this.eventBus,
-              patch: {
-                metadata: { awaitingInputRequestId: inputRequest.id },
-              },
-            });
-            db.prepare(
-              `UPDATE agent_runs
-               SET status = 'waiting_input', updated_at = datetime('now')
-               WHERE id = ?`,
-            ).run(runId);
-            return {
-              runId,
-              content: '',
-              totalTokens,
-              iterations,
-              status: 'waiting_input',
-              inputRequest,
-              path,
-            };
-          }
-
-          // Mark active node progress
-          if (activeNode) {
-            const nodeEvidence = workingMemory.snapshot().evidence.slice(-5);
-            const nodeArtifactIds = [...new Set([
-              ...(activeNode.artifactIds || []),
-              ...turnArtifactIds,
-            ])];
-            workGraph.updateNode(activeNode.id, {
-              status: 'ready',
-              evidence: nodeEvidence,
-              artifactIds: nodeArtifactIds,
-            });
-            // Complete simple nodes when tools succeeded and no defects
-            if (budget.usage.consecutiveToolFailures === 0 && nodeEvidence.some((e) => e.success !== false)) {
-              workGraph.completeNode(activeNode.id, {
-                evidence: nodeEvidence,
-                artifactIds: nodeArtifactIds,
-              });
-              this.eventBus.publish({
-                runId,
-                userId,
-                agentId,
-                eventType: EVENT_TYPES.NODE_COMPLETED,
-                payload: { node_id: activeNode.id, node_key: activeNode.nodeKey },
-                visibility: VISIBILITY.OPERATOR,
-              });
-            }
-          }
-
-          await progressBroker.maybePublish({
-            delta: this.#collectProgressDelta(runId, toolExecutions),
-          });
-
-          // If model included terminal complete with tools, check next loop.
-          if (decision.terminalHint) {
-            // Ensure execute-class nodes are closed when a terminal send/complete
-            // decision was already produced with successful tools.
-            if (String(finalContent || '').trim() || decision.toolCalls.some((c) => c.name === 'task_complete')) {
-              for (const node of workGraph.requiredOpenNodes(runId)) {
-                if (node.kind === 'verification') continue;
-                workGraph.completeNode(node.id, {
-                  evidence: [{
-                    summary: String(finalContent || 'Terminal tool decision').slice(0, 300),
-                    kind: 'terminal_hint',
-                  }],
-                });
-              }
-            }
-            applyTransition({
-              runId,
-              toState: RUNTIME_STATES.VERIFYING,
-              reason: 'terminal_hint_after_tools',
-              workerId,
-              eventBus: this.eventBus,
-            });
-          }
-          continue;
-        }
-
-        // Unknown decision kinds are rejected by validator; defensive continue.
-        messages.push({
-          role: 'system',
-          content: `Unsupported decision kind ${decision.kind}. Continue with a valid action.`,
-        });
+          content: '',
+          totalTokens: session.totalTokens,
+          iterations: session.iterations,
+          status: 'waiting_input',
+          inputRequest: outcome.inputRequest,
+        };
       }
 
-      // Fallback exit
-      if (!finalContent) {
-        finalContent = await this.#partialDeliveryText({
-          runId,
-          contract,
-          workingMemory,
-          reason: 'run_exited_without_final',
-          provider,
-          providerName,
-          model,
-          messages,
-          options,
-          signal: getActiveSignal(),
-          userId,
-          agentId,
-        });
-      }
-      const delivery = await this.#deliverFinal({
+      const answer = outcome.type === 'wrap_up'
+        ? await this.#wrapUp(session, outcome.reason)
+        : outcome.content;
+      applyTransition({
         runId,
-        userId,
-        agentId,
+        toState: RUNTIME_STATES.DELIVERING,
+        reason: outcome.type === 'wrap_up' ? outcome.reason : 'answer',
         workerId,
-        content: finalContent,
-        options,
-        triggerSource,
-        totalTokens,
+        eventBus: this.eventBus,
       });
-      await this.#finalizeSuccess({
-        runId,
-        userId,
-        agentId,
-        conversationId,
-        content: delivery.content || finalContent,
-        totalTokens,
-        iterations,
-        memoryManager: this.engine.memoryManager,
-        messages,
-        provider,
-        providerName,
-        model,
-        analysis,
-        historyWindow,
-        options,
-        task: userMessage,
-        taskId: options.taskId || null,
-        triggerType,
-        triggerSource,
-      });
+      const delivery = await this.#deliverFinal(session, answer);
+      const content = delivery.content || answer;
+      await this.#finalizeSuccess(session, { content, historyWindow, memoryManager });
       return {
         runId,
-        content: delivery.content || finalContent,
-        totalTokens,
-        iterations,
+        content,
+        totalTokens: session.totalTokens,
+        iterations: session.iterations,
         status: 'completed',
-        path,
       };
     } catch (error) {
       if (runRecordCreated) {
@@ -2703,7 +753,7 @@ class DurableRunRuntime {
           eventBus: this.eventBus,
           patch: {
             error: error?.message || String(error),
-            totalTokens,
+            totalTokens: session.totalTokens,
           },
         });
         if (interruptedByCaller && terminalTransition?.ok) {
@@ -2730,11 +780,11 @@ class DurableRunRuntime {
         const status = this.engine.getRunMeta(runId)?.status === 'interrupted'
           ? 'interrupted'
           : 'stopped';
-        return { runId, content: '', totalTokens, iterations, status };
+        return { runId, content: '', totalTokens: session.totalTokens, iterations: session.iterations, status };
       }
       throw error;
     } finally {
-      progressBroker?.stop();
+      session.progressBroker?.stop();
       try {
         leases.release(runId, workerId);
       } catch {
@@ -2752,34 +802,55 @@ class DurableRunRuntime {
     }
   }
 
-  async #deliverFinal({
-    runId,
-    userId,
-    agentId,
-    workerId,
-    content,
-    options,
-    triggerSource,
-    totalTokens,
-    asError = false,
-  }) {
+  #storeUserMessage(session) {
+    const { options, triggerSource } = session;
+    const sharedAttachments = triggerSource === 'cowork' && Array.isArray(options.coworkSharedAttachments)
+      ? options.coworkSharedAttachments
+      : [];
+    const socialMessage = options.context?.socialIntelligence?.message || null;
+    db.prepare(
+      `INSERT INTO conversation_messages (
+        conversation_id, run_id, agent_id, role, content, metadata_json
+      ) VALUES (?, ?, ?, 'user', ?, ?)`,
+    ).run(
+      session.conversationId,
+      session.runId,
+      session.agentId,
+      buildStoredUserContent({
+        userMessage: session.userMessage,
+        rawUserMessage: triggerSource === 'messaging' ? options.context?.rawUserMessage : null,
+        platform: options.source || null,
+        speaker: socialMessage?.senderName || socialMessage?.sender || null,
+        isGroup: Boolean(socialMessage?.isGroup),
+      }),
+      JSON.stringify({
+        interactionMode: session.interactionMode,
+        deviceTarget: session.deviceTarget,
+        ...(triggerSource === 'cowork' && options.coworkDisplayContent
+          ? { displayContent: String(options.coworkDisplayContent) }
+          : {}),
+        ...(sharedAttachments.length > 0 ? { sharedAttachments } : {}),
+      }),
+    );
+  }
+
+  async #deliverFinal(session, content) {
+    const { runId, userId, agentId, workerId, options, triggerSource } = session;
     setSteeringIntake(this.engine, runId, false);
     const channel = resolveDeliveryChannel(triggerSource);
-    const recipient = resolveDeliveryRecipient(triggerSource, options);
     const result = await requestFinalDelivery({
       engine: this.engine,
       runId,
       content,
       channel,
-      recipient,
+      recipient: resolveDeliveryRecipient(triggerSource, options),
       workerId,
       eventBus: this.eventBus,
       metadata: {
         platform: options.source || null,
         chatId: options.chatId || null,
         ...(options.sessionBinding || {}),
-        totalTokens,
-        asError,
+        totalTokens: session.totalTokens,
         agentId,
       },
     });
@@ -2798,7 +869,7 @@ class DurableRunRuntime {
         patch: {
           error: result.error || 'Final delivery state is ambiguous',
           finalResponse: content,
-          totalTokens,
+          totalTokens: session.totalTokens,
         },
       });
       return result;
@@ -2812,14 +883,11 @@ class DurableRunRuntime {
           reason: 'local_final_without_external',
           workerId,
           eventBus: this.eventBus,
-          patch: {
-            finalResponse: content,
-            totalTokens,
-          },
+          patch: { finalResponse: content, totalTokens: session.totalTokens },
         });
         // The delivery worker normally emits this; it did not get that far, and
         // the client still needs exactly one run:complete to close the run out.
-        this.engine.emit(userId, 'run:complete', { runId, content, totalTokens });
+        this.engine.emit(userId, 'run:complete', { runId, content, totalTokens: session.totalTokens });
         return { ok: true, content };
       }
       applyTransition({
@@ -2831,65 +899,39 @@ class DurableRunRuntime {
         patch: {
           error: result.error || result.reason || 'delivery failed',
           finalResponse: content,
-          totalTokens,
+          totalTokens: session.totalTokens,
         },
       });
     }
     return result;
   }
 
-  async #finalizeSuccess({
-    runId,
-    userId,
-    agentId,
-    conversationId,
-    content,
-    totalTokens,
-    iterations,
-    memoryManager,
-    messages,
-    provider,
-    providerName,
-    model,
-    analysis,
-    verification = null,
-    historyWindow = 20,
-    options = {},
-    task,
-    taskId,
-    triggerType,
-    triggerSource,
-  }) {
+  async #finalizeSuccess(session, { content, historyWindow, memoryManager }) {
+    const { runId, userId, agentId, conversationId, options } = session;
     if (conversationId && content) {
       try {
         db.prepare(
           `INSERT INTO conversation_messages (
             conversation_id, run_id, agent_id, role, content, metadata_json
           ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
-        ).run(
-          conversationId,
-          runId,
-          agentId,
-          content,
-          JSON.stringify({ final: true }),
-        );
+        ).run(conversationId, runId, agentId, content, JSON.stringify({ final: true }));
       } catch {
         // ignore
       }
     }
 
     // The running sum only sees the calls the loop itself made; the usage
-    // ledger has every recorded call for the run (verifier, narration, ...).
+    // ledger has every recorded call for the run (narration, compaction, ...).
     const ledgerTokens = Number(db.prepare(
       'SELECT COALESCE(SUM(total_tokens), 0) AS total FROM agent_model_usage WHERE run_id = ?',
     ).get(runId)?.total) || 0;
-    totalTokens = Math.max(Number(totalTokens) || 0, ledgerTokens);
+    session.totalTokens = Math.max(Number(session.totalTokens) || 0, ledgerTokens);
 
     db.prepare(
       `UPDATE agent_runs
        SET total_tokens = ?, final_response = COALESCE(final_response, ?), updated_at = datetime('now')
        WHERE id = ?`,
-    ).run(totalTokens, content || null, runId);
+    ).run(session.totalTokens, content || null, runId);
 
     this.eventBus.publish({
       runId,
@@ -2897,8 +939,8 @@ class DurableRunRuntime {
       agentId,
       eventType: EVENT_TYPES.RUN_COMPLETED,
       payload: {
-        totalTokens,
-        iterations,
+        totalTokens: session.totalTokens,
+        iterations: session.iterations,
         contentPreview: String(content || '').slice(0, 240),
       },
       visibility: VISIBILITY.USER,
@@ -2906,32 +948,20 @@ class DurableRunRuntime {
 
     // No run:complete here: the delivery worker already emitted it as part of
     // committing the final message. Emitting again made clients see the same
-    // answer arrive twice — harmless for a foreground chat that dedupes on the
-    // previous bubble, but background runs consume the first event and then
-    // render the second one into the chat they were never meant to touch.
+    // answer arrive twice.
 
     // Conversation learning is serialized per thread and runs after delivery.
-    // Store only source-grounded durable facts; generic run receipts belong in
-    // agent_runs and otherwise pollute future recall.
-    if (conversationId && memoryManager && provider && model) {
+    if (conversationId && memoryManager) {
       this.engine.trackBackgroundTask(
         (signal) => this.engine.refreshConversationState({
           conversationId,
           runId,
-          provider,
-          providerName,
-          model,
+          provider: session.model.provider,
+          providerName: session.model.providerName,
+          model: session.model.model,
           finalReply: content,
-          analysis,
-          verification,
           historyWindow,
-          options: {
-            ...options,
-            runId,
-            userId,
-            agentId,
-            signal,
-          },
+          options: { ...options, runId, userId, agentId, signal },
         }),
         { key: `conversation-learning:${userId}:${agentId || 'main'}:${conversationId}` },
       ).catch((error) => {
@@ -2942,136 +972,79 @@ class DurableRunRuntime {
     }
 
     console.info(
-      `[Run ${shortenRunId(runId)}] completed kernel=v2 steps=${iterations} tokens=${totalTokens} finalResponse=${content ? 'yes' : 'no'}`,
+      `[Run ${shortenRunId(runId)}] completed kernel=v2 steps=${session.iterations} tokens=${session.totalTokens} finalResponse=${content ? 'yes' : 'no'}`,
     );
 
     this.engine.skillLearningService?.enqueueCompletedRun({
       userId,
       agentId,
       runId,
-      triggerType,
-      triggerSource,
-      task,
-      taskId,
+      triggerType: session.triggerType,
+      triggerSource: session.triggerSource,
+      task: session.userMessage,
+      taskId: options.taskId || null,
       finalContent: content,
-      iterations,
-      messages,
+      iterations: session.iterations,
+      messages: session.messages,
     });
   }
 
   /**
-   * Honest partial result for a run that cannot complete.
-   *
-   * The wording is the model's: it writes the wrap-up from the evidence already
-   * in this conversation, in the user's language. Only when the model returns
-   * nothing usable does the runtime fall back to a description derived from the
-   * observed tool executions — never to a canned status message.
+   * The last turn of a run a runaway guard ended. The model writes it from
+   * the conversation, in its own voice: what it got done, what is missing,
+   * and why. Only when it returns nothing does the run fall back to its last
+   * written text, then to a description of the observed tool executions.
    */
-  async #partialDeliveryText({
-    runId,
-    contract,
-    workingMemory,
-    reason,
-    provider,
-    providerName,
-    model,
-    messages,
-    options,
-    signal,
-    userId,
-    agentId,
-  }) {
+  async #wrapUp(session, reason) {
+    const { runId, userId, agentId, options } = session;
     // The wrap-up is the run's last model turn, so it must see any follow-up
     // still waiting; nothing sent after this point can reach this run.
     setSteeringIntake(this.engine, runId, false);
-    this.engine.applyQueuedSteering?.(runId, messages, {
+    this.engine.applyQueuedSteering?.(runId, session.messages, {
       userId,
-      conversationId: options?.conversationId || null,
+      conversationId: session.conversationId,
     });
-    const snap = workingMemory.snapshot();
-    const open = evaluateOpenObligations(contract, {
-      completedNodeKeys: workGraph.listNodes(runId)
-        .filter((node) => node.status === 'completed')
-        .map((node) => node.nodeKey),
-      evidence: snap.evidence,
-      artifacts: snap.artifacts,
-      finalContent: snap.draftResponse,
-    }).open;
-
-    if (provider && model) {
-      try {
-        const wrapUp = await this.engine.requestModelResponse({
-          provider,
-          providerName,
-          model,
-          messages: sanitizeConversationMessages([
-            ...(Array.isArray(messages) ? messages.slice(-24) : []),
-            {
-              role: 'system',
-              content: [
-                buildMaxIterationWrapupPrompt(options?.source || null),
-                `Runtime stop reason: ${reason}.`,
-                open.length
-                  ? `Obligations still open: ${open.map((item) => item.id || item.type).join(', ')}.`
-                  : 'No required obligation is recorded as open.',
-              ].join('\n\n'),
-            },
-          ]),
-          tools: [],
-          options: {
-            ...options,
-            stream: false,
-            signal,
-            runId,
-            userId,
-            agentId,
-          },
-          runId,
-          iteration: 0,
-        });
-        const text = sanitizeModelOutput(
-          String(wrapUp?.response?.content || wrapUp?.streamContent || '').trim(),
-          { model },
-        );
-        if (normalizeOutgoingMessage(text, options?.source || null)) return text;
-      } catch (error) {
-        console.warn('[Runtime] Partial wrap-up generation failed:', error?.message || error);
-      }
+    const leadingSystem = [];
+    for (const message of session.messages) {
+      if (message.role !== 'system') break;
+      leadingSystem.push(message);
+    }
+    const history = [
+      ...leadingSystem,
+      ...session.messages.slice(leadingSystem.length).slice(-WRAP_UP_HISTORY_MESSAGES),
+    ];
+    try {
+      const wrapUp = await this.engine.requestModelResponse({
+        provider: session.model.provider,
+        providerName: session.model.providerName,
+        model: session.model.model,
+        messages: sanitizeConversationMessages([
+          ...history,
+          { role: 'system', content: buildWrapUpPrompt(reason, options.source || null) },
+        ]),
+        tools: [],
+        options: { ...options, stream: false, signal: session.getActiveSignal(), runId, userId, agentId },
+        runId,
+        iteration: session.iterations,
+      });
+      const text = sanitizeModelOutput(
+        String(wrapUp?.response?.content || wrapUp?.streamContent || '').trim(),
+        { model: session.model.model },
+      );
+      if (normalizeOutgoingMessage(text, options.source || null)) return text;
+    } catch (error) {
+      if (isAbortError(error, session.getActiveSignal())) throw error;
+      console.warn('[Runtime] Wrap-up generation failed:', error?.message || error);
     }
 
-    if (snap.draftResponse) return snap.draftResponse;
+    const lastWritten = [...session.messages].reverse()
+      .find((message) => message.role === 'assistant' && String(message.content || '').trim());
+    if (lastWritten) return String(lastWritten.content).trim();
     return buildDeterministicMessagingFallback({
-      failedStepCount: (snap.evidence || []).filter((item) => item.success === false).length,
-      stepIndex: (snap.evidence || []).length,
-      toolExecutions: (snap.evidence || []).map((item) => ({
-        toolName: item.tool,
-        summary: item.summary,
-      })),
+      failedStepCount: session.toolExecutions.filter((item) => item.ok === false).length,
+      stepIndex: session.toolExecutions.length,
+      toolExecutions: session.toolExecutions,
     });
-  }
-
-  /**
-   * Deterministic view of what actually changed. The narrator may only phrase
-   * these facts, so a progress update can never claim work the runtime did not
-   * observe.
-   */
-  #collectProgressDelta(runId, toolExecutions = []) {
-    const nodes = workGraph.listNodes(runId);
-    return {
-      completed_since_last_update: nodes
-        .filter((node) => node.status === 'completed')
-        .map((node) => node.nodeKey)
-        .slice(-5),
-      currently_running: nodes
-        .filter((node) => node.status === 'running' || node.status === 'ready')
-        .map((node) => node.nodeKey)
-        .slice(0, 5),
-      new_artifacts: [],
-      blockers: nodes.flatMap((node) => node.blockers || []).slice(0, 5),
-      plan_changes: [],
-      next_milestone: workGraph.nextActionableNodes(runId)[0]?.objective || null,
-      evidence: summarizeProgressToolExecutions(toolExecutions, 5),
-    };
   }
 
   /**
@@ -3080,30 +1053,18 @@ class DurableRunRuntime {
    * delta is the only permitted source of facts, and an empty answer means "no
    * useful update", not "send something generic".
    */
-  async #narrateProgress({
-    provider,
-    providerName,
-    model,
-    systemPrompt,
-    delta,
-    liveness,
-    userMessage,
-    options,
-    runId,
-    userId,
-    agentId,
-    signal,
-  }) {
-    if (!provider || !model) return '';
-    const stable = systemPrompt && typeof systemPrompt === 'object'
-      ? [systemPrompt.stable, systemPrompt.dynamic].filter(Boolean).join('\n\n')
-      : String(systemPrompt || '');
+  async #narrateProgress(session, { delta, liveness, signal }) {
+    const { runId, userId, agentId, options } = session;
+    if (!session.model) return '';
+    const systemPrompt = [session.systemPrompt?.stable, session.systemPrompt?.dynamic]
+      .filter(Boolean)
+      .join('\n\n');
     const response = await this.engine.requestModelResponse({
-      provider,
-      providerName,
-      model,
+      provider: session.model.provider,
+      providerName: session.model.providerName,
+      model: session.model.model,
       messages: [
-        ...(stable ? [{ role: 'system', content: stable }] : []),
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         {
           role: 'system',
           content: [
@@ -3116,12 +1077,10 @@ class DurableRunRuntime {
         {
           role: 'user',
           content: [
-            `Original request: ${String(userMessage || '').slice(0, 320)}`,
+            `Original request: ${String(session.userMessage || '').slice(0, 320)}`,
             delta?.evidence
               ? `Actual recent tool activity (newest last) — describe ONLY this:\n${delta.evidence}`
               : '',
-            delta?.currently_running?.length ? `Working on: ${delta.currently_running.join(', ')}` : '',
-            delta?.next_milestone ? `Next milestone: ${delta.next_milestone}` : '',
           ].filter(Boolean).join('\n\n'),
         },
       ],
@@ -3130,6 +1089,7 @@ class DurableRunRuntime {
         ...options,
         maxTokens: NARRATION_MAX_TOKENS,
         stream: false,
+        phase: 'progress_narration',
         signal,
         runId,
         userId,
@@ -3140,140 +1100,16 @@ class DurableRunRuntime {
     });
     const text = sanitizeModelOutput(
       String(response?.response?.content || response?.streamContent || '').trim(),
-      { model },
+      { model: session.model.model },
     );
-    if (!normalizeOutgoingMessage(text, options?.source || null)) return '';
+    if (!normalizeOutgoingMessage(text, options.source || null)) return '';
     return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).join(' ').slice(0, 400);
   }
 
-  // The reply for a request Jev routed as a direct answer: the chat model's
-  // own words, without tools. An empty result sends the run down the normal
-  // execution path instead.
-  async #writeDirectReply({
-    provider,
-    providerName,
-    model,
-    messages,
-    options,
-    signal,
-    runId,
-    userId,
-    agentId,
-  }) {
-    try {
-      const reply = await this.engine.requestModelResponse({
-        provider,
-        providerName,
-        model,
-        messages: sanitizeConversationMessages([
-          ...messages,
-          {
-            role: 'system',
-            content: 'Reply to the latest user message now with your complete answer. Write only the reply itself; do not describe steps or promise to check anything.',
-          },
-        ]),
-        tools: [],
-        options: {
-          ...options,
-          signal,
-          runId,
-          userId,
-          agentId,
-          phase: 'direct_reply',
-        },
-        runId,
-        iteration: 0,
-      });
-      return String(reply?.response?.content || reply?.streamContent || '').trim();
-    } catch (error) {
-      if (isAbortError(error, signal)) throw error;
-      console.warn('[Runtime] Direct reply failed; continuing with execution:', error?.message || error);
-      return '';
-    }
-  }
-
-  async #semanticVerify({
-    provider,
-    providerName,
-    model,
-    messages,
-    tools,
-    analysis,
-    finalContent,
-    options,
-  }) {
-    // A reply Jev finds clearly backed by the run's own tool results skips
-    // the verifier model. Anything less goes to the model, which can rewrite it.
-    const decision = await this.engine.decide({
-      userId: options.userId,
-      agentId: options.agentId,
-      runId: options.runId,
-      phase: 'jev_verification',
-      signal: options.signal,
-      ...buildVerificationDecision({
-        request: analysis.goal,
-        messages,
-        draftReply: finalContent,
-      }),
-    });
-    if (decision && isClearlySupported(decision)) {
-      return { status: 'verified', final_reply: finalContent };
-    }
-
-    const toolExecutionSummary = messages
-      .filter((m) => m.role === 'tool')
-      .slice(-12)
-      .map((m) => String(m.content || '').slice(0, 300))
-      .join('\n');
-    const prompt = buildVerifierPrompt({
-      analysis,
-      tools,
-      toolExecutionSummary,
-      finalReply: finalContent,
-    });
-    const response = await this.engine.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages: sanitizeConversationMessages(messages.slice(-20)),
-      prompt,
-      maxTokens: 1400,
-      normalize: (value) => normalizeVerificationResult(value, finalContent),
-      fallback: {
-        status: 'verified',
-        final_reply: finalContent,
-        safe_to_deliver: true,
-      },
-      telemetry: {
-        runId: options.runId,
-        userId: options.userId,
-        agentId: options.agentId,
-        signal: options.signal,
-      },
-      phase: 'verification',
-    });
-    const parsed = response.value || normalizeVerificationResult({}, finalContent);
-    if (parsed.status === 'verified' || parsed.safe_to_deliver === true) {
-      return {
-        status: 'verified',
-        final_reply: parsed.final_reply || finalContent,
-      };
-    }
-    return {
-      status: 'needs_revision',
-      reason: parsed.notes || parsed.reason || 'Semantic verifier rejected reply',
-      final_reply: parsed.final_reply || finalContent,
-      reopen_nodes: ['execute', 'verify'],
-      defects: (parsed.missing_evidence || []).map((item) => ({
-        severity: 'major',
-        criterion: String(item),
-        evidence: 'Missing evidence flagged by verifier',
-        suggested_next_actions: ['collect missing evidence', 'rewrite unsupported claims'],
-      })),
-    };
-  }
-
-  #cancelledResult(runId, totalTokens, iterations) {
+  // A stop noticed between steps ends here instead of in the abort handler,
+  // so clients still need the terminal event.
+  #cancelledResult(session) {
+    const { runId } = session;
     const run = stateMachine.loadRun(runId);
     if (run && !stateMachine.isTerminal(run)) {
       applyTransition({
@@ -3281,11 +1117,9 @@ class DurableRunRuntime {
         toState: RUNTIME_STATES.CANCELLED,
         reason: 'cancelled',
         eventBus: this.eventBus,
-        patch: { totalTokens },
+        patch: { totalTokens: session.totalTokens },
       });
     }
-    // A stop noticed between steps ends here instead of in the abort handler,
-    // so clients still need the terminal event.
     if (run) {
       this.engine.emit(run.userId, 'run:stopped', {
         runId,
@@ -3295,8 +1129,8 @@ class DurableRunRuntime {
     return {
       runId,
       content: '',
-      totalTokens,
-      iterations,
+      totalTokens: session.totalTokens,
+      iterations: session.iterations,
       status: 'stopped',
     };
   }

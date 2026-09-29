@@ -10,11 +10,11 @@
 
 const MAX_TOOLS = 20;
 const ALWAYS_INCLUDE_BUILT_INS = [
-  'task_complete',
   'search_tools',
   'activate_tools',
   'think',
   'send_message',
+  'react_to_message',
   'send_interim_update',
   'request_user_input',
   'call_user',

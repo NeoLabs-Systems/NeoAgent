@@ -9,7 +9,6 @@ const {
   buildPlatformFormattingGuide,
   normalizeOutgoingMessageForPlatform,
 } = require('../messaging/formatting_guides');
-const { summarizeForLog } = require('./logFormat');
 
 function normalizeOutgoingMessage(content, platform = null, options = {}) {
   const normalized = normalizeOutgoingMessageForPlatform(platform, content);
@@ -26,27 +25,10 @@ function clampRunContext(text, maxChars) {
   return `${value.slice(0, maxChars)}...`;
 }
 
-function joinSentMessages(messages = []) {
-  if (!Array.isArray(messages)) return '';
-  return messages
-    .map((message) => String(message || '').trim())
-    .filter(Boolean)
-    .join('\n\n');
-}
-
 function normalizeInterimText(content, platform = null) {
   return normalizeOutgoingMessageForPlatform(platform, content, {
     stripNoResponseMarker: false,
   }).trim();
-}
-
-function buildBlankMessagingReplyPrompt(attempt, platform = null) {
-  const formattingGuide = buildPlatformFormattingGuide(platform);
-  if (attempt <= 1) {
-    return `You must send one non-empty reply for the external messaging user right now. Do not call tools. Give either: (a) the concrete outcome, or (b) a clear blocker. If tool work already happened, summarize what you actually tried and where it got blocked. Follow the existing system persona and channel guide. Do not ask the user to repeat the original request. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
-  }
-
-  return `Your previous reply was empty. Return one non-empty message now. Do not call tools. If needed, explain the blocker in one short sentence. Use the run evidence already in the conversation instead of asking the user to restate the task. Follow the existing system persona and channel guide. Do not promise future work unless that work already happened in this run or will happen automatically before this reply is sent.\n\n${formattingGuide}`;
 }
 
 function buildProgressUpdatePrompt() {
@@ -66,9 +48,23 @@ function buildProgressUpdatePrompt() {
   ].join(' ');
 }
 
-function buildMaxIterationWrapupPrompt(platform = null) {
-  const formattingGuide = buildPlatformFormattingGuide(platform);
-  return `You have reached the step limit for this run, so this is your final turn. Stop here and do NOT call any tools. Write the single best, most complete answer you can for the user from the work already done in this conversation: lead with the concrete results and what you accomplished, then clearly name anything you could not finish and the specific blocker. Do not invent entities, products, people, files, outcomes, or tool results that are not already supported by evidence in this conversation. Do not output a half-finished thought, a plan for what to do next, or a "let me…" fragment, this message is the final reply. Do not promise future work unless it already happened in this run.\n\n${formattingGuide}`;
+// What each runaway guard means, told to the model for its last turn.
+const WRAP_UP_REASONS = Object.freeze({
+  turn_limit: 'the run reached its emergency turn limit',
+  no_progress: 'the last several steps changed nothing and found nothing new',
+  tool_failures: 'every tool call in the last several steps failed',
+  context_overflow: 'the conversation grew too large to continue',
+  blank_output: 'the model kept returning empty turns',
+});
+
+function buildWrapUpPrompt(reason, platform = null) {
+  const why = WRAP_UP_REASONS[reason] || reason;
+  return [
+    `This run has to stop here because ${why}. This is your final turn: do not call any tools.`,
+    'Write your reply to the user from the work already done in this conversation: what you got done, what is still missing, and the concrete reason.',
+    'Never invent results, entities, or tool outcomes that the conversation does not show, and do not promise work that has not happened.',
+    buildPlatformFormattingGuide(platform),
+  ].join('\n\n');
 }
 
 function parseToolExecutionSummary(item) {
@@ -188,87 +184,16 @@ function buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolE
   return 'could not land a reliable final reply just now.';
 }
 
-function buildMessagingFailureScenario({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const parts = [];
-  const runtimeError = normalizeOutgoingMessage(err?.message || '');
-  const workSummary = summarizeRecentWork(toolExecutions);
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .find(Boolean);
-
-  if (runtimeError) {
-    parts.push(`Runtime error: ${summarizeForLog(runtimeError, 260)}.`);
-  }
-  if (workSummary) {
-    parts.push(`Observed work before failure: ${workSummary}.`);
-  }
-  if (blocker) {
-    parts.push(`Most specific blocker from run evidence: ${summarizeForLog(blocker, 260)}.`);
-  }
-  if (stepIndex > 0) {
-    parts.push(`Completed steps before failure: ${stepIndex}.`);
-  }
-  if (failedStepCount > 0) {
-    parts.push(`Failed tool steps: ${failedStepCount}.`);
-  }
-
-  return parts.join(' ');
-}
-
-function buildDeterministicMessagingErrorReply({ err, failedStepCount, stepIndex, toolExecutions = [] }) {
-  const message = normalizeOutgoingMessage(err?.message || '');
-  if (/no ai providers? are (currently available|configured)/i.test(message)) {
-    return 'can\'t continue right now: no AI provider is available for this account. check provider settings and I can pick it back up.';
-  }
-
-  if (/(timeout|timed out)/i.test(message)) {
-    return 'timed out while working on that, so I could not finish it cleanly.';
-  }
-
-  const blocker = [...toolExecutions].reverse()
-    .map((item) => extractToolFailureMessage(item))
-    .map((value) => summarizeUserVisibleBlocker(value))
-    .find(Boolean);
-  if (blocker) {
-    return `got blocked while checking this: ${blocker}.`;
-  }
-
-  if (isInternalToolingFailure(message)) {
-    return 'hit an internal tool issue while checking that, so no verified answer yet.';
-  }
-
-  if (message) {
-    return `got blocked while working on this: ${message}.`;
-  }
-
-  return buildDeterministicMessagingFallback({ failedStepCount, stepIndex, toolExecutions });
-}
-
-function buildModelFailureLoopPrompt({ failedModel, nextModel, errorMessage }) {
-  return [
-    `The previous model call on "${failedModel}" failed with: ${summarizeForLog(errorMessage, 220)}.`,
-    `Continue on "${nextModel}" and recover autonomously.`,
-    'If a previous plan depended on that failed call, adjust your approach and proceed end-to-end.',
-    'Only ask the user for help if no safe path remains.'
-  ].join(' ');
-}
-
 module.exports = {
   normalizeOutgoingMessage,
   clampRunContext,
-  joinSentMessages,
   normalizeInterimText,
-  buildBlankMessagingReplyPrompt,
-  buildMaxIterationWrapupPrompt,
+  buildWrapUpPrompt,
   buildProgressUpdatePrompt,
-  parseToolExecutionSummary,
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
   isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
-  buildMessagingFailureScenario,
-  buildDeterministicMessagingErrorReply,
-  buildModelFailureLoopPrompt,
 };

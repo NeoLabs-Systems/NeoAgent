@@ -7106,9 +7106,6 @@ class AppL10nEn extends AppL10n {
       '       s.user_agent, s.created_at, s.last_seen_at\n';
 
   @override
-  String get sameAsTheChatModel => 'Same as the chat model';
-
-  @override
   String get save => 'Save';
 
   @override
@@ -8466,12 +8463,6 @@ class AppL10nEn extends AppL10n {
       'themselves; the server operator removes admin first with ';
 
   @override
-  String get theoryOfMind => 'theory of mind';
-
-  @override
-  String get theoryOfMindRefinement => 'Theory of Mind refinement';
-
-  @override
   String get theseChannelsStaySilentToHear =>
       'These channels stay silent. To hear from them again, add them under Who can message for that platform.';
 
@@ -9381,9 +9372,6 @@ class AppL10nEn extends AppL10n {
       'Voice calls run on a live speech-to-speech model with the same persona, memory and chat history as NeoAgent. It answers right away and hands real work to the normal agent, which keeps running in the background.';
 
   @override
-  String get voiceModel => 'Voice model';
-
-  @override
   String get voiceNoteSpeechTranscriptionApiKey =>
       'voice note speech transcription api key';
 
@@ -10037,10 +10025,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get jevDecidesWhenToSpeakWhileIt =>
       'Jev decides when to speak while it is on; this model is the fallback.';
-
-  @override
-  String get writesTheFinalTextInDirectChats =>
-      'Writes the final text in direct chats. A strong model here makes replies sound far more natural; the work itself still runs on the chat model.';
 
   @override
   String get startASessionToBegin => 'Start a session to begin';

@@ -102,35 +102,28 @@ async function deliverMessagingFinalFallback(engine, {
     behavior
     && behavior.enabled !== false
     && behaviorPipeline
-    && typeof behaviorPipeline.refineAndMaybeDeliver === 'function'
+    && typeof behaviorPipeline.deliverReply === 'function'
   ) {
-    const result = await behaviorPipeline.refineAndMaybeDeliver({
+    const result = await behaviorPipeline.deliverReply({
       userId,
       agentId,
       msg: behavior.message,
       config: behavior.config,
-      draft: cleanedContent,
+      content: cleanedContent,
       messagingManager: engine.messagingManager,
       runId,
       signal: runMeta.abortController?.signal || null,
       turnEpoch: behavior.turnEpoch,
-      deliver: true,
     });
     if (!result.delivered) {
       if (result.suppressed !== true) {
-        const error = new Error(
-          result.delivery?.error || result.delivery?.reason || 'Behavior delivery was not confirmed.',
-        );
+        const error = new Error(result.reason || 'Behavior delivery was not confirmed.');
         error.code = 'MESSAGING_DELIVERY_FAILED';
         throw error;
       }
       runMeta.noResponse = true;
       if (runMeta.deliveryState) runMeta.deliveryState.noResponse = true;
-      return {
-        sent: false,
-        suppressed: result.suppressed === true,
-        reason: result.reasonCodes?.[0] || 'behavior_suppressed',
-      };
+      return { sent: false, suppressed: true, reason: result.reason };
     }
     runMeta.lastSentMessage = result.content;
     if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];

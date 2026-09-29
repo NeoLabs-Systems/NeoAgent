@@ -11837,12 +11837,6 @@ abstract class AppL10n {
   /// **'       s.user_agent, s.created_at, s.last_seen_at\n'**
   String get sUserAgentSCreatedAt;
 
-  /// No description provided for @sameAsTheChatModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Same as the chat model'**
-  String get sameAsTheChatModel;
-
   /// No description provided for @save.
   ///
   /// In en, this message translates to:
@@ -14141,18 +14135,6 @@ abstract class AppL10n {
   /// **'themselves; the server operator removes admin first with '**
   String get themselvesTheServerOperatorRemovesAdmin;
 
-  /// No description provided for @theoryOfMind.
-  ///
-  /// In en, this message translates to:
-  /// **'theory of mind'**
-  String get theoryOfMind;
-
-  /// No description provided for @theoryOfMindRefinement.
-  ///
-  /// In en, this message translates to:
-  /// **'Theory of Mind refinement'**
-  String get theoryOfMindRefinement;
-
   /// No description provided for @theseChannelsStaySilentToHear.
   ///
   /// In en, this message translates to:
@@ -15653,12 +15635,6 @@ abstract class AppL10n {
   /// **'Voice calls run on a live speech-to-speech model with the same persona, memory and chat history as NeoAgent. It answers right away and hands real work to the normal agent, which keeps running in the background.'**
   String get voiceCallsRunOnALive;
 
-  /// No description provided for @voiceModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Voice model'**
-  String get voiceModel;
-
   /// No description provided for @voiceNoteSpeechTranscriptionApiKey.
   ///
   /// In en, this message translates to:
@@ -16786,12 +16762,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Jev decides when to speak while it is on; this model is the fallback.'**
   String get jevDecidesWhenToSpeakWhileIt;
-
-  /// No description provided for @writesTheFinalTextInDirectChats.
-  ///
-  /// In en, this message translates to:
-  /// **'Writes the final text in direct chats. A strong model here makes replies sound far more natural; the work itself still runs on the chat model.'**
-  String get writesTheFinalTextInDirectChats;
 
   /// No description provided for @startASessionToBegin.
   ///

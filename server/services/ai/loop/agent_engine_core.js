@@ -7,20 +7,13 @@ const {
   getConversationContext,
 } = require('../history');
 const { getAiSettings } = require('../settings');
-const {
-  buildPlanPrompt,
-  buildVerifierPrompt,
-  normalizeExecutionPlan,
-  normalizeVerificationResult,
-  parseJsonObject,
-} = require('../taskAnalysis');
-const { shouldAcceptTaskComplete } = require('../completion');
+const { extractJsonObject } = require('../../../utils/text');
 const { getProviderForUser } = require('../provider_selector');
 const {
   recordModelFailure,
   recordModelSuccess,
 } = require('../model_failure_cache');
-const { runConversation } = require('./conversation_loop');
+const { runOrchestrator } = require('../runtime/run_orchestrator');
 const {
   TERMINAL_STATUSES,
   checkpointRun,
@@ -29,15 +22,6 @@ const {
   requestRunControl,
   transitionRun,
 } = require('./lifecycle');
-const {
-  buildChurnAssessmentPrompt,
-  buildCompletionDecisionPrompt,
-  enforceTerminalReplyDecision,
-  enforceChurnAssessment,
-  normalizeChurnAssessment,
-  normalizeCompletionDecision,
-  resolveRunGoalContext,
-} = require('./completion_judge');
 const {
   activateToolsForRun: activateToolsForRunImpl,
   applyQueuedSteering: applyQueuedSteeringImpl,
@@ -59,7 +43,6 @@ const {
   persistRunMetadata: persistRunMetadataImpl,
   recordRunEventSafe,
   searchToolsForRun: searchToolsForRunImpl,
-  updateRunGoalContract: updateRunGoalContractImpl,
   updateRunProgress: updateRunProgressImpl,
 } = require('./run_state');
 const { manageBackgroundRun: manageBackgroundRunImpl } = require('./background_runs');
@@ -536,10 +519,6 @@ class AgentEngine {
     return persistRunMetadataImpl(this, runId, patch);
   }
 
-  updateRunGoalContract(runId, patch = {}, options = {}) {
-    return updateRunGoalContractImpl(this, runId, patch, options);
-  }
-
   buildProgressLedgerSnapshot(runMeta) {
     return buildProgressLedgerSnapshotImpl(this, runMeta);
   }
@@ -755,257 +734,6 @@ class AgentEngine {
     });
   }
 
-  async createExecutionPlan({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    options,
-  }) {
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildPlanPrompt(analysis),
-      maxTokens: 1400,
-      normalize: normalizeExecutionPlan,
-      fallback: {
-        success_criteria: analysis.success_criteria,
-      },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'execution_plan',
-    });
-
-    return {
-      plan: response.value,
-      raw: response.raw,
-      usage: response.usage,
-    };
-  }
-
-  async verifyFinalResponse({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    tools,
-    toolExecutions,
-    finalReply,
-    options,
-  }) {
-    const evidenceSources = [...new Set(
-      toolExecutions
-        .map((item) => item.evidenceSource)
-        .filter(Boolean)
-    )];
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildVerifierPrompt({
-        analysis,
-        tools,
-        toolExecutionSummary: summarizeToolExecutions(toolExecutions),
-        evidenceSources,
-        finalReply,
-      }),
-      maxTokens: 1200,
-      normalize: (raw) => normalizeVerificationResult(raw, finalReply),
-      fallback: {
-        status: analysis.freshness_risk === 'none' ? 'verified' : 'insufficient_evidence',
-        final_reply: finalReply,
-      },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'verification',
-    });
-
-    return {
-      verification: response.value,
-      raw: response.raw,
-      usage: response.usage,
-      evidenceSources,
-    };
-  }
-
-  async decideLoopState({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    lastReply,
-    iteration,
-    maxIterations,
-    options,
-    messagingSent = false,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-    const researchAdequacy = assessResearchAdequacy({
-      analysis,
-      goalContext,
-      toolExecutions,
-    });
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildCompletionDecisionPrompt({
-        triggerSource: options?.triggerSource || 'web',
-        messagingSent,
-        goalContext,
-        parallelWork: analysis?.parallel_work === true,
-        tools,
-        toolExecutions,
-        lastReply,
-        iteration,
-        maxIterations,
-        analysis,
-        researchAdequacy,
-      }),
-      maxTokens: 500,
-      normalize: (raw) => normalizeCompletionDecision(raw, 'continue'),
-      fallback: { status: 'continue', reason: 'completion decision unavailable' },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'completion_decision',
-    });
-    return {
-      decision: enforceTerminalReplyDecision(response.value, lastReply, {
-        analysis,
-        goalContext,
-        toolExecutions,
-        researchAdequacy,
-      }),
-      usage: response.usage,
-      raw: response.raw,
-      researchAdequacy,
-    };
-  }
-
-  async evaluateTaskCompleteSignal({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    finalMessage,
-    confidence,
-    iteration,
-    maxIterations,
-    options,
-    messagingSent = false,
-  }) {
-    const goalContext = resolveRunGoalContext(this.getRunMeta(options?.runId), analysis, plan);
-    const confidenceDecision = shouldAcceptTaskComplete({
-      confidence,
-      requiredConfidence: goalContext.effectiveCompletionConfidence,
-      iteration,
-      maxIterations,
-    });
-    if (!confidenceDecision.accept) {
-      return {
-        accepted: false,
-        status: 'continue',
-        reason: confidenceDecision.reason,
-        usage: 0,
-      };
-    }
-
-    const judged = await this.decideLoopState({
-      provider,
-      providerName,
-      model,
-      messages,
-      analysis,
-      plan,
-      tools,
-      toolExecutions,
-      lastReply: finalMessage,
-      iteration,
-      maxIterations,
-      options,
-      messagingSent,
-    });
-    return {
-      accepted: judged.decision.status === 'complete' || judged.decision.status === 'blocked',
-      status: judged.decision.status,
-      reason: judged.decision.reason,
-      usage: judged.usage,
-      raw: judged.raw,
-    };
-  }
-
-  async assessChurnState({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    toolExecutions,
-    readOnlyCount,
-    alreadyRead,
-    iteration,
-    options,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildChurnAssessmentPrompt({
-        readOnlyCount,
-        alreadyRead,
-        goalContext,
-        toolExecutions,
-        iteration,
-        analysis,
-        researchAdequacy: assessResearchAdequacy({
-          analysis,
-          goalContext,
-          toolExecutions,
-        }),
-      }),
-      maxTokens: 200,
-      normalize: normalizeChurnAssessment,
-      fallback: { assessment: 'churn', reason: 'churn assessment unavailable' },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'churn_assessment',
-    });
-    const researchAdequacy = assessResearchAdequacy({
-      analysis,
-      goalContext,
-      toolExecutions,
-    });
-    return {
-      assessment: enforceChurnAssessment(response.value, {
-        analysis,
-        goalContext,
-        toolExecutions,
-        researchAdequacy,
-      }),
-      usage: response.usage,
-      researchAdequacy,
-    };
-  }
-
   async refreshConversationState({
     conversationId,
     runId,
@@ -1013,8 +741,6 @@ class AgentEngine {
     providerName,
     model,
     finalReply,
-    analysis,
-    verification,
     historyWindow,
     options,
   }) {
@@ -1071,10 +797,7 @@ class AgentEngine {
           context.summary ? `Conversation summary:\n${context.summary}` : 'Conversation summary: none',
           `Recent thread messages:\n${JSON.stringify(context.recentMessages.slice(-8), null, 2)}`,
           `Latest final reply:\n${finalReply || '(empty)'}`,
-          verification?.status ? `Verification status: ${verification.status}` : '',
-          verification?.final_reply && verification.final_reply !== finalReply ? `Verified reply:\n${verification.final_reply}` : '',
-          analysis?.goal ? `Thread goal: ${analysis.goal}` : '',
-        ].filter(Boolean).join('\n\n')
+        ].join('\n\n')
       }
     ];
 
@@ -1088,7 +811,7 @@ class AgentEngine {
       options,
       'Conversation state refresh',
     );
-    const parsed = parseJsonObject(response.content || '') || {};
+    const parsed = extractJsonObject(response.content || '') || {};
     const nextState = {
       summary: String(parsed.summary || existingState?.summary || '').trim(),
       open_commitments: Array.isArray(parsed.open_commitments) ? parsed.open_commitments.slice(0, 8).map((item) => String(item || '').trim()).filter(Boolean) : [],
@@ -1096,13 +819,6 @@ class AgentEngine {
       referenced_entities: Array.isArray(parsed.referenced_entities) ? parsed.referenced_entities.slice(0, 12).map((item) => String(item || '').trim()).filter(Boolean) : [],
       last_verified_facts: Array.isArray(parsed.last_verified_facts) ? parsed.last_verified_facts.slice(0, 10).map((item) => String(item || '').trim()).filter(Boolean) : [],
     };
-
-    if (verification?.status === 'verified' && String(finalReply || '').trim()) {
-      nextState.last_verified_facts = [...new Set([
-        ...nextState.last_verified_facts,
-        clampRunContext(verification.final_reply || finalReply, 280),
-      ])].slice(-10);
-    }
 
     memoryManager.updateConversationState(conversationId, nextState);
     const memoryCandidates = normalizeMemoryCandidates(parsed.memory_candidates);
@@ -1245,7 +961,6 @@ class AgentEngine {
       stepIndex: Number(state.stepIndex) || 0,
       currentPhase: runMeta.progressLedger?.currentPhase || phase,
       activeTools: (runMeta.activeTools || []).map((tool) => tool.name),
-      goalContract: runMeta.goalContract || null,
       progressLedger: this.buildProgressLedgerSnapshot(runMeta),
     });
     transitionRun(runId, 'paused', {}, ['running', 'pausing']);
@@ -1441,7 +1156,7 @@ class AgentEngine {
       error.code = error.code || 'AGENT_ENGINE_SHUTTING_DOWN';
       throw error;
     }
-    const runPromise = runConversation(this, userId, userMessage, options, _modelOverride);
+    const runPromise = runOrchestrator(this, userId, userMessage, options, _modelOverride);
     this.activeRunPromises.add(runPromise);
     try {
       return await runPromise;
@@ -1750,7 +1465,6 @@ class AgentEngine {
           triggerType: 'agent_delegation',
           triggerSource: 'agent_delegation',
           skipConversationHistory: true,
-          skipConversationMaintenance: true,
           context: { additionalContext: `Parent run: ${parentRunId || 'unknown'}` },
           allowExternalSideEffects,
         },

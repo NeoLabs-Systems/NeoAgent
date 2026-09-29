@@ -2,7 +2,7 @@
 
 const { sanitizeConversationMessages } = require('../history');
 const { sanitizeModelOutput } = require('../outputSanitizer');
-const { parseJsonObject } = require('../taskAnalysis');
+const { extractJsonObject } = require('../../../utils/text');
 const { withProviderRetry, isTransientError } = require('../providerRetry');
 const { degenerateOutputDetails, isDegenerateOutputError } = require('../providers/stream_guard');
 const { normalizeUsage, recordModelUsage } = require('../usage');
@@ -107,7 +107,7 @@ async function requestStructuredJson(engine, {
       });
     }
 
-    const parsed = parseJsonObject(response.content || '');
+    const parsed = extractJsonObject(response.content || '');
     const normalizedUsage = normalizeUsage(response.usage);
     return {
       value: normalize(parsed || {}, fallback),

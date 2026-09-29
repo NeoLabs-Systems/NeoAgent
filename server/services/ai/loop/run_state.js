@@ -5,7 +5,6 @@ const db = require('../../../db/database');
 const { activateTools, searchTools } = require('../toolSelector');
 const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
-const { mergeGoalContracts } = require('./completion_judge');
 const { buildInitialProgressLedger } = require('./progress_monitor');
 const { moveRunToBackground } = require('./background_runs');
 const { getPublicRunScope } = require('../../messaging/public_audience');
@@ -26,18 +25,6 @@ function persistRunMetadata(_engine, runId, patch = {}) {
   const next = { ...current, ...patch };
   db.prepare('UPDATE agent_runs SET metadata_json = ? WHERE id = ?')
     .run(JSON.stringify(next), runId);
-}
-
-function updateRunGoalContract(engine, runId, patch = {}, options = {}) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta) return null;
-  runMeta.goalContract = mergeGoalContracts(runMeta.goalContract, patch);
-  if (options.persist !== false) {
-    persistRunMetadata(engine, runId, {
-      goalContract: runMeta.goalContract,
-    });
-  }
-  return runMeta.goalContract;
 }
 
 function buildProgressLedgerSnapshot(_engine, runMeta) {
@@ -417,6 +404,5 @@ module.exports = {
   persistProgressLedger,
   persistRunMetadata,
   recordRunEventSafe,
-  updateRunGoalContract,
   updateRunProgress,
 };

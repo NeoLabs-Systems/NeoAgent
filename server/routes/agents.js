@@ -461,7 +461,6 @@ router.post('/multi-step', async (req, res) => {
       ...(options || {}),
       agentId,
       requestedSteps: Array.isArray(steps) ? steps : [],
-      forceMode: 'plan_execute',
     });
     res.json(result);
   } catch (err) {

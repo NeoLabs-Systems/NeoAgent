@@ -1620,31 +1620,6 @@ function getAvailableTools(app, options = {}) {
         }
     ];
 
-    // task_complete — always available. Lets the AI explicitly signal that
-    // the task is finished, already a no-op, or blocked, and provide the
-    // final response. This replaces the opaque directAnswerEligible heuristic
-    // as the primary loop-exit mechanism and gives the AI real agency over
-    // when it's finished.
-    tools.push({
-        name: 'task_complete',
-        description: 'Signal that the task is terminal and provide the final response. Valid terminal states include: completed successfully, already done/no matching change needed, or impossible/blocked with concrete evidence. Call this exactly once when you have the final user-ready answer. Do NOT call it if you still have a safe useful step to take, unverified claims, unresolved tool failures with viable alternatives, or confidence below the current run requirement.',
-        parameters: {
-            type: 'object',
-            properties: {
-                message: {
-                    type: 'string',
-                    description: 'Your complete final response to the user. Write it as if it were your reply, including a concise already-done/no-op or blocker explanation when that is the truthful terminal result.'
-                },
-                confidence: {
-                    type: 'string',
-                    enum: ['high', 'medium', 'low'],
-                    description: 'How confident are you the task is fully and correctly complete? Use "low" only when the final answer is intentionally limited or incomplete; low confidence may be rejected so the run can keep working.'
-                }
-            },
-            required: ['message', 'confidence']
-        }
-    });
-
     const allowInterimUpdates = (
         (options.triggerSource === 'web' || options.triggerSource === 'cowork' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
@@ -1656,7 +1631,7 @@ function getAvailableTools(app, options = {}) {
             0,
             {
                 name: 'send_interim_update',
-                description: 'Send a short user-visible interim update only when there is materially useful new progress, a real blocker, or a blocking question. Never use this for internal monologue, self-checks, tool bookkeeping, or "nothing happened" status.',
+                description: 'Send the user a short message while you keep working. When a request takes more than a quick lookup (research, browsing, several steps), send one first saying what you are doing, then work. After that only for real progress, a blocker, or a question you need answered. Never for internal monologue, self-checks, tool bookkeeping, or "nothing happened" status.',
                 parameters: {
                     type: 'object',
                     properties: {
@@ -1686,6 +1661,24 @@ function getAvailableTools(app, options = {}) {
                         instruction: { type: 'string', description: 'For instruct: the change or addition, self-contained, with everything the task needs to apply it.' }
                     },
                     required: ['action']
+                }
+            }
+        );
+    }
+
+    if (options.triggerSource === 'messaging' && options.triggerType === 'user') {
+        tools.splice(
+            tools.findIndex((tool) => tool.name === 'read_file'),
+            0,
+            {
+                name: 'react_to_message',
+                description: 'React to the message the user just sent with one emoji, like tapping a reaction in the chat. Use it when a reaction says it better than a text (thanks, a joke, good news), or alongside a reply. Not on every message. When the reaction is all that is needed, make your final reply exactly [NO RESPONSE]; anything that asks for an answer still gets a text.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        emoji: { type: 'string', description: 'One emoji.' }
+                    },
+                    required: ['emoji']
                 }
             }
         );
@@ -1956,12 +1949,6 @@ async function executeTool(toolName, args, context, engine) {
     }
 
     switch (toolName) {
-        // task_complete is handled at the engine loop level before executeTool
-        // is called. If it somehow reaches here, return a no-op success so the
-        // loop-level handler can still read the args from the tool call object.
-        case 'task_complete':
-            return { success: true, handled_by: 'engine_loop' };
-
         case 'execute_command': {
             const runtimeManager = runtime();
             if (!runtimeManager) {
@@ -2485,6 +2472,27 @@ async function executeTool(toolName, args, context, engine) {
             return { waitingForUser: true, requestId: request.id };
         }
 
+        case 'react_to_message': {
+            const inbound = context.inboundMessage;
+            if (triggerSource !== 'messaging' || !inbound?.messageId) {
+                return { error: 'This run has no incoming chat message to react to.' };
+            }
+            const manager = msg();
+            if (!manager?.supportsReactions?.(userId, inbound.platform, { agentId })) {
+                return { error: `${inbound.platform} does not support reactions.` };
+            }
+            const emoji = String(args.emoji || '').trim();
+            if (!emoji || emoji.length > 16 || !/\p{Extended_Pictographic}/u.test(emoji) || /[\p{L}\p{N}\s]/u.test(emoji)) {
+                return { error: 'emoji must be a single emoji.' };
+            }
+            await manager.sendReaction(userId, inbound.platform, inbound.chatId, inbound.messageId, emoji, {
+                agentId,
+                runId,
+                signal,
+            });
+            return { success: true, reacted: emoji };
+        }
+
         case 'send_message': {
             if (triggerSource === 'agent_delegation' && context.allowExternalSideEffects !== true) {
                 return { error: 'Delegated agents cannot send external messages unless external side effects were explicitly allowed.' };
@@ -2570,29 +2578,26 @@ async function executeTool(toolName, args, context, engine) {
 
             const behavior = runState?.messagingContext?.behavior;
             const behaviorPipeline = app?.locals?.behaviorPipeline;
-            let deliveredContent = normalizedMessage;
             let sendResult;
             if (
                 originDelivery
                 && behavior
                 && behavior.enabled !== false
                 && behaviorPipeline
-                && typeof behaviorPipeline.refineAndMaybeDeliver === 'function'
+                && typeof behaviorPipeline.deliverReply === 'function'
             ) {
-                const behaviorResult = await behaviorPipeline.refineAndMaybeDeliver({
+                const behaviorResult = await behaviorPipeline.deliverReply({
                     userId,
                     agentId,
                     msg: behavior.message,
                     config: behavior.config,
-                    draft: normalizedMessage,
+                    content: normalizedMessage,
                     messagingManager: manager,
                     runId,
                     signal,
                     mediaPath: args.media_path,
                     turnEpoch: behavior.turnEpoch,
-                    deliver: true,
                 });
-                deliveredContent = behaviorResult.content;
                 if (behaviorResult.delivered) {
                     sendResult = { success: true, behavior: true, result: behaviorResult.delivery };
                 } else if (behaviorResult.suppressed) {
@@ -2601,14 +2606,12 @@ async function executeTool(toolName, args, context, engine) {
                         success: true,
                         sent: false,
                         suppressed: true,
-                        reason: behaviorResult.reasonCodes?.[0] || 'behavior_suppressed',
+                        reason: behaviorResult.reason,
                     };
                 } else {
                     sendResult = {
                         success: false,
-                        error: behaviorResult.delivery?.error
-                            || behaviorResult.delivery?.reason
-                            || 'Behavior delivery was not confirmed.',
+                        error: behaviorResult.reason || 'Behavior delivery was not confirmed.',
                     };
                 }
             } else {
@@ -2627,7 +2630,7 @@ async function executeTool(toolName, args, context, engine) {
                 && sendResult?.suppressed !== true
                 && originDelivery
             ) {
-                markProactiveMessageSent({ runState, deliveryState, content: deliveredContent });
+                markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 if (runState && triggerSource === 'messaging') {
                     runState.explicitMessageSent = true;
                 }

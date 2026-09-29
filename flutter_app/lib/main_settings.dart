@@ -73,7 +73,6 @@ final _behaviorSettingsSection = _SettingsSection(
     'groups',
     'memory',
     'norms',
-    appStrings.theoryOfMind,
     'delivery',
   ],
 );
@@ -197,9 +196,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late double _behaviorMinimumNeedScore;
   late double _behaviorBatchWindowMs;
   late String _behaviorDecisionModelId;
-  late String _behaviorVoiceModelId;
   late String _behaviorDeliveryStyle;
-  late bool _behaviorTheoryOfMindEnabled;
   late bool _behaviorSocialMemoryEnabled;
   late bool _behaviorNormsEnabled;
   late bool _behaviorObservabilityEnabled;
@@ -321,11 +318,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             .toDouble();
     _behaviorDecisionModelId =
         behavior['decisionModelId']?.toString().trim() ?? '';
-    _behaviorVoiceModelId = behavior['voiceModelId']?.toString().trim() ?? '';
     _behaviorDeliveryStyle = behavior['deliveryStyle'] == 'single'
         ? 'single'
         : 'natural_bubbles';
-    _behaviorTheoryOfMindEnabled = moduleEnabled('theory_of_mind');
     _behaviorSocialMemoryEnabled = moduleEnabled('social_memory');
     _behaviorNormsEnabled = moduleEnabled('norms');
     _behaviorObservabilityEnabled = moduleEnabled('social_observability');
@@ -645,9 +640,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ? Map<String, dynamic>.from(controller.behaviorConfig['modules'] as Map)
         : <String, dynamic>{};
     existingModules.addAll(<String, dynamic>{
-      'theory_of_mind': <String, dynamic>{
-        'enabled': _behaviorTheoryOfMindEnabled,
-      },
       'social_memory': <String, dynamic>{
         'enabled': _behaviorSocialMemoryEnabled,
       },
@@ -665,9 +657,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
       'decisionModelId': _behaviorDecisionModelId.isEmpty
           ? null
           : _behaviorDecisionModelId,
-      'voiceModelId': _behaviorVoiceModelId.isEmpty
-          ? null
-          : _behaviorVoiceModelId,
       'deliveryStyle': _behaviorDeliveryStyle,
       'modules': existingModules,
     });
@@ -802,7 +791,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
   ) {
     final modelIds = <String>{
       if (_behaviorDecisionModelId.isNotEmpty) _behaviorDecisionModelId,
-      if (_behaviorVoiceModelId.isNotEmpty) _behaviorVoiceModelId,
       ...routingModels.map((model) => model.id),
     }.toList();
     return Card(
@@ -937,33 +925,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: _behaviorVoiceModelId,
-              decoration: InputDecoration(
-                labelText: appStrings.voiceModel,
-                helperText:
-                    appStrings.writesTheFinalTextInDirectChats,
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem(
-                  value: '',
-                  child: Text(appStrings.sameAsTheChatModel),
-                ),
-                ...modelIds.map(
-                  (id) => DropdownMenuItem(value: id, child: Text(id)),
-                ),
-              ],
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _behaviorVoiceModelId = value;
-                        _hasUnsavedChanges = true;
-                      });
-                    },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
               initialValue: _behaviorDeliveryStyle,
               decoration: InputDecoration(
                 labelText: appStrings.messagingDelivery,
@@ -989,17 +950,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     },
             ),
             const SizedBox(height: 10),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.theoryOfMindRefinement),
-              value: _behaviorTheoryOfMindEnabled,
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorTheoryOfMindEnabled = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: Text(appStrings.channelScopedSocialMemory),

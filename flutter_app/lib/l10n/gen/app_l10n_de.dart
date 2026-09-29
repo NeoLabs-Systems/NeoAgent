@@ -7187,9 +7187,6 @@ class AppL10nDe extends AppL10n {
       '       s.user_agent, s.created_at, s.last_seen_at\n';
 
   @override
-  String get sameAsTheChatModel => 'Gleich wie das Chat-Modell';
-
-  @override
   String get save => 'Speichern';
 
   @override
@@ -8564,12 +8561,6 @@ class AppL10nDe extends AppL10n {
       'selbst löschen; der Serverbetreiber entfernt zuerst die Admin-Rechte mit ';
 
   @override
-  String get theoryOfMind => 'Theory of Mind';
-
-  @override
-  String get theoryOfMindRefinement => 'Theory-of-Mind-Verfeinerung';
-
-  @override
   String get theseChannelsStaySilentToHear =>
       'Diese Kanäle bleiben stumm. Um wieder von ihnen zu hören, fügen Sie sie unter Wer darf schreiben für diese Plattform hinzu.';
 
@@ -9490,9 +9481,6 @@ class AppL10nDe extends AppL10n {
       'Sprachanrufe laufen über ein Live-Speech-to-Speech-Modell mit derselben Persona, demselben Speicher und derselben Chat-Historie wie NeoAgent. Es antwortet sofort und übergibt echte Arbeit an den normalen Agenten, der im Hintergrund weiterläuft.';
 
   @override
-  String get voiceModel => 'Sprachmodell';
-
-  @override
   String get voiceNoteSpeechTranscriptionApiKey =>
       'sprachnachricht sprache transkription api key';
 
@@ -10151,10 +10139,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get jevDecidesWhenToSpeakWhileIt =>
       'Jev entscheidet, wann gesprochen wird, solange es aktiv ist; dieses Modell ist die Ausweichlösung.';
-
-  @override
-  String get writesTheFinalTextInDirectChats =>
-      'Schreibt den abschließenden Text in direkten Chats. Ein starkes Modell hier lässt Antworten deutlich natürlicher klingen; die Arbeit selbst läuft weiterhin auf dem Chat-Modell.';
 
   @override
   String get startASessionToBegin => 'Starten Sie eine Sitzung, um zu beginnen';
