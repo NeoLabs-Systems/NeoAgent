@@ -51,7 +51,11 @@ function buildInteractionWriterPrompt(name, { canReact = false, medium = 'text' 
   const register = voice
     ? '- talk like they talk: same language, same register, same slang level. it is heard, not read: natural spoken sentences, no emojis, lists, or markdown.'
     : '- write like they write: same language, same register, same slang level, same casing and punctuation habits. emojis sparingly, never as decoration. separate texts on separate lines.';
-  const ending = voice ? '' : "\n- when the chat's done you can send nothing ([NO RESPONSE]).";
+  // Silence reads as not answering unless something visible acknowledges the
+  // message, so a text chat may only end on a reaction.
+  const ending = canReact && !voice
+    ? "\n- when the chat's done, a reaction alone can close it ([NO RESPONSE] plus a reaction). anything that asks for an answer gets a text."
+    : '';
   return `${opening}
 
 how you ${voice ? 'talk' : 'text'}:

@@ -148,7 +148,9 @@ function buildPrompt(ctx, name, canReact, draft) {
   }
   lines.push(
     '',
-    "write your next message(s), exactly as you'd send them. separate texts on separate lines, or [NO RESPONSE] to send nothing.",
+    canReact
+      ? "write your next message(s), exactly as you'd send them. separate texts on separate lines, or [NO RESPONSE] with a reaction to close the chat without text."
+      : "write your next message(s), exactly as you'd send them. separate texts on separate lines.",
     canReact
       ? 'return JSON only: {"message": "<the text, or [NO RESPONSE]>", "reaction": "<one emoji, or empty>"}'
       : 'return JSON only: {"message": "<the text>"}',

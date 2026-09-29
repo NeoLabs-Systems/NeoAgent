@@ -242,7 +242,7 @@ function createBehaviorPipeline(deps = {}) {
       runId,
     });
 
-    const content = tom.content;
+    let content = tom.content;
     const reasonCodes = [
       ...(persona.reasonCodes || []),
       ...(tom.reasonCodes || []),
@@ -270,6 +270,10 @@ function createBehaviorPipeline(deps = {}) {
       } catch (error) {
         if (signal?.aborted) throw error;
         logger.warn('reaction delivery failed:', error?.message || error);
+      }
+      // A reaction that did not land cannot stand in for the reply.
+      if (!reacted && String(content || '').trim().toUpperCase() === '[NO RESPONSE]') {
+        content = String(draft || '').trim();
       }
     }
 

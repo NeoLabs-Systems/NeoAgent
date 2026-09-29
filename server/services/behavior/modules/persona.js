@@ -154,15 +154,18 @@ async function refineDraft(ctx) {
       styleNotes: resolveStyleBundle(ctx).notes,
     });
     const meta = { model: written.model, usage: written.usage };
-    if (!written.message && !written.reaction) {
+    const silent = !written.message || written.message.toUpperCase() === '[NO RESPONSE]';
+    // The agent already chose to answer. Without a reaction standing in for
+    // the text, dropping it would leave the user with nothing at all.
+    if (silent && !written.reaction) {
       return {
         action: 'send',
         content,
-        reasonCodes: ['persona_writer_empty'],
+        reasonCodes: ['persona_writer_silent'],
         ...meta,
       };
     }
-    const message = written.message || '[NO RESPONSE]';
+    const message = silent ? '[NO RESPONSE]' : written.message;
     return {
       action: message === content ? 'send' : 'revise',
       content: message,

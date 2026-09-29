@@ -757,30 +757,66 @@ test('the writer receives the draft as results when the run did real work, on th
   assert.equal(result.content, 'last s3 at 00:47, platform 1');
 });
 
-test('the writer can end a direct chat without a reply', async () => {
+test('writer silence without a reaction still sends the agent\'s reply', async () => {
   const pipeline = behavior.createBehaviorPipeline({
     agentEngine: writerEngine([], '[NO RESPONSE]'),
   });
-  const msg = directMessage('k');
-  let sendCalls = 0;
+  const msg = directMessage('antworte doch');
+  const sent = [];
 
   const result = await pipeline.refineAndMaybeDeliver({
     userId: user.userId,
     agentId,
     msg,
     config: directConfig(msg),
-    draft: 'Okay! Let me know if there is anything else.',
+    draft: 'Bin da. Was brauchst du?',
     messagingManager: {
-      async sendMessage() {
-        sendCalls += 1;
+      async sendMessage(_userId, _platform, _chatId, content) {
+        sent.push(content);
         return { success: true };
       },
     },
     deliver: true,
   });
 
-  assert.equal(result.suppressed, true);
-  assert.equal(sendCalls, 0);
+  assert.notEqual(result.suppressed, true);
+  assert.deepEqual(result.reasonCodes, ['persona_writer_silent', 'tom_disabled_or_direct']);
+  assert.deepEqual(sent, ['Bin da. Was brauchst du?']);
+});
+
+test('a reaction that fails to send cannot replace the reply', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      async inferStructured() {
+        return { parsed: { message: '[NO RESPONSE]', reaction: '👍' } };
+      },
+    },
+  });
+  const msg = directMessage('haalo');
+  const sent = [];
+
+  const result = await pipeline.refineAndMaybeDeliver({
+    userId: user.userId,
+    agentId,
+    msg,
+    config: directConfig(msg),
+    draft: 'Hey, bin da.',
+    messagingManager: {
+      supportsReactions: () => true,
+      async sendReaction() {
+        throw new Error('reaction rejected');
+      },
+      async sendMessage(_userId, _platform, _chatId, content) {
+        sent.push(content);
+        return { success: true };
+      },
+    },
+    deliver: true,
+  });
+
+  assert.equal(result.reacted, false);
+  assert.notEqual(result.suppressed, true);
+  assert.deepEqual(sent, ['Hey, bin da.']);
 });
 
 test('owner agent instructions reach the writer as additions to its voice', async () => {
